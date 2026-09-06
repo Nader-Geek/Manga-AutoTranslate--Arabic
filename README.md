@@ -223,8 +223,8 @@ python manga_app.py -- -i "https://...chapter-1/" -o out.pdf --font fonts/Vazirm
 ### ۴) GitHub Actions
 
 1. ریپو را Fork کن
-2. در Settings → Secrets کلید را بگذار
-3. ورک‌فلو را Run کن و خروجی را از Artifacts دانلود کن
+2. در Settings → Secrets کلید موردنظر را بگذار (GEMINI یا OPENAI و …)
+3. 3. ورک‌فلو را Run کن و خروجی را از Artifacts دانلود کن
 
 > Runnerهای GitHub GPU ندارند؛ پاکسازی خودکار روی CPU بهینه شده است.
 
