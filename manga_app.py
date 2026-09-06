@@ -1,0 +1,1416 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import json
+import os
+import queue
+import re
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from datetime import datetime
+
+APP_NAME = "مانگا مترجم"
+APP_VER = "1.0"
+HERE = os.path.dirname(os.path.abspath(__file__))
+MANGA_PY = os.path.join(HERE, "manga.py")
+WORK_DIR = os.path.join(HERE, "workspace")
+UPLOAD_DIR = os.path.join(WORK_DIR, "input")
+OUT_DIR = os.path.join(WORK_DIR, "output")
+FONT_DIR = os.path.join(HERE, "fonts")
+CFG_PATH = os.path.join(WORK_DIR, "config.json")
+HIST_PATH = os.path.join(WORK_DIR, "history.jsonl")
+MODELS_DIR = os.path.expanduser("~/.cache/manga_translator_models")
+
+KEY_ENV_ORDER = ("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY",
+                 "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "GROQ_API_KEY",
+                 "XAI_API_KEY", "TOGETHER_API_KEY", "OPENROUTER_API_KEY", "API_KEY")
+PROVIDERS = ["gemini", "openai", "chatgpt", "deepseek", "groq",
+             "xai", "grok", "together", "openrouter", "ollama"]
+
+
+C_BG = "#0b1220"
+C_BG2 = "#0f172a"
+C_CARD = "#111c30"
+C_LINE = "#233047"
+C_TXT = "#e2e8f0"
+C_MUT = "#8ea0bd"
+C_ACC = "#6366f1"
+ACCENT = C_ACC
+C_OK = "#34d399"
+C_ERR = "#f87171"
+
+
+
+FONT_BUNDLES = [
+    ("normal",       "Vazirmatn-Bold.ttf", "کودک — متن عادی حباب", [
+        "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Bold.ttf",
+    ]),
+    ("free_text",    "Vazirmatn-Regular.ttf", "متن بیرون حباب", [
+        "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Regular.ttf",
+    ]),
+    ("shout",        "Lalezar-Regular.ttf", "داد خشم", [
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/lalezar/Lalezar-Regular.ttf",
+        "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf",
+    ]),
+    ("comedy_shout", "Gandom.ttf", "داد کمدی", [
+        "https://raw.githubusercontent.com/rastikerdar/gandom-font/master/dist/Gandom.ttf",
+        "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf",
+    ]),
+    ("whisper",      "Nahid.ttf", "زمزمه دست‌نویس", [
+        "https://raw.githubusercontent.com/rastikerdar/nahid-font/master/dist/Nahid.ttf",
+        "https://raw.githubusercontent.com/rastikerdar/sahel-font/master/dist/Sahel.ttf",
+    ]),
+    ("thought",      "Samim-Bold.ttf", "تفکر ابری", [
+        "https://raw.githubusercontent.com/rastikerdar/samim-font/master/dist/Samim-Bold.ttf",
+    ]),
+    ("system",       "Sahel-Bold.ttf", "UI سیستم/تگ", [
+        "https://raw.githubusercontent.com/rastikerdar/sahel-font/master/dist/Sahel-Bold.ttf",
+    ]),
+    ("letter",       "Amiri-Regular.ttf", "نامه/طومار", [
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf",
+    ]),
+    ("narrator",     "Shabnam-Bold.ttf", "راوی مستطیل", [
+        "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf",
+    ]),
+]
+
+
+def ensure_dirs():
+    for d in (WORK_DIR, UPLOAD_DIR, OUT_DIR, FONT_DIR):
+        os.makedirs(d, exist_ok=True)
+
+
+def default_keys() -> str:
+    for name in KEY_ENV_ORDER:
+        v = os.environ.get(name, "").strip()
+        if v:
+            return v
+    return ""
+
+
+def load_config() -> dict:
+    try:
+        with open(CFG_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_config(cfg: dict) -> None:
+    try:
+        with open(CFG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def find_font() -> str:
+    cands = []
+    if os.path.isdir(FONT_DIR):
+        for f in sorted(os.listdir(FONT_DIR)):
+            if f.lower().endswith((".ttf", ".otf")):
+                cands.append((0 if "vazir" in f.lower() else 1, os.path.join(FONT_DIR, f)))
+    for d in (HERE, os.path.expanduser("~/fonts"), os.path.expanduser("~/.fonts")):
+        if os.path.isdir(d):
+            for f in sorted(os.listdir(d)):
+                if f.lower().endswith((".ttf", ".otf")):
+                    cands.append((1, os.path.join(d, f)))
+    return cands[0][1] if cands else ""
+
+
+def _download(url: str, dst: str) -> bool:
+    try:
+        import urllib.request
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=120) as r, open(dst, "wb") as f:
+            shutil.copyfileobj(r, f)
+        return os.path.getsize(dst) > 20_000
+    except Exception:
+        try:
+            os.remove(dst)
+        except Exception:
+            pass
+        return False
+
+
+def download_fonts(log=print) -> int:
+    
+    os.makedirs(FONT_DIR, exist_ok=True)
+    n = 0
+    for slot, fname, desc, urls in FONT_BUNDLES:
+        dst = os.path.join(FONT_DIR, fname)
+        if os.path.isfile(dst) and os.path.getsize(dst) > 20_000:
+            continue
+        log(f"  ⬇ {fname} ({desc}) ...")
+        ok = False
+        for url in urls:
+            if _download(url, dst):
+                ok = True
+                break
+        if ok:
+            n += 1
+            log(f"  ✔ {fname}")
+        else:
+            log(f"  ✖ {fname} ناموفق — بعداً خودتان در fonts/ بگذارید")
+    return n
+
+
+_ft_checked: dict = {}
+
+
+def _font_persian_ok(path: str) -> bool:
+    if path in _ft_checked:
+        return _ft_checked[path]
+    ok = True
+    try:
+        from fontTools.ttLib import TTFont
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+    except ImportError:
+        try:
+            for _pkg in ("fonttools", "arabic-reshaper", "python-bidi"):
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", _pkg])
+            from fontTools.ttLib import TTFont
+            import arabic_reshaper
+            from bidi.algorithm import get_display
+        except Exception:
+            _ft_checked[path] = True
+            return True
+    try:
+        shaped = get_display(arabic_reshaper.reshape("من قرفتم باهاش حرف بزنم ژاله پک‌بک"))
+        cps = {ord(c) for c in shaped
+               if ord(c) > 0x2000 and not 0x200C <= ord(c) <= 0x200F}
+        cmap = TTFont(path).getBestCmap()
+        ok = all(c in cmap for c in cps)
+    except Exception:
+        ok = True
+    _ft_checked[path] = ok
+    return ok
+
+
+def font_args() -> list:
+    
+    args = []
+    main = find_font()
+    if main:
+        args += ["--font", main]
+    cli_font = {"free_text": "free"}
+    for slot, fname, _desc, _urls in FONT_BUNDLES:
+        p = os.path.join(FONT_DIR, fname)
+        if os.path.isfile(p) and _font_persian_ok(p):
+            flag = cli_font.get(slot, slot.replace("_", "-"))
+            args += [f"--font-{flag}", p]
+    return args
+
+
+def human_size(n: float) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024:
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} TB"
+
+
+def system_info() -> str:
+    import platform
+    lines = [
+        f"پایتون: {platform.python_version()} — {platform.system()} {platform.release()}",
+        f"هستهٔ CPU: {os.cpu_count()}",
+    ]
+    try:
+        import onnxruntime as ort
+        lines.append("ONNX Runtime: " + ort.__version__ + " | " +
+                     ", ".join(ort.get_available_providers()))
+    except Exception:
+        lines.append("ONNX Runtime: نصب نیست")
+    try:
+        import torch  
+        lines.append("GPU (CUDA): ✅")
+    except Exception:
+        lines.append("GPU (CUDA): —")
+    if os.path.isdir(MODELS_DIR):
+        lines.append("مدل‌های کش‌شده:")
+        for f in sorted(os.listdir(MODELS_DIR)):
+            p = os.path.join(MODELS_DIR, f)
+            if os.path.isfile(p):
+                lines.append(f"  • {f} — {human_size(os.path.getsize(p))}")
+    else:
+        lines.append("مدل‌های کش‌شده: — (بار اول دانلود می‌شوند)")
+    fonts = os.listdir(FONT_DIR) if os.path.isdir(FONT_DIR) else []
+    lines.append(f"فونت‌ها: {len(fonts)} فایل در fonts/")
+    try:
+        du = shutil.disk_usage(HERE)
+        lines.append(f"فضای آزاد: {human_size(du.free)}")
+    except Exception:
+        pass
+    return "\n".join(lines)
+
+
+def append_history(entry: dict) -> None:
+    try:
+        with open(HIST_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def history_text() -> str:
+    if not os.path.isfile(HIST_PATH):
+        return "هنوز اجرایی ثبت نشده."
+    rows = []
+    try:
+        with open(HIST_PATH, encoding="utf-8") as f:
+            for line in f:
+                e = json.loads(line)
+                rows.append(f"{e.get('time','')}  |  "
+                            f"{os.path.basename(str(e.get('input','')))[:36]:36}  |  "
+                            f"{e.get('status','')}  |  {e.get('duration','')}")
+    except Exception:
+        return "تاریخچه خوانده نشد."
+    return "\n".join(reversed(rows[-60:])) or "هنوز اجرایی ثبت نشده."
+
+
+def open_path(path: str):
+    try:
+        if os.name == "nt":
+            os.startfile(path)  
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+    except Exception:
+        pass
+
+
+def has_display() -> bool:
+    if os.name == "nt" or sys.platform == "darwin":
+        return True
+    return bool(os.environ.get("DISPLAY"))
+
+
+HELP_TEXT = f"""راهنما — {APP_NAME} v{APP_VER}
+
+▶ اجرا (خودکار: دسکتاپ → پنجرهٔ برنامه، Colab/Codespace → وب)
+  ویندوز:            دابل‌کلیک Manga.bat
+  لینوکس / مک:       ./manga.sh
+  مستقیم:            python manga_app.py
+
+▶ اجبار حالت
+  python manga_app.py --web       (Colab: لینک عمومی gradio.live چاپ می‌شود)
+  python manga_app.py --desktop
+
+▶ Colab — دو فایل لازم است کنار هم باشند:
+  manga.py      (فایل مترجم — همان فایل اصلی)
+  manga_app.py  (برنامه)
+  سپس:  !python manga_app.py
+  ⚠ manga_app.py را با نام manga.py ذخیره نکنید — خطای «فایل مترجم نیست» می‌گیرید.
+
+▶ GitHub Codespaces
+  لینک عمومی خودکار چاپ می‌شود (gradio.live) — نیازی به Port Forwarding نیست.
+  ⚠ سرور وب به نشست ترمینال چسبیده است: با بستن ترمینال kill می‌شود.
+  برای زنده‌ماندن: tmux new -s manga 'python3 manga_app.py --web'
+  (detach: Ctrl+B بعد D | بازگشت: tmux attach -t manga)
+
+▶ فونت‌ها
+  بار اول خودکار در fonts/ دانلود می‌شوند (کودک، افسانه، کروش، دست‌نویس،
+  مروارید، سیستم، نامه، راوی …). برای تغییر، فقط فایل .ttf را با همان نام
+  در fonts/ جایگزین کنید و برنامه را دوباره باز کنید.
+
+▶ CLI
+  python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu --lama
+
+▶ نکات
+  • کلید از aistudio.google.com / platform.openai.com / openrouter.ai — چند کلید = چرخش خودکار
+  • مدل‌ها بار اول دانلود و در ~/.cache کش می‌شوند
+  • تنظیمات در workspace/config.json ذخیره می‌شود
+"""
+
+
+
+def manga_py_ok() -> bool:
+    
+    try:
+        with open(MANGA_PY, encoding="utf-8") as f:
+            head = f.read()
+    except Exception:
+        return False
+    return ("def run_desktop" not in head) and ("def run_web" not in head)
+
+
+MANGA_MIXED_MSG = (
+    "❌ فایل manga.py کنار برنامه، فایل «مترجم» نیست — کد خود برنامه داخلش ذخیره شده\\n"
+    "(احتمالاً manga_app.py را با نام manga.py ذخیره کرده‌اید).\\n"
+    "فایل manga.py اصلی (مترجم) را کنار manga_app.py بگذارید و دوباره اجرا کنید."
+)
+
+
+
+def run_cli_interactive():
+    
+    print(f"\n══════════ {APP_NAME} v{APP_VER} — CLI ══════════\n")
+    if not manga_py_ok():
+        print(MANGA_MIXED_MSG)
+        return
+
+    cfg = load_config()
+    src = input("📄 مسیر فایل/پوشه یا URL ورودی: ").strip().strip('"')
+    if not src:
+        print("❌ ورودی خالی است.")
+        return
+    if not os.path.exists(src) and not src.lower().startswith(("http://", "https://")):
+        print(f"❌ مسیر پیدا نشد: {src}")
+        return
+
+    print("\nقالب خروجی:  1) PDF   2) ZIP   3) HTML   4) پوشهٔ تصاویر")
+    f = input("انتخاب [1-4] (پیش‌فرض 1): ").strip() or "1"
+    ext = {"1": ".pdf", "2": ".zip", "3": ".html", "4": ""}.get(f, ".pdf")
+
+    print("\nارائه‌دهندهٔ AI را انتخاب کنید:")
+    prov_menu = [
+        ("gemini", "Google Gemini - رایگان با سهمیه"),
+        ("openai", "ChatGPT / GPT"),
+        ("deepseek", "DeepSeek"),
+        ("groq", "Groq - سریع و رایگان"),
+        ("xai", "xAI / Grok"),
+        ("openrouter", "OpenRouter"),
+        ("ollama", "لوکال - بدون کلید"),
+        ("together", "Together AI"),
+    ]
+    for i, (pid, desc) in enumerate(prov_menu, 1):
+        print(f"  {i}) {pid:12} ({desc})")
+    pc = input("انتخاب [پیش‌فرض 1]: ").strip() or "1"
+    try:
+        provider = prov_menu[int(pc) - 1][0]
+    except (ValueError, IndexError):
+        provider = "gemini"
+    keys = input("کلید API (خالی = env/config): ").strip() \
+        or cfg.get("api_keys") or default_keys()
+    model = input(f"مدل [{cfg.get('model', '') or 'پیش‌فرض'}]: ").strip() \
+        or cfg.get("model", "")
+
+    font_v = cfg.get("font") or find_font()
+    if not font_v or not os.path.isfile(font_v):
+        print("❌ فونت فارسی پیدا نشد — fonts/ را آماده کنید.")
+        return
+
+    base = os.path.splitext(os.path.basename(src))[0] + "_fa"
+    out_v = os.path.join(OUT_DIR, base + ext)
+    os.makedirs(OUT_DIR, exist_ok=True)
+
+    cmd = [sys.executable, MANGA_PY, "-i", src, "-o", out_v, "--font", font_v,
+           "--provider", provider,
+           "--workers", str(int(cfg.get("workers", 2))),
+           "--bubbles-per-request", str(int(cfg.get("bubbles", 6))),
+           "--api-timeout", str(int(cfg.get("timeout", 40))),
+           "--quality", str(int(cfg.get("quality", 92)))]
+    cmd += font_args()
+    klist = [k.strip() for k in (keys or "").replace(";", ",").split(",") if k.strip()]
+    if klist:
+        cmd += ["--api-key", ",".join(klist)]
+    if model:
+        cmd += ["--model", model]
+    cmd += ["--lama", "--cpu"]
+
+    print("\n▶ " + " ".join(cmd) + "\n")
+    proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True,
+                            encoding="utf-8", errors="replace", bufsize=1)
+    t0 = time.time()
+    for line in proc.stdout:
+        print(line.rstrip())
+    proc.wait()
+    dur_s = f"{int((time.time()-t0)//60)}:{int((time.time()-t0)%60):02d}"
+    if proc.returncode != 0:
+        print(f"\n❌ خطا — کد خروج {proc.returncode}")
+    else:
+        print(f"\n✅ تمام شد ({dur_s}) — خروجی: {out_v}")
+
+
+def run_cli(argv):
+    if not argv:
+        run_cli_interactive()
+        return
+    if not manga_py_ok():
+        print(MANGA_MIXED_MSG)
+        sys.exit(1)
+    sys.argv = [MANGA_PY] + list(argv)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("manga_cli", MANGA_PY)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["manga_cli"] = mod
+    spec.loader.exec_module(mod)
+    if hasattr(mod, "main"):
+        mod.main()
+
+
+def run_desktop():
+    import tkinter as tk
+    from tkinter import ttk, filedialog, messagebox, scrolledtext
+
+    cfg = load_config()
+    q: "queue.Queue[tuple]" = queue.Queue()
+    proc_holder = {"p": None}
+
+    root = tk.Tk()
+    root.title(f"{APP_NAME} v{APP_VER}")
+    root.geometry("1080x780")
+    root.minsize(940, 660)
+    root.configure(bg=C_BG)
+
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except Exception:
+        pass
+    dark = {
+        "TFrame": {"background": C_BG},
+        "TLabelframe": {"background": C_CARD, "bordercolor": C_LINE},
+        "TLabelframe.Label": {"background": C_CARD, "foreground": C_TXT},
+        "TLabel": {"background": C_CARD, "foreground": C_TXT},
+        "TButton": {"background": C_LINE, "foreground": C_TXT, "padding": (10, 6)},
+        "TEntry": {"fieldbackground": C_BG2, "foreground": C_TXT,
+                   "insertcolor": C_TXT, "bordercolor": C_LINE},
+        "TCombobox": {"fieldbackground": C_BG2, "foreground": C_TXT,
+                      "background": C_LINE, "arrowcolor": C_TXT},
+        "TSpinbox": {"fieldbackground": C_BG2, "foreground": C_TXT,
+                     "insertcolor": C_TXT, "arrowcolor": C_TXT},
+        "TCheckbutton": {"background": C_CARD, "foreground": C_TXT},
+        "TRadiobutton": {"background": C_CARD, "foreground": C_TXT},
+        "TNotebook": {"background": C_BG, "bordercolor": C_BG},
+        "TNotebook.Tab": {"background": C_BG2, "foreground": C_MUT,
+                          "padding": (18, 8)},
+        "TProgressbar": {"background": C_ACC, "troughcolor": C_BG2},
+    }
+    for name, kw in dark.items():
+        style.configure(name, **kw)
+    style.map("TNotebook.Tab", background=[("selected", C_ACC)],
+              foreground=[("selected", "white")])
+    style.map("TCheckbutton", background=[("active", C_CARD)])
+    style.map("TRadiobutton", background=[("active", C_CARD)])
+    style.configure("Accent.TButton", font=(None, 11, "bold"), foreground="white",
+                    background=ACCENT, padding=(16, 8))
+    style.map("Accent.TButton",
+              background=[("active", "#4f46e5"), ("disabled", "#3730a3")],
+              foreground=[("disabled", "#c7d2fe")])
+
+    
+    head = tk.Frame(root, bg=C_BG2, highlightthickness=0, bd=0)
+    head.pack(fill="x")
+    tk.Label(head, text=f"📖 {APP_NAME}", font=(None, 14, "bold"),
+             bg=C_BG2, fg=C_TXT).pack(side="right", padx=16, pady=9)
+    tk.Label(head, text=f"v{APP_VER}", font=(None, 9),
+             bg=C_BG2, fg=C_MUT).pack(side="left", padx=10)
+    status_lbl = tk.Label(head, text="● آماده", font=(None, 10, "bold"),
+                          bg=C_BG2, fg=C_OK)
+    status_lbl.pack(side="left", padx=4)
+
+    nb = ttk.Notebook(root)
+    nb.pack(fill="both", expand=True, padx=10, pady=10)
+
+    
+    tab = ttk.Frame(nb)
+    nb.add(tab, text="🚀 ترجمه")
+
+    def field(parent, label):
+        
+        ttk.Label(parent, text=label, foreground=C_MUT).pack(fill="x", pady=(6, 2))
+
+    
+    card_io = ttk.LabelFrame(tab, text=" ورودی / خروجی ", padding=12)
+    card_io.pack(fill="x", padx=10, pady=(10, 6))
+    field(card_io, "فایل / پوشه / URL ورودی")
+    row_in = ttk.Frame(card_io); row_in.pack(fill="x")
+    inp_var = tk.StringVar(value=cfg.get("last_input", ""))
+    ttk.Entry(row_in, textvariable=inp_var).pack(side="left", fill="x", expand=True)
+
+    def pick_input():
+        p = filedialog.askopenfilename(
+            initialdir=UPLOAD_DIR if os.path.isdir(UPLOAD_DIR) else HERE,
+            filetypes=[("مانگا", "*.pdf *.zip *.cbz *.webp *.jpg *.jpeg *.png *.html"),
+                       ("همه", "*.*")])
+        if p:
+            inp_var.set(p)
+    ttk.Button(row_in, text="📁 انتخاب", command=pick_input).pack(side="left", padx=(6, 0))
+
+    row_out = ttk.Frame(card_io); row_out.pack(fill="x", pady=(8, 0))
+    fmt_var = tk.StringVar(value=cfg.get("out_fmt", "PDF"))
+    ttk.Label(row_out, text="قالب:").pack(side="right", padx=(0, 4))
+    for v in ("PDF", "ZIP", "HTML", "پوشهٔ تصاویر"):
+        ttk.Radiobutton(row_out, text=v, value=v, variable=fmt_var).pack(side="right", padx=4)
+    quality_var = tk.IntVar(value=int(cfg.get("quality", 92)))
+    ttk.Label(row_out, text="کیفیت:").pack(side="left", padx=(0, 4))
+    ttk.Spinbox(row_out, from_=60, to=100, textvariable=quality_var, width=5).pack(side="left")
+
+    
+    card_ai = ttk.LabelFrame(tab, text=" حساب و مدل ", padding=12)
+    card_ai.pack(fill="x", padx=10, pady=6)
+    row_ai1 = ttk.Frame(card_ai); row_ai1.pack(fill="x")
+    prov_var = tk.StringVar(value=cfg.get("provider", "gemini"))
+    ttk.Label(row_ai1, text="ارائه‌دهنده:").pack(side="right", padx=(0, 4))
+    ttk.Combobox(row_ai1, textvariable=prov_var, values=PROVIDERS,
+                 state="readonly", width=12).pack(side="right", padx=(0, 16))
+    model_var = tk.StringVar(value=cfg.get("model", ""))
+    ttk.Label(row_ai1, text="مدل (خالی = پیش‌فرض):").pack(side="right", padx=(0, 4))
+    ttk.Entry(row_ai1, textvariable=model_var, width=22).pack(side="right")
+    field(card_ai, "کلید API (چند کلید = با کاما، چرخش خودکار)")
+    keys_var = tk.StringVar(value=cfg.get("api_keys") or default_keys())
+    ttk.Entry(card_ai, textvariable=keys_var, show="•").pack(fill="x")
+
+    
+    card_font = ttk.LabelFrame(tab, text=" فونت‌های لحن ", padding=10)
+    card_font.pack(fill="x", padx=10, pady=6)
+    font_vars = {"main": tk.StringVar(value=cfg.get("font") or find_font())}
+    row_fm = ttk.Frame(card_font); row_fm.pack(fill="x")
+    ttk.Label(row_fm, text="اصلی (پیش‌فرض):", foreground=C_MUT).pack(side="right", padx=(0, 4))
+    ttk.Entry(row_fm, textvariable=font_vars["main"]).pack(side="right", fill="x",
+                                                           expand=True, padx=(0, 4))
+
+    def mk_pick(var):
+        def _p():
+            pth = filedialog.askopenfilename(filetypes=[("فونت", "*.ttf *.otf")])
+            if pth:
+                var.set(pth)
+        return _p
+    ttk.Button(row_fm, text="…", width=3,
+               command=mk_pick(font_vars["main"])).pack(side="left")
+
+    
+    SLOT_LABELS = {
+        "normal": "کودک (عادی)", "shout": "افسانه (خشم)", "comedy_shout": "کروش (کمدی)",
+        "whisper": "زمزمه", "thought": "تفکر", "system": "سیستم/تگ",
+        "letter": "نامه/طومار", "narrator": "راوی", "free_text": "متن آزاد",
+    }
+    font_slots = {}
+    for slot, fname, _desc, _urls in FONT_BUNDLES:
+        dflt = os.path.join(FONT_DIR, fname) if os.path.isfile(os.path.join(FONT_DIR, fname)) else ""
+        if dflt and not _font_persian_ok(dflt):
+            dflt = ""
+        font_slots[slot] = tk.StringVar(value=dflt)
+
+    def open_font_editor():
+        win = tk.Toplevel(root)
+        win.title("ویرایش فونت‌های لحن")
+        win.geometry("820x420")
+        win.configure(bg=C_BG)
+        tk.Label(win, text="مسیر هر فونت را عوض کنید یا با … انتخاب کنید",
+                 bg=C_BG, fg=C_MUT).pack(anchor="e", padx=12, pady=(10, 4))
+        body = tk.Frame(win, bg=C_BG)
+        body.pack(fill="both", expand=True, padx=12)
+        for idx, (slot, _fname, _d, _u) in enumerate(FONT_BUNDLES):
+            r, c = divmod(idx, 2)
+            cell = tk.Frame(body, bg=C_BG)
+            cell.grid(row=r, column=(1 - c), sticky="ew", padx=4, pady=3)
+            body.columnconfigure(1 - c, weight=1)
+            tk.Label(cell, text=f"{SLOT_LABELS.get(slot, slot)}:",
+                     bg=C_BG, fg=C_TXT).pack(side="right", padx=(0, 4))
+            ttk.Entry(cell, textvariable=font_slots[slot]).pack(
+                side="right", fill="x", expand=True)
+            ttk.Button(cell, text="…", width=2,
+                       command=mk_pick(font_slots[slot])).pack(side="left")
+        ttk.Button(win, text="بستن", command=win.destroy).pack(pady=10)
+
+    row_fd = ttk.Frame(card_font); row_fd.pack(fill="x", pady=(4, 0))
+
+    def do_download_fonts():
+        dl_btn.config(state="disabled")
+        set_status("دانلود فونت…")
+
+        def t():
+            n = download_fonts(log=lambda m: q.put(("log", m)))
+            q.put(("fonts_done", n))
+
+        threading.Thread(target=t, daemon=True).start()
+
+    dl_btn = ttk.Button(row_fd, text="⬇ دانلود فونت‌های گمشده", command=do_download_fonts)
+    dl_btn.pack(side="left")
+    ttk.Button(row_fd, text="✏️ ویرایش فونت‌های لحن",
+               command=open_font_editor).pack(side="left", padx=6)
+
+    
+    card_opt = ttk.LabelFrame(tab, text=" گزینه‌ها ", padding=12)
+    card_opt.pack(fill="x", padx=10, pady=6)
+    row4 = ttk.Frame(card_opt); row4.pack(fill="x")
+    lama_var = tk.BooleanVar(value=False)
+    cpu_var = tk.BooleanVar(value=bool(cfg.get("force_cpu", False)))
+    twopass_var = tk.BooleanVar(value=True)
+    debug_var = tk.BooleanVar(value=False)
+    ttk.Checkbutton(row4, text="اجبار LaMa-Manga (خالی = خودکار)",
+                    variable=lama_var).pack(side="right", padx=6)
+    ttk.Checkbutton(row4, text="اجبار CPU", variable=cpu_var).pack(side="right", padx=6)
+    ttk.Checkbutton(row4, text="OCR دومرحله‌ای", variable=twopass_var).pack(side="right", padx=6)
+    ttk.Checkbutton(row4, text="دیباگ", variable=debug_var).pack(side="right", padx=6)
+    row5 = ttk.Frame(card_opt); row5.pack(fill="x", pady=(8, 0))
+    workers_var = tk.IntVar(value=int(cfg.get("workers", 2)))
+    bubbles_var = tk.IntVar(value=int(cfg.get("bubbles", 6)))
+    timeout_var = tk.IntVar(value=int(cfg.get("timeout", 40)))
+    for lbl, var, a, b in (("ورکر OCR", workers_var, 1, 8),
+                           ("حباب در هر درخواست", bubbles_var, 1, 12),
+                           ("تایم‌اوت (ثانیه)", timeout_var, 10, 120)):
+        ttk.Label(row5, text=lbl + ":").pack(side="right", padx=(12, 4))
+        ttk.Spinbox(row5, from_=a, to=b, textvariable=var, width=5).pack(side="right")
+
+    
+    row6 = ttk.Frame(tab); row6.pack(fill="x", padx=10, pady=(4, 2))
+    run_btn = ttk.Button(row6, text="🚀  شروع ترجمه", style="Accent.TButton")
+    run_btn.pack(side="right")
+    stop_btn = ttk.Button(row6, text="⏹ توقف", state="disabled")
+    stop_btn.pack(side="right", padx=6)
+    read_btn = ttk.Button(row6, text="📖 خواندن", state="disabled",
+                          command=lambda: open_reader())
+    read_btn.pack(side="left")
+    open_btn = ttk.Button(row6, text="📂 خروجی", state="disabled")
+    open_btn.pack(side="left")
+    out_path_holder = {"p": "", "d": ""}
+    progress = ttk.Progressbar(tab, mode="indeterminate")
+
+    
+    tab_log = ttk.Frame(nb)
+    row_log = ttk.Frame(tab_log); row_log.pack(fill="x", padx=10, pady=(8, 4))
+    copy_btn = ttk.Button(row_log, text="📋 کپی لاگ")
+    log_box = scrolledtext.ScrolledText(tab_log, height=26, font=("Consolas", 9),
+                                        bg="#0a0f1c", fg="#cbd5e1",
+                                        insertbackground="#e2e8f0", wrap="none",
+                                        relief="flat")
+    log_box.pack(fill="both", expand=True, padx=10, pady=(2, 8))
+    log_newest_top = tk.BooleanVar(value=False)
+    _log_count = {"n": 0}
+
+    def on_log_key(e):
+        
+        if e.state & 0x0004 and e.keysym.lower() in ("c", "a"):
+            return None
+        return "break"
+    log_box.bind("<Key>", on_log_key)
+
+    def log_write(msg):
+        log_box.config(state="normal")
+        if log_newest_top.get():
+            log_box.insert("1.0", msg + "\n")
+        else:
+            log_box.insert("end", msg + "\n")
+            log_box.see("end")
+        log_box.config(state="disabled")
+
+    def toggle_log_dir():
+        log_newest_top.set(not log_newest_top.get())
+        dir_btn.config(text="⬆ جدید در بالا" if log_newest_top.get() else "⬇ جدید در پایین")
+    dir_btn = ttk.Button(row_log, text="⬇ جدید در پایین", command=toggle_log_dir, width=14)
+    dir_btn.pack(side="left", padx=6)
+    ttk.Label(row_log, text="لاگ با Ctrl+C قابل کپی است", foreground=C_MUT
+              ).pack(side="left", padx=8)
+
+    def copy_log():
+        txt = log_box.get("1.0", "end").strip()
+        root.clipboard_clear()
+        root.clipboard_append(txt)
+        set_status("لاگ کپی شد")
+
+    copy_btn.config(command=copy_log)
+
+    
+    def open_reader():
+        d = out_path_holder.get("d")
+        files = []
+        if d and os.path.isdir(d):
+            for f in sorted(os.listdir(d)):
+                if f.lower().endswith((".webp", ".png", ".jpg", ".jpeg", ".bmp")):
+                    files.append(os.path.join(d, f))
+        p = out_path_holder.get("p")
+        if not files and p and os.path.isfile(p) and \
+                p.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
+            files = [p]
+        if not files:
+            messagebox.showinfo(
+                "خواندن", "فایل تصویری برای نمایش پیدا نشد.\n"
+                "برای حالت خواندن، خروجی را ZIP یا «پوشهٔ تصاویر» بگیرید (PDF صفحه‌تصویری ندارد).")
+            return
+        win = tk.Toplevel(root)
+        win.title("📖 حالت خواندن")
+        win.geometry("920x860")
+        win.configure(bg="#0a0f1c")
+        cv = tk.Canvas(win, bg="#0a0f1c", highlightthickness=0)
+        sb = ttk.Scrollbar(win, orient="vertical", command=cv.yview)
+        inner = tk.Frame(cv, bg="#0a0f1c")
+        inner.bind("<Configure>",
+                   lambda e: cv.configure(scrollregion=cv.bbox("all")))
+        cv.create_window((0, 0), window=inner, anchor="nw", width=880)
+        cv.configure(yscrollcommand=sb.set)
+        cv.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+
+        def _on_mousewheel(e):
+            cv.yview_scroll(int(-e.delta / 120), "units")
+        cv.bind_all("<MouseWheel>", _on_mousewheel)
+
+        from PIL import Image as PILImage, ImageTk
+        for f in files:
+            try:
+                img = PILImage.open(f)
+                w = 860
+                h = max(1, int(img.height * w / img.width))
+                img = img.resize((w, h), PILImage.LANCZOS)
+                ph = ImageTk.PhotoImage(img)
+                lb = tk.Label(inner, image=ph, bg="#0a0f1c")
+                lb.image = ph
+                lb.pack(fill="x", pady=(0, 6))
+            except Exception:
+                continue
+        win.protocol("WM_DELETE_WINDOW", win.destroy)
+
+    
+    hist_var = tk.StringVar(value=history_text())
+    hist_lbl = tk.Label(tab_log, textvariable=hist_var, justify="right", anchor="e",
+                        bg=C_BG2, fg=C_MUT, font=("Consolas", 8))
+    hist_lbl.pack(fill="x", padx=12, pady=(0, 10))
+
+    def refresh_history():
+        hist_var.set(history_text())
+
+    def set_status(text, color=C_OK):
+        status_lbl.config(text="● " + text, fg=color)
+
+    def log_write(msg):
+        log_box.config(state="normal")
+        if log_newest_top.get():
+            log_box.insert("1.0", msg + "\n")
+        else:
+            log_box.insert("end", msg + "\n")
+            log_box.see("end")
+        log_box.config(state="disabled")
+
+    def toggle_log_dir():
+        log_newest_top.set(not log_newest_top.get())
+        dir_btn.config(text="⬆ جدید در بالا" if log_newest_top.get() else "⬇ جدید در پایین")
+
+    def poll_queue():
+        try:
+            while True:
+                kind, payload = q.get_nowait()
+                if kind == "log":
+                    log_write(payload)
+                    refresh_history()
+                elif kind == "status":
+                    set_status(*payload)
+                elif kind == "done":
+                    out_path_holder["p"] = payload
+                    open_btn.config(state="normal")
+                    read_btn.config(state="normal")
+                elif kind == "reader_dir":
+                    out_path_holder["d"] = payload
+                elif kind == "fonts_done":
+                    dl_btn.config(state="normal")
+                    font_vars["main"].set(find_font())
+                    for slot, fname, _d, _u in FONT_BUNDLES:
+                        pth = os.path.join(FONT_DIR, fname)
+                        if os.path.isfile(pth):
+                            font_slots[slot].set(pth)
+                    log_write(f"🔤 فونت‌ها: {payload} فایل جدید دانلود شد.")
+                elif kind == "finished":
+                    run_btn.config(state="normal")
+                    stop_btn.config(state="disabled")
+                    progress.stop()
+                    progress.pack_forget()
+                    refresh_history()
+        except queue.Empty:
+            pass
+        root.after(150, poll_queue)
+
+    def on_stop():
+        p = proc_holder.get("p")
+        if p and p.poll() is None:
+            p.terminate()
+
+    def on_open():
+        p = out_path_holder.get("p")
+        if p:
+            open_path(os.path.dirname(p) or p)
+
+    def worker(src, out_v, cmd):
+        t0 = time.time()
+        proc = subprocess.Popen(
+            cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace", bufsize=1,
+        )
+        proc_holder["p"] = proc
+        for line in proc.stdout:
+            q.put(("log", line.rstrip()))
+        proc.wait()
+        dur = time.time() - t0
+        dur_s = f"{int(dur // 60)}:{int(dur % 60):02d}"
+        if proc.returncode != 0:
+            append_history({"time": datetime.now().strftime("%m-%d %H:%M"),
+                            "input": src, "status": f"❌ ({proc.returncode})",
+                            "duration": dur_s})
+            q.put(("log", f"❌ خطا — کد خروج {proc.returncode}"))
+            q.put(("status", ("ناموفق", C_ERR)))
+        else:
+            target = out_v
+            if os.path.isdir(out_v):
+                fs = sorted(os.listdir(out_v))
+                target = os.path.join(out_v, fs[0]) if fs else out_v
+            size = os.path.getsize(target) if os.path.isfile(target) else 0
+            append_history({"time": datetime.now().strftime("%m-%d %H:%M"),
+                            "input": src, "status": "✅", "duration": dur_s})
+            q.put(("log", f"✅ تمام شد ({dur_s}) — {human_size(size)}: {target}"))
+            q.put(("status", ("موفق ✅", C_OK)))
+            q.put(("done", target))
+            
+            cands = [out_v, out_v + ".cache" + os.sep + "out",
+                     os.path.join(out_v + ".cache", "out")]
+            rd = ""
+            for c in cands:
+                if os.path.isdir(c):
+                    rd = c
+                    break
+            q.put(("reader_dir", rd))
+        q.put(("finished", None))
+
+    def on_run():
+        src = inp_var.get().strip()
+        if not src:
+            messagebox.showwarning(APP_NAME, "ورودی را انتخاب کنید یا مسیر/URL بدهید.")
+            return
+        if not os.path.exists(src) and not src.lower().startswith(("http://", "https://")):
+            messagebox.showerror(APP_NAME, "مسیر پیدا نشد:\n" + src)
+            return
+        font_v = font_vars["main"].get().strip() or find_font()
+        if not font_v or not os.path.isfile(font_v):
+            messagebox.showerror(APP_NAME, "فونت اصلی معتبر پیدا نشد.")
+            return
+
+        ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[fmt_var.get()]
+        out_v = os.path.join(OUT_DIR,
+                             os.path.splitext(os.path.basename(src))[0] + "_fa" + ext)
+
+        save_config({"last_input": src, "out_fmt": fmt_var.get(),
+                     "quality": quality_var.get(), "api_keys": keys_var.get(),
+                     "model": model_var.get(), "font": font_v,
+                     "provider": prov_var.get(),
+                     "workers": workers_var.get(), "bubbles": bubbles_var.get(),
+                     "timeout": timeout_var.get(), "force_cpu": cpu_var.get()})
+
+        cmd = [sys.executable, MANGA_PY, "-i", src, "-o", out_v, "--font", font_v,
+               "--provider", prov_var.get(),
+               "--workers", str(workers_var.get()),
+               "--bubbles-per-request", str(bubbles_var.get()),
+               "--api-timeout", str(timeout_var.get()),
+               "--quality", str(quality_var.get())]
+        
+        cli_font = {"free_text": "free"}
+        for slot, var in font_slots.items():
+            pv = var.get().strip()
+            if pv and os.path.isfile(pv):
+                cmd += ["--font-" + cli_font.get(slot, slot.replace("_", "-")), pv]
+        keys = [k.strip() for k in keys_var.get().replace(";", ",").split(",") if k.strip()]
+        if keys:
+            cmd += ["--api-key", ",".join(keys)]
+        if model_var.get().strip():
+            cmd += ["--model", model_var.get().strip()]
+        if lama_var.get():
+            cmd += ["--lama"]
+        if cpu_var.get():
+            cmd += ["--cpu"]
+        if not twopass_var.get():
+            cmd += ["--no-two-pass-ocr"]
+        if debug_var.get():
+            cmd += ["--debug"]
+
+        log_box.config(state="normal")
+        log_box.delete("1.0", "end")
+        log_box.config(state="disabled")
+        log_write("▶ " + " ".join(cmd))
+        run_btn.config(state="disabled")
+        stop_btn.config(state="normal")
+        open_btn.config(state="disabled")
+        read_btn.config(state="disabled")
+        set_status("در حال اجرا…", ACCENT)
+        progress.pack(fill="x", padx=10, pady=(0, 6))
+        progress.start(12)
+        threading.Thread(target=worker, args=(src, out_v, cmd), daemon=True).start()
+
+    run_btn.config(command=on_run)
+    stop_btn.config(command=on_stop)
+    open_btn.config(command=on_open)
+    poll_queue()
+
+    
+    tab_sys = ttk.Frame(nb, padding=12)
+    nb.add(tab_sys, text="🖥️ سیستم")
+    sys_txt = tk.Text(tab_sys, font=("Consolas", 10), bg=C_CARD, fg=C_TXT,
+                      relief="flat", height=18)
+    sys_txt.pack(fill="both", expand=True)
+    sys_txt.insert("1.0", system_info())
+    sys_txt.config(state="disabled")
+
+    tab_help = ttk.Frame(nb, padding=12)
+    nb.add(tab_help, text="❓ راهنما")
+    help_txt = tk.Text(tab_help, font=(None, 10), bg=C_CARD, fg=C_TXT,
+                       relief="flat", wrap="word")
+    help_txt.pack(fill="both", expand=True)
+    help_txt.insert("1.0", HELP_TEXT)
+    help_txt.config(state="disabled")
+
+    nb.add(tab_log, text="📜 لاگ")
+    root.mainloop()
+
+WEB_CSS = """
+body, .gradio-container { background: #0b1220 !important; color: #e2e8f0 !important; }
+.gradio-container { max-width: 860px !important; margin: 0 auto !important; }
+.nav {
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(90deg, #1e1b4b, #4338ca 60%, #7c3aed);
+  border-radius: 16px; padding: 14px 20px; margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(67,56,202,.35);
+}
+.nav-brand { color: #fff; font-size: 1.25rem; }
+.nav-chips { display: flex; gap: 8px; }
+.chip {
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25);
+  color: #fff; padding: 3px 10px; border-radius: 999px; font-size: .75rem;
+}
+.stepcard {
+  background: #111c30 !important; border: 1px solid #233047 !important;
+  border-radius: 16px !important; padding: 16px 18px; margin-bottom: 14px;
+}
+.steptitle {
+  display: flex; align-items: center; gap: 10px;
+  color: #e2e8f0; font-weight: 700; font-size: 1.05rem; margin-bottom: 10px;
+}
+.stepnum {
+  background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff;
+  width: 28px; height: 28px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .95rem; flex: none;
+}
+.hint { color: #8ea0bd !important; font-size: .85rem; margin-top: 6px; }
+label, span, .prose { color: #cbd5e1 !important; }
+input[type=text], input[type=password], textarea, select {
+  background: #0a0f1c !important; color: #e2e8f0 !important;
+  border-color: #233047 !important;
+}
+body.dark, body.dark .gradio-container, .dark {
+  background: #0b1220 !important; color: #e2e8f0 !important;
+}
+.dark .block, .dark .form, .dark .gr-box, .dark .stepcard {
+  background: #111c30 !important; border-color: #233047 !important;
+}
+.dark label, .dark span, .dark .prose, .dark .wrap { color: #cbd5e1 !important; }
+.dark input[type=text], .dark input[type=password], .dark textarea, .dark select {
+  background: #0a0f1c !important; color: #e2e8f0 !important;
+}
+.compact-upload .empty, .compact-upload button {
+  min-height: 44px !important; height: 44px !important;
+  padding: 2px 8px !important; font-size: .85rem !important;
+}
+.compact-upload .wrap.center, .compact-upload .wrap {
+  padding: 0 !important; min-height: 44px !important;
+}
+.compact-upload .empty .icon-wrap { display: none !important; }
+#reader_wrap { width: 100% !important; }
+#reader img { max-width: 100% !important; width: 100% !important; height: auto !important; }
+.dark #reader_wrap, #reader_wrap .gr-html { background: #0a0f1c !important; }
+#runbtn {
+  font-size: 1.08rem !important; padding: 13px 0 !important;
+  background: linear-gradient(135deg, #6366f1, #a855f7) !important;
+  border: none !important; border-radius: 14px !important; margin: 6px 0 10px 0;
+}
+footer { display: none !important; }
+"""
+
+
+def _safe(cls, *args, **kw):
+    
+    while True:
+        try:
+            return cls(*args, **kw)
+        except TypeError as e:
+            mobj = re.search(r"unexpected keyword argument '(\w+)'", str(e))
+            if not mobj or mobj.group(1) not in kw:
+                raise
+            kw.pop(mobj.group(1))
+
+
+def _gradio_major() -> int:
+    try:
+        import gradio
+        return int(gradio.__version__.split(".")[0])
+    except Exception:
+        return 0
+
+
+def run_web():
+    
+    os.environ["GRADIO_ALLOWED_PATHS"] = os.pathsep.join(
+        {str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR), str(HERE)})
+    try:
+        import gradio  
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "gradio"])
+    import gradio as gr
+
+    cfg = load_config()
+    print("[*] بررسی فونت‌های لحن…")
+    try:
+        n = download_fonts()
+        print(f"[+] {n} فونت دانلود شد.")
+    except Exception as e:
+        print(f"[!] فونت‌ها: {e}")
+
+    def natural_key(s):
+        return [int(t) if t.isdigit() else t.lower()
+                for t in re.split(r"(\d+)", s)]
+
+    def build_reader_html(files):
+        
+        imgs = "".join(
+            f'<img src="/file={p}" '
+            'style="width:100%;display:block;margin:0 auto 4px auto;" loading="lazy">'
+            for p in files
+        )
+        return '<div id="reader">' + imgs + "</div>"
+
+    g6 = _gradio_major() >= 6
+    blocks_kw = {} if g6 else {"theme": gr.themes.Soft(primary_hue="indigo",
+                                                       neutral_hue="slate"),
+                               "css": WEB_CSS}
+    with gr.Blocks(title=APP_NAME, **blocks_kw) as demo:
+
+        
+        gr.HTML(
+            """
+<div class="nav">
+  <div class="nav-brand">📖 مانگا مترجم <b>PRO</b></div>
+  <div class="nav-chips">
+    <span class="chip">⚡ CPU</span>
+    <span class="chip">🧠 Gemini / ChatGPT / Groq / …</span>
+    <span class="chip">🧹 LaMa-Manga</span>
+  </div>
+</div>
+"""
+        )
+
+        
+        with gr.Group(elem_classes=["stepcard"]):
+            gr.HTML('<div class="steptitle"><span class="stepnum">۱</span> ورودی — فایل یا لینک چاپتر</div>')
+            inp_upload = gr.File(label="آپلود فایل (pdf / zip / cbz / تصویر / html)",
+                                 file_count="single", type="filepath",
+                                 elem_classes=["compact-upload"])
+            inp_path = gr.Textbox(label="یا URL تصویر/چاپتر",
+                                  placeholder="https://cdn.example.com/chapter/1/001.webp")
+
+        
+        with gr.Group(elem_classes=["stepcard"]):
+            gr.HTML('<div class="steptitle"><span class="stepnum">۲</span> مترجم هوش مصنوعی</div>')
+            with gr.Row():
+                provider = gr.Dropdown(PROVIDERS, value=cfg.get("provider", "gemini"),
+                                       label="ارائه‌دهنده", scale=1)
+                api_keys = gr.Textbox(label="کلیدهای API شما (با کاما = چرخش خودکار)",
+                                      value=cfg.get("api_keys") or default_keys(),
+                                      type="password", scale=3,
+                                      info="کلید شما فقط در همین نشست مرورگر شما می‌ماند و ذخیرهٔ سروری نمی‌شود.")
+                model = gr.Textbox(label="مدل (خالی = پیش‌فرض)",
+                                   value=cfg.get("model", ""),
+                                   placeholder="gemini-3.8-flash", scale=2)
+            gr.Markdown("<div class='hint'>کلید از aistudio.google.com (Gemini) یا "
+                        "platform.openai.com (ChatGPT) یا console.groq.com بگیرید.</div>")
+
+        
+        with gr.Group(elem_classes=["stepcard"]):
+            gr.HTML('<div class="steptitle"><span class="stepnum">۳</span> خروجی</div>')
+            with gr.Row():
+                out_fmt = gr.Radio(["PDF", "ZIP", "HTML", "پوشهٔ تصاویر"],
+                                   value=cfg.get("out_fmt", "PDF"), label="قالب")
+                quality = gr.Slider(60, 100, value=int(cfg.get("quality", 92)),
+                                    step=1, label="کیفیت تصویر")
+
+        
+        with gr.Accordion("✒️ فونت‌ها (اصلی + لحن‌ها — اختیاری، خالی = فونت سرور)", open=False):
+            font_upload = gr.File(label="فونت اصلی (.ttf)",
+                                  file_count="single", type="filepath",
+                                  file_types=[".ttf", ".otf"],
+                                  elem_classes=["compact-upload"])
+            gr.Markdown("<div class='hint'>هر فونت لحن را جدا آپلود کنید؛ خالی = فونت سرور</div>")
+            SLOT_LABELS = {
+                "normal": "کودک (عادی)", "shout": "افسانه (خشم)",
+                "comedy_shout": "کروش (کمدی)", "whisper": "زمزمه",
+                "thought": "تفکر", "system": "سیستم/تگ",
+                "letter": "نامه/طومار", "narrator": "راوی", "free_text": "متن آزاد",
+            }
+            tone_uploads = []
+            tone_slots = []
+            with gr.Row():
+                col1 = gr.Column()
+                col2 = gr.Column()
+            slots = list(FONT_BUNDLES)
+            half = (len(slots) + 1) // 2
+            for ci, chunk in enumerate((slots[:half], slots[half:])):
+                with (col1 if ci == 0 else col2):
+                    for slot, fname, desc, _u in chunk:
+                        have = os.path.isfile(os.path.join(FONT_DIR, fname))
+                        up = gr.File(label=f"{SLOT_LABELS.get(slot, slot)} ({desc})"
+                                          f"{' ✓' if have else ''}",
+                                     file_count="single", type="filepath",
+                                     file_types=[".ttf", ".otf"],
+                                     elem_classes=["compact-upload"])
+                        tone_uploads.append(up)
+                        tone_slots.append(slot)
+
+        with gr.Accordion("⚙️ تنظیمات دیگر", open=False):
+            with gr.Row():
+                workers = _safe(gr.Slider, 1, 8, value=int(cfg.get("workers", 2)),
+                                step=1, label="ورکر موازی OCR")
+                bubbles = _safe(gr.Slider, 1, 12, value=int(cfg.get("bubbles", 6)),
+                                step=1, label="حباب در هر درخواست ترجمه")
+                timeout = _safe(gr.Slider, 10, 120, value=int(cfg.get("timeout", 40)),
+                                step=5, label="تایم‌اوت هر درخواست (ثانیه)")
+            with gr.Row():
+                use_lama = gr.Checkbox(label="اجبار LaMa-Manga (خالی = خودکار)",
+                                       value=False)
+                force_cpu = gr.Checkbox(label="اجبار CPU (خالی = GPU اگر بود)",
+                                        value=False)
+                two_pass = gr.Checkbox(label="OCR دومرحله‌ای", value=True)
+
+        run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
+
+        
+        with gr.Accordion("📡 لاگ زنده", open=True):
+            log_box = _safe(gr.Textbox, lines=14, max_lines=40, autoscroll=True,
+                            show_label=False)
+
+        
+        html_state = gr.State("")
+        with gr.Group(elem_classes=["stepcard"], visible=False) as result_group:
+            gr.HTML('<div class="steptitle"><span class="stepnum">✓</span> نتیجه — نمایش یا دانلود</div>')
+            with gr.Row():
+                btn_view = _safe(gr.Button, "👁 نمایش", visible=False)
+                dl_btn = _safe(gr.DownloadButton, label="⬇ دانلود", visible=False)
+            viewer_html = gr.HTML(visible=False, elem_id="reader_wrap")
+
+        def run_translation(inp_path_v, upload, provider_v, api_keys_v, model_v,
+                            out_fmt_v, quality_v, font_up,
+                            workers_v, bubbles_v, timeout_v,
+                            use_lama_v, force_cpu_v, two_pass_v,
+                            *tone_files):
+            tone_map = dict(zip(tone_slots, tone_files))
+            src = upload or (inp_path_v or "").strip()
+            if not src:
+                yield ("❌ ورودی خالی است — فایل آپلود کنید یا URL بدهید.",
+                       gr.update(visible=False), gr.update(visible=False),
+                       gr.update(visible=False), "", [])
+                return
+            font_v = font_up or find_font()
+            if not font_v or not os.path.isfile(font_v):
+                yield ("❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید.",
+                       gr.update(visible=False), gr.update(visible=False),
+                       gr.update(visible=False), "", [])
+                return
+
+            
+            save_config({"out_fmt": out_fmt_v, "quality": quality_v,
+                         "provider": provider_v, "model": model_v,
+                         "workers": int(workers_v), "bubbles": int(bubbles_v),
+                         "timeout": int(timeout_v), "force_cpu": force_cpu_v})
+
+            ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[out_fmt_v]
+            base = os.path.splitext(os.path.basename(src))[0] + "_fa"
+            out_v = os.path.join(OUT_DIR, base + ext)
+            os.makedirs(OUT_DIR, exist_ok=True)
+
+            cmd = [sys.executable, "-u", MANGA_PY, "-i", src, "-o", out_v,
+                   "--font", font_v,
+                   "--provider", provider_v,
+                   "--workers", str(int(workers_v)),
+                   "--bubbles-per-request", str(int(bubbles_v)),
+                   "--api-timeout", str(int(timeout_v)),
+                   "--quality", str(int(quality_v))]
+            cmd += font_args()
+            for slot, fp in tone_map.items():
+                if fp and os.path.isfile(fp):
+                    cmd += ["--font-" + slot.replace("_", "-"), fp]
+            klist = [k.strip() for k in (api_keys_v or "").replace(";", ",").split(",") if k.strip()]
+            if klist:
+                cmd += ["--api-key", ",".join(klist)]
+            if model_v.strip():
+                cmd += ["--model", model_v.strip()]
+            if use_lama_v:
+                cmd += ["--lama"]
+            if force_cpu_v:
+                cmd += ["--cpu"]
+            if not two_pass_v:
+                cmd += ["--no-two-pass-ocr"]
+
+            yield ("▶ `" + " ".join(cmd) + "`",
+                   gr.update(visible=False), gr.update(visible=False),
+                   gr.update(visible=False), "", [])
+            t0 = time.time()
+            proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True,
+                                    encoding="utf-8", errors="replace", bufsize=1)
+            buf = []
+            last = 0.0
+            for line in proc.stdout:
+                buf.append(line.rstrip())
+                if time.time() - last >= 0.25:
+                    el = int(time.time() - t0)
+                    yield (f"⏱ {el//60}:{el%60:02d}" + chr(10) +
+                           chr(10).join(buf[-120:]),
+                           gr.update(visible=False), gr.update(visible=False),
+                           gr.update(visible=False), "", [])
+                    last = time.time()
+            proc.wait()
+            el = int(time.time() - t0)
+            dur_s = f"{el//60}:{el%60:02d}"
+            if proc.returncode != 0:
+                yield (chr(10).join(buf[-120:]) + chr(10) + chr(10) +
+                       f"❌ خطا — کد خروج {proc.returncode}",
+                       gr.update(visible=False), gr.update(visible=False),
+                       gr.update(visible=False), "", [])
+                return
+            target = out_v
+            if os.path.isdir(out_v):
+                
+                target = shutil.make_archive(out_v, "zip", out_v)
+            size = os.path.getsize(target) if os.path.isfile(target) else 0
+            size = os.path.getsize(target) if os.path.isfile(target) else 0
+            append_history({"time": datetime.now().strftime("%m-%d %H:%M"),
+                            "input": src, "status": "✅", "duration": dur_s})
+            
+            img_dir = out_v if os.path.isdir(out_v) else \
+                os.path.join(out_v + ".cache", "out")
+            imgs = []
+            if os.path.isdir(img_dir):
+                for f in sorted(os.listdir(img_dir), key=natural_key):
+                    if f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
+                        imgs.append(os.path.join(img_dir, f))
+            if not imgs and target.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
+                imgs = [target]
+            yield (chr(10).join(buf[-120:]) + chr(10) + chr(10) +
+                   f"✅ **تمام شد ({dur_s})** — دکمه‌های نمایش و دانلود پایین فعال شدند",
+                   gr.update(value=target, visible=True),
+                   gr.update(visible=True),
+                   gr.update(visible=True),
+                   build_reader_html(imgs), imgs)
+
+        run_btn.click(
+            run_translation,
+            inputs=[inp_path, inp_upload, provider, api_keys, model,
+                    out_fmt, quality, font_upload,
+                    workers, bubbles, timeout, use_lama, force_cpu, two_pass] +
+                   tone_uploads,
+            outputs=[log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
+            concurrency_limit=1,
+        )
+
+        
+        view_js = """
+() => {
+  const g = document.getElementById('reader_wrap');
+  if (g) { if (g.requestFullscreen) { g.requestFullscreen(); }
+           else if (g.webkitRequestFullscreen) { g.webkitRequestFullscreen(); } }
+  const r = document.getElementById('reader');
+  if (r) { r.scrollIntoView({behavior: 'smooth'}); }
+  return [];
+}
+"""
+        try:
+            btn_view.click(fn=lambda st: gr.update(value=st, visible=True),
+                           inputs=[html_state], outputs=[viewer_html],
+                           js=view_js)
+        except Exception:
+            try:
+                btn_view.click(fn=lambda st: gr.update(value=st, visible=True),
+                               inputs=[html_state], outputs=[viewer_html])
+            except Exception:
+                pass
+
+        gr.Markdown(
+            "<div style='text-align:center; opacity:.45; margin-top:16px'>"
+            "مانگا مترجم PRO · RT-DETR + Gemini/… + LaMa-Manga · اجرا روی CPU</div>"
+        )
+
+    
+    dark_js = "() => { document.body.classList.add('dark');" \
+              " document.documentElement.classList.add('dark'); }"
+    try:
+        demo.load(None, None, None, js=dark_js)
+    except Exception:
+        try:
+            demo.load(js=dark_js)
+        except Exception:
+            pass
+
+    on_colab = "google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG"))
+    on_codespace = bool(os.environ.get("CODESPACE_NAME"))
+    if on_codespace:
+        print("[i] GitHub Codespaces: لینک عمومی پایین را باز کنید (نیازی به Port Forwarding نیست).")
+        print("[i] یا تب Ports → پورت 7860 → Visibility: Public")
+    print(f"[*] فونت اصلی: {find_font() or 'پیدا نشد'}")
+    launch_kw = {}
+    if _gradio_major() >= 6:
+        launch_kw["theme"] = gr.themes.Soft(primary_hue="indigo", neutral_hue="slate")
+        launch_kw["css"] = WEB_CSS
+    demo.queue(max_size=4).launch(
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("MANGA_APP_PORT", "7860")),
+        share=on_colab or on_codespace,
+        show_error=True,
+        allowed_paths=[str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR)],
+        **launch_kw,
+    )
+
+
+
+def main():
+    ensure_dirs()
+    args = sys.argv[1:]
+
+    if not manga_py_ok() and not any(a in ("--web", "-h", "--help") for a in args):
+        print(MANGA_MIXED_MSG)
+        if os.name == "nt":
+            try:
+                import tkinter as tk
+                from tkinter import messagebox
+                r = tk.Tk(); r.withdraw()
+                messagebox.showerror(APP_NAME, MANGA_MIXED_MSG)
+            except Exception:
+                pass
+        sys.exit(1)
+
+    if args and args[0] == "--":
+        run_cli(args[1:])
+        return
+    if "--cli" in args and "-i" not in args and "--input" not in args:
+        run_cli([])
+        return
+    if any(a in ("-i", "--input", "-h", "--help") for a in args):
+        run_cli(args)
+        return
+    if "--web" in args:
+        run_web()
+        return
+    if "--desktop" in args:
+        run_desktop()
+        return
+
+    
+    on_colab = "google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG"))
+    headless = (not has_display()) or bool(os.environ.get("SSH_CONNECTION")) or on_colab
+    if headless:
+        print("[*] محیط بدون دسکتاپ → رابط وب")
+        try:
+            run_web()
+        except KeyboardInterrupt:
+            pass
+        return
+
+    try:
+        run_desktop()
+    except Exception as e:
+        print(f"[!] دسکتاپ ممکن نشد ({e}) → رابط وب")
+        run_web()
+
+
+if __name__ == "__main__":
+    main()
