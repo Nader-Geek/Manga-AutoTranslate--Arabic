@@ -7,7 +7,6 @@ on:
         description: "لینک ورودی (صفحه مانگا / ZIP / PDF / تصویر)"
         required: true
         type: string
-
       provider:
         description: "ارائه‌دهنده AI"
         required: false
@@ -21,19 +20,16 @@ on:
           - xai
           - openrouter
           - together
-
       model:
         description: "نام مدل (خالی = پیش‌فرض provider)"
         required: false
         default: ""
         type: string
-
       ocr_lang:
         description: "زبان OCR (مثلاً en یا ko en یا ja en)"
         required: false
         default: "en"
         type: string
-
       reading_order:
         description: "ترتیب خواندن"
         required: false
@@ -42,7 +38,6 @@ on:
         options:
           - rtl
           - ltr
-
       output_format:
         description: "فرمت خروجی"
         required: false
@@ -57,7 +52,6 @@ jobs:
   translate:
     runs-on: ubuntu-latest
     timeout-minutes: 360
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,85 +62,49 @@ jobs:
           python-version: "3.12"
 
       - name: Install system dependencies
-        run: |
-          sudo apt-get update
+        run: | #sudo apt-get update
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev
 
-          sudo apt-get install -y \
-            libgl1 \
-            libglib2.0-0 \
-            libsm6 \
-            libxext6 \
-            libxrender-dev
-
-      - name: Download fonts
+      - name: Download fonts (Vazirmatn multi-weight)
         run: |
           set -e
-
           mkdir -p fonts
-
           echo "Downloading Vazirmatn..."
           curl -fL \
             "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Bold.ttf" \
             -o "fonts/Vazirmatn-Bold.ttf"
-
           curl -fL \
             "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Regular.ttf" \
             -o "fonts/Vazirmatn-Regular.ttf"
-
-
           echo "Downloading Lalezar..."
           curl -fL \
             "https://raw.githubusercontent.com/google/fonts/main/ofl/lalezar/Lalezar-Regular.ttf" \
             -o "fonts/Lalezar-Regular.ttf"
-
-
           echo "Downloading Gandom..."
           curl -fL \
             "https://raw.githubusercontent.com/rastikerdar/gandom-font/master/dist/Gandom.ttf" \
             -o "fonts/Gandom.ttf"
-
-
           echo "Downloading Nahid..."
           curl -fL \
             "https://raw.githubusercontent.com/rastikerdar/nahid-font/master/dist/Nahid.ttf" \
             -o "fonts/Nahid.ttf"
-
-
           echo "Downloading Sahel..."
           curl -fL \
             "https://raw.githubusercontent.com/rastikerdar/sahel-font/master/dist/Sahel.ttf" \
             -o "fonts/Sahel.ttf"
-
-
           echo "Downloading Samim..."
           curl -fL \
             "https://raw.githubusercontent.com/rastikerdar/samim-font/master/dist/Samim-Bold.ttf" \
             -o "fonts/Samim-Bold.ttf"
-
-
           echo "Downloading Amiri..."
           curl -fL \
             "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf" \
             -o "fonts/Amiri-Regular.ttf"
-
-
           echo "Downloading Shabnam..."
           curl -fL \
             "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf" \
             -o "fonts/Shabnam-Bold.ttf"
-
-
-          echo ""
-          echo "=========================================="
-          echo "Downloaded fonts:"
-          echo "=========================================="
-
-          ls -lh fonts/
-
-          echo ""
-          echo "Font count:"
-          find fonts -type f -name "*.ttf" | wc -l
-
+          ls -la fonts/
 
       - name: Resolve API key from secrets
         id: api
@@ -159,146 +117,41 @@ jobs:
           OPENROUTER: ${{ secrets.OPENROUTER }}
           TOGETHER: ${{ secrets.TOGETHER }}
           API: ${{ secrets.API }}
-
         run: |
           PROVIDER="${{ inputs.provider }}"
           KEY=""
-
           case "$PROVIDER" in
-
-            gemini)
-              KEY="${GEMINI:-$API}"
-              ;;
-
-            openai)
-              KEY="${OPENAI:-$API}"
-              ;;
-
-            deepseek)
-              KEY="${DEEPSEEK:-$API}"
-              ;;
-
-            groq)
-              KEY="${GROQ:-$API}"
-              ;;
-
-            xai)
-              KEY="${XAI:-$API}"
-              ;;
-
-            openrouter)
-              KEY="${OPENROUTER:-$API}"
-              ;;
-
-            together)
-              KEY="${TOGETHER:-$API}"
-              ;;
-
-            *)
-              KEY="${API}"
-              ;;
-
+            gemini)     KEY="${GEMINI:-$API}" ;;
+            openai)     KEY="${OPENAI:-$API}" ;;
+            deepseek)   KEY="${DEEPSEEK:-$API}" ;;
+            groq)       KEY="${GROQ:-$API}" ;;
+            xai)        KEY="${XAI:-$API}" ;;
+            openrouter) KEY="${OPENROUTER:-$API}" ;;
+            together)   KEY="${TOGETHER:-$API}" ;;
+            *)          KEY="${API}" ;;
           esac
 
-
           if [ -z "$KEY" ]; then
-            echo ""
-            echo "=========================================="
-            echo "ERROR: API key not found"
-            echo "=========================================="
-            echo ""
-            echo "Provider: $PROVIDER"
-            echo ""
-            echo "Set one of these GitHub Secrets:"
-            echo ""
-            echo "GEMINI"
-            echo "OPENAI"
-            echo "DEEPSEEK"
-            echo "GROQ"
-            echo "XAI"
-            echo "OPENROUTER"
-            echo "TOGETHER"
-            echo "API"
-            echo ""
-
+            echo "خطا: Secret مربوط به provider «$PROVIDER» تنظیم نشده."
+            echo "یکی از این‌ها را در Settings → Secrets بگذارید:"
+            echo "  GEMINI / OPENAI / DEEPSEEK / GROQ /"
+            echo "  XAI / OPENROUTER / TOGETHER / یا API عمومی"
             exit 1
           fi
-
-
-          echo "RESOLVED_KEY=$KEY" >> "$GITHUB_ENV"
-          echo "PROVIDER=$PROVIDER" >> "$GITHUB_ENV"
-
-          echo "Provider: $PROVIDER"
-          echo "API key resolved successfully."
+          echo "RESOLVED_KEY=$KEY" >> $GITHUB_ENV
+          echo "PROVIDER=$PROVIDER" >> $GITHUB_ENV
 
       - name: Run translator
         run: |
-          set -e
-
           OUT_EXT=".${{ inputs.output_format }}"
+          echo "OUT_EXT=$OUT_EXT" >> $GITHUB_ENV
 
-          echo "OUT_EXT=$OUT_EXT" >> "$GITHUB_ENV"
-
-
-          # --------------------------------------
-          # MODEL
-          # --------------------------------------
           MODEL_ARG=""
-
           if [ -n "${{ inputs.model }}" ]; then
             MODEL_ARG="--model ${{ inputs.model }}"
           fi
 
-
-          echo ""
-          echo "=========================================="
-          echo "Starting Manga Auto Translator"
-          echo "=========================================="
-          echo ""
-
-          echo "Input URL:"
-          echo "${{ inputs.input_url }}"
-
-          echo ""
-          echo "Provider:"
-          echo "$PROVIDER"
-
-          echo ""
-          echo "Model:"
-          if [ -n "${{ inputs.model }}" ]; then
-            echo "${{ inputs.model }}"
-          else
-            echo "Provider default"
-          fi
-
-          echo ""
-          echo "OCR:"
-          echo "${{ inputs.ocr_lang }}"
-
-          echo ""
-          echo "Reading order:"
-          echo "${{ inputs.reading_order }}"
-
-          echo ""
-          echo "Output:"
-          echo "$OUT_EXT"
-
-          echo ""
-          echo "=========================================="
-          echo "Fonts"
-          echo "=========================================="
-
-          ls -lh fonts/
-
-
-          echo ""
-          echo "=========================================="
-          echo "Running Python"
-          echo "=========================================="
-          echo ""
-
-
-          python manga.py \
+          python manga_translator.py \
             -i "${{ inputs.input_url }}" \
             -o "$OUT_EXT" \
             --font "fonts/Vazirmatn-Bold.ttf" \
@@ -318,10 +171,8 @@ jobs:
             --font-narrator "fonts/Shabnam-Bold.ttf" \
             --font-square-thought "fonts/Sahel.ttf" \
             --font-black "fonts/Vazirmatn-Bold.ttf" \
-
             --font-explosion "fonts/Lalezar-Regular.ttf" \
             --font-sfx "fonts/Gandom.ttf" \
-
             --ocr-lang ${{ inputs.ocr_lang }} \
             --reading-order ${{ inputs.reading_order }} \
             --provider "$PROVIDER" \
@@ -329,66 +180,25 @@ jobs:
             $MODEL_ARG \
             --cpu
 
-
-          echo ""
-          echo "=========================================="
-          echo "Searching output"
-          echo "=========================================="
-          echo ""
-
-
-          RESULT=$(
-            ls -1t *"$OUT_EXT" 2>/dev/null |
-            head -n 1 ||
-            true
-          )
-
-
+          RESULT=$(ls -1t *"$OUT_EXT" 2>/dev/null | head -n 1 || true)
           if [ -z "$RESULT" ]; then
-
-            echo ""
-            echo "ERROR:"
-            echo "No output file with extension $OUT_EXT found."
-            echo ""
-
-            echo "Current directory:"
-            ls -lah
-
-            echo ""
-            echo "All files:"
-            find . -maxdepth 2 -type f -print
-
+            echo "هیچ فایل خروجی با پسوند $OUT_EXT پیدا نشد."
+            ls -la
             exit 1
           fi
 
-
           STEM=$(basename "$RESULT" "$OUT_EXT")
-
-
-          echo "RESULT_FILE=$RESULT" >> "$GITHUB_ENV"
-          echo "RESULT_STEM=$STEM" >> "$GITHUB_ENV"
-
-
-          echo ""
-          echo "=========================================="
-          echo "SUCCESS"
-          echo "=========================================="
-          echo ""
-          echo "Output:"
-          echo "$RESULT"
-          echo ""
+          echo "RESULT_FILE=$RESULT" >> $GITHUB_ENV
+          echo "RESULT_STEM=$STEM" >> $GITHUB_ENV
+          echo "خروجی نهایی: $RESULT"
 
       - name: Upload all results
         uses: actions/upload-artifact@v4
-
         with:
           name: ${{ env.RESULT_STEM }}
-
           path: |
             *.pdf
             *.html
             *.zip
-
           retention-days: 7
-
           if-no-files-found: error
