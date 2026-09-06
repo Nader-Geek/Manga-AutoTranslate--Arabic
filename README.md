@@ -184,7 +184,7 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/amirwolf5122/Manga-AutoTranslate/blob/main/Manga_Translator_Colab.ipynb)
 
 ```bash
-!python manga_app.py
+!bash manga.sh
 ```
 
 لینک عمومی `gradio.live` خودکار چاپ می‌شود. ⚠ هر دو فایل `manga.py` (مترجم) و `manga_app.py` (برنامه) باید کنار هم باشند.
@@ -192,7 +192,7 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 ### ۲) GitHub Codespaces
 
 ```bash
-python manga_app.py
+!bash manga.sh
 ```
 
 لینک عمومی خودکار می‌دهد؛ یا تب Ports → پورت 7860 → Public. برای زنده‌ماندن سرور بعد از بستن ترمینال از tmux استفاده کنید:
