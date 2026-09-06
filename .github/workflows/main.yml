@@ -301,7 +301,7 @@ jobs:
           python manga.py \
             -i "${{ inputs.input_url }}" \
             -o "$OUT_EXT" \
-
+            --font "fonts/Vazirmatn-Bold.ttf" \
             --font-normal "fonts/Vazirmatn-Bold.ttf" \
             --font-shout "fonts/Lalezar-Regular.ttf" \
             --font-comedy-shout "fonts/Gandom.ttf" \
