@@ -298,7 +298,7 @@ jobs:
           echo ""
 
 
-          python manga_translator.py \
+          python manga.py \
             -i "${{ inputs.input_url }}" \
             -o "$OUT_EXT" \
 
