@@ -31,8 +31,8 @@
 ## نمونه خروجی
 
 | قبل | بعد |
-|:---:|:---:|
-| ![before](examples/before.png) | ![after](examples/after.png) |
+|:---:|:---:|:---:|
+| ![before](examples/before.png) | ![after](examples/debug.png) | ![after](examples/after.png) |
 
 ---
 
