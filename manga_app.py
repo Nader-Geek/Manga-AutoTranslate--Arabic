@@ -319,7 +319,7 @@ HELP_TEXT = f"""راهنما — {APP_NAME} v{APP_VER}
   در fonts/ جایگزین کنید و برنامه را دوباره باز کنید.
 
 ▶ CLI
-  python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu --lama
+  python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY
 
 ▶ نکات
   • کلید از aistudio.google.com / platform.openai.com / openrouter.ai — چند کلید = چرخش خودکار
@@ -411,7 +411,6 @@ def run_cli_interactive():
         cmd += ["--api-key", ",".join(klist)]
     if model:
         cmd += ["--model", model]
-    cmd += ["--lama", "--cpu"]
 
     print("\n▶ " + " ".join(cmd) + "\n")
     proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
