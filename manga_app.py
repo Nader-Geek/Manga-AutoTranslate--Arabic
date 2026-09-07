@@ -29,17 +29,19 @@ KEY_ENV_ORDER = ("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY",
 PROVIDERS = ["gemini", "openai", "chatgpt", "deepseek", "groq",
              "xai", "grok", "together", "openrouter", "ollama"]
 
+DEFAULT_GEMINI_KEYS = ",".join([])
 
-C_BG = "#0b1220"
-C_BG2 = "#0f172a"
-C_CARD = "#111c30"
-C_LINE = "#233047"
-C_TXT = "#e2e8f0"
-C_MUT = "#8ea0bd"
-C_ACC = "#6366f1"
+
+C_BG = "#060607"
+C_BG2 = "#101014"
+C_CARD = "#0d0d10"
+C_LINE = "#1f1f24"
+C_TXT = "#e8e6e1"
+C_MUT = "#97948c"
+C_ACC = "#ff4a3d"
 ACCENT = C_ACC
-C_OK = "#34d399"
-C_ERR = "#f87171"
+C_OK = "#38c98a"
+C_ERR = "#ff6a5e"
 
 
 
@@ -87,7 +89,7 @@ def default_keys() -> str:
         v = os.environ.get(name, "").strip()
         if v:
             return v
-    return ""
+    return DEFAULT_GEMINI_KEYS
 
 
 def load_config() -> dict:
@@ -307,7 +309,7 @@ HELP_TEXT = f"""راهنما — {APP_NAME} v{APP_VER}
   سپس:  !python manga_app.py
   ⚠ manga_app.py را با نام manga.py ذخیره نکنید — خطای «فایل مترجم نیست» می‌گیرید.
 
-▶ GitHub Codespaces
+▶ GitHub Codespaces / SSH
   لینک عمومی خودکار چاپ می‌شود (gradio.live) — نیازی به Port Forwarding نیست.
   ⚠ سرور وب به نشست ترمینال چسبیده است: با بستن ترمینال kill می‌شود.
   برای زنده‌ماندن: tmux new -s manga 'python3 manga_app.py --web'
@@ -319,7 +321,7 @@ HELP_TEXT = f"""راهنما — {APP_NAME} v{APP_VER}
   در fonts/ جایگزین کنید و برنامه را دوباره باز کنید.
 
 ▶ CLI
-  python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY
+  python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu --lama
 
 ▶ نکات
   • کلید از aistudio.google.com / platform.openai.com / openrouter.ai — چند کلید = چرخش خودکار
@@ -411,6 +413,7 @@ def run_cli_interactive():
         cmd += ["--api-key", ",".join(klist)]
     if model:
         cmd += ["--model", model]
+    cmd += ["--lama", "--cpu"]
 
     print("\n▶ " + " ".join(cmd) + "\n")
     proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
@@ -491,15 +494,19 @@ def run_desktop():
     style.configure("Accent.TButton", font=(None, 11, "bold"), foreground="white",
                     background=ACCENT, padding=(16, 8))
     style.map("Accent.TButton",
-              background=[("active", "#4f46e5"), ("disabled", "#3730a3")],
-              foreground=[("disabled", "#c7d2fe")])
+              background=[("active", "#ff6a5e"), ("disabled", "#6e2019")],
+              foreground=[("disabled", "#f0b8b2")])
+    style.configure("TNotebook.Tab", font=(None, 10))
 
     
     head = tk.Frame(root, bg=C_BG2, highlightthickness=0, bd=0)
     head.pack(fill="x")
-    tk.Label(head, text=f"📖 {APP_NAME}", font=(None, 14, "bold"),
-             bg=C_BG2, fg=C_TXT).pack(side="right", padx=16, pady=9)
-    tk.Label(head, text=f"v{APP_VER}", font=(None, 9),
+    stamp = tk.Label(head, text="漫", font=(None, 15, "bold"),
+                     bg=ACCENT, fg="white", width=3, pady=2)
+    stamp.pack(side="right", padx=(16, 10), pady=8)
+    tk.Label(head, text=APP_NAME, font=(None, 14, "bold"),
+             bg=C_BG2, fg=C_TXT).pack(side="right", pady=9)
+    tk.Label(head, text=f"v{APP_VER}", font=("IBM Plex Mono", 9),
              bg=C_BG2, fg=C_MUT).pack(side="left", padx=10)
     status_lbl = tk.Label(head, text="● آماده", font=(None, 10, "bold"),
                           bg=C_BG2, fg=C_OK)
@@ -955,72 +962,246 @@ def run_desktop():
     root.mainloop()
 
 WEB_CSS = """
-body, .gradio-container { background: #0b1220 !important; color: #e2e8f0 !important; }
-.gradio-container { max-width: 860px !important; margin: 0 auto !important; }
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root, .gradio-container {
+  --ink-bg: #060607;
+  --ink-surface: #0d0d10;
+  --ink-surface2: #121216;
+  --ink-line: #1f1f24;
+  --ink-text: #e8e6e1;
+  --ink-dim: #97948c;
+  --ink-red: #ff4a3d;
+  --ink-red-deep: #c9271c;
+}
+body, .gradio-container, footer, .gradio-container .prose {
+  background: var(--ink-bg) !important; color: var(--ink-text) !important;
+  font-family: 'Vazirmatn', sans-serif !important;
+}
+.gradio-container {
+  background:
+    radial-gradient(ellipse 120% 70% at 50% -10%, rgba(255,74,61,.06), transparent 60%),
+    radial-gradient(rgba(232,230,225,.028) 1px, transparent 1.4px) 0 0 / 14px 14px,
+    #060607 !important;
+}
+.gradio-container { max-width: 880px !important; margin: 0 auto !important; }
+
+
 .nav {
   display: flex; align-items: center; justify-content: space-between;
-  background: linear-gradient(90deg, #1e1b4b, #4338ca 60%, #7c3aed);
-  border-radius: 16px; padding: 14px 20px; margin-bottom: 16px;
-  box-shadow: 0 8px 24px rgba(67,56,202,.35);
+  flex-wrap: wrap; gap: 10px 16px;
+  background: linear-gradient(180deg, #101014, #0a0a0c);
+  border: 1px solid var(--ink-line);
+  border-radius: 18px; padding: 20px 24px; margin: 6px 0 18px 0;
+  box-shadow: 0 18px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+  position: relative; overflow: hidden;
+  animation: rise .55s cubic-bezier(.2,.7,.2,1) both;
 }
-.nav-brand { color: #fff; font-size: 1.25rem; }
-.nav-chips { display: flex; gap: 8px; }
+.nav::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(rgba(232,230,225,.03) 1px, transparent 1.4px) 0 0 / 10px 10px;
+}
+.nav-left { display: flex; align-items: center; gap: 14px; flex: 1 1 auto; min-width: 230px; }
+.stamp {
+  width: 52px; height: 52px; flex: none;
+  background: linear-gradient(145deg, var(--ink-red), var(--ink-red-deep));
+  border-radius: 10px; transform: rotate(-4deg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.7rem; font-weight: 900; color: #fff;
+  box-shadow: 0 6px 18px rgba(224,53,42,.4), inset 0 0 0 2px rgba(255,255,255,.22);
+  font-family: serif;
+}
+.nav-brand { color: var(--ink-text); font-size: 1.3rem; font-weight: 700; line-height: 1.25; white-space: nowrap; }
+.nav-brand b { color: var(--ink-red); font-weight: 900; }
+.nav-sub { display: block; color: var(--ink-dim); font-size: .74rem; font-weight: 400; letter-spacing: .04em; }
+.nav-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .chip {
-  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25);
-  color: #fff; padding: 3px 10px; border-radius: 999px; font-size: .75rem;
+  font-family: 'IBM Plex Mono', monospace; font-size: .7rem;
+  background: var(--ink-surface2); border: 1px solid var(--ink-line);
+  color: var(--ink-dim); padding: 4px 11px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 6px;
 }
+.chip::before { content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ink-red); box-shadow: 0 0 6px var(--ink-red); }
+
 .stepcard {
-  background: #111c30 !important; border: 1px solid #233047 !important;
-  border-radius: 16px !important; padding: 16px 18px; margin-bottom: 14px;
+  background: linear-gradient(180deg, var(--ink-surface), #0a0a0c) !important;
+  border: 1px solid var(--ink-line) !important;
+  border-radius: 18px !important; padding: 20px 22px 18px; margin-bottom: 16px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.4);
+  position: relative;
+  animation: rise .55s cubic-bezier(.2,.7,.2,1) both;
+}
+.stepcard:nth-of-type(1) { animation-delay: .06s; }
+.stepcard:nth-of-type(2) { animation-delay: .14s; }
+.stepcard:nth-of-type(3) { animation-delay: .22s; }
+.stepcard:nth-of-type(4) { animation-delay: .3s; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
 }
 .steptitle {
-  display: flex; align-items: center; gap: 10px;
-  color: #e2e8f0; font-weight: 700; font-size: 1.05rem; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 12px;
+  color: var(--ink-text); font-weight: 700; font-size: 1.08rem; margin-bottom: 14px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--ink-line);
 }
 .stepnum {
-  background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff;
-  width: 28px; height: 28px; border-radius: 9px;
+  background: linear-gradient(145deg, var(--ink-red), var(--ink-red-deep));
+  color: #fff; width: 30px; height: 30px; border-radius: 8px;
+  transform: rotate(-3deg);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: .95rem; flex: none;
+  font-size: 1rem; font-weight: 900; flex: none;
+  box-shadow: 0 4px 12px rgba(224,53,42,.35), inset 0 0 0 1.5px rgba(255,255,255,.2);
 }
-.hint { color: #8ea0bd !important; font-size: .85rem; margin-top: 6px; }
-label, span, .prose { color: #cbd5e1 !important; }
+.hint { color: var(--ink-dim) !important; font-size: .83rem; margin-top: 8px; }
+
+label, span, .prose, p, li { color: var(--ink-dim) !important; }
+span:not(.stepnum):not(.chip) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+label span, label > span:first-child {
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--ink-dim) !important;
+  box-shadow: none !important;
+  font-size: .85rem; font-weight: 500;
+}
 input[type=text], input[type=password], textarea, select {
-  background: #0a0f1c !important; color: #e2e8f0 !important;
-  border-color: #233047 !important;
+  background: #08080a !important; color: var(--ink-text) !important;
+  border-color: var(--ink-line) !important;
 }
-body.dark, body.dark .gradio-container, .dark {
-  background: #0b1220 !important; color: #e2e8f0 !important;
+.block, .form, .gr-box, .gr-panel, .gr-group, .gr-form,
+.gradio-group, .wrap.full, .container > .wrap {
+  background: var(--ink-surface) !important; border-color: var(--ink-line) !important;
 }
-.dark .block, .dark .form, .dark .gr-box, .dark .stepcard {
-  background: #111c30 !important; border-color: #233047 !important;
+.gr-box input, .gr-box textarea, .gr-input, .gr-textbox {
+  background: #08080a !important; color: var(--ink-text) !important;
 }
-.dark label, .dark span, .dark .prose, .dark .wrap { color: #cbd5e1 !important; }
-.dark input[type=text], .dark input[type=password], .dark textarea, .dark select {
-  background: #0a0f1c !important; color: #e2e8f0 !important;
+.options, .options ul, ul.options, .dropdown-menu, .wrap .options {
+  background: #101014 !important; border-color: var(--ink-line) !important;
 }
+.options li, .options li:hover { background: #101014 !important; color: var(--ink-text) !important; }
+.options li.selected, .options li:hover { background: #1a1114 !important; }
+accordion, .accordion, details {
+  background: var(--ink-surface) !important; border-color: var(--ink-line) !important; color: var(--ink-dim) !important;
+}
+summary { color: var(--ink-dim) !important; }
+input[type=range], input[type=radio], input[type=checkbox] { accent-color: var(--ink-red) !important; }
+input[type=radio], input[type=checkbox] {
+  appearance: auto !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  width: 16px; height: 16px; margin: 0 2px;
+  cursor: pointer;
+}
+input[type=range] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  height: 6px !important; border-radius: 4px !important;
+  background: linear-gradient(to right, var(--ink-red) var(--range_progress, 50%),
+              #1f1f24 var(--range_progress, 50%)) !important;
+  border: none !important;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none !important; appearance: none !important;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: var(--ink-red); border: 2.5px solid #fff;
+  box-shadow: 0 2px 10px rgba(255, 74, 61, .55);
+}
+input[type=number], .gr-box input[type=number] {
+  background: #08080a !important; color: var(--ink-text) !important;
+  border-color: var(--ink-line) !important;
+}
+.gr-checkbox, .gr-radio, .wrap label { background: transparent !important; }
+
+button.primary, .lg.primary, #runbtn {
+  background: linear-gradient(160deg, var(--ink-red), var(--ink-red-deep)) !important;
+  color: #fff !important; border: none !important;
+  font-weight: 700 !important; letter-spacing: .02em;
+  box-shadow: 0 8px 22px rgba(224,53,42,.35), inset 0 1px 0 rgba(255,255,255,.25) !important;
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+button.primary:hover, #runbtn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+button.primary:active, #runbtn:active { transform: translateY(1px) scale(.99); }
+button.secondary, .lg.secondary, button.gr-button {
+  background: var(--ink-surface2) !important; color: var(--ink-text) !important;
+  border: 1px solid var(--ink-line) !important;
+}
+button.gr-button:hover { background: #17171c !important; border-color: #2c2c33 !important; }
+#runbtn {
+  font-size: 1.12rem !important; padding: 15px 0 !important;
+  border-radius: 14px !important; margin: 8px 0 12px 0; position: relative; overflow: hidden;
+}
+#runbtn::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1.4px) 0 0 / 9px 9px;
+  opacity: 0; transition: opacity .18s ease; pointer-events: none;
+}
+#runbtn:hover::after { opacity: 1; }
+
+textarea { scrollbar-color: var(--ink-line) #08080a !important; }
 .compact-upload .empty, .compact-upload button {
-  min-height: 44px !important; height: 44px !important;
-  padding: 2px 8px !important; font-size: .85rem !important;
+  min-height: 48px !important; height: auto !important;
+  padding: 6px 8px !important; font-size: .85rem !important;
+  background: #08080a !important; color: var(--ink-dim) !important;
+  border-color: var(--ink-line) !important;
 }
 .compact-upload .wrap.center, .compact-upload .wrap {
-  padding: 0 !important; min-height: 44px !important;
+  padding: 6px 0 !important; min-height: 48px !important;
+  background: transparent !important;
 }
 .compact-upload .empty .icon-wrap { display: none !important; }
-#reader_wrap { width: 100% !important; }
-#reader img { max-width: 100% !important; width: 100% !important; height: auto !important; }
-.dark #reader_wrap, #reader_wrap .gr-html { background: #0a0f1c !important; }
-#runbtn {
-  font-size: 1.08rem !important; padding: 13px 0 !important;
-  background: linear-gradient(135deg, #6366f1, #a855f7) !important;
-  border: none !important; border-radius: 14px !important; margin: 6px 0 10px 0;
-}
+.compact-upload label { position: static !important; margin: 4px 0 !important; }
+
+
 footer { display: none !important; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #060607; }
+::-webkit-scrollbar-thumb { background: #232329; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-red-deep); }
+::selection { background: var(--ink-red); color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  .nav, .stepcard { animation: none; }
+}
 """
 
 
+def _detect_codespace() -> bool:
+    if os.environ.get("CODESPACE_NAME"):
+        return True
+    if os.environ.get("MANGA_SHARE", "").strip() in ("1", "true", "yes"):
+        return True
+    try:
+        import socket
+        if socket.gethostname().startswith("codespaces-"):
+            return True
+    except Exception:
+        pass
+    try:
+        with open("/etc/environment", encoding="utf-8") as f:
+            if "CODESPACE_NAME=" in f.read():
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _hostname_codespace_name() -> str:
+    try:
+        import socket
+        host = socket.gethostname()
+        if host.startswith("codespaces-"):
+            return host
+    except Exception:
+        pass
+    return ""
+
+
 def _safe(cls, *args, **kw):
-    
     while True:
         try:
             return cls(*args, **kw)
@@ -1062,13 +1243,67 @@ def run_web():
                 for t in re.split(r"(\d+)", s)]
 
     def build_reader_html(files):
-        
+        import gradio as _gr
+        gv = getattr(_gr, "__version__", "4")
+        major = int(str(gv).split(".")[0] or 4)
+        prefix = "/gradio_api/file=" if major >= 5 else "/file="
+        urls = [prefix + str(p).replace(os.sep, "/") for p in files]
+        if not urls:
+            return "<div style='text-align:center;opacity:.6;padding:24px'>تصویری برای نمایش پیدا نشد.</div>"
         imgs = "".join(
-            f'<img src="/file={p}" '
-            'style="width:100%;display:block;margin:0 auto 4px auto;" loading="lazy">'
-            for p in files
+            f'<img src="{u}" loading="lazy" decoding="async" alt="" '
+            'style="display:block;width:100%;height:auto;margin:0">'
+            for u in urls)
+        title = os.path.basename(os.path.dirname(files[0])) or "مانهوا"
+        
+        
+        zoom_by = ("var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
+                   "z=Math.min(4,Math.max(.5,(parseFloat(c.style.zoom)||1)*{f}));"
+                   "c.style.zoom=z;r.querySelector('.zlv').textContent="
+                   "Math.round(z*100)+'%'")
+        zoom_set = ("var r=this.closest('.rdr'),c=r.querySelector('.rdrC');"
+                    "c.style.zoom={z};r.querySelector('.zlv').textContent="
+                    "Math.round({z}*100)+'%'")
+        top_style = ("display:flex;align-items:center;gap:8px;padding:9px 14px;"
+                     "background:#0c0c0e;border-bottom:1px solid #232326;flex:none")
+        btn_style = ("background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;"
+                     "border-radius:8px;padding:6px 15px;font-size:1rem;cursor:pointer;"
+                     "font-family:inherit")
+        return (
+            '<div class="rdr" style="position:fixed;inset:0;z-index:99999;background:#000;'
+            'display:flex;flex-direction:column;direction:ltr;font-family:inherit">'
+            f'<div style="{top_style}">'
+            f'<button style="{btn_style}" title="بستن" '
+            'onclick="this.closest(\'.rdr\').remove()">✕</button>'
+            f'<div style="flex:1;color:#97948c;font-size:.85rem;white-space:nowrap;'
+            'overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl">'
+            + title + '</div>'
+            f'<button style="{btn_style}" onclick="' + zoom_by.format(f="0.8") + '">−</button>'
+            '<span class="zlv" style="color:#97948c;font-size:.8rem;min-width:44px;'
+            'text-align:center">100%</span>'
+            f'<button style="{btn_style}" onclick="' + zoom_by.format(f="1.25") + '">+</button>'
+            f'<button style="{btn_style}" title="پهنای صفحه" onclick="' + zoom_set.format(z="1") + '">پهنا</button>'
+            f'<button style="{btn_style}" title="فول‌اسکرین" onclick="var r=this.closest(\'.rdr\');'
+            'if(document.fullscreenElement){document.exitFullscreen()}'
+            'else if(r.requestFullscreen){r.requestFullscreen()}">⛶</button>'
+            '</div>'
+            '<div class="rdrS" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;'
+            'touch-action:pan-x pan-y pinch-zoom" onwheel="'
+            + zoom_by.format(f="(event.deltaY<0?1.15:0.87)").replace("var ", "if(event.ctrlKey){event.preventDefault();var ", 1)
+            + ';}" onscroll="var b=this.closest(\'.rdr\').querySelector(\'.rdrB\'),'
+            'm=this.scrollHeight-this.clientHeight;'
+            'b.style.width=(m>0?this.scrollTop/m*100:0)+\'%\'" ondblclick="'
+            + ("var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
+               "z=(parseFloat(c.style.zoom)||1)>1.2?1:2.5;"
+               "c.style.zoom=z;r.querySelector('.zlv').textContent="
+               "Math.round(z*100)+'%'") + '">'
+            '<div class="rdrC" style="zoom:1;max-width:760px;margin:0 auto;width:100%">'
+            + imgs + '</div></div>'
+            '<div style="position:relative;height:3px;background:#1a1a1c;flex:none">'
+            '<div class="rdrB" style="height:100%;width:0;'
+            'background:linear-gradient(90deg,#ff4a3d,#ff8a5e)"></div></div>'
+            '</div>'
         )
-        return '<div id="reader">' + imgs + "</div>"
 
     g6 = _gradio_major() >= 6
     blocks_kw = {} if g6 else {"theme": gr.themes.Soft(primary_hue="indigo",
@@ -1080,11 +1315,14 @@ def run_web():
         gr.HTML(
             """
 <div class="nav">
-  <div class="nav-brand">📖 مانگا مترجم <b>PRO</b></div>
+  <div class="nav-left">
+    <div class="stamp">漫</div>
+    <div class="nav-brand">مانگا مترجم <span class="nav-sub">ترجمهٔ خودکار مانهوا</span></div>
+  </div>
   <div class="nav-chips">
-    <span class="chip">⚡ CPU</span>
-    <span class="chip">🧠 Gemini / ChatGPT / Groq / …</span>
-    <span class="chip">🧹 LaMa-Manga</span>
+    <span class="chip">CPU / GPU</span>
+    <span class="chip">Gemini · ChatGPT · Groq</span>
+    <span class="chip">LaMa-Manga</span>
   </div>
 </div>
 """
@@ -1092,11 +1330,11 @@ def run_web():
 
         
         with gr.Group(elem_classes=["stepcard"]):
-            gr.HTML('<div class="steptitle"><span class="stepnum">۱</span> ورودی — فایل یا لینک چاپتر</div>')
+            gr.HTML('<div class="steptitle"><span class="stepnum">۱</span> ورودی — فایل یا لینک مانهوا</div>')
             inp_upload = gr.File(label="آپلود فایل (pdf / zip / cbz / تصویر / html)",
                                  file_count="single", type="filepath",
                                  elem_classes=["compact-upload"])
-            inp_path = gr.Textbox(label="یا URL تصویر/چاپتر",
+            inp_path = gr.Textbox(label="یا URL تصویر/مانهوا",
                                   placeholder="https://cdn.example.com/chapter/1/001.webp")
 
         
@@ -1285,12 +1523,14 @@ def run_web():
                         imgs.append(os.path.join(img_dir, f))
             if not imgs and target.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
                 imgs = [target]
+            reader_html = build_reader_html(imgs)
             yield (chr(10).join(buf[-120:]) + chr(10) + chr(10) +
                    f"✅ **تمام شد ({dur_s})** — دکمه‌های نمایش و دانلود پایین فعال شدند",
                    gr.update(value=target, visible=True),
                    gr.update(visible=True),
                    gr.update(visible=True),
-                   build_reader_html(imgs), imgs)
+                   gr.update(visible=False),
+                   reader_html)
 
         run_btn.click(
             run_translation,
@@ -1303,23 +1543,31 @@ def run_web():
         )
 
         
+        def _open_viewer(st):
+            st = st or ""
+            if not st.strip():
+                return gr.update(value=st, visible=True)
+            
+            return gr.update(value=st + f"<!--v{time.time():.6f}-->", visible=True)
+
         view_js = """
 () => {
-  const g = document.getElementById('reader_wrap');
-  if (g) { if (g.requestFullscreen) { g.requestFullscreen(); }
-           else if (g.webkitRequestFullscreen) { g.webkitRequestFullscreen(); } }
-  const r = document.getElementById('reader');
-  if (r) { r.scrollIntoView({behavior: 'smooth'}); }
+  setTimeout(() => {
+    const r = document.querySelector('.rdr');
+    if (r && r.requestFullscreen && !document.fullscreenElement) {
+      r.requestFullscreen().catch(() => {});
+    }
+  }, 60);
   return [];
 }
 """
         try:
-            btn_view.click(fn=lambda st: gr.update(value=st, visible=True),
+            btn_view.click(fn=_open_viewer,
                            inputs=[html_state], outputs=[viewer_html],
                            js=view_js)
         except Exception:
             try:
-                btn_view.click(fn=lambda st: gr.update(value=st, visible=True),
+                btn_view.click(fn=_open_viewer,
                                inputs=[html_state], outputs=[viewer_html])
             except Exception:
                 pass
@@ -1341,10 +1589,13 @@ def run_web():
             pass
 
     on_colab = "google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG"))
-    on_codespace = bool(os.environ.get("CODESPACE_NAME"))
+    on_codespace = _detect_codespace()
+    codespace_name = (os.environ.get("CODESPACE_NAME")
+                      or _hostname_codespace_name() or "")
     if on_codespace:
-        print("[i] GitHub Codespaces: لینک عمومی پایین را باز کنید (نیازی به Port Forwarding نیست).")
-        print("[i] یا تب Ports → پورت 7860 → Visibility: Public")
+        print("[i] GitHub Codespaces: لینک عمومی gradio.live پایین را باز کنید.")
+        if codespace_name:
+            print(f"[i] پشتیبان: https://{codespace_name}-7860.app.github.dev")
     print(f"[*] فونت اصلی: {find_font() or 'پیدا نشد'}")
     launch_kw = {}
     if _gradio_major() >= 6:
@@ -1353,7 +1604,7 @@ def run_web():
     demo.queue(max_size=4).launch(
         server_name="0.0.0.0",
         server_port=int(os.environ.get("MANGA_APP_PORT", "7860")),
-        share=on_colab or on_codespace,
+        share=on_colab or on_codespace or (not has_display()),
         show_error=True,
         allowed_paths=[str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR)],
         **launch_kw,
