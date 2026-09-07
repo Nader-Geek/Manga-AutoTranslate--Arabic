@@ -93,12 +93,32 @@ def _ensure_all_dependencies() -> None:
     core = []
     if not _can_import("numpy"):
         core.append("numpy")
-    if not _can_import("cv2"):
-        core.append("opencv-python-headless")
+    cv2_ok = _can_import("cv2")
+    if not cv2_ok and sys.platform.startswith("linux"):
+        
+        _pip_uninstall("opencv-python", "opencv-contrib-python")
+    if not cv2_ok:
+        core.append("opencv-python-headless>=4.8,<5")
     if not _can_import("PIL"):
         core.append("Pillow")
     if core:
         _pip_install(*core)
+
+    if sys.platform.startswith("linux") and not _can_import("cv2"):
+        
+        print("[*] cv2 هنوز لود نمی‌شود → نصب libgl1 ...")
+        for cmd in (
+            ["sudo", "-n", "apt-get", "install", "-y", "libgl1", "libglib2.0-0"],
+            ["apt-get", "install", "-y", "libgl1", "libglib2.0-0"],
+        ):
+            try:
+                r = subprocess.run(cmd, capture_output=True, timeout=300)
+                if r.returncode == 0:
+                    break
+            except Exception:
+                continue
+        if not _can_import("cv2"):
+            _pip_install("opencv-python-headless==4.10.0.84")
 
     
     text_pkgs = []
@@ -612,7 +632,6 @@ class MiganONNX:
 
 class LamaONNX:
     
-    K3_URL = "https://media.githubusercontent.com/media/Kthree-K3/K3-Manga-AutoTranslate-Mobile/main/Models/lama.onnx"
     REPO = "Carve/LaMa-ONNX"
     FILE = "lama_fp32.onnx"
 
@@ -663,29 +682,6 @@ class LamaONNX:
         from pathlib import Path
         cache_root = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "manga_translator_models"
         cache_root.mkdir(parents=True, exist_ok=True)
-        k3_path = cache_root / "k3_lama.onnx"
-
-        if k3_path.is_file() and k3_path.stat().st_size > 1_000_000:
-            print(f"[*] مدل LaMa K3 از کش: {k3_path}")
-            return str(k3_path)
-
-        print("[*] دانلود مدل LaMa ONNX نسخهٔ K3 (سبک و مناسب CPU) ...")
-        try:
-            import requests
-            with requests.get(cls.K3_URL, stream=True, timeout=180) as r:
-                r.raise_for_status()
-                tmp = k3_path.with_suffix(".tmp")
-                with open(tmp, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=1 << 20):
-                        if chunk:
-                            f.write(chunk)
-                tmp.replace(k3_path)
-            size_mb = k3_path.stat().st_size // 1024 // 1024
-            if size_mb >= 1:
-                print(f"[+] مدل K3 ذخیره شد: {k3_path} ({size_mb} MB)")
-                return str(k3_path)
-        except Exception as e:
-            print(f"  [!] دانلود مدل K3 ناموفق ({e})؛ به مدل HuggingFace برمی‌گردیم.")
 
         print(f"[*] دانلود مدل LaMa ONNX از {cls.REPO} ...")
         if hf_hub_download is None:
@@ -1452,6 +1448,34 @@ class MangaTranslator:
             pass
         return ""
 
+    @staticmethod
+    def _available_ram_gb() -> float:
+        try:
+            if os.name == "nt":
+                import ctypes
+                class _MSE(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ]
+                st = _MSE()
+                st.dwLength = ctypes.sizeof(_MSE)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(st)):
+                    return st.ullAvailPhys / (1024 ** 3)
+        except Exception:
+            pass
+        try:
+            with open("/proc/meminfo", encoding="ascii") as f:
+                for line in f:
+                    if line.startswith("MemAvailable:"):
+                        return int(line.split()[1]) / (1024 * 1024)
+        except Exception:
+            pass
+        return 8.0
+
     def _decide_lama(self, force_gpu: Optional[bool]) -> bool:
         
         has_ort = ort is not None
@@ -1655,8 +1679,17 @@ class MangaTranslator:
         self.ocr = None
         self._ocr_backend_name = "none"
 
-        
-        if _HAS_PADDLE:
+        avail_ram = self._available_ram_gb()
+        if avail_ram < 6.0:
+            if self.max_workers > 2:
+                print(f"[*] RAM آزاد کم است ({avail_ram:.1f} GB) → workers={self.max_workers} به ۲ محدود شد.")
+                self.max_workers = 2
+
+        use_paddle = _HAS_PADDLE and avail_ram >= 6.0
+        if _HAS_PADDLE and not use_paddle:
+            print(f"[*] RAM آزاد کم است ({avail_ram:.1f} GB) → PaddleOCR سنگین لود نمی‌شود؛ RapidOCR سبک استفاده می‌شود.")
+
+        if use_paddle:
             print(f"[*] در حال بارگذاری PaddleOCR | lang={main_lang} device={device} ...")
             ocr_kwargs = dict(
                 lang=main_lang,
@@ -1767,7 +1800,7 @@ class MangaTranslator:
     def _get_lama(self):
         
         
-        if self._lama is None and (self.use_lama or getattr(self, "inpaint_auto", True)):
+        if self._lama is None and self.use_lama:
             try:
                 print("    [*] بارگذاری LaMa-Manga ONNX (fine-tune مانگا) ...")
                 self._lama = LamaMangaONNX(
@@ -3648,7 +3681,7 @@ class MangaTranslator:
         
         
         
-        auto_inpaint = (not self.use_lama) and bool(getattr(self, "inpaint_auto", True))
+        auto_inpaint = False
         allow_flat = self.use_lama or auto_inpaint
         if auto_inpaint:
             print("  [*] پاکسازی خودکار: برای هر خوشه بهترین روش انتخاب می‌شود.")
@@ -4669,6 +4702,19 @@ class MangaTranslator:
                     print(f"    [!] کلید نامعتبر ({self.provider})...")
                     if self._remove_current_key_and_switch(reason=str(e)[:100]):
                         continue
+
+                if ("403" in err_str or "forbidden" in err_str.lower()
+                        or "does not have permission" in err_str.lower()):
+                    print(f"    [!] دسترسی رد شد (403) — {self.provider}/{self.model_name}")
+                    if self._switch_to_next_model(reason="403 permission"):
+                        time.sleep(0.3)
+                        continue
+                    if self._switch_to_next_key(reason="403 permission", cycle=True):
+                        time.sleep(0.5)
+                        continue
+                    print("    [X] هیچ کلید/مدلی به Gemini دسترسی ندارد (403). "
+                          "احتمالاً شبکهٔ شما به سرویس گوگل مسدود است — VPN/پروکسی روشن کنید.")
+                    return
 
                 print(f"    [!] تلاش {attempt}/{self.max_retries} ناموفق: {last_err}")
                 if attempt < self.max_retries:
