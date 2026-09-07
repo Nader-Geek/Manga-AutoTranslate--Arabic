@@ -38,7 +38,7 @@ echo [i] Checking dependencies - first run may take a while...
 %PY% -c "import gradio" >nul 2>nul
 if errorlevel 1 %PY% -m pip install -q gradio
 %PY% -c "import cv2" >nul 2>nul
-if errorlevel 1 %PY% -m pip install -q opencv-python pillow numpy
+if errorlevel 1 %PY% -m pip install -q opencv-python-headless pillow numpy
 goto :eof
 
 :app
