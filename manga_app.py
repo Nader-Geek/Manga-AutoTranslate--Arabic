@@ -53,7 +53,7 @@ FONT_BUNDLES = [
         "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Regular.ttf",
     ]),
     ("shout",        "Lalezar-Regular.ttf", "داد خشم", [
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/lalezar/Lalezar-Regular.ttf",
+        "https://github.com/amirwolf5122/Manga-AutoTranslate/raw/refs/heads/main/fonts/Lalezar-Regular.ttf",
         "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf",
     ]),
     ("comedy_shout", "Gandom.ttf", "داد کمدی", [
