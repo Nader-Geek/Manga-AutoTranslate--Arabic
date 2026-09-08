@@ -1,8 +1,15 @@
+
+
 # مترجم خودکار مانگا / مانهوا (فارسی)
+
+
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/amirwolf5122/Manga-AutoTranslate/blob/main/Manga_Translator_Colab.ipynb)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+[DEMO](https://demo--amrie194sm.replit.app/)
+![after](examples/app.jpg)
 
 ابزاری برای **ترجمهٔ خودکار صفحات مانگا و مانهوا به فارسی**.
 
