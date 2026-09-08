@@ -5,6 +5,7 @@ import os
 import queue
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -12,7 +13,7 @@ import time
 from datetime import datetime
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.1"
+APP_VER = "1.2"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1654,17 +1655,20 @@ def run_web():
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۲</span> مترجم هوش مصنوعی</div>')
             with gr.Row():
-                provider = gr.Dropdown(PROVIDERS, value=cfg.get("provider", "gemini"),
+                provider = gr.Dropdown(PROVIDERS, value="gemini",
                                        label="ارائه‌دهنده", scale=1)
                 api_keys = gr.Textbox(label="کلیدهای API شما (با کاما = چرخش خودکار)",
-                                      value=cfg.get("api_keys") or default_keys(),
+                                      value="",
                                       type="password", scale=3,
-                                      info="کلید شما فقط در همین نشست مرورگر شما می‌ماند و ذخیرهٔ سروری نمی‌شود.")
+                                      elem_id="manga_api_keys",
+                                      info="کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ.")
                 model = gr.Textbox(label="مدل (خالی = پیش‌فرض)",
-                                   value=cfg.get("model", ""),
-                                   placeholder="gemini-3.8-flash", scale=2)
+                                   value="",
+                                   placeholder="gemini-3.8-flash", scale=2,
+                                   elem_id="manga_model")
             gr.Markdown("<div class='hint'>کلید از aistudio.google.com (Gemini) یا "
-                        "platform.openai.com (ChatGPT) یا console.groq.com بگیرید.</div>")
+                        "platform.openai.com (ChatGPT) یا console.groq.com بگیرید. "
+                        "تنظیمات وب فقط در مرورگر ذخیره می‌شود.</div>")
 
         
         with gr.Group(elem_classes=["stepcard"]):
@@ -1734,8 +1738,8 @@ def run_web():
                                         value=False)
                 two_pass = gr.Checkbox(label="OCR دومرحله‌ای", value=True)
 
-        SESSION_TTL = 30 * 60
-        live_jobs = {}  # {sid: {"proc": Popen|None, "log": str, "lock": Lock, "ts": float}}
+        SESSION_TTL = 2 * 60 * 60
+        live_jobs = {}
 
         def _get_job(sid: str) -> dict:
             if sid not in live_jobs:
@@ -1747,34 +1751,311 @@ def run_web():
                     "download_path": None,
                     "html_state": "",
                     "result_visible": False,
+                    "running": False,
+                    "returncode": None,
+                    "buf": [],
+                    "t0": None,
                 }
             return live_jobs[sid]
+
+        def _job_running(job: dict) -> bool:
+            p = job.get("proc")
+            if p is not None:
+                try:
+                    if p.poll() is None:
+                        return True
+                except Exception:
+                    pass
+            return bool(job.get("running"))
 
         def _kill_job(sid: str) -> None:
             job = _get_job(sid)
             with job["lock"]:
                 p = job.get("proc")
-                if p is not None and p.poll() is None:
+                job["running"] = False
+                if p is not None:
                     try:
-                        p.terminate()
-                        try:
-                            p.wait(timeout=2.5)
-                        except subprocess.TimeoutExpired:
-                            p.kill()
+                        if p.poll() is None:
                             try:
-                                p.wait(timeout=1)
+                                os.killpg(p.pid, signal.SIGTERM)
                             except Exception:
-                                pass
+                                try:
+                                    p.terminate()
+                                except Exception:
+                                    pass
+                            try:
+                                p.wait(timeout=2.5)
+                            except Exception:
+                                try:
+                                    os.killpg(p.pid, signal.SIGKILL)
+                                except Exception:
+                                    try:
+                                        p.kill()
+                                    except Exception:
+                                        pass
+                                try:
+                                    p.wait(timeout=1)
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
                 job["proc"] = None
                 job["ts"] = time.time()
+                job["log"] = (job.get("log") or "") + "\n⏹ ترجمه متوقف شد توسط کاربر."
+            try:
+                _persist_job_meta(sid)
+            except Exception:
+                pass
 
         def _new_sid() -> str:
             import uuid
             return uuid.uuid4().hex
 
+        SESS_DIR = os.path.join(WORK_DIR, "sessions")
+        os.makedirs(SESS_DIR, exist_ok=True)
+
+        def _persist_job_meta(sid: str) -> None:
+            if not sid:
+                return
+            job = _get_job(sid)
+            try:
+                with job["lock"]:
+                    meta = {
+                        "sid": sid,
+                        "running": _job_running(job),
+                        "log": (job.get("log") or "")[-8000:],
+                        "ts": job.get("ts") or time.time(),
+                        "download_path": job.get("download_path"),
+                        "result_visible": bool(job.get("result_visible")),
+                        "returncode": job.get("returncode"),
+                        "out_v": job.get("out_v"),
+                        "src": str(job.get("src") or "")[:500],
+                    }
+                path = os.path.join(SESS_DIR, f"{sid}.json")
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(meta, f, ensure_ascii=False)
+            except Exception:
+                pass
+
+        def _load_job_meta(sid: str) -> dict:
+            path = os.path.join(SESS_DIR, f"{sid}.json")
+            try:
+                with open(path, encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+
+        def _find_active_sid(preferred: str = "") -> str:
+            pref = (preferred or "").strip()
+            if pref:
+                job = live_jobs.get(pref)
+                if job and _job_running(job):
+                    return pref
+                if job and (job.get("log") or job.get("result_visible")):
+                    return pref
+                meta = _load_job_meta(pref)
+                if meta:
+                    return pref
+            best, best_ts = "", 0
+            for s, job in list(live_jobs.items()):
+                try:
+                    ts = float(job.get("ts") or 0)
+                    if _job_running(job) and ts >= best_ts:
+                        best, best_ts = s, ts
+                except Exception:
+                    pass
+            if best:
+                return best
+
+            try:
+                files = []
+                for name in os.listdir(SESS_DIR):
+                    if name.endswith(".json"):
+                        p = os.path.join(SESS_DIR, name)
+                        try:
+                            files.append((os.path.getmtime(p), name[:-5]))
+                        except Exception:
+                            pass
+                files.sort(reverse=True)
+                for _, s in files[:10]:
+                    meta = _load_job_meta(s)
+                    if meta.get("running") or meta.get("result_visible") or meta.get("log"):
+                        if s not in live_jobs:
+                            j = _get_job(s)
+                            with j["lock"]:
+                                j["log"] = meta.get("log") or j.get("log")
+                                j["download_path"] = meta.get("download_path")
+                                j["result_visible"] = bool(meta.get("result_visible"))
+                                j["ts"] = meta.get("ts") or time.time()
+                                j["out_v"] = meta.get("out_v")
+                                j["src"] = meta.get("src")
+                                if not _job_running(j):
+                                    j["running"] = False
+                        return s
+            except Exception:
+                pass
+            return pref or ""
+
+        def _finalize_job_success(sid: str) -> None:
+            job = _get_job(sid)
+            with job["lock"]:
+                if job.get("result_visible"):
+                    return
+                out_v = job.get("out_v") or ""
+                src = job.get("src") or ""
+                t0 = job.get("t0") or time.time()
+                buf = list(job.get("buf") or [])
+            if not out_v:
+                return
+            el = int(time.time() - t0)
+            dur_s = f"{el // 60}:{el % 60:02d}"
+            target = out_v
+            try:
+                if os.path.isdir(out_v):
+                    target = shutil.make_archive(out_v, "zip", out_v)
+            except Exception:
+                target = out_v
+            try:
+                append_history({
+                    "time": datetime.now().strftime("%m-%d %H:%M"),
+                    "input": src, "status": "✅", "duration": dur_s
+                })
+            except Exception:
+                pass
+            img_dir = out_v if os.path.isdir(out_v) else os.path.join(str(out_v) + ".cache", "out")
+            imgs = []
+            try:
+                if os.path.isdir(img_dir):
+                    for f in sorted(os.listdir(img_dir), key=natural_key):
+                        if f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
+                            imgs.append(os.path.join(img_dir, f))
+                if not imgs and str(target).lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
+                    imgs = [target]
+            except Exception:
+                pass
+            try:
+                reader_html = build_reader_html(imgs)
+            except Exception:
+                reader_html = ""
+            final_log = "\n".join(buf[-120:]) + f"\n\n✅ تمام شد ({dur_s}) — دکمه‌های نمایش و دانلود پایین فعال شدند"
+            with job["lock"]:
+                job["log"] = final_log
+                job["download_path"] = target
+                job["html_state"] = reader_html
+                job["result_visible"] = True
+                job["ts"] = time.time()
+            _persist_job_meta(sid)
+
+        def _start_job_reader(sid: str, proc: subprocess.Popen, t0: float) -> None:
+            job = _get_job(sid)
+
+            def _fmt(buf_lines):
+                el = int(time.time() - t0)
+                body = "\n".join(buf_lines[-120:]) if buf_lines else "… در حال دریافت خروجی …"
+                return f"⏱ {el // 60}:{el % 60:02d}\n\n{body}"
+
+            def _reader():
+                buf = list(job.get("buf") or [])
+                n = 0
+                partial = b""
+                try:
+                    stream = proc.stdout
+                    fd = None
+                    try:
+                        fd = stream.fileno()
+                    except Exception:
+                        fd = None
+                    while True:
+                        with job["lock"]:
+                            if job.get("proc") is None and not job.get("running"):
+                                break
+                        ended = proc.poll() is not None
+                        chunk = b""
+                        try:
+                            if fd is not None:
+                                import select as _sel
+                                try:
+                                    ready, _, _ = _sel.select([stream], [], [], 0.25)
+                                except Exception:
+                                    ready = [stream]
+                                if ready:
+                                    chunk = os.read(fd, 8192)
+                            else:
+                                chunk = stream.read(4096) if stream else b""
+                        except Exception:
+                            chunk = b""
+                        if chunk:
+                            if isinstance(chunk, str):
+                                chunk = chunk.encode("utf-8", "replace")
+                            partial += chunk
+                            while b"\n" in partial:
+                                line, partial = partial.split(b"\n", 1)
+                                text = line.decode("utf-8", "replace").rstrip("\r")
+                                buf.append(text)
+                                if len(buf) > 400:
+                                    del buf[:-300]
+                                with job["lock"]:
+                                    job["buf"] = buf
+                                    job["log"] = _fmt(buf)
+                                    job["ts"] = time.time()
+                                n += 1
+                                if n % 5 == 0:
+                                    _persist_job_meta(sid)
+                        elif ended:
+                            break
+                        else:
+                            time.sleep(0.05)
+                    if partial.strip():
+                        buf.append(partial.decode("utf-8", "replace").rstrip("\r"))
+                    try:
+                        proc.wait(timeout=5)
+                    except Exception:
+                        pass
+                except Exception as e:
+                    with job["lock"]:
+                        job["log"] = (job.get("log") or "") + f"\n⚠ reader: {e}"
+                finally:
+                    rc = None
+                    try:
+                        rc = proc.poll()
+                    except Exception:
+                        pass
+                    with job["lock"]:
+                        if job.get("proc") is proc:
+                            job["proc"] = None
+                        job["running"] = False
+                        job["returncode"] = rc
+                        job["buf"] = buf
+                        if buf:
+                            job["log"] = _fmt(buf)
+                        job["ts"] = time.time()
+                        job["done_event"] = True
+                    if rc == 0:
+                        try:
+                            _finalize_job_success(sid)
+                        except Exception as e:
+                            with job["lock"]:
+                                job["log"] = (job.get("log") or "") + f"\n⚠ finalize: {e}"
+                    elif rc not in (None, 0) and rc not in (-15, -9, 15, 9):
+                        with job["lock"]:
+                            job["log"] = (job.get("log") or "") + f"\n\n❌ خطا — کد خروج {rc}"
+                    _persist_job_meta(sid)
+
+            threading.Thread(target=_reader, daemon=True, name=f"manga-job-{sid[:8]}").start()
+
+            def _heartbeat():
+                while True:
+                    with job["lock"]:
+                        if not _job_running(job):
+                            break
+                        buf = list(job.get("buf") or [])
+                        job["log"] = _fmt(buf)
+                        job["ts"] = time.time()
+                    time.sleep(1.0)
+            threading.Thread(target=_heartbeat, daemon=True, name=f"manga-hb-{sid[:8]}").start()
+
         session_id = gr.State("")
+        sid_box = gr.Textbox(value="", visible=False, elem_id="manga_sid", label="sid")
 
         run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
 
@@ -1792,14 +2073,15 @@ def run_web():
                 dl_btn = _safe(gr.DownloadButton, label="⬇ دانلود", visible=False)
             viewer_html = gr.HTML(visible=False, elem_id="reader_wrap")
 
-        LS_KEY = "manga_autotranslate_form_v1"
+        LS_KEY = "manga_autotranslate_form_v2"
         browser_form_json = gr.State("")
 
         save_form_js = f"""
-(sid, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord, lama, cpu, twopass) => {{
+(sid, sidBox, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord, lama, cpu, twopass) => {{
   try {{
+    const realSid = (sid || sidBox || "").toString().trim();
     const data = {{
-      sid: sid || "",
+      sid: realSid,
       inp: inp || "",
       prov: prov || "",
       keys: keys || "",
@@ -1820,6 +2102,24 @@ def run_web():
       ts: Date.now()
     }};
     localStorage.setItem("{LS_KEY}", JSON.stringify(data));
+    if (realSid) localStorage.setItem("manga_sid", realSid);
+  }} catch (e) {{}}
+  return [];
+}}
+"""
+        save_sid_js = f"""
+(sid, sidBox) => {{
+  try {{
+    const realSid = (sid || sidBox || "").toString().trim();
+    if (realSid) {{
+      localStorage.setItem("manga_sid", realSid);
+      let raw = localStorage.getItem("{LS_KEY}");
+      let data = {{}};
+      try {{ data = raw ? JSON.parse(raw) : {{}}; }} catch (e) {{ data = {{}}; }}
+      data.sid = realSid;
+      data.ts = Date.now();
+      localStorage.setItem("{LS_KEY}", JSON.stringify(data));
+    }}
   }} catch (e) {{}}
   return [];
 }}
@@ -1827,68 +2127,141 @@ def run_web():
         load_form_js = f"""
 () => {{
   try {{
-    const raw = localStorage.getItem("{LS_KEY}");
-    if (!raw) return [""];
-    const d = JSON.parse(raw);
-    if (!d || !d.ts || (Date.now() - d.ts) > {SESSION_TTL * 1000}) {{
-      localStorage.removeItem("{LS_KEY}");
+    let raw = localStorage.getItem("{LS_KEY}");
+    if (!raw) {{
+      raw = localStorage.getItem("manga_autotranslate_form_v1");
+      if (raw) {{
+        try {{ localStorage.setItem("{LS_KEY}", raw); }} catch (e) {{}}
+      }}
+    }}
+    const sidOnly = (localStorage.getItem("manga_sid") || "").trim();
+    if (!raw) {{
+      if (sidOnly) return [JSON.stringify({{sid: sidOnly, ts: Date.now()}})];
       return [""];
     }}
-    return [raw];
+    const d = JSON.parse(raw);
+    if (!d || !d.ts || (Date.now() - d.ts) > {SESSION_TTL * 1000}) {{
+      // TTL فرم منقضی — ولی sid را نگه دار اگر job ممکن است زنده باشد
+      if (sidOnly) return [JSON.stringify({{sid: sidOnly, ts: Date.now()}})];
+      try {{ localStorage.removeItem("{LS_KEY}"); }} catch (e) {{}}
+      return [""];
+    }}
+    if (sidOnly && !d.sid) d.sid = sidOnly;
+    if (sidOnly) d.sid = sidOnly;
+    return [JSON.stringify(d)];
   }} catch (e) {{
     return [""];
   }}
 }}
 """
+        client_restore_js = f"""
+() => {{
+  const KEY = "{LS_KEY}";
+  const TTL = {SESSION_TTL * 1000};
+  const setVal = (el, val) => {{
+    if (!el || val === undefined || val === null) return;
+    const s = String(val);
+    const proto = window.HTMLInputElement && window.HTMLInputElement.prototype;
+    const nativeSet = proto && Object.getOwnPropertyDescriptor(proto, "value")
+      ? Object.getOwnPropertyDescriptor(proto, "value").set
+      : null;
+    if (nativeSet) nativeSet.call(el, s);
+    else el.value = s;
+    el.dispatchEvent(new Event("input", {{ bubbles: true }}));
+    el.dispatchEvent(new Event("change", {{ bubbles: true }}));
+  }};
+  const findByLabel = (substr) => {{
+    const labels = Array.from(document.querySelectorAll("label, span, p, div"));
+    for (const lb of labels) {{
+      const t = (lb.textContent || "").trim();
+      if (!t || t.indexOf(substr) < 0) continue;
+      let root = lb.closest(".block, .form, .gr-group, .gr-box, [class*='form']") || lb.parentElement;
+      if (!root) root = lb;
+      const inp = root.querySelector("input, textarea, select");
+      if (inp) return inp;
+    }}
+    return null;
+  }};
+  const apply = () => {{
+    try {{
+      let raw = localStorage.getItem(KEY) || localStorage.getItem("manga_autotranslate_form_v1");
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || !d.ts || (Date.now() - d.ts) > TTL) return;
+      const byId = (id) => {{
+        const root = document.getElementById(id);
+        if (!root) return null;
+        return root.querySelector("input, textarea, select") || root;
+      }};
+      if (d.keys) {{
+        const k = byId("manga_api_keys")
+          || findByLabel("کلید")
+          || findByLabel("API")
+          || document.querySelector('input[type="password"]');
+        setVal(k, d.keys);
+      }}
+      if (d.model) {{
+        setVal(byId("manga_model") || findByLabel("مدل"), d.model);
+      }}
+      if (d.inp) setVal(findByLabel("URL"), d.inp);
+      if (d.prov) {{
+        const el = findByLabel("ارائه‌دهنده");
+        if (el) setVal(el, d.prov);
+      }}
+    }} catch (e) {{}}
+  }};
+  apply();
+  setTimeout(apply, 200);
+  setTimeout(apply, 600);
+  setTimeout(apply, 1200);
+  return [];
+}}
+"""
 
-        def run_translation(sid, inp_path_v, upload, provider_v, api_keys_v, model_v,
+        def run_translation(sid, sid_box_v, inp_path_v, upload, provider_v, api_keys_v, model_v,
                             out_fmt_v, quality_v, font_up,
                             workers_v, bubbles_v, timeout_v,
                             batchw_v, maxre_v, reqdelay_v, temp_v, readord_v,
                             use_lama_v, force_cpu_v, two_pass_v,
                             *tone_files):
+            sid = (sid or sid_box_v or "").strip()
+            sid = _find_active_sid(sid) or sid
             if not sid:
                 sid = _new_sid()
 
             job = _get_job(sid)
-            _empty = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+
+            def _pack(btn, log, dl=None, view=None, group=None, viewer=None, html=""):
+                return (
+                    sid,
+                    gr.update(value=sid),
+                    gr.update(value=btn),
+                    gr.update(value=log),
+                    dl if dl is not None else gr.update(),
+                    view if view is not None else gr.update(),
+                    group if group is not None else gr.update(),
+                    viewer if viewer is not None else gr.update(),
+                    html if html is not None else gr.update(),
+                )
 
             with job["lock"]:
-                running_now = job.get("proc") is not None and job["proc"].poll() is None
+                running_now = _job_running(job)
             if running_now:
                 _kill_job(sid)
-                msg = "⏹ ترجمه متوقف شد.\\n(پروسه manga.py بسته شد)"
-                job["log"] = msg
-                yield (
-                    sid,
-                    gr.update(value="🚀  شروع ترجمه"),
-                    gr.update(value=msg),
-                ) + _empty[1:]
-                return
+                msg = job.get("log") or "⏹ ترجمه متوقف شد.\n(پروسه manga.py بسته شد)"
+                return _pack("🚀  شروع ترجمه", msg)
 
             tone_map = dict(zip(tone_slots, tone_files))
             src = upload or (inp_path_v or "").strip()
 
             if not src:
-                yield (sid, gr.update(value="🚀  شروع ترجمه"),
-                       gr.update(value="❌ ورودی خالی است — فایل آپلود کنید یا URL بدهید.")) + _empty[1:]
-                return
+                return _pack("🚀  شروع ترجمه",
+                             "❌ ورودی خالی است — فایل آپلود کنید یا URL بدهید.")
 
             font_v = font_up or find_font()
             if not font_v or not os.path.isfile(font_v):
-                yield (sid, gr.update(value="🚀  شروع ترجمه"),
-                       gr.update(value="❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید.")) + _empty[1:]
-                return
-
-            save_config({
-                "out_fmt": out_fmt_v, "quality": quality_v,
-                "provider": provider_v, "model": model_v,
-                "workers": int(workers_v), "bubbles": int(bubbles_v),
-                "timeout": int(timeout_v), "force_cpu": force_cpu_v,
-                "batch_workers": int(batchw_v), "max_retries": int(maxre_v),
-                "request_delay": float(reqdelay_v), "temperature": float(temp_v),
-                "reading_order": str(readord_v)
-            })
+                return _pack("🚀  شروع ترجمه",
+                             "❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید.")
 
             ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[out_fmt_v]
             base = os.path.splitext(os.path.basename(str(src)))[0] + "_fa"
@@ -1924,138 +2297,55 @@ def run_web():
             if not two_pass_v:
                 cmd += ["--no-two-pass-ocr"]
 
-            yield (
-                sid,
-                gr.update(value="⏹  متوقف ترجمه"),
-                gr.update(value="▶ `" + " ".join(cmd) + "`"),
-                gr.update(), gr.update(), gr.update(), gr.update(), ""
-            )
-
             t0 = time.time()
-            proc = subprocess.Popen(
-                cmd, cwd=HERE, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, text=True,
-                encoding="utf-8", errors="replace", bufsize=1
-            )
             with job["lock"]:
-                job["proc"] = proc
-                job["ts"] = time.time()
                 job["result_visible"] = False
                 job["download_path"] = None
                 job["html_state"] = ""
+                job["buf"] = []
+                job["t0"] = t0
+                job["returncode"] = None
+                job["done_event"] = False
+                job["out_v"] = out_v
+                job["src"] = src
+                job["running"] = True
+                job["log"] = "⏱ 0:00\n\n▶ در حال شروع…"
+                job["ts"] = time.time()
 
-            buf = []
-            last = 0.0
-            last_n = 0
-            last_txt = ""
-            stopped_by_user = False
-
+            _env = os.environ.copy()
+            _env["PYTHONUNBUFFERED"] = "1"
+            _env["PYTHONIOENCODING"] = "utf-8"
             try:
-                for line in proc.stdout:
-                    with job["lock"]:
-                        if job.get("proc") is None:
-                            stopped_by_user = True
-                            break
-                    buf.append(line.rstrip())
-                    if len(buf) > last_n and time.time() - last >= 0.9:
-                        el = int(time.time() - t0)
-                        txt = f"⏱ {el//60}:{el%60:02d}\\n\\n" + "\\n".join(buf[-120:])
-                        if txt != last_txt:
-                            job["log"] = txt
-                            job["ts"] = time.time()
-                            yield (
-                                sid,
-                                gr.update(value="⏹  متوقف ترجمه"),
-                                gr.update(value=txt),
-                                gr.update(), gr.update(), gr.update(), gr.update(), ""
-                            )
-                            last_txt = txt
-                        last = time.time()
-                        last_n = len(buf)
-
-                if not stopped_by_user:
-                    proc.wait()
-            except Exception:
-                pass
-            finally:
+                proc = subprocess.Popen(
+                    cmd, cwd=HERE, stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    env=_env,
+                    bufsize=0,
+                    start_new_session=True,
+                )
+            except Exception as e:
                 with job["lock"]:
-                    job["proc"] = None
-                    job["ts"] = time.time()
+                    job["running"] = False
+                    job["log"] = f"❌ اجرا نشد: {e}"
+                return _pack("🚀  شروع ترجمه", job["log"])
 
-            if stopped_by_user or (proc.returncode in (-15, -9, 15, 9, None)):
-                try:
-                    if proc.poll() is None:
-                        proc.kill()
-                except Exception:
-                    pass
-                msg = "⏹ ترجمه متوقف شد توسط کاربر."
-                job["log"] = msg
-                yield (
-                    sid,
-                    gr.update(value="🚀  شروع ترجمه"),
-                    gr.update(value=msg),
-                    gr.update(), gr.update(), gr.update(), gr.update(), ""
-                )
-                return
+            with job["lock"]:
+                job["proc"] = proc
+                job["running"] = True
+                job["ts"] = time.time()
+                job["log"] = "⏱ 0:00\n\n▶ شروع شد — لاگ زنده به‌زودی…"
+            _persist_job_meta(sid)
+            _start_job_reader(sid, proc, t0)
 
-            el = int(time.time() - t0)
-            dur_s = f"{el//60}:{el%60:02d}"
-
-            if proc.returncode != 0:
-                msg = "\\n".join(buf[-120:]) + f"\\n\\n❌ خطا — کد خروج {proc.returncode}"
-                job["log"] = msg
-                yield (
-                    sid,
-                    gr.update(value="🚀  شروع ترجمه"),
-                    gr.update(value=msg),
-                    gr.update(), gr.update(), gr.update(), gr.update(), ""
-                )
-                return
-
-            target = out_v
-            if os.path.isdir(out_v):
-                target = shutil.make_archive(out_v, "zip", out_v)
-
-            append_history({
-                "time": datetime.now().strftime("%m-%d %H:%M"),
-                "input": src, "status": "✅", "duration": dur_s
-            })
-
-            img_dir = out_v if os.path.isdir(out_v) else os.path.join(out_v + ".cache", "out")
-            imgs = []
-            if os.path.isdir(img_dir):
-                for f in sorted(os.listdir(img_dir), key=natural_key):
-                    if f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
-                        imgs.append(os.path.join(img_dir, f))
-            if not imgs and str(target).lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
-                imgs = [target]
-
-            reader_html = build_reader_html(imgs)
-            final_log = "\\n".join(buf[-120:]) + f"\\n\\n✅ تمام شد ({dur_s}) — دکمه‌های نمایش و دانلود پایین فعال شدند"
-            job["log"] = final_log
-            job["download_path"] = target
-            job["html_state"] = reader_html
-            job["result_visible"] = True
-            job["ts"] = time.time()
-
-            yield (
-                sid,
-                gr.update(value="🚀  شروع ترجمه"),
-                gr.update(value=final_log),
-                gr.update(value=target, visible=True),
-                gr.update(visible=True),
-                gr.update(visible=True),
-                gr.update(visible=False),
-                reader_html
-            )
+            return _pack("⏹  متوقف ترجمه", job["log"])
 
         _click_kw = dict(
-            inputs=[session_id, inp_path, inp_upload, provider, api_keys, model,
+            inputs=[session_id, sid_box, inp_path, inp_upload, provider, api_keys, model,
                     out_fmt, quality, font_upload,
                     workers, bubbles, timeout,
                     batchw, maxre, reqdelay, temp, readord,
                     use_lama, force_cpu, two_pass] + tone_uploads,
-            outputs=[session_id, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
+            outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
             concurrency_limit=8,
         )
         try:
@@ -2066,20 +2356,37 @@ def run_web():
             except TypeError:
                 run_btn.click(run_translation, **_click_kw)
 
+        _save_inputs = [
+            session_id, sid_box, inp_path, provider, api_keys, model, out_fmt, quality,
+            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
+            use_lama, force_cpu, two_pass,
+        ]
+
         try:
-            run_btn.click(
-                fn=None,
-                inputs=[session_id, inp_path, provider, api_keys, model, out_fmt, quality,
-                        workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
-                        use_lama, force_cpu, two_pass],
-                outputs=[],
-                js=save_form_js,
-            )
+            run_btn.click(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
+        except Exception:
+            pass
+        try:
+            sid_box.change(fn=None, inputs=[session_id, sid_box], outputs=[], js=save_sid_js)
         except Exception:
             pass
 
+        for _comp in (api_keys, provider, model, out_fmt, inp_path):
+            try:
+                _comp.change(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
+            except Exception:
+                try:
+                    _comp.blur(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
+                except Exception:
+                    pass
+        for _comp in (quality, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
+                      use_lama, force_cpu, two_pass):
+            try:
+                _comp.change(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
+            except Exception:
+                pass
+
         def _apply_browser_restore(raw_json):
-            """raw_json از localStorage می‌آید؛ مقادیر نامعتبر نادیده گرفته می‌شوند."""
             data = {}
             if raw_json:
                 try:
@@ -2087,10 +2394,22 @@ def run_web():
                 except Exception:
                     data = {}
 
-            sid = (data.get("sid") or "").strip() or _new_sid()
+            preferred = (data.get("sid") or "").strip()
+            sid = _find_active_sid(preferred) or preferred or _new_sid()
             job = _get_job(sid)
+            if not (job.get("log") and job.get("log") != "— لاگ بعد از شروع ترجمه اینجا می‌آید —"):
+                meta = _load_job_meta(sid)
+                if meta.get("log"):
+                    with job["lock"]:
+                        job["log"] = meta.get("log")
+                        if meta.get("download_path"):
+                            job["download_path"] = meta.get("download_path")
+                        if meta.get("result_visible"):
+                            job["result_visible"] = True
+                        if meta.get("html_state"):
+                            job["html_state"] = meta.get("html_state")
             with job["lock"]:
-                still_running = job.get("proc") is not None and job["proc"].poll() is None
+                still_running = _job_running(job)
                 log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
                 vis = bool(job.get("result_visible"))
                 dl = job.get("download_path")
@@ -2098,12 +2417,16 @@ def run_web():
             btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
 
             def u_str(key):
+                if key not in data:
+                    return gr.update()
                 v = data.get(key)
-                if v is None or v == "":
+                if v is None:
                     return gr.update()
                 return gr.update(value=v)
 
             def u_num(key):
+                if key not in data:
+                    return gr.update()
                 v = data.get(key)
                 if v is None or v == "":
                     return gr.update()
@@ -2122,13 +2445,14 @@ def run_web():
 
             return (
                 sid,
+                gr.update(value=sid),
                 gr.update(value=btn),
                 gr.update(value=log),
-                gr.update(value=dl, visible=vis),
+                gr.update(value=dl, visible=vis) if vis else gr.update(),
                 gr.update(visible=vis),
                 gr.update(visible=vis),
                 gr.update(visible=False),
-                html,
+                html if vis else gr.update(),
                 u_str("inp"),
                 u_str("prov"),
                 u_str("keys"),
@@ -2148,25 +2472,52 @@ def run_web():
                 u_bool("twopass"),
             )
 
+        _restore_outputs = [
+            session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
+            inp_path, provider, api_keys, model, out_fmt, quality,
+            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
+            use_lama, force_cpu, two_pass,
+        ]
+
         try:
             demo.load(
                 _apply_browser_restore,
                 inputs=[browser_form_json],
-                outputs=[
-                    session_id, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
-                    inp_path, provider, api_keys, model, out_fmt, quality,
-                    workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
-                    use_lama, force_cpu, two_pass,
-                ],
+                outputs=_restore_outputs,
                 js=load_form_js,
             )
         except Exception:
-            def _on_load_fallback(sid):
-                if not sid:
-                    sid = _new_sid()
+            try:
+                demo.load(
+                    _apply_browser_restore,
+                    inputs=[browser_form_json],
+                    outputs=_restore_outputs,
+                )
+            except Exception:
+                pass
+
+        try:
+            demo.load(None, None, None, js=client_restore_js)
+        except Exception:
+            try:
+                demo.load(fn=None, inputs=None, outputs=None, js=client_restore_js)
+            except Exception:
+                pass
+
+        try:
+            def _on_load_fallback(sid, sid_box_v):
+                preferred = (sid or sid_box_v or "").strip()
+                sid = _find_active_sid(preferred) or preferred or _new_sid()
                 job = _get_job(sid)
+                meta = _load_job_meta(sid)
                 with job["lock"]:
-                    still_running = job.get("proc") is not None and job["proc"].poll() is None
+                    if meta.get("log") and (not job.get("log") or job.get("log").startswith("—")):
+                        job["log"] = meta.get("log")
+                    if meta.get("download_path"):
+                        job["download_path"] = meta.get("download_path")
+                    if meta.get("result_visible"):
+                        job["result_visible"] = True
+                    still_running = _job_running(job)
                     log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
                     vis = bool(job.get("result_visible"))
                     dl = job.get("download_path")
@@ -2174,20 +2525,62 @@ def run_web():
                 btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
                 return (
                     sid,
+                    gr.update(value=sid),
                     gr.update(value=btn),
                     gr.update(value=log),
-                    gr.update(value=dl, visible=vis),
+                    gr.update(value=dl, visible=vis) if vis else gr.update(),
                     gr.update(visible=vis),
                     gr.update(visible=vis),
                     gr.update(visible=False),
-                    html,
+                    html if vis else gr.update(),
                 )
+            demo.load(
+                _on_load_fallback,
+                inputs=[session_id, sid_box],
+                outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
+            )
+        except Exception:
+            pass
+
+        def _poll_job_status(sid, sid_box_v):
+            preferred = (sid or sid_box_v or "").strip()
+            sid = _find_active_sid(preferred) or preferred
+            if not sid:
+                return (gr.update(), gr.update(), gr.update(), gr.update(),
+                        gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+            job = _get_job(sid)
+            meta = _load_job_meta(sid)
+            with job["lock"]:
+                if meta.get("log") and len(meta.get("log") or "") > len(job.get("log") or ""):
+                    job["log"] = meta.get("log")
+                if meta.get("result_visible") and not job.get("result_visible"):
+                    job["result_visible"] = True
+                    job["download_path"] = meta.get("download_path") or job.get("download_path")
+                running = _job_running(job)
+                log = job.get("log") or ""
+                vis = bool(job.get("result_visible"))
+                dl = job.get("download_path")
+                html = job.get("html_state") or ""
+            btn = "⏹  متوقف ترجمه" if running else "🚀  شروع ترجمه"
+            return (
+                sid,
+                gr.update(value=sid),
+                gr.update(value=btn),
+                gr.update(value=log) if log else gr.update(),
+                gr.update(value=dl, visible=vis) if vis else gr.update(),
+                gr.update(visible=vis),
+                gr.update(visible=vis),
+                gr.update(visible=False),
+                html if vis else gr.update(),
+            )
+
+        _poll_outputs = [session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state]
+        try:
+            _timer = gr.Timer(1.2, active=True)
+            _timer.tick(_poll_job_status, inputs=[session_id, sid_box], outputs=_poll_outputs)
+        except Exception:
             try:
-                demo.load(
-                    _on_load_fallback,
-                    inputs=[session_id],
-                    outputs=[session_id, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
-                )
+                demo.load(_poll_job_status, inputs=[session_id, sid_box], outputs=_poll_outputs)
             except Exception:
                 pass
 
