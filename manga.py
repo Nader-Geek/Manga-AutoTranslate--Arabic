@@ -7355,7 +7355,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         "اضافی را خودش فیلتر می‌کند)")
     p.add_argument("--max-chunk-height", type=int, default=3600,
                    help="حداکثر ارتفاع هر تکه OCR داخل یک تصویر (پیکسل)")
-    p.add_argument("--stitch-max-height", type=int, default=14000,
+    p.add_argument("--stitch-max-height", type=int, default=15500,
                    help="ارتفاع هدف هر نوار چسبانده‌شده (پیش‌فرض ۱۴۰۰۰). تا این ارتفاع "
                         "پر می‌شود، بعد تا ۵۰۰–۲۰۰۰px جلوتر خوانده می‌شود و اگر متن نبود "
                         "برش امن، اگر بود بعد از متن برش زده می‌شود. ۰ = خاموش.")
