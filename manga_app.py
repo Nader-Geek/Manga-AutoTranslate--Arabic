@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.2"
+APP_VER = "1.1"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1734,7 +1734,6 @@ def run_web():
                                         value=False)
                 two_pass = gr.Checkbox(label="OCR دومرحله‌ای", value=True)
 
-
         SESSION_TTL = 30 * 60
         live_jobs = {}  # {sid: {"proc": Popen|None, "log": str, "lock": Lock, "ts": float}}
 
@@ -1794,15 +1793,33 @@ def run_web():
             viewer_html = gr.HTML(visible=False, elem_id="reader_wrap")
 
         LS_KEY = "manga_autotranslate_form_v1"
+        browser_form_json = gr.State("")
+
         save_form_js = f"""
 (sid, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord, lama, cpu, twopass) => {{
   try {{
     const data = {{
-      sid, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout,
-      batchw, maxre, reqdelay, temp, readord, lama, cpu, twopass,
+      sid: sid || "",
+      inp: inp || "",
+      prov: prov || "",
+      keys: keys || "",
+      model: model || "",
+      fmt: fmt || "",
+      qual: qual,
+      workers: workers,
+      bubbles: bubbles,
+      timeout: timeout,
+      batchw: batchw,
+      maxre: maxre,
+      reqdelay: reqdelay,
+      temp: temp,
+      readord: readord || "",
+      lama: !!lama,
+      cpu: !!cpu,
+      twopass: twopass === null || twopass === undefined ? true : !!twopass,
       ts: Date.now()
     }};
-    localStorage.setItem('{LS_KEY}', JSON.stringify(data));
+    localStorage.setItem("{LS_KEY}", JSON.stringify(data));
   }} catch (e) {{}}
   return [];
 }}
@@ -1810,35 +1827,16 @@ def run_web():
         load_form_js = f"""
 () => {{
   try {{
-    const raw = localStorage.getItem('{LS_KEY}');
-    if (!raw) return Array(18).fill(null);
+    const raw = localStorage.getItem("{LS_KEY}");
+    if (!raw) return [""];
     const d = JSON.parse(raw);
     if (!d || !d.ts || (Date.now() - d.ts) > {SESSION_TTL * 1000}) {{
-      localStorage.removeItem('{LS_KEY}');
-      return Array(18).fill(null);
+      localStorage.removeItem("{LS_KEY}");
+      return [""];
     }}
-    return [
-      d.sid || null,
-      d.inp || null,
-      d.prov || null,
-      d.keys || null,
-      d.model || null,
-      d.fmt || null,
-      d.qual ?? null,
-      d.workers ?? null,
-      d.bubbles ?? null,
-      d.timeout ?? null,
-      d.batchw ?? null,
-      d.maxre ?? null,
-      d.reqdelay ?? null,
-      d.temp ?? null,
-      d.readord || null,
-      d.lama ?? null,
-      d.cpu ?? null,
-      d.twopass ?? null,
-    ];
+    return [raw];
   }} catch (e) {{
-    return Array(18).fill(null);
+    return [""];
   }}
 }}
 """
@@ -2080,34 +2078,16 @@ def run_web():
         except Exception:
             pass
 
-        def _on_load(sid):
-            if not sid:
-                sid = _new_sid()
-            job = _get_job(sid)
-            with job["lock"]:
-                still_running = job.get("proc") is not None and job["proc"].poll() is None
-                log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
-                vis = bool(job.get("result_visible"))
-                dl = job.get("download_path")
-                html = job.get("html_state") or ""
+        def _apply_browser_restore(raw_json):
+            """raw_json از localStorage می‌آید؛ مقادیر نامعتبر نادیده گرفته می‌شوند."""
+            data = {}
+            if raw_json:
+                try:
+                    data = json.loads(raw_json) if isinstance(raw_json, str) else {}
+                except Exception:
+                    data = {}
 
-            btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
-            return (
-                sid,
-                gr.update(value=btn),
-                gr.update(value=log),
-                gr.update(value=dl, visible=vis),
-                gr.update(visible=vis),
-                gr.update(visible=vis),
-                gr.update(visible=False),
-                html,
-            )
-
-        def _apply_browser_restore(sid, inp, prov, keys, model_v, fmt, qual,
-                                   workers_v, bubbles_v, timeout_v, batchw_v, maxre_v,
-                                   reqdelay_v, temp_v, readord_v, lama, cpu, twopass):
-            if not sid:
-                sid = _new_sid()
+            sid = (data.get("sid") or "").strip() or _new_sid()
             job = _get_job(sid)
             with job["lock"]:
                 still_running = job.get("proc") is not None and job["proc"].poll() is None
@@ -2117,8 +2097,28 @@ def run_web():
                 html = job.get("html_state") or ""
             btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
 
-            def u(v):
-                return gr.update(value=v) if v is not None and v != "" else gr.update()
+            def u_str(key):
+                v = data.get(key)
+                if v is None or v == "":
+                    return gr.update()
+                return gr.update(value=v)
+
+            def u_num(key):
+                v = data.get(key)
+                if v is None or v == "":
+                    return gr.update()
+                try:
+                    return gr.update(value=float(v))
+                except Exception:
+                    return gr.update()
+
+            def u_bool(key, default=None):
+                if key not in data:
+                    return gr.update()
+                v = data.get(key)
+                if v is None:
+                    return gr.update()
+                return gr.update(value=bool(v))
 
             return (
                 sid,
@@ -2129,27 +2129,29 @@ def run_web():
                 gr.update(visible=vis),
                 gr.update(visible=False),
                 html,
-                u(inp), u(prov), u(keys), u(model_v), u(fmt),
-                gr.update(value=qual) if qual is not None else gr.update(),
-                gr.update(value=workers_v) if workers_v is not None else gr.update(),
-                gr.update(value=bubbles_v) if bubbles_v is not None else gr.update(),
-                gr.update(value=timeout_v) if timeout_v is not None else gr.update(),
-                gr.update(value=batchw_v) if batchw_v is not None else gr.update(),
-                gr.update(value=maxre_v) if maxre_v is not None else gr.update(),
-                gr.update(value=reqdelay_v) if reqdelay_v is not None else gr.update(),
-                gr.update(value=temp_v) if temp_v is not None else gr.update(),
-                u(readord_v),
-                gr.update(value=bool(lama)) if lama is not None else gr.update(),
-                gr.update(value=bool(cpu)) if cpu is not None else gr.update(),
-                gr.update(value=bool(twopass)) if twopass is not None else gr.update(),
+                u_str("inp"),
+                u_str("prov"),
+                u_str("keys"),
+                u_str("model"),
+                u_str("fmt"),
+                u_num("qual"),
+                u_num("workers"),
+                u_num("bubbles"),
+                u_num("timeout"),
+                u_num("batchw"),
+                u_num("maxre"),
+                u_num("reqdelay"),
+                u_num("temp"),
+                u_str("readord"),
+                u_bool("lama"),
+                u_bool("cpu"),
+                u_bool("twopass"),
             )
 
         try:
             demo.load(
                 _apply_browser_restore,
-                inputs=[session_id, inp_path, provider, api_keys, model, out_fmt, quality,
-                        workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
-                        use_lama, force_cpu, two_pass],
+                inputs=[browser_form_json],
                 outputs=[
                     session_id, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
                     inp_path, provider, api_keys, model, out_fmt, quality,
@@ -2158,16 +2160,34 @@ def run_web():
                 ],
                 js=load_form_js,
             )
-        except TypeError:
-            try:
-                demo.load(_on_load, inputs=[session_id],
-                          outputs=[session_id, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state])
-            except Exception:
-                pass
         except Exception:
+            def _on_load_fallback(sid):
+                if not sid:
+                    sid = _new_sid()
+                job = _get_job(sid)
+                with job["lock"]:
+                    still_running = job.get("proc") is not None and job["proc"].poll() is None
+                    log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
+                    vis = bool(job.get("result_visible"))
+                    dl = job.get("download_path")
+                    html = job.get("html_state") or ""
+                btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
+                return (
+                    sid,
+                    gr.update(value=btn),
+                    gr.update(value=log),
+                    gr.update(value=dl, visible=vis),
+                    gr.update(visible=vis),
+                    gr.update(visible=vis),
+                    gr.update(visible=False),
+                    html,
+                )
             try:
-                demo.load(_on_load, inputs=[session_id],
-                          outputs=[session_id, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state])
+                demo.load(
+                    _on_load_fallback,
+                    inputs=[session_id],
+                    outputs=[session_id, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
+                )
             except Exception:
                 pass
 
