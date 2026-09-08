@@ -220,20 +220,6 @@ python manga_app.py -- -i "https://...chapter-1/" -o out.pdf --font fonts/Vazirm
 
 ---
 
-## ساختار پروژه
-
-```text
-Manga-AutoTranslate/
-├── manga.py              # اسکریپت اصلی (موتور ترجمه)
-├── manga_app.py          # برنامهٔ  — دسکتاپ / وب / CLI (یک فایل)
-├── Manga.bat             # لانچر منودار ویندوز
-├── manga.sh              # لانچر منودار لینوکس/مک
-├── fonts/                # فونت‌های لحن (خودکار دانلود می‌شوند)
-└── workspace/            # ورودی/خروجی/تنظیمات برنامهٔ 
-```
-
----
-
 ## حمایت مالی
 ヾ(•ω•`)o
 
