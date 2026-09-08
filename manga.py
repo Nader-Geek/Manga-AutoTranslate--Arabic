@@ -1,2790 +1,7516 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import json
+from __future__ import annotations
+
 import os
-import queue
-import re
-import shutil
-import signal
-import subprocess
 import sys
-import threading
-import time
-from datetime import datetime
+import subprocess
 
-APP_NAME = "مانگا مترجم"
-APP_VER = "1.2"
-HERE = os.path.dirname(os.path.abspath(__file__))
-MANGA_PY = os.path.join(HERE, "manga.py")
-WORK_DIR = os.path.join(HERE, "workspace")
-UPLOAD_DIR = os.path.join(WORK_DIR, "input")
-OUT_DIR = os.path.join(WORK_DIR, "output")
-FONT_DIR = os.path.join(HERE, "fonts")
-CFG_PATH = os.path.join(WORK_DIR, "config.json")
-HIST_PATH = os.path.join(WORK_DIR, "history.jsonl")
-MODELS_DIR = os.path.expanduser("~/.cache/manga_translator_models")
-
-KEY_ENV_ORDER = ("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY",
-                 "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "GROQ_API_KEY",
-                 "XAI_API_KEY", "TOGETHER_API_KEY", "OPENROUTER_API_KEY", "API_KEY")
-PROVIDERS = ["gemini", "openai", "chatgpt", "deepseek", "groq",
-             "xai", "grok", "together", "openrouter", "ollama"]
-
-DEFAULT_GEMINI_KEYS = []#",".join(["123:])
+os.environ.setdefault("FLAGS_use_mkldnn", "0")
+os.environ.setdefault("FLAGS_onednn", "0")
+os.environ.setdefault("FLAGS_enable_pir_in_executor", "0")
+os.environ.setdefault("FLAGS_enable_pir_api", "0")
+os.environ.setdefault("FLAGS_pir_apply_shape_optimization_pass", "0")
+os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 
 
-C_BG = "#060607"
-C_BG2 = "#101014"
-C_CARD = "#0d0d10"
-C_LINE = "#1f1f24"
-C_TXT = "#e8e6e1"
-C_MUT = "#97948c"
-C_ACC = "#ff4a3d"
-ACCENT = C_ACC
-C_OK = "#38c98a"
-C_ERR = "#ff6a5e"
-
-
-
-FONT_BUNDLES = [
-    ("normal",       "Vazirmatn-Bold.ttf", "کودک — متن عادی حباب", [
-        "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Bold.ttf",
-    ]),
-    ("free_text",    "Vazirmatn-Regular.ttf", "متن بیرون حباب", [
-        "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Regular.ttf",
-    ]),
-    ("shout",        "Lalezar-Regular.ttf", "داد خشم", [
-        "https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/main/fonts/Lalezar-Regular.ttf",
-        "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf",
-    ]),
-    ("comedy_shout", "Gandom.ttf", "داد کمدی", [
-        "https://raw.githubusercontent.com/rastikerdar/gandom-font/master/dist/Gandom.ttf",
-        "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf",
-    ]),
-    ("whisper",      "Nahid.ttf", "زمزمه دست‌نویس", [
-        "https://raw.githubusercontent.com/rastikerdar/nahid-font/master/dist/Nahid.ttf",
-        "https://raw.githubusercontent.com/rastikerdar/sahel-font/master/dist/Sahel.ttf",
-    ]),
-    ("thought",      "Samim-Bold.ttf", "تفکر ابری", [
-        "https://raw.githubusercontent.com/rastikerdar/samim-font/master/dist/Samim-Bold.ttf",
-    ]),
-    ("system",       "Sahel-Bold.ttf", "UI سیستم/تگ", [
-        "https://raw.githubusercontent.com/rastikerdar/sahel-font/master/dist/Sahel-Bold.ttf",
-    ]),
-    ("letter",       "Amiri-Regular.ttf", "نامه/طومار", [
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf",
-    ]),
-    ("narrator",     "Shabnam-Bold.ttf", "راوی مستطیل", [
-        "https://raw.githubusercontent.com/rastikerdar/shabnam-font/master/dist/Shabnam-Bold.ttf",
-    ]),
-]
-
-
-def ensure_dirs():
-    for d in (WORK_DIR, UPLOAD_DIR, OUT_DIR, FONT_DIR):
-        os.makedirs(d, exist_ok=True)
-
-
-def default_keys() -> str:
-    for name in KEY_ENV_ORDER:
-        v = os.environ.get(name, "").strip()
-        if v:
-            return v
-    return DEFAULT_GEMINI_KEYS
-
-
-def load_config() -> dict:
+for _s in (sys.stdout, sys.stderr):
     try:
-        with open(CFG_PATH, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def save_config(cfg: dict) -> None:
-    try:
-        with open(CFG_PATH, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        _s.reconfigure(encoding="utf-8")
     except Exception:
         pass
 
 
-def find_font() -> str:
-    cands = []
-    if os.path.isdir(FONT_DIR):
-        for f in sorted(os.listdir(FONT_DIR)):
-            if f.lower().endswith((".ttf", ".otf")):
-                cands.append((0 if "vazir" in f.lower() else 1, os.path.join(FONT_DIR, f)))
-    for d in (HERE, os.path.expanduser("~/fonts"), os.path.expanduser("~/.fonts")):
-        if os.path.isdir(d):
-            for f in sorted(os.listdir(d)):
-                if f.lower().endswith((".ttf", ".otf")):
-                    cands.append((1, os.path.join(d, f)))
-    return cands[0][1] if cands else ""
-
-
-def _download(url: str, dst: str) -> bool:
-    try:
-        import urllib.request
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=120) as r, open(dst, "wb") as f:
-            shutil.copyfileobj(r, f)
-        return os.path.getsize(dst) > 20_000
-    except Exception:
-        try:
-            os.remove(dst)
-        except Exception:
-            pass
-        return False
-
-
-def download_fonts(log=print) -> int:
-    
-    os.makedirs(FONT_DIR, exist_ok=True)
-    n = 0
-    for slot, fname, desc, urls in FONT_BUNDLES:
-        dst = os.path.join(FONT_DIR, fname)
-        if os.path.isfile(dst) and os.path.getsize(dst) > 20_000:
-            continue
-        log(f"  ⬇ {fname} ({desc}) ...")
-        ok = False
-        for url in urls:
-            if _download(url, dst):
-                ok = True
-                break
-        if ok:
-            n += 1
-            log(f"  ✔ {fname}")
-        else:
-            log(f"  ✖ {fname} ناموفق — بعداً خودتان در fonts/ بگذارید")
-    return n
-
-
-_ft_checked: dict = {}
-
-
-def _font_persian_ok(path: str) -> bool:
-    if path in _ft_checked:
-        return _ft_checked[path]
-    ok = True
-    try:
-        from fontTools.ttLib import TTFont
-        import arabic_reshaper
-        from bidi.algorithm import get_display
-    except ImportError:
-        try:
-            for _pkg in ("fonttools", "arabic-reshaper", "python-bidi"):
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", _pkg])
-            from fontTools.ttLib import TTFont
-            import arabic_reshaper
-            from bidi.algorithm import get_display
-        except Exception:
-            _ft_checked[path] = True
-            return True
-    try:
-        shaped = get_display(arabic_reshaper.reshape("من قرفتم باهاش حرف بزنم ژاله پک‌بک"))
-        cps = {ord(c) for c in shaped
-               if ord(c) > 0x2000 and not 0x200C <= ord(c) <= 0x200F}
-        cmap = TTFont(path).getBestCmap()
-        ok = all(c in cmap for c in cps)
-    except Exception:
-        ok = True
-    _ft_checked[path] = ok
-    return ok
-
-
-def font_args() -> list:
-    
-    args = []
-    main = find_font()
-    if main:
-        args += ["--font", main]
-    cli_font = {"free_text": "free"}
-    for slot, fname, _desc, _urls in FONT_BUNDLES:
-        p = os.path.join(FONT_DIR, fname)
-        if os.path.isfile(p) and _font_persian_ok(p):
-            flag = cli_font.get(slot, slot.replace("_", "-"))
-            args += [f"--font-{flag}", p]
-    return args
-
-
-def human_size(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if n < 1024:
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} TB"
-
-
-def system_info() -> str:
-    import platform
-    lines = [
-        f"پایتون: {platform.python_version()} — {platform.system()} {platform.release()}",
-        f"هستهٔ CPU: {os.cpu_count()}",
-    ]
-    try:
-        import onnxruntime as ort
-        lines.append("ONNX Runtime: " + ort.__version__ + " | " +
-                     ", ".join(ort.get_available_providers()))
-    except Exception:
-        lines.append("ONNX Runtime: نصب نیست")
-    try:
-        import torch  
-        lines.append("GPU (CUDA): ✅")
-    except Exception:
-        lines.append("GPU (CUDA): —")
-    if os.path.isdir(MODELS_DIR):
-        lines.append("مدل‌های کش‌شده:")
-        for f in sorted(os.listdir(MODELS_DIR)):
-            p = os.path.join(MODELS_DIR, f)
-            if os.path.isfile(p):
-                lines.append(f"  • {f} — {human_size(os.path.getsize(p))}")
-    else:
-        lines.append("مدل‌های کش‌شده: — (بار اول دانلود می‌شوند)")
-    fonts = os.listdir(FONT_DIR) if os.path.isdir(FONT_DIR) else []
-    lines.append(f"فونت‌ها: {len(fonts)} فایل در fonts/")
-    try:
-        du = shutil.disk_usage(HERE)
-        lines.append(f"فضای آزاد: {human_size(du.free)}")
-    except Exception:
-        pass
-    return "\n".join(lines)
-
-
-def append_history(entry: dict) -> None:
-    try:
-        with open(HIST_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-
-
-def history_text() -> str:
-    if not os.path.isfile(HIST_PATH):
-        return "هنوز اجرایی ثبت نشده."
-    rows = []
-    try:
-        with open(HIST_PATH, encoding="utf-8") as f:
-            for line in f:
-                e = json.loads(line)
-                rows.append(f"{e.get('time','')}  |  "
-                            f"{os.path.basename(str(e.get('input','')))[:36]:36}  |  "
-                            f"{e.get('status','')}  |  {e.get('duration','')}")
-    except Exception:
-        return "تاریخچه خوانده نشد."
-    return "\n".join(reversed(rows[-60:])) or "هنوز اجرایی ثبت نشده."
-
-
-def open_path(path: str):
-    try:
-        if os.name == "nt":
-            os.startfile(path)  
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", path])
-        else:
-            subprocess.Popen(["xdg-open", path])
-    except Exception:
-        pass
-
-
-def has_display() -> bool:
-    if os.name == "nt" or sys.platform == "darwin":
+def _pip_install(*packages: str) -> bool:
+    if not packages:
         return True
-    return bool(os.environ.get("DISPLAY"))
-
-
-HELP_TEXT = f"""راهنما — {APP_NAME} v{APP_VER}
-
-▶ اجرا (خودکار: دسکتاپ → پنجرهٔ برنامه، Colab/Codespace → وب)
-  ویندوز:            دابل‌کلیک Manga.bat
-  لینوکس / مک:       ./manga.sh
-  مستقیم:            python manga_app.py
-
-▶ اجبار حالت
-  python manga_app.py --web       (Colab: لینک عمومی gradio.live چاپ می‌شود)
-  python manga_app.py --desktop
-
-▶ Colab — دو فایل لازم است کنار هم باشند:
-  manga.py      (فایل مترجم — همان فایل اصلی)
-  manga_app.py  (برنامه)
-  سپس:  !python manga_app.py
-  ⚠ manga_app.py را با نام manga.py ذخیره نکنید — خطای «فایل مترجم نیست» می‌گیرید.
-
-▶ GitHub Codespaces / SSH
-  لینک عمومی خودکار چاپ می‌شود (gradio.live) — نیازی به Port Forwarding نیست.
-  ⚠ سرور وب به نشست ترمینال چسبیده است: با بستن ترمینال kill می‌شود.
-  برای زنده‌ماندن: tmux new -s manga 'python3 manga_app.py --web'
-  (detach: Ctrl+B بعد D | بازگشت: tmux attach -t manga)
-
-▶ فونت‌ها
-  بار اول خودکار در fonts/ دانلود می‌شوند (کودک، افسانه، کروش، دست‌نویس،
-  مروارید، سیستم، نامه، راوی …). برای تغییر، فقط فایل .ttf را با همان نام
-  در fonts/ جایگزین کنید و برنامه را دوباره باز کنید.
-
-▶ CLI
-  python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu --lama
-
-▶ نکات
-  • کلید از aistudio.google.com / platform.openai.com / openrouter.ai — چند کلید = چرخش خودکار
-  • مدل‌ها بار اول دانلود و در ~/.cache کش می‌شوند
-  • تنظیمات در workspace/config.json ذخیره می‌شود
-"""
-
-
-
-def manga_py_ok() -> bool:
-    
+    cmd = [sys.executable, "-m", "pip", "install", "-q", "--prefer-binary", *packages]
+    print(f"[*] نصب: {' '.join(packages)}")
     try:
-        with open(MANGA_PY, encoding="utf-8") as f:
-            head = f.read()
-    except Exception:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        if r.returncode != 0:
+            err = (r.stderr or r.stdout or "")[-800:]
+            print(f"    [!] ناموفق: {err}")
+            return False
+        return True
+    except Exception as e:
+        print(f"    [!] خطا: {e}")
         return False
-    return ("def run_desktop" not in head) and ("def run_web" not in head)
 
 
-MANGA_MIXED_MSG = (
-    "❌ فایل manga.py کنار برنامه، فایل «مترجم» نیست — کد خود برنامه داخلش ذخیره شده\\n"
-    "(احتمالاً manga_app.py را با نام manga.py ذخیره کرده‌اید).\\n"
-    "فایل manga.py اصلی (مترجم) را کنار manga_app.py بگذارید و دوباره اجرا کنید."
-)
-
-
-
-def run_cli_interactive():
-    
-    print(f"\n══════════ {APP_NAME} v{APP_VER} — CLI ══════════\n")
-    if not manga_py_ok():
-        print(MANGA_MIXED_MSG)
-        return
-
-    cfg = load_config()
-    src = input("📄 مسیر فایل/پوشه یا URL ورودی: ").strip().strip('"')
-    if not src:
-        print("❌ ورودی خالی است.")
-        return
-    if not os.path.exists(src) and not src.lower().startswith(("http://", "https://")):
-        print(f"❌ مسیر پیدا نشد: {src}")
-        return
-
-    print("\nقالب خروجی:  1) PDF   2) ZIP   3) HTML   4) پوشهٔ تصاویر")
-    f = input("انتخاب [1-4] (پیش‌فرض 1): ").strip() or "1"
-    ext = {"1": ".pdf", "2": ".zip", "3": ".html", "4": ""}.get(f, ".pdf")
-
-    print("\nارائه‌دهندهٔ AI را انتخاب کنید:")
-    prov_menu = [
-        ("gemini", "Google Gemini - رایگان با سهمیه"),
-        ("openai", "ChatGPT / GPT"),
-        ("deepseek", "DeepSeek"),
-        ("groq", "Groq - سریع و رایگان"),
-        ("xai", "xAI / Grok"),
-        ("openrouter", "OpenRouter"),
-        ("ollama", "لوکال - بدون کلید"),
-        ("together", "Together AI"),
-    ]
-    for i, (pid, desc) in enumerate(prov_menu, 1):
-        print(f"  {i}) {pid:12} ({desc})")
-    pc = input("انتخاب [پیش‌فرض 1]: ").strip() or "1"
+def _pip_uninstall(*packages: str) -> None:
     try:
-        provider = prov_menu[int(pc) - 1][0]
-    except (ValueError, IndexError):
-        provider = "gemini"
-    keys = input("کلید API (خالی = env/config): ").strip() \
-        or cfg.get("api_keys") or default_keys()
-    model = input(f"مدل [{cfg.get('model', '') or 'پیش‌فرض'}]: ").strip() \
-        or cfg.get("model", "")
-
-    font_v = cfg.get("font") or find_font()
-    if not font_v or not os.path.isfile(font_v):
-        print("❌ فونت فارسی پیدا نشد — fonts/ را آماده کنید.")
-        return
-
-    base = os.path.splitext(os.path.basename(src))[0] + "_fa"
-    out_v = os.path.join(OUT_DIR, base + ext)
-    os.makedirs(OUT_DIR, exist_ok=True)
-
-    cmd = [sys.executable, MANGA_PY, "-i", src, "-o", out_v, "--font", font_v,
-           "--provider", provider,
-           "--workers", str(int(cfg.get("workers", 2))),
-           "--bubbles-per-request", str(int(cfg.get("bubbles", 6))),
-           "--api-timeout", str(int(cfg.get("timeout", 40))),
-           "--quality", str(int(cfg.get("quality", 92))),
-           "--batch-workers", str(int(cfg.get("batch_workers", 3))),
-           "--max-retries", str(int(cfg.get("max_retries", 8))),
-           "--request-delay", str(float(cfg.get("request_delay", 0))),
-           "--temperature", str(float(cfg.get("temperature", 0.85))),
-           "--reading-order", str(cfg.get("reading_order", "rtl"))]
-    cmd += font_args()
-    klist = [k.strip() for k in (keys or "").replace(";", ",").split(",") if k.strip()]
-    if klist:
-        cmd += ["--api-key", ",".join(klist)]
-    if model:
-        cmd += ["--model", model]
-    cmd += ["--lama", "--cpu"]
-
-    print("\n▶ " + " ".join(cmd) + "\n")
-    proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True,
-                            encoding="utf-8", errors="replace", bufsize=1)
-    t0 = time.time()
-    for line in proc.stdout:
-        print(line.rstrip())
-    proc.wait()
-    dur_s = f"{int((time.time()-t0)//60)}:{int((time.time()-t0)%60):02d}"
-    if proc.returncode != 0:
-        print(f"\n❌ خطا — کد خروج {proc.returncode}")
-    else:
-        print(f"\n✅ تمام شد ({dur_s}) — خروجی: {out_v}")
-
-
-def run_cli(argv):
-    if not argv:
-        run_cli_interactive()
-        return
-    if not manga_py_ok():
-        print(MANGA_MIXED_MSG)
-        sys.exit(1)
-    sys.argv = [MANGA_PY] + list(argv)
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("manga_cli", MANGA_PY)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules["manga_cli"] = mod
-    spec.loader.exec_module(mod)
-    if hasattr(mod, "main"):
-        mod.main()
-
-
-def run_desktop():
-    import tkinter as tk
-    from tkinter import ttk, filedialog, messagebox, scrolledtext
-
-    cfg = load_config()
-    q: "queue.Queue[tuple]" = queue.Queue()
-    proc_holder = {"p": None}
-
-    root = tk.Tk()
-    root.title(f"{APP_NAME} v{APP_VER}")
-    root.geometry("1080x780")
-    root.minsize(940, 660)
-    root.configure(bg=C_BG)
-
-    style = ttk.Style(root)
-    try:
-        style.theme_use("clam")
-    except Exception:
-        pass
-    dark = {
-        "TFrame": {"background": C_BG},
-        "TLabelframe": {"background": C_CARD, "bordercolor": C_LINE,
-                        "lightcolor": C_LINE, "darkcolor": C_LINE},
-        "TLabelframe.Label": {"background": C_CARD, "foreground": C_ACC},
-        "TLabel": {"background": C_CARD, "foreground": C_TXT},
-        "TButton": {"background": C_BG2, "foreground": C_TXT, "padding": (10, 6),
-                    "bordercolor": C_LINE, "lightcolor": C_BG2, "darkcolor": C_BG2},
-        "TEntry": {"fieldbackground": C_BG2, "foreground": C_TXT,
-                   "insertcolor": C_TXT, "bordercolor": C_LINE,
-                   "lightcolor": C_BG2, "darkcolor": C_BG2,
-                   "borderwidth": 0, "relief": "flat"},
-        "TCombobox": {"fieldbackground": C_BG2, "foreground": C_TXT,
-                      "background": C_LINE, "arrowcolor": C_ACC,
-                      "bordercolor": C_LINE, "lightcolor": C_LINE,
-                      "darkcolor": C_LINE},
-        "TSpinbox": {"fieldbackground": C_BG2, "foreground": C_TXT,
-                     "insertcolor": C_TXT, "arrowcolor": C_ACC,
-                     "bordercolor": C_LINE, "lightcolor": C_BG2, "darkcolor": C_BG2},
-        "TCheckbutton": {"background": C_CARD, "foreground": C_TXT,
-                         "indicatorbackground": C_BG2, "indicatorforeground": C_ACC},
-        "TRadiobutton": {"background": C_CARD, "foreground": C_TXT,
-                         "indicatorbackground": C_BG2, "indicatorforeground": C_ACC},
-        "TNotebook": {"background": C_BG, "bordercolor": C_BG},
-        "TNotebook.Tab": {"background": C_BG2, "foreground": C_MUT,
-                          "padding": (18, 8)},
-        "TProgressbar": {"background": C_ACC, "troughcolor": C_BG2},
-        "TScrollbar": {"background": C_BG2, "troughcolor": C_BG,
-                       "bordercolor": C_BG, "arrowcolor": C_MUT},
-    }
-    for name, kw in dark.items():
-        try:
-            style.configure(name, **kw)
-        except tk.TclError:
-            pass
-    style.map("TButton",
-              background=[("active", "#1c1c22"), ("pressed", "#23232a")],
-              bordercolor=[("active", C_ACC)])
-    style.map("TSpinbox", bordercolor=[("focus", C_ACC)])
-    style.map("TEntry", bordercolor=[("focus", C_ACC)])
-
-    style.map("TCombobox",
-              fieldbackground=[("readonly", C_BG2), ("active", C_BG2),
-                               ("focus", C_BG2)],
-              foreground=[("readonly", C_TXT), ("active", C_TXT)],
-              selectbackground=[("readonly", C_BG2), ("active", C_BG2)],
-              selectforeground=[("readonly", C_TXT), ("active", C_TXT)])
-
-    root.option_add("*TCombobox*Listbox.background", C_BG2)
-    root.option_add("*TCombobox*Listbox.foreground", C_TXT)
-    root.option_add("*TCombobox*Listbox.selectBackground", C_ACC)
-    root.option_add("*TCombobox*Listbox.selectForeground", "#ffffff")
-    root.option_add("*TCombobox*Listbox.font", (None, 10))
-    style.map("TNotebook.Tab", background=[("selected", C_ACC)],
-              foreground=[("selected", "white")])
-    style.map("TCheckbutton", background=[("active", C_CARD)])
-    style.map("TRadiobutton", background=[("active", C_CARD)])
-    style.configure("Accent.TButton", font=(None, 11, "bold"), foreground="white",
-                    background=ACCENT, padding=(16, 8))
-    style.map("Accent.TButton",
-              background=[("active", "#ff6a5e"), ("disabled", "#6e2019")],
-              foreground=[("disabled", "#f0b8b2")])
-    style.configure("TNotebook.Tab", font=(None, 10))
-    style.configure("TLabelframe.Label", font=(None, 10, "bold"))
-
-    
-    head = tk.Frame(root, bg=C_BG2, highlightthickness=0, bd=0)
-    head.pack(fill="x")
-    stamp = tk.Label(head, text="漫", font=(None, 15, "bold"),
-                     bg=ACCENT, fg="white", width=3, pady=2)
-    stamp.pack(side="right", padx=(16, 10), pady=8)
-    tk.Label(head, text=APP_NAME, font=(None, 14, "bold"),
-             bg=C_BG2, fg=C_TXT).pack(side="right", pady=9)
-    tk.Label(head, text=f"v{APP_VER}", font=("IBM Plex Mono", 9),
-             bg=C_BG2, fg=C_MUT).pack(side="left", padx=10)
-    status_lbl = tk.Label(head, text="● آماده", font=(None, 10, "bold"),
-                          bg=C_BG2, fg=C_OK)
-    status_lbl.pack(side="left", padx=4)
-
-    nb = ttk.Notebook(root)
-    nb.pack(fill="both", expand=True, padx=10, pady=10)
-
-    
-    tab = ttk.Frame(nb)
-    nb.add(tab, text="🚀 ترجمه")
-
-    def field(parent, label):
-        
-        ttk.Label(parent, text=label, foreground=C_MUT).pack(fill="x", pady=(6, 2))
-
-    
-    card_io = ttk.LabelFrame(tab, text=" ورودی / خروجی ", padding=12)
-    card_io.pack(fill="x", padx=10, pady=(10, 6))
-    field(card_io, "فایل / پوشه / URL ورودی")
-    row_in = ttk.Frame(card_io); row_in.pack(fill="x")
-    inp_var = tk.StringVar(value=cfg.get("last_input", ""))
-    ttk.Entry(row_in, textvariable=inp_var).pack(side="left", fill="x", expand=True)
-
-    def pick_input():
-        p = filedialog.askopenfilename(
-            initialdir=UPLOAD_DIR if os.path.isdir(UPLOAD_DIR) else HERE,
-            filetypes=[("مانگا", "*.pdf *.zip *.cbz *.webp *.jpg *.jpeg *.png *.html"),
-                       ("همه", "*.*")])
-        if p:
-            inp_var.set(p)
-    ttk.Button(row_in, text="📁 انتخاب", command=pick_input).pack(side="left", padx=(6, 0))
-
-    row_out = ttk.Frame(card_io); row_out.pack(fill="x", pady=(8, 0))
-    fmt_var = tk.StringVar(value=cfg.get("out_fmt", "PDF"))
-    ttk.Label(row_out, text="قالب:").pack(side="right", padx=(0, 4))
-    for v in ("PDF", "ZIP", "HTML", "پوشهٔ تصاویر"):
-        ttk.Radiobutton(row_out, text=v, value=v, variable=fmt_var).pack(side="right", padx=4)
-    quality_var = tk.IntVar(value=int(cfg.get("quality", 92)))
-    ttk.Label(row_out, text="کیفیت:").pack(side="left", padx=(0, 4))
-    ttk.Spinbox(row_out, from_=60, to=100, textvariable=quality_var, width=5).pack(side="left")
-
-    
-    card_ai = ttk.LabelFrame(tab, text=" حساب و مدل ", padding=12)
-    card_ai.pack(fill="x", padx=10, pady=6)
-    row_ai1 = ttk.Frame(card_ai); row_ai1.pack(fill="x")
-    prov_var = tk.StringVar(value=cfg.get("provider", "gemini"))
-    ttk.Label(row_ai1, text="ارائه‌دهنده:").pack(side="right", padx=(0, 4))
-    ttk.Combobox(row_ai1, textvariable=prov_var, values=PROVIDERS,
-                 state="readonly", width=12).pack(side="right", padx=(0, 16))
-    model_var = tk.StringVar(value=cfg.get("model", ""))
-    ttk.Label(row_ai1, text="مدل (خالی = پیش‌فرض):").pack(side="right", padx=(0, 4))
-    ttk.Entry(row_ai1, textvariable=model_var, width=22).pack(side="right")
-    field(card_ai, "کلید API (چند کلید = با کاما، چرخش خودکار)")
-    keys_var = tk.StringVar(value=cfg.get("api_keys") or default_keys())
-    keys_entry = ttk.Entry(card_ai, textvariable=keys_var, show="•")
-    keys_entry.pack(fill="x")
-
-    def _persist_api_desktop(*_a):
-        try:
-            cur = load_config()
-            cur["api_keys"] = keys_var.get()
-            cur["provider"] = prov_var.get()
-            cur["model"] = model_var.get()
-            save_config(cur)
-        except Exception:
-            pass
-
-    _api_save_job = {"id": None}
-
-    def _schedule_api_save(*_a):
-        try:
-            if _api_save_job["id"] is not None:
-                root.after_cancel(_api_save_job["id"])
-        except Exception:
-            pass
-        _api_save_job["id"] = root.after(300, _persist_api_desktop)
-
-    keys_var.trace_add("write", _schedule_api_save)
-    prov_var.trace_add("write", _schedule_api_save)
-    model_var.trace_add("write", _schedule_api_save)
-
-    
-    card_font = ttk.LabelFrame(tab, text=" فونت‌های لحن ", padding=10)
-    card_font.pack(fill="x", padx=10, pady=6)
-    font_vars = {"main": tk.StringVar(value=cfg.get("font") or find_font())}
-    row_fm = ttk.Frame(card_font); row_fm.pack(fill="x")
-    ttk.Label(row_fm, text="اصلی (پیش‌فرض):", foreground=C_MUT).pack(side="right", padx=(0, 4))
-    ttk.Entry(row_fm, textvariable=font_vars["main"]).pack(side="right", fill="x",
-                                                           expand=True, padx=(0, 4))
-
-    def mk_pick(var):
-        def _p():
-            pth = filedialog.askopenfilename(filetypes=[("فونت", "*.ttf *.otf")])
-            if pth:
-                var.set(pth)
-        return _p
-    ttk.Button(row_fm, text="…", width=3,
-               command=mk_pick(font_vars["main"])).pack(side="left")
-
-    
-    SLOT_LABELS = {
-        "normal": "کودک (عادی)", "shout": "افسانه (خشم)", "comedy_shout": "کروش (کمدی)",
-        "whisper": "زمزمه", "thought": "تفکر", "system": "سیستم/تگ",
-        "letter": "نامه/طومار", "narrator": "راوی", "free_text": "متن آزاد",
-    }
-    font_slots = {}
-    for slot, fname, _desc, _urls in FONT_BUNDLES:
-        dflt = os.path.join(FONT_DIR, fname) if os.path.isfile(os.path.join(FONT_DIR, fname)) else ""
-        if dflt and not _font_persian_ok(dflt):
-            dflt = ""
-        font_slots[slot] = tk.StringVar(value=dflt)
-
-    def open_font_editor():
-        win = tk.Toplevel(root)
-        win.title("ویرایش فونت‌های لحن")
-        win.geometry("820x420")
-        win.configure(bg=C_BG)
-        tk.Label(win, text="مسیر هر فونت را عوض کنید یا با … انتخاب کنید",
-                 bg=C_BG, fg=C_MUT).pack(anchor="e", padx=12, pady=(10, 4))
-        body = tk.Frame(win, bg=C_BG)
-        body.pack(fill="both", expand=True, padx=12)
-        for idx, (slot, _fname, _d, _u) in enumerate(FONT_BUNDLES):
-            r, c = divmod(idx, 2)
-            cell = tk.Frame(body, bg=C_BG)
-            cell.grid(row=r, column=(1 - c), sticky="ew", padx=4, pady=3)
-            body.columnconfigure(1 - c, weight=1)
-            tk.Label(cell, text=f"{SLOT_LABELS.get(slot, slot)}:",
-                     bg=C_BG, fg=C_TXT).pack(side="right", padx=(0, 4))
-            ttk.Entry(cell, textvariable=font_slots[slot]).pack(
-                side="right", fill="x", expand=True)
-            ttk.Button(cell, text="…", width=2,
-                       command=mk_pick(font_slots[slot])).pack(side="left")
-        ttk.Button(win, text="بستن", command=win.destroy).pack(pady=10)
-
-    row_fd = ttk.Frame(card_font); row_fd.pack(fill="x", pady=(4, 0))
-
-    def do_download_fonts():
-        dl_btn.config(state="disabled")
-        set_status("دانلود فونت…")
-
-        def t():
-            n = download_fonts(log=lambda m: q.put(("log", m)))
-            q.put(("fonts_done", n))
-
-        threading.Thread(target=t, daemon=True).start()
-
-    dl_btn = ttk.Button(row_fd, text="⬇ دانلود فونت‌های گمشده", command=do_download_fonts)
-    dl_btn.pack(side="left")
-    ttk.Button(row_fd, text="✏️ ویرایش فونت‌های لحن",
-               command=open_font_editor).pack(side="left", padx=6)
-
-    
-    card_opt = ttk.LabelFrame(tab, text=" گزینه‌ها ", padding=12)
-    card_opt.pack(fill="x", padx=10, pady=6)
-    row4 = ttk.Frame(card_opt); row4.pack(fill="x")
-    lama_var = tk.BooleanVar(value=False)
-    cpu_var = tk.BooleanVar(value=bool(cfg.get("force_cpu", False)))
-    twopass_var = tk.BooleanVar(value=True)
-    debug_var = tk.BooleanVar(value=False)
-    ttk.Checkbutton(row4, text="اجبار LaMa-Manga (خالی = خودکار)",
-                    variable=lama_var).pack(side="right", padx=6)
-    ttk.Checkbutton(row4, text="اجبار CPU", variable=cpu_var).pack(side="right", padx=6)
-    ttk.Checkbutton(row4, text="OCR دومرحله‌ای", variable=twopass_var).pack(side="right", padx=6)
-    ttk.Checkbutton(row4, text="دیباگ", variable=debug_var).pack(side="right", padx=6)
-    row5 = ttk.Frame(card_opt); row5.pack(fill="x", pady=(8, 0))
-    workers_var = tk.IntVar(value=int(cfg.get("workers", 2)))
-    bubbles_var = tk.IntVar(value=int(cfg.get("bubbles", 6)))
-    timeout_var = tk.IntVar(value=int(cfg.get("timeout", 40)))
-    for lbl, var, a, b in (("ورکر OCR", workers_var, 1, 8),
-                           ("حباب در هر درخواست", bubbles_var, 1, 12),
-                           ("تایم‌اوت (ثانیه)", timeout_var, 10, 120)):
-        ttk.Label(row5, text=lbl + ":").pack(side="right", padx=(12, 4))
-        ttk.Spinbox(row5, from_=a, to=b, textvariable=var, width=5).pack(side="right")
-    adv = ttk.Frame(card_opt)
-    adv_open = {"v": False}
-    def toggle_adv():
-        adv_open["v"] = not adv_open["v"]
-        if adv_open["v"]:
-            adv.pack(fill="x", after=row5, pady=(6, 0))
-            adv_btn.config(text="▲ بستن تنظیمات پیشرفته")
-        else:
-            adv.pack_forget()
-            adv_btn.config(text="▼ تنظیمات پیشرفته")
-    adv_btn = ttk.Button(row5, text="▼ تنظیمات پیشرفته", command=toggle_adv, width=22)
-    adv_btn.pack(side="left", padx=6)
-    row5b = ttk.Frame(adv); row5b.pack(fill="x", pady=(6, 0))
-    batchw_var = tk.IntVar(value=int(cfg.get("batch_workers", 3)))
-    maxre_var = tk.IntVar(value=int(cfg.get("max_retries", 8)))
-    reqdelay_var = tk.DoubleVar(value=float(cfg.get("request_delay", 0)))
-    temp_var = tk.DoubleVar(value=float(cfg.get("temperature", 0.85)))
-    readord_var = tk.StringVar(value=str(cfg.get("reading_order", "rtl")))
-    for lbl, var, a, b in (("بستهٔ ترجمهٔ موازی", batchw_var, 1, 8),
-                           ("حداکثر تلاش", maxre_var, 1, 15),
-                           ("تأخیر درخواست (ث)", reqdelay_var, 0, 5),
-                           ("temperature", temp_var, 0, 1.5)):
-        ttk.Label(row5b, text=lbl + ":").pack(side="right", padx=(12, 4))
-        ttk.Spinbox(row5b, from_=a, to=b, textvariable=var, width=5,
-                    increment=0.05 if a == 0 and b == 1.5 else 1).pack(side="right")
-    ttk.Label(row5b, text="ترتیب خواندن:").pack(side="right", padx=(12, 4))
-    ttk.Combobox(row5b, textvariable=readord_var, values=["rtl", "ltr"],
-                 state="readonly", width=5).pack(side="right")
-
-    
-    row6 = ttk.Frame(tab); row6.pack(fill="x", padx=10, pady=(4, 2))
-    run_btn = ttk.Button(row6, text="🚀  شروع ترجمه", style="Accent.TButton")
-    run_btn.pack(side="right")
-    stop_btn = ttk.Button(row6, text="⏹ توقف", state="disabled")
-    stop_btn.pack(side="right", padx=6)
-    read_btn = ttk.Button(row6, text="📖 خواندن", state="disabled",
-                          command=lambda: open_reader())
-    read_btn.pack(side="left")
-    open_btn = ttk.Button(row6, text="📂 خروجی", state="disabled")
-    open_btn.pack(side="left")
-    out_path_holder = {"p": "", "d": ""}
-    progress = ttk.Progressbar(tab, mode="indeterminate")
-
-    
-    tab_log = ttk.Frame(nb)
-    row_log = ttk.Frame(tab_log); row_log.pack(fill="x", padx=10, pady=(8, 4))
-    copy_btn = ttk.Button(row_log, text="📋 کپی لاگ")
-    log_box = scrolledtext.ScrolledText(tab_log, height=26, font=("Consolas", 9),
-                                        bg="#0a0f1c", fg="#cbd5e1",
-                                        insertbackground="#e2e8f0", wrap="none",
-                                        relief="flat")
-    log_box.pack(fill="both", expand=True, padx=10, pady=(2, 8))
-    log_newest_top = tk.BooleanVar(value=False)
-    _log_count = {"n": 0}
-
-    def on_log_key(e):
-        
-        if e.state & 0x0004 and e.keysym.lower() in ("c", "a"):
-            return None
-        return "break"
-    log_box.bind("<Key>", on_log_key)
-
-    def log_write(msg):
-        log_box.config(state="normal")
-        if log_newest_top.get():
-            log_box.insert("1.0", msg + "\n")
-        else:
-            log_box.insert("end", msg + "\n")
-            log_box.see("end")
-        log_box.config(state="disabled")
-
-    def toggle_log_dir():
-        log_newest_top.set(not log_newest_top.get())
-        dir_btn.config(text="⬆ جدید در بالا" if log_newest_top.get() else "⬇ جدید در پایین")
-    dir_btn = ttk.Button(row_log, text="⬇ جدید در پایین", command=toggle_log_dir, width=14)
-    dir_btn.pack(side="left", padx=6)
-    ttk.Label(row_log, text="لاگ با Ctrl+C قابل کپی است", foreground=C_MUT
-              ).pack(side="left", padx=8)
-
-    def copy_log():
-        txt = log_box.get("1.0", "end").strip()
-        root.clipboard_clear()
-        root.clipboard_append(txt)
-        set_status("لاگ کپی شد")
-
-    copy_btn.config(command=copy_log)
-
-    
-    def open_reader():
-        d = out_path_holder.get("d")
-        files = []
-        if d and os.path.isdir(d):
-            for f in sorted(os.listdir(d)):
-                if f.lower().endswith((".webp", ".png", ".jpg", ".jpeg", ".bmp")):
-                    files.append(os.path.join(d, f))
-        p = out_path_holder.get("p")
-        if not files and p and os.path.isfile(p) and \
-                p.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
-            files = [p]
-        if not files:
-            messagebox.showinfo(
-                "خواندن", "فایل تصویری برای نمایش پیدا نشد.\n"
-                "برای حالت خواندن، خروجی را ZIP یا «پوشهٔ تصاویر» بگیرید (PDF صفحه‌تصویری ندارد).")
-            return
-        win = tk.Toplevel(root)
-        win.title("📖 حالت خواندن")
-        win.geometry("920x860")
-        win.configure(bg="#0a0f1c")
-
-        from PIL import Image as PILImage, ImageTk
-
-        bar = tk.Frame(win, bg="#10131c", highlightthickness=0)
-        bar.pack(side="top", fill="x")
-        zlbl = tk.Label(bar, text="۱۰۰٪", font=(None, 10, "bold"),
-                        bg="#10131c", fg="#e8e6e1", width=7)
-
-        cv = tk.Canvas(win, bg="#0a0f1c", highlightthickness=0)
-        sb = ttk.Scrollbar(win, orient="vertical", command=cv.yview)
-        inner = tk.Frame(cv, bg="#0a0f1c")
-        inner.bind("<Configure>",
-                   lambda e: cv.configure(scrollregion=cv.bbox("all")))
-        win_id = cv.create_window((0, 0), window=inner, anchor="nw")
-        cv.configure(yscrollcommand=sb.set)
-        cv.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-
-        state = {"zoom": 1.0, "imgs": [], "full": False}
-
-        def _on_mousewheel(e):
-            cv.yview_scroll(int(-e.delta / 120), "units")
-
-        def _on_zoom_wheel(e):
-            if e.state & 0x0004:
-                set_zoom(state["zoom"] * (1.15 if e.delta > 0 else 1 / 1.15))
-            else:
-                _on_mousewheel(e)
-
-        def _sync_width(_e=None):
-            if not state["full"]:
-                cv.itemconfigure(win_id, width=cv.winfo_width())
-
-        cv.bind("<Configure>", _sync_width)
-        cv.bind_all("<MouseWheel>", _on_zoom_wheel)
-
-        def set_zoom(z, center=True):
-            z = max(0.15, min(4.0, z))
-            if abs(z - state["zoom"]) < 1e-3:
-                return
-            if center:
-                frac = cv.yview()[0]
-            state["zoom"] = z
-            zlbl.config(text=f"{int(z * 100)}٪")
-            w = int(cv.winfo_width() or 880)
-            target_w = int(w * z)
-            for img0, lb in state["imgs"]:
-                h = max(1, int(img0.height * target_w / img0.width))
-                im2 = img0.resize((target_w, h), PILImage.LANCZOS)
-                ph = ImageTk.PhotoImage(im2)
-                lb.configure(image=ph, width=target_w, height=h)
-                lb.image = ph
-            if center:
-                cv.update_idletasks()
-                cv.yview_moveto(frac)
-
-        def zi():
-            set_zoom(state["zoom"] * 1.2)
-
-        def zo():
-            set_zoom(state["zoom"] / 1.2)
-
-        def toggle_full(_e=None):
-            state["full"] = not state["full"]
-            win.attributes("-fullscreen", state["full"])
-            if state["full"]:
-                cv.itemconfigure(win_id, width=win.winfo_screenwidth())
-            else:
-                cv.itemconfigure(win_id, width=880)
-
-        tk.Button(bar, text="✕", command=win.destroy, bd=0, padx=10,
-                  bg="#10131c", fg="#ff4a3d", font=(None, 11, "bold"),
-                  cursor="hand2", activebackground="#1c1c22",
-                  activeforeground="#ff4a3d").pack(side="left")
-        tk.Button(bar, text="🔍−", command=zo, bd=0, padx=8,
-                  bg="#10131c", fg="#e8e6e1", font=(None, 10),
-                  cursor="hand2", activebackground="#1c1c22").pack(side="left")
-        tk.Button(bar, text="🔍+", command=zi, bd=0, padx=8,
-                  bg="#10131c", fg="#e8e6e1", font=(None, 10),
-                  cursor="hand2", activebackground="#1c1c22").pack(side="left")
-        tk.Button(bar, text="⛶ فول‌اسکرین", command=toggle_full, bd=0, padx=8,
-                  bg="#10131c", fg="#e8e6e1", font=(None, 10),
-                  cursor="hand2", activebackground="#1c1c22").pack(side="left")
-        tk.Label(bar, text="Ctrl+چرخ = زوم · دابل‌کلیک = فول‌اسکرین",
-                 font=(None, 8), bg="#10131c", fg="#6a6a72").pack(side="right",
-                                                                  padx=8)
-        zlbl.pack(side="right")
-        cv.bind("<Double-Button-1>", toggle_full)
-        win.bind("<F11>", toggle_full)
-        win.bind("<Escape>", lambda e: win.attributes("-fullscreen", False)
-                 if state["full"] else win.destroy())
-
-        for f in files:
-            try:
-                img0 = PILImage.open(f)
-                w = 860
-                h = max(1, int(img0.height * w / img0.width))
-                ph = ImageTk.PhotoImage(img0.resize((w, h), PILImage.LANCZOS))
-                lb = tk.Label(inner, image=ph, bg="#0a0f1c", cursor="fleur")
-                lb.image = ph
-                lb.pack(fill="x", pady=(0, 6))
-                state["imgs"].append((img0, lb))
-            except Exception:
-                continue
-        win.protocol("WM_DELETE_WINDOW", win.destroy)
-
-    
-    hist_var = tk.StringVar(value=history_text())
-    hist_lbl = tk.Label(tab_log, textvariable=hist_var, justify="right", anchor="e",
-                        bg=C_BG2, fg=C_MUT, font=("Consolas", 8))
-    hist_lbl.pack(fill="x", padx=12, pady=(0, 10))
-
-    def refresh_history():
-        hist_var.set(history_text())
-
-    def set_status(text, color=C_OK):
-        status_lbl.config(text="● " + text, fg=color)
-
-    def log_write(msg):
-        log_box.config(state="normal")
-        if log_newest_top.get():
-            log_box.insert("1.0", msg + "\n")
-        else:
-            log_box.insert("end", msg + "\n")
-            log_box.see("end")
-        log_box.config(state="disabled")
-
-    def toggle_log_dir():
-        log_newest_top.set(not log_newest_top.get())
-        dir_btn.config(text="⬆ جدید در بالا" if log_newest_top.get() else "⬇ جدید در پایین")
-
-    def poll_queue():
-        try:
-            while True:
-                kind, payload = q.get_nowait()
-                if kind == "log":
-                    log_write(payload)
-                    refresh_history()
-                elif kind == "status":
-                    set_status(*payload)
-                elif kind == "done":
-                    out_path_holder["p"] = payload
-                    open_btn.config(state="normal")
-                    read_btn.config(state="normal")
-                elif kind == "reader_dir":
-                    out_path_holder["d"] = payload
-                elif kind == "fonts_done":
-                    dl_btn.config(state="normal")
-                    font_vars["main"].set(find_font())
-                    for slot, fname, _d, _u in FONT_BUNDLES:
-                        pth = os.path.join(FONT_DIR, fname)
-                        if os.path.isfile(pth):
-                            font_slots[slot].set(pth)
-                    log_write(f"🔤 فونت‌ها: {payload} فایل جدید دانلود شد.")
-                elif kind == "finished":
-                    run_btn.config(state="normal")
-                    stop_btn.config(state="disabled")
-                    progress.stop()
-                    progress.pack_forget()
-                    refresh_history()
-        except queue.Empty:
-            pass
-        root.after(150, poll_queue)
-
-    def on_stop():
-        p = proc_holder.get("p")
-        if p and p.poll() is None:
-            p.terminate()
-
-    def on_open():
-        p = out_path_holder.get("p")
-        if p:
-            open_path(os.path.dirname(p) or p)
-
-    def worker(src, out_v, cmd):
-        t0 = time.time()
-        proc = subprocess.Popen(
-            cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding="utf-8", errors="replace", bufsize=1,
+        subprocess.run(
+            [sys.executable, "-m", "pip", "uninstall", "-y", *packages],
+            capture_output=True,
+            timeout=180,
         )
-        proc_holder["p"] = proc
-        for line in proc.stdout:
-            q.put(("log", line.rstrip()))
-        proc.wait()
-        dur = time.time() - t0
-        dur_s = f"{int(dur // 60)}:{int(dur % 60):02d}"
-        if proc.returncode != 0:
-            append_history({"time": datetime.now().strftime("%m-%d %H:%M"),
-                            "input": src, "status": f"❌ ({proc.returncode})",
-                            "duration": dur_s})
-            q.put(("log", f"❌ خطا — کد خروج {proc.returncode}"))
-            q.put(("status", ("ناموفق", C_ERR)))
-        else:
-            target = out_v
-            if os.path.isdir(out_v):
-                fs = sorted(os.listdir(out_v))
-                target = os.path.join(out_v, fs[0]) if fs else out_v
-            size = os.path.getsize(target) if os.path.isfile(target) else 0
-            append_history({"time": datetime.now().strftime("%m-%d %H:%M"),
-                            "input": src, "status": "✅", "duration": dur_s})
-            q.put(("log", f"✅ تمام شد ({dur_s}) — {human_size(size)}: {target}"))
-            q.put(("status", ("موفق ✅", C_OK)))
-            q.put(("done", target))
-            
-            cands = [out_v, out_v + ".cache" + os.sep + "out",
-                     os.path.join(out_v + ".cache", "out")]
-            rd = ""
-            for c in cands:
-                if os.path.isdir(c):
-                    rd = c
-                    break
-            q.put(("reader_dir", rd))
-        q.put(("finished", None))
-
-    def on_run():
-        src = inp_var.get().strip()
-        if not src:
-            messagebox.showwarning(APP_NAME, "ورودی را انتخاب کنید یا مسیر/URL بدهید.")
-            return
-        if not os.path.exists(src) and not src.lower().startswith(("http://", "https://")):
-            messagebox.showerror(APP_NAME, "مسیر پیدا نشد:\n" + src)
-            return
-        font_v = font_vars["main"].get().strip() or find_font()
-        if not font_v or not os.path.isfile(font_v):
-            messagebox.showerror(APP_NAME, "فونت اصلی معتبر پیدا نشد.")
-            return
-
-        ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[fmt_var.get()]
-        out_v = os.path.join(OUT_DIR,
-                             os.path.splitext(os.path.basename(src))[0] + "_fa" + ext)
-
-        save_config({"last_input": src, "out_fmt": fmt_var.get(),
-                     "quality": quality_var.get(), "api_keys": keys_var.get(),
-                     "model": model_var.get(), "font": font_v,
-                     "provider": prov_var.get(),
-                     "workers": workers_var.get(), "bubbles": bubbles_var.get(),
-                     "timeout": timeout_var.get(), "force_cpu": cpu_var.get(),
-                     "batch_workers": batchw_var.get(), "max_retries": maxre_var.get(),
-                     "request_delay": reqdelay_var.get(), "temperature": temp_var.get(),
-                     "reading_order": readord_var.get()})
-
-        cmd = [sys.executable, MANGA_PY, "-i", src, "-o", out_v, "--font", font_v,
-               "--provider", prov_var.get(),
-               "--workers", str(workers_var.get()),
-               "--bubbles-per-request", str(bubbles_var.get()),
-               "--api-timeout", str(timeout_var.get()),
-               "--quality", str(quality_var.get()),
-               "--batch-workers", str(batchw_var.get()),
-               "--max-retries", str(maxre_var.get()),
-               "--request-delay", str(reqdelay_var.get()),
-               "--temperature", str(temp_var.get()),
-               "--reading-order", str(readord_var.get())]
-        
-        cli_font = {"free_text": "free"}
-        for slot, var in font_slots.items():
-            pv = var.get().strip()
-            if pv and os.path.isfile(pv):
-                cmd += ["--font-" + cli_font.get(slot, slot.replace("_", "-")), pv]
-        keys = [k.strip() for k in keys_var.get().replace(";", ",").split(",") if k.strip()]
-        if keys:
-            cmd += ["--api-key", ",".join(keys)]
-        if model_var.get().strip():
-            cmd += ["--model", model_var.get().strip()]
-        if lama_var.get():
-            cmd += ["--lama"]
-        if cpu_var.get():
-            cmd += ["--cpu"]
-        if not twopass_var.get():
-            cmd += ["--no-two-pass-ocr"]
-        if debug_var.get():
-            cmd += ["--debug"]
-
-        log_box.config(state="normal")
-        log_box.delete("1.0", "end")
-        log_box.config(state="disabled")
-        log_write("▶ " + " ".join(cmd))
-        run_btn.config(state="disabled")
-        stop_btn.config(state="normal")
-        open_btn.config(state="disabled")
-        read_btn.config(state="disabled")
-        set_status("در حال اجرا…", ACCENT)
-        progress.pack(fill="x", padx=10, pady=(0, 6))
-        progress.start(12)
-        threading.Thread(target=worker, args=(src, out_v, cmd), daemon=True).start()
-
-    run_btn.config(command=on_run)
-    stop_btn.config(command=on_stop)
-    open_btn.config(command=on_open)
-    poll_queue()
-
-    
-    tab_sys = ttk.Frame(nb, padding=12)
-    nb.add(tab_sys, text="🖥️ سیستم")
-    sys_txt = tk.Text(tab_sys, font=("Consolas", 10), bg=C_CARD, fg=C_TXT,
-                      relief="flat", height=18)
-    sys_txt.pack(fill="both", expand=True)
-    sys_txt.insert("1.0", system_info())
-    sys_txt.config(state="disabled")
-
-    tab_help = ttk.Frame(nb, padding=12)
-    nb.add(tab_help, text="❓ راهنما")
-    help_txt = tk.Text(tab_help, font=(None, 10), bg=C_CARD, fg=C_TXT,
-                       relief="flat", wrap="word")
-    help_txt.pack(fill="both", expand=True)
-    help_txt.insert("1.0", HELP_TEXT)
-    help_txt.config(state="disabled")
-
-    nb.add(tab_log, text="📜 لاگ")
-
-    
-    import webbrowser
-    import base64 as _b64
-    GH_ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAJZ0lEQVR42q2Xa6wdVRXHf3vP88x533Of7b23vfXSUqQFqhRLoahQqSialBpEg2hESAgxaowJIIiBhA98UJFPmkDUL9pEC2JDfEdeWh+I1FagkNLee3t7H+c958yceezth9PeUEQFdJLJzGTv2fs3a81a678Eb/HQWuv/NC6EEG9lvTc1eXFpSfttn3qjTtyL8X2fIAyQhsR1XVzXpVwqMTIyzMBA5S3B/NcJX73jbt2oN6jVqtQaNfyOT7vdpteLUEqhtWagPIBjmQjD4NxNm9my9ULWr59m/dQ6RkaGxNsC+Oxnb9LNVoN2u00QhCiVopQiTRVJkjA6MkIURaQayuUK9XqdbsfHSTRDhsWayiClsVGKY2OQd/n8V74k3jTAB6/6kPb9DmmaIqUABHGSkKZp/wUh0AJMaWKloIMQI4yoOC5DhQKrJsaZOHcDYjBPpKBSqZDL59h11YfFfwV4z7bt2pASwzQBiOOYJEnQCOTp6aagnArS5SaO67Bq7QRnb97Imo0bmFz/DoqDFUaGhikWysRRh+XlZYaGRjAsGylM8W8BLrn0Mi2lBCBJEuI4RmuNFAZSSFI0rmEypST1RpMdH/8oO3ZdztS6KQqFPLbjIDDohR1OzJ4gn89juDZISX1hCRmFFE3JwIbzVvY1XwsgpSRNU5JT5pZCIKWJRKCEIGfaXCA9np8/xu4v3cwnP76HXi+mVCgQRRGdVptMNkuqFZZrEycxIhJ4uSxDI6Mk1SWqiwtnWFyevnnf5Tt1/yfrA0ghkMLAEAbSMBCGYEd+kKPLC+y65QY+dd0nqFUbNJpNgihC2hacijopDYqlEl4mQz6fJwhCcvkiolDi9vu+wZ6PXavPADj33At0q90mSWKUUmQzORw7A0JiSEGAYltpmPrCEhM7t3Hj9deClFQX57EQiFSdspZAa4VhGpimyczcDMIy8H2frt8kk8tjZfMceekIhw//Q68AhEFAt91FpYDWK/FtCEEPzRrbZSzSvOAqvvj5W4hjzeyxV2i++gqWZaKFQKSaJEoRSNCaIAw4+pcDnHjlFRw3Q7NRx7FdPnHdtSRxyvGZmTNdEJ9KLFIY/fhOE1IEptZsywxwoLHIF+78MqtXjVJvNBCtOudt3kQUdNBakSZJfyGlMJDUTpzkip1XIKMunVYT07LodhtcumMbuXyWV199tQ9wzsbNGiFQWhEGIUJIhBCgoZdEXJQdZKZe5117drHriveyfPIkcXWJ7PAo1vAorVaboNPFMA08L4NhWvitJp1OixPdkIbfQQU+hpBEYY+T8/Ns3XohpVKJ5WpNm8KQ6EgjhCAMQ7ysB0oToBi3XUqx5rmyxa1XX8Xe7/2Q/T/ZRxyGzC/X2bD1Aq7Zcw2jEwKtNbVaDT/s8uiP97Hvh3uZPGua6Yk1JN0ut95xG8Ojw3z/+w9y6O+H2LNnN1EvQn5sz27CIEBK2U86cYICDA1b3AH+6i+z+/o9qChFmRZ/euYAuUwOJwg4fuBPTK6dQOmI+uJJ6HWIuk3++uTvKXQi3rPpPL5+z51MT09TGR7mhUOHeep3TxMnCZ6XRQiBeemO7Tz80PdIkgTDMBBArBRnZ/L4QQ+5dhUfufJKMGyMjMM9d92GDDUD1+xm7KxJ1k6sRusE0zAwLZdxpbn7rttZXlzAzuV46ue/4OLLtuN6GfZ/+2Eyfsi6Sy9ifHycbreLOTI8TC6fpdVsUywWMQyDOE0Yt7LMtmrs+uDVeF6Wlt+lOj/Ppou2ML5uLXbWw/IyqESAdBFCkCpNmqScffHFVKsn6fkdnvztPO8YrPDdhx6mfXyecyrDDE5M4tgO7baPdByPQr6IlAau64IQSCExpUADf372OQ7+7Xlcx2Ew7xH3Aro6wfJcVBSDAUrHACv1I/DbxGHCvn0/w3FdHv/l73jwge+wKGKmBgaoLi6wtLyMbdsYWy/cevfiUhXP8+h2OphmP657pEzaHnuffBKlFdPT6/AbDdYUCwS1KmkvxjAstIqxbIcoijkxP08vUsSpZnZ2jsMvvMzRuRl++sh+DMehiGAom2NOKs7ZuIFyuYx47LH9+te//g3dTsDRo0epVqtYpkmsNWcZLj2/w3NBkzu+fAtXvHsLIggwpUL2YmaWajz+7EFeOnqMDe88mxtvuplVq1afkev9dpvnDx5k74/20v3LPyhtXs81n7mB1WOriKKoXw2PHHlZv/TiS8zOzvH0088wNzeHbdsIKfhAZZwnXjxEedM67vvcDZi2RWZklLjZYmZ2jvsf+gG/feZZvvXAN9l+yXYyro3nZU7rR05XV4A//uEAhYES5UIJvxMwPT3Vrx7Hj89qz3NJ04Rer4fjuFiWRTfoUq836bV8fv6r37B09EW2bT6HtZs3MbVxPUNjY/jHZ7j93vu57jM34joupiFwHItcoYjjOJimiWmaCCHwPA+/3WZxaRkpTaamJk8BHJvRcdKjUCgyODi4Qn9aU9bqdapLVZIk5d67vkaqoVQucPnOy7j6Ix8mTjRSWnieh9Z65UzTlCiKiKKIIAgIw5Dx8XHiOKZarTI1NSVMgMk1E2J5eUkPDFT6fhEC0zTxfZ8kScjncrRbLTKZDBNnTVMqFfn0DdcjpcRxC7inQJVSCCFWzG6aJo7jrCgr3/c5duwYnucxNTUlzhAkg4NDotNta0NamKZFtVpFKcXAwACGYbBmzSRxHFMuFRAyYXR0lDRN+zpRiDM2fqPWwbIsyuUyXtbFdbw3VkRKKSxTsLAwDwjGxsZQSgGQphrLsrnyyp0g+rohjmMMwzjdA1CtLmHbDrlc/l8ADv/9IBNr15J/3Zh87UM+VxTdrk+z2WJoaKgvRk99TZIktNstzj//AgYrYzSay0gJSqUkSYqUkv2PPMIfnnoKIQQqTc9wy+OPPcrLR478S7MiX09aKlVEoVBEa7WyudYa0zTo9SJmZmbwvCzNRpM4CdGkKNXPhJZt0Ww2T7dFKzoTYNXEBFu2vEu86cYkDAMthOwXqFM+FkIQBAG1Wo1ms41lSSYmR1FKg5acnD+JbTuMja1mYXGBMAwJwy5DQ8MMD4+It9WaxXGspeyLlNcmFt/vMDNzHDdjUqmU0VqT9fJ9FS1NUkDFCbZtif+5OU2SRL82o50G0Rqq1SV8v4WbsfGyWRCSF574PZabYcv73yf4fx9KKa2U0irtX7XWutfr6UMHn9dPPPqYfqvr/RMConnldDL7hAAAAABJRU5ErkJggg=="
-    TG_ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAABzElEQVR4nJ2TPUskQRCGn11HDeSM/Gg66cxAzsBAETQQ0UQvETwXOThQ8APxF5iIkZiLoQiCifgLDAyMFA7u5M7g1GDulmE4uMBAUNFZqaVam3WVxYIZZrqrq596qyrH+ywH5IGS/mfvCVD32kYtllffB/1vTJN4FJgHLo11S1GN+JkspElsgSlgDuhQv9/yit7Av/cEaRJ3AzPABGDU7waoB07ksugV/HvF/wTMAsOBNodAM9CtZ36FRLkAvx34AkwDHytoV4AWYDGo2HcfSIKU0iTuCfDFWewOaAD+AZ+BLmBVL5Vzt8C5T0cotjTXBQ3i9WnQVDqBNmBD10saqGis+/sUCGiqSCFSTdaMdUNAL7CnQfwZsTOlzpfLa6wrAH3AuqL+B8aMdctpEvcD+0E6ZSk00A9fqBcNmSax0G0b676mSfwB+Am0Ko2vnP+eNNYJaRRiynejse5aujVN4kGh4jlIeGmdrsklYlnYR5mKLAcOgPGgezNtvkzTkkBF4I/ul0Iij4yx7ggYAEaAYxV7JxgZufBC6ctr1UZENqQSuyIZUDDWXQGi2akWRHy+Bf5ZrdMvqZSHV7WTZ9NYJ40aVrGq+emvFLmqPQIRpIZPBEo6vAAAAABJRU5ErkJggg=="
-    foot = tk.Frame(root, bg=C_BG2, highlightthickness=0, bd=0)
-    foot.pack(side="bottom", fill="x")
-    def _open_link(url):
-        webbrowser.open(url)
-    def _hover(lbl, on):
-        lbl.config(fg=C_ACC if on else "#c8c5bd")
-    try:
-        from PIL import Image as _PILImage, ImageTk as _ImageTk
-        import io as _io
-        _gh_img = _ImageTk.PhotoImage(_PILImage.open(_io.BytesIO(_b64.b64decode(GH_ICON_B64))))
-        try:
-            _tg_img = tk.PhotoImage(data=_b64.b64decode(TG_ICON_B64))
-        except Exception:
-            _tg_img = None
     except Exception:
-        try:
-            _gh_img = tk.PhotoImage(data=_b64.b64decode(GH_ICON_B64))
-            _tg_img = tk.PhotoImage(data=_b64.b64decode(TG_ICON_B64))
-        except Exception:
-            _gh_img = _tg_img = None
-    gh_lbl = tk.Label(foot, text="سورس (گیت‌هاب)", font=(None, 10),
-                      bg=C_BG2, fg="#c8c5bd", cursor="hand2",
-                      image=_gh_img, compound="right", padx=6)
-    gh_lbl.image_ref = _gh_img
-    gh_lbl.pack(side="right", padx=14, pady=6)
-    gh_lbl.bind("<Button-1>", lambda e: _open_link(
-        "https://github.com/amirwolf5122/Manga-AutoTranslate"))
-    gh_lbl.bind("<Enter>", lambda e: _hover(gh_lbl, True))
-    gh_lbl.bind("<Leave>", lambda e: _hover(gh_lbl, False))
-    tg_lbl = tk.Label(foot, text="سازنده (تلگرام)", font=(None, 10),
-                      bg=C_BG2, fg="#c8c5bd", cursor="hand2",
-                      image=_tg_img, compound="right", padx=6)
-    tg_lbl.image_ref = _tg_img
-    tg_lbl.pack(side="right", padx=14, pady=6)
-    tg_lbl.bind("<Button-1>", lambda e: _open_link("https://t.me/amir_wolf512"))
-    tg_lbl.bind("<Enter>", lambda e: _hover(tg_lbl, True))
-    tg_lbl.bind("<Leave>", lambda e: _hover(tg_lbl, False))
-    tk.Label(foot, text="مانگا مترجم", font=(None, 9),
-             bg=C_BG2, fg=C_MUT).pack(side="left", padx=14)
-
-    def _on_close_desktop():
-        try:
-            _persist_api_desktop()
-        except Exception:
-            pass
-        try:
-            root.destroy()
-        except Exception:
-            pass
-
-    root.protocol("WM_DELETE_WINDOW", _on_close_desktop)
-    root.mainloop()
-
-WEB_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
-:root, .gradio-container {
-  --ink-bg: #060607;
-  --ink-surface: #0d0d10;
-  --ink-surface2: #121216;
-  --ink-line: #1f1f24;
-  --ink-text: #e8e6e1;
-  --ink-dim: #97948c;
-  --ink-red: #ff4a3d;
-  --ink-red-deep: #c9271c;
-}
-body, .gradio-container, footer, .gradio-container .prose {
-  background: var(--ink-bg) !important; color: var(--ink-text) !important;
-  font-family: 'Vazirmatn', sans-serif !important;
-}
-.gradio-container {
-  background:
-    radial-gradient(ellipse 120% 70% at 50% -10%, rgba(255,74,61,.06), transparent 60%),
-    radial-gradient(rgba(232,230,225,.028) 1px, transparent 1.4px) 0 0 / 14px 14px,
-    #060607 !important;
-}
-.gradio-container { max-width: 880px !important; margin: 0 auto !important; }
+        pass
 
 
-.nav {
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 10px 16px;
-  background: linear-gradient(180deg, #101014, #0a0a0c);
-  border: 1px solid var(--ink-line);
-  border-radius: 18px; padding: 20px 24px; margin: 6px 0 18px 0;
-  box-shadow: 0 18px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
-  position: relative; overflow: hidden;
-  animation: rise .55s cubic-bezier(.2,.7,.2,1) both;
-}
-.nav::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(rgba(232,230,225,.03) 1px, transparent 1.4px) 0 0 / 10px 10px;
-}
-.nav-left { display: flex; align-items: center; gap: 14px; flex: 1 1 auto; min-width: 230px; }
-.stamp {
-  width: 52px; height: 52px; flex: none;
-  background: linear-gradient(145deg, var(--ink-red), var(--ink-red-deep));
-  border-radius: 10px; transform: rotate(-4deg);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.7rem; font-weight: 900; color: #fff;
-  box-shadow: 0 6px 18px rgba(224,53,42,.4), inset 0 0 0 2px rgba(255,255,255,.22);
-  font-family: serif;
-}
-.nav-brand { color: var(--ink-text); font-size: 1.3rem; font-weight: 700; line-height: 1.25; white-space: nowrap; }
-.nav-brand b { color: var(--ink-red); font-weight: 900; }
-.nav-sub { display: block; color: var(--ink-dim); font-size: .74rem; font-weight: 400; letter-spacing: .04em; }
-.nav-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.chip {
-  font-family: 'IBM Plex Mono', monospace; font-size: .7rem;
-  background: var(--ink-surface2); border: 1px solid var(--ink-line);
-  color: var(--ink-dim); padding: 4px 11px; border-radius: 999px;
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.chip::before { content: ''; width: 5px; height: 5px; border-radius: 50%;
-  background: var(--ink-red); box-shadow: 0 0 6px var(--ink-red); }
-
-.stepcard {
-  background: linear-gradient(180deg, var(--ink-surface), #0a0a0c) !important;
-  border: 1px solid var(--ink-line) !important;
-  border-radius: 18px !important; padding: 20px 22px 18px; margin-bottom: 16px;
-  box-shadow: 0 10px 28px rgba(0,0,0,.4);
-  position: relative;
-  animation: rise .55s cubic-bezier(.2,.7,.2,1) both;
-}
-.stepcard:nth-of-type(1) { animation-delay: .06s; }
-.stepcard:nth-of-type(2) { animation-delay: .14s; }
-.stepcard:nth-of-type(3) { animation-delay: .22s; }
-.stepcard:nth-of-type(4) { animation-delay: .3s; }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: none; }
-}
-.steptitle {
-  display: flex; align-items: center; gap: 12px;
-  color: var(--ink-text); font-weight: 700; font-size: 1.08rem; margin-bottom: 14px;
-  padding-bottom: 10px; border-bottom: 1px solid var(--ink-line);
-}
-.stepnum {
-  background: linear-gradient(145deg, var(--ink-red), var(--ink-red-deep));
-  color: #fff; width: 30px; height: 30px; border-radius: 8px;
-  transform: rotate(-3deg);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 1rem; font-weight: 900; flex: none;
-  box-shadow: 0 4px 12px rgba(224,53,42,.35), inset 0 0 0 1.5px rgba(255,255,255,.2);
-}
-.hint { color: var(--ink-dim) !important; font-size: .83rem; margin-top: 8px; }
-
-label, span, .prose, p, li { color: var(--ink-dim) !important; }
-span:not(.stepnum):not(.chip) {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-label span, label > span:first-child {
-  background: transparent !important;
-  background-image: none !important;
-  color: var(--ink-dim) !important;
-  box-shadow: none !important;
-  font-size: .85rem; font-weight: 500;
-}
-input[type=text], input[type=password], textarea, select {
-  background: #08080a !important; color: var(--ink-text) !important;
-  border-color: var(--ink-line) !important;
-}
-.block, .form, .gr-box, .gr-panel, .gr-group, .gr-form,
-.gradio-group, .wrap.full, .container > .wrap {
-  background: var(--ink-surface) !important; border-color: var(--ink-line) !important;
-}
-.gr-box input, .gr-box textarea, .gr-input, .gr-textbox {
-  background: #08080a !important; color: var(--ink-text) !important;
-}
-.options, .options ul, ul.options, .dropdown-menu, .wrap .options {
-  background: #101014 !important; border-color: var(--ink-line) !important;
-}
-.options li, .options li:hover { background: #101014 !important; color: var(--ink-text) !important; }
-.options li.selected, .options li:hover { background: #1a1114 !important; }
-accordion, .accordion, details {
-  background: var(--ink-surface) !important; border-color: var(--ink-line) !important; color: var(--ink-dim) !important;
-}
-summary { color: var(--ink-dim) !important; }
-input[type=range], input[type=radio], input[type=checkbox] { accent-color: var(--ink-red) !important; }
-input[type=radio], input[type=checkbox] {
-  appearance: auto !important;
-  background-image: none !important;
-  background-color: transparent !important;
-  border: none !important;
-  width: 16px; height: 16px; margin: 0 2px;
-  cursor: pointer;
-}
-input[type=range] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  height: 6px !important; border-radius: 4px !important;
-  background: linear-gradient(to right, var(--ink-red) var(--range_progress, 50%),
-              #1f1f24 var(--range_progress, 50%)) !important;
-  border: none !important;
-  cursor: pointer;
-}
-input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(to right, var(--ink-red) var(--range_progress, 50%),
-              #1f1f24 var(--range_progress, 50%)) !important;
-  height: 6px !important; border-radius: 4px !important; border: none !important;
-}
-input[type=range]::-moz-range-track {
-  background: linear-gradient(to right, var(--ink-red) var(--range_progress, 50%),
-              #1f1f24 var(--range_progress, 50%)) !important;
-  height: 6px !important; border-radius: 4px !important; border: none !important;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none !important; appearance: none !important;
-  width: 17px; height: 17px; border-radius: 50%;
-  background: var(--ink-red); border: 2.5px solid #fff;
-  box-shadow: 0 2px 10px rgba(255, 74, 61, .55);
-}
-input[type=number], .gr-box input[type=number] {
-  background: #08080a !important; color: var(--ink-text) !important;
-  border-color: var(--ink-line) !important;
-}
-.gr-checkbox, .gr-radio, .wrap label { background: transparent !important; }
-
-button.primary, .lg.primary, #runbtn {
-  background: linear-gradient(160deg, var(--ink-red), var(--ink-red-deep)) !important;
-  color: #fff !important; border: none !important;
-  font-weight: 700 !important; letter-spacing: .02em;
-  box-shadow: 0 8px 22px rgba(224,53,42,.35), inset 0 1px 0 rgba(255,255,255,.25) !important;
-  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
-}
-button.primary:hover, #runbtn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-button.primary:active, #runbtn:active { transform: translateY(1px) scale(.99); }
-button.secondary, .lg.secondary, button.gr-button {
-  background: var(--ink-surface2) !important; color: var(--ink-text) !important;
-  border: 1px solid var(--ink-line) !important;
-}
-button.gr-button:hover { background: #17171c !important; border-color: #2c2c33 !important; }
-#runbtn {
-  font-size: 1.12rem !important; padding: 15px 0 !important;
-  border-radius: 14px !important; margin: 8px 0 12px 0; position: relative; overflow: hidden;
-}
-#runbtn::after {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1.4px) 0 0 / 9px 9px;
-  opacity: 0; transition: opacity .18s ease; pointer-events: none;
-}
-#runbtn:hover::after { opacity: 1; }
-
-textarea { scrollbar-color: var(--ink-line) #08080a !important; }
-.compact-upload .empty, .compact-upload button {
-  min-height: 48px !important; height: auto !important;
-  padding: 6px 8px !important; font-size: .85rem !important;
-  background: #08080a !important; color: var(--ink-dim) !important;
-  border-color: var(--ink-line) !important;
-}
-.compact-upload .wrap.center, .compact-upload .wrap {
-  padding: 6px 0 !important; min-height: 48px !important;
-  background: transparent !important;
-}
-.compact-upload .empty .icon-wrap { display: none !important; }
-.compact-upload label { position: static !important; margin: 4px 0 !important; }
-
-
-footer { display: none !important; }
-
-#manga_live_log,
-#manga_live_log textarea,
-#manga_live_log.generating,
-.generating #manga_live_log textarea {
-  opacity: 1 !important;
-  filter: none !important;
-  transition: none !important;
-  animation: none !important;
-  color: #e8e6e1 !important;
-  background: #08080a !important;
-  min-height: 220px !important;
-  display: block !important;
-  visibility: visible !important;
-}
-#manga_live_log textarea {
-  -webkit-text-fill-color: #e8e6e1 !important;
-}
-
-.credit {
-  display: flex; gap: 12px; justify-content: center; align-items: center;
-  padding: 6px 0 22px; flex-wrap: wrap;
-}
-.credit img.gh-avatar {
-  width: 22px; height: 22px; border-radius: 50%;
-  object-fit: cover; flex: none;
-  border: 1.5px solid var(--ink-line);
-}
-.credit a {
-  display: inline-flex; align-items: center; gap: 7px;
-  color: var(--ink-dim) !important; text-decoration: none !important;
-  font-size: 13px; border: 1px solid var(--ink-line);
-  padding: 7px 16px; border-radius: 999px; background: #0a0a0d;
-  transition: border-color .2s, color .2s, transform .2s;
-}
-.credit a:hover { color: var(--ink-red) !important; border-color: var(--ink-red);
-                  transform: translateY(-1px); }
-.credit svg { width: 15px; height: 15px; fill: currentColor; flex: none; }
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: #060607; }
-::-webkit-scrollbar-thumb { background: #232329; border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: var(--ink-red-deep); }
-::selection { background: var(--ink-red); color: #fff; }
-@media (prefers-reduced-motion: reduce) {
-  .nav, .stepcard { animation: none; }
-}
-"""
-
-
-def _detect_codespace() -> bool:
-    if os.environ.get("CODESPACE_NAME"):
-        return True
-    if os.environ.get("MANGA_SHARE", "").strip() in ("1", "true", "yes"):
-        return True
+def _can_import(module: str) -> bool:
     try:
-        import socket
-        if socket.gethostname().startswith("codespaces-"):
+        __import__(module)
+        return True
+    except Exception:
+        return False
+
+
+def _nvidia_gpu_present() -> bool:
+    try:
+        import torch
+        if torch.cuda.is_available():
             return True
     except Exception:
         pass
     try:
-        with open("/etc/environment", encoding="utf-8") as f:
-            if "CODESPACE_NAME=" in f.read():
-                return True
+        r = subprocess.run(["nvidia-smi", "-L"], capture_output=True, timeout=8)
+        if r.returncode == 0 and b"GPU" in (r.stdout or b""):
+            return True
     except Exception:
         pass
+    try:
+        if os.path.exists("/dev/nvidia0") or os.path.exists("/dev/nvidiactl"):
+            return True
+    except Exception:
+        return False
     return False
 
 
-def _hostname_codespace_name() -> str:
+def _ort_has_cuda() -> bool:
     try:
-        import socket
-        host = socket.gethostname()
-        if host.startswith("codespaces-"):
-            return host
+        import onnxruntime as _ort
+        return "CUDAExecutionProvider" in _ort.get_available_providers()
     except Exception:
-        pass
-    return ""
+        return False
 
 
-def _safe(cls, *args, **kw):
-    while True:
-        try:
-            return cls(*args, **kw)
-        except TypeError as e:
-            mobj = re.search(r"unexpected keyword argument '(\w+)'", str(e))
-            if not mobj or mobj.group(1) not in kw:
-                raise
-            kw.pop(mobj.group(1))
+def _ensure_all_dependencies() -> None:
+    print("[*] بررسی وابستگی‌ها ...")
 
-
-def _gradio_major() -> int:
-    try:
-        import gradio
-        return int(gradio.__version__.split(".")[0])
-    except Exception:
-        return 0
-
-
-def run_web():
     
-    os.environ["GRADIO_ALLOWED_PATHS"] = os.pathsep.join(
-        {str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR), str(HERE)})
-    os.environ.setdefault("GRADIO_ANALYTICS_CACHE_FREQUENCY", "1000000000")
-    try:
-        import gradio  
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "gradio"])
-    import gradio as gr
-    try:
-        from gradio import queueing as _q
-        _q.Queue.compute_analytics_summary = (
-            lambda self, records: self.cached_event_analytics_summary)
-    except Exception:
-        pass
-
-    cfg = load_config()
-    print("[*] بررسی فونت‌های لحن…")
-    try:
-        n = download_fonts()
-        print(f"[+] {n} فونت دانلود شد.")
-    except Exception as e:
-        print(f"[!] فونت‌ها: {e}")
-
-    def natural_key(s):
-        return [int(t) if t.isdigit() else t.lower()
-                for t in re.split(r"(\d+)", s)]
-
-    def build_reader_html(files):
-        import gradio as _gr
-        gv = getattr(_gr, "__version__", "4")
-        major = int(str(gv).split(".")[0] or 4)
-        prefix = "/gradio_api/file=" if major >= 5 else "/file="
-        urls = [prefix + str(p).replace(os.sep, "/") for p in files]
-        if not urls:
-            return "<div style='text-align:center;opacity:.6;padding:24px'>تصویری برای نمایش پیدا نشد.</div>"
-        imgs = "".join(
-            f'<img src="{u}" loading="lazy" decoding="async" alt="" '
-            'style="display:block;width:100%;height:auto;margin:0">'
-            for u in urls)
-        title = os.path.basename(os.path.dirname(files[0])) or "مانهوا"
-
-        fs_toggle = (
-            "var r=this.closest('.rdr')||document.querySelector('.rdr');"
-            "if(!r)return;"
-            "var isFs=document.fullscreenElement||document.webkitFullscreenElement"
-            "||document.mozFullScreenElement||document.msFullscreenElement;"
-            "if(isFs){"
-            "  (document.exitFullscreen||document.webkitExitFullscreen"
-            "  ||document.mozCancelFullScreen||document.msExitFullscreen).call(document);"
-            "}else{"
-            "  var req=r.requestFullscreen||r.webkitRequestFullscreen"
-            "  ||r.mozRequestFullScreen||r.msRequestFullscreen;"
-            "  if(req)req.call(r).catch(function(){});"
-            "}"
-        )
-        zoom_by = (
-            "var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
-            "z=Math.min(4,Math.max(.5,(parseFloat(c.style.zoom)||1)*{f}));"
-            "c.style.zoom=z;r.querySelector('.zlv').textContent="
-            "Math.round(z*100)+'%'"
-        )
-        zoom_set = (
-            "var r=this.closest('.rdr'),c=r.querySelector('.rdrC');"
-            "c.style.zoom={z};r.querySelector('.zlv').textContent="
-            "Math.round({z}*100)+'%'"
-        )
-        return (
-            '<style>'
-            '.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;'
-            'padding:8px 10px;background:#0c0c0e;border-bottom:1px solid #232326;flex:none}'
-            '.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;'
-            'border-radius:8px;padding:8px 12px;font-size:.95rem;cursor:pointer;'
-            'font-family:inherit;min-width:40px;min-height:40px;touch-action:manipulation}'
-            '.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}'
-            '.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;'
-            'overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}'
-            '@media (max-width:480px){'
-            '  .rdr-bar{gap:4px;padding:6px 8px}'
-            '  .rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}'
-            '  .rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}'
-            '  .rdr-btn.fs{order:-1}'
-            '}'
-            '</style>'
-            '<div class="rdr" style="position:fixed;inset:0;z-index:99999;background:#000;'
-            'display:flex;flex-direction:column;direction:ltr;font-family:inherit">'
-            '<div class="rdr-bar">'
-            f'<button class="rdr-btn" title="بستن" '
-            'onclick="this.closest(\'.rdr\').remove()">✕</button>'
-            f'<div class="rdr-title">{title}</div>'
-            f'<button class="rdr-btn" onclick="{zoom_by.format(f="0.8")}">−</button>'
-            '<span class="zlv" style="color:#97948c;font-size:.8rem;min-width:40px;'
-            'text-align:center">100%</span>'
-            f'<button class="rdr-btn" onclick="{zoom_by.format(f="1.25")}">+</button>'
-            f'<button class="rdr-btn" title="پهنای صفحه" onclick="{zoom_set.format(z="1")}">پهنا</button>'
-            f'<button class="rdr-btn fs" title="فول‌اسکرین" onclick="{fs_toggle}">⛶</button>'
-            '</div>'
-            '<div class="rdrS" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;'
-            'touch-action:pan-x pan-y pinch-zoom" onwheel="'
-            + zoom_by.format(f="(event.deltaY<0?1.15:0.87)").replace(
-                "var ", "if(event.ctrlKey){event.preventDefault();var ", 1)
-            + ';}" onscroll="var b=this.closest(\'.rdr\').querySelector(\'.rdrB\'),'
-            'm=this.scrollHeight-this.clientHeight;'
-            'b.style.width=(m>0?this.scrollTop/m*100:0)+\'%\'" ondblclick="'
-            + ("var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
-               "z=(parseFloat(c.style.zoom)||1)>1.2?1:2.5;"
-               "c.style.zoom=z;r.querySelector('.zlv').textContent="
-               "Math.round(z*100)+'%'") + '">'
-            '<div class="rdrC" style="zoom:1;max-width:760px;margin:0 auto;width:100%">'
-            + imgs + '</div></div>'
-            '<div style="position:relative;height:3px;background:#1a1a1c;flex:none">'
-            '<div class="rdrB" style="height:100%;width:0;'
-            'background:linear-gradient(90deg,#ff4a3d,#ff8a5e)"></div></div>'
-            '</div>'
-        )
-
-    g6 = _gradio_major() >= 6
-    blocks_kw = {} if g6 else {"theme": gr.themes.Soft(primary_hue="indigo",
-                                                       neutral_hue="slate"),
-                               "css": WEB_CSS}
-    with gr.Blocks(title=APP_NAME, **blocks_kw) as demo:
-
+    core = []
+    if not _can_import("numpy"):
+        core.append("numpy")
+    cv2_ok = _can_import("cv2")
+    if not cv2_ok and sys.platform.startswith("linux"):
         
-        gr.HTML(
-            """
-<div class="nav">
-  <div class="nav-left">
-    <div class="stamp">漫</div>
-    <div class="nav-brand">مانگا مترجم <span class="nav-sub">ترجمهٔ خودکار مانهوا</span></div>
-  </div>
-  <div class="nav-chips">
-    <span class="chip">CPU / GPU</span>
-    <span class="chip">Gemini · ChatGPT · Groq</span>
-    <span class="chip">LaMa-Manga</span>
-  </div>
-</div>
-"""
-        )
+        _pip_uninstall("opencv-python", "opencv-contrib-python")
+    if not cv2_ok:
+        core.append("opencv-python-headless>=4.8,<5")
+    if not _can_import("PIL"):
+        core.append("Pillow")
+    if core:
+        _pip_install(*core)
 
+    if sys.platform.startswith("linux") and not _can_import("cv2"):
         
-        with gr.Group(elem_classes=["stepcard"]):
-            gr.HTML('<div class="steptitle"><span class="stepnum">۱</span> ورودی — فایل یا لینک مانهوا</div>')
-            inp_upload = gr.File(label="آپلود فایل (pdf / zip / cbz / تصویر / html)",
-                                 file_count="single", type="filepath",
-                                 elem_classes=["compact-upload"])
-            inp_path = gr.Textbox(label="یا URL تصویر/مانهوا",
-                                  placeholder="https://cdn.example.com/chapter/1/001.webp")
+        print("[*] cv2 هنوز لود نمی‌شود → نصب libgl1 ...")
+        for cmd in (
+            ["sudo", "-n", "apt-get", "install", "-y", "libgl1", "libglib2.0-0"],
+            ["apt-get", "install", "-y", "libgl1", "libglib2.0-0"],
+        ):
+            try:
+                r = subprocess.run(cmd, capture_output=True, timeout=300)
+                if r.returncode == 0:
+                    break
+            except Exception:
+                continue
+        if not _can_import("cv2"):
+            _pip_install("opencv-python-headless==4.10.0.84")
 
+    
+    text_pkgs = []
+    if not _can_import("arabic_reshaper"):
+        text_pkgs.append("arabic-reshaper")
+    if not _can_import("bidi"):
+        text_pkgs.append("python-bidi")
+    if text_pkgs:
+        _pip_install(*text_pkgs)
+
+    
+    misc = []
+    if not _can_import("huggingface_hub"):
+        misc.append("huggingface_hub")
+    if not _can_import("requests"):
+        misc.append("requests")
+    if not _can_import("bs4"):
+        misc.append("beautifulsoup4")
+    if not _can_import("yaml"):
+        misc.append("pyyaml")
+    if not _can_import("tqdm"):
+        misc.append("tqdm")
+    if not (_can_import("pymupdf") or _can_import("fitz")):
+        misc.append("pymupdf")
+    if misc:
+        _pip_install(*misc)
+
+    
+    if not _can_import("rapidocr"):
+        if not _pip_install("rapidocr"):
+            if not _can_import("rapidocr_onnxruntime"):
+                _pip_install("rapidocr-onnxruntime")
+
+    
+    if not _can_import("google.genai") and not _can_import("google.generativeai"):
+        _pip_install("google-genai")
+    if not _can_import("openai"):
+        _pip_install("openai")
+
+    
+    if not _can_import("paddleocr"):
+        print("[*] تلاش برای نصب PaddleOCR (اختیاری، دقت بالاتر) ...")
+        _pip_install("paddleocr")
         
-        with gr.Group(elem_classes=["stepcard"]):
-            gr.HTML('<div class="steptitle"><span class="stepnum">۲</span> مترجم هوش مصنوعی</div>')
-            with gr.Row():
-                provider = gr.Dropdown(PROVIDERS, value="gemini",
-                                       label="ارائه‌دهنده", scale=1)
-                api_keys = gr.Textbox(label="کلیدهای API شما (با کاما = چرخش خودکار)",
-                                      value="",
-                                      type="password", scale=3,
-                                      elem_id="manga_api_keys",
-                                      info="کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ.")
-                model = gr.Textbox(label="مدل (خالی = پیش‌فرض)",
-                                   value="",
-                                   placeholder="gemini-3.8-flash", scale=2,
-                                   elem_id="manga_model")
-            gr.Markdown("<div class='hint'>کلید از aistudio.google.com (Gemini) یا "
-                        "platform.openai.com (ChatGPT) یا console.groq.com بگیرید. "
-                        "تنظیمات وب فقط در مرورگر ذخیره می‌شود.</div>")
 
-        
-        with gr.Group(elem_classes=["stepcard"]):
-            gr.HTML('<div class="steptitle"><span class="stepnum">۳</span> خروجی</div>')
-            with gr.Row():
-                out_fmt = gr.Radio(["PDF", "ZIP", "HTML", "پوشهٔ تصاویر"],
-                                   value=cfg.get("out_fmt", "PDF"), label="قالب")
-                quality = gr.Slider(60, 100, value=int(cfg.get("quality", 92)),
-                                    step=1, label="کیفیت تصویر")
+    import platform as _platform
 
-        
-        with gr.Accordion("✒️ فونت‌ها (اصلی + لحن‌ها — اختیاری، خالی = فونت سرور)", open=False):
-            font_upload = gr.File(label="فونت اصلی (.ttf)",
-                                  file_count="single", type="filepath",
-                                  file_types=[".ttf", ".otf"],
-                                  elem_classes=["compact-upload"])
-            gr.Markdown("<div class='hint'>هر فونت لحن را جدا آپلود کنید؛ خالی = فونت سرور</div>")
-            SLOT_LABELS = {
-                "normal": "کودک (عادی)", "shout": "افسانه (خشم)",
-                "comedy_shout": "کروش (کمدی)", "whisper": "زمزمه",
-                "thought": "تفکر", "system": "سیستم/تگ",
-                "letter": "نامه/طومار", "narrator": "راوی", "free_text": "متن آزاد",
-            }
-            tone_uploads = []
-            tone_slots = []
-            with gr.Row():
-                col1 = gr.Column()
-                col2 = gr.Column()
-            slots = list(FONT_BUNDLES)
-            half = (len(slots) + 1) // 2
-            for ci, chunk in enumerate((slots[:half], slots[half:])):
-                with (col1 if ci == 0 else col2):
-                    for slot, fname, desc, _u in chunk:
-                        have = os.path.isfile(os.path.join(FONT_DIR, fname))
-                        up = gr.File(label=f"{SLOT_LABELS.get(slot, slot)} ({desc})"
-                                          f"{' ✓' if have else ''}",
-                                     file_count="single", type="filepath",
-                                     file_types=[".ttf", ".otf"],
-                                     elem_classes=["compact-upload"])
-                        tone_uploads.append(up)
-                        tone_slots.append(slot)
+    want_gpu = _nvidia_gpu_present()
+    has_ort = _can_import("onnxruntime")
+    has_cuda = _ort_has_cuda() if has_ort else False
 
-        with gr.Accordion("⚙️ تنظیمات پیشرفته", open=False):
-            with gr.Row():
-                workers = _safe(gr.Slider, 1, 8, value=int(cfg.get("workers", 2)),
-                                step=1, label="ورکر موازی OCR")
-                bubbles = _safe(gr.Slider, 1, 12, value=int(cfg.get("bubbles", 6)),
-                                step=1, label="حباب در هر درخواست ترجمه")
-                batchw = _safe(gr.Slider, 1, 8, value=int(cfg.get("batch_workers", 3)),
-                               step=1, label="بستهٔ ترجمهٔ موازی (کلید جدا برای هر بسته)")
-            with gr.Row():
-                timeout = _safe(gr.Slider, 10, 120, value=int(cfg.get("timeout", 40)),
-                                step=5, label="تایم‌اوت هر درخواست (ثانیه)")
-                maxre = _safe(gr.Slider, 1, 15, value=int(cfg.get("max_retries", 8)),
-                              step=1, label="حداکثر تلاش ترجمه")
-                reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
-                                 step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
-            with gr.Row():
-                temp = _safe(gr.Slider, 0, 1.5, value=float(cfg.get("temperature", 0.85)),
-                             step=0.05, label="خلاقیت ترجمه (temperature)")
-                readord = gr.Radio(["rtl", "ltr"], value=str(cfg.get("reading_order", "rtl")),
-                                   label="ترتیب خواندن حباب‌ها")
-            with gr.Row():
-                use_lama = gr.Checkbox(label="اجبار LaMa-Manga (خالی = خودکار)",
-                                       value=False)
-                force_cpu = gr.Checkbox(label="اجبار CPU (خالی = GPU اگر بود)",
-                                        value=False)
-                two_pass = gr.Checkbox(label="OCR دومرحله‌ای", value=True)
+    def _torch_cuda_ver() -> str:
+        try:
+            import torch
+            return str(getattr(torch.version, "cuda", None) or "")
+        except Exception:
+            return ""
 
-        SESSION_TTL = 2 * 60 * 60
-        live_jobs = {}
+    def _cuda_major() -> int:
+        ver = _torch_cuda_ver()
+        try:
+            return int(ver.split(".")[0])
+        except Exception:
+            return 0
 
-        def _get_job(sid: str) -> dict:
-            if sid not in live_jobs:
-                live_jobs[sid] = {
-                    "proc": None,
-                    "log": "— لاگ بعد از شروع ترجمه اینجا می‌آید —",
-                    "lock": threading.Lock(),
-                    "ts": time.time(),
-                    "download_path": None,
-                    "html_state": "",
-                    "result_visible": False,
-                    "running": False,
-                    "returncode": None,
-                    "buf": [],
-                    "t0": None,
-                }
-            return live_jobs[sid]
+    def _clear_ort_modules() -> None:
+        for name in list(sys.modules):
+            if name == "onnxruntime" or name.startswith("onnxruntime."):
+                del sys.modules[name]
 
-        def _job_running(job: dict) -> bool:
-            p = job.get("proc")
-            if p is not None:
+    def _ort_prepare_cuda() -> bool:
+        try:
+            import torch  
+        except Exception:
+            pass
+        try:
+            import onnxruntime as _ort
+            if hasattr(_ort, "preload_dlls"):
                 try:
-                    if p.poll() is None:
-                        return True
+                    _ort.preload_dlls()
                 except Exception:
                     pass
-            return bool(job.get("running"))
+            prov = list(_ort.get_available_providers())
+            ok = "CUDAExecutionProvider" in prov
+            print(f"    providers: {prov}")
+            return ok
+        except Exception as e:
+            print(f"    [!] import ort: {e}")
+            return False
 
-        def _kill_job(sid: str) -> None:
-            job = _get_job(sid)
-            with job["lock"]:
-                p = job.get("proc")
-                job["running"] = False
-                if p is not None:
-                    try:
-                        if p.poll() is None:
-                            try:
-                                os.killpg(p.pid, signal.SIGTERM)
-                            except Exception:
-                                try:
-                                    p.terminate()
-                                except Exception:
-                                    pass
-                            try:
-                                p.wait(timeout=2.5)
-                            except Exception:
-                                try:
-                                    os.killpg(p.pid, signal.SIGKILL)
-                                except Exception:
-                                    try:
-                                        p.kill()
-                                    except Exception:
-                                        pass
-                                try:
-                                    p.wait(timeout=1)
-                                except Exception:
-                                    pass
-                    except Exception:
-                        pass
-                job["proc"] = None
-                job["ts"] = time.time()
-                job["log"] = (job.get("log") or "") + "\n⏹ ترجمه متوقف شد توسط کاربر."
+    def _install_ort_cpu() -> None:
+        if _can_import("onnxruntime"):
+            print("[*] onnxruntime از قبل هست (CPU یا GPU).")
+            return
+        print("[*] نصب onnxruntime (CPU) ...")
+        _pip_install("onnxruntime")
+
+    def _install_ort_gpu() -> str:
+        if _platform.system().lower() == "darwin":
+            print("[*] macOS → فقط CPU")
+            return "fail"
+
+        major = _cuda_major()
+        ver = _torch_cuda_ver() or "?"
+        print(f"[*] GPU پیدا شد (CUDA={ver} | OS={_platform.system()}) → onnxruntime-gpu ...")
+        _pip_uninstall("onnxruntime", "onnxruntime-gpu")
+
+        ok_pip = False
+        if major >= 13:
+            print("[*] CUDA 13+ → ort-cuda-13-nightly")
+            cmd = [
+                sys.executable, "-m", "pip", "install", "-q", "--prefer-binary", "--pre",
+                "--index-url",
+                "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/",
+                "onnxruntime-gpu",
+            ]
             try:
-                _persist_job_meta(sid)
-            except Exception:
-                pass
-
-        def _new_sid() -> str:
-            import uuid
-            return uuid.uuid4().hex
-
-        SESS_DIR = os.path.join(WORK_DIR, "sessions")
-        os.makedirs(SESS_DIR, exist_ok=True)
-
-        def _persist_job_meta(sid: str) -> None:
-            if not sid:
-                return
-            job = _get_job(sid)
-            try:
-                with job["lock"]:
-                    meta = {
-                        "sid": sid,
-                        "running": _job_running(job),
-                        "log": (job.get("log") or "")[-8000:],
-                        "ts": job.get("ts") or time.time(),
-                        "download_path": job.get("download_path"),
-                        "result_visible": bool(job.get("result_visible")),
-                        "returncode": job.get("returncode"),
-                        "out_v": job.get("out_v"),
-                        "src": str(job.get("src") or "")[:500],
-                    }
-                path = os.path.join(SESS_DIR, f"{sid}.json")
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(meta, f, ensure_ascii=False)
-            except Exception:
-                pass
-
-        def _load_job_meta(sid: str) -> dict:
-            path = os.path.join(SESS_DIR, f"{sid}.json")
-            try:
-                with open(path, encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                return {}
-
-        def _find_active_sid(preferred: str = "") -> str:
-            pref = (preferred or "").strip()
-            if pref:
-                job = live_jobs.get(pref)
-                if job and _job_running(job):
-                    return pref
-                if job and (job.get("log") or job.get("result_visible")):
-                    return pref
-                meta = _load_job_meta(pref)
-                if meta:
-                    return pref
-            best, best_ts = "", 0
-            for s, job in list(live_jobs.items()):
-                try:
-                    ts = float(job.get("ts") or 0)
-                    if _job_running(job) and ts >= best_ts:
-                        best, best_ts = s, ts
-                except Exception:
-                    pass
-            if best:
-                return best
-
-            try:
-                files = []
-                for name in os.listdir(SESS_DIR):
-                    if name.endswith(".json"):
-                        p = os.path.join(SESS_DIR, name)
-                        try:
-                            files.append((os.path.getmtime(p), name[:-5]))
-                        except Exception:
-                            pass
-                files.sort(reverse=True)
-                for _, s in files[:10]:
-                    meta = _load_job_meta(s)
-                    if meta.get("running") or meta.get("result_visible") or meta.get("log"):
-                        if s not in live_jobs:
-                            j = _get_job(s)
-                            with j["lock"]:
-                                j["log"] = meta.get("log") or j.get("log")
-                                j["download_path"] = meta.get("download_path")
-                                j["result_visible"] = bool(meta.get("result_visible"))
-                                j["ts"] = meta.get("ts") or time.time()
-                                j["out_v"] = meta.get("out_v")
-                                j["src"] = meta.get("src")
-                                if not _job_running(j):
-                                    j["running"] = False
-                        return s
-            except Exception:
-                pass
-            return pref or ""
-
-        def _finalize_job_success(sid: str) -> None:
-            job = _get_job(sid)
-            with job["lock"]:
-                if job.get("result_visible"):
-                    return
-                out_v = job.get("out_v") or ""
-                src = job.get("src") or ""
-                t0 = job.get("t0") or time.time()
-                buf = list(job.get("buf") or [])
-            if not out_v:
-                return
-            el = int(time.time() - t0)
-            dur_s = f"{el // 60}:{el % 60:02d}"
-            target = out_v
-            try:
-                if os.path.isdir(out_v):
-                    target = shutil.make_archive(out_v, "zip", out_v)
-            except Exception:
-                target = out_v
-            try:
-                append_history({
-                    "time": datetime.now().strftime("%m-%d %H:%M"),
-                    "input": src, "status": "✅", "duration": dur_s
-                })
-            except Exception:
-                pass
-            img_dir = out_v if os.path.isdir(out_v) else os.path.join(str(out_v) + ".cache", "out")
-            imgs = []
-            try:
-                if os.path.isdir(img_dir):
-                    for f in sorted(os.listdir(img_dir), key=natural_key):
-                        if f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
-                            imgs.append(os.path.join(img_dir, f))
-                if not imgs and str(target).lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
-                    imgs = [target]
-            except Exception:
-                pass
-            try:
-                reader_html = build_reader_html(imgs)
-            except Exception:
-                reader_html = ""
-            final_log = "\n".join(buf[-120:]) + f"\n\n✅ تمام شد ({dur_s}) — دکمه‌های نمایش و دانلود پایین فعال شدند"
-            with job["lock"]:
-                job["log"] = final_log
-                job["download_path"] = target
-                job["html_state"] = reader_html
-                job["result_visible"] = True
-                job["ts"] = time.time()
-            _persist_job_meta(sid)
-
-        def _start_job_reader(sid: str, proc: subprocess.Popen, t0: float) -> None:
-            job = _get_job(sid)
-
-            def _fmt(buf_lines):
-                el = int(time.time() - t0)
-                body = "\n".join(buf_lines[-120:]) if buf_lines else "… در حال دریافت خروجی …"
-                return f"⏱ {el // 60}:{el % 60:02d}\n\n{body}"
-
-            def _reader():
-                buf = list(job.get("buf") or [])
-                n = 0
-                partial = b""
-                try:
-                    stream = proc.stdout
-                    fd = None
-                    try:
-                        fd = stream.fileno()
-                    except Exception:
-                        fd = None
-                    while True:
-                        with job["lock"]:
-                            if job.get("proc") is None and not job.get("running"):
-                                break
-                        ended = proc.poll() is not None
-                        chunk = b""
-                        try:
-                            if fd is not None:
-                                import select as _sel
-                                try:
-                                    ready, _, _ = _sel.select([stream], [], [], 0.25)
-                                except Exception:
-                                    ready = [stream]
-                                if ready:
-                                    chunk = os.read(fd, 8192)
-                            else:
-                                chunk = stream.read(4096) if stream else b""
-                        except Exception:
-                            chunk = b""
-                        if chunk:
-                            if isinstance(chunk, str):
-                                chunk = chunk.encode("utf-8", "replace")
-                            partial += chunk
-                            while b"\n" in partial:
-                                line, partial = partial.split(b"\n", 1)
-                                text = line.decode("utf-8", "replace").rstrip("\r")
-                                buf.append(text)
-                                if len(buf) > 400:
-                                    del buf[:-300]
-                                with job["lock"]:
-                                    job["buf"] = buf
-                                    job["log"] = _fmt(buf)
-                                    job["ts"] = time.time()
-                                n += 1
-                                if n % 5 == 0:
-                                    _persist_job_meta(sid)
-                        elif ended:
-                            break
-                        else:
-                            time.sleep(0.05)
-                    if partial.strip():
-                        buf.append(partial.decode("utf-8", "replace").rstrip("\r"))
-                    try:
-                        proc.wait(timeout=5)
-                    except Exception:
-                        pass
-                except Exception as e:
-                    with job["lock"]:
-                        job["log"] = (job.get("log") or "") + f"\n⚠ reader: {e}"
-                finally:
-                    rc = None
-                    try:
-                        rc = proc.poll()
-                    except Exception:
-                        pass
-                    with job["lock"]:
-                        if job.get("proc") is proc:
-                            job["proc"] = None
-                        job["running"] = False
-                        job["returncode"] = rc
-                        job["buf"] = buf
-                        if buf:
-                            job["log"] = _fmt(buf)
-                        job["ts"] = time.time()
-                        job["done_event"] = True
-                    if rc == 0:
-                        try:
-                            _finalize_job_success(sid)
-                        except Exception as e:
-                            with job["lock"]:
-                                job["log"] = (job.get("log") or "") + f"\n⚠ finalize: {e}"
-                    elif rc not in (None, 0) and rc not in (-15, -9, 15, 9):
-                        with job["lock"]:
-                            job["log"] = (job.get("log") or "") + f"\n\n❌ خطا — کد خروج {rc}"
-                    _persist_job_meta(sid)
-
-            threading.Thread(target=_reader, daemon=True, name=f"manga-job-{sid[:8]}").start()
-
-            def _heartbeat():
-                while True:
-                    with job["lock"]:
-                        if not _job_running(job):
-                            break
-                        buf = list(job.get("buf") or [])
-                        job["log"] = _fmt(buf)
-                        job["ts"] = time.time()
-                    time.sleep(1.0)
-            threading.Thread(target=_heartbeat, daemon=True, name=f"manga-hb-{sid[:8]}").start()
-
-        session_id = gr.State("")
-        sid_box = gr.Textbox(value="", visible=False, elem_id="manga_sid", label="sid")
-
-        run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
-
-        with gr.Accordion("📡 لاگ زنده", open=True):
-            log_box = _safe(gr.Textbox, lines=16, max_lines=50, autoscroll=True,
-                            show_label=False, interactive=True,
-                            elem_id="manga_live_log",
-                            value="— لاگ بعد از شروع ترجمه اینجا می‌آید —")
-
-        html_state = gr.State("")
-        with gr.Group(elem_classes=["stepcard"], visible=False) as result_group:
-            gr.HTML('<div class="steptitle"><span class="stepnum">✓</span> نتیجه — نمایش یا دانلود</div>')
-            with gr.Row():
-                btn_view = _safe(gr.Button, "👁 نمایش", visible=False)
-                dl_btn = _safe(gr.DownloadButton, label="⬇ دانلود", visible=False)
-            viewer_html = gr.HTML(visible=False, elem_id="reader_wrap")
-
-        LS_KEY = "manga_autotranslate_form_v2"
-        browser_form_json = gr.State("")
-
-        save_form_js = f"""
-(sid, sidBox, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord, lama, cpu, twopass) => {{
-  try {{
-    const realSid = (sid || sidBox || "").toString().trim();
-    const data = {{
-      sid: realSid,
-      inp: inp || "",
-      prov: prov || "",
-      keys: keys || "",
-      model: model || "",
-      fmt: fmt || "",
-      qual: qual,
-      workers: workers,
-      bubbles: bubbles,
-      timeout: timeout,
-      batchw: batchw,
-      maxre: maxre,
-      reqdelay: reqdelay,
-      temp: temp,
-      readord: readord || "",
-      lama: !!lama,
-      cpu: !!cpu,
-      twopass: twopass === null || twopass === undefined ? true : !!twopass,
-      ts: Date.now()
-    }};
-    localStorage.setItem("{LS_KEY}", JSON.stringify(data));
-    if (realSid) localStorage.setItem("manga_sid", realSid);
-  }} catch (e) {{}}
-  return [];
-}}
-"""
-        save_sid_js = f"""
-(sid, sidBox) => {{
-  try {{
-    const realSid = (sid || sidBox || "").toString().trim();
-    if (realSid) {{
-      localStorage.setItem("manga_sid", realSid);
-      let raw = localStorage.getItem("{LS_KEY}");
-      let data = {{}};
-      try {{ data = raw ? JSON.parse(raw) : {{}}; }} catch (e) {{ data = {{}}; }}
-      data.sid = realSid;
-      data.ts = Date.now();
-      localStorage.setItem("{LS_KEY}", JSON.stringify(data));
-    }}
-  }} catch (e) {{}}
-  return [];
-}}
-"""
-        load_form_js = f"""
-() => {{
-  try {{
-    let raw = localStorage.getItem("{LS_KEY}");
-    if (!raw) {{
-      raw = localStorage.getItem("manga_autotranslate_form_v1");
-      if (raw) {{
-        try {{ localStorage.setItem("{LS_KEY}", raw); }} catch (e) {{}}
-      }}
-    }}
-    const sidOnly = (localStorage.getItem("manga_sid") || "").trim();
-    if (!raw) {{
-      if (sidOnly) return [JSON.stringify({{sid: sidOnly, ts: Date.now()}})];
-      return [""];
-    }}
-    const d = JSON.parse(raw);
-    if (!d || !d.ts || (Date.now() - d.ts) > {SESSION_TTL * 1000}) {{
-      // TTL فرم منقضی — ولی sid را نگه دار اگر job ممکن است زنده باشد
-      if (sidOnly) return [JSON.stringify({{sid: sidOnly, ts: Date.now()}})];
-      try {{ localStorage.removeItem("{LS_KEY}"); }} catch (e) {{}}
-      return [""];
-    }}
-    if (sidOnly && !d.sid) d.sid = sidOnly;
-    if (sidOnly) d.sid = sidOnly;
-    return [JSON.stringify(d)];
-  }} catch (e) {{
-    return [""];
-  }}
-}}
-"""
-        client_restore_js = f"""
-() => {{
-  const KEY = "{LS_KEY}";
-  const TTL = {SESSION_TTL * 1000};
-  const setVal = (el, val) => {{
-    if (!el || val === undefined || val === null) return;
-    const s = String(val);
-    const proto = window.HTMLInputElement && window.HTMLInputElement.prototype;
-    const nativeSet = proto && Object.getOwnPropertyDescriptor(proto, "value")
-      ? Object.getOwnPropertyDescriptor(proto, "value").set
-      : null;
-    if (nativeSet) nativeSet.call(el, s);
-    else el.value = s;
-    el.dispatchEvent(new Event("input", {{ bubbles: true }}));
-    el.dispatchEvent(new Event("change", {{ bubbles: true }}));
-  }};
-  const findByLabel = (substr) => {{
-    const labels = Array.from(document.querySelectorAll("label, span, p, div"));
-    for (const lb of labels) {{
-      const t = (lb.textContent || "").trim();
-      if (!t || t.indexOf(substr) < 0) continue;
-      let root = lb.closest(".block, .form, .gr-group, .gr-box, [class*='form']") || lb.parentElement;
-      if (!root) root = lb;
-      const inp = root.querySelector("input, textarea, select");
-      if (inp) return inp;
-    }}
-    return null;
-  }};
-  const apply = () => {{
-    try {{
-      let raw = localStorage.getItem(KEY) || localStorage.getItem("manga_autotranslate_form_v1");
-      if (!raw) return;
-      const d = JSON.parse(raw);
-      if (!d || !d.ts || (Date.now() - d.ts) > TTL) return;
-      const byId = (id) => {{
-        const root = document.getElementById(id);
-        if (!root) return null;
-        return root.querySelector("input, textarea, select") || root;
-      }};
-      if (d.keys) {{
-        const k = byId("manga_api_keys")
-          || findByLabel("کلید")
-          || findByLabel("API")
-          || document.querySelector('input[type="password"]');
-        setVal(k, d.keys);
-      }}
-      if (d.model) {{
-        setVal(byId("manga_model") || findByLabel("مدل"), d.model);
-      }}
-      if (d.inp) setVal(findByLabel("URL"), d.inp);
-      if (d.prov) {{
-        const el = findByLabel("ارائه‌دهنده");
-        if (el) setVal(el, d.prov);
-      }}
-    }} catch (e) {{}}
-  }};
-  apply();
-  setTimeout(apply, 200);
-  setTimeout(apply, 600);
-  setTimeout(apply, 1200);
-  return [];
-}}
-"""
-
-        def run_translation(sid, sid_box_v, inp_path_v, upload, provider_v, api_keys_v, model_v,
-                            out_fmt_v, quality_v, font_up,
-                            workers_v, bubbles_v, timeout_v,
-                            batchw_v, maxre_v, reqdelay_v, temp_v, readord_v,
-                            use_lama_v, force_cpu_v, two_pass_v,
-                            *tone_files):
-            sid = (sid or sid_box_v or "").strip()
-            sid = _find_active_sid(sid) or sid
-            if not sid:
-                sid = _new_sid()
-
-            job = _get_job(sid)
-
-            def _pack(btn, log, dl=None, view=None, group=None, viewer=None, html=""):
-                return (
-                    sid,
-                    gr.update(value=sid),
-                    gr.update(value=btn),
-                    gr.update(value=log),
-                    dl if dl is not None else gr.update(),
-                    view if view is not None else gr.update(),
-                    group if group is not None else gr.update(),
-                    viewer if viewer is not None else gr.update(),
-                    html if html is not None else gr.update(),
-                )
-
-            with job["lock"]:
-                running_now = _job_running(job)
-            if running_now:
-                _kill_job(sid)
-                msg = job.get("log") or "⏹ ترجمه متوقف شد.\n(پروسه manga.py بسته شد)"
-                return _pack("🚀  شروع ترجمه", msg)
-
-            tone_map = dict(zip(tone_slots, tone_files))
-            src = upload or (inp_path_v or "").strip()
-
-            if not src:
-                return _pack("🚀  شروع ترجمه",
-                             "❌ ورودی خالی است — فایل آپلود کنید یا URL بدهید.")
-
-            font_v = font_up or find_font()
-            if not font_v or not os.path.isfile(font_v):
-                return _pack("🚀  شروع ترجمه",
-                             "❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید.")
-
-            ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[out_fmt_v]
-            base = os.path.splitext(os.path.basename(str(src)))[0] + "_fa"
-            user_out_dir = os.path.join(OUT_DIR, sid[:12])
-            os.makedirs(user_out_dir, exist_ok=True)
-            out_v = os.path.join(user_out_dir, base + ext)
-
-            cmd = [sys.executable, "-u", MANGA_PY, "-i", str(src), "-o", out_v,
-                   "--font", font_v,
-                   "--provider", provider_v,
-                   "--workers", str(int(workers_v)),
-                   "--bubbles-per-request", str(int(bubbles_v)),
-                   "--api-timeout", str(int(timeout_v)),
-                   "--quality", str(int(quality_v)),
-                   "--batch-workers", str(int(batchw_v)),
-                   "--max-retries", str(int(maxre_v)),
-                   "--request-delay", str(float(reqdelay_v)),
-                   "--temperature", str(float(temp_v)),
-                   "--reading-order", str(readord_v)]
-            cmd += font_args()
-            for slot, fp in tone_map.items():
-                if fp and os.path.isfile(fp):
-                    cmd += ["--font-" + slot.replace("_", "-"), fp]
-            klist = [k.strip() for k in (api_keys_v or "").replace(";", ",").split(",") if k.strip()]
-            if klist:
-                cmd += ["--api-key", ",".join(klist)]
-            if model_v and str(model_v).strip():
-                cmd += ["--model", str(model_v).strip()]
-            if use_lama_v:
-                cmd += ["--lama"]
-            if force_cpu_v:
-                cmd += ["--cpu"]
-            if not two_pass_v:
-                cmd += ["--no-two-pass-ocr"]
-
-            t0 = time.time()
-            with job["lock"]:
-                job["result_visible"] = False
-                job["download_path"] = None
-                job["html_state"] = ""
-                job["buf"] = []
-                job["t0"] = t0
-                job["returncode"] = None
-                job["done_event"] = False
-                job["out_v"] = out_v
-                job["src"] = src
-                job["running"] = True
-                job["log"] = "⏱ 0:00\n\n▶ در حال شروع…"
-                job["ts"] = time.time()
-
-            _env = os.environ.copy()
-            _env["PYTHONUNBUFFERED"] = "1"
-            _env["PYTHONIOENCODING"] = "utf-8"
-            try:
-                proc = subprocess.Popen(
-                    cmd, cwd=HERE, stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    env=_env,
-                    bufsize=0,
-                    start_new_session=True,
-                )
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+                ok_pip = r.returncode == 0
+                if not ok_pip:
+                    print("    [!] nightly ناموفق → PyPI onnxruntime-gpu")
+                    ok_pip = _pip_install("onnxruntime-gpu")
             except Exception as e:
-                with job["lock"]:
-                    job["running"] = False
-                    job["log"] = f"❌ اجرا نشد: {e}"
-                return _pack("🚀  شروع ترجمه", job["log"])
-
-            with job["lock"]:
-                job["proc"] = proc
-                job["running"] = True
-                job["ts"] = time.time()
-                job["log"] = "⏱ 0:00\n\n▶ شروع شد — لاگ زنده به‌زودی…"
-            _persist_job_meta(sid)
-            _start_job_reader(sid, proc, t0)
-
-            return _pack("⏹  متوقف ترجمه", job["log"])
-
-        _click_kw = dict(
-            inputs=[session_id, sid_box, inp_path, inp_upload, provider, api_keys, model,
-                    out_fmt, quality, font_upload,
-                    workers, bubbles, timeout,
-                    batchw, maxre, reqdelay, temp, readord,
-                    use_lama, force_cpu, two_pass] + tone_uploads,
-            outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
-            concurrency_limit=8,
-        )
-        try:
-            run_btn.click(run_translation, show_progress="hidden", **_click_kw)
-        except TypeError:
+                print(f"    [!] {e}")
+                ok_pip = _pip_install("onnxruntime-gpu")
+        elif major == 12 or major == 0:
+            print("[*] CUDA 12 → onnxruntime-gpu==1.26.0 (+ cuda/cudnn runtime)")
+            ok_pip = _pip_install("onnxruntime-gpu==1.26.0")
+            if not ok_pip:
+                for pkg in ("onnxruntime-gpu==1.25.1", "onnxruntime-gpu==1.22.0"):
+                    print(f"    fallback: {pkg}")
+                    if _pip_install(pkg):
+                        ok_pip = True
+                        break
+            if ok_pip:
+                if not _pip_install("onnxruntime-gpu[cuda,cudnn]==1.26.0"):
+                    _pip_install(
+                        "nvidia-cublas-cu12",
+                        "nvidia-cudnn-cu12",
+                        "nvidia-cuda-runtime-cu12",
+                        "nvidia-cufft-cu12",
+                        "nvidia-curand-cu12",
+                    )
+        elif major == 11:
+            print("[*] CUDA 11 → feed cuda-11")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-q", "--prefer-binary",
+                 "coloredlogs", "flatbuffers", "numpy", "packaging", "protobuf", "sympy"],
+                capture_output=True, timeout=300,
+            )
+            cmd = [
+                sys.executable, "-m", "pip", "install", "-q", "--prefer-binary",
+                "onnxruntime-gpu",
+                "--index-url",
+                "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-11/pypi/simple/",
+            ]
             try:
-                run_btn.click(run_translation, show_progress=False, **_click_kw)
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+                ok_pip = r.returncode == 0
+            except Exception:
+                ok_pip = False
+            if not ok_pip:
+                ok_pip = _pip_install("onnxruntime-gpu==1.18.1")
+        else:
+            ok_pip = _pip_install("onnxruntime-gpu")
+
+        if not ok_pip:
+            return "fail"
+
+        _clear_ort_modules()
+        if _ort_prepare_cuda():
+            print("[+] onnxruntime-gpu با CUDAExecutionProvider آماده است.")
+            return "cuda"
+
+        print(
+            "[!] CUDA EP الان در providers نیست. "
+            "بستهٔ GPU نگه داشته می‌شود؛ یک‌بار Restart session بزن یا ادامه با CPU provider."
+        )
+        return "cpu"
+
+    if want_gpu:
+        major = _cuda_major()
+        need_repin = False
+        if has_cuda and major == 12:
+            try:
+                import onnxruntime as _ort
+                ov = getattr(_ort, "__version__", "") or ""
+                parts = ov.split(".")
+                if len(parts) >= 2 and int(parts[0]) == 1 and int(parts[1]) >= 27:
+                    need_repin = True
+                    print(f"[*] ORT {ov} برای CUDA13 است؛ سیستم CUDA12 → 1.26.0")
+            except Exception:
+                pass
+
+        if has_cuda and not need_repin:
+            print("[*] onnxruntime-gpu آماده (CUDA).")
+            _ort_prepare_cuda()
+        else:
+            status = _install_ort_gpu()
+            if status == "fail":
+                _install_ort_cpu()
+            elif status in ("cuda", "cpu"):
+                if os.environ.get("_ORT_GPU_REEXEC") != "1":
+                    print("[*] راه‌اندازی مجدد پروسه برای لود CUDA libs ...")
+                    os.environ["_ORT_GPU_REEXEC"] = "1"
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
+    else:
+        _install_ort_cpu()
+
+    print("[+] بررسی وابستگی‌ها تمام شد.\n")
+
+
+_ensure_all_dependencies()
+
+import argparse
+import json
+import re
+import shutil
+import string
+import time
+import zipfile
+import base64
+import glob
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+from dataclasses import dataclass, field
+from typing import List, Tuple, Optional, Dict
+import threading
+import random
+
+import numpy as np
+import cv2
+from PIL import Image, ImageDraw, ImageFont
+
+os.environ.setdefault("FLAGS_use_mkldnn", "0")
+os.environ.setdefault("FLAGS_onednn", "0")
+
+try:
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+except ImportError:
+    print("خطا: arabic-reshaper / python-bidi بعد از نصب خودکار هنوز نیستند.", file=sys.stderr)
+    raise
+
+_HAS_GEMINI = False
+try:
+    from google import genai
+    from google.genai import types as genai_types
+    from google.genai import errors as genai_errors
+    _HAS_GEMINI = True
+except ImportError:
+    genai = None
+    genai_types = None
+    genai_errors = None
+
+_HAS_OPENAI = False
+try:
+    from openai import OpenAI
+    _HAS_OPENAI = True
+except ImportError:
+    OpenAI = None
+
+
+_HAS_PADDLE = False
+try:
+    from paddleocr import PaddleOCR
+    _HAS_PADDLE = True
+except ImportError:
+    PaddleOCR = None
+
+_HAS_RAPIDOCR = False
+try:
+    from rapidocr_onnxruntime import RapidOCR
+    _HAS_RAPIDOCR = True
+except ImportError:
+    RapidOCR = None
+
+
+try:
+    import onnxruntime as ort
+    try:
+        if hasattr(ort, "preload_dlls"):
+            ort.preload_dlls()
+    except Exception:
+        pass
+except ImportError:
+    ort = None
+    print("[!] onnxruntime در دسترس نیست — پاک‌سازی فقط با OpenCV.", file=sys.stderr)
+
+try:
+    from huggingface_hub import hf_hub_download
+except ImportError:
+    hf_hub_download = None
+
+
+def _ort_providers(prefer_gpu: bool = True):
+    if ort is None:
+        return ["CPUExecutionProvider"]
+    available = set(ort.get_available_providers())
+    order = []
+    if prefer_gpu and "CUDAExecutionProvider" in available:
+        order.append("CUDAExecutionProvider")
+    elif prefer_gpu and "CoreMLExecutionProvider" in available:
+        order.append("CoreMLExecutionProvider")
+    if "CPUExecutionProvider" in available:
+        order.append("CPUExecutionProvider")
+    return order or ["CPUExecutionProvider"]
+
+
+def _ort_session_options(threads: int = 4):
+    so = ort.SessionOptions()
+    so.log_severity_level = 3
+    so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    so.intra_op_num_threads = max(1, int(threads))
+    so.inter_op_num_threads = 1
+    so.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    so.enable_cpu_mem_arena = True
+    so.enable_mem_pattern = True
+    return so
+
+
+_ORT_CUDA_OK = None
+
+
+def _prepare_ort_cuda_dlls() -> None:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            try:
+                _ = torch.empty(1, device="cuda")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    try:
+        if hasattr(ort, "preload_dlls"):
+            try:
+                ort.preload_dlls(cuda=True, cudnn=True, msvc=True, directory="")
             except TypeError:
-                run_btn.click(run_translation, **_click_kw)
-
-        _save_inputs = [
-            session_id, sid_box, inp_path, provider, api_keys, model, out_fmt, quality,
-            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
-            use_lama, force_cpu, two_pass,
-        ]
-
-        try:
-            run_btn.click(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
-        except Exception:
-            pass
-        try:
-            sid_box.change(fn=None, inputs=[session_id, sid_box], outputs=[], js=save_sid_js)
-        except Exception:
-            pass
-
-        for _comp in (api_keys, provider, model, out_fmt, inp_path):
-            try:
-                _comp.change(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
+                ort.preload_dlls()
             except Exception:
                 try:
-                    _comp.blur(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
+                    ort.preload_dlls()
                 except Exception:
                     pass
-        for _comp in (quality, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
-                      use_lama, force_cpu, two_pass):
-            try:
-                _comp.change(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
-            except Exception:
-                pass
+    except Exception:
+        pass
 
-        def _apply_browser_restore(raw_json):
-            data = {}
-            if raw_json:
-                try:
-                    data = json.loads(raw_json) if isinstance(raw_json, str) else {}
-                except Exception:
-                    data = {}
 
-            preferred = (data.get("sid") or "").strip()
-            sid = _find_active_sid(preferred) or preferred or _new_sid()
-            job = _get_job(sid)
-            if not (job.get("log") and job.get("log") != "— لاگ بعد از شروع ترجمه اینجا می‌آید —"):
-                meta = _load_job_meta(sid)
-                if meta.get("log"):
-                    with job["lock"]:
-                        job["log"] = meta.get("log")
-                        if meta.get("download_path"):
-                            job["download_path"] = meta.get("download_path")
-                        if meta.get("result_visible"):
-                            job["result_visible"] = True
-                        if meta.get("html_state"):
-                            job["html_state"] = meta.get("html_state")
-            with job["lock"]:
-                still_running = _job_running(job)
-                log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
-                vis = bool(job.get("result_visible"))
-                dl = job.get("download_path")
-                html = job.get("html_state") or ""
-            btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
+def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4):
+    global _ORT_CUDA_OK
+    if ort is None:
+        raise RuntimeError("onnxruntime نصب نیست")
+    so = _ort_session_options(threads)
+    want = prefer_gpu and (_ORT_CUDA_OK is not False)
 
-            def u_str(key):
-                if key not in data:
-                    return gr.update()
-                v = data.get(key)
-                if v is None:
-                    return gr.update()
-                return gr.update(value=v)
+    if want:
+        _prepare_ort_cuda_dlls()
 
-            def u_num(key):
-                if key not in data:
-                    return gr.update()
-                v = data.get(key)
-                if v is None or v == "":
-                    return gr.update()
-                try:
-                    return gr.update(value=float(v))
-                except Exception:
-                    return gr.update()
+    if want and "CUDAExecutionProvider" in ort.get_available_providers():
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    else:
+        providers = ["CPUExecutionProvider"]
 
-            def u_bool(key, default=None):
-                if key not in data:
-                    return gr.update()
-                v = data.get(key)
-                if v is None:
-                    return gr.update()
-                return gr.update(value=bool(v))
+    try:
+        sess = ort.InferenceSession(model_path, sess_options=so, providers=providers)
+    except Exception as e:
+        print(f"[!] InferenceSession GPU ناموفق ({e}) → CPU")
+        _ORT_CUDA_OK = False
+        sess = ort.InferenceSession(
+            model_path, sess_options=so, providers=["CPUExecutionProvider"]
+        )
 
-            return (
-                sid,
-                gr.update(value=sid),
-                gr.update(value=btn),
-                gr.update(value=log),
-                gr.update(value=dl, visible=vis) if vis else gr.update(),
-                gr.update(visible=vis),
-                gr.update(visible=vis),
-                gr.update(visible=False),
-                html if vis else gr.update(),
-                u_str("inp"),
-                u_str("prov"),
-                u_str("keys"),
-                u_str("model"),
-                u_str("fmt"),
-                u_num("qual"),
-                u_num("workers"),
-                u_num("bubbles"),
-                u_num("timeout"),
-                u_num("batchw"),
-                u_num("maxre"),
-                u_num("reqdelay"),
-                u_num("temp"),
-                u_str("readord"),
-                u_bool("lama"),
-                u_bool("cpu"),
-                u_bool("twopass"),
-            )
+    active = list(sess.get_providers())
+    if want and "CUDAExecutionProvider" in active:
+        _ORT_CUDA_OK = True
+    elif want:
+        _ORT_CUDA_OK = False
+        print(
+            f"[!] session providers={active} (CUDA ساخته نشد؛ "
+            f"اغلب کمبود cuDNN/cublas). "
+            f"امتحان: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0'"
+        )
+    return sess
 
-        _restore_outputs = [
-            session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
-            inp_path, provider, api_keys, model, out_fmt, quality,
-            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
-            use_lama, force_cpu, two_pass,
-        ]
+
+def _cpu_thread_fallback(session, model_path: str, use_threads: int):
+    
+    
+    try:
+        provs = list(session.get_providers())
+        cpu_n = max(1, min(8, os.cpu_count() or 4))
+        if "CUDAExecutionProvider" not in provs and use_threads < cpu_n:
+            print(f"    [*] اینپینت روی CPU است → threads: {use_threads} → {cpu_n}")
+            return _make_ort_session(model_path, prefer_gpu=False, threads=cpu_n), cpu_n
+    except Exception:
+        pass
+    return session, use_threads
+
+
+class MiganONNX:
+    
+    REPO = "karanjakhar/migan"
+    FILE = "migan_pipeline_v2.onnx"
+
+    def __init__(self, model_path: Optional[str] = None, prefer_gpu: bool = True,
+                 threads: int = 4, cache_dir: Optional[str] = None):
+        self.prefer_gpu = bool(prefer_gpu)
+        if not model_path or not os.path.isfile(model_path):
+            model_path = self._download_model(cache_dir=cache_dir)
+        self.model_path = model_path
+        
+        
+        if not prefer_gpu:
+            use_threads = max(1, min(8, os.cpu_count() or 4))
+        else:
+            use_threads = max(1, int(threads))
+        self.session = _make_ort_session(model_path, prefer_gpu=prefer_gpu, threads=use_threads)
+        self.session, use_threads = _cpu_thread_fallback(self.session, model_path, use_threads)
+
+        names = [i.name for i in self.session.get_inputs()]
+        self._in_image = names[0]
+        self._in_mask = names[1] if len(names) > 1 else "mask"
+        for n in names:
+            low = n.lower()
+            if "mask" in low:
+                self._in_mask = n
+            elif "image" in low or "img" in low:
+                self._in_image = n
 
         try:
-            demo.load(
-                _apply_browser_restore,
-                inputs=[browser_form_json],
-                outputs=_restore_outputs,
-                js=load_form_js,
-            )
+            shp = self.session.get_inputs()[0].shape
+            self.run_size = int(shp[-1]) if isinstance(shp[-1], int) and shp[-1] > 0 else 512
         except Exception:
-            try:
-                demo.load(
-                    _apply_browser_restore,
-                    inputs=[browser_form_json],
-                    outputs=_restore_outputs,
-                )
-            except Exception:
-                pass
+            self.run_size = 512
+        print(
+            f"[+] MI-GAN ONNX آماده | providers={self.session.get_providers()} | "
+            f"threads={use_threads} | size={self.run_size}"
+        )
 
-        try:
-            demo.load(None, None, None, js=client_restore_js)
-        except Exception:
-            try:
-                demo.load(fn=None, inputs=None, outputs=None, js=client_restore_js)
-            except Exception:
-                pass
+    @classmethod
+    def _download_model(cls, cache_dir: Optional[str] = None) -> str:
+        from pathlib import Path
+        cache_root = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "manga_translator_models"
+        cache_root.mkdir(parents=True, exist_ok=True)
+        dst = cache_root / "migan_pipeline_v2.onnx"
+        if dst.is_file() and dst.stat().st_size > 1_000_000:
+            print(f"[*] مدل MI-GAN از کش: {dst}")
+            return str(dst)
 
-        try:
-            def _on_load_fallback(sid, sid_box_v):
-                preferred = (sid or sid_box_v or "").strip()
-                sid = _find_active_sid(preferred) or preferred or _new_sid()
-                job = _get_job(sid)
-                meta = _load_job_meta(sid)
-                with job["lock"]:
-                    if meta.get("log") and (not job.get("log") or job.get("log").startswith("—")):
-                        job["log"] = meta.get("log")
-                    if meta.get("download_path"):
-                        job["download_path"] = meta.get("download_path")
-                    if meta.get("result_visible"):
-                        job["result_visible"] = True
-                    still_running = _job_running(job)
-                    log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
-                    vis = bool(job.get("result_visible"))
-                    dl = job.get("download_path")
-                    html = job.get("html_state") or ""
-                btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
-                return (
-                    sid,
-                    gr.update(value=sid),
-                    gr.update(value=btn),
-                    gr.update(value=log),
-                    gr.update(value=dl, visible=vis) if vis else gr.update(),
-                    gr.update(visible=vis),
-                    gr.update(visible=vis),
-                    gr.update(visible=False),
-                    html if vis else gr.update(),
-                )
-            demo.load(
-                _on_load_fallback,
-                inputs=[session_id, sid_box],
-                outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
-            )
-        except Exception:
-            pass
+        print(f"[*] دانلود مدل MI-GAN ONNX از {cls.REPO} (~۲۷MB) ...")
+        if hf_hub_download is None:
+            raise RuntimeError("huggingface_hub لازم است")
+        return hf_hub_download(repo_id=cls.REPO, filename=cls.FILE, cache_dir=cache_dir)
 
-        def _poll_job_status(sid, sid_box_v):
-            preferred = (sid or sid_box_v or "").strip()
-            sid = _find_active_sid(preferred) or preferred
-            if not sid:
-                return (gr.update(), gr.update(), gr.update(), gr.update(),
-                        gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
-            job = _get_job(sid)
-            meta = _load_job_meta(sid)
-            with job["lock"]:
-                if meta.get("log") and len(meta.get("log") or "") > len(job.get("log") or ""):
-                    job["log"] = meta.get("log")
-                if meta.get("result_visible") and not job.get("result_visible"):
-                    job["result_visible"] = True
-                    job["download_path"] = meta.get("download_path") or job.get("download_path")
-                running = _job_running(job)
-                log = job.get("log") or ""
-                vis = bool(job.get("result_visible"))
-                dl = job.get("download_path")
-                html = job.get("html_state") or ""
-            btn = "⏹  متوقف ترجمه" if running else "🚀  شروع ترجمه"
-            return (
-                sid,
-                gr.update(value=sid),
-                gr.update(value=btn),
-                gr.update(value=log) if log else gr.update(),
-                gr.update(value=dl, visible=vis) if vis else gr.update(),
-                gr.update(visible=vis),
-                gr.update(visible=vis),
-                gr.update(visible=False),
-                html if vis else gr.update(),
-            )
+    def __call__(self, image, mask):
+        
+        if isinstance(image, np.ndarray):
+            if image.ndim == 3 and image.shape[2] == 3:
+                img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            else:
+                img_rgb = cv2.cvtColor(cv2.cvtColor(image, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2RGB)
+        else:
+            img_rgb = np.array(image.convert("RGB"))
+        if isinstance(mask, np.ndarray):
+            mask_u8 = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) if mask.ndim == 3 else mask.copy()
+        else:
+            mask_u8 = np.array(mask.convert("L"))
+        oh, ow = img_rgb.shape[:2]
+        orig_size = (ow, oh)
+        rs = int(getattr(self, "run_size", 512) or 512)
 
-        _poll_outputs = [session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state]
-        try:
-            _timer = gr.Timer(1.2, active=True)
-            _timer.tick(_poll_job_status, inputs=[session_id, sid_box], outputs=_poll_outputs)
-        except Exception:
-            try:
-                demo.load(_poll_job_status, inputs=[session_id, sid_box], outputs=_poll_outputs)
-            except Exception:
-                pass
-
-        def _cleanup_old_jobs():
-            while True:
-                try:
-                    now = time.time()
-                    dead = []
-                    for sid, job in list(live_jobs.items()):
-                        try:
-                            with job["lock"]:
-                                alive = job.get("proc") is not None and job["proc"].poll() is None
-                                ts = job.get("ts") or 0
-                            if not alive and (now - ts) > SESSION_TTL:
-                                dead.append(sid)
-                                out_sub = os.path.join(OUT_DIR, sid[:12])
-                                if os.path.isdir(out_sub):
-                                    shutil.rmtree(out_sub, ignore_errors=True)
-                        except Exception:
-                            dead.append(sid)
-                    for sid in dead:
-                        live_jobs.pop(sid, None)
-
-                    if os.path.isdir(OUT_DIR):
-                        for name in os.listdir(OUT_DIR):
-                            p = os.path.join(OUT_DIR, name)
-                            if not os.path.isdir(p):
-                                continue
-                            if len(name) == 12 and all(c in "0123456789abcdef" for c in name.lower()):
-                                try:
-                                    mtime = os.path.getmtime(p)
-                                    for root, dirs, files in os.walk(p):
-                                        for f in files:
-                                            try:
-                                                mtime = max(mtime, os.path.getmtime(os.path.join(root, f)))
-                                            except Exception:
-                                                pass
-                                    if (now - mtime) > SESSION_TTL:
-                                        shutil.rmtree(p, ignore_errors=True)
-                                except Exception:
-                                    pass
-
-                    old_sess = os.path.join(WORK_DIR, "sessions")
-                    if os.path.isdir(old_sess):
-                        for name in os.listdir(old_sess):
-                            fp = os.path.join(old_sess, name)
-                            try:
-                                if (now - os.path.getmtime(fp)) > SESSION_TTL:
-                                    if os.path.isfile(fp):
-                                        os.remove(fp)
-                                    elif os.path.isdir(fp):
-                                        shutil.rmtree(fp, ignore_errors=True)
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
-                time.sleep(60)
-
-        threading.Thread(target=_cleanup_old_jobs, daemon=True).start()
-
-        def _open_viewer(st):
-            st = st or ""
-            if not st.strip():
-                return gr.update(value=st, visible=True)
+        
+        scale = 1.0
+        if max(oh, ow) > rs:
+            scale = rs / float(max(oh, ow))
+            nw = max(8, int(round(ow * scale)))
+            nh = max(8, int(round(oh * scale)))
             
-            return gr.update(value=st + f"<!--v{time.time():.6f}-->", visible=True)
+            nw = max(8, (nw // 8) * 8)
+            nh = max(8, (nh // 8) * 8)
+            img_use = cv2.resize(img_rgb, (nw, nh), interpolation=cv2.INTER_AREA)
+            msk_use = cv2.resize(mask_u8, (nw, nh), interpolation=cv2.INTER_AREA)
+        else:
+            ph = (8 - oh % 8) % 8
+            pw = (8 - ow % 8) % 8
+            img_use = cv2.copyMakeBorder(img_rgb, 0, ph, 0, pw, cv2.BORDER_REPLICATE)
+            msk_use = cv2.copyMakeBorder(mask_u8, 0, ph, 0, pw, cv2.BORDER_CONSTANT, value=0)
+            nw, nh = img_use.shape[1], img_use.shape[0]
 
-        view_js = """
-() => {
-  const tryFs = () => {
-    const r = document.querySelector('.rdr');
-    if (!r) return;
-    const isFs = document.fullscreenElement || document.webkitFullscreenElement
-              || document.mozFullScreenElement || document.msFullscreenElement;
-    if (isFs) return;
-    const req = r.requestFullscreen || r.webkitRequestFullscreen
-             || r.mozRequestFullScreen || r.msRequestFullscreen;
-    if (req) {
-      req.call(r).catch(() => {});
-    }
-  };
-  // چند تلاش کوتاه برای موبایل (بعضی مرورگرها نیاز به تأخیر دارند)
-  setTimeout(tryFs, 50);
-  setTimeout(tryFs, 200);
-  setTimeout(tryFs, 450);
-  return [];
-}
-"""
+        msk_use = cv2.dilate(msk_use, np.ones((3, 3), np.uint8), iterations=1)
+        _, msk_use = cv2.threshold(msk_use, 64, 255, cv2.THRESH_BINARY)
+
+        
+        
+        hole = msk_use > 127
+        img_use[hole] = 0
+
+        img_in = img_use.transpose(2, 0, 1)[None].astype(np.uint8)
+        mask_in = ((msk_use > 127).astype(np.uint8)) * 255
+        mask_in = mask_in[None, None]
+        out = self.session.run(None, {self._in_image: img_in, self._in_mask: mask_in})[0]
+        o = out[0].transpose(1, 2, 0)
+        if o.shape[0] != nh or o.shape[1] != nw:
+            o = cv2.resize(o, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        
+        if o.shape[0] != oh or o.shape[1] != ow:
+            o = cv2.resize(o, (ow, oh), interpolation=cv2.INTER_LINEAR)
+        return Image.fromarray(np.ascontiguousarray(o.astype(np.uint8)))
+
+
+class LamaONNX:
+    
+    REPO = "Carve/LaMa-ONNX"
+    FILE = "lama_fp32.onnx"
+
+    def __init__(self, model_path: Optional[str] = None, prefer_gpu: bool = True,
+                 size: int = 512, threads: int = 4, cache_dir: Optional[str] = None):
+        self.prefer_gpu = bool(prefer_gpu)
+        self.size = 256 if not prefer_gpu else size
+        if not model_path or not os.path.isfile(model_path):
+            model_path = self._download_model(cache_dir=cache_dir)
+        self.model_path = model_path
+        
+        
+        if not prefer_gpu:
+            use_threads = max(1, min(8, os.cpu_count() or 4))
+        else:
+            use_threads = max(1, int(threads))
+        self.session = _make_ort_session(model_path, prefer_gpu=prefer_gpu, threads=use_threads)
+        self.session, use_threads = _cpu_thread_fallback(self.session, model_path, use_threads)
+        print(
+            f"[+] LaMa ONNX آماده | providers={self.session.get_providers()} | "
+            f"threads={use_threads} | max_size={self.size}"
+        )
+        names = [i.name for i in self.session.get_inputs()]
+        self._in_image = names[0]
+        self._in_mask = names[1] if len(names) > 1 else "mask"
+        for n in names:
+            low = n.lower()
+            if "mask" in low:
+                self._in_mask = n
+            elif "image" in low or "img" in low:
+                self._in_image = n
+        
+        
+        self._fixed_size = False
         try:
-            btn_view.click(fn=_open_viewer,
-                           inputs=[html_state], outputs=[viewer_html],
-                           js=view_js)
+            for inp in self.session.get_inputs():
+                dims = list(inp.shape)[-2:]
+                fixed = [d for d in dims if isinstance(d, int) and d > 0]
+                if len(fixed) == 2 and fixed[0] == fixed[1] and fixed[0] >= 64:
+                    self.size = fixed[0]
+                    self._fixed_size = True
+                    break
         except Exception:
-            try:
-                btn_view.click(fn=_open_viewer,
-                               inputs=[html_state], outputs=[viewer_html])
-            except Exception:
-                pass
+            pass
 
-        gr.Markdown(
-            "<div style='text-align:center; opacity:.45; margin-top:16px'>"
-            "مانگا مترجم PRO · RT-DETR + Gemini/… + LaMa-Manga · اجرا روی CPU</div>"
+    @classmethod
+    def _download_model(cls, cache_dir: Optional[str] = None) -> str:
+        from pathlib import Path
+        cache_root = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "manga_translator_models"
+        cache_root.mkdir(parents=True, exist_ok=True)
+
+        print(f"[*] دانلود مدل LaMa ONNX از {cls.REPO} ...")
+        if hf_hub_download is None:
+            raise RuntimeError("huggingface_hub لازم است")
+        return hf_hub_download(repo_id=cls.REPO, filename=cls.FILE, cache_dir=cache_dir)
+
+    def _pick_size(self, w: int, h: int) -> int:
+        m = max(int(w), int(h))
+        if getattr(self, "_fixed_size", False):
+            return self.size
+        if not self.prefer_gpu:
+            return 256
+        if m <= 180:
+            return 256
+        if m <= 320:
+            return 384
+        return min(self.size, 512)
+
+    def __call__(self, image, mask):
+        if isinstance(image, np.ndarray):
+            if image.ndim == 3 and image.shape[2] == 3:
+                img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            else:
+                img_rgb = cv2.cvtColor(cv2.cvtColor(image, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2RGB)
+        else:
+            arr = np.array(image.convert("RGB"))
+            img_rgb = arr
+        if isinstance(mask, np.ndarray):
+            mask_u8 = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) if mask.ndim == 3 else mask
+        else:
+            mask_u8 = np.array(mask.convert("L"))
+        orig_size = (img_rgb.shape[1], img_rgb.shape[0])
+        run_size = self._pick_size(orig_size[0], orig_size[1])
+        if not self.prefer_gpu and not getattr(self, "_fixed_size", False):
+            
+            
+            m0 = mask_u8 if mask_u8.ndim == 2 else cv2.cvtColor(mask_u8, cv2.COLOR_BGR2GRAY)
+            cov = float(np.count_nonzero(m0)) / float(max(1, m0.size))
+            if cov > 0.22:
+                run_size = 512
+
+        interp = cv2.INTER_AREA if max(img_rgb.shape[:2]) > run_size else cv2.INTER_CUBIC
+        img_np = cv2.resize(img_rgb, (run_size, run_size), interpolation=interp)
+        msk = cv2.resize(mask_u8, (run_size, run_size), interpolation=cv2.INTER_AREA)
+        msk = cv2.dilate(msk, np.ones((3, 3), np.uint8), iterations=1)
+        _, msk = cv2.threshold(msk, 64, 255, cv2.THRESH_BINARY)
+
+        img_in = img_np.astype(np.float32) / 255.0
+        mask_in = (msk.astype(np.float32) / 255.0)
+        img_in = img_in.transpose(2, 0, 1)[None]
+        mask_in = mask_in[None, None]
+        out = self.session.run(None, {self._in_image: img_in, self._in_mask: mask_in})[0]
+        out = np.clip(out[0].transpose(1, 2, 0), 0, 1)
+        out = (out * 255).astype(np.uint8) if out.max() <= 1.01 else np.clip(out, 0, 255).astype(np.uint8)
+
+        result = cv2.resize(out, orig_size, interpolation=cv2.INTER_LANCZOS4)
+        return Image.fromarray(result)
+
+
+class LamaMangaONNX:
+    
+    
+    URL = "https://huggingface.co/mayocream/lama-manga-onnx/resolve/main/lama-manga.onnx"
+    SIZE = 512
+
+    def __init__(self, model_path: Optional[str] = None, prefer_gpu: bool = True,
+                 threads: int = 4, cache_dir: Optional[str] = None):
+        self.prefer_gpu = bool(prefer_gpu)
+        if not model_path or not os.path.isfile(model_path):
+            model_path = self._download_model(cache_dir=cache_dir)
+        self.model_path = model_path
+        if not prefer_gpu:
+            use_threads = max(1, min(8, os.cpu_count() or 4))
+        else:
+            use_threads = max(1, int(threads))
+        self.session = _make_ort_session(model_path, prefer_gpu=prefer_gpu, threads=use_threads)
+        self.session, use_threads = _cpu_thread_fallback(self.session, model_path, use_threads)
+        names = [i.name for i in self.session.get_inputs()]
+        self._in_image = names[0]
+        self._in_mask = names[1] if len(names) > 1 else "mask"
+        print(
+            f"[+] LaMa-Manga ONNX آماده | providers={self.session.get_providers()} | "
+            f"threads={use_threads} | size={self.SIZE}"
         )
 
-        gr.HTML(
-            """
-<div class="credit">
-  <a href="https://t.me/amir_wolf512" target="_blank" rel="noopener"
-     title="کانال تلگرام سازنده">
-    <svg viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
-    سازنده
-  </a>
-  <a href="https://github.com/amirwolf5122/Manga-AutoTranslate" target="_blank" rel="noopener"
-     title="سورس پروژه در گیت‌هاب">
-    <img class="gh-avatar" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAALoklEQVR42rWYa5Bcx13Ff9197507MzvvfUmr3dVqJdkqeW2tpJhEctZ62OUIIjlJYRIeRQwx4Qu4oAguOx9CIIaqUFQgMRAnOBgIDzsJRQJUnAplJRBDDI4fshVZL6/W69G+tLszs/O8j+7mw2hlO3YcY6Cruqbmzr09p/t/+txzWvAWm7XWvsFvSCnFWxn3f/RQq9WyzWaTMIww2tButzBYpBB4iQSJhEcqmSKbzbxqaCGE+D8FdP/9D9j62hrVapVLly5RrVWoNxpUKhWazRZKKZRSJJMp8tkeejI9bNu6jX379jM2voXegT7yuRzOmwD2I2+440Mfts1mk7V6nVazSaw1sY6J4xhrLX19fdRqVayGUqkXIQQzs7NoLNl0hq2jI+wcHWPH1m309vdxw63vEm8J0O23/6JdXV2l3qgThiEIEEi01sRxDIAxhmKhQBDFCKVIJVPUKzWSAorCJR9DBvCLOdbSLjKTx8+mcFI+9/7uveJNA3rn1EEbRyFCCJTjIIRAa00YRlhrEEIiBWgB1hgSGpx2hG13SCmHfCZDb38v/eMjbN+9m+3X7SCT76Gx1iCdSpPP5fGTaXKF4mv+3/nBC/v2v9Naa3A9DyEEcRwThuFlIAopHYSlWxLlUAhigmab4vAgYzt3sHPPBFt2bGdwZJhCPk+jViPl+fTksmhrWFxYIIpjStk0q8vztti7QbwhIKXUlXJEUYTWGgApHAQCKQSRgM1eip5akxVP8sHf+Qh73349A/19JFyXMIpQrosxhmQyxfzcPIUgwDqCXKlIdaXK9HPPklKvrY585ZepA4csQBzHBEGA0RopJUoqpOh+xkIwkcwz0IyZVjG/9smPccvNh1DWIiyEYUS72SJotrDGonWMn/TRVuNYgelEDAwMki0U6S/18vWH/8a+LqADh2+yAq6Q1hiDEAKJRAoHRykiYdmayjBuXZ7Tde7+vY9x/XWTLK1UCKKQThSBkijXIY7j7mRcl1w+h6dcMtkssYmxxlLcOMzxJ05w592/xWfu+2P7GkD1epMwDNFaI6Ui5adxlIcQEiUEsRRkHY+pTB/Hy9P80l2/wr69kzi+T211GQeBCSKklAgpEUJgsSS8BFIpVqurOJ5Lo9mkVqvgOi5tKwg1fO+JJ169Qldt32nrtTXiWGO0QQCO4yDlZbxSoHXMTYUBnpyZZvzQO3jfkXfRbLVZnL/I4tlTuI6D47lYbbHaYG33FQKGdrvNU//2LS4tLpBMpgmaLcKoweHDN7J3zx7m5xY4/8K0vQLIGIOJNVEQo5TCGkOr1equlpC0dcxkKodsBVzoUdzzm3fSiTSdIGLxzEm2DQ8ThwGRjpHWEnZCpFTYKMZ1EizPzTGxZYT506doN5sIR1Gr1sj05Ji6cT/li3PMzc29vELWWqy1dDptsKJ7WQgEEBpDr3S5Nlnk25U57vnE3YxtHkHHEbZeYffevWyeuIZOvY6OYywWKQWOUgghqFcr+FJw9cFj7LhuJ83qMpmeNDqMiOOAqal9JFNJYt0VW2f79p3WXiZwGIbEcYzjOBhjiYUBY7ghv5En58rsv+3Hedu1Ezx34gTzZ8/SaAc8c3aa0c0jRJ0AsVKhVCyS6kkTdAISbpJnn36KC7MzfP34cVQQsmV0M7l8L8rzWF5e5Bvf+CYHDkxRyOV5qTxnnb6BPi6+VMZzPbTWBEHQ5Y6xdNBcl8xhgg7lguRXDx/gP7/zX3zhTz7HC2fPUMhmOffCBXbsexu/ftdHGE6nCTsB1coql5YvMT07y32f/BSnn3yam257DwemDnH/Zx/gnqFhJvbs5plnTvDQ3/09W7dtxnEcrDHID9/xIeI4uuJjwjAEa4mx5IRiIlngsZUFfu72nyHbk6F30xDDW0cR7YAbDxzkmpFNlMKI7dvHgYhaZQmCFqMjGwgbNUZyJQ7t3s3Bt+/nF375g/zs+3+S4fFxojDkob/4a6yx9Pb1USyWuiW79rprSKfTBJ0IIQSO0xXv2Bp2pkvMNRvITX3ccvAgmXyBnkaTY8eOMDW6Fen5HLn3E/RvG2agvw+LRimJclywivfe+l52DI0SaY11HB790pcpbhxgcHCIh+//MzpPnSGfyzC5a5JEIsHq6ipOqVikVCwyMzNLOp0mkUhgsLgIBt0UJ+oLHHn/+7qmy8LSwjyedNjzEwfJ9pfw0ykcz8MYCdJDCDCmK7BWukwcPMi5s6fwpMOp8xfYtWWcZ08+zTcf+ReuH9jIxeYq41u3oXXcFWLfT5PJZNFak06nu/wRAkdIktKho2PmFhaYPj+NjjWFnhS+MlSaDbxcBqUkOgzR1hDHAVEUIxC4roub8Ig7HTYNjXD6zDmKuRzN0HDnnXfx/FwZXMm2Qolz0y/AZa1WR48e+/jp58+glEOn08F1XSSSEEPaURSky5cee4xmfY29e3fRaLUoOIIUhmajgZ/qwfF8VEKh3B6Um8SagKWlZSq1Oo1mi+OPHufzD/wVEYYvfvFhhJVEwrLFS5IoFjhXWWHy2gkSvo+ampr6+Plz5xkb20wURbTbbRxH4SiHitUMSo96p82ZxUVKuSwmCij4PSRdF1Or0lxcZLk8x4lnTvL4fzzO6bPPM7+4xKbhMUqlPjLZHBPX7uIDP/0BMtkM1lrmlxaRK1UKKsFS3ufosWNsGhoijnXXoH3ta/9kn37qaSrVGmdOn2F+fgFrNbGFPs/jhnQvXz17ktE9O/jnv/wcL504CWkfIk3SwjNnznLfPzzCyVNn2b1nF3/06T9kaNPQFfe3HlDWLfWLL83y6N9+hRcvLXHbHT/PQLGfeqPJ+Pjm7h1LS8s2ikJWlpcpl8t897uPoxwPRwk6ccx4ogcRBHz5e4+zf+c2furGdzAyOYlbKhKv1alXqxz/1nf47U/9Kb9x990cPnwTKyvLjAxvxHFcEr6P4yik7Frgdc9VXatRW62ijUUIwZYtlwFNT89Yx5EopfA8l97e3le52+VqhZXlCstzi3z7+KPU5mYo9GTYsG0Lu39sL1dffRWe6/Dg5x8kv3GUyclJWs0GjuqCSGcy3R0kJYlEAmstSkoy2SzVapVqdQ0QjI2NvBxLLsxcsJ7rMTAwgDEWY7pO0XVdpJQEnQ4XZl4kl81z6vvf56P3fJTDh29mdnaao8eO8O5jR0mme5CoHxoe1zkaBAHVahXf99mwYSO1WoW+vn7xKgvruQ6Dg4PEcVcPlFI4jkO9XicIAjKZDIODA1wsXyRfLJAv9XLk3bcwMbET3091Z24MBnMFwCtjmBACz/PwPA9rLblcjtXVVU6fPk1fX+m1nnpoaFi02nUrUEjZBbO4uIi1lt7eXpRSJBIeuVyWmZlZkkkHrQPy+QJRFF4RtvUupeQH0/a6q1gv3YYNG1AKBgY2/vCs1mw2bBxHdnZ21i4sLFhrrTXGXOnWWhvHsf3zBx+wyyvzNgwjGwSBjaLIRlFktdY21rENw+BVz72yr66s2GqlYo3R9g1NPoBUgkuXlmi1WvT39xNFEca8XIZOp4NSivfceitrtSbadCOS1gZjDFJK5i+W+cwf/D76cvm5vDJaa4QQ/Pu/HucrDz+EEJIfCSjpp8XaWoNSqfeKaXqlljSbTcrlMqlUBt9Psrq6BEJjbBe4tRbPS/DihRnCqOsihJRIKa+8uDP5fNc5vk7Wd16vbFdddZVoNBpWxy9rxjoxS6USa2trlMtlfN+nXm+T9NskUwmM0WitSPg+Y1u3XuFMo1Enjg3WGpJJn41Dwxw4dLN4S4cNQRBYeXmG6xMSQmCtZWVlhaWlFaKozdiWTbiu1zV4QuEn0wi6xF6YX8BYQ61WZdeuSfG/Po6Josi+3u5Zz/zlcplO0KJYyOInfZRyEUgcz0UqhbpciDdzTiTfDCDXdYXjOK8ZbJ3Eo6OjDG0cpt2OWV5epdlsYKThpfPneeSzX0Bcbvx/tlduY621XW8X5y7a41/9R/tWx/1vBfDPJ2Nt0RQAAAAASUVORK5CYII=" width="22" height="22" alt="gh" />
-    سورس
-  </a>
-</div>
-"""
+    @classmethod
+    def _download_model(cls, cache_dir: Optional[str] = None) -> str:
+        from pathlib import Path
+        cache_root = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "manga_translator_models"
+        cache_root.mkdir(parents=True, exist_ok=True)
+        dst = cache_root / "lama-manga.onnx"
+        if dst.is_file() and dst.stat().st_size > 1_000_000:
+            print(f"[*] مدل LaMa-Manga از کش: {dst}")
+            return str(dst)
+        print("[*] دانلود مدل LaMa-Manga ONNX (~198MB، فقط بار اول) ...")
+        import requests
+        with requests.get(cls.URL, stream=True, timeout=600) as r:
+            r.raise_for_status()
+            tmp = dst.with_suffix(".tmp")
+            with open(tmp, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1 << 20):
+                    if chunk:
+                        f.write(chunk)
+            tmp.replace(dst)
+        print(f"[+] مدل LaMa-Manga ذخیره شد: {dst}")
+        return str(dst)
+
+    def __call__(self, image, mask):
+        if isinstance(image, np.ndarray):
+            if image.ndim == 3 and image.shape[2] == 3:
+                img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            else:
+                img_rgb = cv2.cvtColor(cv2.cvtColor(image, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2RGB)
+        else:
+            img_rgb = np.array(image.convert("RGB"))
+        if isinstance(mask, np.ndarray):
+            mask_u8 = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) if mask.ndim == 3 else mask
+        else:
+            mask_u8 = np.array(mask.convert("L"))
+        oh, ow = img_rgb.shape[:2]
+        s = self.SIZE
+        img_np = cv2.resize(img_rgb, (s, s), interpolation=cv2.INTER_AREA)
+        msk = cv2.resize(mask_u8, (s, s), interpolation=cv2.INTER_AREA)
+        msk = cv2.dilate(msk, np.ones((3, 3), np.uint8), iterations=1)
+        msk = (msk > 64).astype(np.float32)
+        img_in = (img_np.astype(np.float32) / 255.0).transpose(2, 0, 1)[None]
+        mask_in = msk[None, None]
+        out = self.session.run(None, {self._in_image: img_in, self._in_mask: mask_in})[0]
+        o = np.clip(out[0].transpose(1, 2, 0), 0, 1)
+        o = (o * 255).astype(np.uint8)
+        result = cv2.resize(o, (ow, oh), interpolation=cv2.INTER_LANCZOS4)
+        return Image.fromarray(result)
+
+
+class RTDetrV2ONNXDetector:
+    
+    DET_REPO = "ogkalu/comic-text-and-bubble-detector"
+    DET_FILES = ("detector-v4-s_int8.onnx", "detector.onnx", "detector-v4.onnx")
+    CLASS_NAMES = {0: "bubble", 1: "text_bubble", 2: "text_free"}
+    INPUT_SIZE = 640
+    MAX_DETS = 120
+
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        prefer_gpu: bool = True,
+        conf_thresh: float = 0.35,
+        iou_thresh: float = 0.40,
+        threads: int = 4,
+        multi_scale: bool = False,
+        cache_dir: Optional[str] = None,
+    ):
+        self.conf_thresh = conf_thresh
+        self.iou_thresh = iou_thresh
+        self.multi_scale = multi_scale
+        self.INPUT_SIZE = 640
+
+        if not model_path or not os.path.isfile(model_path) or os.path.getsize(model_path) < 1000:
+            model_path = None
+            last_err = None
+            for fname in self.DET_FILES:
+                try:
+                    print(f"[*] دانلود مدل RT-DETR ONNX از {self.DET_REPO}/{fname} ...")
+                    if hf_hub_download is None:
+                        raise RuntimeError("huggingface_hub لازم است")
+                    cand = hf_hub_download(
+                        repo_id=self.DET_REPO, filename=fname, cache_dir=cache_dir,
+                    )
+                    if cand and os.path.isfile(cand) and os.path.getsize(cand) > 1000:
+                        model_path = cand
+                        break
+                    print(f"    [!] {fname} خالی/ناقص بود → دانلود مستقیم...")
+                    import urllib.request
+                    url = f"https://huggingface.co/{self.DET_REPO}/resolve/main/{fname}"
+                    dest = os.path.join(cache_dir or os.path.expanduser("~/.cache"), fname)
+                    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+                    urllib.request.urlretrieve(url, dest)
+                    if os.path.isfile(dest) and os.path.getsize(dest) > 1000:
+                        model_path = dest
+                        break
+                except Exception as e:
+                    last_err = e
+                    print(f"    [!] {fname} پیدا نشد: {e}")
+            if not model_path:
+                raise RuntimeError(
+                    f"نتوانست مدل RT-DETR را از {self.DET_REPO} دانلود کند: {last_err}"
+                )
+
+        self.model_path = model_path
+        self.session = _make_ort_session(model_path, prefer_gpu=prefer_gpu, threads=threads)
+        in_names = [i.name for i in self.session.get_inputs()]
+        self._in_images = "images" if "images" in in_names else in_names[0]
+        self._in_sizes = "orig_target_sizes" if "orig_target_sizes" in in_names else (
+            in_names[1] if len(in_names) > 1 else None
         )
+        print(
+            f"[+] RT-DETR-v2 ONNX آماده | size={self.INPUT_SIZE} | "
+            f"inputs={in_names} | providers={self.session.get_providers()}"
+        )
+
+    def _preprocess(self, image_bgr: np.ndarray):
+        h0, w0 = image_bgr.shape[:2]
+        rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+        resized = cv2.resize(rgb, (self.INPUT_SIZE, self.INPUT_SIZE), interpolation=cv2.INTER_LINEAR)
+        arr = resized.astype(np.float32) / 255.0
+        arr = arr.transpose(2, 0, 1)[None]
+        orig_size = np.array([[w0, h0]], dtype=np.int64)
+        return arr, orig_size, h0, w0
+
+    def _parse_outputs(self, outputs, h0: int, w0: int, threshold: float) -> List[dict]:
+        if not outputs or len(outputs) < 3:
+            return []
+
+        def _squeeze(a):
+            a = np.asarray(a)
+            if a.ndim >= 2 and a.shape[0] == 1:
+                a = a[0]
+            return a
+
+        labels = _squeeze(outputs[0])
+        boxes = _squeeze(outputs[1])
+        scores = _squeeze(outputs[2])
+        if scores.ndim == 1 and labels.ndim == 1 and boxes.ndim == 2:
+            pass
+        elif boxes.ndim == 1:
+            labels, boxes, scores = _squeeze(outputs[1]), _squeeze(outputs[0]), _squeeze(outputs[2])
+
+        raw: List[dict] = []
+        n = min(len(labels), len(boxes), len(scores))
+        for i in range(n):
+            conf = float(scores[i])
+            if conf < float(threshold):
+                continue
+            lab = int(labels[i])
+            name = self.CLASS_NAMES.get(lab, "text_bubble")
+            if name == "bubble":
+                if conf < 0.48:
+                    continue
+                name = "text_bubble"
+            box = boxes[i]
+            if len(box) < 4:
+                continue
+            x1, y1, x2, y2 = [float(v) for v in box[:4]]
+            if 0.0 <= x1 <= 1.5 and 0.0 <= x2 <= 1.5 and x2 <= 2.0:
+                x1, x2 = x1 * w0, x2 * w0
+                y1, y2 = y1 * h0, y2 * h0
+            x1 = int(max(0, min(w0 - 1, round(x1))))
+            y1 = int(max(0, min(h0 - 1, round(y1))))
+            x2 = int(max(0, min(w0, round(x2))))
+            y2 = int(max(0, min(h0, round(y2))))
+            if x2 - x1 < 12 or y2 - y1 < 12:
+                continue
+            bw, bh = x2 - x1, y2 - y1
+            if bw * bh < 400:
+                continue
+            ar = bw / max(1, bh)
+            if 0.75 <= ar <= 1.35:
+                shape = "circle"
+            elif ar > 1.6 or ar < 0.55:
+                shape = "box"
+            else:
+                shape = "round"
+            raw.append({
+                "class_id": lab,
+                "class_name": name,
+                "confidence": conf,
+                "rect": [x1, y1, x2, y2],
+                "shape_type": shape,
+                "mask_poly": None,
+            })
+        return self._nms(raw, self.iou_thresh)
+
+    @staticmethod
+    def _nms(boxes, iou_thresh: float):
+        if not boxes:
+            return []
+
+        def iou(a, b):
+            xA = max(a[0], b[0]); yA = max(a[1], b[1])
+            xB = min(a[2], b[2]); yB = min(a[3], b[3])
+            inter = max(0, xB - xA) * max(0, yB - yA)
+            if inter == 0:
+                return 0.0
+            areaA = (a[2] - a[0]) * (a[3] - a[1])
+            areaB = (b[2] - b[0]) * (b[3] - b[1])
+            return inter / float(areaA + areaB - inter)
+
+        priority = {"text_bubble": 2, "text_free": 1, "bubble": 0}
+        boxes = sorted(
+            boxes,
+            key=lambda x: (priority.get(x["class_name"], 0), x["confidence"]),
+            reverse=True,
+        )
+        keep, pool = [], list(boxes)
+        while pool:
+            best = pool.pop(0)
+            keep.append(best)
+            pool = [b for b in pool if iou(best["rect"], b["rect"]) < iou_thresh]
+        return keep[: RTDetrV2ONNXDetector.MAX_DETS]
+
+    def _detect_single(self, image_bgr: np.ndarray, threshold: float):
+        im_data, orig_size, h0, w0 = self._preprocess(image_bgr)
+        feeds = {self._in_images: im_data}
+        if self._in_sizes is not None:
+            feeds[self._in_sizes] = orig_size
+        outputs = self.session.run(None, feeds)
+        return self._parse_outputs(outputs, h0, w0, threshold)
 
     
-    dark_js = "() => { document.body.classList.add('dark');" \
-              " document.documentElement.classList.add('dark'); }"
-    try:
-        demo.load(None, None, None, js=dark_js)
-    except Exception:
+    
+    TILE_HEIGHT = 3200
+    TILE_OVERLAP = 420
+    TILE_MIN_GAIN = 1.35  
+
+    def detect(self, image_bgr: np.ndarray):
+        h = int(image_bgr.shape[0])
+        if h > int(self.TILE_HEIGHT * self.TILE_MIN_GAIN):
+            return self._detect_tiled(image_bgr)
+        return self._detect_plain(image_bgr)
+
+    def _detect_tiled(self, image_bgr: np.ndarray):
+        h, w = image_bgr.shape[:2]
+        tile_h = int(self.TILE_HEIGHT)
+        overlap = int(self.TILE_OVERLAP)
+        step = max(600, tile_h - overlap)
+
+        all_boxes: List[dict] = []
+        core_start = 0
+        while core_start < h:
+            core_end = min(core_start + tile_h, h)
+            ys = max(0, core_start - (overlap if core_start > 0 else 0))
+            ye = min(h, core_end + (overlap if core_end < h else 0))
+            tile = image_bgr[ys:ye]
+            for b in self._detect_plain(tile):
+                x1, y1, x2, y2 = b["rect"]
+                cy = ys + (y1 + y2) / 2.0
+                
+                if core_start <= cy < core_end:
+                    nb = dict(b)
+                    nb["rect"] = [x1, y1 + ys, x2, y2 + ys]
+                    all_boxes.append(nb)
+            if core_end >= h:
+                break
+            core_start += step
+
+        merged = self._nms(all_boxes, max(0.42, self.iou_thresh))
+        return MangaTranslator._drop_contained_boxes(merged, contain_thresh=0.68)
+
+    def _detect_plain(self, image_bgr: np.ndarray):
+        h, w = image_bgr.shape[:2]
+        page_area = float(max(1, h * w))
+        
+        low_th = max(0.28, self.conf_thresh * 0.75)
+        all_boxes = []
+        for b in self._detect_single(image_bgr, low_th):
+            x1, y1, x2, y2 = b["rect"]
+            bw, bh = x2 - x1, y2 - y1
+            area = bw * bh
+            if b["confidence"] >= self.conf_thresh:
+                all_boxes.append(b)
+                continue
+            
+            if (area < page_area * 0.03 and bw < w * 0.30 and bh < h * 0.22
+                    and b["confidence"] >= low_th + 0.04):
+                all_boxes.append(b)
+
+        if self.multi_scale and h >= 1100 and w >= 500:
+            sw = max(1, int(w * 0.55))
+            sh = max(1, int(h * 0.55))
+            if sw >= 280 and sh >= 280:
+                small = cv2.resize(image_bgr, (sw, sh), interpolation=cv2.INTER_AREA)
+                low_th2 = max(0.30, self.conf_thresh * 0.85)
+                inv = 1.0 / 0.55
+                for b in self._detect_single(small, low_th2):
+                    x1, y1, x2, y2 = b["rect"]
+                    b["rect"] = [int(x1 * inv), int(y1 * inv), int(x2 * inv), int(y2 * inv)]
+                    bw = b["rect"][2] - b["rect"][0]
+                    bh = b["rect"][3] - b["rect"][1]
+                    area = bw * bh
+                    if (area < page_area * 0.03 and max(bw, bh) < max(w, h) * 0.30
+                            and b["confidence"] >= low_th2):
+                        all_boxes.append(b)
+
+        cleaned = self._nms(all_boxes, max(0.42, self.iou_thresh))
+        return MangaTranslator._drop_contained_boxes(cleaned, contain_thresh=0.68)
+
+
+class RapidOCRBackend:
+    
+
+    def __init__(self, lang: str = "en"):
+        self.lang = lang
+        self._new_api = False
         try:
-            demo.load(js=dark_js)
+            from rapidocr import RapidOCR as NewRapidOCR
+            self.engine = NewRapidOCR()
+            self._new_api = True
+            print(f"[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang={lang}")
+            return
         except Exception:
             pass
+        if not _HAS_RAPIDOCR:
+            raise ImportError("pip install rapidocr (یا rapidocr-onnxruntime)")
+        self.engine = RapidOCR()
+        print(f"[+] RapidOCR (ONNX, PP-OCRv3 قدیمی) آماده | lang={lang}")
 
-    on_colab = "google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG"))
-    on_codespace = _detect_codespace()
-    codespace_name = (os.environ.get("CODESPACE_NAME")
-                      or _hostname_codespace_name() or "")
-    if on_codespace:
-        print("[i] GitHub Codespaces: لینک عمومی gradio.live پایین را باز کنید.")
-        if codespace_name:
-            print(f"[i] پشتیبان: https://{codespace_name}-7860.app.github.dev")
-    print(f"[*] فونت اصلی: {find_font() or 'پیدا نشد'}")
-    launch_kw = {}
-    if _gradio_major() >= 6:
-        launch_kw["theme"] = gr.themes.Soft(primary_hue="indigo", neutral_hue="slate")
-        launch_kw["css"] = WEB_CSS
-    demo.queue(max_size=4).launch(
-        server_name="0.0.0.0",
-        server_port=int(os.environ.get("MANGA_APP_PORT", "7860")),
-        share=on_colab or on_codespace or (not has_display()),
-        show_error=True,
-        allowed_paths=[str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR)],
-        **launch_kw,
+    @staticmethod
+    def _deaccent(txt: str) -> str:
+        try:
+            import unicodedata as _ud
+            out = _ud.normalize("NFKD", txt)
+            out = "".join(ch for ch in out if not _ud.combining(ch))
+            return out
+        except Exception:
+            return txt
+
+    def ocr(self, image_bgr: np.ndarray):
+        
+        if image_bgr is None or image_bgr.size == 0:
+            return None
+        if self._new_api:
+            try:
+                out = self.engine(image_bgr)
+                txts = getattr(out, "txts", None)
+                if not txts:
+                    return None
+                boxes = getattr(out, "boxes", None)
+                scores = getattr(out, "scores", None)
+                lines = []
+                for i, t in enumerate(txts):
+                    t = self._deaccent(str(t)).strip()
+                    if not t:
+                        continue
+                    score = float(scores[i]) if scores is not None and i < len(scores) else 1.0
+                    box = boxes[i] if boxes is not None and i < len(boxes) else [[0, 0], [1, 0], [1, 1], [0, 1]]
+                    lines.append([np.asarray(box, dtype=np.float32), (t, score)])
+                return [lines] if lines else None
+            except Exception as e:
+                msg = str(e).lower()
+                if "text detection result is empty" in msg or "detection result is empty" in msg:
+                    return None
+                print(f"    [OCR] rapidocr جدید خطا: {e} → موتور قدیمی")
+                self._new_api = False
+                if not _HAS_RAPIDOCR:
+                    return None
+        try:
+            result, _ = self.engine(image_bgr)
+        except Exception as e:
+            msg = str(e).lower()
+            if "text detection result is empty" in msg or "detection result is empty" in msg:
+                return None
+            return None
+        if not result:
+            return None
+        lines = []
+        for item in result:
+            if len(item) < 3:
+                continue
+            box, text, score = item[0], item[1], item[2]
+            text = self._deaccent(str(text)).strip()
+            if not text:
+                continue
+            lines.append([box, (text, float(score))])
+        return [lines] if lines else None
+
+
+class PaddleOCRWrapper:
+    
+
+    def __init__(self, engine):
+        self.engine = engine
+
+    def ocr(self, image_bgr: np.ndarray):
+        try:
+            if hasattr(self.engine, "predict"):
+                return self.engine.predict(image_bgr)
+            return self.engine.ocr(image_bgr)
+        except Exception:
+            return None
+
+
+
+PROVIDER_PRESETS = {
+    "gemini": {
+        "type": "gemini",
+        "default_model": "gemini-3.8-flash",
+        "env_key": "GEMINI_API_KEY",
+    },
+    "openai": {
+        "type": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "default_model": "gpt-4o-mini",
+        "env_key": "OPENAI_API_KEY",
+    },
+    "chatgpt": {  
+        "type": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "default_model": "gpt-4o-mini",
+        "env_key": "OPENAI_API_KEY",
+    },
+    "deepseek": {
+        "type": "openai",
+        "base_url": "https://api.deepseek.com",
+        "default_model": "deepseek-chat",
+        "env_key": "DEEPSEEK_API_KEY",
+    },
+    "groq": {
+        "type": "openai",
+        "base_url": "https://api.groq.com/openai/v1",
+        "default_model": "llama-3.3-70b-versatile",
+        "env_key": "GROQ_API_KEY",
+    },
+    "xai": {
+        "type": "openai",
+        "base_url": "https://api.x.ai/v1",
+        "default_model": "grok-2-latest",
+        "env_key": "XAI_API_KEY",
+    },
+    "grok": {  
+        "type": "openai",
+        "base_url": "https://api.x.ai/v1",
+        "default_model": "grok-2-latest",
+        "env_key": "XAI_API_KEY",
+    },
+    "together": {
+        "type": "openai",
+        "base_url": "https://api.together.xyz/v1",
+        "default_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "env_key": "TOGETHER_API_KEY",
+    },
+    "openrouter": {
+        "type": "openai",
+        "base_url": "https://openrouter.ai/api/v1",
+        "default_model": "google/gemini-2.0-flash-001",
+        "env_key": "OPENROUTER_API_KEY",
+    },
+    "ollama": {
+        "type": "openai",
+        "base_url": "http://localhost:11434/v1",
+        "default_model": "llama3.2",
+        "env_key": "OLLAMA_API_KEY",  
+    },
+}
+
+
+class GeminiQuotaExhausted(Exception):
+    pass
+
+
+@dataclass
+class TextRegion:
+    id: int
+    boxes: List[np.ndarray]
+    source_text: str = ""
+    translated_text: str = ""
+    rect: Tuple[int, int, int, int] = field(default=(0, 0, 0, 0))
+    angle: float = 0.0
+    kind: str = "dialogue"
+    bubble_style: str = "normal"  
+    det_class: str = ""  
+    
+    ocr_polys: List[np.ndarray] = field(default_factory=list)
+
+
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+PUNCTUATION_SET = set(string.punctuation + "؟«»٪٫،؛…")
+
+WATERMARK_PATTERNS = (
+    "lunatoons", "lunatoon", "nadeinkorea", "made in korea", "madeinkorea",
+    "asurascans", "asura", "flamecomics", "reaper scans", "reaperscans",
+    "mangadex", "webtoon", "tapas", "toomics", "lezhin", "tappytoon",
+    "kaynscan", "kayn scan", "scar.com", "scarcom", "wanscan", "wan scan",
+    "vortexscans", "vortex scans", "vortexscan", "ikemanga", "likemanga",
+    "munpia", "nullscans", "luminous", "flame comics", "cosmic scans",
+    "asuracomic", "asuracomics", "discord.gg",
+    "read this series", "readthis series", "read thisseries", "readthisseries",
+    "series at", "seriesat", "support us", "to support", "supportus",
+    "join our community", "discord server", "for the latest updates",
+    "your support is needed", "community discord", "invite you", "we invite",
+    "this chapter was brought", "brought to you by", "show your support",
+    "dear readers", "happy reading", "dive deeper", "unlock up to",
+    "exclusively on", "storm at", "join the storm",
+    "redice studio", "redice", "leafsky", "wasakbasak", "wasak basak",
+    "cho wooneh", "hermode", "dotori", "3b2s",
+)
+
+DOMAIN_TLDS = (
+    "com", "org", "net", "io", "info", "xyz", "app", "dev",
+    "site", "online", "web", "biz", "us", "uk", "kr",
+    "jp", "cn", "ru", "de", "fr", "es", "pt", "br", "id",
+    "gg", "link", "page", "club", "fun", "live", "news", "blog",
+    "ink", "toon", "scans",
+)
+
+DOMAIN_RE = re.compile(
+    r"(?i)\b(?:https?://|www\.)?"
+    r"[a-z0-9](?:[a-z0-9\-]{1,61}[a-z0-9])"
+    r"\.(?:" + "|".join(DOMAIN_TLDS) + r")\b"
+)
+
+PROMO_RE = re.compile(
+    r"(?i)("
+    r"read\s*this\s*series|"
+    r"series\s*(first\s*)?at|"
+    r"support\s*us|"
+    r"to\s*support|"
+    r"show\s*your\s*support|"
+    r"brought\s*to\s*you|"
+    r"this\s*chapter\s*was\s*brought|"
+    r"dear\s*readers|"
+    r"happy\s*reading|"
+    r"dive\s*deeper|"
+    r"unlock\s*up\s*to|"
+    r"exclusively\s*on|"
+    r"vortex\s*scans?|"
+    r"ike\s*manga|"
+    r"like\s*manga|"
+    r"kayn\s*scan|"
+    r"scar\.?\s*com|"
+    r"wan\s*scan|"
+    r"discord\s*(server|\.gg)|"
+    r"join\s*(our|ou|the)\s*(community|storm)|"
+    r"latest\s*updates|"
+    r"support\s*is\s*needed|"
+    r"we\s*invite|"
+    r"invite\s*(you|yu)|"
+    r"community\s*discord|"
+    r"for\s*the\s*latest|"
+    r"scan\s*\.?\s*com|"
+    r"redice\s*studio|"
+    r"wasak\s*basak|"
+    r"leaf\s*sky|"
+    r"3b2s"
+    r")"
+)
+
+SFX_WORD_RE = re.compile(
+    r"(?i)^("
+    r"sfx|효과음?|효과|"
+    r"boom|bang|crash|whoosh|swish|thud|clang|zap|pow|bam|wham|crack|smash|"
+    r"roar|growl|hiss|screech|beep|ding|click|tick|tock|splash|drip|"
+    r"gasp|sigh|sniff|cough|hic|ugh|argh|kugh|keck|kahack|gorulz|"
+    r"thunk|slash|stab|slash|clang|clank|thump|wham|slam|snap|"
+    r"ah+|oh+|uh+|hm+|mm+|ha+ha*|he+he*|hi+hi*|wa+h*|ya+h*|"
+    r"kuh+|guh+|ngh+|ugh+|arg+|aarg+|"
+    r"[!?.…]{2,}"
+    r")[!?.…]*$"
+)
+
+HANGUL_RE = re.compile(r"[\uac00-\ud7a3]+")
+PURE_HANGUL_SFX_RE = re.compile(r"^[\uac00-\ud7a3\s!?.…~\-]+$")
+
+
+def uncensor_swears(text: str) -> str:
+    
+    if not text:
+        return text
+
+    result = text
+
+    
+    
+    result = re.sub(
+        r"\bwhat\s*the\s*f+[*@#$%^&._\-]*\b",
+        "what the fuck ",
+        result,
+        flags=re.IGNORECASE,
+    )
+    result = re.sub(r"\bwhat\s*theF\b", "what the fuck", result, flags=re.IGNORECASE)
+    result = re.sub(r"\btheF\b", "the fuck", result, flags=re.IGNORECASE)
+    result = re.sub(r"\bw+t+f+\b", "what the fuck", result, flags=re.IGNORECASE)
+    result = re.sub(
+        r"\bthe\s*f+(?:uck)?\s*is\b",
+        "the fuck is",
+        result,
+        flags=re.IGNORECASE,
     )
 
+    replacements = [
+        
+        (r"\bf+u+[*@#$%^&._\-]*c+k+i+n+g?\b", "fucking"),
+        (r"\bf+u+[*@#$%^&._\-]*c+k+\b", "fuck"),
+        (r"\bf+[*@#$%^&._\-]+c+k+\b", "fuck"),
+        (r"\bf[*@#$%^&._\-]{1,5}ck(?:ing)?\b", "fuck"),
+        
+        (r"\bf+[*@#$%^&._\-]*o+k+\b(?=[?!.,…]|$|\s)", "fuck"),
+        (r"\bfck\b", "fuck"),
+        (r"\bfuk\b", "fuck"),
+        
+        (r"\bs+h+[*@#$%^&._\-]*i+t+\b", "shit"),
+        (r"\bs+h+[*@#$%^&._\-]+t+\b", "shit"),
+        (r"\bsh[*@#$%^&._\-]{1,4}t\b", "shit"),
+        (r"\bsht\b", "shit"),
+        
+        (r"\bb+i+[*@#$%^&._\-]*t+c+h+\b", "bitch"),
+        (r"\bb+[*@#$%^&._\-]+t+c+h+\b", "bitch"),
+        (r"\bb[*@#$%^&._\-]{1,4}tch\b", "bitch"),
+        
+        (r"\ba+s+s+[*@#$%^&._\-]*h+o+l+e+\b", "asshole"),
+        (r"\ba+r+s+e+[*@#$%^&._\-]*h+o+l+e+\b", "arsehole"),
+        (r"\ba[*@#$%^&._\-]{1,4}shole\b", "asshole"),
+        
+        (r"\bd+a+m+n+\b", "damn"),
+        (r"\bd+a+m+m+i+t+\b", "dammit"),
+        (r"\bd+i+c+k+\b", "dick"),
+        (r"\bd[*@#$%^&._\-]{1,4}ck\b", "dick"),
+        (r"\bc+o+c+k+\b", "cock"),
+        (r"\bp+u+s+s+y+\b", "pussy"),
+        (r"\bc+u+n+t+\b", "cunt"),
+        (r"\bc[*@#$%^&._\-]{1,4}nt\b", "cunt"),
+        (r"\bm+o+t+h+e+r+f+u+c+k+e+r+\b", "motherfucker"),
+        (r"\bm+o+t+h+e+r+[*@#$%^&._\-]*f+u+c+k+e+r+\b", "motherfucker"),
+        (r"\bb+a+s+t+a+r+d+\b", "bastard"),
+        (r"\bh+e+l+l+\b", "hell"),
+        (r"\bg+o+d\s*d+a+m+n?\b", "goddamn"),
+        (r"\bd+a+m+n\s*i+t\b", "dammit"),
+    ]
+
+    for pattern, repl in replacements:
+        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
+
+    result = re.sub(r"\s{2,}", " ", result)
+    result = re.sub(r"\s+([?!.,…])", r"\1", result)
+    return result.strip()
+
+
+class MangaTranslator:
+    _LAMA_MIN_VRAM_GB = 3.5
+
+    @staticmethod
+    def _detect_paddle_gpu() -> bool:
+        try:
+            import paddle
+            return bool(paddle.is_compiled_with_cuda() and paddle.device.get_device() is not None)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _detect_torch_cuda() -> bool:
+        try:
+            import torch
+            return bool(torch.cuda.is_available())
+        except Exception:
+            return False
+
+    @staticmethod
+    def _cuda_vram_gb() -> float:
+        try:
+            import torch
+            if not torch.cuda.is_available():
+                return 0.0
+            props = torch.cuda.get_device_properties(0)
+            return float(props.total_memory) / (1024 ** 3)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def _cuda_device_name() -> str:
+        try:
+            import torch
+            if torch.cuda.is_available():
+                return torch.cuda.get_device_name(0)
+        except Exception:
+            pass
+        return ""
+
+    @staticmethod
+    def _available_ram_gb() -> float:
+        try:
+            if os.name == "nt":
+                import ctypes
+                class _MSE(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ]
+                st = _MSE()
+                st.dwLength = ctypes.sizeof(_MSE)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(st)):
+                    return st.ullAvailPhys / (1024 ** 3)
+        except Exception:
+            pass
+        try:
+            with open("/proc/meminfo", encoding="ascii") as f:
+                for line in f:
+                    if line.startswith("MemAvailable:"):
+                        return int(line.split()[1]) / (1024 * 1024)
+        except Exception:
+            pass
+        return 8.0
+
+    def _decide_lama(self, force_gpu: Optional[bool]) -> bool:
+        
+        has_ort = ort is not None
+        has_cuda = self._detect_torch_cuda() or _ort_has_cuda()
+        vram = self._cuda_vram_gb()
+        name = self._cuda_device_name()
+
+        if force_gpu is False:
+            print("[*] --cpu → پاک‌سازی OpenCV سریع.")
+            return False
+
+        if not has_ort:
+            print("[*] onnxruntime نیست → OpenCV inpaint.")
+            return False
+
+        if force_gpu is True:
+            print(f"[*] --gpu → MI-GAN/LaMa ONNX فعال ({name or 'CUDA'}, {vram:.1f} GB).")
+            return True
+
+        if has_cuda and (vram <= 0 or vram >= self._LAMA_MIN_VRAM_GB):
+            print(f"[*] GPU مناسب ({name or 'CUDA'}, {vram:.1f} GB) → MI-GAN/LaMa ONNX.")
+            return True
+
+        if has_cuda:
+            print(f"[*] GPU هست ({name}, {vram:.1f} GB) ولی VRAM کم → OpenCV. "
+                  f"برای اجبار: --lama یا --gpu")
+            return False
+
+        print("[*] GPU نیست → OpenCV سریع. برای MI-GAN روی CPU: --lama")
+        return False
+
+    def __init__(
+        self,
+        api_key,
+        provider: str = "gemini",
+        ocr_langs: List[str] = None,
+        model_name: Optional[str] = None,
+        api_base: Optional[str] = None,
+        font_path: Optional[str] = None,
+        reading_order: str = "rtl",
+        gpu: Optional[bool] = None,
+        group_margin: int = 5,
+        inpaint_radius: int = 3,
+        mask_padding: int = 3,
+        pad_ratio: float = 0.06,
+        min_confidence: float = 0.12,
+        det_confidence: float = 0.16,
+        max_retries: int = 8,
+        request_delay: float = 0.0,
+        bubbles_per_request: int = 6,
+        api_timeout: float = 30.0,
+        max_chunk_height: int = 3600,
+        chunk_overlap: int = 300,
+        img_format: str = "webp",
+        img_quality: int = 90,
+        max_workers: int = 1,
+        mag_ratio: float = 1.35,
+        translation_temperature: float = 0.85,
+        two_pass_ocr: bool = True,
+        max_output_width: Optional[int] = None,
+        stitch_max_height: int = 16000,
+        stitch_short_threshold: int = 6000,
+        stitch_keep_first: bool = True,
+        debug: bool = False,
+    ):
+        self.det_confidence = float(det_confidence)
+        provider = (provider or "gemini").lower().strip()
+        if provider not in PROVIDER_PRESETS:
+            raise ValueError(
+                f"ارائه‌دهندهٔ ناشناخته: «{provider}». "
+                f"گزینه‌ها: {', '.join(PROVIDER_PRESETS.keys())}"
+            )
+        self.provider = provider
+        self.provider_cfg = PROVIDER_PRESETS[provider]
+        self.provider_type = self.provider_cfg["type"]  
+
+        if isinstance(api_key, str):
+            keys = [k.strip() for k in api_key.replace(";", ",").split(",") if k.strip()]
+        else:
+            keys = [k.strip() for k in api_key if k and str(k).strip()]
+        random.shuffle(keys)
+        if not keys and self.provider != "ollama":
+            raise ValueError(f"حداقل یک کلید API برای {provider} لازم است.")
+        if not keys:
+            keys = ["ollama"]  
+        self._api_keys: List[str] = keys
+        self._key_index: int = 0
+        self._ocr_lock = threading.Lock()
+        self._api_lock = threading.Lock()  
+        self._tls = threading.local()  
+
+        
+        self.model_name = (model_name or self.provider_cfg.get("default_model") or "gemini-3.8-flash").strip()
+        self._model_cascade: List[str] = []
+        self._model_index: int = 0
+        self._last_good_model: str = ""
+        self.api_base = api_base or self.provider_cfg.get("base_url")
+
+        self.font_path = font_path
+        
+        
+        
+        
+        
+        self.font_by_style: Dict[str, str] = {
+            "normal": font_path,
+            "shout": font_path,
+            "comedy_shout": font_path,
+            "whisper": font_path,
+            "sun_thought": font_path,
+            "thought": font_path,
+            "free_text": font_path,
+            "system": font_path,
+            "monster": font_path,
+            "cry": font_path,
+            "fear": font_path,
+            "broadcast": font_path,
+            "letter": font_path,
+            "narrator": font_path,
+            "square_thought": font_path,
+            "black": font_path,
+            
+            "explosion": font_path,
+            "sfx": font_path,
+        }
+        self.reading_order = reading_order
+        self.group_margin = group_margin
+        self.inpaint_radius = inpaint_radius
+        self.mask_padding = mask_padding
+        self.pad_ratio = pad_ratio
+        self.min_confidence = min_confidence
+        self.max_retries = max_retries
+        self.request_delay = request_delay
+        
+        self.bubbles_per_request = 6
+        
+        self.erase_bubble_interior = False
+        self.api_timeout = float(api_timeout) if api_timeout and api_timeout > 0 else 30.0
+        self._daily_fail_streak: int = 0  
+        self._daily_fail_model: str = ""
+        self.max_chunk_height = max_chunk_height
+        self.chunk_overlap = chunk_overlap
+        self.img_format = img_format
+        self.img_quality = img_quality
+        self.max_workers = max(1, int(max_workers))
+        self.mag_ratio = mag_ratio
+        self.translation_temperature = translation_temperature
+        self.two_pass_ocr = two_pass_ocr
+        self.max_output_width = max_output_width
+        self.stitch_max_height = int(stitch_max_height) if stitch_max_height else 0
+        self.stitch_short_threshold = int(stitch_short_threshold) if stitch_short_threshold else 0
+        self.stitch_keep_first = bool(stitch_keep_first)
+        self.debug = bool(debug)
+        self._last_debug_image = None  
+
+        self._name_glossary: Dict[str, str] = {}
+        self._lama = None
+        self._title_skip_patterns: List[str] = []
+        MangaTranslator._title_skip_patterns = []
+        self.client = None
+        self.openai_client = None
+
+        if not font_path or not os.path.isfile(font_path):
+            raise FileNotFoundError(
+                "یک فونت معتبر فارسی (ttf) با --font مشخص کنید. "
+                "پیشنهاد: فونت Vazirmatn (رایگان و متن‌باز)."
+            )
+
+        if gpu is None:
+            ocr_gpu = self._detect_paddle_gpu() or self._detect_torch_cuda() or _ort_has_cuda()
+            if ocr_gpu:
+                print("[*] GPU شناسایی شد؛ OCR روی GPU اجرا می‌شه (برای اجبار به CPU از --cpu استفاده کن).")
+            else:
+                print("[*] GPU پیدا نشد؛ OCR روی CPU اجرا می‌شه. "
+                      "اگه توی Colab هستی و GPU داری، Runtime > Change runtime type رو روی GPU بذار.")
+        else:
+            ocr_gpu = bool(gpu)
+            if ocr_gpu:
+                print("[*] --gpu زده شده؛ OCR روی GPU.")
+            else:
+                print("[*] --cpu زده شده؛ OCR روی CPU.")
+
+        self.use_gpu = ocr_gpu
+
+        self.use_lama = self._decide_lama(force_gpu=gpu)
+        self._inpainter_name = "OpenCV"
+
+        self.ocr_langs = ocr_langs or ["en"]
+        lang_map = {
+            "en": "en", "fa": "fa", "ko": "korean", "ja": "japan", "zh": "ch",
+            "fr": "french", "de": "german", "es": "spanish", "it": "italian",
+            "pt": "portuguese", "ru": "russian", "ar": "arabic",
+        }
+        main_lang = "en"
+        for lang in self.ocr_langs:
+            if lang in lang_map:
+                main_lang = lang_map[lang]
+                break
+
+        device = "gpu" if ocr_gpu else "cpu"
+        self.ocr = None
+        self._ocr_backend_name = "none"
+
+        avail_ram = self._available_ram_gb()
+        if avail_ram < 6.0:
+            if self.max_workers > 2:
+                print(f"[*] RAM آزاد کم است ({avail_ram:.1f} GB) → workers={self.max_workers} به ۲ محدود شد.")
+                self.max_workers = 2
+
+        use_paddle = _HAS_PADDLE and avail_ram >= 6.0
+        if _HAS_PADDLE and not use_paddle:
+            print(f"[*] RAM آزاد کم است ({avail_ram:.1f} GB) → PaddleOCR سنگین لود نمی‌شود؛ RapidOCR سبک استفاده می‌شود.")
+
+        if use_paddle:
+            print(f"[*] در حال بارگذاری PaddleOCR | lang={main_lang} device={device} ...")
+            ocr_kwargs = dict(
+                lang=main_lang,
+                show_log=False,
+                text_det_thresh=0.25,
+                text_det_box_thresh=0.4,
+                text_det_unclip_ratio=1.8,
+            )
+            try:
+                try:
+                    engine = PaddleOCR(
+                        use_textline_orientation=True,
+                        device=device,
+                        enable_mkldnn=False,
+                        **ocr_kwargs,
+                    )
+                except TypeError:
+                    try:
+                        engine = PaddleOCR(
+                            use_angle_cls=True,
+                            use_gpu=ocr_gpu,
+                            enable_mkldnn=False,
+                            **ocr_kwargs,
+                        )
+                    except TypeError:
+                        try:
+                            engine = PaddleOCR(
+                                use_textline_orientation=True,
+                                device=device,
+                                **ocr_kwargs,
+                            )
+                        except TypeError:
+                            engine = PaddleOCR(
+                                use_angle_cls=True,
+                                use_gpu=ocr_gpu,
+                                **ocr_kwargs,
+                            )
+                self.ocr = PaddleOCRWrapper(engine)
+                self._ocr_backend_name = "paddle"
+                print(f"[+] PaddleOCR آماده | lang={main_lang} | device={device}")
+            except Exception as e:
+                print(f"[!] PaddleOCR لود نشد ({e}) → RapidOCR ONNX")
+
+        if self.ocr is None:
+            try:
+                self.ocr = RapidOCRBackend(lang=main_lang)
+                self._ocr_backend_name = "rapidocr"
+            except Exception as e:
+                print(f"[!] RapidOCR هم لود نشد ({e})", file=sys.stderr)
+                raise ImportError(
+                    "هیچ OCR در دسترس نیست.\n"
+                    "  پیشنهاد: pip install paddleocr\n"
+                    "  یا: pip install rapidocr  (یا rapidocr-onnxruntime)"
+                ) from e
+
+        print(f"[*] موتور OCR فعال: {self._ocr_backend_name} | workers={self.max_workers}")
+
+        
+        self.det = None
+        self.det_confidence = float(getattr(self, "det_confidence", 0.28) or 0.28)
+        try:
+            print("[*] بارگذاری RT-DETR-v2 ONNX (تشخیص حباب) ...")
+            self.det = RTDetrV2ONNXDetector(
+                prefer_gpu=self.use_gpu,
+                conf_thresh=self.det_confidence,
+                iou_thresh=0.45,
+                threads=max(1, int(self.max_workers or 2)),
+                multi_scale=True,
+            )
+        except Exception as e:
+            print(f"[!] RT-DETR لود نشد ({e}) → OCR تمام‌صفحه (بدون تشخیص حباب)")
+            self.det = None
+
+        if self.provider_type == "gemini":
+            if not _HAS_GEMINI:
+                raise ImportError(
+                    "برای استفاده از Gemini باید google-genai نصب باشد:\n"
+                    "  pip install google-genai"
+                )
+            
+            self._key_index = 0
+            self._apply_api_key(self._api_keys[0])
+            self._model_cascade = self._build_model_cascade(self.model_name, self.client)
+            self.model_name = self._model_cascade[0]
+            cascade_info = f" | cascade: {' → '.join(self._model_cascade[:5])}" + (
+                "…" if len(self._model_cascade) > 5 else ""
+            )
+            if len(self._api_keys) > 1:
+                print(f"[*] ارائه‌دهنده: Gemini | مدل: {self.model_name}{cascade_info} | "
+                      f"{len(self._api_keys)} کلید API")
+            else:
+                print(f"[*] ارائه‌دهنده: Gemini | مدل: {self.model_name}{cascade_info}")
+        else:
+            
+            if not _HAS_OPENAI:
+                raise ImportError(
+                    "برای استفاده از OpenAI / DeepSeek / Groq / ... باید openai نصب باشد:\n"
+                    "  pip install openai"
+                )
+            self._key_index = 0
+            self._apply_api_key(self._api_keys[0])
+            self._model_cascade = [self.model_name]
+            print(f"[*] ارائه‌دهنده: {self.provider} | مدل: {self.model_name} | "
+                  f"base: {self.api_base}")
+            if len(self._api_keys) > 1:
+                print(f"    {len(self._api_keys)} کلید API (جابه‌جایی خودکار)")
+
+    def _get_lama(self):
+        
+        
+        if self._lama is None and self.use_lama:
+            try:
+                print("    [*] بارگذاری LaMa-Manga ONNX (fine-tune مانگا) ...")
+                self._lama = LamaMangaONNX(
+                    prefer_gpu=self.use_gpu,
+                    threads=max(1, int(getattr(self, "max_workers", 2) or 2)),
+                )
+                self._inpainter_name = "LaMa-Manga"
+            except Exception as e:
+                print(f"    [!] LaMa-Manga ناموفق ({e}) → LaMa ONNX")
+                try:
+                    self._lama = LamaONNX(
+                        prefer_gpu=self.use_gpu,
+                        threads=max(1, int(getattr(self, "max_workers", 2) or 2)),
+                    )
+                    self._inpainter_name = "LaMa"
+                except Exception as e3:
+                    print(f"    [!] LaMa ناموفق ({e3}) → MI-GAN ONNX")
+                try:
+                    self._lama = MiganONNX(
+                        prefer_gpu=self.use_gpu,
+                        threads=max(1, int(getattr(self, "max_workers", 2) or 2)),
+                    )
+                    self._inpainter_name = "MI-GAN"
+                except Exception as e2:
+                    print(f"    [!] MI-GAN هم ناموفق ({e2}) → OpenCV")
+                    self.use_lama = False
+                    self._lama = None
+                    self._inpainter_name = "OpenCV"
+        return self._lama
+
+    def _mask_key(self, key: str) -> str:
+        if not key:
+            return "(خالی)"
+        if len(key) <= 10:
+            return key[:3] + "..."
+        return key[:6] + "..." + key[-4:]
+
+    def _is_banned_or_invalid_key_error(self, err: Exception) -> bool:
+        msg = str(err).lower()
+        
+        indicators = (
+            "api key not valid",
+            "api_key_invalid",
+            "invalid api key",
+            "api key expired",
+            "api_key_service_blocked",
+            "consumer_suspended",
+            "has been blocked",
+            "key is invalid",
+            "incorrect api key",
+            "authentication failed",
+            "unauthenticated",
+            "permission_denied",
+        )
+        
+        if "401" in msg and any(x in msg for x in ("key", "auth", "credential", "token")):
+            return True
+        return any(ind in msg for ind in indicators)
+
+    def _is_model_unavailable_error(self, err: Exception) -> bool:
+        msg = str(err)
+        low = msg.lower()
+        return (
+            "503" in msg
+            or "UNAVAILABLE" in msg
+            or "404" in msg
+            or "NOT_FOUND" in msg
+            or "high demand" in low
+            or "try again later" in low
+            or "currently experiencing" in low
+            or "model not found" in low
+            or "not found for api version" in low
+            or "is not supported" in low
+            or "no longer available" in low
+            or "please update your code to use a newer model" in low
+            or "developer instruction is not enabled" in low
+            or "invalid_argument" in low
+        )
+
+    def _is_model_permanently_gone(self, err: Exception) -> bool:
+        msg = str(err).lower()
+        return (
+            "404" in str(err)
+            or "not_found" in msg
+            or "no longer available" in msg
+            or "please update your code to use a newer model" in msg
+            or "model not found" in msg
+            or "developer instruction is not enabled" in msg
+            or "system instruction is not enabled" in msg
+            or "is not supported for" in msg
+            or "not enabled for models/" in msg
+            or ("invalid_argument" in msg and "instruction" in msg)
+            or ("invalid_argument" in msg and "not enabled" in msg)
+        )
+
+    @staticmethod
+    def _static_fallback_models(primary: str) -> List[str]:
+        
+        preferred = [
+            "gemini-3.8-flash",
+            "gemini-3.7-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-flash-latest",
+            "gemini-flash-lite-latest",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+        ]
+        cascade = [primary] if primary else []
+        for m in preferred:
+            if m and m not in cascade:
+                cascade.append(m)
+        return cascade or preferred
+
+    @staticmethod
+    def _model_sort_key(name: str) -> tuple:
+        
+        n = name.lower().replace("models/", "")
+        ver_m = re.search(r"gemini-(\d+(?:\.\d+)?)", n)
+        major_minor = 0.0
+        if ver_m:
+            try:
+                major_minor = float(ver_m.group(1))
+            except ValueError:
+                major_minor = 0.0
+
+        is_lite = "lite" in n
+        is_flash = "flash" in n
+        is_pro = "pro" in n and "flash" not in n
+        is_preview = "preview" in n
+        is_latest = n.endswith("-latest") or n in (
+            "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest"
+        )
+
+        
+        if is_lite and not is_preview:
+            type_rank = 0
+        elif is_flash and not is_lite and not is_pro and not is_preview:
+            type_rank = 1
+        elif is_preview:
+            type_rank = 3
+        elif is_pro:
+            type_rank = 4
+        else:
+            type_rank = 2
+
+        
+        if is_latest and major_minor <= 0:
+            version_rank = -99.0 if not is_lite else -98.0
+        else:
+            version_rank = -major_minor
+
+        
+        age_penalty = 0 if major_minor >= 2.0 or is_latest else 10
+        return (age_penalty, type_rank, version_rank, n)
+
+    def _discover_models_from_api(self, client) -> List[str]:
+        
+        names: List[str] = []
+        
+        ban_substrings = (
+            "image", "tts", "live", "audio", "embedding", "gemma",
+            "robotics", "omni", "nano-banana", "imagen", "computer-use",
+            "computer_use", "antigravity", "veo", "lyria", "chirp",
+            "dialog", "code-execution", "aqa", "text-embedding",
+            "gecko", "vision", "imagen", "dream", "bard",
+        )
+        try:
+            for m in client.models.list():
+                raw = getattr(m, "name", None) or ""
+                short = raw.replace("models/", "").strip()
+                if not short:
+                    continue
+                low = short.lower()
+                if any(b in low for b in ban_substrings):
+                    continue
+                
+                if not low.startswith("gemini"):
+                    continue
+                if "flash" not in low and "pro" not in low:
+                    continue
+                
+                if "preview" in low and "flash" not in low:
+                    continue
+                actions = getattr(m, "supported_actions", None) or []
+                methods = getattr(m, "supported_generation_methods", None) or []
+                ok = False
+                if actions:
+                    ok = "generateContent" in actions
+                elif methods:
+                    ok = "generateContent" in methods
+                else:
+                    ok = "flash" in low
+                if not ok:
+                    continue
+                names.append(short)
+        except Exception as e:
+            print(f"    [!] کشف مدل از API ناموفق: {e}")
+            return []
+
+        uniq = sorted(set(names), key=self._model_sort_key)
+        return uniq
+
+    @staticmethod
+    def _is_bad_translate_model(name: str) -> bool:
+        low = (name or "").lower().replace("models/", "")
+        ban = (
+            "computer-use", "computer_use", "antigravity", "veo", "lyria",
+            "image", "tts", "live", "audio", "embedding", "gemma", "robotics",
+            "omni", "imagen", "chirp", "aqa", "dream",
+            "gemini-pro-latest",  
+        )
+        if any(b in low for b in ban):
+            return True
+        if not low.startswith("gemini"):
+            return True
+        if "flash" not in low and "pro" not in low:
+            return True
+        
+        return False
+
+
+    @staticmethod
+    def _extract_suggested_model(err: Exception) -> Optional[str]:
+        
+        msg = str(err or "")
+        
+        m = re.search(r"use models?/([a-zA-Z0-9._\-]+)", msg, flags=re.I)
+        if m:
+            name = m.group(1).strip().replace("models/", "")
+            if name.lower().startswith("gemini"):
+                return name
+        m = re.search(r"models/([a-zA-Z0-9._\-]+)", msg)
+        if m:
+            name = m.group(1).strip()
+            if name.lower().startswith("gemini") and "no longer available" not in msg.lower():
+                return name
+        return None
+
+    def _build_model_cascade(self, primary: str, client=None) -> List[str]:
+        
+        primary = (primary or "").strip().replace("models/", "")
+        if primary and self._is_bad_translate_model(primary):
+            primary = ""
+
+        discovered: List[str] = []
+        if client is not None:
+            discovered = self._discover_models_from_api(client)
+
+        if discovered:
+            discovered = [m for m in discovered if not self._is_bad_translate_model(m)]
+            discovered = sorted(set(discovered), key=self._model_sort_key)
+            print(
+                f"[*] {len(discovered)} مدل متنی از API کشف شد | "
+                f"{' → '.join(discovered[:8])}{'…' if len(discovered) > 8 else ''}"
+            )
+            cascade: List[str] = []
+            if primary and primary in discovered:
+                cascade.append(primary)
+            elif primary and not self._is_bad_translate_model(primary):
+                cascade.append(primary)
+            for m in discovered:
+                if m not in cascade:
+                    cascade.append(m)
+            def _costly(n: str) -> bool:
+                low = n.lower()
+                return ("pro" in low and "flash" not in low)
+            head = cascade[:1]
+            rest = cascade[1:]
+            cheap = [m for m in rest if not _costly(m)]
+            costly = [m for m in rest if _costly(m)]
+            cascade = head + cheap + costly
+            if cascade:
+                return cascade
+
+        print("[*] کشف API ممکن نشد / خالی → fallback محافظه‌کارانه")
+        return self._static_fallback_models(primary or "gemini-2.5-flash")
+
+    def _drop_current_model_and_switch(self, reason: str = "") -> bool:
+        
+        if not self._model_cascade:
+            return False
+        dead = self.model_name
+        if 0 <= self._model_index < len(self._model_cascade):
+            del self._model_cascade[self._model_index]
+            
+        else:
+            self._model_cascade = [m for m in self._model_cascade if m != dead]
+        if not self._model_cascade:
+            print(f"    [!] مدل «{dead}» حذف شد ولی مدل دیگری در cascade نیست.")
+            return False
+        
+        if self._model_index >= len(self._model_cascade):
+            self._model_index = len(self._model_cascade) - 1
+        self.model_name = self._model_cascade[self._model_index]
+        extra = f" ({reason})" if reason else ""
+        print(f"    [!] مدل «{dead}» حذف شد → ادامه از: {self.model_name} "
+              f"[{self._model_index + 1}/{len(self._model_cascade)}]{extra}")
+        return True
+
+    def _switch_to_next_model(self, reason: str = "") -> bool:
+        
+        tls = getattr(self, "_tls", None)
+        local = getattr(tls, "local_cascade", None) if tls is not None else None
+        if local:
+            li = int(getattr(tls, "local_index", 0) or 0) + 1
+            if li >= len(local):
+                return False
+            tls.local_index = li
+            name = local[li]
+            self._set_thread_model(name, li)
+            extra = f" ({reason})" if reason else ""
+            print(f"    [*] مدل بعدی: {name} [{li + 1}/{len(local)}]{extra}")
+            return True
+        if not self._model_cascade:
+            return False
+        next_idx = self._model_index + 1
+        if next_idx >= len(self._model_cascade):
+            return False
+        self._model_index = next_idx
+        self.model_name = self._model_cascade[self._model_index]
+        self._set_thread_model(self.model_name, self._model_index)
+        extra = f" ({reason})" if reason else ""
+        print(f"    [*] مدل بعدی: {self.model_name} "
+              f"[{self._model_index + 1}/{len(self._model_cascade)}]{extra}")
+        return True
+
+    def _reset_model_cascade(self, reason: str = "") -> None:
+        if not self._model_cascade:
+            client = getattr(self, "client", None)
+            try:
+                client = self._thread_client()
+            except Exception:
+                pass
+            rebuilt = self._build_model_cascade(
+                getattr(self, "_last_good_model", "") or "",
+                client=client,
+            )
+            self._model_cascade = rebuilt or self._static_fallback_models("gemini-3.8-flash")
+        self._model_index = 0
+        self.model_name = self._model_cascade[0]
+        try:
+            self._set_thread_model(self.model_name, 0)
+        except Exception:
+            pass
+        extra = f" ({reason})" if reason else ""
+        print(
+            f"    [*] ریست cascade مدل → {self.model_name} "
+            f"[1/{len(self._model_cascade)}]{extra}"
+        )
+
+
+    def _switch_to_next_key(self, reason: str = "", cycle: bool = False) -> bool:
+        
+        if not self._api_keys:
+            return False
+        next_idx = self._key_index + 1
+        if next_idx >= len(self._api_keys):
+            if cycle and len(self._api_keys) > 1:
+                next_idx = 0
+            else:
+                return False
+        self._key_index = next_idx
+        key = self._api_keys[self._key_index]
+        self._apply_api_key(key)
+        
+        extra = f" ({reason})" if reason else ""
+        print(f"    [*] کلید API شماره {self._key_index + 1}/{len(self._api_keys)} فعال شد"
+              f" | مدل فعلی: {self.model_name}{extra}.")
+        return True
+
+    def _remove_current_key_and_switch(self, reason: str = "") -> bool:
+        if not self._api_keys:
+            return False
+        bad_key = self._api_keys[self._key_index]
+        masked = self._mask_key(bad_key)
+        print(f"    [!] کلید فعلی ({masked}) حذف شد. دلیل: {reason or 'نامعتبر/بن'}")
+        del self._api_keys[self._key_index]
+        if not self._api_keys:
+            return False
+        if self._key_index >= len(self._api_keys):
+            self._key_index = 0
+        key = self._api_keys[self._key_index]
+        self._apply_api_key(key)
+        print(f"    [*] کلید API شماره {self._key_index + 1}/{len(self._api_keys)} فعال شد.")
+        return True
+
+    def _apply_api_key(self, key: str) -> None:
+        timeout_s = float(getattr(self, "api_timeout", 30.0) or 30.0)
+        if not hasattr(self, "_client_cache"):
+            self._client_cache = {}
+        cache_key = (self.provider_type, key, int(timeout_s))
+        if self.provider_type == "gemini":
+            client = self._client_cache.get(cache_key)
+            if client is None:
+                try:
+                    http_opts = None
+                    if genai_types is not None and hasattr(genai_types, "HttpOptions"):
+                        http_opts = genai_types.HttpOptions(timeout=int(timeout_s * 1000))
+                    if http_opts is not None:
+                        client = genai.Client(api_key=key, http_options=http_opts)
+                    else:
+                        client = genai.Client(
+                            api_key=key,
+                            http_options={"timeout": int(timeout_s * 1000)},
+                        )
+                except Exception:
+                    client = genai.Client(api_key=key)
+                self._client_cache[cache_key] = client
+            self.client = client
+            tls = getattr(self, "_tls", None)
+            if tls is not None:
+                tls.client = client
+                tls.api_key = key
+        else:
+            oc = self._client_cache.get(cache_key)
+            if oc is None:
+                oc = OpenAI(
+                    api_key=key,
+                    base_url=self.api_base,
+                    timeout=timeout_s,
+                )
+                self._client_cache[cache_key] = oc
+            self.openai_client = oc
+            tls = getattr(self, "_tls", None)
+            if tls is not None:
+                tls.openai_client = oc
+                tls.api_key = key
+
+    def _thread_client(self):
+        
+        tls = getattr(self, "_tls", None)
+        if tls is not None and getattr(tls, "client", None) is not None:
+            return tls.client
+        return self.client
+
+    def _thread_openai(self):
+        tls = getattr(self, "_tls", None)
+        if tls is not None and getattr(tls, "openai_client", None) is not None:
+            return tls.openai_client
+        return self.openai_client
+
+    def _thread_model(self) -> str:
+        tls = getattr(self, "_tls", None)
+        if tls is not None and getattr(tls, "model_name", None):
+            return tls.model_name
+        return self.model_name
+
+    def _set_thread_model(self, name: str, index: int | None = None) -> None:
+        tls = getattr(self, "_tls", None)
+        if tls is not None:
+            tls.model_name = name
+            if index is not None:
+                tls.model_index = index
+        self.model_name = name
+        if index is not None:
+            self._model_index = index
+
+    def _pick_random_api_key(self, *, reason: str = "صفحه جدید") -> None:
+        
+        if not self._api_keys:
+            return
+        if len(self._api_keys) == 1:
+            self._apply_api_key(self._api_keys[0])
+            return
+        
+        used = set()
+        tls = getattr(self, "_tls", None)
+        idx = random.randrange(len(self._api_keys))
+        key = self._api_keys[idx]
+        self._key_index = idx
+        self._apply_api_key(key)
+        print(f"    [*] کلید تصادفی {idx + 1}/{len(self._api_keys)} "
+              f"({reason}) | {self._mask_key(key)}")
+
+    @staticmethod
+    def _clahe_enhance(image: np.ndarray) -> np.ndarray:
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        l2 = clahe.apply(l)
+        enhanced = cv2.merge((l2, a, b))
+        return cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
+
+    def detect_text(self, image: np.ndarray) -> List[dict]:
+        results = None
+        with self._ocr_lock:
+            last_err = None
+            for attempt in range(3):
+                try:
+                    results = self.ocr.ocr(image)
+                    break
+                except RuntimeError as e:
+                    last_err = e
+                    msg = str(e).lower()
+                    if "could not execute a primitive" in msg or "could not create a primitive" in msg:
+                        print(f"    [!] OneDNN/primitive crash (تلاش {attempt + 1}/3)...")
+                        time.sleep(0.4 * (attempt + 1))
+                        continue
+                    raise
+                except Exception as e:
+                    last_err = e
+                    if attempt < 2:
+                        time.sleep(0.3)
+                        continue
+                    raise
+            if results is None and last_err is not None:
+                raise last_err
+
+        detections = []
+        if results and results[0]:
+            for line in results[0]:
+                poly = np.array(line[0], dtype=np.int32)
+                text = line[1][0].strip()
+                conf = line[1][1]
+
+                dx = poly[1][0] - poly[0][0]
+                dy = poly[1][1] - poly[0][1]
+                angle = float(np.degrees(np.arctan2(dy, dx)))
+
+                if not text or conf < self.min_confidence or set(text).issubset(PUNCTUATION_SET):
+                    continue
+                
+                if len(text) == 1 and text.upper() not in {"I", "!", "?", "…"}:
+                    continue
+
+                stripped = text.strip()
+                
+                if self._is_non_english_script(stripped):  
+                    continue
+                kind = self._classify_text(stripped)
+
+                if kind == "junk" and len(re.sub(r"[^\w]", "", stripped)) <= 1:
+                    continue
+
+                detections.append({
+                    "poly": poly,
+                    "text": text,
+                    "conf": conf,
+                    "angle": angle,
+                    "kind": kind,
+                })
+        return detections
+
+
+    def _ocr_lang_flags(self):
+        
+        langs = [str(x).lower().strip() for x in (getattr(self, "ocr_langs", None) or ["en"])]
+        allow_en = any(l == "en" or l.startswith("en") for l in langs)
+        allow_ko = any(l == "ko" or l.startswith("ko") or l in ("korean", "hangul") for l in langs)
+        allow_ja = any(l == "ja" or l.startswith("ja") or l in ("jp", "japanese") for l in langs)
+        allow_zh = any(l in ("zh", "ch", "cn", "chinese") or l.startswith("zh") for l in langs)
+        
+        if langs == ["en"] or (len(langs) == 1 and langs[0].startswith("en")):
+            allow_ko = allow_ja = allow_zh = False
+            allow_en = True
+        return allow_en, allow_ko, allow_ja, allow_zh
+
+    def _want_english_only(self) -> bool:
+        allow_en, allow_ko, allow_ja, allow_zh = self._ocr_lang_flags()
+        return allow_en and not (allow_ko or allow_ja or allow_zh)
+
+    def _is_non_english_script(self, text: str) -> bool:
+        
+        if not text:
+            return True
+        allow_en, allow_ko, allow_ja, allow_zh = self._ocr_lang_flags()
+
+        has_latin = False
+        has_hangul = False
+        has_kana = False
+        has_han = False  
+        for ch in text:
+            o = ord(ch)
+            if ch.isascii() and ch.isalpha():
+                has_latin = True
+            elif 0xAC00 <= o <= 0xD7A3:
+                has_hangul = True
+            elif 0x3040 <= o <= 0x30FF or 0xFF66 <= o <= 0xFF9D:
+                has_kana = True
+            elif (0x3400 <= o <= 0x9FFF) or (0xF900 <= o <= 0xFAFF) or (0x3000 <= o <= 0x303F):
+                has_han = True
+
+        
+        if has_hangul and not allow_ko:
+            return True
+        if has_kana and not allow_ja:
+            return True
+        
+        if has_han and not (allow_ja or allow_zh):
+            return True
+        
+        allowed_any = (
+            (has_latin and allow_en)
+            or (has_hangul and allow_ko)
+            or (has_kana and allow_ja)
+            or (has_han and (allow_ja or allow_zh))
+        )
+        if not allowed_any and (has_latin or has_hangul or has_kana or has_han):
+            return True
+        return False
+
+    @staticmethod
+    def _classify_text(text: str) -> str:
+
+        stripped = (text or "").strip()
+        if not stripped:
+            return "junk"
+
+        
+        latin_core = re.sub(r"[^A-Za-z]", "", stripped)
+        if len(latin_core) >= 3 and re.fullmatch(r"[A-Za-z][A-Za-z\s.'\-]*[.!?…~]*", stripped.replace("...", ".").replace("…", ".")):
+            
+            if any(c in "AEIOUaeiou" for c in latin_core):
+                return "dialogue"
+        if len(latin_core) >= 2 and stripped.endswith(("?", "!", "?!", "!?", "...?", "...!")):
+            if any(c in "AEIOUaeiou" for c in latin_core):
+                return "dialogue"
+
+        low_full = stripped.lower()
+        low_compact = re.sub(r"[\s.\-_]", "", low_full)
+        alpha_only = re.sub(r"[^\w]", "", stripped, flags=re.UNICODE)
+        words = re.findall(r"[A-Za-z\uac00-\ud7a3]+", stripped)
+
+        
+        dialogue_short = {
+            "i", "im", "i'm", "me", "my", "you", "u", "he", "she", "we", "they",
+            "no", "yes", "ok", "okay", "oh", "ah", "eh", "uh", "hm", "hmm",
+            "hi", "hey", "yo", "bye", "wow", "yay", "ouch", "ow", "ugh",
+            "stop", "go", "run", "help", "wait", "hold", "look", "come",
+            "move", "fire", "ready", "now", "true", "lie", "die", "what",
+            "why", "how", "who", "where", "when", "huh", "eh?", "ah!",
+            "no!", "yes!", "ok!", "oh!", "ah!", "hey!", "wow!", "stop!",
+            "go!", "run!", "help!", "wait!", "what?", "why?", "how?",
+            "who?", "huh?", "no?", "yes?", "really", "sure", "fine",
+            "damn", "shit", "fuck", "hell", "god", "please", "sorry",
+            "thanks", "thank", "bye", "later", "never", "always", "maybe",
+            "huh", "nah", "yep", "yup", "nope", "yea", "yeah", "yup",
+            "one", "two", "all", "any", "out", "off", "up", "down", "in",
+            "on", "at", "to", "of", "for", "and", "but", "or", "so",
+            "the", "a", "an", "this", "that", "it", "its", "his", "her",
+            "our", "your", "their", "us", "them", "him", "do",
+            "did", "does", "is", "are", "was", "were", "be", "been",
+            "have", "has", "had", "will", "would", "can", "could",
+            "should", "must", "may", "might", "let", "get", "got",
+            "see", "saw", "know", "knew", "think", "say", "said",
+            "tell", "told", "ask", "asked", "came", "went",
+            "id", "sir", "boss", "man", "boy", "girl", "kid", "guys",
+            "hey!", "what!", "huh!", "no!!", "yes!!", "stop!!", "wait!!",
+            "die!", "die!!", "run!", "run!!", "help!", "help!!",
+            
+            "much", "rich", "gold", "hard", "find", "gone", "took", "last",
+            "tiny", "piece", "way", "need", "want", "money", "carry", "dream",
+            "found", "single", "league", "hand", "look", "part",
+            "tokyo", "hokkaido", "meiji", "nuggets", "flakes", "prospectors",
+        }
+
+        core = re.sub(r"[!?.…~\-]+$", "", low_full).strip()
+
+        
+        
+        _lonely_func = {
+            "of", "to", "in", "on", "at", "a", "an", "the", "is", "it", "as",
+            "or", "so", "be", "do", "if", "by",
+        }
+        if len(stripped) <= 3 and core in _lonely_func and not any(c in stripped for c in "!?…"):
+            return "junk"
+
+        if core in dialogue_short or low_full in dialogue_short:
+            return "dialogue"
+        if alpha_only.lower() in dialogue_short:
+            return "dialogue"
+
+        if stripped.upper() == "I":
+            return "dialogue"
+
+        digits_only = re.sub(r"[^\d]", "", stripped)
+
+        is_progress = bool(re.fullmatch(
+            r"[\(\[\{]?\s*\d+\s*/\s*\d+\s*[\)\]\}]?",
+            stripped,
+        ))
+        if is_progress:
+            return "dialogue"
+
+        
+        
+        if (
+            re.search(r"\d+\s*화", stripped)
+            or re.search(r"(?i)\b(?:ch(?:apter)?|ep(?:isode)?)\s*\.?\s*\d+", stripped)
+            or re.search(r"(?i)^\d+\s*(?:화|wolat|etdt|chapter|episode)\b", stripped)
+            or re.search(r"(?i)\b\d{1,3}\s*화\b", stripped)
+            or (re.search(r"(?i)wolat|etdt", stripped) and re.search(r"\d", stripped))
+        ):
+            return "promo"
+
+        
+        if stripped.isdigit() or re.fullmatch(r"[\d\s.%oO]+", stripped):
+            return "junk"
+        if re.fullmatch(r"[QOIl]?\d{2,}", stripped, re.I):  
+            return "junk"
+        if re.fullmatch(r"[A-Za-z]{0,2}\d{3,}", stripped) and len(digits_only) >= 3:
+            return "junk"
+
+        if re.fullmatch(r"[A-Za-z]?\d{2,6}", stripped) and len(stripped) <= 7:
+            return "sfx"
+        if digits_only and len(stripped) <= 12:
+            non_digit_alpha = re.sub(r"[\d\s.%oOQIl]", "", stripped, flags=re.I)
+            non_digit_alpha = re.sub(r"[/()\[\]{}]", "", non_digit_alpha)
+            if len(non_digit_alpha) <= 2:
+                return "junk"
+        if len(alpha_only) <= 1 and len(stripped) <= 3 and stripped.upper() != "I":
+            return "junk"
+        if len(alpha_only) <= 2 and len(stripped) <= 5 and not any(
+            c.isalpha() and c.isascii() for c in stripped if len(stripped) > 3
+        ):
+            return "junk"
+
+        if getattr(MangaTranslator, "_title_skip_enabled", False):
+            title_pats = getattr(MangaTranslator, "_title_skip_patterns", None) or []
+            for pat in title_pats:
+                if not pat or len(pat) < 6:
+                    continue
+                if pat not in low_compact:
+                    continue
+                remainder = low_compact.replace(pat, "")
+                if len(remainder) <= 6 and len(low_compact) <= 40:
+                    return "promo"
+
+        if MangaTranslator._is_watermark_text(stripped):
+            return "promo"
+        if PROMO_RE.search(stripped):
+            return "promo"
+        if DOMAIN_RE.search(stripped):
+            return "promo"
+        if low_compact in {
+            "org", "com", "net", "www", "http", "https", "wwwcom", "wwworg",
+            "comto", "ink", "scans", "scan", "asura", "asuras", "asuran",
+        }:
+            return "promo"
+        if re.fullmatch(r"(?i)[a-z0-9\-]+\.(?:" + "|".join(DOMAIN_TLDS) + r")[a-z]{0,3}", stripped):
+            return "promo"
+        if re.search(r"(?i)\.(?:com|org|net|io|ink)\b", stripped):
+            return "promo"
+        if re.search(r"(?i)(like|ike|vortex|kayn|asura|reaper)?manga[.\s]?(ink|unk|com|org)?", stripped) and len(stripped) <= 24:
+            return "promo"
+        if low_compact.endswith(("com", "org", "net", "ink", "unk")) and (
+            len(stripped) <= 28 or "scan" in low_compact or "manga" in low_compact or "series" in low_full
+        ):
+            return "promo"
+
+        
+        if len(words) >= 2 or len(stripped) > 10:
+            return "dialogue"
+
+        hangul_chars = HANGUL_RE.findall(stripped)
+        hangul_len = sum(len(h) for h in hangul_chars)
+        if hangul_len >= 1 and hangul_len == len(alpha_only) and len(stripped) <= 8:
+            return "sfx"
+
+        
+        if len(stripped) <= 12 and SFX_WORD_RE.match(stripped):
+            if core not in dialogue_short and alpha_only.lower() not in dialogue_short:
+                return "sfx"
+
+        
+        
+        
+        if (
+            3 <= len(stripped) <= 12
+            and stripped.isupper()
+            and " " not in stripped
+            and stripped.isalpha()
+        ):
+            upper_dialogue = {w.upper() for w in dialogue_short if w.isalpha()}
+            if stripped in upper_dialogue:
+                return "dialogue"
+
+            
+            
+            _common_upper = {
+                "CONTROL", "EVERYTHING", "ORDERS", "ORDER", "SOMETHING",
+                "ANYTHING", "NOTHING", "SOMEONE", "ANYONE", "EVERYONE",
+                "ANYWHERE", "EVERYWHERE", "SOMEWHERE", "WHATEVER",
+                "HOWEVER", "BECAUSE", "WITHOUT", "THROUGH", "BETWEEN",
+                "ANOTHER", "ALREADY", "ALWAYS", "NEVER", "REALLY",
+                "PROBABLY", "CERTAINLY", "ABSOLUTELY", "COMPLETELY",
+                "PERFECTLY", "EXACTLY", "ACTUALLY", "SERIOUSLY",
+                "OBVIOUSLY", "FINALLY", "SUDDENLY", "QUICKLY",
+                "BEFORE", "AFTER", "UNDER", "OVER", "AGAINST",
+                "TOWARD", "TOWARDS", "INSIDE", "OUTSIDE", "AROUND",
+                "DURING", "WITHIN", "BEHIND", "BEYOND", "ACROSS",
+                "PEOPLE", "PERSON", "FRIEND", "ENEMY", "POWER",
+                "POWERS", "WORLD", "PLACE", "THING", "THINGS",
+                "RIGHT", "WRONG", "GREAT", "SMALL", "LARGE",
+                "FIRST", "LAST", "NEXT", "OTHER", "SAME",
+                "STILL", "EVEN", "JUST", "ONLY", "ALSO",
+                "ABOUT", "AGAIN", "BEING", "DOING", "GOING",
+                "COMING", "LOOKING", "THINKING", "KNOWING",
+                "WANTING", "NEEDED", "CALLED", "TURNED", "MADE",
+                "SURE", "WHEN", "WHERE", "WHICH", "WHILE",
+                "THESE", "THOSE", "THERE", "THEIR", "THEM",
+                "YOUR", "YOURS", "MINE", "OURS", "THEIRS",
+                "REPORT", "RESISTANCE", "INFORMATION", "AUDIENCE",
+                "PUPPETS", "REBELLION", "CLEANERS", "CHOKERS",
+                "FESTIVAL", "VENUE", "MICROPHONE", "RANGE",
+                "NORMAL", "LORD", "MOMENT", "EFFORT", "RULE",
+            }
+            if stripped in _common_upper:
+                return "dialogue"
+
+            has_strong_repeat = bool(re.search(r"(.)\1{2,}", stripped))
+            vowel_count = sum(1 for c in stripped if c in "AEIOU")
+            
+            consonant_run = bool(re.search(r"[BCDFGHJKLMNPQRSTVWXYZ]{4,}", stripped))
+            ends_with_impact = any(
+                stripped.endswith(suf)
+                for suf in (
+                    "AC", "ACK", "AK", "UM", "OOM", "ANG", "ONG",
+                    "ASH", "ISH", "USH", "AMM", "ANN",
+                    
+                )
+            )
+            looks_invented = (
+                has_strong_repeat
+                or consonant_run
+                or ends_with_impact
+                or (vowel_count == 0 and len(stripped) >= 3)
+            )
+
+            if looks_invented:
+                return "sfx"
+
+            return "dialogue"
+
+        if len(alpha_only) <= 2 and len(stripped) <= 4 and stripped.upper() != "I":
+            return "junk"
+
+        return "dialogue"
+
+    @staticmethod
+    def _dedupe_detections(detections: List[dict], iou_thresh: float = 0.28) -> List[dict]:
+        def rect_of(d):
+            return cv2.boundingRect(d["poly"])
+
+        def iou(r1, r2):
+            x1, y1, w1, h1 = r1
+            x2, y2, w2, h2 = r2
+            xi1, yi1 = max(x1, x2), max(y1, y2)
+            xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
+            inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+            union = w1 * h1 + w2 * h2 - inter
+            return inter / union if union > 0 else 0
+
+        def text_norm(t: str) -> str:
+            return re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", (t or "").lower())
+
+        def is_near_duplicate_text(a: str, b: str) -> bool:
+            
+            na, nb = text_norm(a), text_norm(b)
+            if not na or not nb:
+                return False
+            if na == nb:
+                return True
+            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+            
+            if len(shorter) >= 3 and shorter in longer:
+                return True
+            return False
+
+        kept: List[dict] = []
+        for d in detections:
+            r = rect_of(d)
+            dup_idx = None
+            for i, k in enumerate(kept):
+                kr = rect_of(k)
+                if iou(r, kr) > iou_thresh:
+                    dup_idx = i
+                    break
+                if is_near_duplicate_text(d.get("text") or "", k.get("text") or ""):
+                    cx1 = r[0] + r[2] / 2.0
+                    cy1 = r[1] + r[3] / 2.0
+                    cx2 = kr[0] + kr[2] / 2.0
+                    cy2 = kr[1] + kr[3] / 2.0
+                    if (abs(cx1 - cx2) < max(r[2], kr[2]) * 0.95 + 50
+                            and abs(cy1 - cy2) < max(r[3], kr[3]) * 1.3 + 40):
+                        dup_idx = i
+                        break
+            if dup_idx is None:
+                kept.append(d)
+            else:
+                cur = kept[dup_idx]
+                better_conf = d["conf"] > cur["conf"] + 0.04
+                similar_conf = abs(d["conf"] - cur["conf"]) <= 0.06
+                longer = len(d.get("text") or "") > len(cur.get("text") or "")
+                if (better_conf or (similar_conf and longer)
+                        or (is_near_duplicate_text(d.get("text") or "", cur.get("text") or "") and longer)):
+                    kept[dup_idx] = d
+        return kept
+
+    def group_into_regions(self, detections: List[dict], y_offset: int = 0) -> List[TextRegion]:
+      if not detections:
+        return []
+
+      n = len(detections)
+      rects = []
+      texts = []
+      for d in detections:
+        x, y, w, h = cv2.boundingRect(d["poly"])
+        rects.append((x, y + y_offset, w, h))
+        texts.append((d.get("text") or "").strip())
+
+      parent = list(range(n))
+
+      def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+      def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+      def iou(r1, r2):
+        x1, y1, w1, h1 = r1
+        x2, y2, w2, h2 = r2
+        xi1, yi1 = max(x1, x2), max(y1, y2)
+        xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
+        inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+        union_area = w1 * h1 + w2 * h2 - inter
+        return inter / union_area if union_area > 0 else 0.0
+
+      def pair_metrics(r1, r2):
+        x1, y1, w1, h1 = r1
+        x2, y2, w2, h2 = r2
+        cy1 = y1 + h1 / 2.0
+        cy2 = y2 + h2 / 2.0
+        cx1 = x1 + w1 / 2.0
+        cx2 = x2 + w2 / 2.0
+        vgap = abs(cy1 - cy2) - (h1 + h2) / 2.0
+        hgap = abs(cx1 - cx2) - (w1 + w2) / 2.0
+        avg_h = max(1.0, (h1 + h2) / 2.0)
+        avg_w = max(1.0, (w1 + w2) / 2.0)
+        return vgap, hgap, avg_h, avg_w, abs(cx1 - cx2), max(h1, h2), min(h1, h2), min(w1, w2), max(w1, w2)
+
+      def starts_with_lowercase(text: str) -> bool:
+        for ch in text:
+            if ch.isalpha():
+                return ch.islower()
+        return False
+
+      def likely_same_bubble(i, j) -> bool:
+        r1, r2 = rects[i], rects[j]
+        t1, t2 = texts[i], texts[j]
+        k1 = detections[i].get("kind", "dialogue")
+        k2 = detections[j].get("kind", "dialogue")
+
+        if r1[1] > r2[1]:
+          r1, r2 = r2, r1
+          t1, t2 = t2, t1
+
+        vgap, hgap, avg_h, avg_w, cx_dist, h_max, h_min, w_min, w_max = pair_metrics(r1, r2)
+        if self.debug:
+          short1 = (t1 or "")[:25]
+          short2 = (t2 or "")[:25]
+          print(f"  [VGAP DEBUG] \"{short1}\" <-> \"{short2}\"")
+          print(f"       vgap={vgap:.1f} | avg_h={avg_h:.1f} | cx_dist={cx_dist:.1f}")
+        if vgap > 28:
+          return False
+    
+
+        
+        small_attach = (
+            h_min <= 28 or (h_max > h_min * 2.5 and h_min <= 40)
+        ) and (k1 in ("junk", "sfx", "promo") or k2 in ("junk", "sfx", "promo"))
+
+        if h_max > h_min * 3.0 and not small_attach:
+          return False
+
+        if cx_dist > max(avg_w * 0.55, 45) and not small_attach:
+          return False
+        if small_attach and cx_dist > max(avg_w * 0.85, 60):
+          return False
+
+        if starts_with_lowercase(t2) and cx_dist < max(avg_w * 0.40, 35) and vgap < 25:
+          return True
+
+        width_ratio = w_min / w_max if w_max > 0 else 0
+        centers_aligned = cx_dist < max(avg_w * 0.28, 20)
+
+        if width_ratio > 0.60 and centers_aligned and vgap < 18:
+          return True
+
+        margin = max(2, int(avg_h * 0.08))
+        if small_attach:
+          margin = max(margin, 10)
+        x1, y1, w1, h1 = r1
+        x2, y2, w2, h2 = r2
+        a = (x1 - margin, y1 - margin, x1 + w1 + margin, y1 + h1 + margin)
+        b = (x2 - margin, y2 - margin, x2 + w2 + margin, y2 + h2 + margin)
+        overlaps = not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
+
+        if not overlaps:
+          return False
+
+        if iou(r1, r2) >= 0.25:
+          return True
+
+        if centers_aligned and vgap < 14:
+          return True
+
+        if small_attach and vgap < 20 and cx_dist < max(avg_w * 0.7, 50):
+          return True
+
+        return False
+ 
+    
+      for i in range(n):
+        ki = detections[i].get("kind", "dialogue")
+        if ki not in ("sfx", "promo", "junk"):
+            continue
+        
+        t_i = (detections[i].get("text") or "").strip()
+        if ki == "sfx" and len(t_i) >= 3:
+            continue
+        for j in range(n):
+            if i == j:
+                continue
+            if detections[j].get("kind", "dialogue") != "dialogue":
+                continue
+            near_margin = max(8, int(min(rects[i][3], rects[j][3]) * 0.30))
+            x1, y1, w1, h1 = rects[i]
+            x2, y2, w2, h2 = rects[j]
+            a = (x1 - near_margin, y1 - near_margin, x1 + w1 + near_margin, y1 + h1 + near_margin)
+            b = (x2 - near_margin, y2 - near_margin, x2 + w2 + near_margin, y2 + h2 + near_margin)
+            if not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1]):
+                
+                cx1 = x1 + w1 / 2.0
+                cx2 = x2 + w2 / 2.0
+                if abs(cx1 - cx2) > max((w1 + w2) / 2.0 * 0.6, 45):
+                    continue
+                detections[i]["kind"] = "dialogue"
+                break
+
+      def kinds_compatible(i, j):
+        ki = detections[i].get("kind", "dialogue")
+        kj = detections[j].get("kind", "dialogue")
+        if ki == kj:
+            return True
+        
+        pair = {ki, kj}
+        if pair == {"junk", "dialogue"}:
+            return True
+        if "junk" in pair and ("sfx" in pair or "promo" in pair):
+            return True
+        return False
+
+    
+      for i in range(n):
+        for j in range(i + 1, n):
+            if not kinds_compatible(i, j):
+                continue
+            if likely_same_bubble(i, j):
+                union(i, j)
+
+    
+      groups = {}
+      for i in range(n):
+        root = find(i)
+        groups.setdefault(root, []).append(i)
+
+      regions = []
+      for gid, idxs in enumerate(groups.values()):
+        
+        
+        boxes = []
+        for i in idxs:
+            poly = np.array(detections[i]["poly"], dtype=np.int32).copy()
+            if poly.ndim == 2 and poly.shape[1] == 2 and y_offset:
+                poly = poly.copy()
+                poly[:, 1] = poly[:, 1] + int(y_offset)
+            elif poly.ndim == 3 and poly.shape[-1] == 2 and y_offset:
+                poly = poly.copy()
+                poly[:, :, 1] = poly[:, :, 1] + int(y_offset)
+            boxes.append(poly)
+        xs = [rects[i][0] for i in idxs]
+        ys = [rects[i][1] for i in idxs]
+        xe = [rects[i][0] + rects[i][2] for i in idxs]
+        ye = [rects[i][1] + rects[i][3] for i in idxs]
+        x0, y0, x1, y1 = min(xs), min(ys), max(xe), max(ye)
+
+        idxs_sorted = sorted(idxs, key=lambda i: (rects[i][1], rects[i][0]))
+
+        
+        def _norm_txt(t: str) -> str:
+            return re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", (t or "").lower())
+
+        def _is_strict_partial(a: str, b: str) -> bool:
+            
+            na, nb = _norm_txt(a), _norm_txt(b)
+            if not na or not nb:
+                return False
+            if na == nb:
+                return True
+            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+            return len(shorter) >= 3 and shorter in longer
+
+        kept_idxs: List[int] = []
+        for i in idxs_sorted:
+            t_i = (detections[i].get("text") or "").strip()
+            if not t_i:
+                continue
+            r_i = rects[i]
+            is_dup = False
+            for k, j in enumerate(kept_idxs):
+                t_j = (detections[j].get("text") or "").strip()
+                r_j = rects[j]
+                cy_i = r_i[1] + r_i[3] / 2.0
+                cy_j = r_j[1] + r_j[3] / 2.0
+                avg_h = max(1.0, (r_i[3] + r_j[3]) / 2.0)
+                same_line = abs(cy_i - cy_j) < avg_h * 0.65
+                if same_line and _is_strict_partial(t_i, t_j):
+                    conf_i = float(detections[i].get("conf") or 0)
+                    conf_j = float(detections[j].get("conf") or 0)
+                    if len(t_i) > len(t_j) or (len(t_i) == len(t_j) and conf_i > conf_j):
+                        kept_idxs[k] = i
+                    is_dup = True
+                    break
+            if not is_dup:
+                kept_idxs.append(i)
+
+        
+        if len(kept_idxs) > 1:
+            long_norms = []
+            short_idxs = []
+            for i in kept_idxs:
+                t = (detections[i].get("text") or "").strip()
+                n = _norm_txt(t)
+                if len(t) >= 10 or len(n) >= 8:
+                    long_norms.append(n)
+                else:
+                    short_idxs.append(i)
+            if long_norms and short_idxs:
+                combined = "".join(long_norms)
+                final = [i for i in kept_idxs if i not in short_idxs]
+                for i in short_idxs:
+                    n = _norm_txt(detections[i].get("text") or "")
+                    if not n or n not in combined:
+                        final.append(i)
+                kept_idxs = sorted(final, key=lambda i: (rects[i][1], rects[i][0]))
+
+        kept_idxs = sorted(kept_idxs, key=lambda i: (rects[i][1], rects[i][0]))
+        text = " ".join(
+            (detections[i].get("text") or "").strip()
+            for i in kept_idxs
+            if (detections[i].get("text") or "").strip()
+        )
+        text = re.sub(r"\s{2,}", " ", text).strip()
+        text = re.sub(r"\b(\w{2,})\s+\1\b", r"\1", text, flags=re.IGNORECASE)
+
+        angles = [detections[i].get("angle", 0.0) for i in kept_idxs] or [0.0]
+        avg_angle = float(np.mean(angles)) if angles else 0.0
+        region_kind = MangaTranslator._classify_text(text)
+
+        regions.append(
+            TextRegion(
+                id=gid,
+                boxes=boxes,
+                source_text=text,
+                rect=(x0, y0, x1 - x0, y1 - y0),
+                angle=avg_angle,
+                kind=region_kind,
+                ocr_polys=list(boxes),
+            )
+        )
+
+    
+      
+      
+      
+      
+      merged_flags = [False] * len(regions)
+      for i, ri in enumerate(regions):
+        if merged_flags[i] or ri.kind not in ("sfx", "promo", "junk"):
+            continue
+        sfx_text = (ri.source_text or "").strip()
+        for j, rj in enumerate(regions):
+            if i == j or merged_flags[j] or rj.kind != "dialogue":
+                continue
+            x1, y1, w1, h1 = ri.rect
+            x2, y2, w2, h2 = rj.rect
+            cx1 = x1 + w1 / 2.0
+            cy1 = y1 + h1 / 2.0
+            cx2 = x2 + w2 / 2.0
+            cy2 = y2 + h2 / 2.0
+            avg_w = max(1.0, (w1 + w2) / 2.0)
+            avg_h = max(1.0, (h1 + h2) / 2.0)
+
+            
+            if abs(cx1 - cx2) > max(avg_w * 0.55, 45):
+                continue
+
+            
+            pad = max(8, int(min(h1, h2) * 0.35))
+            inside = (
+                x2 - pad <= cx1 <= x2 + w2 + pad
+                and y2 - pad <= cy1 <= y2 + h2 + pad
+            )
+            
+            vgap = abs(cy1 - cy2) - (h1 + h2) / 2.0
+            stacked = vgap < 18 and abs(cx1 - cx2) < max(avg_w * 0.40, 35)
+
+            
+            if ri.kind == "sfx" and len(sfx_text) >= 4 and not inside:
+                continue
+            if not (inside or stacked):
+                continue
+
+            rj.boxes = list(rj.boxes) + list(ri.boxes)
+            
+            parts = sorted(
+                [(rj.rect[1], rj.source_text.strip()), (ri.rect[1], ri.source_text.strip())],
+                key=lambda t: t[0],
+            )
+            rj.source_text = " ".join(t[1] for t in parts if t[1])
+            x0 = min(rj.rect[0], ri.rect[0])
+            y0 = min(rj.rect[1], ri.rect[1])
+            x1b = max(rj.rect[0] + rj.rect[2], ri.rect[0] + ri.rect[2])
+            y1b = max(rj.rect[1] + rj.rect[3], ri.rect[1] + ri.rect[3])
+            rj.rect = (x0, y0, x1b - x0, y1b - y0)
+            rj.kind = "dialogue"
+            merged_flags[i] = True
+            break
+
+      regions = [r for i, r in enumerate(regions) if not merged_flags[i]]
+      return regions
+    @staticmethod
+    def _deduplicate_regions(regions: List[TextRegion], overlap_thresh: float = 0.25) -> List[TextRegion]:
+        if not regions:
+            return []
+
+        def get_iou(r1, r2):
+            x1, y1, w1, h1 = r1
+            x2, y2, w2, h2 = r2
+            xi1, yi1 = max(x1, x2), max(y1, y2)
+            xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
+            inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+            r1_area = max(1, w1 * h1)
+            r2_area = max(1, w2 * h2)
+            union_area = r1_area + r2_area - inter_area
+            return inter_area / float(union_area) if union_area > 0 else 0
+
+        def containment(r1, r2):
+            x1, y1, w1, h1 = r1
+            x2, y2, w2, h2 = r2
+            xi1, yi1 = max(x1, x2), max(y1, y2)
+            xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
+            inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+            return inter / max(1, w1 * h1)
+
+        def centers_close(r1, r2, max_dist=100):
+            cx1 = r1[0] + r1[2] / 2
+            cy1 = r1[1] + r1[3] / 2
+            cx2 = r2[0] + r2[2] / 2
+            cy2 = r2[1] + r2[3] / 2
+            return abs(cx1 - cx2) < max_dist and abs(cy1 - cy2) < max_dist
+
+        def text_similar(a: str, b: str) -> bool:
+            a, b = a.strip().lower(), b.strip().lower()
+            if not a or not b:
+                return False
+            if a == b:
+                return True
+            if len(a) >= 4 and (a in b or b in a):
+                return True
+            na = re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", a)
+            nb = re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", b)
+            if not na or not nb:
+                return False
+            if na == nb:
+                return True
+            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+            if len(shorter) >= 4 and shorter in longer:
+                return True
+            return False
+
+        ordered = sorted(regions, key=lambda r: r.rect[2] * r.rect[3], reverse=True)
+        unique: List[TextRegion] = []
+        for r in ordered:
+            is_dup = False
+            for u in unique:
+                iou = get_iou(r.rect, u.rect)
+                c1 = containment(r.rect, u.rect)
+                c2 = containment(u.rect, r.rect)
+                near_same = centers_close(r.rect, u.rect) and text_similar(r.source_text, u.source_text)
+                if iou > overlap_thresh or c1 > 0.5 or c2 > 0.5 or near_same:
+                    is_dup = True
+                    if len(r.source_text) > len(u.source_text):
+                        u.source_text = r.source_text
+                        u.boxes = u.boxes + r.boxes
+                        x0 = min(u.rect[0], r.rect[0])
+                        y0 = min(u.rect[1], r.rect[1])
+                        x1 = max(u.rect[0] + u.rect[2], r.rect[0] + r.rect[2])
+                        y1 = max(u.rect[1] + u.rect[3], r.rect[1] + r.rect[3])
+                        u.rect = (x0, y0, x1 - x0, y1 - y0)
+                    u.kind = MangaTranslator._classify_text(u.source_text)
+                    break
+            if not is_dup:
+                unique.append(r)
+        return unique
+
+
+
+
+
+    def _ink_mask_inside_bubble(self, gray: np.ndarray, x0: int, y0: int, x1: int, y1: int) -> np.ndarray:
+        
+        crop = gray[y0:y1, x0:x1]
+        ch, cw = crop.shape[:2]
+        if ch < 8 or cw < 8:
+            return np.zeros((ch, cw), dtype=np.uint8)
+
+        med = float(np.median(crop))
+
+        def _mask(dark: bool) -> np.ndarray:
+            if dark:
+                hard = (crop < max(100, med - 40)).astype(np.uint8) * 255
+                flag = cv2.THRESH_BINARY_INV
+            else:
+                
+                
+                
+                if med < 128:
+                    bright_t = max(150, med + 60)
+                else:
+                    bright_t = min(180, med + 40)
+                hard = (crop > bright_t).astype(np.uint8) * 255
+                flag = cv2.THRESH_BINARY
+            try:
+                ad = cv2.adaptiveThreshold(
+                    crop, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                    flag, 15, 11,
+                )
+                
+                
+                
+                mean = cv2.boxFilter(crop, ddepth=cv2.CV_32F, ksize=(15, 15))
+                flat = np.abs(crop.astype(np.float32) - mean) < 12.0
+                ad[flat] = 0
+            except Exception:
+                ad = hard
+            m = cv2.bitwise_or(hard, ad)
+            return cv2.morphologyEx(
+                m, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8), iterations=1
+            )
+
+        dark_ink = _mask(True)
+        dark_cov = float(np.count_nonzero(dark_ink)) / float(max(1, ch * cw))
+
+        
+        
+        
+        if dark_cov > 0.45:
+            bright_ink = _mask(False)
+            bright_cov = float(np.count_nonzero(bright_ink)) / float(max(1, ch * cw))
+            if 0 < bright_cov < dark_cov:
+                return bright_ink
+        return dark_ink
+
+    @staticmethod
+    def _text_zone_in_crop(region: "TextRegion", x0: int, y0: int, x1: int, y1: int):
+        
+        cw, ch = x1 - x0, y1 - y0
+        if cw < 4 or ch < 4:
+            return None
+
+        polys = list(getattr(region, "ocr_polys", None) or [])
+        _, _, rw, rh = region.rect
+        rect_area = max(1, int(rw) * int(rh))
+
+        if not polys:
+            for b in list(getattr(region, "boxes", None) or []):
+                pts = np.asarray(b, dtype=np.int32).reshape(-1, 2)
+                if pts.size < 6:
+                    continue
+                bx0, by0 = int(pts[:, 0].min()), int(pts[:, 1].min())
+                bx1, by1 = int(pts[:, 0].max()), int(pts[:, 1].max())
+                b_area = max(1, (bx1 - bx0) * (by1 - by0))
+                if b_area >= 0.75 * rect_area:
+                    continue
+                polys.append(pts)
+
+        if not polys:
+            return None
+
+        zone = np.zeros((ch, cw), dtype=np.uint8)
+        for poly in polys:
+            pts = np.asarray(poly, dtype=np.int32).reshape(-1, 2).copy()
+            if pts.size == 0:
+                continue
+            pts[:, 0] -= x0
+            pts[:, 1] -= y0
+            cv2.fillPoly(zone, [pts], 255)
+        if zone.max() == 0:
+            return None
+        
+        
+        
+        zone = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=2)
+        return zone
+
+    @staticmethod
+    def _protect_bubble_wall(ink: np.ndarray, gray_crop: np.ndarray) -> np.ndarray:
+        
+        ch, cw = ink.shape[:2]
+        if ch < 12 or cw < 12:
+            return ink
+
+        
+        border = max(6, min(20, min(ch, cw) // 7))
+        protected = ink.copy()
+        protected[:border, :] = 0
+        protected[-border:, :] = 0
+        protected[:, :border] = 0
+        protected[:, -border:] = 0
+
+        
+        try:
+            edges = cv2.Canny(gray_crop, 50, 120)
+            edges = cv2.dilate(edges, np.ones((2, 2), np.uint8), iterations=1)
+            n, lab, st, _ = cv2.connectedComponentsWithStats(edges, connectivity=8)
+            wall = np.zeros_like(edges)
+            for i in range(1, n):
+                a = int(st[i, cv2.CC_STAT_AREA])
+                bw = int(st[i, cv2.CC_STAT_WIDTH])
+                bh = int(st[i, cv2.CC_STAT_HEIGHT])
+                ls, ss = max(bw, bh), max(1, min(bw, bh))
+                
+                if ss <= 5 and ls >= max(18, int(0.25 * max(ch, cw))):
+                    wall[lab == i] = 255
+                elif a > 0.08 * ch * cw and ss <= 8:
+                    wall[lab == i] = 255
+            wall = cv2.dilate(wall, np.ones((2, 2), np.uint8), iterations=1)
+            protected = cv2.bitwise_and(protected, cv2.bitwise_not(wall))
+        except Exception:
+            pass
+
+        
+        n2, lab2, st2, _ = cv2.connectedComponentsWithStats(protected, connectivity=8)
+        keep = np.zeros_like(protected)
+        page_a = float(max(1, ch * cw))
+        for i in range(1, n2):
+            a = int(st2[i, cv2.CC_STAT_AREA])
+            bw = int(st2[i, cv2.CC_STAT_WIDTH])
+            bh = int(st2[i, cv2.CC_STAT_HEIGHT])
+            if a < 3:
+                continue
+            ls, ss = max(bw, bh), max(1, min(bw, bh))
+            if ss <= 3 and ls >= int(0.30 * max(ch, cw)):
+                continue
+            if a > 0.20 * page_a:
+                continue
+            if ls >= int(0.70 * max(ch, cw)) and ss <= 6:
+                continue
+            keep[lab2 == i] = 255
+
+        keep = cv2.dilate(keep, np.ones((2, 2), np.uint8), iterations=1)
+        return keep
+
+    @staticmethod
+    def _drop_non_text_components(ink: np.ndarray, ch: int, cw: int) -> np.ndarray:
+        
+        
+        try:
+            n, lab, st, _ = cv2.connectedComponentsWithStats(ink, connectivity=8)
+        except Exception:
+            return ink
+        keep = np.zeros_like(ink)
+        crop_area = float(max(1, ch * cw))
+        for i in range(1, n):
+            a = int(st[i, cv2.CC_STAT_AREA])
+            if a < 6:
+                continue
+            bw = int(st[i, cv2.CC_STAT_WIDTH])
+            bh = int(st[i, cv2.CC_STAT_HEIGHT])
+            if a > 0.12 * crop_area:
+                continue
+            if bh > 0.50 * ch or bw > 0.90 * cw:
+                continue
+            keep[lab == i] = 255
+        return keep
+
+    def _bubble_interior_mask(self, gray_crop: np.ndarray, zone: np.ndarray) -> Optional[np.ndarray]:
+        
+        
+        
+        
+        ch, cw = gray_crop.shape[:2]
+        if zone is None or cv2.countNonZero(zone) == 0:
+            return None
+        med = float(np.median(gray_crop))
+        if med >= 128:
+            base = (gray_crop >= max(120, med - 60)).astype(np.uint8)
+        else:
+            base = (gray_crop <= min(150, med + 60)).astype(np.uint8)
+        base = cv2.morphologyEx(base, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+        n, lab = cv2.connectedComponents(base, connectivity=4)
+        seed = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=3)
+        labs = lab[seed > 0]
+        vals, cnts = np.unique(labs[labs > 0], return_counts=True)
+        if len(vals) == 0:
+            return None
+        comp = (lab == vals[int(np.argmax(cnts))]).astype(np.uint8) * 255
+        if int(np.count_nonzero(comp)) < 0.10 * ch * cw:
+            return None
+        
+        padc = cv2.copyMakeBorder(comp, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=0)
+        ff = padc.copy()
+        ffm = np.zeros((padc.shape[0] + 2, padc.shape[1] + 2), np.uint8)
+        cv2.floodFill(ff, ffm, (0, 0), 255)
+        filled = cv2.bitwise_or(padc, cv2.bitwise_not(ff))[1:-1, 1:-1]
+        if float(np.count_nonzero(filled)) > 0.95 * ch * cw:
+            
+            return None
+        
+        filled = cv2.erode(filled, np.ones((3, 3), np.uint8), iterations=2)
+        return filled
+
+    def _letters_mask_in_crop(self, gray_crop: np.ndarray, zone: np.ndarray,
+                              ch: int, cw: int, wide: bool = False) -> np.ndarray:
+        
+        
+        
+        
+        
+        blk = max(15, (min(ch, cw) // 10) * 2 + 1)
+        if blk % 2 == 0:
+            blk += 1
+        ad = cv2.adaptiveThreshold(
+            gray_crop, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV, blk, 9,
+        )
+        
+        mean = cv2.boxFilter(gray_crop, ddepth=cv2.CV_32F, ksize=(blk, blk))
+        flat = np.abs(gray_crop.astype(np.float32) - mean) < 10.0
+        ad[flat] = 0
+        if wide or zone is None:
+            near = np.full_like(gray_crop, 255)
+            b = 3
+            near[:b, :] = 0
+            near[-b:, :] = 0
+            near[:, :b] = 0
+            near[:, -b:] = 0
+        else:
+            near = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=6)
+        cand = cv2.bitwise_and(ad, near)
+        cores = cv2.erode(cand, np.ones((3, 3), np.uint8), iterations=1)
+        n, lab, st, _ = cv2.connectedComponentsWithStats(cores, connectivity=8)
+        keep_cores = np.zeros_like(cores)
+        
+        
+        
+        comp_cap = 0.60 if wide else 0.25
+        for i in range(1, n):
+            a = int(st[i, cv2.CC_STAT_AREA])
+            if a < 4 or a > comp_cap * ch * cw:
+                continue
+            bx, by = int(st[i, cv2.CC_STAT_LEFT]), int(st[i, cv2.CC_STAT_TOP])
+            bw_, bh_ = int(st[i, cv2.CC_STAT_WIDTH]), int(st[i, cv2.CC_STAT_HEIGHT])
+            touches = (bx == 0, by == 0, bx + bw_ >= cw, by + bh_ >= ch)
+            if any(touches):
+                if not wide:
+                    continue
+                comp = (lab == i)
+                wall_like = (
+                    int(np.count_nonzero(comp[:2, :])) > 0.6 * cw
+                    or int(np.count_nonzero(comp[-2:, :])) > 0.6 * cw
+                    or int(np.count_nonzero(comp[:, :2])) > 0.6 * ch
+                    or int(np.count_nonzero(comp[:, -2:])) > 0.6 * ch
+                )
+                if wall_like:
+                    continue
+            keep_cores[lab == i] = 255
+        keep = cv2.dilate(keep_cores, np.ones((5, 5), np.uint8), iterations=1)
+        keep = cv2.bitwise_and(keep, cand)
+        keep = cv2.dilate(keep, np.ones((2, 2), np.uint8), iterations=1)
+        return keep
+
+    def _build_text_mask(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
+        
+        h_img, w_img = image.shape[:2]
+        text_mask = np.zeros((h_img, w_img), dtype=np.uint8)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        for region in regions:
+            x, y, rw, rh = region.rect
+            x0 = max(0, int(x))
+            y0 = max(0, int(y))
+            x1 = min(w_img, int(x + rw))
+            y1 = min(h_img, int(y + rh))
+            if x1 - x0 < 8 or y1 - y0 < 8:
+                continue
+
+            zone = self._text_zone_in_crop(region, x0, y0, x1, y1)
+            ch, cw = y1 - y0, x1 - x0
+
+            
+            det_class = (getattr(region, "det_class", "") or "")
+            
+            if getattr(self, "erase_bubble_interior", False) and zone is not None and det_class in ("bubble", "text_bubble"):
+                interior = self._bubble_interior_mask(gray[y0:y1, x0:x1], zone)
+                if interior is not None and interior.max() > 0:
+                    text_mask[y0:y1, x0:x1] = cv2.bitwise_or(
+                        text_mask[y0:y1, x0:x1], interior
+                    )
+                    continue
+
+            ink = self._ink_mask_inside_bubble(gray, x0, y0, x1, y1)
+
+            if zone is not None:
+                med_reg = float(np.median(gray[y0:y1, x0:x1]))
+                if med_reg < 120:
+                    
+                    
+                    
+                    z = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=4)
+                    
+                    
+                    
+                    try:
+                        pts_all = []
+                        for poly in list(getattr(region, "ocr_polys", None) or []):
+                            p = np.asarray(poly, dtype=np.int32).reshape(-1, 2).copy()
+                            if p.size == 0:
+                                continue
+                            p[:, 0] -= x0
+                            p[:, 1] -= y0
+                            pts_all.append(p)
+                        if pts_all:
+                            pts_all = np.vstack(pts_all)
+                            hull = cv2.convexHull(pts_all)
+                            zh = np.zeros_like(z)
+                            cv2.fillPoly(zh, [hull], 255)
+                            hull_cov = float(np.count_nonzero(zh)) / float(max(1, ch * cw))
+                            if hull_cov <= 0.85:
+                                z = cv2.bitwise_or(
+                                    z,
+                                    cv2.dilate(zh, np.ones((3, 3), np.uint8), iterations=1),
+                                )
+                    except Exception:
+                        pass
+                    
+                    
+                    try:
+                        letters = self._letters_mask_in_crop(gray[y0:y1, x0:x1], zone, ch, cw, wide=True)
+                        z_area = float(max(1, np.count_nonzero(zone)))
+                        if letters.max() > 0 and float(np.count_nonzero(letters)) >= 0.05 * z_area:
+                            ink = letters
+                        else:
+                            ink = z
+                    except Exception:
+                        ink = z
+                elif ink.max() == 0:
+                    
+                    
+                    ink = zone
+                else:
+                    ink = cv2.bitwise_and(ink, zone)
+            elif ink.max() > 0:
+                
+                ink = self._drop_non_text_components(ink, ch, cw)
+
+            
+            
+            
+            
+            if zone is not None and ink.max() > 0 and med_reg < 120:
+                letters = self._letters_mask_in_crop(
+                    gray[y0:y1, x0:x1], zone, ch, cw, wide=True,
+                )
+                if letters.max() > 0:
+                    ink = cv2.bitwise_or(ink, letters)
+
+            
+            
+            try:
+                _ang = abs(float(getattr(region, "angle", 0.0) or 0.0))
+            except (TypeError, ValueError):
+                _ang = 0.0
+            if ink.max() > 0 and _ang >= 8:
+                ink = cv2.dilate(ink, np.ones((3, 3), np.uint8), iterations=2)
+
+            if ink.max() == 0:
+                continue
+
+            if zone is None:
+                border = max(5, min(16, min(ch, cw) // 7))
+                ink[:border, :] = 0
+                ink[-border:, :] = 0
+                ink[:, :border] = 0
+                ink[:, -border:] = 0
+                ink = self._protect_bubble_wall(ink, gray[y0:y1, x0:x1])
+                if ink.max() == 0:
+                    continue
+
+            if ink.max() > 0:
+                ink = cv2.dilate(ink, np.ones((2, 2), np.uint8), iterations=1)
+
+            
+            
+            
+            
+            
+            if med_reg < 120 and ink.max() > 0:
+                gray_c = gray[y0:y1, x0:x1]
+                bright_m = (gray_c > med_reg + 20)
+                grow = (ink > 0) & bright_m
+                grow = grow | (ink > 0)
+                for _ in range(24):
+                    add = cv2.dilate(grow.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & bright_m & ~grow
+                    if not add.any():
+                        break
+                    grow |= add
+                    if float(np.count_nonzero(grow)) > 0.70 * ch * cw:
+                        break
+                ink = np.where(grow, 255, 0).astype(np.uint8)
+
+            
+            
+            
+            if med_reg < 120:
+                cov_big = float(np.count_nonzero(ink)) / float(max(1, ch * cw))
+                if cov_big > 0.20:
+                    ink = cv2.dilate(ink, np.ones((3, 3), np.uint8), iterations=6)
+
+            
+            
+            
+            
+            if ink.max() > 0:
+                cov = float(np.count_nonzero(ink)) / float(max(1, ch * cw))
+                if cov > 0.60:
+                    
+                    
+                    
+                    try:
+                        reduced = self._letters_mask_in_crop(
+                            gray[y0:y1, x0:x1], zone, ch, cw, wide=True
+                        )
+                    except Exception:
+                        reduced = None
+                    if reduced is None or reduced.max() == 0:
+                        reduced = self._drop_non_text_components(ink, ch, cw)
+                    if reduced.max() > 0:
+                        ink = reduced
+                        print(
+                            f"    [!] ماسک ناحیه ({x0},{y0}) خیلی بزرگ بود "
+                            f"({cov*100:.0f}٪) → محدود به حروف شد."
+                        )
+
+
+
+            
+            
+            if zone is None:
+                cov = float(np.count_nonzero(ink)) / float(max(1, ch * cw))
+                if cov > 0.45:
+                    print(
+                        f"    [!] ماسک ناحیه ({x0},{y0}) غیرقابل‌اعتماد بود "
+                        f"({cov*100:.0f}٪) → پاک‌سازی این ناحیه رد شد."
+                    )
+                    continue
+
+            text_mask[y0:y1, x0:x1] = cv2.bitwise_or(text_mask[y0:y1, x0:x1], ink)
+
+        return text_mask
+
+    def _flat_fill_cluster(self, crop_img: np.ndarray, crop_msk: np.ndarray) -> Optional[np.ndarray]:
+        
+        
+        
+        m = crop_msk > 0
+        if not m.any():
+            return None
+        ring = cv2.dilate(crop_msk, np.ones((21, 21), np.uint8)) > 0
+        ring &= ~m
+        if int(np.count_nonzero(ring)) < 60:
+            return None
+        ring_px = crop_img[ring].astype(np.float32)
+        if float(ring_px.std(axis=0).max()) > 14.0:
+            return None
+        
+        inv = (~m).astype(np.float32)
+        k = 31
+        out = crop_img.astype(np.float32).copy()
+        for c in range(3):
+            num = cv2.blur(out[:, :, c] * inv, (k, k))
+            den = cv2.blur(inv, (k, k))
+            est = num / np.maximum(den, 1e-4)
+            out[:, :, c][m] = est[m]
+        return np.clip(out, 0, 255).astype(np.uint8)
+
+    @staticmethod
+    def _mask_clusters(mask: np.ndarray, pad: int = 18, max_clusters: int = 14) -> List[Tuple[int, int, int, int]]:
+        
+        
+        
+        n, _lab, st, _ = cv2.connectedComponentsWithStats(
+            (mask > 0).astype(np.uint8), connectivity=8
+        )
+        boxes: List[List[int]] = []
+        for i in range(1, n):
+            if int(st[i, cv2.CC_STAT_AREA]) < 4:
+                continue
+            bx, by = int(st[i, cv2.CC_STAT_LEFT]), int(st[i, cv2.CC_STAT_TOP])
+            bw, bh = int(st[i, cv2.CC_STAT_WIDTH]), int(st[i, cv2.CC_STAT_HEIGHT])
+            boxes.append([bx - pad, by - pad, bx + bw + pad, by + bh + pad])
+        if not boxes:
+            return []
+
+        def _merge_all(rects: List[List[int]]) -> List[List[int]]:
+            merged = True
+            while merged:
+                merged = False
+                out: List[List[int]] = []
+                for b in rects:
+                    hit = None
+                    for o in out:
+                        if b[0] < o[2] and b[2] > o[0] and b[1] < o[3] and b[3] > o[1]:
+                            hit = o
+                            break
+                    if hit is None:
+                        out.append(list(b))
+                    else:
+                        hit[0] = min(hit[0], b[0])
+                        hit[1] = min(hit[1], b[1])
+                        hit[2] = max(hit[2], b[2])
+                        hit[3] = max(hit[3], b[3])
+                        merged = True
+                rects = out
+            return rects
+
+        boxes = _merge_all(boxes)
+        if len(boxes) > max_clusters:
+            
+            boxes = _merge_all([
+                [b[0] - pad * 2, b[1] - pad * 2, b[2] + pad * 2, b[3] + pad * 2]
+                for b in boxes
+            ])
+        return [
+            (max(0, b[0]), max(0, b[1]), b[2], b[3]) for b in boxes
+        ]
+
+    def clean_image(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
+        
+        mask = self._build_text_mask(image, regions)
+        if not np.any(mask):
+            return image.copy()
+        try:
+            ratio = float((mask > 0).sum()) / float(mask.size)
+            print(f"  [*] ماسک متن: {ratio*100:.2f}% پیکسل (فقط حروف)")
+        except Exception:
+            pass
+
+        cleaned = image.copy()
+        H, W = image.shape[:2]
+        
+        dil = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=1)
+
+        
+        
+        onnx_done = np.zeros_like(dil)
+
+        
+        
+        
+        auto_inpaint = False
+        allow_flat = self.use_lama or auto_inpaint
+        if auto_inpaint:
+            print("  [*] پاکسازی خودکار: برای هر خوشه بهترین روش انتخاب می‌شود.")
+
+        if self.use_lama or auto_inpaint:
+            lama = self._get_lama()
+            if lama is not None:
+                try:
+                    fast_inpainter = None
+                    n_run = 0
+                    n_flat = 0
+                    for (cx0, cy0, cx1, cy1) in self._mask_clusters(dil):
+                        crop_img = image[cy0:cy1, cx0:cx1]
+                        crop_msk = dil[cy0:cy1, cx0:cx1]
+
+                        if int(np.count_nonzero(crop_msk)) < 40:
+                            continue
+
+                        flat = (self._flat_fill_cluster(crop_img, crop_msk)
+                                if allow_flat else None)
+                        if flat is not None:
+                            mm = crop_msk > 0
+                            cleaned[cy0:cy1, cx0:cx1][mm] = flat[mm]
+                            onnx_done[cy0:cy1, cx0:cx1][mm] = 255
+                            n_flat += 1
+                            continue
+                        if auto_inpaint and not self.use_lama:
+                            gray_c = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
+                            crop_med = float(np.median(gray_c))
+                            m_cov = float(np.count_nonzero(crop_msk)) / float(max(1, crop_msk.size))
+                            need_quality = crop_med < 150 or m_cov > 0.15
+                        else:
+                            need_quality = True
+                        if need_quality:
+                            use_lama_c = lama
+                        else:
+                            if fast_inpainter is None:
+                                fast_inpainter = LamaONNX(prefer_gpu=self.use_gpu)
+                            use_lama_c = fast_inpainter
+                        result_pil = use_lama_c(crop_img, crop_msk)
+                        out = cv2.cvtColor(np.array(result_pil), cv2.COLOR_RGB2BGR)
+                        if out.shape[:2] != crop_img.shape[:2]:
+                            out = cv2.resize(out, (crop_img.shape[1], crop_img.shape[0]))
+                        m = crop_msk > 0
+                        if m.any():
+                            cleaned[cy0:cy1, cx0:cx1][m] = out[m]
+                            onnx_done[cy0:cy1, cx0:cx1][m] = 255
+                        n_run += 1
+                    if n_flat:
+                        print(f"  - {n_flat} خوشه روی پس‌زمینهٔ تخت → پرکردن مستقیم.")
+                    if n_run:
+                        print(
+                            f"  - پاکسازی با {getattr(self, '_inpainter_name', 'ONNX')} "
+                            f"({n_run} خوشهٔ جدا)."
+                        )
+                except Exception as e:
+                    print(f"  [!] {getattr(self, '_inpainter_name', 'ONNX')} خطا ({e}) → OpenCV")
+
+        remaining = cv2.bitwise_and(dil, cv2.bitwise_not(onnx_done))
+        if np.any(remaining):
+            
+            
+            cleaned = cv2.inpaint(cleaned, remaining, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+
+        
+        
+        
+        
+        
+        gray0 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        g2 = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
+        residual = np.zeros_like(dil)
+        for region in regions:
+            x, y, rw, rh = region.rect
+            x0, y0 = max(0, int(x)), max(0, int(y))
+            x1 = min(image.shape[1], int(x + rw))
+            y1 = min(image.shape[0], int(y + rh))
+            if x1 - x0 < 8 or y1 - y0 < 8:
+                continue
+            ch, cw = y1 - y0, x1 - x0
+            zone = self._text_zone_in_crop(region, x0, y0, x1, y1)
+            crop = g2[y0:y1, x0:x1]
+            orig = gray0[y0:y1, x0:x1]
+            diff = cv2.absdiff(crop, orig)
+            med = float(np.median(orig))
+            inky = (orig < med - 30) | (orig > med + 30)
+            ink = ((diff < 20) & inky).astype(np.uint8) * 255
+            if zone is not None:
+                near = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=8)
+                
+                near = cv2.bitwise_and(
+                    near,
+                    cv2.dilate(dil[y0:y1, x0:x1], np.ones((3, 3), np.uint8), iterations=6),
+                )
+            else:
+                near = np.full_like(ink, 255)
+                border = max(5, min(16, min(ch, cw) // 7))
+                near[:border, :] = 0
+                near[-border:, :] = 0
+                near[:, :border] = 0
+                near[:, -border:] = 0
+            ink = cv2.bitwise_and(ink, near)
+            
+            n, lab, st, _ = cv2.connectedComponentsWithStats(ink, connectivity=8)
+            keep = np.zeros_like(ink)
+            for i in range(1, n):
+                a = int(st[i, cv2.CC_STAT_AREA])
+                if a < 8 or a > 0.5 * ch * cw:
+                    continue
+                bx, by = int(st[i, cv2.CC_STAT_LEFT]), int(st[i, cv2.CC_STAT_TOP])
+                bw_, bh_ = int(st[i, cv2.CC_STAT_WIDTH]), int(st[i, cv2.CC_STAT_HEIGHT])
+                if bx == 0 or by == 0 or bx + bw_ >= cw or by + bh_ >= ch:
+                    continue
+                keep[lab == i] = 255
+            residual[y0:y1, x0:x1] = cv2.bitwise_or(residual[y0:y1, x0:x1], keep)
+        if np.any(residual):
+            residual = cv2.dilate(residual, np.ones((3, 3), np.uint8), iterations=1)
+            cleaned = cv2.inpaint(cleaned, residual, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+
+        print("  - پاکسازی فقط متن تمام شد — دیوارهٔ حباب حفظ شد.")
+        return cleaned
+
+    @staticmethod
+    def _is_daily_quota_error(err: Exception) -> bool:
+        
+        msg = str(err)
+        low = msg.lower()
+        
+        daily_markers = (
+            "PerDay", "RequestsPerDay", "GenerateRequestsPerDay",
+            "per day", "daily quota", "quota per day",
+        )
+        if any(m in msg or m.lower() in low for m in daily_markers):
+            return True
+        
+        if any(x in msg for x in ("PerMinute", "PerModel", "PerHour", "rateLimit", "RateLimit")):
+            return False
+        if any(x in low for x in ("per minute", "per model", "rate limit", "too many requests")):
+            return False
+        return False
+
+    @staticmethod
+    def _is_rate_or_model_quota_error(err: Exception) -> bool:
+        
+        msg = str(err)
+        low = msg.lower()
+        
+        if any(x in low for x in (
+            "deadline", "timeout", "timed out", "bad file descriptor",
+            "ssl:", "wrong_version", "connection reset", "broken pipe",
+        )):
+            return False
+        if any(x in msg for x in (
+            "RESOURCE_EXHAUSTED", "429", "RateLimit", "rateLimit",
+            "PerMinute", "PerModel", "PerHour",
+        )):
+            return True
+        if any(x in low for x in (
+            "rate limit", "quota", "resource exhausted",
+            "too many requests", "exceeded your current quota",
+            "high demand", "try again later",
+        )):
+            if MangaTranslator._is_daily_quota_error(err):
+                return False
+            return True
+        return False
+
+    def _get_system_instruction(self) -> str:
+        return (
+            "تو «بازآفرین دیالوگ» مانهوا هستی.\n"
+            "تو مترجم تحت‌اللفظی نیستی. کار تو ترجمه‌ی کلمات نیست؛ "
+            "کار تو بازسازی همان لحظه، همان آدم، همان احساس و همان منظور به زبان فارسی است.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "روش فکر کردن\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "برای هر دیالوگ، متن انگلیسی را مستقیم به فارسی تبدیل نکن.\n"
+            "اول درک کن که شخصیت دقیقاً چه می‌خواهد بگوید، چرا آن را می‌گوید و چه حسی دارد.\n"
+            "بعد تصور کن این شخصیت اگر یک ایرانی بود و همین موقعیت دقیقاً برایش اتفاق افتاده بود، "
+            "بدون فکر کردن به متن انگلیسی، چه جمله‌ای به زبان می‌آورد.\n"
+            "همان جمله‌ی فارسی را خروجی بده.\n\n"
+            "یعنی مسیر کار این باشد:\n"
+            "متن انگلیسی → درک صحنه → درک شخصیت → درک احساس → پیدا کردن بیان طبیعی فارسی → خروجی\n"
+            "هرگز این مسیر را دنبال نکن:\n"
+            "متن انگلیسی → جابه‌جایی کلمه‌ها → فارسی\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "قانون «صدای واقعی»\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "ترجمه نباید صدای مترجم داشته باشد.\n"
+            "باید صدای همان شخصیت را داشته باشد.\n"
+            "اگر جمله از نظر معنایی درست است ولی یک ایرانی در مکالمه‌ی واقعی این‌طور نمی‌گوید، "
+            "ترجمه غلط محسوب می‌شود و باید عوض شود.\n\n"
+            "هر دیالوگ باید انگار مستقیماً از دهان شخصیت بیرون آمده باشد:\n"
+            "- با ریتم طبیعی گفتار\n"
+            "- با انتخاب کلمات طبیعی\n"
+            "- با واکنش‌های واقعی\n"
+            "- با شدت احساسی متناسب با صحنه\n"
+            "- بدون بوی ترجمه\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "شخصیت مهم‌تر از لغت است\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "یک جمله برای دو شخصیت مختلف لزوماً نباید یک‌جور ترجمه شود.\n"
+            "به سن، شخصیت، رابطه، جایگاه، اعتمادبه‌نفس و حالت روانی گوینده توجه کن.\n"
+            "شخصیت خجالتی، مغرور، لوس، عصبانی، شرور، شوخ، جدی یا ترسیده باید صدای متفاوتی داشته باشد.\n"
+            "اگر شخصیت در حال خفه کردن خنده است، جمله باید این حس را داشته باشد.\n"
+            "اگر از چیزی جا خورده، جمله باید واکنشی باشد.\n"
+            "اگر عصبانی است، جمله نباید بی‌حال و تمیز باشد.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "فارسی را از خود فارسی بساز\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "هرجا انگلیسی یک اصطلاح، کنایه یا بیان خاص دارد، دنبال نسخه‌ی فارسیِ همان رفتار بگرد، "
+            "نه ترجمه‌ی لغوی آن.\n"
+            "ترتیب کلمات انگلیسی هیچ اهمیتی ندارد.\n"
+            "ممکن است یک جمله در فارسی کوتاه‌تر، بلندتر، شکسته‌تر یا کاملاً بازسازی‌شده باشد.\n"
+            "تنها چیزی که باید حفظ شود، معنی، نیت، رابطه و حس است.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "قانون دیالوگ\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "فارسی باید شبیه گفت‌وگو باشد، نه متن ادبی.\n"
+            "اما «محاوره‌ای» به معنی شکسته‌کردن زورکی همه‌چیز نیست.\n"
+            "به شکل طبیعی حرف زدن نگاه کن.\n"
+            "بعضی جمله‌ها کوتاه می‌شوند.\n"
+            "بعضی جاها مکث می‌آید.\n"
+            "بعضی جاها جمله نصفه می‌ماند.\n"
+            "بعضی جاها شخصیت یک کلمه را تأکید می‌کند.\n"
+            "فقط وقتی این رفتار در خود موقعیت وجود دارد، از آن استفاده کن.\n\n"
+            "اگر متن با برچسب گوینده شروع می‌شود (مثل PARTY 1 LEADER: HAN یا "
+            "<PARTY 1 LEADERHAN> یا GROUP LEADER: NAME و مشابه)، فقط قسمت دیالوگ را "
+            "ترجمه کن و برچسب را کاملاً حذف کن.\n"
+            "اگر کل متن فقط برچسب گوینده است، translation را خالی بگذار (\"\").\n"
+            "هرگز برچسب گوینده را داخل translation نگه ندار.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "فحش، توهین و شدت\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "اگر شخصیت فحش می‌دهد، شدت واقعی حرفش را نگه دار.\n"
+            "نه ضعیف‌ترش کن، نه بی‌دلیل شدیدترش کن.\n"
+            "فحش باید مثل فحش واقعی فارسی انتخاب شود، نه ترجمه‌ی فرهنگ‌لغتی.\n"
+            "اگر متن انگلیسی تند است، فارسی هم باید تند به نظر برسد.\n"
+            "اگر فقط شوخی یا طعنه است، فحش را بی‌جهت سنگین نکن.\n"
+            "فحش سانسور یا OCRخراب خیلی رایج است؛ قبل از ترجمه معنیش را کامل کن:\n"
+            "  F*ck / F**k / F*ok / Fu*k / fck → fuck\n"
+            "  Sh*t / S**t → shit\n"
+            "  what theF / what the F / wtf → what the fuck\n"
+            "مثال:\n"
+            "  F*ok?! → چه غلطیه؟! / لعنتی!؟\n"
+            "  What the F is wrong with you? → چه مرگته؟ / عقلت پاره‌ست؟\n"
+            "هرگز حروف سانسور یا عدد/نماد چسبیده به فحش را عین متن به فارسی نبر.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "OCR خراب\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "OCR را متن مقدس و دقیق فرض نکن.\n"
+            "اگر کلمه‌ای ناقص، چسبیده، اشتباه، سانسور با * یا خراب است، "
+            "از کل جمله و فضای صحنه برای فهم آن استفاده کن.\n"
+            "فاصلهٔ جاافتادهٔ بین کلمات را حتماً برگردان؛ کلمات چسبیده را از روی معنی جدا کن:\n"
+            "  CLEANRIGHT → CLEAN RIGHT | HOOKFROM → HOOK FROM | THEUNIFOR → THE UNI FOR\n"
+            "  DOWNRIGHT TO → DOWN RIGHT TO | IMADESURE → I MADE SURE\n"
+            "اگر یک بخش واضحاً اشتباه OCR شده، معنای محتمل را بازسازی کن.\n"
+            "اما چیزی از خودت اختراع نکن که با صحنه سازگار نیست.\n"
+            "عدد یا نماد بی‌معنی وسط کلمه را حذف کن و جمله را طبیعی بنویس.\n"
+            "استثنای مهم — اعداد سطح/رتبه: اگر در متن OCR عددی مثل LV.539 یا Level 12 هست، "
+            "همان عدد دقیق را در ترجمه بیاور (مثلاً «سطح ۵۳۹»). "
+            "هیچ‌وقت عدد سطح را از خودت نساز یا عوض نکن؛ اگر OCR عدد را ناقص آورده "
+            "(مثل LV. بدون رقم)، همان را «سطح …» با عدد موجود بگذار و عدد از خودت درنیاور.\n"
+            "حتی وقتی OCR کلمهٔ LV را خراب یا چسبانه آورده (مثل CIRGIiIV-531 یا lV-531 یا IV.531 "
+            "یا هر کلمه‌ای که به یک عدد چسبیده)، آن عددِ ته متن همان شمارهٔ سطح/رتبه است؛ "
+            "آن را جدا کن و در ترجمه به شکل «سطح ۵۳۱» بیاور.\n"
+            "رقم‌هایی که OCR به‌جای حرف خوانده (0↔O، 1↔I/L، 5↔S، 7↔T، 8↔B، 6↔G و …) "
+            "را از روی بافت جمله اصلاح کن؛ هیچ لیست جایگزینی ثابت حفظ نکن.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "تست نهایی\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "قبل از تحویل هر دیالوگ، سه سؤال را از خودت بپرس:\n"
+            "۱. اگر این را یک ایرانی در مکالمه بگوید، طبیعی به گوش می‌رسد؟\n"
+            "۲. اگر متن انگلیسی را نبینم، باز هم این جمله مثل یک دیالوگ اصیل فارسی به نظر می‌رسد؟\n"
+            "۳. شخصیت واقعاً همین‌طوری حرف می‌زند؟\n"
+            "اگر جواب یکی از این‌ها «نه» بود، ترجمه را دوباره بساز.\n\n"
+            "هدف نهایی:\n"
+            "خواننده نباید هنگام خواندن دیالوگ به یاد ترجمه بیفتد.\n"
+            "باید فقط صحنه را ببیند و حرف شخصیت را بشنود.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "نمونه برای فهم فلسفه، نه برای تقلید\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "What the hell are you doing?\n"
+            "→ داری چه غلطی می‌کنی؟\n\n"
+            "I didn't come here to talk.\n"
+            "→ نیومدم اینجا حرف بزنم.\n\n"
+            "Don't look at me like that.\n"
+            "→ این‌جوری نگام نکن.\n\n"
+            "You're kidding, right?\n"
+            "→ داری شوخی می‌کنی، نه؟\n\n"
+            "I can't believe you actually did that.\n"
+            "→ باورم نمی‌شه واقعاً این کارو کردی.\n\n"
+            "What?! I'm not a girl!\n"
+            "→ چی؟! من دختر نیستم!\n\n"
+            "این مثال‌ها فقط نشان می‌دهند خروجی باید «حرفِ واقعی» باشد، نه ترجمه‌ی لفظ‌به‌لفظ.\n"
+            "عبارت‌ها را کورکورانه کپی نکن.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "قانون آخر\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "در هر تعارض، این ترتیب اولویت را رعایت کن:\n"
+            "طبیعی بودن فارسی > صدای شخصیت > انتقال احساس و نیت > انتقال معنی > شباهت لفظی به انگلیسی\n\n"
+            "اسم‌های خاص را حفظ یا طبیعی نویسه‌گردانی کن.\n"
+            "هیچ توضیحی درباره‌ی روند کار نده.\n"
+            "فقط JSON معتبر برگردان.\n"
+            "هر آیتم: {\"id\": عدد, \"translation\": \"متن فارسی\", \"tone\": \"لحن\", "
+            "\"names\": [{\"source\": \"...\", \"persian\": \"...\"}]}\n"
+            "tone (الزامی) یکی از:\n"
+            "normal=بالن عادی گرد (کودک) | shout=داد خشم دندانه (افسانه) | "
+            "comedy_shout=داد کمدی (کروش) | whisper=زمزمه موج‌دار (دست‌نویس) | "
+            "sun_thought=تفکر خورشیدی (مهر) | thought=تفکر ابری (مروارید) | "
+            "free_text=متن بیرون بالن (ارامکو/هوما/تهران) | system=UI سیستم (اصفهان/فرناز) | "
+            "monster=صدای هیولا (کردی) | cry=گریه (موج/هاله) | fear=ترس (صحرا) | "
+            "broadcast=بی‌سیم/تلویزیون/موبایل (اکبر/اسمان/مثلث) | "
+            "letter=نامه/طومار (آندالوس/فورات) | narrator=راوی مستطیل (الهام) | "
+            "square_thought=فکر مربعی (یکان) | black=دارک تیره (اتابای/فرزیانی/زنگار).\n"
+            "اگر تصویر داری ظاهر حباب را از تصویر تشخیص بده؛ تصمیم نهایی با توست."
+        )
+
+    @staticmethod
+    @staticmethod
+    def _is_watermark_text(text: str) -> bool:
+        
+        
+        
+        t = (text or "").lower()
+        toks = re.findall(r"[a-z0-9]+", t)
+        if not toks:
+            return False
+        token_set = set(toks)
+        compact = "".join(toks)
+        grams = {tuple(toks[i:i + n]) for n in (2, 3) for i in range(len(toks) - n + 1)}
+        for w in WATERMARK_PATTERNS:
+            parts = tuple(w.split())
+            if not parts:
+                continue
+            if len(parts) == 1:
+                if parts[0] in token_set:
+                    return True
+                
+                if len(parts[0]) >= 8 and parts[0] in compact:
+                    return True
+            else:
+                if parts in grams:
+                    return True
+        return bool(PROMO_RE.search(text) or DOMAIN_RE.search(text))
+
+    @staticmethod
+    def _cleanup_translation(t: str) -> str:
+        
+        if not t:
+            return t
+        
+        t = t.replace("?", "؟")
+        
+        
+        t = re.sub(r"(?i)([a-z])\1{1,}", "", t)
+        t = re.sub(r"(?i)([!؟])\s*[a-z]{1,3}\s*", r"\1", t)
+        t = re.sub(r"(?i)(?<=[(\u0600-\u06FF)])\s*[a-z]{1,2}\s*$", "", t)
+        t = re.sub(r"\s+([؟!.,،])", r"\1", t)
+        return t.strip()
+
+    def _parse_translation_response(self, text: str, regions: List[TextRegion]) -> bool:
+        
+        text = text.strip()
+        
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+        try:
+            results = json.loads(text)
+        except json.JSONDecodeError:
+            
+            m = re.search(r"\[[\s\S]*\]", text)
+            if not m:
+                raise
+            results = json.loads(m.group(0))
+
+        if not isinstance(results, list):
+            raise ValueError("پاسخ مدل آرایه نیست.")
+
+        by_id = {
+            item["id"]: item for item in results
+            if isinstance(item, dict) and "id" in item
+        }
+        applied = 0
+        valid_tones = {
+            "normal", "shout", "comedy_shout", "whisper",
+            "sun_thought", "thought", "free_text", "system",
+            "monster", "cry", "fear", "broadcast", "letter",
+            "narrator", "square_thought", "black",
+            
+            "explosion", "sfx",
+        }
+        
+        tone_aliases = {
+            "angry": "shout", "rage": "shout", "yell": "shout",
+            "comedy": "comedy_shout", "comic": "comedy_shout", "funny_shout": "comedy_shout",
+            "cloud_thought": "thought", "cloud": "thought",
+            "sun": "sun_thought", "solar_thought": "sun_thought",
+            "outside": "free_text", "caption": "free_text", "sfx_free": "free_text",
+            "ui": "system", "status": "system",
+            "roar": "monster", "beast": "monster",
+            "tears": "cry", "sad": "cry",
+            "scared": "fear", "horror": "fear",
+            "radio": "broadcast", "tv": "broadcast", "phone": "broadcast", "wireless": "broadcast",
+            "scroll": "letter", "note": "letter",
+            "narration": "narrator", "box": "narrator",
+            "square": "square_thought",
+            "dark": "black", "dark_bubble": "black",
+            "explosion": "shout", "sfx": "comedy_shout",
+        }
+        for region in regions:
+            item = by_id.get(region.id)
+            if not item:
+                continue
+            t = (item.get("translation") or "").strip()
+            if t:
+                region.translated_text = self._cleanup_translation(t)
+                applied += 1
+            
+            st = (
+                item.get("tone")
+                or item.get("style")
+                or item.get("bubble_style")
+                or ""
+            )
+            st = str(st).strip().lower().replace("-", "_").replace(" ", "_")
+            st = tone_aliases.get(st, st)
+            if st in valid_tones:
+                region.bubble_style = st
+            elif not (region.bubble_style or "").strip():
+                region.bubble_style = "normal"
+
+        for item in results:
+            for nm in (item.get("names") or []):
+                src = (nm.get("source") or "").strip()
+                per = (nm.get("persian") or "").strip()
+                if src and per:
+                    self._name_glossary[src] = per
+        return applied > 0
+
+    def _recreate_api_client(self) -> None:
+        
+        if not self._api_keys:
+            return
+        key = self._api_keys[self._key_index % len(self._api_keys)]
+        try:
+            self._apply_api_key(key)
+        except Exception as e:
+            print(f"    [!] بازسازی کلاینت ناموفق: {e}")
+
+    def _call_ai_with_timeout(self, fn, *, label: str = "AI") -> str:
+        
+        timeout = float(getattr(self, "api_timeout", 45.0) or 45.0)
+        if timeout <= 0:
+            return fn()
+        ex = ThreadPoolExecutor(max_workers=1)
+        fut = ex.submit(fn)
+        try:
+            return fut.result(timeout=timeout)
+        except FuturesTimeout:
+            try:
+                fut.cancel()
+            except Exception:
+                pass
+            try:
+                ex.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                ex.shutdown(wait=False)
+            self._recreate_api_client()
+            raise TimeoutError(
+                f"{label} بیش از {timeout:.0f}ثانیه طول کشید (timeout) → مدل بعدی"
+            )
+        except Exception:
+            try:
+                ex.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                ex.shutdown(wait=False)
+            raise
+        else:
+            try:
+                ex.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                ex.shutdown(wait=False)
+
+    def _translate_with_gemini(self, user_prompt: str, system_instruction: str) -> str:
+        config = genai_types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            response_mime_type="application/json",
+            temperature=self.translation_temperature,
+            response_schema={
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "id": {"type": "INTEGER"},
+                        "translation": {"type": "STRING"},
+                        "tone": {
+                            "type": "STRING",
+                            "enum": [
+                                "normal", "shout", "comedy_shout", "whisper",
+                                "sun_thought", "thought", "free_text", "system",
+                                "monster", "cry", "fear", "broadcast", "letter",
+                                "narrator", "square_thought", "black",
+                            ],
+                        },
+                        "names": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "source": {"type": "STRING"},
+                                    "persian": {"type": "STRING"},
+                                },
+                                "required": ["source", "persian"],
+                            },
+                        },
+                    },
+                    "required": ["id", "translation", "tone"],
+                },
+            },
+        )
+
+        def _do():
+            client = self._thread_client()
+            model = self._thread_model()
+            response = client.models.generate_content(
+                model=model, contents=user_prompt, config=config,
+            )
+            text = response.text
+            if not text:
+                raise RuntimeError("پاسخ خالی از Gemini دریافت شد.")
+            return text
+
+        return self._call_ai_with_timeout(
+            _do, label=f"Gemini/{self._thread_model()}"
+        )
+
+    def _translate_with_openai(self, user_prompt: str, system_instruction: str) -> str:
+        kwargs = dict(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.translation_temperature,
+            timeout=float(getattr(self, "api_timeout", 10.0) or 10.0),
+        )
+
+        mlow = self.model_name.lower()
+        if any(x in mlow for x in ("gpt-4", "gpt-3.5", "gpt-5", "o1", "o3", "o4")):
+            kwargs["response_format"] = {"type": "json_object"}
+
+        def _do():
+            client = self._thread_openai()
+            resp = client.chat.completions.create(**kwargs)
+            text = resp.choices[0].message.content
+            if not text:
+                raise RuntimeError(f"پاسخ خالی از {self.provider} دریافت شد.")
+            return text
+
+        return self._call_ai_with_timeout(
+            _do, label=f"{self.provider}/{self._thread_model()}"
+        )
+
+
+    @staticmethod
+    def _fix_ocr_text(text: str) -> str:
+        
+        if not text:
+            return text
+        t = text
+        
+        t = re.sub(r"\s+", " ", t).strip()
+        
+        replacements = [
+            (r"\bMUDI[:]?YING\b", "MODIFYING"),
+            (r"\bMODIEYING\b", "MODIFYING"),
+            (r"\bMODIFYlNG\b", "MODIFYING"),
+            (r"\bRECONSTRUC(?:TION)?\b", "RECONSTRUCTION"),
+            (r"\bRECONSTRUC\b", "RECONSTRUCTION"),
+            (r"\bPROCES\b", "PROCESS"),
+            (r"\bPARALYZE[D]?\b", "PARALYZED"),
+            (r"\bMANA\b", "MANA"),
+            (r"\bAND\s+YE\b", "AND YET"),
+            (r"\bNDYE\b", "AND YET"),
+            (r"\bONL\b", "ONLY"),
+            (r"\bMYE\b", "MY"),
+            (r"\bUNSCATHED\b", "UNSCATHED"),
+            (r"\bUNFORESEEN\b", "UNFORESEEN"),
+            (r"\bOVERCONSUMPTION\b", "OVERCONSUMPTION"),
+            (r"\bRECONSTRUCTION\s+PROCES\b", "RECONSTRUCTION PROCESS"),
+            (r"\bBODY\s+RECONSTRUCTION\b", "BODY RECONSTRUCTION"),
+        ]
+        for pat, rep in replacements:
+            t = re.sub(pat, rep, t, flags=re.IGNORECASE)
+        
+        t = re.sub(r"([A-Za-z])[:;|]([A-Za-z])", r"\1\2", t)
+        
+        
+        
+        
+        def _strip_trailing_number(s: str, pat: str) -> str:
+            m = re.search(pat, s, flags=re.I)
+            if not m:
+                return s
+            prefix = s[:m.start()]
+            
+            
+            if re.search(
+                r"(?:lv|iv|1v|l1|i1|lvl|level|ch|chapter|ep|episode|vol|no|score|hp|mp|power|rank)\s*[.:\-–]?\s*$",
+                prefix[-10:], flags=re.I,
+            ):
+                return s
+            return (prefix + s[m.end():]).strip()
+
+        t = _strip_trailing_number(t, r"\s*[QOIl]?\d{3,}\s*$")
+        t = _strip_trailing_number(t, r"\s+\d{3,}\s*$")
+        return t.strip()
+
+    def translate_regions(self, regions: List[TextRegion]) -> None:
+        if not regions:
+            return
+
+        self._pick_random_api_key(reason="ترجمه صفحه")
+        self._cascade_full_cycles = 0
+        self._same_model_timeout_retries = 0
+        if self._model_cascade:
+            good = (getattr(self, "_last_good_model", "") or "").strip()
+            if good and good in self._model_cascade:
+                idx = self._model_cascade.index(good)
+            else:
+                idx = 0
+                for i, m in enumerate(self._model_cascade):
+                    
+                    if "3." in m or "flash-latest" in m.lower() or "lite" in m.lower():
+                        idx = i
+                        break
+            local = self._model_cascade[idx: idx + 6]
+            if len(local) < 3:
+                local = self._model_cascade[:6]
+            tls = getattr(self, "_tls", None)
+            if tls is not None:
+                tls.local_cascade = local
+                tls.local_index = 0
+            self._set_thread_model(local[0], 0)
+
+        for r in regions:
+            r.source_text = self._fix_ocr_text(uncensor_swears(r.source_text or ""))
+
+        def _make_batches(items: List[TextRegion]):
+            
+            
+            
+            
+            max_items = max(1, int(getattr(self, "bubbles_per_request", 6) or 6))
+            max_chars = 2200
+            batches: List[List[TextRegion]] = []
+            cur: List[TextRegion] = []
+            cur_chars = 0
+            for r in items:
+                tlen = len(r.source_text or "")
+                if cur and (len(cur) >= max_items or cur_chars + tlen > max_chars):
+                    batches.append(cur)
+                    cur = []
+                    cur_chars = 0
+                cur.append(r)
+                cur_chars += tlen
+            if cur:
+                batches.append(cur)
+            return batches
+
+        
+        pending = list(regions)
+        import concurrent.futures as _cf
+        for round_i in range(1, 4):
+            if not pending:
+                break
+            batches = _make_batches(pending)
+            if len(batches) > 1 or round_i > 1:
+                print(
+                    f"    [*] دور {round_i}: {len(pending)} دیالوگ → {len(batches)} بسته"
+                )
+            workers = max(1, min(
+                int(getattr(self, "batch_workers", 3) or 1), len(batches)))
+            if workers > 1:
+                keys = list(self._api_keys)
+                jobs = [(bi, b) for bi, b in enumerate(batches, 1)]
+                with _cf.ThreadPoolExecutor(max_workers=workers) as ex:
+                    def _run(job):
+                        bi, batch = job
+                        if keys:
+                            self._apply_api_key(keys[(bi - 1) % len(keys)])
+                        print(f"    [*] بسته {bi}/{len(batches)}: {len(batch)} دیالوگ (موازی)")
+                        try:
+                            self._translate_regions_batch(batch)
+                        except Exception as e:
+                            print(f"    [!] بسته {bi} ناموفق: {str(e)[:80]}")
+                    list(ex.map(_run, jobs))
+            else:
+                for bi, batch in enumerate(batches, 1):
+                    if len(batches) > 1:
+                        print(f"    [*] بسته {bi}/{len(batches)}: {len(batch)} دیالوگ")
+                    self._translate_regions_batch(batch)
+                    if bi < len(batches):
+                        time.sleep(1.0)
+
+            pending = [r for r in regions if not (r.translated_text or "").strip()]
+            if not pending:
+                break
+            if round_i < 3:
+                wait_s = min(2.5 * round_i, 5.0)
+                print(
+                    f"    [!] {len(pending)} دیالوگ هنوز بدون ترجمه — "
+                    f"صبر {wait_s:.0f}ثانیه و تلاش مجدد..."
+                )
+                time.sleep(wait_s)
+                
+                if self._api_keys and len(self._api_keys) > 1:
+                    self._pick_random_api_key(reason=f"دور {round_i + 1}")
+                if self._model_cascade and len(self._model_cascade) > 1:
+                    self._switch_to_next_model(reason=f"دور {round_i + 1}")
+
+        still = sum(1 for r in regions if not (r.translated_text or "").strip())
+        if still:
+            print(f"    [!] در نهایت {still} دیالوگ بدون ترجمه ماند.")
+
+    def _translate_regions_batch(self, regions: List[TextRegion]) -> None:
+        if not regions:
+            return
+
+        payload = [{"id": r.id, "text": r.source_text} for r in regions]
+        system_instruction = self._get_system_instruction()
+        user_prompt = (
+            "این‌ها دیالوگ‌های استخراج‌شده از یک صفحه‌ی مانهوا هستند.\n\n"
+            "متن‌ها از OCR آمده‌اند و ممکن است خراب، ناقص، چسبیده یا دارای غلط املایی باشند.\n"
+            "قبل از بازآفرینی فارسی، اول متن انگلیسی هر مورد را در ذهن خودت اصلاح کن "
+            "(مثلاً MUDIYING→MODIFYING، NDYE/AND YE→AND YET، RECONSTRUC→RECONSTRUCTION).\n"
+            "سپس با توجه به ترتیب دیالوگ‌ها و بافت صحنه، هر مورد را به شکل یک دیالوگ کاملاً طبیعی فارسی بازآفرینی کن.\n\n"
+            "اصل مهم:\n"
+            "ترجمه تحت‌اللفظی نکن؛ دیالوگ را طوری بنویس که انگار از اول به فارسی نوشته شده.\n"
+            "اگر دو حباب پشت‌سرهم ادامه‌ی یک فکر هستند، لحن را پیوسته نگه دار.\n\n"
+            "هیچ توضیح، تحلیل یا متن اضافه ننویس.\n"
+            "فقط JSON معتبر برگردان. هر آیتم الزامی: id + translation + tone\n"
+            "tone یکی از:\n"
+            "normal | shout | comedy_shout | whisper | sun_thought | thought | "
+            "free_text | system | monster | cry | fear | broadcast | letter | "
+            "narrator | square_thought | black\n"
+            "برای هر متن حتماً یک tone انتخاب کن (پیش‌فرض normal).\n\n"
+            f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
+        )
+
+        delay = 0.4
+        last_err = None
+        work_regions = list(regions)
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                
+                if self.provider_type == "gemini" and self._is_bad_translate_model(self.model_name):
+                    print(f"    [!] رد مدل نامناسب ترجمه: {self.model_name}")
+                    if self._drop_current_model_and_switch(reason="bad model"):
+                        continue
+                    if self._switch_to_next_model(reason="bad model"):
+                        continue
+                    print("    [!] مدل مناسب در cascade نماند.")
+                    break
+
+                
+                
+                with self._api_lock:
+                    if self.provider_type == "gemini":
+                        text = self._translate_with_gemini(user_prompt, system_instruction)
+                    else:
+                        text = self._translate_with_openai(user_prompt, system_instruction)
+
+                
+                try:
+                    cleaned = text.strip()
+                    if cleaned.startswith("```"):
+                        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+                        cleaned = re.sub(r"\s*```$", "", cleaned)
+                    parsed = json.loads(cleaned.strip())
+                    if isinstance(parsed, dict):
+                        for key in ("translations", "results", "data", "items"):
+                            if key in parsed and isinstance(parsed[key], list):
+                                text = json.dumps(parsed[key], ensure_ascii=False)
+                                break
+                        else:
+                            
+                            if "id" in parsed and "translation" in parsed:
+                                text = json.dumps([parsed], ensure_ascii=False)
+                except Exception:
+                    pass
+
+                self._parse_translation_response(text, work_regions)
+                
+                for r in work_regions:
+                    if not (getattr(r, "bubble_style", None) or "").strip():
+                        r.bubble_style = "normal"
+
+                missing = [r for r in work_regions if not r.translated_text]
+                if missing and attempt < self.max_retries:
+                    print(f"    [!] {len(missing)} حباب بدون ترجمه؛ تلاش مجدد...")
+                    payload2 = [{"id": r.id, "text": r.source_text} for r in missing]
+                    user_prompt = (
+                        "اینا موندن بازآفرینی بشن. ترجمه نکن؛ دیالوگ طبیعی فارسی بساز. "
+                        "فقط JSON معتبر:\n"
+                        f"{json.dumps(payload2, ensure_ascii=False, indent=2)}"
+                    )
+                    work_regions = missing
+                    continue
+
+                self._daily_fail_streak = 0
+                self._daily_fail_model = ""
+                self._rate_key_streak = 0
+                self._cascade_full_cycles = 0
+                self._last_good_model = self.model_name
+                self._same_model_timeout_retries = 0
+                print(f"[فاز ۳ - ترجمه با {self.provider}/{self.model_name}] پاسخ کامل دریافت شد.")
+                for r in regions:
+                    if r.translated_text:
+                        st = (getattr(r, "bubble_style", None) or "").strip()
+                        extra = f" ({st})" if st else ""
+                        print(f"    ← بالن[{r.id}]{extra}: {r.translated_text}")
+                if self.request_delay > 0:
+                    time.sleep(self.request_delay)
+                return
+
+            except Exception as e:
+                last_err = e
+                err_str = str(e).lower()
+
+                
+                is_timeout = (
+                    isinstance(e, TimeoutError)
+                    or isinstance(e, FuturesTimeout)
+                    or "timeout" in err_str
+                    or "timed out" in err_str
+                    or "deadline_exceeded" in err_str
+                    or "deadline expired" in err_str
+                    or "504" in str(e)
+                )
+                is_conn_dead = (
+                    "bad file descriptor" in err_str
+                    or "wrong_version_number" in err_str
+                    or "ssl:" in err_str
+                    or "connection reset" in err_str
+                    or "connection aborted" in err_str
+                    or "broken pipe" in err_str
+                )
+                if is_timeout or is_conn_dead:
+                    tag = "تایم‌اوت/اتصال" if is_conn_dead else "تایم‌اوت"
+                    print(f"    [!] {tag} روی {self.provider}/{self.model_name}")
+                    self._recreate_api_client()
+                    
+                    same_retries = int(getattr(self, "_same_model_timeout_retries", 0) or 0)
+                    if same_retries < 1:
+                        self._same_model_timeout_retries = same_retries + 1
+                        print(f"    [*] صبر ۰.۵ثانیه و تلاش دوباره روی {self.model_name}...")
+                        time.sleep(0.5)
+                        continue
+                    self._same_model_timeout_retries = 0
+                    if self._switch_to_next_model(reason="timeout"):
+                        self._recreate_api_client()
+                        time.sleep(0.2)
+                        continue
+                    
+                    if not hasattr(self, "_cascade_full_cycles"):
+                        self._cascade_full_cycles = 0
+                    self._cascade_full_cycles += 1
+                    if self._cascade_full_cycles <= 1:
+                        self._reset_model_cascade(reason="timeout→ریست مدل‌ها")
+                        self._recreate_api_client()
+                        time.sleep(0.2)
+                        continue
+                    self._cascade_full_cycles = 0
+                    if self._switch_to_next_key(reason="after full cascade", cycle=True):
+                        self._reset_model_cascade(reason="کلید جدید")
+                        self._recreate_api_client()
+                        time.sleep(0.2)
+                        continue
+                    if attempt < self.max_retries:
+                        time.sleep(0.25)
+                        continue
+
+                if self.provider_type == "gemini" and _HAS_GEMINI:
+                    
+                    if self._is_banned_or_invalid_key_error(e):
+                        if self._remove_current_key_and_switch(reason=str(e)[:120]):
+                            continue
+                        if not self._api_keys:
+                            raise GeminiQuotaExhausted("همه کلیدها نامعتبر/بن شدند.") from e
+
+                    
+                    if self._is_daily_quota_error(e):
+                        if self._daily_fail_model == self.model_name:
+                            self._daily_fail_streak += 1
+                        else:
+                            self._daily_fail_model = self.model_name
+                            self._daily_fail_streak = 1
+                        print(f"    [!] محدودیت روی {self.model_name} "
+                              f"(کلید {self._key_index + 1}/{len(self._api_keys)}, "
+                              f"streak={self._daily_fail_streak})")
+                        
+                        if self._daily_fail_streak >= 2:
+                            self._daily_fail_streak = 0
+                            self._daily_fail_model = ""
+                            if self._drop_current_model_and_switch(reason="سهمیه/محدودیت مدل"):
+                                continue
+                            if self._switch_to_next_model(reason="سهمیه مدل"):
+                                continue
+                        if self._switch_to_next_key(reason="سهمیه"):
+                            continue
+                        if self._switch_to_next_model(reason="سهمیه همه کلیدها"):
+                            self._daily_fail_streak = 0
+                            if self._api_keys:
+                                self._key_index = 0
+                                self._apply_api_key(self._api_keys[0])
+                            continue
+                        raise GeminiQuotaExhausted(
+                            "سهمیه همه کلیدها و مدل‌ها تموم شده."
+                        ) from e
+
+                    
+                    
+                    if self._is_rate_or_model_quota_error(e):
+                        print(f"    [!] محدودیت مدل/نرخ روی {self.model_name} "
+                              f"(کلید {self._key_index + 1}/{len(self._api_keys)})")
+                        wait_s = min(2.0 + attempt, 6.0)
+                        print(f"    [*] صبر {wait_s:.0f} ثانیه برای بازیابی سهمیه...")
+                        time.sleep(wait_s)
+                        if self._switch_to_next_model(reason="quota/rate مدل"):
+                            self._recreate_api_client()
+                            time.sleep(0.5)
+                            continue
+                        if not hasattr(self, "_cascade_full_cycles"):
+                            self._cascade_full_cycles = 0
+                        self._cascade_full_cycles += 1
+                        if self._cascade_full_cycles <= 1:
+                            self._reset_model_cascade(reason="rate→ریست مدل‌ها")
+                            self._recreate_api_client()
+                            time.sleep(1.0)
+                            continue
+                        self._cascade_full_cycles = 0
+                        if self._switch_to_next_key(reason="after full cascade", cycle=True):
+                            self._reset_model_cascade(reason="کلید جدید")
+                            self._recreate_api_client()
+                            time.sleep(1.5)
+                            continue
+                        if attempt < self.max_retries:
+                            time.sleep(2.0)
+                            continue
+
+                    
+                    if self._is_model_permanently_gone(e):
+                        msg_l = str(e).lower()
+                        
+                        is_404 = "404" in str(e) or "not_found" in msg_l or "not found" in msg_l
+                        core = self.model_name.lower().replace("models/", "")
+                        is_core_flash = any(
+                            core == x or core.startswith(x)
+                            for x in (
+                                "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash",
+                                "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash",
+                                "gemini-flash-latest", "gemini-2.5-flash-lite",
+                                "gemini-flash-lite-latest", "gemini-3.5-flash-lite",
+                            )
+                        )
+                        suggested = self._extract_suggested_model(e)
+                        if suggested:
+                            print(f"    [!] مدل «{self.model_name}» دیگر در دسترس نیست → "
+                                  f"پیشنهاد API: {suggested}")
+                            
+                            dead = self.model_name
+                            cascade = [x for x in (self._model_cascade or []) if x != dead]
+                            if suggested not in cascade:
+                                cascade.insert(0, suggested)
+                            else:
+                                cascade = [suggested] + [x for x in cascade if x != suggested]
+                            self._model_cascade = cascade
+                            self._model_index = 0
+                            self.model_name = suggested
+                            self._set_thread_model(suggested, 0)
+                            self._recreate_api_client()
+                            time.sleep(0.5)
+                            continue
+                        if is_404 and is_core_flash:
+                            print(f"    [!] 404 روی {self.model_name} با این کلید → کلید بعدی "
+                                  f"(مدل اصلی حذف نمی‌شود)")
+                            if self._switch_to_next_key(reason="404 key", cycle=True):
+                                self._recreate_api_client()
+                                time.sleep(0.8)
+                                continue
+                            print(f"    [!] همه کلیدها روی {self.model_name} 404 → مدل بعدی")
+                            if self._drop_current_model_and_switch(reason="404 all keys"):
+                                self._recreate_api_client()
+                                time.sleep(0.5)
+                                continue
+                            if self._switch_to_next_model(reason="404 all keys"):
+                                self._recreate_api_client()
+                                continue
+                        else:
+                            print(f"    [!] مدل «{self.model_name}» ناسازگار → بعدی")
+                            if self._drop_current_model_and_switch(reason=str(e)[:80]):
+                                time.sleep(0.5)
+                                continue
+                            if self._switch_to_next_model(reason="gone"):
+                                time.sleep(0.3)
+                                continue
+
+                    if self._is_model_unavailable_error(e):
+                        if self._switch_to_next_model(reason="UNAVAILABLE"):
+                            time.sleep(0.2)
+                            continue
+                        if self._switch_to_next_key(reason="model unavailable", cycle=False):
+                            time.sleep(0.3)
+                            continue
+
+                
+                if self._is_rate_or_model_quota_error(e) or any(
+                    x in err_str for x in ("rate limit", "429", "quota", "insufficient_quota")
+                ):
+                    print(f"    [!] محدودیت نرخ/سهمیه ({self.provider}/{self.model_name})...")
+                    wait_s = min(3.0 + attempt, 8.0)
+                    print(f"    [*] صبر {wait_s:.0f} ثانیه برای بازیابی سهمیه...")
+                    time.sleep(wait_s)
+                    if self._switch_to_next_model(reason="rate/quota"):
+                        time.sleep(0.5)
+                        continue
+                    if self._switch_to_next_key(reason="rate/quota", cycle=True):
+                        time.sleep(1.5)
+                        continue
+                if self._is_banned_or_invalid_key_error(e) or any(
+                    x in err_str for x in ("invalid api key", "authentication", "incorrect api key")
+                ):
+                    print(f"    [!] کلید نامعتبر ({self.provider})...")
+                    if self._remove_current_key_and_switch(reason=str(e)[:100]):
+                        continue
+
+                if ("403" in err_str or "forbidden" in err_str.lower()
+                        or "does not have permission" in err_str.lower()):
+                    print(f"    [!] دسترسی رد شد (403) — {self.provider}/{self.model_name}")
+                    if self._switch_to_next_model(reason="403 permission"):
+                        time.sleep(0.3)
+                        continue
+                    if self._switch_to_next_key(reason="403 permission", cycle=True):
+                        time.sleep(0.5)
+                        continue
+                    print("    [X] هیچ کلید/مدلی به Gemini دسترسی ندارد (403). "
+                          "احتمالاً شبکهٔ شما به سرویس گوگل مسدود است — VPN/پروکسی روشن کنید.")
+                    return
+
+                print(f"    [!] تلاش {attempt}/{self.max_retries} ناموفق: {last_err}")
+                if attempt < self.max_retries:
+                    time.sleep(delay)
+                    delay = min(delay * 1.5, 3.0)
+
+        print(f"    [!] {self.max_retries} تلاش ناموفق — ریست کامل و تلاش نهایی...")
+        try:
+            print("    [*] صبر ۲ ثانیه قبل از تلاش نهایی...")
+            time.sleep(2.0)
+            self._reset_model_cascade(reason="تلاش نهایی")
+            if self._api_keys and len(self._api_keys) > 1:
+                self._pick_random_api_key(reason="تلاش نهایی")
+            else:
+                self._recreate_api_client()
+            if self.provider_type == "gemini":
+                text_final = self._translate_with_gemini(user_prompt, system_instruction)
+            else:
+                text_final = self._translate_with_openai(user_prompt, system_instruction)
+            self._parse_translation_response(text_final, work_regions)
+            for r in work_regions:
+                if not (getattr(r, "bubble_style", None) or "").strip():
+                    r.bubble_style = "normal"
+                fa = (r.translated_text or "").strip()
+                if fa:
+                    print(f"    ← بالن[{r.id}] (نهایی): {fa[:70]}{'…' if len(fa) > 70 else ''}")
+            got = sum(
+                1 for r in work_regions
+                if str(getattr(r, "translated_text", "") or "").strip()
+            )
+            if got:
+                self._last_good_model = self.model_name
+                print(f"[فاز ۳ - نهایی {self.model_name}] {got} بالن نجات یافت.")
+                return
+        except Exception as e:
+            print(f"    [!] تلاش نهایی هم شکست: {e}")
+        print(f"    [!] ترجمه‌ی این بخش بعد از {self.max_retries}+1 تلاش ناموفق موند.")
+
+    @staticmethod
+    def _shape_farsi(text: str) -> str:
+        reshaped = arabic_reshaper.reshape(text)
+        return get_display(reshaped)
+
+    def _load_font(self, size: int, style: str = "") -> ImageFont.FreeTypeFont:
+        
+        path = self.font_path
+        if style:
+            cand = (getattr(self, "font_by_style", None) or {}).get(style) or path
+            if cand and os.path.isfile(cand):
+                path = cand
+        return ImageFont.truetype(path, size, layout_engine=ImageFont.Layout.BASIC)
+
+    @staticmethod
+    def _stroke_width_for(size: int) -> int:
+        
+        if size <= 14:
+            return 1
+        if size <= 22:
+            return 2
+        return max(2, size // 16)
+
+    def _max_font_for_region(self, region: "TextRegion") -> int:
+        
+        
+        polys = list(getattr(region, "ocr_polys", None) or []) or list(getattr(region, "boxes", None) or [])
+        if not polys:
+            return 48
+        try:
+            ang = float(getattr(region, "angle", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            ang = 0.0
+        a = np.deg2rad(ang)
+        ca, sa = np.cos(-a), np.sin(-a)
+        hs: List[float] = []
+        for p in polys:
+            try:
+                pts = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+            except Exception:
+                continue
+            if pts.shape[0] < 2:
+                continue
+            rot = np.empty_like(pts)
+            rot[:, 0] = pts[:, 0] * ca - pts[:, 1] * sa
+            rot[:, 1] = pts[:, 0] * sa + pts[:, 1] * ca
+            hs.append(float(rot[:, 1].max() - rot[:, 1].min()))
+        if not hs:
+            return 48
+        h_line = float(np.median(hs))
+        if h_line <= 2:
+            return 48
+        
+        return int(np.clip(round(h_line * 1.2), 12, 48))
+
+    def _wrap_and_fit(
+        self, draw: ImageDraw.ImageDraw, text: str, max_w: int, max_h: int,
+        style: str = "", max_size: int = 48,
+    ) -> Tuple[ImageFont.FreeTypeFont, List[str], int]:
+        
+        words = text.split()
+        if not words:
+            words = [""]
+
+        
+        def wrap_at(size: int, line_gap: int):
+            font = self._load_font(size, style=style)
+            sw = self._stroke_width_for(size)
+            
+            usable_w = max(8, max_w - 2 * sw)
+            lines: List[str] = []
+            current = ""
+            for word in words:
+                candidate = f"{current} {word}".strip()
+                w = draw.textbbox(
+                    (0, 0), self._shape_farsi(candidate), font=font, stroke_width=sw
+                )[2]
+                if w <= usable_w or not current:
+                    current = candidate
+                else:
+                    lines.append(current)
+                    current = word
+            if current:
+                lines.append(current)
+
+            
+            bb = font.getbbox("آیگچ", stroke_width=sw)
+            glyph_h = bb[3] - bb[1]
+            line_h = glyph_h + line_gap
+            total_h = line_h * len(lines) if lines else line_h
+            
+            total_h += 2 * sw
+            widest = max(
+                (
+                    draw.textbbox(
+                        (0, 0), self._shape_farsi(l), font=font, stroke_width=sw
+                    )[2]
+                    for l in lines
+                ),
+                default=0,
+            )
+            return font, lines, sw, total_h, widest, line_h
+
+        
+        n_words = len(words)
+        short_text = n_words <= 2 and sum(len(w) for w in words) <= 12
+        min_size = 14 if short_text else 11
+        max_size = max(min_size, min(48, int(max_size or 48)))
+
+        smallest_attempt = None
+        
+        for line_gap in (4, 2, 1, 0):
+            for size in range(max_size, min_size - 1, -1):
+                font, lines, sw, total_h, widest, line_h = wrap_at(size, line_gap)
+                smallest_attempt = (font, lines, sw, line_h)
+                if total_h <= max_h and widest <= max_w:
+                    return font, lines, sw
+
+        
+        for size in range(min_size - 1, 5, -1):
+            font, lines, sw, total_h, widest, line_h = wrap_at(size, 0)
+            smallest_attempt = (font, lines, sw, line_h)
+            if total_h <= max_h and widest <= max_w:
+                return font, lines, sw
+
+        if smallest_attempt is None:
+            font = self._load_font(11, style=style)
+            sw = self._stroke_width_for(11)
+            return font, [" ".join(words)], sw
+        return smallest_attempt[0], smallest_attempt[1], smallest_attempt[2]
+
+    @staticmethod
+    def _pick_text_and_stroke(
+        cleaned: np.ndarray, original: np.ndarray, region: TextRegion
+    ) -> Tuple[Tuple[int, int, int], Tuple[int, int, int]]:
+        h_img, w_img = original.shape[:2]
+        x, y, w, h = region.rect
+        x0, y0 = max(0, x), max(0, y)
+        x1, y1 = min(w_img, x + w), min(h_img, y + h)
+
+        poly_mask = np.zeros((h_img, w_img), dtype=np.uint8)
+        for poly in region.boxes:
+            cv2.fillPoly(poly_mask, [poly], 255)
+
+        local_mask = poly_mask[y0:y1, x0:x1]
+        local_orig = original[y0:y1, x0:x1]
+        local_clean = cleaned[y0:y1, x0:x1] if cleaned is not None else local_orig
+
+        if local_orig.size == 0:
+            return (15, 15, 15), (255, 255, 255)
+
+        if local_clean.size > 0:
+            bg_gray = float(np.median(cv2.cvtColor(local_clean, cv2.COLOR_BGR2GRAY)))
+        else:
+            bg_gray = 128.0
+
+        orig_gray = cv2.cvtColor(local_orig, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        if bg_gray < 128:
+            ink_m = (orig_gray > bg_gray + 20) & (local_mask > 0)
+        else:
+            ink_m = (orig_gray < bg_gray - 20) & (local_mask > 0)
+
+        ink_pixels = local_orig[ink_m]
+
+        if len(ink_pixels) >= 8:
+            bgr = np.median(ink_pixels, axis=0)
+            r, g, b = int(bgr[2]), int(bgr[1]), int(bgr[0])
+
+            mx, mn = max(r, g, b), min(r, g, b)
+            saturation = mx - mn
+            lum = 0.299 * r + 0.587 * g + 0.114 * b
+
+            if saturation < 25:
+                if bg_gray >= 140:
+                    text_rgb = (18, 18, 18)
+                    stroke_rgb = (255, 255, 255)
+                else:
+                    text_rgb = (245, 245, 245)
+                    stroke_rgb = (10, 10, 10)
+            else:
+                text_rgb = (r, g, b)
+                if lum >= 140:
+                    stroke_rgb = (20, 20, 20)
+                else:
+                    stroke_rgb = (255, 255, 255)
+        else:
+            if bg_gray >= 140:
+                text_rgb, stroke_rgb = (18, 18, 18), (255, 255, 255)
+            else:
+                text_rgb, stroke_rgb = (245, 245, 245), (10, 10, 10)
+
+        return text_rgb, stroke_rgb
+
+    def render_translations(self, image: np.ndarray, regions: List[TextRegion],
+                            original_image: np.ndarray) -> np.ndarray:
+        pil_img = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(pil_img)
+
+        for region in regions:
+            if not region.translated_text:
+                continue
+
+            try:
+                self._render_one_region(pil_img, draw, image, original_image, region)
+            except Exception as e:
+                
+                
+                print(f"  [!] رندر ناحیه {region.id} خطا داد ({e}) → رد شد.")
+                continue
+
+        return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+
+    def _process_chunk_worker(self, args_tuple) -> List[TextRegion]:
+        idx, y0, y1, image = args_tuple
+        print(f"    [>] OCR تیکه‌ی {idx + 1} (ردیف {y0} تا {y1})")
+        piece = image[y0:y1, :]
+
+        h_p, w_p = piece.shape[:2]
+
+        
+        scale = float(getattr(self, "mag_ratio", 1.35) or 1.35)
+
+        
+        if max(h_p, w_p) < 2200:
+            scale = max(scale, 1.8)
+        if max(h_p, w_p) < 1600:
+            scale = max(scale, 2.2)
+
+        if scale > 1.01:
+            piece_up = cv2.resize(piece, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        else:
+            piece_up = piece
+            scale = 1.0
+
+        detections = self.detect_text(piece_up)
+
+        if self.two_pass_ocr:
+            
+            enhanced = self._clahe_enhance(piece_up)
+            detections += self.detect_text(enhanced)
+
+            
+            inverted = cv2.bitwise_not(piece_up)
+            detections += self.detect_text(inverted)
+
+            
+            gray = cv2.cvtColor(piece_up, cv2.COLOR_BGR2GRAY)
+            _, bw = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
+            if float(np.mean(bw)) < 127:
+                bw = cv2.bitwise_not(bw)
+            bw = cv2.dilate(bw, np.ones((2, 2), np.uint8), iterations=1)
+            bw_bgr = cv2.cvtColor(bw, cv2.COLOR_GRAY2BGR)
+            detections += self.detect_text(bw_bgr)
+
+            
+            if scale < 2.0 and max(h_p, w_p) < 2800:
+                try:
+                    extra_scale = 2.0 / scale
+                    up_inv = cv2.resize(
+                        inverted, None, fx=extra_scale, fy=extra_scale,
+                        interpolation=cv2.INTER_CUBIC
+                    )
+                    up_inv_dets = self.detect_text(up_inv)
+                    for d in up_inv_dets:
+                        d["poly"] = (d["poly"].astype(np.float32) / extra_scale).astype(np.int32)
+                    detections += up_inv_dets
+                except Exception:
+                    pass
+
+        
+        if scale != 1.0:
+            for d in detections:
+                d["poly"] = (d["poly"].astype(np.float32) / scale).astype(np.int32)
+
+        detections = self._dedupe_detections(detections)
+        return self.group_into_regions(detections, y_offset=y0)
+
+
+    def _draw_debug_regions(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
+      vis = image.copy()
+
+    
+      colors = {
+        "dialogue": (0, 0, 255),      
+        "promo": (0, 165, 255),       
+        "sfx": (255, 255, 0),         
+        "junk": (128, 128, 128),      
+    }
+
+      for r in regions:
+        x, y, w, h = r.rect
+        color = colors.get(r.kind, (0, 0, 255))
+
+        
+        cv2.rectangle(vis, (x, y), (x + w, y + h), color, 2)
+
+        
+        cx = x + w // 2
+        
+        cv2.line(vis, (cx, y), (cx, y + h), (255, 0, 255), 2)  
+
+        
+        cv2.circle(vis, (cx, y + h // 2), 4, (0, 255, 255), -1)  
+
+        
+        label = f"[{r.id}] {r.kind[:3].upper()}"
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
+        cv2.rectangle(vis, (x, y - th - 6), (x + tw + 4, y), color, -1)
+        cv2.putText(vis, label, (x + 2, y - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+
+        
+        short = (r.source_text or "")[:28]
+        if short:
+            cv2.putText(vis, short, (x, y + h + 14),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 200, 0), 1, cv2.LINE_AA)
+        
+        ai = (r.translated_text or "").strip()
+        if ai:
+            
+            ai_show = ai if all(ord(c) < 128 for c in ai[:20]) else f"AI[{r.id}] OK"
+            cv2.putText(vis, ai_show[:32], (x, y + h + 28),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 128, 0), 1, cv2.LINE_AA)
+            st = (getattr(r, "bubble_style", None) or "").strip()
+            if st:
+                cv2.putText(vis, st, (x + 2, y + 14),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1, cv2.LINE_AA)
+
+      return vis
+
+
+    @staticmethod
+    def _skew_from_quads(core_bgr: np.ndarray, quads, ox: int, oy: int, inset: int) -> float:
+        
+        
+        
+        try:
+            g = cv2.cvtColor(core_bgr, cv2.COLOR_BGR2GRAY)
+            med = float(np.median(g))
+            ink = (g < max(60, med - 45)).astype(np.uint8) * 255
+            h_c, w_c = ink.shape[:2]
+            zone = np.zeros_like(ink)
+            got = False
+            for p in list(quads or []):
+                pts = np.asarray(p, dtype=np.float32).reshape(-1, 2).copy()
+                pts[:, 0] -= ox + inset
+                pts[:, 1] -= oy + inset
+                cv2.fillPoly(zone, [pts.astype(np.int32)], 255)
+                got = True
+            if not got:
+                return 0.0
+            zone = cv2.dilate(zone, np.ones((5, 5), np.uint8), iterations=1)
+            ink = cv2.bitwise_and(ink, zone)
+            ink = cv2.dilate(ink, np.ones((3, 3), np.uint8), iterations=1)
+            n, lab, st, cents = cv2.connectedComponentsWithStats(ink, connectivity=8)
+            pts_list = []
+            for i in range(1, n):
+                a = int(st[i, cv2.CC_STAT_AREA])
+                if a < 60:
+                    continue
+                pts_list.append(cents[i])
+            if len(pts_list) < 3:
+                return 0.0
+            data = np.asarray(pts_list, dtype=np.float32)
+            _, eig, _ = cv2.PCACompute2(data, mean=None)
+            v = eig[0]
+            a = float(np.degrees(np.arctan2(float(v[1]), float(v[0]))))
+            if a > 90:
+                a -= 180.0
+            elif a < -90:
+                a += 180.0
+            if abs(a) > 45:
+                return 0.0
+            return a
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def _estimate_skew_angle(crop_bgr: np.ndarray) -> float:
+        
+        
+        
+        try:
+            g = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+            med = float(np.median(g))
+            ink = (g < max(60, med - 45)).astype(np.uint8) * 255
+            ink = cv2.dilate(ink, np.ones((3, 3), np.uint8), iterations=2)
+            n, lab, st, _ = cv2.connectedComponentsWithStats(ink, connectivity=8)
+            crop_area = float(max(1, crop_bgr.shape[0] * crop_bgr.shape[1]))
+            angs: List[float] = []
+            for i in range(1, n):
+                a = int(st[i, cv2.CC_STAT_AREA])
+                bw = int(st[i, cv2.CC_STAT_WIDTH])
+                bh = int(st[i, cv2.CC_STAT_HEIGHT])
+                if a < 150 or max(bw, bh) < 40:
+                    continue
+                
+                if max(bw, bh) < 2.0 * max(1, min(bw, bh)):
+                    continue
+                if a > 0.5 * crop_area:
+                    continue
+                pts = np.column_stack(np.where(lab == i))[:, ::-1].astype(np.float32)
+                rect = cv2.minAreaRect(pts)
+                box = cv2.boxPoints(rect)
+                best_a, best_len = 0.0, 0.0
+                for k in range(4):
+                    p0, p1 = box[k], box[(k + 1) % 4]
+                    dx, dy = float(p1[0] - p0[0]), float(p1[1] - p0[1])
+                    ln = float(np.hypot(dx, dy))
+                    if ln > best_len:
+                        best_len = ln
+                        best_a = float(np.degrees(np.arctan2(dy, dx)))
+                if best_a > 90:
+                    best_a -= 180.0
+                elif best_a < -90:
+                    best_a += 180.0
+                if abs(best_a) <= 45:
+                    angs.append(best_a)
+            if not angs:
+                return 0.0
+            return float(np.median(angs))
+        except Exception:
+            return 0.0
+
+    def _ocr_crop(self, image_bgr: np.ndarray, rect) -> Tuple[str, List[np.ndarray]]:
+        
+        x1, y1, x2, y2 = [int(v) for v in rect]
+        h, w = image_bgr.shape[:2]
+        pad = 8
+        x1, y1 = max(0, x1 - pad), max(0, y1 - pad)
+        x2, y2 = min(w, x2 + pad), min(h, y2 + pad)
+        if x2 - x1 < 8 or y2 - y1 < 8:
+            return "", []
+        crop0 = image_bgr[y1:y2, x1:x2]
+        ch0, cw0 = crop0.shape[:2]
+
+        def _run(crop_bgr, scale: float, apply_offset: bool = True):
+            if scale > 1.01:
+                crop_bgr = cv2.resize(
+                    crop_bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+                )
+            try:
+                results = self.ocr.ocr(crop_bgr)
+            except Exception:
+                return "", [], 0.0, []
+            if not results or not results[0]:
+                return "", [], 0.0, []
+            lines, polys, confs, entries = [], [], [], []
+            for line in results[0]:
+                try:
+                    if not (isinstance(line, (list, tuple)) and len(line) >= 2):
+                        continue
+                    pair = line[1]
+                    if isinstance(pair, (list, tuple)):
+                        text = str(pair[0]).strip()
+                        conf = float(pair[1]) if len(pair) > 1 else 1.0
+                    else:
+                        text, conf = str(pair).strip(), 1.0
+                    if not text or conf < self.min_confidence:
+                        continue
+                    if self._is_non_english_script(text):  
+                        continue
+                    lines.append(text)
+                    confs.append(conf)
+                    box0 = line[0] if len(line) >= 1 else None
+                    
+                    
+                    
+                    entry_poly = None
+                    if box0 is not None and isinstance(box0, (list, tuple, np.ndarray)) and len(box0) >= 3:
+                        poly = np.array(line[0], dtype=np.float32).reshape(-1, 2)
+                        if poly.min() >= -8 and poly.max() < 100000:
+                            if scale > 1.01:
+                                poly = poly / scale
+                            if apply_offset:
+                                poly = poly + np.array([x1, y1], dtype=np.float32)
+                            polys.append(poly.astype(np.int32))
+                            entry_poly = poly.astype(np.float32)
+                    entries.append((text, conf, entry_poly))
+                except Exception:
+                    continue
+            joined = " ".join(lines).strip()
+            avg_conf = float(np.mean(confs)) if confs else 0.0
+            return joined, polys, avg_conf, entries
+
+        def _score(txt: str, conf: float) -> float:
+            if not txt:
+                return -1.0
+            latin = sum(1 for c in txt if c.isascii() and c.isalpha())
+            
+            return latin * 2.0 + conf * 3.0 + min(len(txt), 24) * 0.15
+
+        candidates = []
+
+        
+        m = max(ch0, cw0)
+        if m < 200:
+            base_scale = 2.4
+        elif m < 360:
+            base_scale = 1.8
+        elif m < 600:
+            base_scale = 1.35
+        else:
+            base_scale = 1.15  
+
+        
+        inset = int(min(ch0, cw0) * 0.06)
+        if min(ch0, cw0) >= 160 and ch0 > 2 * inset + 20 and cw0 > 2 * inset + 20:
+            core = crop0[inset:ch0 - inset, inset:cw0 - inset]
+        else:
+            core = crop0
+
+        variants = []
+        variants.append(("raw", core, base_scale))
+        try:
+            lab = cv2.cvtColor(core, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            l2 = cv2.createCLAHE(2.5, (8, 8)).apply(l)
+            enh = cv2.cvtColor(cv2.merge((l2, a, b)), cv2.COLOR_LAB2BGR)
+            variants.append(("clahe", enh, base_scale))
+        except Exception:
+            pass
+        try:
+            g = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _, bw = cv2.threshold(g, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            if float(np.mean(bw)) < 127:
+                bw = cv2.bitwise_not(bw)
+            bw = cv2.cvtColor(bw, cv2.COLOR_GRAY2BGR)
+            variants.append(("otsu", bw, min(base_scale + 0.25, 2.2)))
+            
+            
+            if float(np.median(g)) < 110:
+                inv = cv2.cvtColor(cv2.bitwise_not(g), cv2.COLOR_GRAY2BGR)
+                variants.append(("inv", inv, min(base_scale + 0.4, 2.6)))
+        except Exception:
+            pass
+
+        
+        
+        
+        def _bb_of(poly):
+            if poly is None:
+                return None
+            p = np.asarray(poly, dtype=np.float32).reshape(-1, 2)
+            return (float(p[:, 0].min()), float(p[:, 1].min()),
+                    float(p[:, 0].max()), float(p[:, 1].max()))
+
+        def _overlap_frac(a, b):
+            ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+            inter = ix * iy
+            if inter <= 0:
+                return 0.0
+            aa = max(1e-6, (a[2] - a[0]) * (a[3] - a[1]))
+            ab = max(1e-6, (b[2] - b[0]) * (b[3] - b[1]))
+            return inter / min(aa, ab)
+
+        merged: List[List] = []  
+        best = ("", [], -1.0)
+        inset_used = inset if core is not crop0 else 0
+        early_stop = False
+        for name, crop_v, sc in variants:
+            txt, polys, conf, entries = _run(crop_v, sc)
+            if inset_used and entries:
+                for e in entries:
+                    if e[2] is not None:
+                        e[2][:, 0] += inset_used
+                        e[2][:, 1] += inset_used
+            for text, e_conf, e_poly in entries:
+                bb = _bb_of(e_poly)
+                hit = None
+                if bb is not None:
+                    for m_item in merged:
+                        mb = _bb_of(m_item[2])
+                        if mb is not None and _overlap_frac(bb, mb) > 0.35:
+                            hit = m_item
+                            break
+                if hit is None:
+                    merged.append([text, e_conf, e_poly])
+                elif e_conf > hit[1]:
+                    hit[0], hit[1] = text, e_conf
+            
+            scv = _score(txt, conf)
+            if scv > best[2]:
+                best = (txt, polys, scv)
+            
+            
+            if conf >= 0.86 and len(re.sub(r"[^A-Za-z]", "", txt or "")) >= 8:
+                early_stop = True
+                break
+
+        if merged:
+            hts = []
+            for m_item in merged:
+                mb = _bb_of(m_item[2])
+                if mb is not None:
+                    hts.append(mb[3] - mb[1])
+            row_h = max(8.0, (float(np.median(hts)) if hts else 8.0) * 1.25)
+            merged.sort(key=lambda m_item: (
+                ((_bb_of(m_item[2])[1] if m_item[2] is not None else 0.0) // row_h),
+                (_bb_of(m_item[2])[0] if m_item[2] is not None else 0.0),
+            ))
+            u_txt = " ".join(m_item[0] for m_item in merged).strip()
+            u_conf = float(np.mean([m_item[1] for m_item in merged])) if merged else 0.0
+            u_polys = [
+                np.rint(np.asarray(m_item[2], dtype=np.float32)).astype(np.int32)
+                for m_item in merged if m_item[2] is not None
+            ]
+            scv = _score(u_txt, u_conf)
+            if scv >= best[2]:
+                best = (u_txt, u_polys, scv)
+
+        
+        
+        
+        
+        best_txt = best[0] or ""
+        latin_n = len(re.sub(r"[^A-Za-z]", "", best_txt))
+        
+        skew = self._skew_from_quads(core, best[1], x1, y1, inset_used)
+        if skew == 0.0:
+            skew = self._estimate_skew_angle(core)
+        if (not early_stop) and skew != 0.0 and 4.0 <= abs(skew) <= 40.0 and (latin_n < 3 or abs(skew) >= 5.0):
+            try:
+                hc, wc = core.shape[:2]
+                M = cv2.getRotationMatrix2D((wc / 2.0, hc / 2.0), skew, 1.0)
+                desk = cv2.warpAffine(
+                    core, M, (wc, hc),
+                    flags=cv2.INTER_CUBIC,
+                    borderMode=cv2.BORDER_CONSTANT,
+                    borderValue=(255, 255, 255),
+                )
+                txt, polys, conf, _entries = _run(desk, base_scale, apply_offset=False)
+                if txt and polys:
+                    M_inv = cv2.getRotationMatrix2D((wc / 2.0, hc / 2.0), -skew, 1.0)
+                    off = np.array([x1, y1], dtype=np.float32)
+                    back_polys = []
+                    for p in polys:
+                        pp = p.astype(np.float32).reshape(-1, 2)
+                        ones = np.hstack([pp, np.ones((pp.shape[0], 1), dtype=np.float32)])
+                        backp = (M_inv @ ones.T).T + off[None, :]
+                        back_polys.append(np.rint(backp).astype(np.int32))
+                    if inset_used:
+                        for pp in back_polys:
+                            pp[:, 0] += inset_used
+                            pp[:, 1] += inset_used
+                    scv = _score(txt, conf)
+                    latin_d = len(re.sub(r"[^A-Za-z]", "", txt or ""))
+                    if scv > best[2] and latin_d >= latin_n:
+                        best = (txt, back_polys, scv)
+            except Exception:
+                pass
+
+        return best[0], best[1]
+
+
+    @staticmethod
+    def _drop_contained_boxes(boxes: List[dict], contain_thresh: float = 0.72) -> List[dict]:
+        
+        if len(boxes) < 2:
+            return boxes
+
+        def _area(r):
+            return max(0, int(r[2]) - int(r[0])) * max(0, int(r[3]) - int(r[1]))
+
+        def _iou(a, b):
+            ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+            inter = ix * iy
+            if inter <= 0:
+                return 0.0
+            ua = _area(a) + _area(b) - inter
+            return inter / float(ua) if ua > 0 else 0.0
+
+        priority = {"text_bubble": 2, "text_free": 1, "bubble": 0}
+        boxes = sorted(
+            boxes,
+            key=lambda x: (priority.get(x.get("class_name", ""), 0),
+                           float(x.get("confidence", 0.0)),
+                           _area(x["rect"])),
+            reverse=True,
+        )
+        kept: List[dict] = []
+        for b in boxes:
+            rb = b["rect"]
+            ab = _area(rb)
+            if ab < 1:
+                continue
+            dup = False
+            for k in kept:
+                rk = k["rect"]
+                
+                ix = max(0, min(rb[2], rk[2]) - max(rb[0], rk[0]))
+                iy = max(0, min(rb[3], rk[3]) - max(rb[1], rk[1]))
+                inter = ix * iy
+                smaller = min(ab, _area(rk))
+                if smaller > 0 and inter / smaller >= contain_thresh:
+                    dup = True
+                    break
+                
+                if _iou(rb, rk) >= 0.45:
+                    dup = True
+                    break
+            if not dup:
+                kept.append(b)
+        return kept
+
+    @staticmethod
+    def _merge_overlapping_regions(regions: List[TextRegion],
+                                   iou_thresh: float = 0.35,
+                                   contain_thresh: float = 0.65) -> List[TextRegion]:
+        
+        if len(regions) < 2:
+            return regions
+
+        def rect_xyxy(r: TextRegion):
+            x, y, w, h = r.rect
+            return [x, y, x + w, y + h]
+
+        def area(xyxy):
+            return max(0, xyxy[2] - xyxy[0]) * max(0, xyxy[3] - xyxy[1])
+
+        def iou(a, b):
+            ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+            inter = ix * iy
+            if inter <= 0:
+                return 0.0
+            ua = area(a) + area(b) - inter
+            return inter / float(ua) if ua > 0 else 0.0
+
+        def contain_ratio(inner, outer):
+            ix = max(0, min(inner[2], outer[2]) - max(inner[0], outer[0]))
+            iy = max(0, min(inner[3], outer[3]) - max(inner[1], outer[1]))
+            inter = ix * iy
+            ai = area(inner)
+            return inter / float(ai) if ai > 0 else 0.0
+
+        
+        ordered = sorted(
+            regions,
+            key=lambda r: (len((r.source_text or "").strip()), r.rect[2] * r.rect[3]),
+            reverse=True,
+        )
+        used = [False] * len(ordered)
+        merged: List[TextRegion] = []
+        n_merged = 0
+        for i, a in enumerate(ordered):
+            if used[i]:
+                continue
+            cur = a
+            used[i] = True
+            ca = rect_xyxy(cur)
+            changed = True
+            while changed:
+                changed = False
+                for j, b in enumerate(ordered):
+                    if used[j]:
+                        continue
+                    cb = rect_xyxy(b)
+                    ov = iou(ca, cb)
+                    cont_ab = contain_ratio(cb, ca)
+                    cont_ba = contain_ratio(ca, cb)
+                    if ov < iou_thresh and cont_ab < contain_thresh and cont_ba < contain_thresh:
+                        continue
+                    
+                    nx0 = min(ca[0], cb[0]); ny0 = min(ca[1], cb[1])
+                    nx1 = max(ca[2], cb[2]); ny1 = max(ca[3], cb[3])
+                    ta = (cur.source_text or "").strip()
+                    tb = (b.source_text or "").strip()
+                    if not ta:
+                        joined = tb
+                    elif not tb:
+                        joined = ta
+                    elif tb.lower() in ta.lower():
+                        joined = ta
+                    elif ta.lower() in tb.lower():
+                        joined = tb
+                    else:
+                        
+                        if ca[1] <= cb[1]:
+                            joined = (ta + " " + tb).strip()
+                        else:
+                            joined = (tb + " " + ta).strip()
+                        joined = re.sub(r"\s{2,}", " ", joined)
+                    cur = TextRegion(
+                        id=cur.id,
+                        boxes=list(cur.boxes or []) + list(b.boxes or []),
+                        source_text=joined,
+                        rect=(nx0, ny0, nx1 - nx0, ny1 - ny0),
+                        angle=((cur.angle or 0.0) + (b.angle or 0.0)) / 2.0,
+                        kind=cur.kind if cur.kind == "dialogue" else b.kind,
+                        ocr_polys=list(getattr(cur, "ocr_polys", None) or [])
+                        + list(getattr(b, "ocr_polys", None) or []),
+                    )
+                    ca = [nx0, ny0, nx1, ny1]
+                    used[j] = True
+                    n_merged += 1
+                    changed = True
+            merged.append(cur)
+        if n_merged:
+            print(f"    [*] {n_merged} باکس هم‌پوشان/تودرتو ادغام شد.")
+        return merged
+
+    @staticmethod
+    def _estimate_angle_from_polys(polys) -> float:
+        
+        
+        angs: List[float] = []
+        for p in list(polys or []):
+            try:
+                pts = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+            except Exception:
+                continue
+            if pts.shape[0] < 2:
+                continue
+            dx = float(pts[1][0] - pts[0][0])
+            dy = float(pts[1][1] - pts[0][1])
+            if abs(dx) < 1e-3 and abs(dy) < 1e-3:
+                continue
+            a = float(np.degrees(np.arctan2(dy, dx)))
+            if a > 90:
+                a -= 180.0
+            elif a < -90:
+                a += 180.0
+            if abs(a) <= 45:
+                angs.append(a)
+        if not angs:
+            return 0.0
+        return float(np.median(angs))
+
+    def _extract_regions_from_bubbles(self, image: np.ndarray) -> List[TextRegion]:
+        
+        if self.det is None:
+            return []
+        boxes = self.det.detect(image)
+        if not boxes:
+            return []
+        n0 = len(boxes)
+        boxes = self._drop_contained_boxes(boxes, contain_thresh=0.72)
+        if len(boxes) < n0:
+            print(f"    [*] {n0 - len(boxes)} باکس تودرتو/تکراری حذف شد (از {n0})")
+
+        regions: List[TextRegion] = []
+        h, w = image.shape[:2]
+        page_area = float(max(1, h * w))
+        for i, b in enumerate(boxes):
+            x1, y1, x2, y2 = b["rect"]
+            x1, y1 = max(0, int(x1)), max(0, int(y1))
+            x2, y2 = min(w, int(x2)), min(h, int(y2))
+            bw, bh = x2 - x1, y2 - y1
+            if bw < 16 or bh < 16:
+                continue
+            
+            if bw * bh < page_area * 0.0008 and max(bw, bh) < 60:
+                continue
+            text, line_polys = self._ocr_crop(image, [x1, y1, x2, y2])
+            if not text:
+                continue
+
+            
+            if self._is_non_english_script(text):  
+                continue
+
+            kind = self._classify_text(text)
+
+            
+            
+            
+            
+            if kind == "dialogue":
+                if MangaTranslator._is_watermark_text(text):
+                    kind = "promo"
+
+            
+            
+            
+            
+            if kind == "junk":
+                if not MangaTranslator._is_watermark_text(text):
+                    latin = re.sub(r"[^A-Za-z]", "", text)
+                    if len(latin) >= 3 and any(c in "AEIOUaeiou" for c in latin):
+                        kind = "dialogue"
+            poly = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.int32)
+            regions.append(TextRegion(
+                id=i,
+                boxes=[poly],
+                source_text=text,
+                rect=(x1, y1, bw, bh),
+                angle=self._estimate_angle_from_polys(line_polys),
+                kind=kind,
+                ocr_polys=line_polys,
+                det_class=b.get("class_name", "") or "",
+            ))
+
+        before = len(regions)
+        regions = self._merge_overlapping_regions(regions, iou_thresh=0.35, contain_thresh=0.65)
+        print(f"    [*] RT-DETR: {n0} خام → {before} OCR → {len(regions)} نهایی")
+        for r in regions:
+            ang = float(getattr(r, "angle", 0.0) or 0.0)
+            if abs(ang) >= 1.0:
+                print(f"    [*] متن کج: [{r.id}] angle={ang:+.1f}° «{(r.source_text or '')[:30]}»")
+        return regions
+
+    def extract_regions_phase(self, image: np.ndarray) -> Tuple[List[TextRegion], Optional[np.ndarray]]:
+        
+        h, w = image.shape[:2]
+        unique_regions: List[TextRegion] = []
+
+        if self.det is not None:
+            print("[فاز ۱ - تشخیص حباب + OCR] شروع...")
+            unique_regions = self._extract_regions_from_bubbles(image)
+
+        if not unique_regions:
+            if self.det is not None:
+                print("    [!] حبابی پیدا نشد → OCR تمام‌صفحه")
+            chunk_ranges = []
+            y = 0
+            while y < h:
+                y_end = min(y + self.max_chunk_height, h)
+                chunk_ranges.append((y, y_end))
+                if y_end == h:
+                    break
+                y = y_end - self.chunk_overlap
+            all_raw_regions: List[TextRegion] = []
+            tasks = [(i, r[0], r[1], image) for i, r in enumerate(chunk_ranges)]
+            if self.max_workers <= 1 or len(tasks) <= 1:
+                for t in tasks:
+                    all_raw_regions.extend(self._process_chunk_worker(t))
+            else:
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    results = executor.map(self._process_chunk_worker, tasks)
+                    for res in results:
+                        all_raw_regions.extend(res)
+            unique_regions = self._deduplicate_regions(all_raw_regions)
+
+        if self.reading_order == "rtl":
+            unique_regions.sort(key=lambda r: (r.rect[1] // 80, -(r.rect[0] + r.rect[2])))
+        else:
+            unique_regions.sort(key=lambda r: (r.rect[1] // 80, r.rect[0]))
+        for idx, r in enumerate(unique_regions):
+            r.id = idx
+
+        dbg = None
+        if self.debug and unique_regions:
+            dbg = self._draw_debug_regions(image, unique_regions)
+            print(f"  [*] DEBUG: {len(unique_regions)} مربع آماده شد.")
+
+        if unique_regions:
+            dialogue_n = sum(1 for r in unique_regions if r.kind == "dialogue")
+            print(f"[فاز ۱ ✓] استخراج تمام — {len(unique_regions)} حباب "
+                  f"(دیالوگ={dialogue_n}) → صفحه بعدی می‌تواند شروع شود")
+            for r in unique_regions:
+                tag = {"dialogue": "متن", "promo": "تبلیغ", "sfx": "SFX", "junk": "junk"}.get(r.kind, r.kind)
+                print(f"  [{r.id}] ({tag}) {r.source_text}")
+        else:
+            print("    [!] هیچ متن/حبابی یافت نشد.")
+        return unique_regions, dbg
+
+    def finish_page_phase(self, image: np.ndarray, regions: List[TextRegion],
+                          ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        if not regions:
+            return image.copy(), None
+
+        page_debug: Optional[np.ndarray] = None
+
+        dialogue_regions = [r for r in regions if r.kind == "dialogue"]
+        promo_regions = [r for r in regions if r.kind == "promo"]
+        sfx_regions = [r for r in regions if r.kind == "sfx"]
+        junk_regions = [r for r in regions if r.kind == "junk"]
+        raw_image_copy = image.copy()
+
+        if dialogue_regions:
+            print(f"[فاز ۳ - ترجمه] {len(dialogue_regions)} دیالوگ → {self.provider}/{self.model_name} ...")
+            self.translate_regions(dialogue_regions)
+        else:
+            print("[فاز ۳ - ترجمه] دیالوگ معتبری نبود.")
+
+        translated_regions = [r for r in dialogue_regions if r.translated_text]
+        print("--- پاسخ AI برای هر بالن ---")
+        for r in dialogue_regions:
+            st = (getattr(r, "bubble_style", None) or "").strip()
+            st_tag = f" | tone={st}" if st else ""
+            src = (r.source_text or "").replace("\n", " ").strip()
+            fa = (r.translated_text or "").replace("\n", " ").strip()
+            if fa:
+                print(f"  [بالن {r.id}]{st_tag}")
+                print(f"    OCR : {src}")
+                print(f"    AI  : {fa}")
+            else:
+                print(f"  [بالن {r.id}] بدون ترجمه از AI")
+                print(f"    OCR : {src}")
+        missing_n = sum(1 for r in dialogue_regions if not r.translated_text)
+        if missing_n:
+            print(f"  [!] {missing_n} بالن بدون پاسخ AI")
+        if promo_regions:
+            print(f"  [*] {len(promo_regions)} تبلیغ → دست‌نخورده")
+        if sfx_regions:
+            print(f"  [*] {len(sfx_regions)} SFX → دست‌نخورده")
+        if junk_regions:
+            print(f"  [*] {len(junk_regions)} junk → دست‌نخورده")
+
+        
+        if self.debug and regions:
+            page_debug = self._draw_debug_regions(image, regions)
+
+        print("[فاز ۴ - پاکسازی متن + رندر] ...")
+        if translated_regions:
+            cleaned_image = self.clean_image(image, translated_regions)
+            final_image = self.render_translations(cleaned_image, translated_regions, raw_image_copy)
+            print("  - پاکسازی متن + رندر فارسی تمام شد.")
+        else:
+            final_image = image.copy()
+            print("  - ترجمه‌ای نبود؛ تصویر بدون تغییر.")
+        return final_image, page_debug
+
+    def process_core(self, image: np.ndarray) -> np.ndarray:
+        regions, dbg = self.extract_regions_phase(image)
+        if dbg is not None:
+            self._last_debug_image = dbg
+        else:
+            self._last_debug_image = None
+        if not regions:
+            return image
+        final_image, _ = self.finish_page_phase(image, regions)
+        return final_image
+
+    @staticmethod
+    def _is_mostly_blank(image: np.ndarray, std_thresh: float = 12.0, unique_thresh: int = 24) -> bool:
+        if image is None or image.size == 0:
+            return True
+        h, w = image.shape[:2]
+        if h < 40 or w < 40:
+            return True
+        y0, y1 = int(h * 0.15), int(h * 0.85)
+        x0, x1 = int(w * 0.1), int(w * 0.9)
+        crop = image[y0:y1, x0:x1]
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
+        if float(np.std(gray)) < std_thresh:
+            return True
+        hist = cv2.calcHist([gray], [0], None, [64], [0, 256]).flatten()
+        if int(np.count_nonzero(hist > (gray.size * 0.002))) < unique_thresh and float(np.std(gray)) < 22:
+            return True
+        return False
+
+    def process_image_file(self, in_path: str) -> Optional[np.ndarray]:
+        image = cv2.imread(in_path)
+        if image is None:
+            raise ValueError(f"تصویر قابل خواندن نیست: {in_path}")
+        basename = os.path.basename(in_path)
+        print(f"-------------------- شروع عملیات جدید --------------------")
+        if self._is_mostly_blank(image):
+            print(f"- رد شد (صفحه تقریباً خالی/کارت پایان): '{basename}'")
+            return None
+        print(f"[فاز ۱ - تشخیص حباب + OCR] شروع...")
+        print(f"- پردازش '{basename}'...")
+        return self.process_core(image)
+
+    @staticmethod
+    def _is_url(s: str) -> bool:
+        return s.lower().startswith("http://") or s.lower().startswith("https://")
+
+    @staticmethod
+    def _expand_input_urls(input_str: str) -> List[str]:
+        import requests
+
+        parts = [p.strip() for p in input_str.split(",") if p.strip()]
+        if not parts:
+            return []
+
+        expanded: List[str] = []
+
+        for part in parts:
+            if "*" not in part:
+                expanded.append(part)
+                continue
+
+            m = re.search(r"(.*?)(\d*)\*(\d*)(.*)", part)
+            if not m:
+                print(f"[!] الگوی * قابل تشخیص نیست: {part}")
+                expanded.append(part)
+                continue
+
+            prefix = m.group(1)
+            suffix = m.group(4)
+
+            print(f"[*] در حال پیدا کردن فصل‌های موجود برای الگو: {part}")
+            headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                )
+            }
+
+            found = []
+            consecutive_fail = 0
+            max_fail = 5
+            max_chapters = 500
+
+            for n in range(1, max_chapters + 1):
+                candidate = f"{prefix}{n}{suffix}"
+                try:
+                    r = requests.head(
+                        candidate, headers=headers, timeout=12, allow_redirects=True
+                    )
+                    if r.status_code == 200:
+                        found.append(candidate)
+                        consecutive_fail = 0
+                        print(f"    [+] فصل {n} پیدا شد")
+                    else:
+                        consecutive_fail += 1
+                except Exception:
+                    consecutive_fail += 1
+
+                if consecutive_fail >= max_fail:
+                    break
+
+            if found:
+                print(f"[*] مجموعاً {len(found)} فصل پیدا شد.")
+                expanded.extend(found)
+            else:
+                print(f"[!] هیچ فصلی با الگو پیدا نشد: {part}")
+
+        seen = set()
+        unique = []
+        for u in expanded:
+            if u not in seen:
+                seen.add(u)
+                unique.append(u)
+        return unique
+    @staticmethod
+    def _normalize_image_url(url: str) -> str:
+        if "github.com/" in url and "/blob/" in url:
+            url = url.replace("github.com/", "raw.githubusercontent.com/").replace("/blob/", "/")
+        return url
+
+    @staticmethod
+    def _is_junk_image_url(u: str) -> bool:
+        low = u.lower()
+        junk_parts = (
+            "logo", "loading", "spinner", "placeholder", "avatar", "icon",
+            "credits", "credit-", "watermark", "banner", "ads/", "/ad.",
+            "radio", "vline", "favicon", "sprite", "emoji", "badge",
+            "/static/", "data:image", ".svg", "tracking", "pixel",
+            "1x1", "blank.", "transparent", "spacer",
+        )
+        if any(p in low for p in junk_parts):
+            return True
+        path = low.split("?")[0]
+        if path.endswith((".js", ".css", ".html", ".php", ".json", ".xml")):
+            return True
+        return False
+
+    @staticmethod
+    def _extract_src_candidates(img_tag) -> List[str]:
+        attrs = (
+            "src", "data-src", "data-original", "data-lazy-src", "data-lazy",
+            "data-url", "data-image", "data-full", "data-srcset", "srcset",
+            "data-pagespeed-lazy-src", "data-orig-src",
+        )
+        found = []
+        for a in attrs:
+            val = img_tag.get(a)
+            if not val:
+                continue
+            if "srcset" in a:
+                for part in val.split(","):
+                    part = part.strip().split()[0] if part.strip() else ""
+                    if part:
+                        found.append(part)
+            else:
+                found.append(val)
+        return found
+
+    @staticmethod
+    def _natural_sort_key(path: str):
+        name = os.path.basename(path)
+        return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", name)]
+
+    @staticmethod
+    def _try_extend_sequential(urls: List[str], headers: dict, max_extra: int = 80) -> List[str]:
+        import requests
+
+        if len(urls) < 2:
+            return urls
+
+        pattern = re.compile(
+            r"^(?P<prefix>.+/)(?P<num>\d+)(?P<suffix>\.(?:jpe?g|png|webp|gif))(?:\?.*)?$",
+            re.I,
+        )
+        parsed = []
+        for u in urls:
+            m = pattern.match(u.split("?")[0])
+            if m:
+                parsed.append((int(m.group("num")), m.group("prefix"), m.group("suffix"), u))
+
+        if len(parsed) < 2:
+            return urls
+
+        parsed.sort(key=lambda x: x[0])
+        nums = [p[0] for p in parsed]
+        if nums[-1] - nums[0] + 1 > len(nums) * 2:
+            return urls
+
+        prefix, suffix = parsed[0][1], parsed[0][2]
+        if not all(p[1] == prefix and p[2].lower() == suffix.lower() for p in parsed):
+            return urls
+
+        end = max(nums)
+        existing = set(nums)
+        extra = []
+        consecutive_fail = 0
+        for n in range(end + 1, end + 1 + max_extra):
+            if n in existing:
+                consecutive_fail = 0
+                continue
+            candidate = f"{prefix}{n}{suffix}"
+            try:
+                r = requests.head(candidate, headers=headers, timeout=12, allow_redirects=True)
+                if r.status_code == 200 and (r.headers.get("Content-Type") or "").startswith("image/"):
+                    extra.append(candidate)
+                    consecutive_fail = 0
+                else:
+                    consecutive_fail += 1
+            except Exception:
+                consecutive_fail += 1
+            if consecutive_fail >= 3:
+                break
+
+        if extra:
+            print(f"    [+] {len(extra)} تصویر اضافی با الگوی شماره‌ای پیدا شد.")
+            return urls + extra
+        return urls
+
+    @staticmethod
+    def _download_images_from_url(url: str, dest_dir: str) -> List[str]:
+        import requests
+        from bs4 import BeautifulSoup
+        from urllib.parse import urljoin, urlparse
+
+        os.makedirs(dest_dir, exist_ok=True)
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": url,
+        }
+        url = MangaTranslator._normalize_image_url(url)
+
+        def _save_bytes(content: bytes, index: int, hint_url: str = "") -> Optional[str]:
+            ext = os.path.splitext(urlparse(hint_url or url).path)[1].lower()
+            if ext not in IMAGE_EXTS:
+                if content[:3] == b"\xff\xd8\xff":
+                    ext = ".jpg"
+                elif content[:8] == b"\x89PNG\r\n\x1a\n":
+                    ext = ".png"
+                elif content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+                    ext = ".webp"
+                else:
+                    ext = ".jpg"
+            out_file = os.path.join(dest_dir, f"page_{index:03d}{ext}")
+            with open(out_file, "wb") as f:
+                f.write(content)
+            arr = np.frombuffer(content, dtype=np.uint8)
+            test_img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            if test_img is None:
+                try:
+                    os.remove(out_file)
+                except OSError:
+                    pass
+                return None
+            h, w = test_img.shape[:2]
+            if min(h, w) < 80 or max(h, w) < 200:
+                try:
+                    os.remove(out_file)
+                except OSError:
+                    pass
+                return None
+            return out_file
+
+        path_ext = os.path.splitext(urlparse(url).path)[1].lower()
+        resp = requests.get(url, headers=headers, timeout=60, stream=True)
+        resp.raise_for_status()
+        content_type = (resp.headers.get("Content-Type") or "").lower()
+        is_direct_image = (
+            path_ext in IMAGE_EXTS
+            or content_type.startswith("image/")
+        )
+
+        if is_direct_image:
+            content = resp.content
+            saved_path = _save_bytes(content, 1, url)
+            if saved_path:
+                print(f"    1 تصویر مستقیم از لینک دانلود شد.")
+                return [saved_path]
+            raise ValueError(f"محتوای لینک تصویر معتبر نبود: {url}")
+
+        soup = BeautifulSoup(resp.content, "html.parser")
+        img_urls, seen = [], set()
+        raw_html = resp.text if hasattr(resp, "text") else resp.content.decode("utf-8", errors="ignore")
+
+        
+        json_page_urls = []
+        for m in re.finditer(
+            r"https?://[^\"'\\s<>]+?\.(?:jpe?g|png|webp)(?:\?[^\"'\\s<>]*)?",
+            raw_html,
+            flags=re.I,
+        ):
+            cand = m.group(0).rstrip("\\").replace("\\/", "/")
+            low = cand.lower()
+            if any(k in low for k in ("/chapter", "/chapters/", "/comic/", "/manga/", "/pages/", "/sv2/")):
+                if not MangaTranslator._is_junk_image_url(cand):
+                    json_page_urls.append(MangaTranslator._normalize_image_url(cand))
+
+        if json_page_urls:
+            for u in json_page_urls:
+                key = u.split("?")[0].lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                img_urls.append(u)
+            print(f"    [*] {len(img_urls)} صفحه از JSON/HTML به ترتیب پیدا شد.")
+
+        for img in soup.find_all("img"):
+            for src in MangaTranslator._extract_src_candidates(img):
+                if not src or src.startswith("data:"):
+                    continue
+                full_url = MangaTranslator._normalize_image_url(urljoin(url, src))
+                key = full_url.split("?")[0].lower()
+                if key in seen:
+                    continue
+                if MangaTranslator._is_junk_image_url(full_url):
+                    continue
+                seen.add(key)
+                img_urls.append(full_url)
+
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            low = href.lower().split("?")[0]
+            if any(low.endswith(e) for e in (".jpg", ".jpeg", ".png", ".webp")):
+                full_url = MangaTranslator._normalize_image_url(urljoin(url, href))
+                key = full_url.split("?")[0].lower()
+                if key not in seen and not MangaTranslator._is_junk_image_url(full_url):
+                    seen.add(key)
+                    img_urls.append(full_url)
+
+        if not img_urls:
+            print("    [!] هیچ تگ تصویری معتبری در صفحه پیدا نشد.")
+            return []
+
+        img_urls = MangaTranslator._try_extend_sequential(img_urls, headers)
+
+        
+        deduped = []
+        seen_u = set()
+        for u in img_urls:
+            key = u.split("?")[0].lower()
+            if key in seen_u:
+                continue
+            seen_u.add(key)
+            deduped.append(u)
+        img_urls = deduped
+
+        
+        numbered = []
+        for u in img_urls:
+            m = re.search(r"/(\d+)\.(?:jpe?g|png|webp)(?:\?|$)", u.lower())
+            if m:
+                numbered.append(True)
+            else:
+                numbered.append(False)
+        use_numeric_sort = sum(numbered) >= max(3, int(len(img_urls) * 0.6))
+
+        if use_numeric_sort:
+            def _page_sort_key(u: str):
+                low = u.lower().split("?")[0]
+                if any(k in low for k in ("/chapter", "/chapters/", "/comic/", "/manga/", "/pages/")):
+                    pri = 0
+                elif re.search(r"/\d+\.(jpe?g|png|webp)$", low):
+                    pri = 1
+                else:
+                    pri = 2
+                m = re.search(r"/(\d+)\.(?:jpe?g|png|webp)$", low)
+                num = int(m.group(1)) if m else 10**9
+                return (pri, num, low)
+
+            img_urls = sorted(img_urls, key=_page_sort_key)
+            print(f"    [*] مرتب‌سازی عددی صفحات ({len(img_urls)} تصویر).")
+        else:
+            print(f"    [*] ترتیب HTML حفظ شد ({len(img_urls)} تصویر، بدون شماره ترتیبی).")
+
+        saved = []
+        for img_url in img_urls:
+            try:
+                r = requests.get(img_url, headers=headers, timeout=60)
+                r.raise_for_status()
+            except Exception as e:
+                print(f"    [!] رد شد ({img_url[:90]}…): {e}")
+                continue
+            path = _save_bytes(r.content, len(saved) + 1, img_url)
+            if path:
+                saved.append(path)
+
+        print(f"    {len(saved)} تصویر از {url} دانلود شد.")
+        return saved
+
+    @staticmethod
+    def _auto_output_path(input_path: str, output_spec: str) -> str:
+        spec = (output_spec or "").strip()
+        is_ext_only = (
+            spec.startswith(".")
+            and "/" not in spec
+            and "\\" not in spec
+            and re.fullmatch(r"\.(pdf|zip|html)", spec, re.I) is not None
+        )
+        if not is_ext_only:
+            return output_spec
+
+        ext = spec.lower()
+        if MangaTranslator._is_url(input_path):
+            from urllib.parse import urlparse, unquote
+            path = unquote(urlparse(input_path).path).strip("/")
+            parts = [p for p in path.split("/") if p]
+            base = "chapter"
+            if not parts:
+                base = "chapter"
+            else:
+                slug = parts[-1]
+                
+                m = re.search(
+                    r"(.+?-chapter[-_]?(?:\d+|\*))(?:[-_].*)?$",
+                    slug,
+                    flags=re.I,
+                )
+                if m:
+                    base = m.group(1)
+                elif "chapter" in [p.lower() for p in parts]:
+                    low_parts = [p.lower() for p in parts]
+                    try:
+                        idx = low_parts.index("chapter")
+                        name = parts[idx - 1] if idx > 0 else "chapter"
+                        num = parts[idx + 1] if idx + 1 < len(parts) else ""
+                        num = re.sub(r"[^\w\-]", "", num.split("?")[0])
+                        base = f"{name}-{num}" if num else name
+                    except ValueError:
+                        base = slug
+                else:
+                    base = slug
+            base = re.sub(r"\*+", "", base)
+            base = re.sub(r"[^\w\-.]+", "-", base)
+            base = re.sub(r"-{2,}", "-", base).strip("-._")
+            if not base:
+                base = "chapter"
+        else:
+            raw = input_path.rstrip("/\\")
+            base = os.path.splitext(os.path.basename(raw))[0] or "output"
+            base = re.sub(r"[^\w\-.]+", "-", base).strip("-._") or "output"
+
+        return base + ext
+
+    @staticmethod
+    def _extract_zip(zip_path: str, dest_dir: str) -> List[str]:
+        os.makedirs(dest_dir, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(dest_dir)
+        files = []
+        for root, _, names in os.walk(dest_dir):
+            for name in names:
+                if os.path.splitext(name)[1].lower() in IMAGE_EXTS:
+                    files.append(os.path.join(root, name))
+        return sorted(files, key=MangaTranslator._natural_sort_key)
+
+    @staticmethod
+    def _pdf_to_images(pdf_path: str, dest_dir: str) -> List[str]:
+        import fitz
+        os.makedirs(dest_dir, exist_ok=True)
+        doc = fitz.open(pdf_path)
+        zoom = 200 / 72
+        matrix = fitz.Matrix(zoom, zoom)
+        files = []
+        for i, page in enumerate(doc):
+            pix = page.get_pixmap(matrix=matrix)
+            out_file = os.path.join(dest_dir, f"page_{i + 1:03d}.png")
+            pix.save(out_file)
+            files.append(out_file)
+        doc.close()
+        return files
+
+    def _save_as_pdf(self, image_paths_in_order: List[str], out_path: str) -> None:
+        images = []
+        for p in image_paths_in_order:
+            im = Image.open(p).convert("RGB")
+            
+            if im.size[0] < 8 or im.size[1] < 8:
+                print(f"    [!] رد تصویر خیلی کوچک در PDF: {os.path.basename(p)} {im.size}")
+                continue
+            images.append(im)
+        if not images:
+            raise ValueError("هیچ تصویری برای ساخت PDF وجود نداره.")
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        
+        
+        q = max(92, int(np.clip(int(getattr(self, "img_quality", 90) or 90), 40, 100)))
+        images[0].save(
+            out_path,
+            save_all=True,
+            append_images=images[1:],
+            resolution=150.0,
+            quality=q,
+            optimize=True,
+        )
+        print(f"  - PDF با quality={q} ذخیره شد.")
+
+    @staticmethod
+    def _save_as_zip(folder: str, out_path: str) -> None:
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        
+        
+        with zipfile.ZipFile(out_path, "w", zipfile.ZIP_STORED) as zf:
+            for name in sorted(os.listdir(folder), key=MangaTranslator._natural_sort_key):
+                zf.write(os.path.join(folder, name), arcname=name)
+
+    def _write_image(self, image: np.ndarray, path: str) -> None:
+        ext = os.path.splitext(path)[1].lower()
+
+        out_image = image
+        if out_image is None or out_image.size == 0:
+            raise ValueError(f"تصویر خالی برای ذخیره: {path}")
+        if out_image.dtype != np.uint8:
+            out_image = np.clip(out_image, 0, 255).astype(np.uint8)
+        out_image = np.ascontiguousarray(out_image)
+
+        if self.max_output_width and self.max_output_width > 0:
+            target_w = int(self.max_output_width)
+            if out_image.shape[1] != target_w:
+                scale = target_w / float(out_image.shape[1])
+                new_h = max(1, int(round(out_image.shape[0] * scale)))
+                interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
+                out_image = cv2.resize(out_image, (target_w, new_h), interpolation=interp)
+                out_image = np.ascontiguousarray(out_image)
+
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        q = int(np.clip(int(self.img_quality), 40, 100))
+        rgb = cv2.cvtColor(out_image, cv2.COLOR_BGR2RGB)
+        pil = Image.fromarray(rgb)
+
+        if ext == ".webp":
+            
+            pil.save(
+                path, format="WEBP", quality=q, method=6,
+                exact=False,
+            )
+        elif ext in (".jpg", ".jpeg"):
+            
+            
+            sub = 0 if q >= 90 else 2
+            pil.save(
+                path, format="JPEG", quality=q, optimize=True,
+                progressive=True, subsampling=sub,
+            )
+        elif ext == ".png":
+            
+            pil.save(path, format="PNG", optimize=True, compress_level=9)
+        else:
+            cv2.imwrite(path, out_image)
+
+    @staticmethod
+    def _save_as_html(image_paths: List[str], out_path: str, title: str = "مانهوا ترجمه شده") -> None:
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+
+        css = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #0a0a0b; }
+.strip {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #000;
+}
+.strip img {
+  width: 100%;
+  height: auto;
+  display: block;
+  vertical-align: top;
+}
+"""
+
+        parts = [
+            "<!DOCTYPE html>",
+            '<html lang="fa" dir="rtl">',
+            "<head>",
+            '<meta charset="utf-8">',
+            '<meta name="viewport" content="width=device-width, initial-scale=1">',
+            '<meta name="color-scheme" content="dark">',
+            '<meta name="theme-color" content="#0a0a0b">',
+            f"<title>{title}</title>",
+            "<style>",
+            css.strip(),
+            "</style>",
+            "</head>",
+            "<body>",
+            '<div class="strip">',
+        ]
+
+        for i, p in enumerate(image_paths, 1):
+            with open(p, "rb") as f:
+                data = f.read()
+            ext = os.path.splitext(p)[1].lower().lstrip(".")
+            mime = {
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "png": "image/png",
+                "webp": "image/webp",
+            }.get(ext, "image/jpeg")
+            b64 = base64.b64encode(data).decode("ascii")
+            parts.append(
+                f'<img src="data:{mime};base64,{b64}" alt="" '
+                f'loading="{"eager" if i <= 2 else "lazy"}" decoding="async">'
+            )
+
+        parts.append("</div>")
+        parts.append("</body></html>")
+
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(parts))
+
+    @staticmethod
+    def _cleanup_previous_artifacts(output_path: str, keep_outputs: bool = False) -> None:
+        abs_out = os.path.abspath(output_path)
+        parent = os.path.dirname(abs_out) or "."
+        current_base = os.path.basename(abs_out)
+        current_cache = abs_out + ".cache"
+        current_stem = os.path.splitext(current_base)[0]
+
+        if not os.path.isdir(parent):
+            return
+
+        series_prefix = current_stem
+        for marker in ("-chapter-", "_chapter_", "-ch-", "_ch-"):
+            if marker in current_stem.lower():
+                idx = current_stem.lower().index(marker)
+                series_prefix = current_stem[:idx]
+                break
+        if len(series_prefix) < 3:
+            series_prefix = current_stem[: max(4, len(current_stem) // 2)]
+
+        removed = 0
+        for name in os.listdir(parent):
+            path = os.path.join(parent, name)
+
+            if name.endswith(".cache") and os.path.isdir(path):
+                if os.path.abspath(path) != os.path.abspath(current_cache):
+                    print(f"[*] پاک کردن کش قدیمی: {name}")
+                    shutil.rmtree(path, ignore_errors=True)
+                    removed += 1
+                continue
+
+            if keep_outputs:
+                continue
+
+            low = name.lower()
+            if not low.endswith((".pdf", ".html", ".zip")):
+                continue
+            if os.path.abspath(path) == abs_out:
+                continue
+            if not os.path.isfile(path):
+                continue
+
+            stem = os.path.splitext(name)[0]
+            if series_prefix and series_prefix.lower() in stem.lower():
+                try:
+                    print(f"[*] پاک کردن خروجی قدیمی: {name}")
+                    os.remove(path)
+                    removed += 1
+                except OSError as e:
+                    print(f"    [!] نتوانست پاک شود ({name}): {e}")
+
+        if removed:
+            print(f"[*] {removed} مورد قدیمی پاک شد.")
+        else:
+            print("[*] مورد قدیمی برای پاک کردن پیدا نشد.")
+
+    @staticmethod
+    def _extract_title_skips_from_path(path_or_url: str) -> List[str]:
+        from urllib.parse import urlparse, unquote
+
+        raw = path_or_url.strip()
+        if MangaTranslator._is_url(raw):
+            path = unquote(urlparse(raw).path)
+        else:
+            path = raw
+
+        
+        parts = [p for p in re.split(r"[/\\]+", path) if p]
+        skip: List[str] = []
+        noise = {
+            "comics", "comic", "manga", "manhwa", "reader", "en", "chapter",
+            "chapters", "series", "title", "www", "http", "https", "cdn",
+            "asurascans", "asura", "mgeko", "webtoon", "page", "pages",
+        }
+
+        candidates = []
+        for p in parts:
+            pl = p.lower()
+            if re.fullmatch(r"\d+", pl):
+                continue
+            if pl in noise:
+                continue
+            if pl.endswith((".jpg", ".png", ".webp", ".jpeg", ".html", ".pdf")):
+                continue
+            
+            cleaned = re.sub(r"^[a-z]{0,4}\d+-", "", pl)
+            cleaned = re.sub(r"-[a-f0-9]{6,}$", "", cleaned)  
+            if cleaned and cleaned not in noise:
+                candidates.append(cleaned)
+            if pl not in candidates and pl not in noise:
+                candidates.append(pl)
+
+        for c in candidates:
+            
+            compact = re.sub(r"[^a-z0-9]", "", c)
+            if len(compact) >= 5:
+                skip.append(compact)
+            tokens = [t for t in re.split(r"[-_]+", c) if t and t not in noise and not t.isdigit()]
+            if len(tokens) >= 2:
+                
+                for n in range(2, min(len(tokens), 4) + 1):
+                    for i in range(0, len(tokens) - n + 1):
+                        chunk = "".join(tokens[i:i + n])
+                        if len(chunk) >= 5:
+                            skip.append(chunk)
+                
+                full = "".join(tokens)
+                if len(full) >= 5:
+                    skip.append(full)
+
+        seen = set()
+        out = []
+        for s in skip:
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    @staticmethod
+    def _cluster_widths(widths: List[int], abs_tol: int = 180, rel_tol: float = 0.18) -> Dict[int, int]:
+        if not widths:
+            return {}
+        indexed = sorted(enumerate(widths), key=lambda t: t[1])
+        clusters: List[List[Tuple[int, int]]] = []
+        for idx, w in indexed:
+            if not clusters:
+                clusters.append([(idx, w)])
+                continue
+            cur = clusters[-1]
+            vals = [x[1] for x in cur]
+            med = int(np.median(vals))
+            
+            last_w = cur[-1][1]
+            tol = max(abs_tol, int(med * rel_tol), int(last_w * rel_tol))
+            if abs(w - med) <= tol or abs(w - last_w) <= tol:
+                cur.append((idx, w))
+            else:
+                clusters.append([(idx, w)])
+        mapping: Dict[int, int] = {}
+        for cur in clusters:
+            vals = [x[1] for x in cur]
+            med = float(np.median(vals))
+            
+            target = int(round(med / 100.0) * 100)
+            if target < 1:
+                target = max(1, int(round(med)))
+            for idx, _ in cur:
+                mapping[idx] = target
+        return mapping
+
+    def _normalize_page_width(self, im: np.ndarray, target_w: Optional[int] = None) -> np.ndarray:
+        if im is None or im.size == 0:
+            return im
+        if target_w is None:
+            target_w = self.max_output_width
+        if not target_w or target_w <= 0:
+            return im
+        h, w = im.shape[:2]
+        if w == target_w:
+            return im
+        cap = self.max_output_width
+        if cap and cap > 0 and target_w > cap:
+            target_w = cap
+        scale = target_w / float(w)
+        new_w = int(target_w)
+        new_h = max(1, int(round(h * scale)))
+        
+        if scale < 0.95:
+            interp = cv2.INTER_AREA
+        elif scale > 1.05:
+            interp = cv2.INTER_CUBIC
+        else:
+            interp = cv2.INTER_LINEAR
+        out = cv2.resize(im, (new_w, new_h), interpolation=interp)
+        return np.ascontiguousarray(out)
+
+    @staticmethod
+    def _row_ink_profile(im, dark_thresh: int = 150) -> np.ndarray:
+        
+        g = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY) if im.ndim == 3 else im
+        if g.ndim != 2 or g.shape[0] == 0:
+            return np.zeros((0,), dtype=np.float32)
+        dark = (g < dark_thresh).sum(axis=1)
+        return (dark / max(1, g.shape[1])).astype(np.float32)
+
+    @staticmethod
+    def _find_safe_cut_y(
+        strip: np.ndarray,
+        target_y: int,
+        min_y: int,
+        max_y: int,
+        search_radius: int = 900,
+    ) -> Optional[int]:
+        try:
+            ih = int(strip.shape[0])
+            if ih < 400:
+                return None
+            y0 = max(int(min_y), int(target_y) - int(search_radius))
+            y1 = min(int(max_y), int(target_y) + int(search_radius), ih - 80)
+            if y1 - y0 < 40:
+                return None
+            margin = 420
+            wy0 = max(0, y0 - margin)
+            wy1 = min(ih, y1 + margin)
+            ink_win = MangaTranslator._row_ink_profile(strip[wy0:wy1])
+            ink = {wy0 + i: float(v) for i, v in enumerate(ink_win)}
+            strong_rows = np.array([y for y, v in ink.items() if v > 0.12],
+                                   dtype=np.int64)
+            best_y = None
+            best_score = 1e18
+            run = 0
+            run_start = y0
+            for y in range(y0, y1):
+                if ink.get(y, 1.0) < 0.0035:
+                    if run == 0:
+                        run_start = y
+                    run += 1
+                    if run >= 10:
+                        cut = run_start + run // 2
+                        if strong_rows.size:
+                            above = strong_rows[strong_rows < cut - 8]
+                            below = strong_rows[strong_rows > cut + 8]
+                            d_up = cut - int(above[-1]) if above.size else 10**9
+                            d_dn = int(below[0]) - cut if below.size else 10**9
+                            if d_up < 320 and d_dn < 320:
+                                continue
+                        dist = abs(cut - int(target_y))
+                        band = strip[max(0, cut - 6): min(ih, cut + 6)]
+                        if band.size == 0:
+                            continue
+                        g = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY) if band.ndim == 3 else band
+                        std = float(np.std(g))
+                        mean = float(np.mean(g))
+                        flat = (std < 45.0) or (mean > 220.0) or (mean < 35.0)
+                        if not flat:
+                            continue
+                        score = dist + std * 3.0
+                        if score < best_score:
+                            best_score = score
+                            best_y = int(cut)
+                else:
+                    run = 0
+            return best_y
+        except Exception:
+            return None
+
+    def _stitch_pages_for_efficiency(self, image_files: List[str], work_dir: str) -> List[str]:
+        
+        if self.stitch_max_height <= 0 or len(image_files) <= 1:
+            return image_files
+
+        
+        
+        work_h = int(self.stitch_max_height)
+        
+        
+        lookahead = 2000
+        soft_h = int(getattr(self, "stitch_short_threshold", 0) or 0)
+        if soft_h > work_h:
+            work_h = soft_h
+        max_h = work_h + lookahead  
+        buffer_h = lookahead
+
+        os.makedirs(work_dir, exist_ok=True)
+        result: List[str] = []
+        if not hasattr(self, "_strip_boundaries"):
+            self._strip_boundaries = {}
+        self._strip_boundaries = {}
+        start_idx = 0
+
+        if self.stitch_keep_first and len(image_files) >= 1:
+            ext_s = "." + (getattr(self, "img_format", None) or "webp").lstrip(".")
+            if ext_s == ".jpeg":
+                ext_s = ".jpg"
+            first_out = os.path.join(work_dir, f"strip_000_cover{ext_s}")
+            if not os.path.isfile(first_out):
+                shutil.copy2(image_files[0], first_out)
+            result.append(first_out)
+            start_idx = 1
+            if start_idx >= len(image_files):
+                return result
+
+        sample_widths = []
+        for f in image_files[start_idx:start_idx + min(8, len(image_files) - start_idx)]:
+            im = cv2.imread(f)
+            if im is not None:
+                sample_widths.append(im.shape[1])
+        if not sample_widths:
+            return image_files
+        sample_widths.sort()
+        target_w = sample_widths[len(sample_widths) // 2]
+
+        strip_i = 0
+        current_pages: List[np.ndarray] = []
+        current_h = 0
+        current_bounds: List[int] = []
+        min_strip = max(1800, int(work_h * 0.35))
+        print(
+            f"[*] چسباندن streaming + برش امن: هدف={work_h}px | "
+            f"نگاه به جلو={lookahead}px | سقف={max_h}px"
+        )
+
+        def _stack_pages(pages: List[np.ndarray]) -> np.ndarray:
+            return np.vstack(pages) if len(pages) > 1 else pages[0]
+
+        def _emit_array(arr: np.ndarray, bounds: List[int], label: str = "") -> None:
+            nonlocal strip_i
+            if arr is None or arr.size == 0:
+                return
+            ext_s = "." + (getattr(self, "img_format", None) or "webp").lstrip(".")
+            if ext_s == ".jpeg":
+                ext_s = ".jpg"
+            out_path = os.path.join(work_dir, f"strip_{strip_i + 1:03d}{ext_s}")
+            self._write_image(arr, out_path)
+            if bounds:
+                kept = [b for b in bounds if 0 < b < arr.shape[0] - 20]
+                if kept:
+                    self._strip_boundaries[out_path] = kept
+            result.append(out_path)
+            print(f"    [+] نوار {strip_i + 1}: {label} ({arr.shape[0]}px)")
+            strip_i += 1
+
+        def _cut_and_emit(force: bool = False, label_suffix: str = "") -> None:
+            nonlocal current_pages, current_h, current_bounds
+            if not current_pages:
+                return
+            if current_h < work_h and not force:
+                return
+            if current_h < min_strip and not force:
+                return
+
+            strip = _stack_pages(current_pages)
+            ih = int(strip.shape[0])
+            min_keep = max(min_strip, int(work_h * 0.85))
+            max_cut = max(min_keep + 50, ih - max(400, buffer_h // 2))
+            target = min(work_h, max_cut)
+            if target < min_keep:
+                target = min_keep
+
+            cut_y = None
+            if ih > work_h + 200 or force:
+                
+                fwd_max = min(work_h + lookahead, max_cut)
+                if fwd_max > work_h + 100:
+                    cut_y = MangaTranslator._find_safe_cut_y(
+                        strip, target_y=work_h, min_y=work_h, max_y=fwd_max,
+                        search_radius=lookahead,
+                    )
+                if cut_y is None:
+                    cut_y = MangaTranslator._find_safe_cut_y(
+                        strip, target_y=target, min_y=min_keep, max_y=max_cut,
+                        search_radius=max(600, lookahead),
+                    )
+                if cut_y is None and current_bounds:
+                    for by in sorted(current_bounds, key=lambda y: abs(y - target)):
+                        if min_keep <= by <= max_cut:
+                            cy = MangaTranslator._find_safe_cut_y(
+                                strip, target_y=by, min_y=min_keep, max_y=max_cut,
+                                search_radius=180,
+                            )
+                            if cy is not None:
+                                cut_y = cy
+                                break
+                            cut_y = int(by)
+                            break
+
+            if cut_y is None or cut_y < min_keep or (ih - cut_y) < 300:
+                if force or ih >= max_h:
+                    _emit_array(strip, list(current_bounds), label_suffix or f"کامل {ih}px")
+                    current_pages = []
+                    current_h = 0
+                    current_bounds = []
+                return
+
+            head = np.ascontiguousarray(strip[:cut_y])
+            tail = np.ascontiguousarray(strip[cut_y:])
+            head_bounds = [b for b in current_bounds if 0 < b < cut_y - 10]
+            _emit_array(
+                head, head_bounds,
+                label_suffix or f"کار={head.shape[0]}px | دم→بعد={tail.shape[0]}px",
+            )
+            print(f"        [>] برش امن y={cut_y} (هدف work={work_h}) | دم {tail.shape[0]}px")
+            current_pages = [tail]
+            current_h = int(tail.shape[0])
+            current_bounds = [b - cut_y for b in current_bounds if b > cut_y + 10]
+            del strip, head
+
+        for f in image_files[start_idx:]:
+            im = cv2.imread(f)
+            if im is None:
+                print(f"    [!] خواندن نشد، رد شد: {os.path.basename(f)}")
+                continue
+            h, w = im.shape[:2]
+            if w != target_w and target_w > 0:
+                
+                new_h = max(1, int(round(h * (target_w / float(w)))))
+                interp = cv2.INTER_AREA if target_w < w else cv2.INTER_CUBIC
+                im = cv2.resize(im, (target_w, new_h), interpolation=interp)
+                h, w = im.shape[:2]
+            if current_pages and (current_h + h) > max_h:
+                
+                
+                _cut_and_emit(force=False, label_suffix="قبل از صفحه‌ی جدید")
+                if current_pages and (current_h + h) > max_h:
+                    _cut_and_emit(force=True, label_suffix="قبل از صفحه‌ی جدید")
+            if current_pages:
+                current_bounds.append(current_h)
+            current_pages.append(im)
+            current_h += h
+            if current_h >= work_h:
+                _cut_and_emit(force=False)
+            if current_h >= max_h:
+                _cut_and_emit(force=True, label_suffix=f"سقف سخت {max_h}px")
+
+        if current_pages:
+            strip = _stack_pages(current_pages)
+            _emit_array(strip, list(current_bounds), f"آخرین نوار ({strip.shape[0]}px)")
+
+        print(
+            f"[*] چسباندن صفحات: {len(image_files)} صفحه → {len(result)} نوار "
+            f"(کار={work_h}px / سقف={max_h}px / بافر={buffer_h}px"
+            f"{'، صفحهٔ اول جدا' if self.stitch_keep_first else ''})"
+        )
+        return result if result else image_files
+
+    def run(self, input_path: str, output_path: str, resume: bool = True,
+            clean_old: bool = True) -> None:
+        if clean_old:
+            self._cleanup_previous_artifacts(output_path, keep_outputs=False)
+
+        cache_dir = output_path + ".cache"
+        if not resume:
+            shutil.rmtree(cache_dir, ignore_errors=True)
+
+        src_dir = os.path.join(cache_dir, "src")
+        out_dir = os.path.join(cache_dir, "out")
+        os.makedirs(out_dir, exist_ok=True)
+
+        
+        title_skips = self._extract_title_skips_from_path(input_path)
+        self._title_skip_patterns = title_skips
+        MangaTranslator._title_skip_patterns = title_skips
+        MangaTranslator._title_skip_enabled = False
+        if title_skips:
+            print(f"[*] عنوان سری (فقط صفحه ۱): {', '.join(title_skips[:8])}"
+                  + ("…" if len(title_skips) > 8 else ""))
+
+        if self._is_url(input_path) or "," in input_path or "*" in input_path:
+            urls = self._expand_input_urls(input_path)
+
+            if not urls:
+                print("[!] هیچ لینک معتبری پیدا نشد.", file=sys.stderr)
+                return
+
+            if len(urls) == 1:
+                print(f"[*] دانلود تصاویر از لینک: {urls[0]}")
+                image_files = self._download_images_from_url(urls[0], src_dir)
+            else:
+                print(f"[*] {len(urls)} فصل پیدا شد. هر فصل جداگانه پردازش می‌شه...")
+                out_ext = os.path.splitext(output_path)[1].lower()
+                chapter_ext = out_ext if out_ext in (".pdf", ".zip", ".html") else ".pdf"
+                for i, url in enumerate(urls, 1):
+                    print(f"\n{'='*60}")
+                    print(f"[فصل {i}/{len(urls)}] {url}")
+                    print(f"{'='*60}")
+                    chapter_out = self._auto_output_path(url, chapter_ext)
+                    if not os.path.splitext(chapter_out)[1]:
+                        parent = (output_path if not out_ext else (os.path.dirname(output_path) or "."))
+                        chapter_out = os.path.join(parent, os.path.basename(chapter_out.rstrip("/\\")) + chapter_ext)
+
+                    self.run(url, chapter_out, resume=resume, clean_old=False)
+                return
+        elif input_path.lower().endswith(".zip"):
+            print(f"[*] استخراج فایل zip: {input_path}")
+            image_files = self._extract_zip(input_path, src_dir)
+        elif input_path.lower().endswith(".pdf"):
+            print(f"[*] استخراج صفحات از PDF: {input_path}")
+            image_files = self._pdf_to_images(input_path, src_dir)
+        elif os.path.isdir(input_path):
+            image_files = sorted(
+                (f for f in glob.glob(os.path.join(input_path, "*"))
+                 if os.path.splitext(f)[1].lower() in IMAGE_EXTS),
+                key=MangaTranslator._natural_sort_key,
+            )
+        elif os.path.isfile(input_path) and os.path.splitext(input_path)[1].lower() in IMAGE_EXTS:
+            image_files = [input_path]
+        else:
+            raise ValueError(f"نوع ورودی پشتیبانی نمی‌شه: {input_path}")
+
+        if not image_files:
+            print("[!] هیچ تصویری برای پردازش پیدا نشد.", file=sys.stderr)
+            return
+
+        
+        if len(image_files) >= 1:
+            widths: List[int] = []
+            valid_files: List[str] = []
+            for f in image_files:
+                im0 = cv2.imread(f)
+                if im0 is None:
+                    continue
+                widths.append(int(im0.shape[1]))
+                valid_files.append(f)
+                del im0
+            if valid_files:
+                wmap = self._cluster_widths(widths, abs_tol=180, rel_tol=0.18)
+                cap = self.max_output_width if self.max_output_width and self.max_output_width > 0 else 0
+                if cap:
+                    for i in list(wmap.keys()):
+                        if wmap[i] > cap:
+                            wmap[i] = cap
+                norm_dir = os.path.join(cache_dir, "normalized")
+                os.makedirs(norm_dir, exist_ok=True)
+                normalized_files = []
+                changed = 0
+                cluster_summary: Dict[int, int] = {}
+                for i, f in enumerate(valid_files):
+                    im = cv2.imread(f)
+                    if im is None:
+                        continue
+                    orig_w = im.shape[1]
+                    tw = wmap.get(i, orig_w)
+                    cluster_summary[tw] = cluster_summary.get(tw, 0) + 1
+                    im = self._normalize_page_width(im, target_w=tw)
+                    if im.shape[1] != orig_w:
+                        changed += 1
+                    ext_n = "." + (getattr(self, "img_format", None) or "webp").lstrip(".")
+                    if ext_n == ".jpeg":
+                        ext_n = ".jpg"
+                    out_n = os.path.join(norm_dir, f"page_{i+1:03d}{ext_n}")
+                    self._write_image(im, out_n)
+                    normalized_files.append(out_n)
+                if normalized_files:
+                    image_files = normalized_files
+                    groups = ", ".join(f"{w}px×{c}" for w, c in sorted(cluster_summary.items()))
+                    print(
+                        f"[*] نرمال‌سازی عرض هوشمند: {changed}/{len(normalized_files)} صفحه تغییر کرد | "
+                        f"خوشه‌ها: {groups}"
+                        + (f" (سقف={cap}px)" if cap else "")
+                    )
+
+        if self.stitch_max_height > 0 and len(image_files) > 1:
+            stitch_dir = os.path.join(cache_dir, "stitched")
+            image_files = self._stitch_pages_for_efficiency(image_files, stitch_dir)
+
+        processed_files = []
+        skipped = 0
+        page_ext = "." + (self.img_format or "webp").lstrip(".")
+        if page_ext == ".jpeg":
+            page_ext = ".jpg"
+
+        
+        pending = []
+        for page_i, f in enumerate(image_files):
+            out_file = os.path.join(out_dir, os.path.splitext(os.path.basename(f))[0] + page_ext)
+            if resume and os.path.isfile(out_file):
+                processed_files.append(out_file)
+                skipped += 1
+                continue
+            pending.append((page_i, f, out_file))
+
+        if skipped:
+            print(f"[*] {skipped} صفحه از کش (resume).")
+
+        def _extract_one(item):
+            page_i, f, out_file = item
+            MangaTranslator._title_skip_enabled = (page_i == 0)
+            try:
+                image = cv2.imread(f)
+                if image is None:
+                    raise ValueError(f"تصویر قابل خواندن نیست: {f}")
+                basename = os.path.basename(f)
+                print("-------------------- شروع عملیات جدید --------------------")
+                if self._is_mostly_blank(image):
+                    print(f"- رد شد (صفحه خالی): '{basename}'")
+                    return page_i, out_file, None, None, None
+                print(f"[فاز ۱ - تشخیص حباب + OCR] '{basename}'...")
+                regions, dbg = self.extract_regions_phase(image)
+                return page_i, out_file, image, regions, dbg
+            except GeminiQuotaExhausted:
+                raise
+            except Exception as e:
+                print(f"    [!] خطا در استخراج {os.path.basename(f)}: {e}", file=sys.stderr)
+                return page_i, out_file, None, None, None
+            finally:
+                MangaTranslator._title_skip_enabled = False
+
+        def _finish_one(page_i, out_file, image, regions, dbg):
+            if image is None:
+                return page_i, out_file, None, dbg
+            if not regions:
+                return page_i, out_file, image, dbg
+            try:
+                result, page_debug = self.finish_page_phase(image, regions)
+                
+                dbg_out = page_debug if page_debug is not None else dbg
+                return page_i, out_file, result, dbg_out
+            except GeminiQuotaExhausted:
+                raise
+            except Exception as e:
+                print(f"    [!] خطا در تکمیل {os.path.basename(out_file)}: {e}", file=sys.stderr)
+                return page_i, out_file, None, dbg
+
+        results_by_i = {}
+        
+        if len(pending) <= 1:
+            for item in pending:
+                try:
+                    page_i, out_file, image, regions, dbg = _extract_one(item)
+                    page_i, out_file, result, dbg = _finish_one(page_i, out_file, image, regions, dbg)
+                except GeminiQuotaExhausted as e:
+                    print(f"\n[!] {e}")
+                    break
+                results_by_i[page_i] = (out_file, result, dbg)
+        else:
+            from concurrent.futures import ThreadPoolExecutor, FIRST_COMPLETED, wait as fut_wait
+            from collections import deque
+            print(
+                f"[*] استخراج دوطرفه: اول از بالا→پایین + آخر از پایین→بالا | "
+                f"ترجمه/پاکسازی موازی ({len(pending)} صفحه)"
+            )
+            extract_w = 2  
+            post_w = max(1, min(2, len(pending)))
+            with ThreadPoolExecutor(max_workers=extract_w) as extract_ex, \
+                 ThreadPoolExecutor(max_workers=post_w) as post_ex:
+                extract_futs = {}
+                post_futs = {}
+                q = deque(pending)
+                api_dead = [False]
+                take_from_front = [True]  
+
+                def _submit_extract():
+                    if api_dead[0] or not q:
+                        return
+                    
+                    while len(extract_futs) < extract_w and q:
+                        if take_from_front[0]:
+                            item = q.popleft()
+                            side = "بالا→پایین"
+                        else:
+                            item = q.pop()
+                            side = "پایین→بالا"
+                        take_from_front[0] = not take_from_front[0]
+                        page_i = item[0]
+                        print(f"  [*] صف استخراج [{side}] صفحه #{page_i + 1}: {os.path.basename(item[1])}")
+                        fut = extract_ex.submit(_extract_one, item)
+                        extract_futs[fut] = page_i
+
+                _submit_extract()
+                while extract_futs or post_futs or q:
+                    wait_set = set(extract_futs) | set(post_futs)
+                    if not wait_set:
+                        if q and not api_dead[0]:
+                            _submit_extract()
+                            continue
+                        break
+                    done, _ = fut_wait(wait_set, timeout=10.0, return_when=FIRST_COMPLETED)
+                    if not done:
+                        if q and not api_dead[0]:
+                            _submit_extract()
+                        continue
+                    for fut in done:
+                        if fut in extract_futs:
+                            extract_futs.pop(fut, None)
+                            try:
+                                page_i, out_file, image, regions, dbg = fut.result()
+                            except GeminiQuotaExhausted as e:
+                                print(f"\n[!] {e}")
+                                api_dead[0] = True
+                                continue
+                            
+                            _submit_extract()
+                            if image is not None:
+                                pf = post_ex.submit(
+                                    _finish_one, page_i, out_file, image, regions, dbg
+                                )
+                                post_futs[pf] = page_i
+                            else:
+                                results_by_i[page_i] = (out_file, None, dbg)
+                        elif fut in post_futs:
+                            post_futs.pop(fut, None)
+                            try:
+                                page_i, out_file, result, dbg = fut.result()
+                            except GeminiQuotaExhausted as e:
+                                print(f"\n[!] {e}")
+                                api_dead[0] = True
+                                continue
+                            try:
+                                self._write_image(result, out_file)
+                                ok = True
+                            except Exception as _werr:
+                                print(f"  [!] ذخیرهٔ تصویر #{page_i + 1} ناموفق: {_werr}")
+                                ok = False
+                            results_by_i[page_i] = (out_file, True if ok else None, dbg)
+                            del result
+                            _submit_extract()
+
+        print("[*] ذخیرهٔ نهایی خروجی‌ها...", flush=True)
+        debug_files = []
+        for page_i in sorted(results_by_i.keys()):
+            out_file, result, dbg = results_by_i[page_i]
+            if result is None:
+                continue
+            if result is True:
+                processed_files.append(out_file)
+            else:
+                self._write_image(result, out_file)
+                processed_files.append(out_file)
+            results_by_i[page_i] = (out_file, None, None)
+            if self.debug and dbg is not None:
+                debug_dir = os.path.join(cache_dir, "debug")
+                os.makedirs(debug_dir, exist_ok=True)
+                dbg_ext = "." + (getattr(self, "img_format", None) or "webp").lstrip(".")
+                if dbg_ext == ".jpeg":
+                    dbg_ext = ".jpg"
+                dbg_name = os.path.splitext(os.path.basename(out_file))[0] + "_debug" + dbg_ext
+                dbg_path = os.path.join(debug_dir, dbg_name)
+                self._write_image(dbg, dbg_path)
+                debug_files.append(dbg_path)
+                print(f"  [*] DEBUG صفحه ذخیره شد: {dbg_path}")
+
+        if not processed_files:
+            print("[!] هیچ خروجی‌ای تولید نشد.", file=sys.stderr)
+            return
+
+        out_ext = os.path.splitext(output_path)[1].lower()
+        if out_ext == ".pdf":
+            self._save_as_pdf(processed_files, output_path)
+            print(f"[✓] PDF نهایی ذخیره شد در: {output_path}")
+            
+            if self.debug and debug_files:
+                dbg_pdf = os.path.splitext(output_path)[0] + "_debug.pdf"
+                try:
+                    self._save_as_pdf(debug_files, dbg_pdf)
+                    print(f"[✓] PDF دیباگ ذخیره شد در: {dbg_pdf}")
+                except Exception as e:
+                    print(f"  [!] ساخت PDF دیباگ ناموفق: {e}")
+        elif out_ext == ".zip":
+            self._save_as_zip(out_dir, output_path)
+            print(f"[✓] فایل zip نهایی ذخیره شد در: {output_path}")
+            if self.debug and debug_files:
+                dbg_zip = os.path.splitext(output_path)[0] + "_debug.zip"
+                try:
+                    dbg_dir = os.path.join(cache_dir, "debug")
+                    self._save_as_zip(dbg_dir, dbg_zip)
+                    print(f"[✓] ZIP دیباگ ذخیره شد در: {dbg_zip}")
+                except Exception as e:
+                    print(f"  [!] ساخت ZIP دیباگ ناموفق: {e}")
+        elif out_ext == ".html":
+            self._save_as_html(processed_files, output_path)
+            print(f"[✓] HTML نهایی (با تصاویر base64) ذخیره شد در: {output_path}")
+            if self.debug and debug_files:
+                dbg_html = os.path.splitext(output_path)[0] + "_debug.html"
+                try:
+                    self._save_as_html(debug_files, dbg_html)
+                    print(f"[✓] HTML دیباگ ذخیره شد در: {dbg_html}")
+                except Exception as e:
+                    print(f"  [!] ساخت HTML دیباگ ناموفق: {e}")
+        elif len(processed_files) == 1 and out_ext in IMAGE_EXTS:
+            img = cv2.imread(processed_files[0])
+            self._write_image(img, output_path)
+            print(f"[✓] ذخیره شد در: {output_path}")
+        else:
+            os.makedirs(output_path, exist_ok=True)
+            for f in processed_files:
+                shutil.copy(f, os.path.join(output_path, os.path.basename(f)))
+            print(f"[✓] {len(processed_files)} تصویر در پوشه‌ی {output_path} ذخیره شد.")
+            html_path = output_path.rstrip("/\\") + ".html"
+            try:
+                self._save_as_html(processed_files, html_path)
+                print(f"[✓] HTML همراه هم ساخته شد: {html_path}")
+            except Exception as e:
+                print(f"    [!] ساخت HTML همراه ناموفق: {e}")
+
+    def _render_one_region(self, pil_img, draw, image, original_image, region) -> None:
+        x, y, w, h = region.rect
+
+
+        short = len((region.translated_text or "").split()) <= 2
+        if short and (w < 90 or h < 50):
+            
+            expand = max(4, int(min(w, h) * 0.12))
+            x = max(0, x - expand // 2)
+            y = max(0, y - expand // 2)
+            w = w + expand
+            h = h + expand
+        
+        pad = max(3, int(min(w, h) * (0.05 if short else 0.08)))
+        box_w = max(14, w - 2 * pad)
+        box_h = max(14, h - 2 * pad)
+
+        style = (getattr(region, "bubble_style", None) or "").strip().lower()
+        
+        
+        max_font = self._max_font_for_region(region)
+        font, lines, sw = self._wrap_and_fit(
+            draw, region.translated_text, box_w, box_h, style=style, max_size=max_font
+        )
+        text_rgb, stroke_rgb = self._pick_text_and_stroke(image, original_image, region)
+
+        try:
+            angle = float(getattr(region, "angle", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            angle = 0.0
+        if angle != angle or angle in (float("inf"), float("-inf")):
+            angle = 0.0
+
+        if abs(angle) < 8:
+            bb = font.getbbox("آیگچ", stroke_width=sw)
+            glyph_h = bb[3] - bb[1]
+
+            n = max(1, len(lines))
+
+            
+            line_h = glyph_h + 1
+            if line_h * n + 2 * sw > box_h:
+                line_h = max(4, (box_h - 2 * sw) // n)
+            total_h = line_h * n
+            start_y = y + pad + max(0, (box_h - total_h) // 2)
+            
+            start_y = max(start_y, y + 1)
+
+            bottom_limit = y + pad + box_h
+
+            for i, line in enumerate(lines):
+                shaped = self._shape_farsi(line)
+                line_w = draw.textbbox((0, 0), shaped, font=font, stroke_width=sw)[2]
+                line_x = x + pad + max(0, (box_w - line_w) // 2)
+                line_y = start_y + i * line_h
+                
+                
+                draw.text(
+                    (line_x, line_y),
+                    shaped,
+                    font=font,
+                    fill=text_rgb,
+                    stroke_width=sw,
+                    stroke_fill=stroke_rgb,
+                )
+        else:
+            line_h = font.getbbox("آی", stroke_width=sw)[3] + 6
+            tmp_h = line_h * len(lines) + 30
+            tmp_w = 0
+            for line in lines:
+                shaped = self._shape_farsi(line)
+                lw = draw.textbbox((0, 0), shaped, font=font, stroke_width=sw)[2]
+                tmp_w = max(tmp_w, lw)
+            tmp_w += 40
+
+            tmp = Image.new("RGBA", (tmp_w, tmp_h), (0, 0, 0, 0))
+            tmp_draw = ImageDraw.Draw(tmp)
+
+            for i, line in enumerate(lines):
+                shaped = self._shape_farsi(line)
+                line_w = tmp_draw.textbbox((0, 0), shaped, font=font, stroke_width=sw)[2]
+                tx = (tmp_w - line_w) // 2
+                ty = 15 + i * line_h
+                tmp_draw.text(
+                    (tx, ty),
+                    shaped,
+                    font=font,
+                    fill=text_rgb + (255,),
+                    stroke_width=sw,
+                    stroke_fill=stroke_rgb + (255,),
+                )
+
+            rotated = tmp.rotate(-angle, expand=True, resample=Image.BICUBIC)
+            
+            
+            max_rw = max(24, int(w * 1.08))
+            max_rh = max(24, int(h * 1.08))
+            rw0, rh0 = rotated.size
+            scale_fit = min(1.0, max_rw / max(1, rw0), max_rh / max(1, rh0))
+            if scale_fit < 0.99:
+                rotated = rotated.resize(
+                    (max(8, int(rw0 * scale_fit)), max(8, int(rh0 * scale_fit))),
+                    Image.LANCZOS,
+                )
+            cx = x + w // 2
+            cy = y + h // 2
+            rw, rh = rotated.size
+            paste_x = int(cx - rw / 2)
+            paste_y = int(cy - rh / 2)
+
+            pil_img.paste(rotated, (paste_x, paste_y), rotated)
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        description="مترجم خودکار مانگا/مانهوا به فارسی — پشتیبانی از Gemini / OpenAI / DeepSeek / Groq / xAI / Ollama و ..."
+    )
+    p.add_argument("-i", "--input", required=True)
+    p.add_argument("-o", "--output", required=True,
+                   help="مسیر خروجی: پوشه، فایل کامل، یا فقط پسوند (.pdf / .zip / .html)")
+    p.add_argument(
+        "--provider",
+        default="gemini",
+        choices=list(PROVIDER_PRESETS.keys()),
+        help="ارائه‌دهنده AI: gemini | openai | chatgpt | deepseek | groq | xai | grok | together | openrouter | ollama"
+    )
+    p.add_argument("--api-key", action="append", default=None,
+                   help="کلید API. چندبار یا با کاما. env متناظر هم خوانده می‌شود")
+    p.add_argument("--api-base", default=None,
+                   help="آدرس پایه API (اختیاری)")
+    p.add_argument("--font", required=True,
+                   help="فونت پیش‌فرض فارسی / بالن عادی (کودک) و fallback")
+    p.add_argument("--font-normal", default=None, help="بالن عادی گرد — کودک")
+    p.add_argument("--font-shout", default=None, help="داد خشم دندانه — افسانه")
+    p.add_argument("--font-comedy-shout", default=None, help="داد کمدی — کروش")
+    p.add_argument("--font-whisper", default=None, help="زمزمه موج‌دار — دست‌نویس")
+    p.add_argument("--font-sun-thought", default=None, help="تفکر خورشیدی — مهر")
+    p.add_argument("--font-thought", default=None, help="تفکر ابری — مروارید")
+    p.add_argument("--font-free", default=None, help="متن بیرون بالن — ارامکو/هوما/تهران")
+    p.add_argument("--font-system", default=None, help="UI سیستم — اصفهان/فرناز")
+    p.add_argument("--font-monster", default=None, help="صدای هیولا — کردی")
+    p.add_argument("--font-cry", default=None, help="گریه — موج/هاله")
+    p.add_argument("--font-fear", default=None, help="ترس — صحرا")
+    p.add_argument("--font-broadcast", default=None, help="بی‌سیم/تلویزیون/موبایل — اکبر/اسمان/مثلث")
+    p.add_argument("--font-letter", default=None, help="نامه/طومار — آندالوس/فورات")
+    p.add_argument("--font-narrator", default=None, help="راوی مستطیل — الهام")
+    p.add_argument("--font-square-thought", default=None, help="فکر مربعی — یکان")
+    p.add_argument("--font-black", default=None, help="دارک تیره — اتابای/فرزیانی/زنگار")
+    
+    p.add_argument("--font-explosion", default=None, help="[قدیمی] → shout")
+    p.add_argument("--font-sfx", default=None, help="[قدیمی] → comedy_shout")
+    p.add_argument("--ocr-lang", nargs="+", default=["en"],
+                   help="زبان‌های OCR. en | ko en | ja en")
+    p.add_argument("--model", default=None,
+                   help="نام مدل. اگر ندهی از پیش‌فرض provider استفاده می‌شود")
+    p.add_argument("--reading-order", choices=["rtl", "ltr"], default="rtl")
+    p.add_argument("--gpu", dest="gpu", action="store_true", default=None,
+                   help="اجبار به GPU برای OCR و MI-GAN/LaMa ONNX")
+    p.add_argument("--cpu", dest="gpu", action="store_false",
+                   help="اجبار به CPU (OpenCV inpaint)")
+    p.add_argument("--lama", action="store_true", default=False,
+                   help="حتی روی CPU هم MI-GAN/LaMa ONNX را فعال کن (کندتر، تمیزتر)")
+    p.add_argument("--no-resume", action="store_true")
+    p.add_argument("--keep-old", action="store_true")
+    p.add_argument("--request-delay", type=float, default=0.0)
+    p.add_argument("--bubbles-per-request", type=int, default=6,
+                   help="چند حباب در هر درخواست ترجمه (پیش‌فرض ۶ — تعداد "
+                        "درخواست‌ها را کم می‌کند تا گوگل timeout ندهد)")
+    p.add_argument("--batch-workers", type=int, default=3,
+                   help="تعداد بستهٔ ترجمهٔ موازی (پیش‌فرض ۳ — هر بسته کلید جدا می‌گیرد)")
+    p.add_argument("--api-timeout", type=float, default=30.0,
+                   help="سقف انتظار پاسخ AI به ثانیه (پیش‌فرض ۳۰). بعد از تایم‌اوت کلید/مدل بعدی")
+    p.add_argument("--max-retries", type=int, default=8,
+                   help="حداکثر تلاش ترجمه؛ برای پیمایش cascade همه مدل‌ها (پیش‌فرض ۱۲)")
+    p.add_argument("--det-confidence", type=float, default=0.16,
+                   help="آستانه اطمینان تشخیص حباب RT-DETR (پیش‌فرض 0.16 — "
+                        "تگ‌های چرخیده/نیمه‌شفاف نمرهٔ پایین می‌گیرند؛ OCR جعبه‌های "
+                        "اضافی را خودش فیلتر می‌کند)")
+    p.add_argument("--max-chunk-height", type=int, default=3600,
+                   help="حداکثر ارتفاع هر تکه OCR داخل یک تصویر (پیکسل)")
+    p.add_argument("--stitch-max-height", type=int, default=15500,
+                   help="ارتفاع هدف هر نوار چسبانده‌شده (پیش‌فرض ۱۴۰۰۰). تا این ارتفاع "
+                        "پر می‌شود، بعد تا ۵۰۰–۲۰۰۰px جلوتر خوانده می‌شود و اگر متن نبود "
+                        "برش امن، اگر بود بعد از متن برش زده می‌شود. ۰ = خاموش.")
+    p.add_argument("--stitch-short-threshold", type=int, default=6000,
+                   help="صفحاتی کوتاه‌تر از این ارتفاع (پیش‌فرض ۶۰۰۰px) با هم چسبانده "
+                        "می‌شوند تا به سقف --stitch-max-height برسند. "
+                        "صفحات بلندتر جدا می‌مانند.")
+    p.add_argument("--no-stitch-keep-first", action="store_true",
+                   help="صفحهٔ اول را هم داخل نوارها بگذار (پیش‌فرض: صفحهٔ اول جدا می‌ماند)")
+    p.add_argument("--img-format", choices=["webp", "png", "jpg"], default="webp",
+                   help="فرمت صفحات خروجی (پیش‌فرض webp — حجم کمتر، کیفیت مشابه)")
+    p.add_argument("--quality", type=int, default=90,
+                   help="کیفیت JPEG/WebP (پیش‌فرض ۹۰). با encode بهینه حجم کمتر می‌شود بدون افت محسوس")
+    p.add_argument("--max-width", type=int, default=0,
+                   help="سقف سخت عرض خروجی (۰=خاموش). عرض‌های نزدیک خودکار یکی می‌شوند "
+                        "(مثلاً 700/800/900→800، 1700/1800/1900→1800)")
+    p.add_argument("--min-confidence", type=float, default=0.12)
+    p.add_argument("--workers", type=int, default=3,
+                   help="تعداد worker موازی OCR/ترجمه (پیش‌فرض ۳)")
+    p.add_argument("--mask-padding", type=int, default=3)
+    p.add_argument("--pad-ratio", type=float, default=0.06)
+    p.add_argument("--inpaint-radius", type=int, default=3)
+    p.add_argument("--mag-ratio", type=float, default=1.35)
+    p.add_argument("--no-two-pass-ocr", action="store_true")
+    p.add_argument("--temperature", type=float, default=0.85)
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        help="حالت دیباگ: مربع رنگی دور هر بلوک؛ خروجی دیباگ هم فرمت اصلی را می‌گیرد (مثلاً PDF → *_debug.pdf)",
+    )
+    return p
 
 
 def main():
-    ensure_dirs()
-    args = sys.argv[1:]
+    args = build_arg_parser().parse_args()
 
-    if not manga_py_ok() and not any(a in ("--web", "-h", "--help") for a in args):
-        print(MANGA_MIXED_MSG)
-        if os.name == "nt":
-            try:
-                import tkinter as tk
-                from tkinter import messagebox
-                r = tk.Tk(); r.withdraw()
-                messagebox.showerror(APP_NAME, MANGA_MIXED_MSG)
-            except Exception:
-                pass
+    provider = (args.provider or "gemini").lower().strip()
+    if provider not in PROVIDER_PRESETS:
+        print(f"خطا: provider ناشناخته «{provider}»", file=sys.stderr)
         sys.exit(1)
 
-    if args and args[0] == "--":
-        run_cli(args[1:])
-        return
-    if "--cli" in args and "-i" not in args and "--input" not in args:
-        run_cli([])
-        return
-    if any(a in ("-i", "--input", "-h", "--help") for a in args):
-        run_cli(args)
-        return
-    if "--web" in args:
-        run_web()
-        return
-    if "--desktop" in args:
-        run_desktop()
-        return
+    keys: List[str] = []
+    if args.api_key:
+        for item in args.api_key:
+            keys.extend(k.strip() for k in item.replace(";", ",").split(",") if k.strip())
 
+    env_name = PROVIDER_PRESETS[provider].get("env_key", "")
+    if env_name:
+        env_val = os.environ.get(env_name, "")
+        if env_val:
+            keys.extend(k.strip() for k in env_val.replace(";", ",").split(",") if k.strip())
+
+    for fallback_env in ("GEMINI_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "API_KEY"):
+        if fallback_env != env_name:
+            v = os.environ.get(fallback_env, "")
+            if v:
+                keys.extend(k.strip() for k in v.replace(";", ",").split(",") if k.strip())
+
+    seen = set()
+    unique_keys = []
+    for k in keys:
+        if k not in seen:
+            seen.add(k)
+            unique_keys.append(k)
+
+    if not unique_keys and provider != "ollama":
+        print(
+            f"خطا: حداقل یک کلید API لازم است (--api-key یا env: {env_name}).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    output_path = MangaTranslator._auto_output_path(args.input, args.output)
+    if output_path != args.output:
+        print(f"[*] نام خروجی خودکار: {output_path}")
+
+    translator = MangaTranslator(
+        api_key=unique_keys or ["ollama"],
+        provider=provider,
+        ocr_langs=args.ocr_lang,
+        model_name=args.model,
+        api_base=args.api_base,
+        font_path=args.font,
+        reading_order=args.reading_order,
+        gpu=args.gpu,
+        max_retries=args.max_retries,
+        det_confidence=getattr(args, "det_confidence", 0.28),
+        request_delay=args.request_delay,
+        bubbles_per_request=max(1, int(getattr(args, "bubbles_per_request", 6) or 6)),
+        api_timeout=getattr(args, "api_timeout", 10.0),
+        max_chunk_height=args.max_chunk_height,
+        img_format=args.img_format,
+        img_quality=args.quality,
+        min_confidence=args.min_confidence,
+        max_workers=args.workers,
+        mask_padding=args.mask_padding,
+        pad_ratio=args.pad_ratio,
+        inpaint_radius=args.inpaint_radius,
+        mag_ratio=args.mag_ratio,
+        two_pass_ocr=not args.no_two_pass_ocr,
+        translation_temperature=args.temperature,
+        max_output_width=(args.max_width or None),
+        stitch_max_height=args.stitch_max_height,
+        stitch_short_threshold=args.stitch_short_threshold,
+        stitch_keep_first=not args.no_stitch_keep_first,
+        debug=bool(getattr(args, "debug", False)),
+    )
+    if getattr(args, "lama", False):
+        translator.use_lama = True
+        print("[*] --lama → پاک‌سازی باکیفیت MI-GAN/LaMa ONNX فعال (کندتر از OpenCV).")
+    translator.batch_workers = max(1, int(getattr(args, "batch_workers", 3) or 3))
     
-    on_colab = "google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG"))
-    headless = (not has_display()) or bool(os.environ.get("SSH_CONNECTION")) or on_colab
-    if headless:
-        print("[*] محیط بدون دسکتاپ → رابط وب")
-        try:
-            run_web()
-        except KeyboardInterrupt:
-            pass
-        return
-
-    try:
-        run_desktop()
-    except Exception as e:
-        print(f"[!] دسکتاپ ممکن نشد ({e}) → رابط وب")
-        run_web()
+    _font_map = (
+        ("normal", "font_normal"),
+        ("shout", "font_shout"),
+        ("comedy_shout", "font_comedy_shout"),
+        ("whisper", "font_whisper"),
+        ("sun_thought", "font_sun_thought"),
+        ("thought", "font_thought"),
+        ("free_text", "font_free"),
+        ("system", "font_system"),
+        ("monster", "font_monster"),
+        ("cry", "font_cry"),
+        ("fear", "font_fear"),
+        ("broadcast", "font_broadcast"),
+        ("letter", "font_letter"),
+        ("narrator", "font_narrator"),
+        ("square_thought", "font_square_thought"),
+        ("black", "font_black"),
+        
+        ("explosion", "font_explosion"),
+        ("sfx", "font_sfx"),
+    )
+    for _style, _attr in _font_map:
+        pth = getattr(args, _attr, None)
+        if pth and os.path.isfile(pth):
+            translator.font_by_style[_style] = pth
+            print(f"[*] فونت tone «{_style}»: {os.path.basename(pth)}")
+    
+    if getattr(args, "font_normal", None) and os.path.isfile(args.font_normal):
+        translator.font_path = args.font_normal
+        translator.font_by_style["normal"] = args.font_normal
+    
+    if translator.font_by_style.get("explosion") and translator.font_by_style.get("shout") == args.font:
+        if getattr(args, "font_explosion", None) and os.path.isfile(args.font_explosion):
+            translator.font_by_style["shout"] = args.font_explosion
+    if translator.font_by_style.get("sfx") and translator.font_by_style.get("comedy_shout") == args.font:
+        if getattr(args, "font_sfx", None) and os.path.isfile(args.font_sfx):
+            translator.font_by_style["comedy_shout"] = args.font_sfx
+    translator.run(
+        args.input,
+        output_path,
+        resume=not args.no_resume,
+        clean_old=not args.keep_old,
+    )
 
 
 if __name__ == "__main__":
