@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 [DEMO](https://demo--amrie194sm.replit.app/)
-![after](examples/app.jpg)
+![after](https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/refs/heads/main/examples/app.jpg)
 
 ابزاری برای **ترجمهٔ خودکار صفحات مانگا و مانهوا به فارسی**.
 
