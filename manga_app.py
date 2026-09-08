@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.0"
+APP_VER = "1.1"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -826,7 +826,7 @@ def run_desktop():
             cv.yview_scroll(int(-e.delta / 120), "units")
 
         def _on_zoom_wheel(e):
-            if e.state & 0x0004:  # Ctrl
+            if e.state & 0x0004:
                 set_zoom(state["zoom"] * (1.15 if e.delta > 0 else 1 / 1.15))
             else:
                 _on_mousewheel(e)
@@ -1114,7 +1114,7 @@ def run_desktop():
     
     import webbrowser
     import base64 as _b64
-    GH_ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAACK0lEQVR4nI2UzYvNURjHP78713ClvJQ6jpdDaZohC0QRWbElJSMWVhQWjP/BTmy8JuyU2BK23kIWhCmvp3TmCAvChLn36rl9f/rdaRbz1Ol3fuc8z/c83+d7nlPQbTWgpXk9p7gc8EAbGHE+vADGJvClqID0AM2c4kzgIDAILAUa2h8F3gBXgNPOh29VsBKos5BTXA9cAvoqB/zVd0plzQD3Oh/ulbFFBWQdcBuYweTsB7DF+fDAMAyoyCnOAp4Ci4FnwClgD7AIeK7MB4APonYEWAa8B1YZzboKeUAgNn/rfDgPXMgpNpwPP5VBQ3Uip7hVwEsUe8xo9QK7KwosUD3aAunRGFVm5r9Qvi3F9tZyigMqbk2ON1TgHv03NQqt/QHu6N9i+nKK/UZtvjZNzqnAfTm0NUor57b3EPgC/ALmGIu6uFuBrwLTgaSUS7mb+pYZtuRzQvNtwDRTbCVwHfiqW/wJ2Ol8eM0EllNcDVzWocZiNrC9UCuYxP3AE5MT+A2cAe46H27lFI3OZmADsG/cXRt2PqyoqXcuatGU2QF8BPYDm2zR+WD0TPIhgbRUV9QJY6VS5+z+ABsl7RoTwflwWAW1Aw4ZMxW9qWvwDjhrGB0g58N3YJc4nwReAdcqV6JwPlhLjFSEsJhBxXaAbKPmfHhsvQO8BOapZv+fCQHay2DqDavPLKaDYfKblWCPcoprgaPA3HGCGaWbwGfguDLsepOqZhuTtS7ffwqfqKjhXAjLAAAAAElFTkSuQmCC"
+    GH_ICON_B64 = "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"
     TG_ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAABzElEQVR4nJ2TPUskQRCGn11HDeSM/Gg66cxAzsBAETQQ0UQvETwXOThQ8APxF5iIkZiLoQiCifgLDAyMFA7u5M7g1GDulmE4uMBAUNFZqaVam3WVxYIZZrqrq596qyrH+ywH5IGS/mfvCVD32kYtllffB/1vTJN4FJgHLo11S1GN+JkspElsgSlgDuhQv9/yit7Av/cEaRJ3AzPABGDU7waoB07ksugV/HvF/wTMAsOBNodAM9CtZ36FRLkAvx34AkwDHytoV4AWYDGo2HcfSIKU0iTuCfDFWewOaAD+AZ+BLmBVL5Vzt8C5T0cotjTXBQ3i9WnQVDqBNmBD10saqGis+/sUCGiqSCFSTdaMdUNAL7CnQfwZsTOlzpfLa6wrAH3AuqL+B8aMdctpEvcD+0E6ZSk00A9fqBcNmSax0G0b676mSfwB+Am0Ko2vnP+eNNYJaRRiynejse5aujVN4kGh4jlIeGmdrsklYlnYR5mKLAcOgPGgezNtvkzTkkBF4I/ul0Iij4yx7ggYAEaAYxV7JxgZufBC6ctr1UZENqQSuyIZUDDWXQGi2akWRHy+Bf5ZrdMvqZSHV7WTZ9NYJ40aVrGq+emvFLmqPQIRpIZPBEo6vAAAAABJRU5ErkJggg=="
     foot = tk.Frame(root, bg=C_BG2, highlightthickness=0, bd=0)
     foot.pack(side="bottom", fill="x")
@@ -1123,10 +1123,19 @@ def run_desktop():
     def _hover(lbl, on):
         lbl.config(fg=C_ACC if on else "#c8c5bd")
     try:
-        _gh_img = tk.PhotoImage(data=_b64.b64decode(GH_ICON_B64))
-        _tg_img = tk.PhotoImage(data=_b64.b64decode(TG_ICON_B64))
+        from PIL import Image as _PILImage, ImageTk as _ImageTk
+        import io as _io
+        _gh_img = _ImageTk.PhotoImage(_PILImage.open(_io.BytesIO(_b64.b64decode(GH_ICON_B64))))
+        try:
+            _tg_img = tk.PhotoImage(data=_b64.b64decode(TG_ICON_B64))
+        except Exception:
+            _tg_img = None
     except Exception:
-        _gh_img = _tg_img = None
+        try:
+            _gh_img = tk.PhotoImage(data=_b64.b64decode(GH_ICON_B64))
+            _tg_img = tk.PhotoImage(data=_b64.b64decode(TG_ICON_B64))
+        except Exception:
+            _gh_img = _tg_img = None
     gh_lbl = tk.Label(foot, text="سورس (گیت‌هاب)", font=(None, 10),
                       bg=C_BG2, fg="#c8c5bd", cursor="hand2",
                       image=_gh_img, compound="right", padx=6)
@@ -1358,9 +1367,32 @@ textarea { scrollbar-color: var(--ink-line) #08080a !important; }
 
 footer { display: none !important; }
 
+#manga_live_log,
+#manga_live_log textarea,
+#manga_live_log.generating,
+.generating #manga_live_log textarea {
+  opacity: 1 !important;
+  filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  color: #e8e6e1 !important;
+  background: #08080a !important;
+  min-height: 220px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+#manga_live_log textarea {
+  -webkit-text-fill-color: #e8e6e1 !important;
+}
+
 .credit {
   display: flex; gap: 12px; justify-content: center; align-items: center;
   padding: 6px 0 22px; flex-wrap: wrap;
+}
+.credit img.gh-avatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  object-fit: cover; flex: none;
+  border: 1.5px solid var(--ink-line);
 }
 .credit a {
   display: inline-flex; align-items: center; gap: 7px;
@@ -1475,41 +1507,66 @@ def run_web():
             'style="display:block;width:100%;height:auto;margin:0">'
             for u in urls)
         title = os.path.basename(os.path.dirname(files[0])) or "مانهوا"
-        
-        
-        zoom_by = ("var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
-                   "z=Math.min(4,Math.max(.5,(parseFloat(c.style.zoom)||1)*{f}));"
-                   "c.style.zoom=z;r.querySelector('.zlv').textContent="
-                   "Math.round(z*100)+'%'")
-        zoom_set = ("var r=this.closest('.rdr'),c=r.querySelector('.rdrC');"
-                    "c.style.zoom={z};r.querySelector('.zlv').textContent="
-                    "Math.round({z}*100)+'%'")
-        top_style = ("display:flex;align-items:center;gap:8px;padding:9px 14px;"
-                     "background:#0c0c0e;border-bottom:1px solid #232326;flex:none")
-        btn_style = ("background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;"
-                     "border-radius:8px;padding:6px 15px;font-size:1rem;cursor:pointer;"
-                     "font-family:inherit")
+
+        fs_toggle = (
+            "var r=this.closest('.rdr')||document.querySelector('.rdr');"
+            "if(!r)return;"
+            "var isFs=document.fullscreenElement||document.webkitFullscreenElement"
+            "||document.mozFullScreenElement||document.msFullscreenElement;"
+            "if(isFs){"
+            "  (document.exitFullscreen||document.webkitExitFullscreen"
+            "  ||document.mozCancelFullScreen||document.msExitFullscreen).call(document);"
+            "}else{"
+            "  var req=r.requestFullscreen||r.webkitRequestFullscreen"
+            "  ||r.mozRequestFullScreen||r.msRequestFullscreen;"
+            "  if(req)req.call(r).catch(function(){});"
+            "}"
+        )
+        zoom_by = (
+            "var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
+            "z=Math.min(4,Math.max(.5,(parseFloat(c.style.zoom)||1)*{f}));"
+            "c.style.zoom=z;r.querySelector('.zlv').textContent="
+            "Math.round(z*100)+'%'"
+        )
+        zoom_set = (
+            "var r=this.closest('.rdr'),c=r.querySelector('.rdrC');"
+            "c.style.zoom={z};r.querySelector('.zlv').textContent="
+            "Math.round({z}*100)+'%'"
+        )
         return (
+            '<style>'
+            '.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;'
+            'padding:8px 10px;background:#0c0c0e;border-bottom:1px solid #232326;flex:none}'
+            '.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;'
+            'border-radius:8px;padding:8px 12px;font-size:.95rem;cursor:pointer;'
+            'font-family:inherit;min-width:40px;min-height:40px;touch-action:manipulation}'
+            '.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}'
+            '.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;'
+            'overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}'
+            '@media (max-width:480px){'
+            '  .rdr-bar{gap:4px;padding:6px 8px}'
+            '  .rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}'
+            '  .rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}'
+            '  .rdr-btn.fs{order:-1}'
+            '}'
+            '</style>'
             '<div class="rdr" style="position:fixed;inset:0;z-index:99999;background:#000;'
             'display:flex;flex-direction:column;direction:ltr;font-family:inherit">'
-            f'<div style="{top_style}">'
-            f'<button style="{btn_style}" title="بستن" '
+            '<div class="rdr-bar">'
+            f'<button class="rdr-btn" title="بستن" '
             'onclick="this.closest(\'.rdr\').remove()">✕</button>'
-            f'<div style="flex:1;color:#97948c;font-size:.85rem;white-space:nowrap;'
-            'overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl">'
-            + title + '</div>'
-            f'<button style="{btn_style}" onclick="' + zoom_by.format(f="0.8") + '">−</button>'
-            '<span class="zlv" style="color:#97948c;font-size:.8rem;min-width:44px;'
+            f'<div class="rdr-title">{title}</div>'
+            f'<button class="rdr-btn" onclick="{zoom_by.format(f="0.8")}">−</button>'
+            '<span class="zlv" style="color:#97948c;font-size:.8rem;min-width:40px;'
             'text-align:center">100%</span>'
-            f'<button style="{btn_style}" onclick="' + zoom_by.format(f="1.25") + '">+</button>'
-            f'<button style="{btn_style}" title="پهنای صفحه" onclick="' + zoom_set.format(z="1") + '">پهنا</button>'
-            f'<button style="{btn_style}" title="فول‌اسکرین" onclick="var r=this.closest(\'.rdr\');'
-            'if(document.fullscreenElement){document.exitFullscreen()}'
-            'else if(r.requestFullscreen){r.requestFullscreen()}">⛶</button>'
+            f'<button class="rdr-btn" onclick="{zoom_by.format(f="1.25")}">+</button>'
+            f'<button class="rdr-btn" title="پهنای صفحه" onclick="{zoom_set.format(z="1")}">پهنا</button>'
+            f'<button class="rdr-btn fs" title="فول‌اسکرین" onclick="{fs_toggle}">⛶</button>'
             '</div>'
             '<div class="rdrS" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;'
             'touch-action:pan-x pan-y pinch-zoom" onwheel="'
-            + zoom_by.format(f="(event.deltaY<0?1.15:0.87)").replace("var ", "if(event.ctrlKey){event.preventDefault();var ", 1)
+            + zoom_by.format(f="(event.deltaY<0?1.15:0.87)").replace(
+                "var ", "if(event.ctrlKey){event.preventDefault();var ", 1)
             + ';}" onscroll="var b=this.closest(\'.rdr\').querySelector(\'.rdrB\'),'
             'm=this.scrollHeight-this.clientHeight;'
             'b.style.width=(m>0?this.scrollTop/m*100:0)+\'%\'" ondblclick="'
@@ -1645,8 +1702,10 @@ def run_web():
 
         
         with gr.Accordion("📡 لاگ زنده", open=True):
-            log_box = _safe(gr.Textbox, lines=14, max_lines=40, autoscroll=True,
-                            show_label=False)
+            log_box = _safe(gr.Textbox, lines=16, max_lines=50, autoscroll=True,
+                            show_label=False, interactive=True,
+                            elem_id="manga_live_log",
+                            value="— لاگ بعد از شروع ترجمه اینجا می‌آید —")
 
         
         html_state = gr.State("")
@@ -1665,16 +1724,13 @@ def run_web():
                             *tone_files):
             tone_map = dict(zip(tone_slots, tone_files))
             src = upload or (inp_path_v or "").strip()
+            _keep = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
             if not src:
-                yield ("❌ ورودی خالی است — فایل آپلود کنید یا URL بدهید.",
-                       gr.update(visible=False), gr.update(visible=False),
-                       gr.update(visible=False), "", [])
+                yield (gr.update(value="❌ ورودی خالی است — فایل آپلود کنید یا URL بدهید."),) + _keep
                 return
             font_v = font_up or find_font()
             if not font_v or not os.path.isfile(font_v):
-                yield ("❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید.",
-                       gr.update(visible=False), gr.update(visible=False),
-                       gr.update(visible=False), "", [])
+                yield (gr.update(value="❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید."),) + _keep
                 return
 
             
@@ -1719,32 +1775,36 @@ def run_web():
             if not two_pass_v:
                 cmd += ["--no-two-pass-ocr"]
 
-            yield ("▶ `" + " ".join(cmd) + "`",
-                   gr.update(visible=False), gr.update(visible=False),
-                   gr.update(visible=False), "", [])
+            yield (gr.update(value="▶ `" + " ".join(cmd) + "`"),) + _keep
             t0 = time.time()
             proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, text=True,
                                     encoding="utf-8", errors="replace", bufsize=1)
             buf = []
             last = 0.0
+            last_n = 0
+            last_txt = ""
             for line in proc.stdout:
                 buf.append(line.rstrip())
-                if time.time() - last >= 0.25:
+                if len(buf) > last_n and time.time() - last >= 1.0:
                     el = int(time.time() - t0)
-                    yield (f"⏱ {el//60}:{el%60:02d}" + chr(10) +
-                           chr(10).join(buf[-120:]),
-                           gr.update(visible=False), gr.update(visible=False),
-                           gr.update(visible=False), "", [])
+                    txt = f"⏱ {el//60}:{el%60:02d}" + chr(10) + chr(10).join(buf[-120:])
+                    if txt != last_txt:
+                        yield (gr.update(value=txt),) + _keep
+                        last_txt = txt
                     last = time.time()
+                    last_n = len(buf)
             proc.wait()
+            if len(buf) > last_n:
+                el = int(time.time() - t0)
+                txt = f"⏱ {el//60}:{el%60:02d}" + chr(10) + chr(10).join(buf[-120:])
+                if txt != last_txt:
+                    yield (gr.update(value=txt),) + _keep
             el = int(time.time() - t0)
             dur_s = f"{el//60}:{el%60:02d}"
             if proc.returncode != 0:
-                yield (chr(10).join(buf[-120:]) + chr(10) + chr(10) +
-                       f"❌ خطا — کد خروج {proc.returncode}",
-                       gr.update(visible=False), gr.update(visible=False),
-                       gr.update(visible=False), "", [])
+                yield (gr.update(value=chr(10).join(buf[-120:]) + chr(10) + chr(10) +
+                       f"❌ خطا — کد خروج {proc.returncode}"),) + _keep
                 return
             target = out_v
             if os.path.isdir(out_v):
@@ -1765,16 +1825,15 @@ def run_web():
             if not imgs and target.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
                 imgs = [target]
             reader_html = build_reader_html(imgs)
-            yield (chr(10).join(buf[-120:]) + chr(10) + chr(10) +
-                   f"✅ **تمام شد ({dur_s})** — دکمه‌های نمایش و دانلود پایین فعال شدند",
+            yield (gr.update(value=chr(10).join(buf[-120:]) + chr(10) + chr(10) +
+                   f"✅ تمام شد ({dur_s}) — دکمه‌های نمایش و دانلود پایین فعال شدند"),
                    gr.update(value=target, visible=True),
                    gr.update(visible=True),
                    gr.update(visible=True),
                    gr.update(visible=False),
                    reader_html)
 
-        run_btn.click(
-            run_translation,
+        _click_kw = dict(
             inputs=[inp_path, inp_upload, provider, api_keys, model,
                     out_fmt, quality, font_upload,
                     workers, bubbles, timeout,
@@ -1784,6 +1843,13 @@ def run_web():
             outputs=[log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
             concurrency_limit=1,
         )
+        try:
+            run_btn.click(run_translation, show_progress="hidden", **_click_kw)
+        except TypeError:
+            try:
+                run_btn.click(run_translation, show_progress=False, **_click_kw)
+            except TypeError:
+                run_btn.click(run_translation, **_click_kw)
 
         
         def _open_viewer(st):
@@ -1795,12 +1861,22 @@ def run_web():
 
         view_js = """
 () => {
-  setTimeout(() => {
+  const tryFs = () => {
     const r = document.querySelector('.rdr');
-    if (r && r.requestFullscreen && !document.fullscreenElement) {
-      r.requestFullscreen().catch(() => {});
+    if (!r) return;
+    const isFs = document.fullscreenElement || document.webkitFullscreenElement
+              || document.mozFullScreenElement || document.msFullscreenElement;
+    if (isFs) return;
+    const req = r.requestFullscreen || r.webkitRequestFullscreen
+             || r.mozRequestFullScreen || r.msRequestFullscreen;
+    if (req) {
+      req.call(r).catch(() => {});
     }
-  }, 60);
+  };
+  // چند تلاش کوتاه برای موبایل (بعضی مرورگرها نیاز به تأخیر دارند)
+  setTimeout(tryFs, 50);
+  setTimeout(tryFs, 200);
+  setTimeout(tryFs, 450);
   return [];
 }
 """
@@ -1830,7 +1906,7 @@ def run_web():
   </a>
   <a href="https://github.com/amirwolf5122/Manga-AutoTranslate" target="_blank" rel="noopener"
      title="سورس پروژه در گیت‌هاب">
-    <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+    <img class="gh-avatar" src="data:image/png;base64,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" width="22" height="22" alt="gh" />
     سورس
   </a>
 </div>
