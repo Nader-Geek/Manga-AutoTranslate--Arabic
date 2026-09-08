@@ -511,14 +511,14 @@ def run_desktop():
               bordercolor=[("active", C_ACC)])
     style.map("TSpinbox", bordercolor=[("focus", C_ACC)])
     style.map("TEntry", bordercolor=[("focus", C_ACC)])
-    # Windows ttk combobox ignores plain configure for readonly/active states
+
     style.map("TCombobox",
               fieldbackground=[("readonly", C_BG2), ("active", C_BG2),
                                ("focus", C_BG2)],
               foreground=[("readonly", C_TXT), ("active", C_TXT)],
               selectbackground=[("readonly", C_BG2), ("active", C_BG2)],
               selectforeground=[("readonly", C_TXT), ("active", C_TXT)])
-    # the dropdown list is a classic tk listbox — theme it via option_add
+
     root.option_add("*TCombobox*Listbox.background", C_BG2)
     root.option_add("*TCombobox*Listbox.foreground", C_TXT)
     root.option_add("*TCombobox*Listbox.selectBackground", C_ACC)
@@ -1437,8 +1437,6 @@ def run_web():
     
     os.environ["GRADIO_ALLOWED_PATHS"] = os.pathsep.join(
         {str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR), str(HERE)})
-    # gradio's per-event analytics builds a pandas DataFrame that segfaults
-    # natively (0xC000000D) on Python 3.14/Windows — neutralize it.
     os.environ.setdefault("GRADIO_ANALYTICS_CACHE_FREQUENCY", "1000000000")
     try:
         import gradio  
