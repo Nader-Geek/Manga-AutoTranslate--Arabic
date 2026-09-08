@@ -7355,7 +7355,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         "اضافی را خودش فیلتر می‌کند)")
     p.add_argument("--max-chunk-height", type=int, default=3600,
                    help="حداکثر ارتفاع هر تکه OCR داخل یک تصویر (پیکسل)")
-    p.add_argument("--stitch-max-height", type=int, default=15500,
+    p.add_argument("--stitch-max-height", type=int, default=14000,
                    help="ارتفاع هدف هر نوار چسبانده‌شده (پیش‌فرض ۱۴۰۰۰). تا این ارتفاع "
                         "پر می‌شود، بعد تا ۵۰۰–۲۰۰۰px جلوتر خوانده می‌شود و اگر متن نبود "
                         "برش امن، اگر بود بعد از متن برش زده می‌شود. ۰ = خاموش.")
@@ -7365,8 +7365,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         "صفحات بلندتر جدا می‌مانند.")
     p.add_argument("--no-stitch-keep-first", action="store_true",
                    help="صفحهٔ اول را هم داخل نوارها بگذار (پیش‌فرض: صفحهٔ اول جدا می‌ماند)")
-    p.add_argument("--img-format", choices=["webp", "png", "jpg"], default="webp",
-                   help="فرمت صفحات خروجی (پیش‌فرض webp — حجم کمتر، کیفیت مشابه)")
+    p.add_argument("--img-format", choices=["webp", "png", "jpg"], default="jpg",
+                   help="فرمت صفحات خروجی (پیش‌فرض jpg — حجم کمتر، کیفیت مشابه)")
     p.add_argument("--quality", type=int, default=90,
                    help="کیفیت JPEG/WebP (پیش‌فرض ۹۰). با encode بهینه حجم کمتر می‌شود بدون افت محسوس")
     p.add_argument("--max-width", type=int, default=0,
