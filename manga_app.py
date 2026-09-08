@@ -29,7 +29,7 @@ KEY_ENV_ORDER = ("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY",
 PROVIDERS = ["gemini", "openai", "chatgpt", "deepseek", "groq",
              "xai", "grok", "together", "openrouter", "ollama"]
 
-DEFAULT_GEMINI_KEYS = ",".join([])
+DEFAULT_GEMINI_KEYS = []#",".join(["123:])
 
 
 C_BG = "#060607"
@@ -406,7 +406,12 @@ def run_cli_interactive():
            "--workers", str(int(cfg.get("workers", 2))),
            "--bubbles-per-request", str(int(cfg.get("bubbles", 6))),
            "--api-timeout", str(int(cfg.get("timeout", 40))),
-           "--quality", str(int(cfg.get("quality", 92)))]
+           "--quality", str(int(cfg.get("quality", 92))),
+           "--batch-workers", str(int(cfg.get("batch_workers", 3))),
+           "--max-retries", str(int(cfg.get("max_retries", 8))),
+           "--request-delay", str(float(cfg.get("request_delay", 0))),
+           "--temperature", str(float(cfg.get("temperature", 0.85))),
+           "--reading-order", str(cfg.get("reading_order", "rtl"))]
     cmd += font_args()
     klist = [k.strip() for k in (keys or "").replace(";", ",").split(",") if k.strip()]
     if klist:
@@ -468,25 +473,57 @@ def run_desktop():
         pass
     dark = {
         "TFrame": {"background": C_BG},
-        "TLabelframe": {"background": C_CARD, "bordercolor": C_LINE},
-        "TLabelframe.Label": {"background": C_CARD, "foreground": C_TXT},
+        "TLabelframe": {"background": C_CARD, "bordercolor": C_LINE,
+                        "lightcolor": C_LINE, "darkcolor": C_LINE},
+        "TLabelframe.Label": {"background": C_CARD, "foreground": C_ACC},
         "TLabel": {"background": C_CARD, "foreground": C_TXT},
-        "TButton": {"background": C_LINE, "foreground": C_TXT, "padding": (10, 6)},
+        "TButton": {"background": C_BG2, "foreground": C_TXT, "padding": (10, 6),
+                    "bordercolor": C_LINE, "lightcolor": C_BG2, "darkcolor": C_BG2},
         "TEntry": {"fieldbackground": C_BG2, "foreground": C_TXT,
-                   "insertcolor": C_TXT, "bordercolor": C_LINE},
+                   "insertcolor": C_TXT, "bordercolor": C_LINE,
+                   "lightcolor": C_BG2, "darkcolor": C_BG2,
+                   "borderwidth": 0, "relief": "flat"},
         "TCombobox": {"fieldbackground": C_BG2, "foreground": C_TXT,
-                      "background": C_LINE, "arrowcolor": C_TXT},
+                      "background": C_LINE, "arrowcolor": C_ACC,
+                      "bordercolor": C_LINE, "lightcolor": C_LINE,
+                      "darkcolor": C_LINE},
         "TSpinbox": {"fieldbackground": C_BG2, "foreground": C_TXT,
-                     "insertcolor": C_TXT, "arrowcolor": C_TXT},
-        "TCheckbutton": {"background": C_CARD, "foreground": C_TXT},
-        "TRadiobutton": {"background": C_CARD, "foreground": C_TXT},
+                     "insertcolor": C_TXT, "arrowcolor": C_ACC,
+                     "bordercolor": C_LINE, "lightcolor": C_BG2, "darkcolor": C_BG2},
+        "TCheckbutton": {"background": C_CARD, "foreground": C_TXT,
+                         "indicatorbackground": C_BG2, "indicatorforeground": C_ACC},
+        "TRadiobutton": {"background": C_CARD, "foreground": C_TXT,
+                         "indicatorbackground": C_BG2, "indicatorforeground": C_ACC},
         "TNotebook": {"background": C_BG, "bordercolor": C_BG},
         "TNotebook.Tab": {"background": C_BG2, "foreground": C_MUT,
                           "padding": (18, 8)},
         "TProgressbar": {"background": C_ACC, "troughcolor": C_BG2},
+        "TScrollbar": {"background": C_BG2, "troughcolor": C_BG,
+                       "bordercolor": C_BG, "arrowcolor": C_MUT},
     }
     for name, kw in dark.items():
-        style.configure(name, **kw)
+        try:
+            style.configure(name, **kw)
+        except tk.TclError:
+            pass
+    style.map("TButton",
+              background=[("active", "#1c1c22"), ("pressed", "#23232a")],
+              bordercolor=[("active", C_ACC)])
+    style.map("TSpinbox", bordercolor=[("focus", C_ACC)])
+    style.map("TEntry", bordercolor=[("focus", C_ACC)])
+    # Windows ttk combobox ignores plain configure for readonly/active states
+    style.map("TCombobox",
+              fieldbackground=[("readonly", C_BG2), ("active", C_BG2),
+                               ("focus", C_BG2)],
+              foreground=[("readonly", C_TXT), ("active", C_TXT)],
+              selectbackground=[("readonly", C_BG2), ("active", C_BG2)],
+              selectforeground=[("readonly", C_TXT), ("active", C_TXT)])
+    # the dropdown list is a classic tk listbox — theme it via option_add
+    root.option_add("*TCombobox*Listbox.background", C_BG2)
+    root.option_add("*TCombobox*Listbox.foreground", C_TXT)
+    root.option_add("*TCombobox*Listbox.selectBackground", C_ACC)
+    root.option_add("*TCombobox*Listbox.selectForeground", "#ffffff")
+    root.option_add("*TCombobox*Listbox.font", (None, 10))
     style.map("TNotebook.Tab", background=[("selected", C_ACC)],
               foreground=[("selected", "white")])
     style.map("TCheckbutton", background=[("active", C_CARD)])
@@ -497,6 +534,7 @@ def run_desktop():
               background=[("active", "#ff6a5e"), ("disabled", "#6e2019")],
               foreground=[("disabled", "#f0b8b2")])
     style.configure("TNotebook.Tab", font=(None, 10))
+    style.configure("TLabelframe.Label", font=(None, 10, "bold"))
 
     
     head = tk.Frame(root, bg=C_BG2, highlightthickness=0, bd=0)
@@ -656,6 +694,34 @@ def run_desktop():
                            ("تایم‌اوت (ثانیه)", timeout_var, 10, 120)):
         ttk.Label(row5, text=lbl + ":").pack(side="right", padx=(12, 4))
         ttk.Spinbox(row5, from_=a, to=b, textvariable=var, width=5).pack(side="right")
+    adv = ttk.Frame(card_opt)
+    adv_open = {"v": False}
+    def toggle_adv():
+        adv_open["v"] = not adv_open["v"]
+        if adv_open["v"]:
+            adv.pack(fill="x", after=row5, pady=(6, 0))
+            adv_btn.config(text="▲ بستن تنظیمات پیشرفته")
+        else:
+            adv.pack_forget()
+            adv_btn.config(text="▼ تنظیمات پیشرفته")
+    adv_btn = ttk.Button(row5, text="▼ تنظیمات پیشرفته", command=toggle_adv, width=22)
+    adv_btn.pack(side="left", padx=6)
+    row5b = ttk.Frame(adv); row5b.pack(fill="x", pady=(6, 0))
+    batchw_var = tk.IntVar(value=int(cfg.get("batch_workers", 3)))
+    maxre_var = tk.IntVar(value=int(cfg.get("max_retries", 8)))
+    reqdelay_var = tk.DoubleVar(value=float(cfg.get("request_delay", 0)))
+    temp_var = tk.DoubleVar(value=float(cfg.get("temperature", 0.85)))
+    readord_var = tk.StringVar(value=str(cfg.get("reading_order", "rtl")))
+    for lbl, var, a, b in (("بستهٔ ترجمهٔ موازی", batchw_var, 1, 8),
+                           ("حداکثر تلاش", maxre_var, 1, 15),
+                           ("تأخیر درخواست (ث)", reqdelay_var, 0, 5),
+                           ("temperature", temp_var, 0, 1.5)):
+        ttk.Label(row5b, text=lbl + ":").pack(side="right", padx=(12, 4))
+        ttk.Spinbox(row5b, from_=a, to=b, textvariable=var, width=5,
+                    increment=0.05 if a == 0 and b == 1.5 else 1).pack(side="right")
+    ttk.Label(row5b, text="ترتیب خواندن:").pack(side="right", padx=(12, 4))
+    ttk.Combobox(row5b, textvariable=readord_var, values=["rtl", "ltr"],
+                 state="readonly", width=5).pack(side="right")
 
     
     row6 = ttk.Frame(tab); row6.pack(fill="x", padx=10, pady=(4, 2))
@@ -736,31 +802,108 @@ def run_desktop():
         win.title("📖 حالت خواندن")
         win.geometry("920x860")
         win.configure(bg="#0a0f1c")
+
+        from PIL import Image as PILImage, ImageTk
+
+        bar = tk.Frame(win, bg="#10131c", highlightthickness=0)
+        bar.pack(side="top", fill="x")
+        zlbl = tk.Label(bar, text="۱۰۰٪", font=(None, 10, "bold"),
+                        bg="#10131c", fg="#e8e6e1", width=7)
+
         cv = tk.Canvas(win, bg="#0a0f1c", highlightthickness=0)
         sb = ttk.Scrollbar(win, orient="vertical", command=cv.yview)
         inner = tk.Frame(cv, bg="#0a0f1c")
         inner.bind("<Configure>",
                    lambda e: cv.configure(scrollregion=cv.bbox("all")))
-        cv.create_window((0, 0), window=inner, anchor="nw", width=880)
+        win_id = cv.create_window((0, 0), window=inner, anchor="nw")
         cv.configure(yscrollcommand=sb.set)
         cv.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
 
+        state = {"zoom": 1.0, "imgs": [], "full": False}
+
         def _on_mousewheel(e):
             cv.yview_scroll(int(-e.delta / 120), "units")
-        cv.bind_all("<MouseWheel>", _on_mousewheel)
 
-        from PIL import Image as PILImage, ImageTk
+        def _on_zoom_wheel(e):
+            if e.state & 0x0004:  # Ctrl
+                set_zoom(state["zoom"] * (1.15 if e.delta > 0 else 1 / 1.15))
+            else:
+                _on_mousewheel(e)
+
+        def _sync_width(_e=None):
+            if not state["full"]:
+                cv.itemconfigure(win_id, width=cv.winfo_width())
+
+        cv.bind("<Configure>", _sync_width)
+        cv.bind_all("<MouseWheel>", _on_zoom_wheel)
+
+        def set_zoom(z, center=True):
+            z = max(0.15, min(4.0, z))
+            if abs(z - state["zoom"]) < 1e-3:
+                return
+            if center:
+                frac = cv.yview()[0]
+            state["zoom"] = z
+            zlbl.config(text=f"{int(z * 100)}٪")
+            w = int(cv.winfo_width() or 880)
+            target_w = int(w * z)
+            for img0, lb in state["imgs"]:
+                h = max(1, int(img0.height * target_w / img0.width))
+                im2 = img0.resize((target_w, h), PILImage.LANCZOS)
+                ph = ImageTk.PhotoImage(im2)
+                lb.configure(image=ph, width=target_w, height=h)
+                lb.image = ph
+            if center:
+                cv.update_idletasks()
+                cv.yview_moveto(frac)
+
+        def zi():
+            set_zoom(state["zoom"] * 1.2)
+
+        def zo():
+            set_zoom(state["zoom"] / 1.2)
+
+        def toggle_full(_e=None):
+            state["full"] = not state["full"]
+            win.attributes("-fullscreen", state["full"])
+            if state["full"]:
+                cv.itemconfigure(win_id, width=win.winfo_screenwidth())
+            else:
+                cv.itemconfigure(win_id, width=880)
+
+        tk.Button(bar, text="✕", command=win.destroy, bd=0, padx=10,
+                  bg="#10131c", fg="#ff4a3d", font=(None, 11, "bold"),
+                  cursor="hand2", activebackground="#1c1c22",
+                  activeforeground="#ff4a3d").pack(side="left")
+        tk.Button(bar, text="🔍−", command=zo, bd=0, padx=8,
+                  bg="#10131c", fg="#e8e6e1", font=(None, 10),
+                  cursor="hand2", activebackground="#1c1c22").pack(side="left")
+        tk.Button(bar, text="🔍+", command=zi, bd=0, padx=8,
+                  bg="#10131c", fg="#e8e6e1", font=(None, 10),
+                  cursor="hand2", activebackground="#1c1c22").pack(side="left")
+        tk.Button(bar, text="⛶ فول‌اسکرین", command=toggle_full, bd=0, padx=8,
+                  bg="#10131c", fg="#e8e6e1", font=(None, 10),
+                  cursor="hand2", activebackground="#1c1c22").pack(side="left")
+        tk.Label(bar, text="Ctrl+چرخ = زوم · دابل‌کلیک = فول‌اسکرین",
+                 font=(None, 8), bg="#10131c", fg="#6a6a72").pack(side="right",
+                                                                  padx=8)
+        zlbl.pack(side="right")
+        cv.bind("<Double-Button-1>", toggle_full)
+        win.bind("<F11>", toggle_full)
+        win.bind("<Escape>", lambda e: win.attributes("-fullscreen", False)
+                 if state["full"] else win.destroy())
+
         for f in files:
             try:
-                img = PILImage.open(f)
+                img0 = PILImage.open(f)
                 w = 860
-                h = max(1, int(img.height * w / img.width))
-                img = img.resize((w, h), PILImage.LANCZOS)
-                ph = ImageTk.PhotoImage(img)
-                lb = tk.Label(inner, image=ph, bg="#0a0f1c")
+                h = max(1, int(img0.height * w / img0.width))
+                ph = ImageTk.PhotoImage(img0.resize((w, h), PILImage.LANCZOS))
+                lb = tk.Label(inner, image=ph, bg="#0a0f1c", cursor="fleur")
                 lb.image = ph
                 lb.pack(fill="x", pady=(0, 6))
+                state["imgs"].append((img0, lb))
             except Exception:
                 continue
         win.protocol("WM_DELETE_WINDOW", win.destroy)
@@ -895,14 +1038,22 @@ def run_desktop():
                      "model": model_var.get(), "font": font_v,
                      "provider": prov_var.get(),
                      "workers": workers_var.get(), "bubbles": bubbles_var.get(),
-                     "timeout": timeout_var.get(), "force_cpu": cpu_var.get()})
+                     "timeout": timeout_var.get(), "force_cpu": cpu_var.get(),
+                     "batch_workers": batchw_var.get(), "max_retries": maxre_var.get(),
+                     "request_delay": reqdelay_var.get(), "temperature": temp_var.get(),
+                     "reading_order": readord_var.get()})
 
         cmd = [sys.executable, MANGA_PY, "-i", src, "-o", out_v, "--font", font_v,
                "--provider", prov_var.get(),
                "--workers", str(workers_var.get()),
                "--bubbles-per-request", str(bubbles_var.get()),
                "--api-timeout", str(timeout_var.get()),
-               "--quality", str(quality_var.get())]
+               "--quality", str(quality_var.get()),
+               "--batch-workers", str(batchw_var.get()),
+               "--max-retries", str(maxre_var.get()),
+               "--request-delay", str(reqdelay_var.get()),
+               "--temperature", str(temp_var.get()),
+               "--reading-order", str(readord_var.get())]
         
         cli_font = {"free_text": "free"}
         for slot, var in font_slots.items():
@@ -959,6 +1110,43 @@ def run_desktop():
     help_txt.config(state="disabled")
 
     nb.add(tab_log, text="📜 لاگ")
+
+    
+    import webbrowser
+    import base64 as _b64
+    GH_ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAACK0lEQVR4nI2UzYvNURjHP78713ClvJQ6jpdDaZohC0QRWbElJSMWVhQWjP/BTmy8JuyU2BK23kIWhCmvp3TmCAvChLn36rl9f/rdaRbz1Ol3fuc8z/c83+d7nlPQbTWgpXk9p7gc8EAbGHE+vADGJvClqID0AM2c4kzgIDAILAUa2h8F3gBXgNPOh29VsBKos5BTXA9cAvoqB/zVd0plzQD3Oh/ulbFFBWQdcBuYweTsB7DF+fDAMAyoyCnOAp4Ci4FnwClgD7AIeK7MB4APonYEWAa8B1YZzboKeUAgNn/rfDgPXMgpNpwPP5VBQ3Uip7hVwEsUe8xo9QK7KwosUD3aAunRGFVm5r9Qvi3F9tZyigMqbk2ON1TgHv03NQqt/QHu6N9i+nKK/UZtvjZNzqnAfTm0NUor57b3EPgC/ALmGIu6uFuBrwLTgaSUS7mb+pYZtuRzQvNtwDRTbCVwHfiqW/wJ2Ol8eM0EllNcDVzWocZiNrC9UCuYxP3AE5MT+A2cAe46H27lFI3OZmADsG/cXRt2PqyoqXcuatGU2QF8BPYDm2zR+WD0TPIhgbRUV9QJY6VS5+z+ABsl7RoTwflwWAW1Aw4ZMxW9qWvwDjhrGB0g58N3YJc4nwReAdcqV6JwPlhLjFSEsJhBxXaAbKPmfHhsvQO8BOapZv+fCQHay2DqDavPLKaDYfKblWCPcoprgaPA3HGCGaWbwGfguDLsepOqZhuTtS7ffwqfqKjhXAjLAAAAAElFTkSuQmCC"
+    TG_ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAABzElEQVR4nJ2TPUskQRCGn11HDeSM/Gg66cxAzsBAETQQ0UQvETwXOThQ8APxF5iIkZiLoQiCifgLDAyMFA7u5M7g1GDulmE4uMBAUNFZqaVam3WVxYIZZrqrq596qyrH+ywH5IGS/mfvCVD32kYtllffB/1vTJN4FJgHLo11S1GN+JkspElsgSlgDuhQv9/yit7Av/cEaRJ3AzPABGDU7waoB07ksugV/HvF/wTMAsOBNodAM9CtZ36FRLkAvx34AkwDHytoV4AWYDGo2HcfSIKU0iTuCfDFWewOaAD+AZ+BLmBVL5Vzt8C5T0cotjTXBQ3i9WnQVDqBNmBD10saqGis+/sUCGiqSCFSTdaMdUNAL7CnQfwZsTOlzpfLa6wrAH3AuqL+B8aMdctpEvcD+0E6ZSk00A9fqBcNmSax0G0b676mSfwB+Am0Ko2vnP+eNNYJaRRiynejse5aujVN4kGh4jlIeGmdrsklYlnYR5mKLAcOgPGgezNtvkzTkkBF4I/ul0Iij4yx7ggYAEaAYxV7JxgZufBC6ctr1UZENqQSuyIZUDDWXQGi2akWRHy+Bf5ZrdMvqZSHV7WTZ9NYJ40aVrGq+emvFLmqPQIRpIZPBEo6vAAAAABJRU5ErkJggg=="
+    foot = tk.Frame(root, bg=C_BG2, highlightthickness=0, bd=0)
+    foot.pack(side="bottom", fill="x")
+    def _open_link(url):
+        webbrowser.open(url)
+    def _hover(lbl, on):
+        lbl.config(fg=C_ACC if on else "#c8c5bd")
+    try:
+        _gh_img = tk.PhotoImage(data=_b64.b64decode(GH_ICON_B64))
+        _tg_img = tk.PhotoImage(data=_b64.b64decode(TG_ICON_B64))
+    except Exception:
+        _gh_img = _tg_img = None
+    gh_lbl = tk.Label(foot, text="سورس (گیت‌هاب)", font=(None, 10),
+                      bg=C_BG2, fg="#c8c5bd", cursor="hand2",
+                      image=_gh_img, compound="right", padx=6)
+    gh_lbl.image_ref = _gh_img
+    gh_lbl.pack(side="right", padx=14, pady=6)
+    gh_lbl.bind("<Button-1>", lambda e: _open_link(
+        "https://github.com/amirwolf5122/Manga-AutoTranslate"))
+    gh_lbl.bind("<Enter>", lambda e: _hover(gh_lbl, True))
+    gh_lbl.bind("<Leave>", lambda e: _hover(gh_lbl, False))
+    tg_lbl = tk.Label(foot, text="سازنده (تلگرام)", font=(None, 10),
+                      bg=C_BG2, fg="#c8c5bd", cursor="hand2",
+                      image=_tg_img, compound="right", padx=6)
+    tg_lbl.image_ref = _tg_img
+    tg_lbl.pack(side="right", padx=14, pady=6)
+    tg_lbl.bind("<Button-1>", lambda e: _open_link("https://t.me/amir_wolf512"))
+    tg_lbl.bind("<Enter>", lambda e: _hover(tg_lbl, True))
+    tg_lbl.bind("<Leave>", lambda e: _hover(tg_lbl, False))
+    tk.Label(foot, text="مانگا مترجم", font=(None, 9),
+             bg=C_BG2, fg=C_MUT).pack(side="left", padx=14)
+
     root.mainloop()
 
 WEB_CSS = """
@@ -1106,6 +1294,16 @@ input[type=range] {
   border: none !important;
   cursor: pointer;
 }
+input[type=range]::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, var(--ink-red) var(--range_progress, 50%),
+              #1f1f24 var(--range_progress, 50%)) !important;
+  height: 6px !important; border-radius: 4px !important; border: none !important;
+}
+input[type=range]::-moz-range-track {
+  background: linear-gradient(to right, var(--ink-red) var(--range_progress, 50%),
+              #1f1f24 var(--range_progress, 50%)) !important;
+  height: 6px !important; border-radius: 4px !important; border: none !important;
+}
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none !important; appearance: none !important;
   width: 17px; height: 17px; border-radius: 50%;
@@ -1159,6 +1357,21 @@ textarea { scrollbar-color: var(--ink-line) #08080a !important; }
 
 
 footer { display: none !important; }
+
+.credit {
+  display: flex; gap: 12px; justify-content: center; align-items: center;
+  padding: 6px 0 22px; flex-wrap: wrap;
+}
+.credit a {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--ink-dim) !important; text-decoration: none !important;
+  font-size: 13px; border: 1px solid var(--ink-line);
+  padding: 7px 16px; border-radius: 999px; background: #0a0a0d;
+  transition: border-color .2s, color .2s, transform .2s;
+}
+.credit a:hover { color: var(--ink-red) !important; border-color: var(--ink-red);
+                  transform: translateY(-1px); }
+.credit svg { width: 15px; height: 15px; fill: currentColor; flex: none; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: #060607; }
 ::-webkit-scrollbar-thumb { background: #232329; border-radius: 6px; }
@@ -1224,11 +1437,20 @@ def run_web():
     
     os.environ["GRADIO_ALLOWED_PATHS"] = os.pathsep.join(
         {str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR), str(HERE)})
+    # gradio's per-event analytics builds a pandas DataFrame that segfaults
+    # natively (0xC000000D) on Python 3.14/Windows — neutralize it.
+    os.environ.setdefault("GRADIO_ANALYTICS_CACHE_FREQUENCY", "1000000000")
     try:
         import gradio  
     except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "gradio"])
     import gradio as gr
+    try:
+        from gradio import queueing as _q
+        _q.Queue.compute_analytics_summary = (
+            lambda self, records: self.cached_event_analytics_summary)
+    except Exception:
+        pass
 
     cfg = load_config()
     print("[*] بررسی فونت‌های لحن…")
@@ -1394,14 +1616,26 @@ def run_web():
                         tone_uploads.append(up)
                         tone_slots.append(slot)
 
-        with gr.Accordion("⚙️ تنظیمات دیگر", open=False):
+        with gr.Accordion("⚙️ تنظیمات پیشرفته", open=False):
             with gr.Row():
                 workers = _safe(gr.Slider, 1, 8, value=int(cfg.get("workers", 2)),
                                 step=1, label="ورکر موازی OCR")
                 bubbles = _safe(gr.Slider, 1, 12, value=int(cfg.get("bubbles", 6)),
                                 step=1, label="حباب در هر درخواست ترجمه")
+                batchw = _safe(gr.Slider, 1, 8, value=int(cfg.get("batch_workers", 3)),
+                               step=1, label="بستهٔ ترجمهٔ موازی (کلید جدا برای هر بسته)")
+            with gr.Row():
                 timeout = _safe(gr.Slider, 10, 120, value=int(cfg.get("timeout", 40)),
                                 step=5, label="تایم‌اوت هر درخواست (ثانیه)")
+                maxre = _safe(gr.Slider, 1, 15, value=int(cfg.get("max_retries", 8)),
+                              step=1, label="حداکثر تلاش ترجمه")
+                reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
+                                 step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
+            with gr.Row():
+                temp = _safe(gr.Slider, 0, 1.5, value=float(cfg.get("temperature", 0.85)),
+                             step=0.05, label="خلاقیت ترجمه (temperature)")
+                readord = gr.Radio(["rtl", "ltr"], value=str(cfg.get("reading_order", "rtl")),
+                                   label="ترتیب خواندن حباب‌ها")
             with gr.Row():
                 use_lama = gr.Checkbox(label="اجبار LaMa-Manga (خالی = خودکار)",
                                        value=False)
@@ -1428,6 +1662,7 @@ def run_web():
         def run_translation(inp_path_v, upload, provider_v, api_keys_v, model_v,
                             out_fmt_v, quality_v, font_up,
                             workers_v, bubbles_v, timeout_v,
+                            batchw_v, maxre_v, reqdelay_v, temp_v, readord_v,
                             use_lama_v, force_cpu_v, two_pass_v,
                             *tone_files):
             tone_map = dict(zip(tone_slots, tone_files))
@@ -1448,7 +1683,10 @@ def run_web():
             save_config({"out_fmt": out_fmt_v, "quality": quality_v,
                          "provider": provider_v, "model": model_v,
                          "workers": int(workers_v), "bubbles": int(bubbles_v),
-                         "timeout": int(timeout_v), "force_cpu": force_cpu_v})
+                         "timeout": int(timeout_v), "force_cpu": force_cpu_v,
+                         "batch_workers": int(batchw_v), "max_retries": int(maxre_v),
+                         "request_delay": float(reqdelay_v), "temperature": float(temp_v),
+                         "reading_order": str(readord_v)})
 
             ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[out_fmt_v]
             base = os.path.splitext(os.path.basename(src))[0] + "_fa"
@@ -1461,7 +1699,12 @@ def run_web():
                    "--workers", str(int(workers_v)),
                    "--bubbles-per-request", str(int(bubbles_v)),
                    "--api-timeout", str(int(timeout_v)),
-                   "--quality", str(int(quality_v))]
+                   "--quality", str(int(quality_v)),
+                   "--batch-workers", str(int(batchw_v)),
+                   "--max-retries", str(int(maxre_v)),
+                   "--request-delay", str(float(reqdelay_v)),
+                   "--temperature", str(float(temp_v)),
+                   "--reading-order", str(readord_v)]
             cmd += font_args()
             for slot, fp in tone_map.items():
                 if fp and os.path.isfile(fp):
@@ -1536,7 +1779,9 @@ def run_web():
             run_translation,
             inputs=[inp_path, inp_upload, provider, api_keys, model,
                     out_fmt, quality, font_upload,
-                    workers, bubbles, timeout, use_lama, force_cpu, two_pass] +
+                    workers, bubbles, timeout,
+                    batchw, maxre, reqdelay, temp, readord,
+                    use_lama, force_cpu, two_pass] +
                    tone_uploads,
             outputs=[log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
             concurrency_limit=1,
@@ -1575,6 +1820,23 @@ def run_web():
         gr.Markdown(
             "<div style='text-align:center; opacity:.45; margin-top:16px'>"
             "مانگا مترجم PRO · RT-DETR + Gemini/… + LaMa-Manga · اجرا روی CPU</div>"
+        )
+
+        gr.HTML(
+            """
+<div class="credit">
+  <a href="https://t.me/amir_wolf512" target="_blank" rel="noopener"
+     title="کانال تلگرام سازنده">
+    <svg viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+    سازنده
+  </a>
+  <a href="https://github.com/amirwolf5122/Manga-AutoTranslate" target="_blank" rel="noopener"
+     title="سورس پروژه در گیت‌هاب">
+    <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+    سورس
+  </a>
+</div>
+"""
         )
 
     

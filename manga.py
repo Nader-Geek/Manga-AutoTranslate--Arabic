@@ -4355,6 +4355,7 @@ class MangaTranslator:
 
         
         pending = list(regions)
+        import concurrent.futures as _cf
         for round_i in range(1, 4):
             if not pending:
                 break
@@ -4363,18 +4364,35 @@ class MangaTranslator:
                 print(
                     f"    [*] دور {round_i}: {len(pending)} دیالوگ → {len(batches)} بسته"
                 )
-            for bi, batch in enumerate(batches, 1):
-                if len(batches) > 1:
-                    print(f"    [*] بسته {bi}/{len(batches)}: {len(batch)} دیالوگ")
-                self._translate_regions_batch(batch)
-                if bi < len(batches):
-                    time.sleep(2.0)
+            workers = max(1, min(
+                int(getattr(self, "batch_workers", 3) or 1), len(batches)))
+            if workers > 1:
+                keys = list(self._api_keys)
+                jobs = [(bi, b) for bi, b in enumerate(batches, 1)]
+                with _cf.ThreadPoolExecutor(max_workers=workers) as ex:
+                    def _run(job):
+                        bi, batch = job
+                        if keys:
+                            self._apply_api_key(keys[(bi - 1) % len(keys)])
+                        print(f"    [*] بسته {bi}/{len(batches)}: {len(batch)} دیالوگ (موازی)")
+                        try:
+                            self._translate_regions_batch(batch)
+                        except Exception as e:
+                            print(f"    [!] بسته {bi} ناموفق: {str(e)[:80]}")
+                    list(ex.map(_run, jobs))
+            else:
+                for bi, batch in enumerate(batches, 1):
+                    if len(batches) > 1:
+                        print(f"    [*] بسته {bi}/{len(batches)}: {len(batch)} دیالوگ")
+                    self._translate_regions_batch(batch)
+                    if bi < len(batches):
+                        time.sleep(1.0)
 
             pending = [r for r in regions if not (r.translated_text or "").strip()]
             if not pending:
                 break
             if round_i < 3:
-                wait_s = 8.0 * round_i
+                wait_s = min(2.5 * round_i, 5.0)
                 print(
                     f"    [!] {len(pending)} دیالوگ هنوز بدون ترجمه — "
                     f"صبر {wait_s:.0f}ثانیه و تلاش مجدد..."
@@ -4592,7 +4610,7 @@ class MangaTranslator:
                     if self._is_rate_or_model_quota_error(e):
                         print(f"    [!] محدودیت مدل/نرخ روی {self.model_name} "
                               f"(کلید {self._key_index + 1}/{len(self._api_keys)})")
-                        wait_s = min(8.0 + attempt * 3.5, 25.0)
+                        wait_s = min(2.0 + attempt, 6.0)
                         print(f"    [*] صبر {wait_s:.0f} ثانیه برای بازیابی سهمیه...")
                         time.sleep(wait_s)
                         if self._switch_to_next_model(reason="quota/rate مدل"):
@@ -4687,7 +4705,7 @@ class MangaTranslator:
                     x in err_str for x in ("rate limit", "429", "quota", "insufficient_quota")
                 ):
                     print(f"    [!] محدودیت نرخ/سهمیه ({self.provider}/{self.model_name})...")
-                    wait_s = min(6.0 + attempt * 3.0, 22.0)
+                    wait_s = min(3.0 + attempt, 8.0)
                     print(f"    [*] صبر {wait_s:.0f} ثانیه برای بازیابی سهمیه...")
                     time.sleep(wait_s)
                     if self._switch_to_next_model(reason="rate/quota"):
@@ -4723,8 +4741,8 @@ class MangaTranslator:
 
         print(f"    [!] {self.max_retries} تلاش ناموفق — ریست کامل و تلاش نهایی...")
         try:
-            print("    [*] صبر ۱۲ ثانیه قبل از تلاش نهایی...")
-            time.sleep(12.0)
+            print("    [*] صبر ۲ ثانیه قبل از تلاش نهایی...")
+            time.sleep(2.0)
             self._reset_model_cascade(reason="تلاش نهایی")
             if self._api_keys and len(self._api_keys) > 1:
                 self._pick_random_api_key(reason="تلاش نهایی")
@@ -6576,7 +6594,9 @@ html, body { background: #0a0a0b; }
         max_y: int,
         search_radius: int = 900,
     ) -> Optional[int]:
-        
+        """نزدیک‌ترین برش امن به target_y: گپ خالی که نه داخل حباب/بلوک متن
+        محبوس باشد (تیرگی قوی در هر دو طرف نزدیک) و نه روی خودِ متن.
+        فقط پنجرهٔ کوتاه اطراف محدودهٔ جست‌وجو پردازش می‌شود (سریع)."""
         try:
             ih = int(strip.shape[0])
             if ih < 400:
@@ -6585,18 +6605,31 @@ html, body { background: #0a0a0b; }
             y1 = min(int(max_y), int(target_y) + int(search_radius), ih - 80)
             if y1 - y0 < 40:
                 return None
-            ink = MangaTranslator._row_ink_profile(strip)
+            margin = 420
+            wy0 = max(0, y0 - margin)
+            wy1 = min(ih, y1 + margin)
+            ink_win = MangaTranslator._row_ink_profile(strip[wy0:wy1])
+            ink = {wy0 + i: float(v) for i, v in enumerate(ink_win)}
+            strong_rows = np.array([y for y, v in ink.items() if v > 0.12],
+                                   dtype=np.int64)
             best_y = None
             best_score = 1e18
             run = 0
             run_start = y0
             for y in range(y0, y1):
-                if float(ink[y]) < 0.0035:
+                if ink.get(y, 1.0) < 0.0035:
                     if run == 0:
                         run_start = y
                     run += 1
                     if run >= 10:
                         cut = run_start + run // 2
+                        if strong_rows.size:
+                            above = strong_rows[strong_rows < cut - 8]
+                            below = strong_rows[strong_rows > cut + 8]
+                            d_up = cut - int(above[-1]) if above.size else 10**9
+                            d_dn = int(below[0]) - cut if below.size else 10**9
+                            if d_up < 320 and d_dn < 320:
+                                continue
                         dist = abs(cut - int(target_y))
                         band = strip[max(0, cut - 6): min(ih, cut + 6)]
                         if band.size == 0:
@@ -6704,7 +6737,7 @@ html, body { background: #0a0a0b; }
 
             strip = _stack_pages(current_pages)
             ih = int(strip.shape[0])
-            min_keep = max(min_strip, int(work_h * 0.55))
+            min_keep = max(min_strip, int(work_h * 0.85))
             max_cut = max(min_keep + 50, ih - max(400, buffer_h // 2))
             target = min(work_h, max_cut)
             if target < min_keep:
@@ -7058,16 +7091,28 @@ html, body { background: #0a0a0b; }
                                 print(f"\n[!] {e}")
                                 api_dead[0] = True
                                 continue
-                            results_by_i[page_i] = (out_file, result, dbg)
+                            try:
+                                self._write_image(result, out_file)
+                                ok = True
+                            except Exception as _werr:
+                                print(f"  [!] ذخیرهٔ تصویر #{page_i + 1} ناموفق: {_werr}")
+                                ok = False
+                            results_by_i[page_i] = (out_file, True if ok else None, dbg)
+                            del result
                             _submit_extract()
 
+        print("[*] ذخیرهٔ نهایی خروجی‌ها...", flush=True)
         debug_files = []
         for page_i in sorted(results_by_i.keys()):
             out_file, result, dbg = results_by_i[page_i]
             if result is None:
                 continue
-            self._write_image(result, out_file)
-            processed_files.append(out_file)
+            if result is True:
+                processed_files.append(out_file)
+            else:
+                self._write_image(result, out_file)
+                processed_files.append(out_file)
+            results_by_i[page_i] = (out_file, None, None)
             if self.debug and dbg is not None:
                 debug_dir = os.path.join(cache_dir, "debug")
                 os.makedirs(debug_dir, exist_ok=True)
@@ -7301,6 +7346,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--bubbles-per-request", type=int, default=6,
                    help="چند حباب در هر درخواست ترجمه (پیش‌فرض ۶ — تعداد "
                         "درخواست‌ها را کم می‌کند تا گوگل timeout ندهد)")
+    p.add_argument("--batch-workers", type=int, default=3,
+                   help="تعداد بستهٔ ترجمهٔ موازی (پیش‌فرض ۳ — هر بسته کلید جدا می‌گیرد)")
     p.add_argument("--api-timeout", type=float, default=30.0,
                    help="سقف انتظار پاسخ AI به ثانیه (پیش‌فرض ۳۰). بعد از تایم‌اوت کلید/مدل بعدی")
     p.add_argument("--max-retries", type=int, default=8,
@@ -7422,6 +7469,7 @@ def main():
     if getattr(args, "lama", False):
         translator.use_lama = True
         print("[*] --lama → پاک‌سازی باکیفیت MI-GAN/LaMa ONNX فعال (کندتر از OpenCV).")
+    translator.batch_workers = max(1, int(getattr(args, "batch_workers", 3) or 3))
     
     _font_map = (
         ("normal", "font_normal"),
