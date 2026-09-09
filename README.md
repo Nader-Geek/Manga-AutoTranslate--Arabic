@@ -217,11 +217,16 @@ python manga_app.py -- -i "https://...chapter-1/" -o out.pdf --font fonts/Vazirm
 
 ### ۴) GitHub Actions
 
-1. ریپو را Fork کن
-2. در Settings → Secrets کلید موردنظر را بگذار (`GEMINI_API_KEY` یا `OPENAI_API_KEY` و …)
-3. ورک‌فلو را Run کن و خروجی را از Artifacts دانلود کن
+ریپو را Fork کن
+در Settings → Secrets and variables → Actions کلید را بگذار:
+GEMINI / OPENAI / DEEPSEEK / GROQ / XAI / OPENROUTER / TOGETHER
+یا یک Secret عمومی به نام API
+از تب Actions یکی از دو ورک‌فلو را Run کن:
+Manga Web (موقت) — رابط وب با لینک gradio.live در لاگ؛ بعد از زمان تعیین‌شده حتماً خاموش می‌شود؛ خروجی را قبل از خاموش شدن از UI دانلود کن
+Manga CLI (ترجمه یک‌باره) — لینک فصل را وارد کن؛ بعد از اتمام، خروجی را از Artifacts دانلود کن
 
-> Runnerهای GitHub GPU ندارند؛ پاکسازی خودکار روی CPU بهینه شده است.
+
+Runnerهای GitHub معمولاً GPU ندارند؛ اجرا روی CPU است و برای batch/CLI مناسب‌تر است. وب فقط موقت است و لینک دائمی نمی‌دهد.
 
 ---
 
