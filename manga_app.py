@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.2"
+APP_VER = "1.3"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1561,83 +1561,250 @@ def run_web():
             return "<div style='text-align:center;opacity:.6;padding:24px'>تصویری برای نمایش پیدا نشد.</div>"
         imgs = "".join(
             f'<img src="{u}" loading="lazy" decoding="async" alt="" '
-            'style="display:block;width:100%;height:auto;margin:0">'
+            'draggable="false" '
+            'style="display:block;width:100%;height:auto;margin:0;user-select:none;'
+            '-webkit-user-drag:none;pointer-events:none">'
             for u in urls)
         title = os.path.basename(os.path.dirname(files[0])) or "مانهوا"
+        title_esc = (
+            str(title)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
 
-        fs_toggle = (
-            "var r=this.closest('.rdr')||document.querySelector('.rdr');"
-            "if(!r)return;"
-            "var isFs=document.fullscreenElement||document.webkitFullscreenElement"
-            "||document.mozFullScreenElement||document.msFullscreenElement;"
-            "if(isFs){"
-            "  (document.exitFullscreen||document.webkitExitFullscreen"
-            "  ||document.mozCancelFullScreen||document.msExitFullscreen).call(document);"
-            "}else{"
-            "  var req=r.requestFullscreen||r.webkitRequestFullscreen"
-            "  ||r.mozRequestFullScreen||r.msRequestFullscreen;"
-            "  if(req)req.call(r).catch(function(){});"
-            "}"
-        )
-        zoom_by = (
-            "var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
-            "z=Math.min(4,Math.max(.5,(parseFloat(c.style.zoom)||1)*{f}));"
-            "c.style.zoom=z;r.querySelector('.zlv').textContent="
-            "Math.round(z*100)+'%'"
-        )
-        zoom_set = (
-            "var r=this.closest('.rdr'),c=r.querySelector('.rdrC');"
-            "c.style.zoom={z};r.querySelector('.zlv').textContent="
-            "Math.round({z}*100)+'%'"
-        )
-        return (
-            '<style>'
-            '.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;'
-            'padding:8px 10px;background:#0c0c0e;border-bottom:1px solid #232326;flex:none}'
-            '.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;'
-            'border-radius:8px;padding:8px 12px;font-size:.95rem;cursor:pointer;'
-            'font-family:inherit;min-width:40px;min-height:40px;touch-action:manipulation}'
-            '.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}'
-            '.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;'
-            'overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}'
-            '@media (max-width:480px){'
-            '  .rdr-bar{gap:4px;padding:6px 8px}'
-            '  .rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}'
-            '  .rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}'
-            '  .rdr-btn.fs{order:-1}'
-            '}'
-            '</style>'
-            '<div class="rdr" style="position:fixed;inset:0;z-index:99999;background:#000;'
-            'display:flex;flex-direction:column;direction:ltr;font-family:inherit">'
-            '<div class="rdr-bar">'
-            f'<button class="rdr-btn" title="بستن" '
-            'onclick="this.closest(\'.rdr\').remove()">✕</button>'
-            f'<div class="rdr-title">{title}</div>'
-            f'<button class="rdr-btn" onclick="{zoom_by.format(f="0.8")}">−</button>'
-            '<span class="zlv" style="color:#97948c;font-size:.8rem;min-width:40px;'
-            'text-align:center">100%</span>'
-            f'<button class="rdr-btn" onclick="{zoom_by.format(f="1.25")}">+</button>'
-            f'<button class="rdr-btn" title="پهنای صفحه" onclick="{zoom_set.format(z="1")}">پهنا</button>'
-            f'<button class="rdr-btn fs" title="فول‌اسکرین" onclick="{fs_toggle}">⛶</button>'
-            '</div>'
-            '<div class="rdrS" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;'
-            'touch-action:pan-x pan-y pinch-zoom" onwheel="'
-            + zoom_by.format(f="(event.deltaY<0?1.15:0.87)").replace(
-                "var ", "if(event.ctrlKey){event.preventDefault();var ", 1)
-            + ';}" onscroll="var b=this.closest(\'.rdr\').querySelector(\'.rdrB\'),'
-            'm=this.scrollHeight-this.clientHeight;'
-            'b.style.width=(m>0?this.scrollTop/m*100:0)+\'%\'" ondblclick="'
-            + ("var r=this.closest('.rdr'),c=r.querySelector('.rdrC'),"
-               "z=(parseFloat(c.style.zoom)||1)>1.2?1:2.5;"
-               "c.style.zoom=z;r.querySelector('.zlv').textContent="
-               "Math.round(z*100)+'%'") + '">'
-            '<div class="rdrC" style="zoom:1;max-width:760px;margin:0 auto;width:100%">'
-            + imgs + '</div></div>'
-            '<div style="position:relative;height:3px;background:#1a1a1c;flex:none">'
-            '<div class="rdrB" style="height:100%;width:0;'
-            'background:linear-gradient(90deg,#ff4a3d,#ff8a5e)"></div></div>'
-            '</div>'
-        )
+        return f'''
+<style>
+.rdr{{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;
+  flex-direction:column;direction:ltr;font-family:inherit;touch-action:none;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none}}
+.rdr-bar{{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;
+  background:rgba(12,12,14,.96);border-bottom:1px solid #232326;flex:none;
+  backdrop-filter:blur(8px);z-index:2}}
+.rdr-btn{{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;
+  padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;
+  min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}}
+.rdr-btn:active{{background:#2a2a30}}
+.rdr-btn.fs{{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}}
+.rdr-title{{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}}
+.rdrS{{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  touch-action:none;position:relative;background:#000}}
+.rdrC{{margin:0 auto;max-width:min(100%,900px);width:100%;transition:none}}
+.rdrC img{{display:block;width:100%;height:auto;max-width:none}}
+.rdr-progress{{position:relative;height:3px;background:#1a1a1c;flex:none}}
+.rdrB{{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}}
+.zlv{{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}}
+@media (max-width:480px){{
+  .rdr-bar{{gap:4px;padding:6px 8px}}
+  .rdr-btn{{padding:7px 10px;font-size:.9rem;min-width:36px}}
+  .rdr-title{{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}}
+}}
+</style>
+<div class="rdr" id="manga_rdr" data-zoom="1">
+  <div class="rdr-bar">
+    <button type="button" class="rdr-btn" data-act="close" title="بستن">✕</button>
+    <div class="rdr-title">{title_esc}</div>
+    <button type="button" class="rdr-btn" data-act="zoom-out" title="دور">−</button>
+    <span class="zlv">100%</span>
+    <button type="button" class="rdr-btn" data-act="zoom-in" title="نزدیک">+</button>
+    <button type="button" class="rdr-btn" data-act="zoom-fit" title="پهنای صفحه">پهنا</button>
+    <button type="button" class="rdr-btn fs" data-act="fs" title="فول‌اسکرین مرورگر">⛶</button>
+  </div>
+  <div class="rdrS">
+    <div class="rdrC">{imgs}</div>
+  </div>
+  <div class="rdr-progress"><div class="rdrB"></div></div>
+</div>
+<script>
+(function(){{
+  var root = document.getElementById('manga_rdr');
+  if (!root || root._bound) return;
+  root._bound = true;
+  var sc = root.querySelector('.rdrS');
+  var c = root.querySelector('.rdrC');
+  var bar = root.querySelector('.zlv');
+  var prog = root.querySelector('.rdrB');
+  var z = 1;
+  var MIN = 0.5, MAX = 4;
+
+  function baseWidth() {{
+    return Math.max(200, Math.min(900, sc.clientWidth || window.innerWidth || 360));
+  }}
+
+  function applyZoom(nz, cx, cy) {{
+    nz = Math.min(MAX, Math.max(MIN, +nz || 1));
+    var rect = sc.getBoundingClientRect();
+    var sx = (typeof cx === 'number') ? cx : (rect.left + rect.width / 2);
+    var sy = (typeof cy === 'number') ? cy : (rect.top + rect.height / 2);
+    var relX = (sc.scrollLeft + (sx - rect.left)) / Math.max(0.01, z);
+    var relY = (sc.scrollTop + (sy - rect.top)) / Math.max(0.01, z);
+    z = nz;
+    var w = Math.round(baseWidth() * z);
+    c.style.maxWidth = 'none';
+    c.style.width = w + 'px';
+    c.style.marginLeft = 'auto';
+    c.style.marginRight = 'auto';
+    c.style.transform = 'none';
+    sc.scrollLeft = relX * z - (sx - rect.left);
+    sc.scrollTop = relY * z - (sy - rect.top);
+    bar.textContent = Math.round(z * 100) + '%';
+    root.dataset.zoom = String(z);
+  }}
+
+  function setZoom(nz) {{ applyZoom(nz); }}
+  function zoomBy(f, cx, cy) {{ applyZoom(z * f, cx, cy); }}
+
+  root.addEventListener('click', function(e) {{
+    var btn = e.target.closest('[data-act]');
+    if (!btn || !root.contains(btn)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var act = btn.getAttribute('data-act');
+    if (act === 'close') {{
+      try {{
+        var isFs = document.fullscreenElement || document.webkitFullscreenElement;
+        if (isFs) {{
+          (document.exitFullscreen || document.webkitExitFullscreen ||
+           document.mozCancelFullScreen || document.msExitFullscreen).call(document);
+        }}
+      }} catch (err) {{}}
+      root.remove();
+      return;
+    }}
+    if (act === 'zoom-in') zoomBy(1.25);
+    else if (act === 'zoom-out') zoomBy(0.8);
+    else if (act === 'zoom-fit') setZoom(1);
+    else if (act === 'fs') {{
+      var isFs = document.fullscreenElement || document.webkitFullscreenElement
+              || document.mozFullScreenElement || document.msFullscreenElement;
+      if (isFs) {{
+        (document.exitFullscreen || document.webkitExitFullscreen
+         || document.mozCancelFullScreen || document.msExitFullscreen).call(document);
+      }} else {{
+        var req = root.requestFullscreen || root.webkitRequestFullscreen
+               || root.mozRequestFullScreen || root.msRequestFullscreen;
+        if (req) req.call(root).catch(function(){{}});
+      }}
+    }}
+  }});
+
+  sc.addEventListener('wheel', function(e) {{
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var factor = e.deltaY < 0 ? 1.12 : (1 / 1.12);
+    zoomBy(factor, e.clientX, e.clientY);
+  }}, {{ passive: false }});
+
+  var lastTap = 0;
+  sc.addEventListener('dblclick', function(e) {{
+    e.preventDefault();
+    zoomBy(z > 1.3 ? (1 / z) : 2.2, e.clientX, e.clientY);
+    if (z < 1.05) setZoom(1);
+  }});
+
+  var pinch = null;
+  var pan = null;
+
+  function dist(t0, t1) {{
+    var dx = t0.clientX - t1.clientX, dy = t0.clientY - t1.clientY;
+    return Math.hypot(dx, dy);
+  }}
+  function mid(t0, t1) {{
+    return {{ x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 }};
+  }}
+
+  sc.addEventListener('touchstart', function(e) {{
+    if (e.touches.length === 2) {{
+      e.preventDefault();
+      pinch = {{
+        startDist: dist(e.touches[0], e.touches[1]),
+        startZ: z,
+        mid: mid(e.touches[0], e.touches[1])
+      }};
+      pan = null;
+    }} else if (e.touches.length === 1) {{
+      pan = {{
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        sl: sc.scrollLeft,
+        st: sc.scrollTop
+      }};
+      var now = Date.now();
+      if (now - lastTap < 280) {{
+        e.preventDefault();
+        var t = e.touches[0];
+        if (z > 1.3) setZoom(1);
+        else zoomBy(2.2, t.clientX, t.clientY);
+        lastTap = 0;
+        pan = null;
+      }} else {{
+        lastTap = now;
+      }}
+    }}
+  }}, {{ passive: false }});
+
+  sc.addEventListener('touchmove', function(e) {{
+    if (pinch && e.touches.length === 2) {{
+      e.preventDefault();
+      var d = dist(e.touches[0], e.touches[1]);
+      var m = mid(e.touches[0], e.touches[1]);
+      var nz = pinch.startZ * (d / Math.max(1, pinch.startDist));
+      applyZoom(nz, m.x, m.y);
+      pinch.mid = m;
+    }} else if (pan && e.touches.length === 1) {{
+      e.preventDefault();
+      var t = e.touches[0];
+      sc.scrollLeft = pan.sl - (t.clientX - pan.x);
+      sc.scrollTop = pan.st - (t.clientY - pan.y);
+    }}
+  }}, {{ passive: false }});
+
+  sc.addEventListener('touchend', function(e) {{
+    if (e.touches.length < 2) pinch = null;
+    if (e.touches.length === 0) pan = null;
+  }});
+  sc.addEventListener('touchcancel', function() {{ pinch = null; pan = null; }});
+
+  sc.addEventListener('scroll', function() {{
+    var m = sc.scrollHeight - sc.clientHeight;
+    prog.style.width = (m > 0 ? (sc.scrollTop / m * 100) : 0) + '%';
+  }}, {{ passive: true }});
+
+  function onKey(e) {{
+    if (e.key === 'Escape') {{
+      try {{
+        var isFs = document.fullscreenElement || document.webkitFullscreenElement;
+        if (isFs) {{
+          (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+          return;
+        }}
+      }} catch (err) {{}}
+      root.remove();
+      document.removeEventListener('keydown', onKey);
+    }} else if (e.key === '+' || e.key === '=') {{ zoomBy(1.15); }}
+    else if (e.key === '-' || e.key === '_') {{ zoomBy(0.87); }}
+    else if (e.key === '0') {{ setZoom(1); }}
+  }}
+  document.addEventListener('keydown', onKey);
+
+  var prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  var obs = new MutationObserver(function() {{
+    if (!document.body.contains(root)) {{
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+      obs.disconnect();
+    }}
+  }});
+  obs.observe(document.body, {{ childList: true, subtree: true }});
+
+  setZoom(1);
+}})();
+</script>
+'''
 
     g6 = _gradio_major() >= 6
     blocks_kw = {} if g6 else {"theme": gr.themes.Soft(primary_hue="indigo",
@@ -2168,7 +2335,6 @@ def run_web():
     }}
     const d = JSON.parse(raw);
     if (!d || !d.ts || (Date.now() - d.ts) > {SESSION_TTL * 1000}) {{
-      // TTL فرم منقضی — ولی sid را نگه دار اگر job ممکن است زنده باشد
       if (sidOnly) return [JSON.stringify({{sid: sidOnly, ts: Date.now()}})];
       try {{ localStorage.removeItem("{LS_KEY}"); }} catch (e) {{}}
       return [""];
@@ -2684,25 +2850,9 @@ def run_web():
                 return gr.update(value=st, visible=True)
             
             return gr.update(value=st + f"<!--v{time.time():.6f}-->", visible=True)
-
         view_js = """
 () => {
-  const tryFs = () => {
-    const r = document.querySelector('.rdr');
-    if (!r) return;
-    const isFs = document.fullscreenElement || document.webkitFullscreenElement
-              || document.mozFullScreenElement || document.msFullscreenElement;
-    if (isFs) return;
-    const req = r.requestFullscreen || r.webkitRequestFullscreen
-             || r.mozRequestFullScreen || r.msRequestFullscreen;
-    if (req) {
-      req.call(r).catch(() => {});
-    }
-  };
-  // چند تلاش کوتاه برای موبایل (بعضی مرورگرها نیاز به تأخیر دارند)
-  setTimeout(tryFs, 50);
-  setTimeout(tryFs, 200);
-  setTimeout(tryFs, 450);
+  try { document.body.style.overflow = 'hidden'; } catch (e) {}
   return [];
 }
 """
