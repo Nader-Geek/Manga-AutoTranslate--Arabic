@@ -519,117 +519,6 @@ def _cpu_thread_fallback(session, model_path: str, use_threads: int):
     return session, use_threads
 
 
-class MiganONNX:
-    
-    REPO = "karanjakhar/migan"
-    FILE = "migan_pipeline_v2.onnx"
-
-    def __init__(self, model_path: Optional[str] = None, prefer_gpu: bool = True,
-                 threads: int = 4, cache_dir: Optional[str] = None):
-        self.prefer_gpu = bool(prefer_gpu)
-        if not model_path or not os.path.isfile(model_path):
-            model_path = self._download_model(cache_dir=cache_dir)
-        self.model_path = model_path
-        
-        
-        if not prefer_gpu:
-            use_threads = max(1, min(8, os.cpu_count() or 4))
-        else:
-            use_threads = max(1, int(threads))
-        self.session = _make_ort_session(model_path, prefer_gpu=prefer_gpu, threads=use_threads)
-        self.session, use_threads = _cpu_thread_fallback(self.session, model_path, use_threads)
-
-        names = [i.name for i in self.session.get_inputs()]
-        self._in_image = names[0]
-        self._in_mask = names[1] if len(names) > 1 else "mask"
-        for n in names:
-            low = n.lower()
-            if "mask" in low:
-                self._in_mask = n
-            elif "image" in low or "img" in low:
-                self._in_image = n
-
-        try:
-            shp = self.session.get_inputs()[0].shape
-            self.run_size = int(shp[-1]) if isinstance(shp[-1], int) and shp[-1] > 0 else 512
-        except Exception:
-            self.run_size = 512
-        print(
-            f"[+] MI-GAN ONNX آماده | providers={self.session.get_providers()} | "
-            f"threads={use_threads} | size={self.run_size}"
-        )
-
-    @classmethod
-    def _download_model(cls, cache_dir: Optional[str] = None) -> str:
-        from pathlib import Path
-        cache_root = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "manga_translator_models"
-        cache_root.mkdir(parents=True, exist_ok=True)
-        dst = cache_root / "migan_pipeline_v2.onnx"
-        if dst.is_file() and dst.stat().st_size > 1_000_000:
-            print(f"[*] مدل MI-GAN از کش: {dst}")
-            return str(dst)
-
-        print(f"[*] دانلود مدل MI-GAN ONNX از {cls.REPO} (~۲۷MB) ...")
-        if hf_hub_download is None:
-            raise RuntimeError("huggingface_hub لازم است")
-        return hf_hub_download(repo_id=cls.REPO, filename=cls.FILE, cache_dir=cache_dir)
-
-    def __call__(self, image, mask):
-        
-        if isinstance(image, np.ndarray):
-            if image.ndim == 3 and image.shape[2] == 3:
-                img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            else:
-                img_rgb = cv2.cvtColor(cv2.cvtColor(image, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2RGB)
-        else:
-            img_rgb = np.array(image.convert("RGB"))
-        if isinstance(mask, np.ndarray):
-            mask_u8 = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) if mask.ndim == 3 else mask.copy()
-        else:
-            mask_u8 = np.array(mask.convert("L"))
-        oh, ow = img_rgb.shape[:2]
-        orig_size = (ow, oh)
-        rs = int(getattr(self, "run_size", 512) or 512)
-
-        
-        scale = 1.0
-        if max(oh, ow) > rs:
-            scale = rs / float(max(oh, ow))
-            nw = max(8, int(round(ow * scale)))
-            nh = max(8, int(round(oh * scale)))
-            
-            nw = max(8, (nw // 8) * 8)
-            nh = max(8, (nh // 8) * 8)
-            img_use = cv2.resize(img_rgb, (nw, nh), interpolation=cv2.INTER_AREA)
-            msk_use = cv2.resize(mask_u8, (nw, nh), interpolation=cv2.INTER_AREA)
-        else:
-            ph = (8 - oh % 8) % 8
-            pw = (8 - ow % 8) % 8
-            img_use = cv2.copyMakeBorder(img_rgb, 0, ph, 0, pw, cv2.BORDER_REPLICATE)
-            msk_use = cv2.copyMakeBorder(mask_u8, 0, ph, 0, pw, cv2.BORDER_CONSTANT, value=0)
-            nw, nh = img_use.shape[1], img_use.shape[0]
-
-        msk_use = cv2.dilate(msk_use, np.ones((3, 3), np.uint8), iterations=1)
-        _, msk_use = cv2.threshold(msk_use, 64, 255, cv2.THRESH_BINARY)
-
-        
-        
-        hole = msk_use > 127
-        img_use[hole] = 0
-
-        img_in = img_use.transpose(2, 0, 1)[None].astype(np.uint8)
-        mask_in = ((msk_use > 127).astype(np.uint8)) * 255
-        mask_in = mask_in[None, None]
-        out = self.session.run(None, {self._in_image: img_in, self._in_mask: mask_in})[0]
-        o = out[0].transpose(1, 2, 0)
-        if o.shape[0] != nh or o.shape[1] != nw:
-            o = cv2.resize(o, (nw, nh), interpolation=cv2.INTER_LINEAR)
-        
-        if o.shape[0] != oh or o.shape[1] != ow:
-            o = cv2.resize(o, (ow, oh), interpolation=cv2.INTER_LINEAR)
-        return Image.fromarray(np.ascontiguousarray(o.astype(np.uint8)))
-
-
 class LamaONNX:
     
     REPO = "Carve/LaMa-ONNX"
@@ -728,6 +617,7 @@ class LamaONNX:
         msk = cv2.resize(mask_u8, (run_size, run_size), interpolation=cv2.INTER_AREA)
         msk = cv2.dilate(msk, np.ones((3, 3), np.uint8), iterations=1)
         _, msk = cv2.threshold(msk, 64, 255, cv2.THRESH_BINARY)
+        img_np[msk > 127] = 0
 
         img_in = img_np.astype(np.float32) / 255.0
         mask_in = (msk.astype(np.float32) / 255.0)
@@ -803,15 +693,21 @@ class LamaMangaONNX:
             mask_u8 = np.array(mask.convert("L"))
         oh, ow = img_rgb.shape[:2]
         s = self.SIZE
+        invert = float(np.median(cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY))) < 110
+        if invert:
+            img_rgb = 255 - img_rgb
         img_np = cv2.resize(img_rgb, (s, s), interpolation=cv2.INTER_AREA)
         msk = cv2.resize(mask_u8, (s, s), interpolation=cv2.INTER_AREA)
         msk = cv2.dilate(msk, np.ones((3, 3), np.uint8), iterations=1)
+        img_np[msk > 127] = 0
         msk = (msk > 64).astype(np.float32)
         img_in = (img_np.astype(np.float32) / 255.0).transpose(2, 0, 1)[None]
         mask_in = msk[None, None]
         out = self.session.run(None, {self._in_image: img_in, self._in_mask: mask_in})[0]
         o = np.clip(out[0].transpose(1, 2, 0), 0, 1)
         o = (o * 255).astype(np.uint8)
+        if invert:
+            o = 255 - o
         result = cv2.resize(o, (ow, oh), interpolation=cv2.INTER_LANCZOS4)
         return Image.fromarray(result)
 
@@ -1492,11 +1388,11 @@ class MangaTranslator:
             return False
 
         if force_gpu is True:
-            print(f"[*] --gpu → MI-GAN/LaMa ONNX فعال ({name or 'CUDA'}, {vram:.1f} GB).")
+            print(f"[*] --gpu → LaMa ONNX فعال ({name or 'CUDA'}, {vram:.1f} GB).")
             return True
 
         if has_cuda and (vram <= 0 or vram >= self._LAMA_MIN_VRAM_GB):
-            print(f"[*] GPU مناسب ({name or 'CUDA'}, {vram:.1f} GB) → MI-GAN/LaMa ONNX.")
+            print(f"[*] GPU مناسب ({name or 'CUDA'}, {vram:.1f} GB) → LaMa ONNX.")
             return True
 
         if has_cuda:
@@ -1504,7 +1400,7 @@ class MangaTranslator:
                   f"برای اجبار: --lama یا --gpu")
             return False
 
-        print("[*] GPU نیست → OpenCV سریع. برای MI-GAN روی CPU: --lama")
+        print("[*] GPU نیست → OpenCV سریع. برای LaMa روی CPU: --lama")
         return False
 
     def __init__(
@@ -1540,6 +1436,8 @@ class MangaTranslator:
         stitch_short_threshold: int = 6000,
         stitch_keep_first: bool = True,
         debug: bool = False,
+        glossary_path: Optional[str] = None,
+        story_brief: bool = True,
     ):
         self.det_confidence = float(det_confidence)
         provider = (provider or "gemini").lower().strip()
@@ -1632,6 +1530,14 @@ class MangaTranslator:
         self._last_debug_image = None  
 
         self._name_glossary: Dict[str, str] = {}
+        self.glossary_path = glossary_path
+        self._glossary_out_dir = ""
+        self._glossary_dirty = False
+        self.story_brief_enabled = bool(story_brief)
+        self._chapter_brief: str = ""
+        self._brief_corpus: List[str] = []
+        if glossary_path and os.path.isfile(glossary_path):
+            self._load_glossary_file(glossary_path)
         self._lama = None
         self._title_skip_patterns: List[str] = []
         MangaTranslator._title_skip_patterns = []
@@ -1817,15 +1723,7 @@ class MangaTranslator:
                     )
                     self._inpainter_name = "LaMa"
                 except Exception as e3:
-                    print(f"    [!] LaMa ناموفق ({e3}) → MI-GAN ONNX")
-                try:
-                    self._lama = MiganONNX(
-                        prefer_gpu=self.use_gpu,
-                        threads=max(1, int(getattr(self, "max_workers", 2) or 2)),
-                    )
-                    self._inpainter_name = "MI-GAN"
-                except Exception as e2:
-                    print(f"    [!] MI-GAN هم ناموفق ({e2}) → OpenCV")
+                    print(f"    [!] LaMa هم ناموفق ({e3}) → OpenCV")
                     self.use_lama = False
                     self._lama = None
                     self._inpainter_name = "OpenCV"
@@ -3334,19 +3232,38 @@ class MangaTranslator:
         return filled
 
     def _letters_mask_in_crop(self, gray_crop: np.ndarray, zone: np.ndarray,
-                              ch: int, cw: int, wide: bool = False) -> np.ndarray:
-        
-        
-        
-        
-        
+                              ch: int, cw: int, wide: bool = False,
+                              bright: bool = False) -> np.ndarray:
         blk = max(15, (min(ch, cw) // 10) * 2 + 1)
         if blk % 2 == 0:
             blk += 1
         ad = cv2.adaptiveThreshold(
             gray_crop, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, blk, 9,
-        )
+            cv2.THRESH_BINARY if bright else cv2.THRESH_BINARY_INV, blk, 9,
+        ) if not bright else None
+        if bright:
+            med_b = float(np.median(gray_crop))
+            cand = (gray_crop > max(med_b + 35.0, 165.0)).astype(np.uint8) * 255
+            bb = 3
+            cand[:bb, :] = 0
+            cand[-bb:, :] = 0
+            cand[:, :bb] = 0
+            cand[:, -bb:] = 0
+            n_b, lab_b, st_b, _ = cv2.connectedComponentsWithStats(cand, connectivity=8)
+            keep_b = np.zeros_like(cand)
+            cap_b = 0.60 if wide else 0.25
+            for i in range(1, n_b):
+                a = int(st_b[i, cv2.CC_STAT_AREA])
+                if a < 4 or a > cap_b * ch * cw:
+                    continue
+                bw_ = int(st_b[i, cv2.CC_STAT_WIDTH])
+                bh_ = int(st_b[i, cv2.CC_STAT_HEIGHT])
+                if a > 0.08 * ch * cw and bh_ > 0.35 * ch:
+                    continue  
+                keep_b[lab_b == i] = 255
+            keep_b = cv2.dilate(keep_b, np.ones((3, 3), np.uint8), iterations=1)
+            keep_b = cv2.bitwise_and(keep_b, cand)
+            return cv2.dilate(keep_b, np.ones((2, 2), np.uint8), iterations=1)
         
         mean = cv2.boxFilter(gray_crop, ddepth=cv2.CV_32F, ksize=(blk, blk))
         flat = np.abs(gray_crop.astype(np.float32) - mean) < 10.0
@@ -3428,45 +3345,15 @@ class MangaTranslator:
                 med_reg = float(np.median(gray[y0:y1, x0:x1]))
                 if med_reg < 120:
                     
-                    
-                    
-                    z = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=4)
-                    
-                    
-                    
-                    try:
-                        pts_all = []
-                        for poly in list(getattr(region, "ocr_polys", None) or []):
-                            p = np.asarray(poly, dtype=np.int32).reshape(-1, 2).copy()
-                            if p.size == 0:
-                                continue
-                            p[:, 0] -= x0
-                            p[:, 1] -= y0
-                            pts_all.append(p)
-                        if pts_all:
-                            pts_all = np.vstack(pts_all)
-                            hull = cv2.convexHull(pts_all)
-                            zh = np.zeros_like(z)
-                            cv2.fillPoly(zh, [hull], 255)
-                            hull_cov = float(np.count_nonzero(zh)) / float(max(1, ch * cw))
-                            if hull_cov <= 0.85:
-                                z = cv2.bitwise_or(
-                                    z,
-                                    cv2.dilate(zh, np.ones((3, 3), np.uint8), iterations=1),
-                                )
-                    except Exception:
-                        pass
-                    
-                    
-                    try:
-                        letters = self._letters_mask_in_crop(gray[y0:y1, x0:x1], zone, ch, cw, wide=True)
-                        z_area = float(max(1, np.count_nonzero(zone)))
-                        if letters.max() > 0 and float(np.count_nonzero(letters)) >= 0.05 * z_area:
-                            ink = letters
-                        else:
-                            ink = z
-                    except Exception:
-                        ink = z
+                    letters = self._letters_mask_in_crop(
+                        gray[y0:y1, x0:x1], zone, ch, cw, wide=True, bright=True,
+                    )
+                    z_area = float(max(1, np.count_nonzero(zone)))
+                    if letters.max() > 0 and float(np.count_nonzero(letters)) >= 0.05 * z_area:
+                        ink = letters
+                    else:
+                        
+                        ink = zone
                 elif ink.max() == 0:
                     
                     
@@ -3482,8 +3369,10 @@ class MangaTranslator:
             
             
             if zone is not None and ink.max() > 0 and med_reg < 120:
+                _ink_med = float(np.median(gray[y0:y1, x0:x1][ink > 0]))
                 letters = self._letters_mask_in_crop(
                     gray[y0:y1, x0:x1], zone, ch, cw, wide=True,
+                    bright=(_ink_med > med_reg + 25),
                 )
                 if letters.max() > 0:
                     ink = cv2.bitwise_or(ink, letters)
@@ -3512,38 +3401,6 @@ class MangaTranslator:
 
             if ink.max() > 0:
                 ink = cv2.dilate(ink, np.ones((2, 2), np.uint8), iterations=1)
-
-            
-            
-            
-            
-            
-            if med_reg < 120 and ink.max() > 0:
-                gray_c = gray[y0:y1, x0:x1]
-                bright_m = (gray_c > med_reg + 20)
-                grow = (ink > 0) & bright_m
-                grow = grow | (ink > 0)
-                for _ in range(24):
-                    add = cv2.dilate(grow.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & bright_m & ~grow
-                    if not add.any():
-                        break
-                    grow |= add
-                    if float(np.count_nonzero(grow)) > 0.70 * ch * cw:
-                        break
-                ink = np.where(grow, 255, 0).astype(np.uint8)
-
-            
-            
-            
-            if med_reg < 120:
-                cov_big = float(np.count_nonzero(ink)) / float(max(1, ch * cw))
-                if cov_big > 0.20:
-                    ink = cv2.dilate(ink, np.ones((3, 3), np.uint8), iterations=6)
-
-            
-            
-            
-            
             if ink.max() > 0:
                 cov = float(np.count_nonzero(ink)) / float(max(1, ch * cw))
                 if cov > 0.60:
@@ -3551,8 +3408,10 @@ class MangaTranslator:
                     
                     
                     try:
+                        _ink_med2 = float(np.median(gray[y0:y1, x0:x1][ink > 0]))
                         reduced = self._letters_mask_in_crop(
-                            gray[y0:y1, x0:x1], zone, ch, cw, wide=True
+                            gray[y0:y1, x0:x1], zone, ch, cw, wide=True,
+                            bright=(_ink_med2 > med_reg + 25),
                         )
                     except Exception:
                         reduced = None
@@ -3725,10 +3584,10 @@ class MangaTranslator:
                         out = cv2.cvtColor(np.array(result_pil), cv2.COLOR_RGB2BGR)
                         if out.shape[:2] != crop_img.shape[:2]:
                             out = cv2.resize(out, (crop_img.shape[1], crop_img.shape[0]))
-                        m = crop_msk > 0
+                        m = cv2.dilate(crop_msk, np.ones((5, 5), np.uint8), iterations=1) > 0
                         if m.any():
                             cleaned[cy0:cy1, cx0:cx1][m] = out[m]
-                            onnx_done[cy0:cy1, cx0:cx1][m] = 255
+                        onnx_done[cy0:cy1, cx0:cx1][crop_msk > 0] = 255
                         n_run += 1
                     if n_flat:
                         print(f"  - {n_flat} خوشه روی پس‌زمینهٔ تخت → پرکردن مستقیم.")
@@ -3746,11 +3605,6 @@ class MangaTranslator:
             
             cleaned = cv2.inpaint(cleaned, remaining, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
 
-        
-        
-        
-        
-        
         gray0 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         g2 = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
         residual = np.zeros_like(dil)
@@ -4118,8 +3972,10 @@ class MangaTranslator:
             for nm in (item.get("names") or []):
                 src = (nm.get("source") or "").strip()
                 per = (nm.get("persian") or "").strip()
-                if src and per:
+                if src and per and src not in self._name_glossary:
+                    
                     self._name_glossary[src] = per
+                    self._glossary_dirty = True
         return applied > 0
 
     def _recreate_api_client(self) -> None:
@@ -4301,6 +4157,115 @@ class MangaTranslator:
         t = _strip_trailing_number(t, r"\s+\d{3,}\s*$")
         return t.strip()
 
+    def _load_glossary_file(self, path: str) -> None:
+        try:
+            with open(path, encoding="utf-8-sig") as f:
+                for ln in f:
+                    ln = ln.strip()
+                    if not ln or ln.startswith("#"):
+                        continue
+                    for sep in ("=", ":", "\t"):
+                        if sep in ln:
+                            src, per = ln.split(sep, 1)
+                            src, per = src.strip(), per.strip()
+                            if src and per:
+                                self._name_glossary[src] = per
+                            break
+            print(f"[*] واژه‌نامه بارگذاری شد: {len(self._name_glossary)} مورد از {path}")
+        except Exception as e:
+            print(f"[!] خواندن واژه‌نامه ناموفق ({e})")
+
+    def set_glossary_output_dir(self, out_dir: str) -> None:
+        self._glossary_out_dir = out_dir or ""
+        auto = os.path.join(self._glossary_out_dir, "glossary.json")
+        if not (self.glossary_path and os.path.isfile(self.glossary_path)) and os.path.isfile(auto):
+            try:
+                import json as _json
+                with open(auto, encoding="utf-8") as f:
+                    d = _json.load(f)
+                for k, v in d.items():
+                    k, v = str(k).strip(), str(v).strip()
+                    if k and v and k not in self._name_glossary:
+                        self._name_glossary[k] = v
+                if d:
+                    print(f"[*] glossary.json قبلی بارگذاری شد: {len(d)} مورد")
+            except Exception:
+                pass
+
+    def save_glossary(self) -> None:
+        if not self._glossary_dirty or not self._name_glossary:
+            return
+        out_dir = self._glossary_out_dir or os.getcwd()
+        try:
+            import json as _json
+            os.makedirs(out_dir, exist_ok=True)
+            path = os.path.join(out_dir, "glossary.json")
+            with open(path, "w", encoding="utf-8") as f:
+                _json.dump(self._name_glossary, f, ensure_ascii=False, indent=2)
+            print(f"[*] واژه‌نامه ذخیره شد: {path} ({len(self._name_glossary)} مورد)")
+            self._glossary_dirty = False
+        except Exception as e:
+            print(f"[!] ذخیرهٔ واژه‌نامه ناموفق ({e})")
+
+    def _glossary_prompt_block(self) -> str:
+        if not self._name_glossary:
+            return ""
+        lines = "\n".join(
+            f"  {src} → {per}" for src, per in sorted(self._name_glossary.items())
+        )
+        return (
+            "\n━━━━━━━━━━━━━━━━━━━━\n"
+            "واژه‌نامهٔ قفل‌شده (الزامی)\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "این معادل‌ها قطعی‌اند؛ در همهٔ ترجمه‌ها دقیقاً همین شکل را به‌کار ببر "
+            "و املای فارسی آن‌ها را عوض نکن:\n"
+            f"{lines}\n"
+            "اسم خاص جدیدی که در واژه‌نامه نیست را طبیعی نویسه‌گردانی کن و در فیلد "
+            "names گزارش بده.\n"
+        )
+
+    def _brief_prompt_block(self) -> str:
+        if not self._chapter_brief:
+            return ""
+        return (
+            "\n━━━━━━━━━━━━━━━━━━━━\n"
+            "خلاصهٔ داستان و لحن شخصیت‌ها\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"{self._chapter_brief.strip()}\n"
+            "لحن هر شخصیت را مطابق همین خلاصه حفظ کن.\n"
+        )
+
+    def _build_chapter_brief(self, corpus: List[str]) -> None:
+        if not self.story_brief_enabled or self._chapter_brief:
+            return
+        texts = [t for t in corpus if t and len(t.strip()) > 2][:400]
+        if len(texts) < 3:
+            return
+        joined = "\n".join("- " + t.strip()[:300] for t in texts)[:14000]
+        prompt = (
+            "متن‌های زیر همهٔ دیالوگ‌ها و متن‌های یک فصل مانهوا به‌ترتیب است.\n"
+            "یک‌بار کل داستان را بخوان و یک بریف فشرده برای مترجم بده شامل:\n"
+            "۱) اتفاق اصلی این فصل در ۲-۳ جمله\n"
+            "۲) شخصیت‌های حاضر و لحن گفتار هرکدام در یک خط "
+            "(رسمی/عامی/خشن/شیطان‌صفت/...)\n"
+            "۳) اصطلاحات خاص دنیای داستان (سطح، کلاس، مکان، سازمان) با ترجمهٔ پیشنهادی فارسی\n"
+            "۴) روابط بین شخصیت‌ها (دوست/دشمن/استاد-شاگرد)\n"
+            "حداکثر ۲۵ خط، فقط خود بریف را بنویس.\n\n"
+            f"{joined}"
+        )
+        try:
+            print("[فاز ۳ - بریف داستان] یک‌بار کل فصل خوانده می‌شود...")
+            if self.provider_type == "gemini":
+                raw = self._translate_with_gemini(prompt, "تو دستیار تحلیل داستان هستی.")
+            else:
+                raw = self._translate_with_openai(prompt, "تو دستیار تحلیل داستان هستی.")
+            brief = (raw or "").strip()
+            if 60 < len(brief) < 6000:
+                self._chapter_brief = brief
+                print(f"[+] بریف داستان آماده شد ({len(brief)} نویسه)")
+        except Exception as e:
+            print(f"[!] ساخت بریف داستان ناموفق ({e}) — بدون بریف ادامه می‌دهیم")
+
     def translate_regions(self, regions: List[TextRegion]) -> None:
         if not regions:
             return
@@ -4330,6 +4295,9 @@ class MangaTranslator:
 
         for r in regions:
             r.source_text = self._fix_ocr_text(uncensor_swears(r.source_text or ""))
+            if r.source_text and len(self._brief_corpus) < 400:
+                self._brief_corpus.append(r.source_text)
+        self._build_chapter_brief(self._brief_corpus)
 
         def _make_batches(items: List[TextRegion]):
             
@@ -4414,12 +4382,14 @@ class MangaTranslator:
 
         payload = [{"id": r.id, "text": r.source_text} for r in regions]
         system_instruction = self._get_system_instruction()
+        context_block = self._glossary_prompt_block() + self._brief_prompt_block()
         user_prompt = (
-            "این‌ها دیالوگ‌های استخراج‌شده از یک صفحه‌ی مانهوا هستند.\n\n"
+            "این‌ها دیالوگ‌های استخراج‌شده از یک صفحه‌ی مانهوا هستند.\n"
             "متن‌ها از OCR آمده‌اند و ممکن است خراب، ناقص، چسبیده یا دارای غلط املایی باشند.\n"
             "قبل از بازآفرینی فارسی، اول متن انگلیسی هر مورد را در ذهن خودت اصلاح کن "
             "(مثلاً MUDIYING→MODIFYING، NDYE/AND YE→AND YET، RECONSTRUC→RECONSTRUCTION).\n"
             "سپس با توجه به ترتیب دیالوگ‌ها و بافت صحنه، هر مورد را به شکل یک دیالوگ کاملاً طبیعی فارسی بازآفرینی کن.\n\n"
+            f"{context_block}"
             "اصل مهم:\n"
             "ترجمه تحت‌اللفظی نکن؛ دیالوگ را طوری بنویس که انگار از اول به فارسی نوشته شده.\n"
             "اگر دو حباب پشت‌سرهم ادامه‌ی یک فکر هستند، لحن را پیوسته نگه دار.\n\n"
@@ -4488,6 +4458,7 @@ class MangaTranslator:
                     payload2 = [{"id": r.id, "text": r.source_text} for r in missing]
                     user_prompt = (
                         "اینا موندن بازآفرینی بشن. ترجمه نکن؛ دیالوگ طبیعی فارسی بساز. "
+                        "واژه‌نامهٔ قفل‌شده و لحن شخصیت‌ها را همان‌طور رعایت کن.\n"
                         "فقط JSON معتبر:\n"
                         f"{json.dumps(payload2, ensure_ascii=False, indent=2)}"
                     )
@@ -7332,11 +7303,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="نام مدل. اگر ندهی از پیش‌فرض provider استفاده می‌شود")
     p.add_argument("--reading-order", choices=["rtl", "ltr"], default="rtl")
     p.add_argument("--gpu", dest="gpu", action="store_true", default=None,
-                   help="اجبار به GPU برای OCR و MI-GAN/LaMa ONNX")
+                   help="اجبار به GPU برای OCR و LaMa ONNX")
     p.add_argument("--cpu", dest="gpu", action="store_false",
                    help="اجبار به CPU (OpenCV inpaint)")
     p.add_argument("--lama", action="store_true", default=False,
-                   help="حتی روی CPU هم MI-GAN/LaMa ONNX را فعال کن (کندتر، تمیزتر)")
+                   help="حتی روی CPU هم LaMa ONNX را فعال کن (کندتر، تمیزتر)")
     p.add_argument("--no-resume", action="store_true")
     p.add_argument("--keep-old", action="store_true")
     p.add_argument("--request-delay", type=float, default=0.0)
@@ -7365,6 +7336,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         "صفحات بلندتر جدا می‌مانند.")
     p.add_argument("--no-stitch-keep-first", action="store_true",
                    help="صفحهٔ اول را هم داخل نوارها بگذار (پیش‌فرض: صفحهٔ اول جدا می‌ماند)")
+    p.add_argument("--glossary", default=None,
+                   help="فایل واژه‌نامهٔ اسامی/اصطلاحات: هر خط «English=فارسی». "
+                        "معادل‌ها قفل می‌شوند و اسم‌های جدید خودکار به glossary.json "
+                        "خروجی اضافه و فصل بعد خودکار خوانده می‌شوند")
+    p.add_argument("--no-brief", action="store_true",
+                   help="ساخت «بریف داستان» قبل از ترجمه غیرفعال شود "
+                        "(پیش‌فرض: یک درخواست اضافه در هر فصل برای حفظ لحن شخصیت‌ها)")
     p.add_argument("--img-format", choices=["webp", "png", "jpg"], default="jpg",
                    help="فرمت صفحات خروجی (پیش‌فرض jpg — حجم کمتر، کیفیت مشابه)")
     p.add_argument("--quality", type=int, default=90,
@@ -7462,10 +7440,14 @@ def main():
         stitch_short_threshold=args.stitch_short_threshold,
         stitch_keep_first=not args.no_stitch_keep_first,
         debug=bool(getattr(args, "debug", False)),
+        glossary_path=getattr(args, "glossary", None),
+        story_brief=not getattr(args, "no_brief", False),
     )
+    out_dir = os.path.dirname(os.path.abspath(output_path)) or "."
+    translator.set_glossary_output_dir(out_dir)
     if getattr(args, "lama", False):
         translator.use_lama = True
-        print("[*] --lama → پاک‌سازی باکیفیت MI-GAN/LaMa ONNX فعال (کندتر از OpenCV).")
+        print("[*] --lama → پاک‌سازی باکیفیت LaMa ONNX فعال (کندتر از OpenCV).")
     translator.batch_workers = max(1, int(getattr(args, "batch_workers", 3) or 3))
     
     _font_map = (

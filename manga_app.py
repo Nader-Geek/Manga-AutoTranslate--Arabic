@@ -749,6 +749,16 @@ def run_desktop():
     ttk.Combobox(row5b, textvariable=readord_var, values=["rtl", "ltr"],
                  state="readonly", width=5).pack(side="right")
 
+    # واژه‌نامه + بریف داستان
+    row5c = ttk.Frame(adv); row5c.pack(fill="x", pady=(6, 0))
+    brief_var = tk.BooleanVar(value=bool(cfg.get("story_brief", True)))
+    ttk.Label(row5c, text="واژه‌نامهٔ اسامی (هر خط: English=فارسی):").pack(anchor="e")
+    glos_txt = tk.Text(adv, height=4, font=("Consolas", 10), bg=C_CARD, fg=C_TXT)
+    glos_txt.pack(fill="x", pady=(2, 4))
+    glos_txt.insert("1.0", str(cfg.get("glossary_text", "") or ""))
+    ttk.Checkbutton(row5c, text="بریف داستان قبل از ترجمه (لحن شخصیت‌ها حفظ شود)",
+                    variable=brief_var).pack(anchor="e")
+
     
     row6 = ttk.Frame(tab); row6.pack(fill="x", padx=10, pady=(4, 2))
     run_btn = ttk.Button(row6, text="🚀  شروع ترجمه", style="Accent.TButton")
@@ -1067,7 +1077,9 @@ def run_desktop():
                      "timeout": timeout_var.get(), "force_cpu": cpu_var.get(),
                      "batch_workers": batchw_var.get(), "max_retries": maxre_var.get(),
                      "request_delay": reqdelay_var.get(), "temperature": temp_var.get(),
-                     "reading_order": readord_var.get()})
+                     "reading_order": readord_var.get(),
+                     "story_brief": brief_var.get(),
+                     "glossary_text": glos_txt.get("1.0", "end").rstrip()})
 
         cmd = [sys.executable, MANGA_PY, "-i", src, "-o", out_v, "--font", font_v,
                "--provider", prov_var.get(),
@@ -1099,6 +1111,14 @@ def run_desktop():
             cmd += ["--no-two-pass-ocr"]
         if debug_var.get():
             cmd += ["--debug"]
+        glos_text = glos_txt.get("1.0", "end").strip()
+        if glos_text:
+            glos_path = os.path.join(OUT_DIR, "glossary_user.txt")
+            with open(glos_path, "w", encoding="utf-8") as _gf:
+                _gf.write(glos_text + "\n")
+            cmd += ["--glossary", glos_path]
+        if not brief_var.get():
+            cmd += ["--no-brief"]
 
         log_box.config(state="normal")
         log_box.delete("1.0", "end")
@@ -1737,6 +1757,13 @@ def run_web():
                 force_cpu = gr.Checkbox(label="اجبار CPU (خالی = GPU اگر بود)",
                                         value=False)
                 two_pass = gr.Checkbox(label="OCR دومرحله‌ای", value=True)
+            glossary_text = gr.Textbox(
+                label="واژه‌نامهٔ اسامی و اصطلاحات (هر خط: English=فارسی)",
+                placeholder="Raphdonia=رافدونیا\nBarbarian=باربارین",
+                lines=3, value=str(cfg.get("glossary_text", "") or ""))
+            story_brief = gr.Checkbox(
+                label="بریف داستان قبل از ترجمه (AI یک‌بار فصل را می‌خواند تا لحن شخصیت‌ها حفظ شود)",
+                value=bool(cfg.get("story_brief", True)))
 
         SESSION_TTL = 2 * 60 * 60
         live_jobs = {}
@@ -2223,6 +2250,7 @@ def run_web():
                             workers_v, bubbles_v, timeout_v,
                             batchw_v, maxre_v, reqdelay_v, temp_v, readord_v,
                             use_lama_v, force_cpu_v, two_pass_v,
+                            glossary_text_v, story_brief_v,
                             *tone_files):
             sid = (sid or sid_box_v or "").strip()
             sid = _find_active_sid(sid) or sid
@@ -2296,6 +2324,14 @@ def run_web():
                 cmd += ["--cpu"]
             if not two_pass_v:
                 cmd += ["--no-two-pass-ocr"]
+            glos_text = str(glossary_text_v or "").strip()
+            if glos_text:
+                glos_path = os.path.join(user_out_dir, "glossary_user.txt")
+                with open(glos_path, "w", encoding="utf-8") as _gf:
+                    _gf.write(glos_text + "\n")
+                cmd += ["--glossary", glos_path]
+            if not story_brief_v:
+                cmd += ["--no-brief"]
 
             t0 = time.time()
             with job["lock"]:
@@ -2344,7 +2380,8 @@ def run_web():
                     out_fmt, quality, font_upload,
                     workers, bubbles, timeout,
                     batchw, maxre, reqdelay, temp, readord,
-                    use_lama, force_cpu, two_pass] + tone_uploads,
+                    use_lama, force_cpu, two_pass,
+                    glossary_text, story_brief] + tone_uploads,
             outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state],
             concurrency_limit=8,
         )
