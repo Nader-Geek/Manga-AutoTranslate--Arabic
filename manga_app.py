@@ -1599,71 +1599,234 @@ def run_web():
                 for t in re.split(r"(\d+)", s)]
 
 
-    def build_reader_html(files):
+
+    def build_reader_html(files, standalone: bool = True):
+        
         import gradio as _gr
         gv = getattr(_gr, "__version__", "4")
         major = int(str(gv).split(".")[0] or 4)
         prefix = "/gradio_api/file=" if major >= 5 else "/file="
         urls = [prefix + str(p).replace(os.sep, "/") for p in files]
         if not urls:
-            return "<div style='text-align:center;opacity:.6;padding:24px'>تصویری برای نمایش پیدا نشد.</div>"
+            body = "<div style='text-align:center;opacity:.6;padding:24px'>تصویری برای نمایش پیدا نشد.</div>"
+            if not standalone:
+                return body
+            return (
+                "<!DOCTYPE html><html lang='fa' dir='rtl'><head><meta charset='utf-8'>"
+                "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                f"<title>خواندن</title></head><body style='background:#000;color:#999'>{body}</body></html>"
+            )
         imgs = "".join(
-            f'<img src="{u}" loading="lazy" decoding="async" alt="" '
-            'draggable="false" '
-            'style="display:block;width:100%;height:auto;margin:0;user-select:none;'
-            '-webkit-user-drag:none;pointer-events:none">'
-            for u in urls)
+            f'<img src="{u}" loading="lazy" decoding="async" alt="" draggable="false">'
+            for u in urls
+        )
         title = os.path.basename(os.path.dirname(files[0])) or "مانهوا"
         title_esc = (
             str(title).replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace('"', "&quot;")
         )
-        
-        
-        return (
-            '<style>'
-            '.rdr{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;'
-            'flex-direction:column;direction:ltr;font-family:inherit;touch-action:none;'
-            'overscroll-behavior:none;-webkit-user-select:none;user-select:none}'
-            '.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;'
-            'background:rgba(12,12,14,.96);border-bottom:1px solid #232326;flex:none;'
-            'backdrop-filter:blur(8px);z-index:2}'
-            '.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;'
-            'padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;'
-            'min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}'
-            '.rdr-btn:active{background:#2a2a30}'
-            '.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}'
-            '.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;'
-            'overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}'
-            '.rdrS{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;'
-            'touch-action:none;position:relative;background:#000}'
-            '.rdrC{margin:0 auto;max-width:min(100%,900px);width:100%;transition:none}'
-            '.rdrC img{display:block;width:100%;height:auto;max-width:none}'
-            '.rdr-progress{position:relative;height:3px;background:#1a1a1c;flex:none}'
-            '.rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}'
-            '.zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;'
-            'font-variant-numeric:tabular-nums}'
-            '@media (max-width:480px){'
-            '.rdr-bar{gap:4px;padding:6px 8px}'
-            '.rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}'
-            '.rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}'
-            '}'
-            '</style>'
-            f'<div class="rdr" id="manga_rdr" data-zoom="1">'
-            f'<div class="rdr-bar">'
-            f'<button type="button" class="rdr-btn" data-act="close" title="بستن">✕</button>'
-            f'<div class="rdr-title">{title_esc}</div>'
-            f'<button type="button" class="rdr-btn" data-act="zoom-out" title="دور">−</button>'
-            f'<span class="zlv">100%</span>'
-            f'<button type="button" class="rdr-btn" data-act="zoom-in" title="نزدیک">+</button>'
-            f'<button type="button" class="rdr-btn" data-act="zoom-fit" title="پهنای صفحه">پهنا</button>'
-            f'<button type="button" class="rdr-btn fs" data-act="fs" title="فول‌اسکرین مرورگر">⛶</button>'
-            f'</div>'
-            f'<div class="rdrS"><div class="rdrC">{imgs}</div></div>'
-            f'<div class="rdr-progress"><div class="rdrB"></div></div>'
-            f'</div>'
+        css = (
+            "*{box-sizing:border-box;margin:0;padding:0}"
+            "html,body{height:100%;background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans-serif;"
+            "overscroll-behavior:none;-webkit-user-select:none;user-select:none}"
+            ".rdr{position:fixed;inset:0;z-index:1;background:#000;display:flex;flex-direction:column;direction:ltr}"
+            ".rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;"
+            "background:rgba(12,12,14,.96);border-bottom:1px solid #232326;flex:none;backdrop-filter:blur(8px);z-index:2}"
+            ".rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;"
+            "padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;"
+            "min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}"
+            ".rdr-btn:active{background:#2a2a30}"
+            ".rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}"
+            ".rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;"
+            "overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}"
+            ".rdrS{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;"
+            "touch-action:pan-y;position:relative;background:#000}"
+            ".rdrC{margin:0 auto;max-width:min(100%,900px);width:100%}"
+            ".rdrC img{display:block;width:100%;height:auto;max-width:none;user-select:none;"
+            "-webkit-user-drag:none;pointer-events:none}"
+            ".rdr-progress{position:relative;height:3px;background:#1a1a1c;flex:none}"
+            ".rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}"
+            ".zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}"
+            "@media (max-width:480px){"
+            ".rdr-bar{gap:4px;padding:6px 8px}"
+            ".rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}"
+            ".rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}"
+            "}"
         )
+        js = r"""
+(function(){
+  const root = document.getElementById('manga_rdr');
+  if (!root) return;
+  const sc = root.querySelector('.rdrS');
+  const c = root.querySelector('.rdrC');
+  const bar = root.querySelector('.zlv');
+  const prog = root.querySelector('.rdrB');
+  if (!sc || !c) return;
+  let z = 1;
+  const MIN = 0.5, MAX = 4;
+  const baseWidth = () => Math.max(200, Math.min(900, sc.clientWidth || window.innerWidth || 360));
+  const applyZoom = (nz, cx, cy) => {
+    nz = Math.min(MAX, Math.max(MIN, +nz || 1));
+    const rect = sc.getBoundingClientRect();
+    const sx = (typeof cx === 'number') ? cx : (rect.left + rect.width / 2);
+    const sy = (typeof cy === 'number') ? cy : (rect.top + rect.height / 2);
+    const relX = (sc.scrollLeft + (sx - rect.left)) / Math.max(0.01, z);
+    const relY = (sc.scrollTop + (sy - rect.top)) / Math.max(0.01, z);
+    z = nz;
+    c.style.maxWidth = 'none';
+    c.style.width = Math.round(baseWidth() * z) + 'px';
+    c.style.marginLeft = 'auto';
+    c.style.marginRight = 'auto';
+    sc.scrollLeft = relX * z - (sx - rect.left);
+    sc.scrollTop = relY * z - (sy - rect.top);
+    if (bar) bar.textContent = Math.round(z * 100) + '%';
+    root.dataset.zoom = String(z);
+  };
+  const setZoom = (nz) => applyZoom(nz);
+  const zoomBy = (f, cx, cy) => applyZoom(z * f, cx, cy);
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn || !root.contains(btn)) return;
+    e.preventDefault();
+    const act = btn.getAttribute('data-act');
+    if (act === 'close') {
+      try {
+        const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+        if (isFs) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } catch (err) {}
+      try { window.close(); } catch (err) {}
+      try { if (history.length > 1) history.back(); } catch (err) {}
+      return;
+    }
+    if (act === 'zoom-in') zoomBy(1.25);
+    else if (act === 'zoom-out') zoomBy(0.8);
+    else if (act === 'zoom-fit') setZoom(1);
+    else if (act === 'fs') {
+      const isFs = document.fullscreenElement || document.webkitFullscreenElement
+                || document.mozFullScreenElement || document.msFullscreenElement;
+      if (isFs) {
+        (document.exitFullscreen || document.webkitExitFullscreen
+         || document.mozCancelFullScreen || document.msExitFullscreen).call(document);
+      } else {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen
+                 || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (req) {
+          try { req.call(el); } catch (err) {
+            try { req.call(root); } catch (err2) {}
+          }
+        }
+      }
+    }
+  });
+  sc.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
+  }, { passive: false });
+  sc.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    if (z > 1.3) setZoom(1);
+    else zoomBy(2.2, e.clientX, e.clientY);
+  });
+  let pinch = null, pan = null;
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+  sc.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      pinch = { startDist: dist(e.touches[0], e.touches[1]), startZ: z };
+      pan = null;
+    } else if (e.touches.length === 1) {
+      pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: sc.scrollLeft, st: sc.scrollTop };
+    }
+  }, { passive: false });
+  sc.addEventListener('touchmove', (e) => {
+    if (pinch && e.touches.length === 2) {
+      e.preventDefault();
+      const d = dist(e.touches[0], e.touches[1]);
+      const m = mid(e.touches[0], e.touches[1]);
+      applyZoom(pinch.startZ * (d / Math.max(1, pinch.startDist)), m.x, m.y);
+    } else if (pan && e.touches.length === 1 && z > 1.05) {
+      e.preventDefault();
+      const t = e.touches[0];
+      sc.scrollLeft = pan.sl - (t.clientX - pan.x);
+      sc.scrollTop = pan.st - (t.clientY - pan.y);
+    }
+  }, { passive: false });
+  sc.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) pinch = null;
+    if (e.touches.length === 0) pan = null;
+  });
+  sc.addEventListener('touchcancel', () => { pinch = null; pan = null; });
+  sc.addEventListener('scroll', () => {
+    if (!prog) return;
+    const m = sc.scrollHeight - sc.clientHeight;
+    prog.style.width = (m > 0 ? (sc.scrollTop / m * 100) : 0) + '%';
+  }, { passive: true });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      try {
+        const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+        if (isFs) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      } catch (err) {}
+      try { window.close(); } catch (err) {}
+    } else if (e.key === '+' || e.key === '=') zoomBy(1.15);
+    else if (e.key === '-' || e.key === '_') zoomBy(0.87);
+    else if (e.key === '0') setZoom(1);
+    else if (e.key === 'f' || e.key === 'F') {
+      const btn = root.querySelector('[data-act="fs"]');
+      if (btn) btn.click();
+    }
+  });
+  setZoom(1);
+})();
+"""
+        
+        js = js.replace("sl: sc.scrollLeft", "sl: sc.scrollLeft").replace("sl: sc.scrollLeft", "sl: sc.scrollLeft")
+        js = js.replace("sl: sc.scrollLeft", "sl: sc.scrollLeft")
+        js = js.replace("sl: sc.scrollLeft", "sl: sc.scrollLeft")
+        
+        js = js.replace("sl: sc.scrollLeft", "sl: sc.scrollLeft")
+        js = js.replace("sl: sc.scrollLeft", "sl: sc.scrollLeft")
+        js = js.replace("pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: sc.scrollLeft, st: sc.scrollTop };",
+                        "pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: sc.scrollLeft, st: sc.scrollTop };")
+        
+        js = js.replace("sl: sc.scrollLeft, st: sc.scrollTop", "sl: sc.scrollLeft, st: sc.scrollTop")
+        js = js.replace("sl: sc.scrollLeft", "sl: sc.scrollLeft")
+        
+        if "sc؛" in js:
+            js = js.replace("sc؛Left", "sc.scrollLeft")
+        pass
 
+        page = (
+            "<!DOCTYPE html>\n"
+            '<html lang="fa" dir="rtl">\n'
+            "<head>\n"
+            '<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">\n'
+            '<meta name="apple-mobile-web-app-capable" content="yes">\n'
+            f"<title>{title_esc}</title>\n"
+            f"<style>{css}</style>\n"
+            "</head>\n"
+            "<body>\n"
+            '<div class="rdr" id="manga_rdr" data-zoom="1">\n'
+            '  <div class="rdr-bar">\n'
+            '    <button type="button" class="rdr-btn" data-act="close" title="بستن">✕</button>\n'
+            f'    <div class="rdr-title">{title_esc}</div>\n'
+            '    <button type="button" class="rdr-btn" data-act="zoom-out" title="دور">−</button>\n'
+            '    <span class="zlv">100%</span>\n'
+            '    <button type="button" class="rdr-btn" data-act="zoom-in" title="نزدیک">+</button>\n'
+            '    <button type="button" class="rdr-btn" data-act="zoom-fit" title="پهنای صفحه">پهنا</button>\n'
+            '    <button type="button" class="rdr-btn fs" data-act="fs" title="فول‌اسکرین">⛶</button>\n'
+            "  </div>\n"
+            f'  <div class="rdrS"><div class="rdrC">{imgs}</div></div>\n'
+            '  <div class="rdr-progress"><div class="rdrB"></div></div>\n'
+            "</div>\n"
+            f"<script>\n{js}\n</script>\n"
+            "</body>\n</html>\n"
+        )
+        return page
 
     g6 = _gradio_major() >= 6
     blocks_kw = {} if g6 else {"theme": gr.themes.Soft(primary_hue="indigo",
@@ -1803,6 +1966,7 @@ def run_web():
                     "ts": time.time(),
                     "download_path": None,
                     "html_state": "",
+                    "reader_path": None,
                     "result_visible": False,
                     "running": False,
                     "returncode": None,
@@ -1876,13 +2040,14 @@ def run_web():
                     meta = {
                         "sid": sid,
                         "running": _job_running(job),
-                        "log": (job.get("log") or "")[-8000:],
+                        "log": (job.get("log") or "")[-24000:],
                         "ts": job.get("ts") or time.time(),
                         "download_path": job.get("download_path"),
                         "result_visible": bool(job.get("result_visible")),
                         "returncode": job.get("returncode"),
                         "out_v": job.get("out_v"),
                         "src": str(job.get("src") or "")[:500],
+                        "reader_path": job.get("reader_path"),
                     }
                 path = os.path.join(SESS_DIR, f"{sid}.json")
                 with open(path, "w", encoding="utf-8") as f:
@@ -1898,56 +2063,36 @@ def run_web():
             except Exception:
                 return {}
 
-        def _find_active_sid(preferred: str = "") -> str:
-            pref = (preferred or "").strip()
-            if pref:
-                job = live_jobs.get(pref)
-                if job and _job_running(job):
-                    return pref
-                if job and (job.get("log") or job.get("result_visible")):
-                    return pref
-                meta = _load_job_meta(pref)
-                if meta:
-                    return pref
-            best, best_ts = "", 0
-            for s, job in list(live_jobs.items()):
-                try:
-                    ts = float(job.get("ts") or 0)
-                    if _job_running(job) and ts >= best_ts:
-                        best, best_ts = s, ts
-                except Exception:
-                    pass
-            if best:
-                return best
 
-            try:
-                files = []
-                for name in os.listdir(SESS_DIR):
-                    if name.endswith(".json"):
-                        p = os.path.join(SESS_DIR, name)
-                        try:
-                            files.append((os.path.getmtime(p), name[:-5]))
-                        except Exception:
-                            pass
-                files.sort(reverse=True)
-                for _, s in files[:10]:
-                    meta = _load_job_meta(s)
-                    if meta.get("running") or meta.get("result_visible") or meta.get("log"):
-                        if s not in live_jobs:
-                            j = _get_job(s)
-                            with j["lock"]:
-                                j["log"] = meta.get("log") or j.get("log")
-                                j["download_path"] = meta.get("download_path")
-                                j["result_visible"] = bool(meta.get("result_visible"))
-                                j["ts"] = meta.get("ts") or time.time()
-                                j["out_v"] = meta.get("out_v")
-                                j["src"] = meta.get("src")
-                                if not _job_running(j):
-                                    j["running"] = False
-                        return s
-            except Exception:
-                pass
-            return pref or ""
+        def _find_active_sid(preferred: str = "") -> str:
+            
+            pref = (preferred or "").strip()
+            if not pref:
+                return ""
+            job = live_jobs.get(pref)
+            if job is not None:
+                return pref
+            meta = _load_job_meta(pref)
+            if meta:
+                j = _get_job(pref)
+                with j["lock"]:
+                    if meta.get("log"):
+                        j["log"] = meta.get("log")
+                    if meta.get("download_path"):
+                        j["download_path"] = meta.get("download_path")
+                    if meta.get("result_visible"):
+                        j["result_visible"] = True
+                    if meta.get("html_state"):
+                        j["html_state"] = meta.get("html_state")
+                    if meta.get("reader_path"):
+                        j["reader_path"] = meta.get("reader_path")
+                    j["ts"] = meta.get("ts") or time.time()
+                    j["out_v"] = meta.get("out_v")
+                    j["src"] = meta.get("src")
+                    if not _job_running(j):
+                        j["running"] = False
+                return pref
+            return pref
 
         def _finalize_job_success(sid: str) -> None:
             job = _get_job(sid)
@@ -1987,14 +2132,27 @@ def run_web():
             except Exception:
                 pass
             try:
-                reader_html = build_reader_html(imgs)
+                reader_html = build_reader_html(imgs, standalone=True)
             except Exception:
                 reader_html = ""
+            reader_path = None
+            try:
+                base_dir = out_v if os.path.isdir(out_v) else os.path.dirname(str(out_v))
+                if not base_dir or not os.path.isdir(base_dir):
+                    base_dir = os.path.join(OUT_DIR, sid[:12])
+                    os.makedirs(base_dir, exist_ok=True)
+                reader_path = os.path.join(base_dir, "reader.html")
+                with open(reader_path, "w", encoding="utf-8") as rf:
+                    rf.write(reader_html or "")
+            except Exception as e:
+                print(f"[!] ذخیره reader.html ناموفق: {e}")
+                reader_path = None
             final_log = "\n".join(buf[-120:]) + f"\n\n✅ تمام شد ({dur_s}) — دکمه‌های نمایش و دانلود پایین فعال شدند"
             with job["lock"]:
                 job["log"] = final_log
                 job["download_path"] = target
                 job["html_state"] = reader_html
+                job["reader_path"] = reader_path
                 job["result_visible"] = True
                 job["ts"] = time.time()
             _persist_job_meta(sid)
@@ -2052,7 +2210,8 @@ def run_web():
                                     job["log"] = _fmt(buf)
                                     job["ts"] = time.time()
                                 n += 1
-                                if n % 5 == 0:
+                                
+                                if n % 2 == 0:
                                     _persist_job_meta(sid)
                         elif ended:
                             break
@@ -2104,11 +2263,17 @@ def run_web():
                         buf = list(job.get("buf") or [])
                         job["log"] = _fmt(buf)
                         job["ts"] = time.time()
+                    try:
+                        _persist_job_meta(sid)
+                    except Exception:
+                        pass
                     time.sleep(1.0)
             threading.Thread(target=_heartbeat, daemon=True, name=f"manga-hb-{sid[:8]}").start()
 
         session_id = gr.State("")
         sid_box = gr.Textbox(value="", visible=False, elem_id="manga_sid", label="sid")
+        
+        sid_holder = gr.Textbox(value="", visible=False, elem_id="manga_sid_holder", label="sid_holder")
 
         run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
 
@@ -2127,6 +2292,7 @@ def run_web():
             viewer_html = gr.HTML(visible=False, elem_id="reader_wrap")
 
         LS_KEY = "manga_autotranslate_form_v2"
+        JOB_KEY = "manga_job_v1"
         browser_form_json = gr.State("")
 
         save_form_js = f"""
@@ -2172,11 +2338,83 @@ def run_web():
       data.sid = realSid;
       data.ts = Date.now();
       localStorage.setItem("{LS_KEY}", JSON.stringify(data));
+      try {{
+        let jraw = localStorage.getItem("{JOB_KEY}");
+        let job = jraw ? JSON.parse(jraw) : {{}};
+        job.sid = realSid;
+        job.ts = Date.now();
+        localStorage.setItem("{JOB_KEY}", JSON.stringify(job));
+      }} catch (e2) {{}}
     }}
   }} catch (e) {{}}
   return [];
 }}
 """
+        
+        save_job_js = f"""
+(sid, sidBox, btnLabel, logText) => {{
+  try {{
+    const JOB = "{JOB_KEY}";
+    let prev = {{}};
+    try {{ prev = JSON.parse(localStorage.getItem(JOB) || "{{}}"); }} catch (e) {{ prev = {{}}; }}
+    const realSid = (sid || sidBox || "").toString().trim();
+    const log = (logText || "").toString();
+    const btn = (btnLabel || "").toString();
+    const running = btn.indexOf("متوقف") >= 0 || btn.indexOf("⏹") >= 0;
+    const prevSid = (prev.sid || "").trim();
+    const prevLog = (prev.log || "").toString();
+    const prevRunning = !!prev.running;
+
+    if (prevRunning && prevSid && realSid && realSid !== prevSid) {{
+      return [];
+    }}
+    if ((!log || log.indexOf("— لاگ بعد") === 0) && prevLog && prevLog.indexOf("— لاگ بعد") !== 0) {{
+      return [];
+    }}
+    const done = (log || prevLog || "").indexOf("تمام شد") >= 0
+      || (log || prevLog || "").indexOf("✅") >= 0
+      || (log || prevLog || "").indexOf("موفق") >= 0;
+    if (prevRunning && !running && !done && prevLog && log && prevLog.length >= log.length) {{
+      if (log.length > prevLog.length + 10 && (!realSid || realSid === prevSid)) {{
+        prev.log = log;
+        prev.ts = Date.now();
+        localStorage.setItem(JOB, JSON.stringify(prev));
+      }}
+      return [];
+    }}
+
+    let keepLog = log;
+    if (prevLog && log && prevLog.length > log.length + 40) {{
+      keepLog = prevLog;
+    }}
+    if (prevLog && (!log || log.indexOf("— لاگ بعد") === 0)) {{
+      keepLog = prevLog;
+    }}
+
+    const job = {{
+      sid: realSid || prevSid || "",
+      log: keepLog || prevLog || "",
+      btn: (running || prevRunning) ? (running ? btn : (prev.btn || btn)) : (btn || prev.btn || ""),
+      running: running || (prevRunning && (!realSid || realSid === prevSid) && !btn),
+      ts: Date.now()
+    }};
+    const done2 = (keepLog || "").indexOf("تمام شد") >= 0
+      || (keepLog || "").indexOf("✅") >= 0;
+    if (done2) {{
+      job.running = false;
+      job.btn = "🚀  شروع ترجمه";
+    }} else if (!running && btn.indexOf("شروع") >= 0 && prevRunning && keepLog === prevLog) {{
+      job.running = true;
+      job.btn = prev.btn || "⏹  متوقف ترجمه";
+      job.sid = prevSid || job.sid;
+    }}
+    localStorage.setItem(JOB, JSON.stringify(job));
+    if (job.sid) localStorage.setItem("manga_sid", job.sid);
+  }} catch (e) {{}}
+  return [];
+}}
+"""
+
         load_form_js = f"""
 () => {{
   try {{
@@ -2188,87 +2426,246 @@ def run_web():
       }}
     }}
     const sidOnly = (localStorage.getItem("manga_sid") || "").trim();
+    let job = {{}};
+    try {{ job = JSON.parse(localStorage.getItem("{JOB_KEY}") || "{{}}"); }} catch (e) {{ job = {{}}; }}
+    const jobSid = (job.sid || "").trim();
+    const bestSid = sidOnly || jobSid || "";
+
     if (!raw) {{
-      if (sidOnly) return [JSON.stringify({{sid: sidOnly, ts: Date.now()}})];
+      if (bestSid) {{
+        return [JSON.stringify({{
+          sid: bestSid,
+          ts: Date.now(),
+          _jobLog: job.log || "",
+          _jobBtn: job.btn || "",
+          _jobRunning: !!job.running
+        }})];
+      }}
       return [""];
     }}
     const d = JSON.parse(raw);
     if (!d || !d.ts || (Date.now() - d.ts) > {SESSION_TTL * 1000}) {{
-      if (sidOnly) return [JSON.stringify({{sid: sidOnly, ts: Date.now()}})];
+      if (bestSid) {{
+        return [JSON.stringify({{
+          sid: bestSid,
+          ts: Date.now(),
+          _jobLog: job.log || "",
+          _jobBtn: job.btn || "",
+          _jobRunning: !!job.running,
+          keys: d && d.keys ? d.keys : undefined,
+          prov: d && d.prov ? d.prov : undefined,
+        }})];
+      }}
       try {{ localStorage.removeItem("{LS_KEY}"); }} catch (e) {{}}
       return [""];
     }}
-    if (sidOnly && !d.sid) d.sid = sidOnly;
-    if (sidOnly) d.sid = sidOnly;
+    if (bestSid) d.sid = bestSid;
+    d._jobLog = job.log || "";
+    d._jobBtn = job.btn || "";
+    d._jobRunning = !!job.running;
     return [JSON.stringify(d)];
   }} catch (e) {{
     return [""];
   }}
 }}
 """
+
         client_restore_js = f"""
 () => {{
   const KEY = "{LS_KEY}";
+  const JOB = "{JOB_KEY}";
   const TTL = {SESSION_TTL * 1000};
+
   const setVal = (el, val) => {{
     if (!el || val === undefined || val === null) return;
     const s = String(val);
-    const proto = window.HTMLInputElement && window.HTMLInputElement.prototype;
-    const nativeSet = proto && Object.getOwnPropertyDescriptor(proto, "value")
-      ? Object.getOwnPropertyDescriptor(proto, "value").set
-      : null;
-    if (nativeSet) nativeSet.call(el, s);
-    else el.value = s;
+    try {{
+      const proto = el.tagName === "TEXTAREA"
+        ? (window.HTMLTextAreaElement && window.HTMLTextAreaElement.prototype)
+        : (window.HTMLInputElement && window.HTMLInputElement.prototype);
+      const desc = proto && Object.getOwnPropertyDescriptor(proto, "value");
+      if (desc && desc.set) desc.set.call(el, s);
+      else el.value = s;
+    }} catch (e) {{ el.value = s; }}
     el.dispatchEvent(new Event("input", {{ bubbles: true }}));
     el.dispatchEvent(new Event("change", {{ bubbles: true }}));
   }};
-  const findByLabel = (substr) => {{
-    const labels = Array.from(document.querySelectorAll("label, span, p, div"));
-    for (const lb of labels) {{
-      const t = (lb.textContent || "").trim();
-      if (!t || t.indexOf(substr) < 0) continue;
-      let root = lb.closest(".block, .form, .gr-group, .gr-box, [class*='form']") || lb.parentElement;
-      if (!root) root = lb;
-      const inp = root.querySelector("input, textarea, select");
-      if (inp) return inp;
-    }}
-    return null;
+
+  const findLogEl = () => {{
+    return document.querySelector("#manga_live_log textarea")
+      || document.querySelector('[id*="manga_live_log"] textarea')
+      || (() => {{
+          const areas = Array.from(document.querySelectorAll("textarea"));
+          return areas.sort((a,b) => (b.rows||0)-(a.rows||0))[0] || null;
+        }})();
   }};
+
+  const findSidEl = () => {{
+    return document.querySelector("#manga_sid textarea")
+      || document.querySelector("#manga_sid input")
+      || document.querySelector('[id*="manga_sid"] textarea')
+      || document.querySelector('[id*="manga_sid"] input');
+  }};
+
   const apply = () => {{
     try {{
+      let job = {{}};
+      try {{ job = JSON.parse(localStorage.getItem(JOB) || "{{}}"); }} catch (e) {{ job = {{}}; }}
+      const sidOnly = (localStorage.getItem("manga_sid") || job.sid || "").trim();
+      const jobLog = (job.log || "").toString();
+
+      if (sidOnly) {{
+        const sidEl = findSidEl();
+        if (sidEl) setVal(sidEl, sidOnly);
+      }}
+
+      const jobDone = (jobLog || "").indexOf("تمام شد") >= 0 || (jobLog || "").indexOf("✅") >= 0;
+      if (jobDone) {{
+        const forceStart = () => {{
+          const roots = [document.getElementById("runbtn"), ...Array.from(document.querySelectorAll("button"))];
+          for (const r of roots) {{
+            if (!r) continue;
+            const el = r.tagName === "BUTTON" ? r : (r.querySelector && r.querySelector("button"));
+            if (!el) continue;
+            const t = (el.textContent || "");
+            if (t.indexOf("متوقف") >= 0 || t.indexOf("⏹") >= 0) {{
+              el.textContent = "🚀  شروع ترجمه";
+            }}
+          }}
+        }};
+        forceStart();
+        setTimeout(forceStart, 500);
+        setTimeout(forceStart, 1500);
+        try {{
+          job.running = false;
+          job.btn = "🚀  شروع ترجمه";
+          localStorage.setItem(JOB, JSON.stringify(job));
+        }} catch (e) {{}}
+      }}
+      if (job.running && !jobDone) {{
+        const forceBtn = () => {{
+          const roots = [
+            document.getElementById("runbtn"),
+            ...Array.from(document.querySelectorAll("button")),
+          ];
+          for (const r of roots) {{
+            if (!r) continue;
+            const b = r.tagName === "BUTTON" ? r : r.querySelector("button");
+            const el = b || (r.tagName === "BUTTON" ? r : null);
+            if (!el) continue;
+            const t = (el.textContent || "");
+            if (t.indexOf("شروع") >= 0 || t.indexOf("🚀") >= 0 || t.indexOf("متوقف") >= 0 || t.indexOf("⏹") >= 0) {{
+              el.textContent = "⏹  متوقف ترجمه";
+            }}
+          }}
+        }};
+        forceBtn();
+        setTimeout(forceBtn, 400);
+        setTimeout(forceBtn, 1200);
+        setTimeout(forceBtn, 2500);
+      }}
+
+      if (jobLog && jobLog.indexOf("— لاگ بعد") !== 0) {{
+        const logEl = findLogEl();
+        if (logEl) {{
+          const cur = (logEl.value || "").trim();
+          if (!cur || cur.indexOf("— لاگ بعد") === 0 || jobLog.length >= cur.length) {{
+            setVal(logEl, jobLog);
+            try {{ logEl.scrollTop = logEl.scrollHeight; }} catch (e) {{}}
+          }}
+        }}
+      }}
+
       let raw = localStorage.getItem(KEY) || localStorage.getItem("manga_autotranslate_form_v1");
-      if (!raw) return;
-      const d = JSON.parse(raw);
-      if (!d || !d.ts || (Date.now() - d.ts) > TTL) return;
-      const byId = (id) => {{
-        const root = document.getElementById(id);
-        if (!root) return null;
-        return root.querySelector("input, textarea, select") || root;
-      }};
-      if (d.keys) {{
-        const k = byId("manga_api_keys")
-          || findByLabel("کلید")
-          || findByLabel("API")
-          || document.querySelector('input[type="password"]');
-        setVal(k, d.keys);
+      if (raw) {{
+        const d = JSON.parse(raw);
+        if (d && d.ts && (Date.now() - d.ts) <= TTL) {{
+          const byId = (id) => {{
+            const root = document.getElementById(id);
+            if (!root) return null;
+            return root.querySelector("input, textarea, select") || root;
+          }};
+          if (d.keys) {{
+            const k = byId("manga_api_keys") || document.querySelector('input[type="password"]');
+            if (k) setVal(k, d.keys);
+          }}
+          if (d.model) {{
+            const m = byId("manga_model");
+            if (m) setVal(m, d.model);
+          }}
+        }}
       }}
-      if (d.model) {{
-        setVal(byId("manga_model") || findByLabel("مدل"), d.model);
-      }}
-      if (d.inp) setVal(findByLabel("URL"), d.inp);
-      if (d.prov) {{
-        const el = findByLabel("ارائه‌دهنده");
-        if (el) setVal(el, d.prov);
-      }}
+    }} catch (e) {{ console.warn("manga restore", e); }}
+  }};
+
+  apply();
+  [100, 300, 600, 1000, 2000, 3500, 5000].forEach((t) => setTimeout(apply, t));
+
+  try {{
+    const saveFromDom = () => {{
+      try {{
+        const logEl = findLogEl();
+        if (!logEl) return;
+        const log = logEl.value || "";
+        if (!log || log.indexOf("— لاگ بعد") === 0) return;
+        let job = {{}};
+        try {{ job = JSON.parse(localStorage.getItem(JOB) || "{{}}"); }} catch (e) {{ job = {{}}; }}
+        if (job.running && job.sid && job.log && job.log.length > log.length + 30) return;
+        if (job.running && job.log && (!log || log.indexOf("— لاگ بعد") === 0)) return;
+        const sidLs = (localStorage.getItem("manga_sid") || "").trim();
+        const sid = (job.running && job.sid) ? job.sid : (sidLs || job.sid || "");
+        const runRoot = document.getElementById("runbtn");
+        const btn = runRoot ? (runRoot.querySelector("button") || runRoot) : null;
+        const btnT = btn ? (btn.textContent || "") : "";
+        const runningNow = btnT.indexOf("متوقف") >= 0 || btnT.indexOf("⏹") >= 0;
+        if (job.running && !runningNow && job.log && log.length <= job.log.length + 5) {{
+          return;
+        }}
+        if (job.log && job.log.length > log.length + 50) return;
+        job.sid = sid;
+        job.log = (job.log && job.log.length > log.length) ? job.log : log;
+        job.ts = Date.now();
+        if (btnT) {{
+          job.btn = btnT;
+          job.running = runningNow || !!job.running;
+        }}
+        localStorage.setItem(JOB, JSON.stringify(job));
+        if (sid) localStorage.setItem("manga_sid", sid);
+      }} catch (e) {{}}
+    }};
+    const obs = new MutationObserver(() => saveFromDom());
+    const startObs = () => {{
+      const root = document.getElementById("manga_live_log") || document.body;
+      if (root) obs.observe(root, {{ childList: true, subtree: true, characterData: true }});
+    }};
+    startObs();
+    setTimeout(startObs, 800);
+    setInterval(saveFromDom, 2000);
+  }} catch (e) {{}}
+
+  const syncSidHolder = () => {{
+    try {{
+      let job = {{}};
+      try {{ job = JSON.parse(localStorage.getItem(JOB) || "{{}}"); }} catch (e) {{ job = {{}}; }}
+      const sid = (localStorage.getItem("manga_sid") || job.sid || "").trim();
+      if (!sid) return;
+      const el = document.querySelector("#manga_sid_holder textarea")
+        || document.querySelector("#manga_sid_holder input")
+        || document.querySelector('[id*="manga_sid_holder"] textarea')
+        || document.querySelector('[id*="manga_sid_holder"] input');
+      if (!el) return;
+      if ((el.value || "").trim() === sid) return;
+      setVal(el, sid);
     }} catch (e) {{}}
   }};
-  apply();
-  setTimeout(apply, 200);
-  setTimeout(apply, 600);
-  setTimeout(apply, 1200);
+  syncSidHolder();
+  setInterval(syncSidHolder, 1000);
+  [200, 500, 1000, 2000, 4000].forEach((t) => setTimeout(syncSidHolder, t));
+
   return [];
 }}
 """
+
 
         def run_translation(sid, sid_box_v, inp_path_v, upload, provider_v, api_keys_v, model_v,
                             out_fmt_v, quality_v, font_up,
@@ -2394,7 +2791,7 @@ def run_web():
                 job["proc"] = proc
                 job["running"] = True
                 job["ts"] = time.time()
-                job["log"] = "⏱ 0:00\n\n▶ شروع شد — لاگ زنده به‌زودی…"
+                job["log"] = "⏱ 0:00\n\n▶ شروع شد — لاگ زنده به‌زودی…\n(اگر صفحه را رفرش کنید لاگ از همین جلسه برمی‌گردد)"
             _persist_job_meta(sid)
             _start_job_reader(sid, proc, t0)
 
@@ -2429,6 +2826,16 @@ def run_web():
         except Exception:
             pass
         try:
+            
+            run_btn.click(
+                fn=None,
+                inputs=[session_id, sid_box, run_btn, log_box],
+                outputs=[],
+                js=save_job_js,
+            )
+        except Exception:
+            pass
+        try:
             sid_box.change(fn=None, inputs=[session_id, sid_box], outputs=[], js=save_sid_js)
         except Exception:
             pass
@@ -2457,26 +2864,74 @@ def run_web():
                     data = {}
 
             preferred = (data.get("sid") or "").strip()
-            sid = _find_active_sid(preferred) or preferred or _new_sid()
+            
+            if preferred:
+                sid = _find_active_sid(preferred) or preferred
+            else:
+                sid = ""
+            if not sid:
+                return (
+                    gr.update(), gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update(), gr.update(), gr.update(), gr.update(),
+                    gr.update(), gr.update(), gr.update(),
+                )
             job = _get_job(sid)
-            if not (job.get("log") and job.get("log") != "— لاگ بعد از شروع ترجمه اینجا می‌آید —"):
-                meta = _load_job_meta(sid)
-                if meta.get("log"):
-                    with job["lock"]:
-                        job["log"] = meta.get("log")
-                        if meta.get("download_path"):
-                            job["download_path"] = meta.get("download_path")
-                        if meta.get("result_visible"):
-                            job["result_visible"] = True
-                        if meta.get("html_state"):
-                            job["html_state"] = meta.get("html_state")
+            meta = _load_job_meta(sid) if sid else {}
+            
+            
+            client_log = (data.get("_jobLog") or "").strip()
+            client_running = bool(data.get("_jobRunning"))
+            client_btn = (data.get("_jobBtn") or "").strip()
+
             with job["lock"]:
+                mem_log = job.get("log") or ""
+                meta_log = meta.get("log") or ""
+                default_log = "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
+
+                candidates = []
+                if mem_log and mem_log != default_log and not mem_log.startswith("—"):
+                    candidates.append(mem_log)
+                if meta_log and meta_log != default_log:
+                    candidates.append(meta_log)
+                if client_log and client_log != default_log and not client_log.startswith("—"):
+                    candidates.append(client_log)
+
+                if candidates:
+                    
+                    job["log"] = max(candidates, key=len)
+
+                if meta.get("download_path") and not job.get("download_path"):
+                    job["download_path"] = meta.get("download_path")
+                if meta.get("result_visible"):
+                    job["result_visible"] = True
+                if meta.get("html_state") and not job.get("html_state"):
+                    job["html_state"] = meta.get("html_state")
+                if meta.get("reader_path") and not job.get("reader_path"):
+                    job["reader_path"] = meta.get("reader_path")
+                if meta.get("out_v") and not job.get("out_v"):
+                    job["out_v"] = meta.get("out_v")
                 still_running = _job_running(job)
-                log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
+                if not still_running and (meta.get("running") or client_running):
+                    
+                    if still_running is False and meta.get("running"):
+                        cur = job.get("log") or ""
+                        if "اتصال به جلسه قطع شد" not in cur:
+                            job["log"] = (cur or client_log or meta_log or "") + (
+                                "\n\n⚠ اتصال به پروسه روی سرور قطع است. "
+                                "اگر ترجمه تمام شده از خروجی استفاده کنید؛ وگرنه دوباره Start بزنید."
+                            )
+                log = job.get("log") or client_log or default_log
                 vis = bool(job.get("result_visible"))
                 dl = job.get("download_path")
                 html = job.get("html_state") or ""
-            btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
+            
+            if still_running or client_running:
+                btn = "⏹  متوقف ترجمه"
+            else:
+                btn = "🚀  شروع ترجمه"
 
             def u_str(key):
                 if key not in data:
@@ -2569,21 +3024,36 @@ def run_web():
         try:
             def _on_load_fallback(sid, sid_box_v):
                 preferred = (sid or sid_box_v or "").strip()
-                sid = _find_active_sid(preferred) or preferred or _new_sid()
+                if not preferred:
+                    return (gr.update(), gr.update(), gr.update(), gr.update(),
+                            gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+                sid = _find_active_sid(preferred) or preferred
                 job = _get_job(sid)
                 meta = _load_job_meta(sid)
                 with job["lock"]:
-                    if meta.get("log") and (not job.get("log") or job.get("log").startswith("—")):
-                        job["log"] = meta.get("log")
+                    mem_log = job.get("log") or ""
+                    meta_log = meta.get("log") or ""
+                    if (not mem_log or mem_log.startswith("—")) and meta_log:
+                        job["log"] = meta_log
+                    elif meta_log and len(meta_log) > len(mem_log):
+                        job["log"] = meta_log
                     if meta.get("download_path"):
                         job["download_path"] = meta.get("download_path")
                     if meta.get("result_visible"):
                         job["result_visible"] = True
+                    if meta.get("reader_path"):
+                        job["reader_path"] = meta.get("reader_path")
                     still_running = _job_running(job)
-                    log = job.get("log") or "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
+                    log = job.get("log") or ""
                     vis = bool(job.get("result_visible"))
                     dl = job.get("download_path")
                     html = job.get("html_state") or ""
+                if not log or log.startswith("—"):
+                    return (
+                        sid, gr.update(value=sid),
+                        gr.update(), gr.update(), gr.update(),
+                        gr.update(), gr.update(), gr.update(), gr.update(),
+                    )
                 btn = "⏹  متوقف ترجمه" if still_running else "🚀  شروع ترجمه"
                 return (
                     sid,
@@ -2596,6 +3066,7 @@ def run_web():
                     gr.update(visible=False),
                     html if vis else gr.update(),
                 )
+
             demo.load(
                 _on_load_fallback,
                 inputs=[session_id, sid_box],
@@ -2607,39 +3078,59 @@ def run_web():
         def _poll_job_status(sid, sid_box_v):
             preferred = (sid or sid_box_v or "").strip()
             sid = _find_active_sid(preferred) or preferred
+            empty = (gr.update(),) * 10
             if not sid:
-                return (gr.update(), gr.update(), gr.update(), gr.update(),
-                        gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+                return empty
             job = _get_job(sid)
             meta = _load_job_meta(sid)
             with job["lock"]:
-                if meta.get("log") and len(meta.get("log") or "") > len(job.get("log") or ""):
-                    job["log"] = meta.get("log")
+                mem_log = job.get("log") or ""
+                meta_log = meta.get("log") or ""
+                if meta_log and (len(meta_log) > len(mem_log) or not mem_log or mem_log.startswith("—")):
+                    job["log"] = meta_log
                 if meta.get("result_visible") and not job.get("result_visible"):
                     job["result_visible"] = True
-                    job["download_path"] = meta.get("download_path") or job.get("download_path")
+                if meta.get("download_path") and not job.get("download_path"):
+                    job["download_path"] = meta.get("download_path")
+                if meta.get("reader_path") and not job.get("reader_path"):
+                    job["reader_path"] = meta.get("reader_path")
                 running = _job_running(job)
                 log = job.get("log") or ""
                 vis = bool(job.get("result_visible"))
                 dl = job.get("download_path")
-                html = job.get("html_state") or ""
             btn = "⏹  متوقف ترجمه" if running else "🚀  شروع ترجمه"
             return (
                 sid,
                 gr.update(value=sid),
+                gr.update(value=sid),  
                 gr.update(value=btn),
                 gr.update(value=log) if log else gr.update(),
                 gr.update(value=dl, visible=vis) if vis else gr.update(),
                 gr.update(visible=vis),
                 gr.update(visible=vis),
-                gr.update(visible=False),
-                html if vis else gr.update(),
+                gr.update(),
+                gr.update(),
             )
 
-        _poll_outputs = [session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state]
+
+        _poll_outputs = [session_id, sid_box, sid_holder, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state]
         try:
-            _timer = gr.Timer(1.2, active=True)
-            _timer.tick(_poll_job_status, inputs=[session_id, sid_box], outputs=_poll_outputs)
+            _timer = gr.Timer(1.0, active=True)
+            _tick_evt = _timer.tick(
+                _poll_job_status,
+                inputs=[sid_holder, sid_box],
+                outputs=_poll_outputs,
+            )
+            try:
+                
+                _tick_evt.then(
+                    fn=None,
+                    inputs=[session_id, sid_box, run_btn, log_box],
+                    outputs=[],
+                    js=save_job_js,
+                )
+            except Exception:
+                pass
         except Exception:
             try:
                 demo.load(_poll_job_status, inputs=[session_id, sid_box], outputs=_poll_outputs)
@@ -2701,192 +3192,190 @@ def run_web():
                     pass
                 time.sleep(60)
 
+
+        def _sid_box_sync(sid_v, sid_box_v):
+            preferred = (sid_v or sid_box_v or "").strip()
+            if not preferred:
+                return (gr.update(), gr.update(), gr.update(), gr.update(),
+                        gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+            return _poll_job_status(preferred, preferred)
+
+        try:
+            sid_box.change(
+                _sid_box_sync,
+                inputs=[session_id, sid_box],
+                outputs=_poll_outputs,
+            )
+        except Exception:
+            pass
+
+        
+        _direct_restore_js = f"""
+() => {{
+  try {{
+    const job = JSON.parse(localStorage.getItem("{JOB_KEY}") || "{{}}");
+    const sid = (localStorage.getItem("manga_sid") || job.sid || "").trim();
+    const log = (job.log || "").toString();
+    const running = !!job.running;
+    const btn = running ? "⏹  متوقف ترجمه" : "🚀  شروع ترجمه";
+    return [sid, sid, sid, btn, log];
+  }} catch (e) {{
+    return ["", "", "", "🚀  شروع ترجمه", ""];
+  }}
+}}
+"""
+
+        def _apply_direct_restore(sid, sid2, btn, log):
+            sid = (sid or sid2 or "").strip()
+            log = (log or "").strip()
+            btn = (btn or "").strip() or "🚀  شروع ترجمه"
+            if not sid and not log:
+                return gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
+            server_log = ""
+            still = False
+            if sid:
+                job = _get_job(sid)
+                meta = _load_job_meta(sid)
+                with job["lock"]:
+                    if meta.get("log") and (
+                        not job.get("log")
+                        or len(meta.get("log") or "") > len(job.get("log") or "")
+                    ):
+                        job["log"] = meta["log"]
+                    still = _job_running(job)
+                    server_log = job.get("log") or ""
+            client_wants_run = ("متوقف" in btn) or ("⏹" in btn)
+            if still:
+                btn = "⏹  متوقف ترجمه"
+            elif client_wants_run and not still:
+                
+                if server_log or log:
+                    tail = "\n\n⚠ بعد از رفرش اتصال به پروسه قطع شد. اگر کار تمام نشده دوباره Start بزنید."
+                    base = server_log if len(server_log) >= len(log) else log
+                    if "اتصال به پروسه قطع شد" not in base:
+                        log = base + tail
+                    else:
+                        log = base
+                btn = "🚀  شروع ترجمه"
+            final_log = server_log if (server_log and len(server_log) >= len(log or "")) else (log or server_log)
+            return (
+                sid if sid else gr.update(),
+                gr.update(value=sid) if sid else gr.update(),
+                gr.update(value=sid) if sid else gr.update(),  
+                gr.update(value=btn),
+                gr.update(value=final_log) if final_log else gr.update(),
+            )
+
+        
+        try:
+            demo.load(
+                fn=None,
+                js=_direct_restore_js,
+                outputs=[session_id, sid_box, sid_holder, run_btn, log_box],
+            )
+        except Exception:
+            try:
+                demo.load(
+                    _apply_direct_restore,
+                    inputs=None,
+                    outputs=[session_id, sid_box, sid_holder, run_btn, log_box],
+                    js=_direct_restore_js,
+                )
+            except Exception:
+                pass
+
+        
+        def _hydrate_after_js(sid, holder):
+            preferred = (sid or holder or "").strip()
+            if not preferred:
+                return (gr.update(),) * 10
+            return _poll_job_status(preferred, preferred)
+
+        try:
+            demo.load(
+                _hydrate_after_js,
+                inputs=[sid_holder, sid_box],
+                outputs=_poll_outputs,
+            )
+        except Exception:
+            pass
+
         threading.Thread(target=_cleanup_old_jobs, daemon=True).start()
 
-        def _open_viewer(st):
-            st = st or ""
-            if not st.strip():
-                return gr.update(value=st, visible=True)
+
+        def _reader_file_url(path: str) -> str:
+            if not path or not os.path.isfile(path):
+                return ""
+            import gradio as _gr
+            gv = getattr(_gr, "__version__", "4")
+            major = int(str(gv).split(".")[0] or 4)
+            prefix = "/gradio_api/file=" if major >= 5 else "/file="
+            return prefix + str(path).replace(os.sep, "/")
+
+        def _open_viewer(sid, sid_box_v, st):
             
-            return gr.update(value=st + f"<!--v{time.time():.6f}-->", visible=True)
+            preferred = (sid or sid_box_v or "").strip()
+            sid = _find_active_sid(preferred) or preferred
+            job = _get_job(sid) if sid else None
+            path = ""
+            if job:
+                with job["lock"]:
+                    path = job.get("reader_path") or ""
+            if not path or not os.path.isfile(path):
+                html = st or ""
+                if job and not html:
+                    with job["lock"]:
+                        html = job.get("html_state") or ""
+                if html and "<html" in html.lower():
+                    try:
+                        base = os.path.join(OUT_DIR, (sid or "tmp")[:12])
+                        os.makedirs(base, exist_ok=True)
+                        path = os.path.join(base, "reader.html")
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.write(html)
+                        if job:
+                            with job["lock"]:
+                                job["reader_path"] = path
+                    except Exception:
+                        path = ""
+            url = _reader_file_url(path)
+            return gr.update(visible=False), (st if st is not None else gr.update()), url
 
-        view_js = """
-() => {
-  const bind = () => {
-    const root = document.getElementById('manga_rdr') || document.querySelector('.rdr');
-    if (!root || root._bound) return !!root;
-    root._bound = true;
-    const sc = root.querySelector('.rdrS');
-    const c = root.querySelector('.rdrC');
-    const bar = root.querySelector('.zlv');
-    const prog = root.querySelector('.rdrB');
-    if (!sc || !c) return false;
-    let z = 1;
-    const MIN = 0.5, MAX = 4;
+        reader_url_box = gr.Textbox(value="", visible=False, elem_id="manga_reader_url")
 
-    const baseWidth = () => Math.max(200, Math.min(900, sc.clientWidth || window.innerWidth || 360));
-    const applyZoom = (nz, cx, cy) => {
-      nz = Math.min(MAX, Math.max(MIN, +nz || 1));
-      const rect = sc.getBoundingClientRect();
-      const sx = (typeof cx === 'number') ? cx : (rect.left + rect.width / 2);
-      const sy = (typeof cy === 'number') ? cy : (rect.top + rect.height / 2);
-      const relX = (sc.scrollLeft + (sx - rect.left)) / Math.max(0.01, z);
-      const relY = (sc.scrollTop + (sy - rect.top)) / Math.max(0.01, z);
-      z = nz;
-      c.style.maxWidth = 'none';
-      c.style.width = Math.round(baseWidth() * z) + 'px';
-      c.style.marginLeft = 'auto';
-      c.style.marginRight = 'auto';
-      c.style.transform = 'none';
-      sc.scrollLeft = relX * z - (sx - rect.left);
-      sc.scrollTop = relY * z - (sy - rect.top);
-      if (bar) bar.textContent = Math.round(z * 100) + '%';
-      root.dataset.zoom = String(z);
-    };
-    const setZoom = (nz) => applyZoom(nz);
-    const zoomBy = (f, cx, cy) => applyZoom(z * f, cx, cy);
-
-    root.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-act]');
-      if (!btn || !root.contains(btn)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const act = btn.getAttribute('data-act');
-      if (act === 'close') {
-        try {
-          const isFs = document.fullscreenElement || document.webkitFullscreenElement;
-          if (isFs) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-        } catch (err) {}
-        root.remove();
-        try { document.body.style.overflow = ''; } catch (err) {}
-        return;
-      }
-      if (act === 'zoom-in') zoomBy(1.25);
-      else if (act === 'zoom-out') zoomBy(0.8);
-      else if (act === 'zoom-fit') setZoom(1);
-      else if (act === 'fs') {
-        const isFs = document.fullscreenElement || document.webkitFullscreenElement
-                  || document.mozFullScreenElement || document.msFullscreenElement;
-        if (isFs) {
-          (document.exitFullscreen || document.webkitExitFullscreen
-           || document.mozCancelFullScreen || document.msExitFullscreen).call(document);
-        } else {
-          const req = root.requestFullscreen || root.webkitRequestFullscreen
-                   || root.mozRequestFullScreen || root.msRequestFullscreen;
-          if (req) req.call(root).catch(() => {});
-        }
-      }
-    });
-
-    sc.addEventListener('wheel', (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      e.stopPropagation();
-      zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
-    }, { passive: false });
-
-    let lastTap = 0;
-    sc.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      if (z > 1.3) setZoom(1);
-      else zoomBy(2.2, e.clientX, e.clientY);
-    });
-
-    let pinch = null, pan = null;
-    const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
-
-    sc.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        pinch = { startDist: dist(e.touches[0], e.touches[1]), startZ: z };
-        pan = null;
-      } else if (e.touches.length === 1) {
-        pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: sc.scrollLeft, st: sc.scrollTop };
-        const now = Date.now();
-        if (now - lastTap < 280) {
-          e.preventDefault();
-          const t = e.touches[0];
-          if (z > 1.3) setZoom(1);
-          else zoomBy(2.2, t.clientX, t.clientY);
-          lastTap = 0;
-          pan = null;
-        } else lastTap = now;
-      }
-    }, { passive: false });
-
-    sc.addEventListener('touchmove', (e) => {
-      if (pinch && e.touches.length === 2) {
-        e.preventDefault();
-        const d = dist(e.touches[0], e.touches[1]);
-        const m = mid(e.touches[0], e.touches[1]);
-        applyZoom(pinch.startZ * (d / Math.max(1, pinch.startDist)), m.x, m.y);
-      } else if (pan && e.touches.length === 1) {
-        e.preventDefault();
-        const t = e.touches[0];
-        sc.scrollLeft = pan.sl - (t.clientX - pan.x);
-        sc.scrollTop = pan.st - (t.clientY - pan.y);
-      }
-    }, { passive: false });
-
-    sc.addEventListener('touchend', (e) => {
-      if (e.touches.length < 2) pinch = null;
-      if (e.touches.length === 0) pan = null;
-    });
-    sc.addEventListener('touchcancel', () => { pinch = null; pan = null; });
-
-    sc.addEventListener('scroll', () => {
-      if (!prog) return;
-      const m = sc.scrollHeight - sc.clientHeight;
-      prog.style.width = (m > 0 ? (sc.scrollTop / m * 100) : 0) + '%';
-    }, { passive: true });
-
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        try {
-          const isFs = document.fullscreenElement || document.webkitFullscreenElement;
-          if (isFs) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
-        } catch (err) {}
-        root.remove();
-        document.removeEventListener('keydown', onKey);
-        try { document.body.style.overflow = ''; } catch (err) {}
-      } else if (e.key === '+' || e.key === '=') zoomBy(1.15);
-      else if (e.key === '-' || e.key === '_') zoomBy(0.87);
-      else if (e.key === '0') setZoom(1);
-    };
-    document.addEventListener('keydown', onKey);
-    try { document.body.style.overflow = 'hidden'; } catch (err) {}
-
-    const obs = new MutationObserver(() => {
-      if (!document.body.contains(root)) {
-        try { document.body.style.overflow = ''; } catch (err) {}
-        document.removeEventListener('keydown', onKey);
-        obs.disconnect();
-      }
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-    setZoom(1);
-    return true;
-  };
-
-  let n = 0;
-  const tick = () => {
-    if (bind() || n > 40) return;
-    n += 1;
-    setTimeout(tick, 50);
-  };
-  setTimeout(tick, 30);
+        open_reader_js = """
+(sid, sidBox, htmlSt, url) => {
+  const u = (url || "").toString().trim();
+  if (!u) {
+    alert("صفحهٔ خواندن هنوز آماده نیست.");
+    return [];
+  }
+  const w = window.open(u, "_blank");
+  if (!w) {
+    window.location.href = u;
+  }
   return [];
 }
 """
+
         try:
-            btn_view.click(fn=_open_viewer,
-                           inputs=[html_state], outputs=[viewer_html],
-                           js=view_js)
+            btn_view.click(
+                fn=_open_viewer,
+                inputs=[session_id, sid_box, html_state],
+                outputs=[viewer_html, html_state, reader_url_box],
+            ).then(
+                fn=None,
+                inputs=[session_id, sid_box, html_state, reader_url_box],
+                outputs=[],
+                js=open_reader_js,
+            )
         except Exception:
             try:
-                btn_view.click(fn=_open_viewer,
-                               inputs=[html_state], outputs=[viewer_html])
+                btn_view.click(
+                    fn=_open_viewer,
+                    inputs=[session_id, sid_box, html_state],
+                    outputs=[viewer_html, html_state, reader_url_box],
+                )
             except Exception:
                 pass
 
@@ -2922,7 +3411,6 @@ def run_web():
     try {
       const root = document.getElementById('manga_rdr') || document.querySelector('.rdr');
       if (!root || root._bound) return;
-      // اگر view_js قبلاً بایند کرده باشد _bound ست است؛ وگرنه رویداد کلیک نمایش دوباره bind می‌کند
     } catch (e) {}
   };
   try {
