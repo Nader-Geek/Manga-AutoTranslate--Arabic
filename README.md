@@ -1,24 +1,22 @@
-
-
 # مترجم خودکار مانگا / مانهوا (فارسی)
-
-
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/amirwolf5122/Manga-AutoTranslate/blob/main/Manga_Translator_Colab.ipynb)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 [DEMO](https://demo--amrie194sm.replit.app/)
+
 ![after](https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/refs/heads/main/examples/app.jpg)
 
 ابزاری برای **ترجمهٔ خودکار صفحات مانگا و مانهوا به فارسی**.
 
 متن را با OCR می‌خواند، متن اصلی را از داخل حباب پاک می‌کند (فقط حروف — حباب سالم می‌ماند)، با **مدل‌های AI** (Gemini / ChatGPT / DeepSeek / Groq / Grok / OpenRouter / …) به فارسی محاوره‌ای ترجمه می‌کند و ترجمه را دوباره داخل همان حباب می‌نویسد.
+
 ## نمونه خروجی
 
-| * | * | * |
-|:---:|:---:|:---:|
-| ![before](examples/before.png) | ![after](examples/debug.png) | ![after](examples/after.png) |
+| قبل | دیباگ | بعد |
+| :---: | :---: | :---: |
+| ![before](examples/before.png) | ![debug](examples/debug.png) | ![after](examples/after.png) |
 
 ---
 
@@ -31,14 +29,14 @@
 5. فحش‌های سانسورشده بازسازی می‌شوند، سپس با مدل انتخابی به فارسی محاوره‌ای ترجمه می‌شوند (چند حباب در هر درخواست، درخواست‌ها سریال‌شده)
 6. متن اصلی با **پاکسازی خودکار** پاک می‌شود (پرکردن مستقیم برای پس‌زمینهٔ تخت / LaMa-Manga برای آرت) — فقط حروف، حباب دست‌نخورده
 7. متن فارسی با فونت لحنِ مناسب داخل حباب نوشته می‌شود (متن چرخیده هم با همان زاویه)
-8. خروجی به صورت **PDF / ZIP / پوشهٔ تصویر / HTML** ذخیره می‌شود
+8. خروجی به صورت **PDF / ZIP / پوشهٔ تصویر / HTML** ذخیره می‌شود؛ نام فایل از مسیر/URL فصل به‌صورت هوشمند ساخته می‌شود (مثلاً `solo-leveling-chapter-12_fa.pdf`)
 
 ---
 
 ## ویژگی‌ها
 
 | ویژگی | توضیح |
-|--------|--------|
+| ------------------------- | -------------------------------------------------------------------------------------------------------- |
 | **تشخیص حباب** | RT-DETR-v2 (ONNX) — سه کلاس: حباب، متن داخل حباب، متن آزاد؛ تگ‌های چرخیده و نیمه‌شفاف هم پیدا می‌شوند |
 | **OCR** | PaddleOCR / RapidOCR — پشتیبانی از `en` / `ko` / `ja` — چندپاسه + خروج سریع + تمیزکاری غلط‌های رایج |
 | **پاکسازی هوشمند** | حالت خودکار: پرکردن مستقیم (تخت) / LaMa سریع ۲۵۶ (ساده) / **LaMa-Manga ۵۱۲** (آرت) — به‌ازای هر خوشه جدا |
@@ -51,11 +49,13 @@
 | **Fallback مدل (Gemini)** | اگر مدل در دسترس نبود، فوری مدل بعدی در زنجیره |
 | **چند کلید API** | جابه‌جایی خودکار روی سهمیه / خطا |
 | **بچ ترجمه + قفل سراسری** | چند حباب در هر درخواست + صفحات موازی سریال → بدون timeout/503 |
+| **واژه‌نامه اسامی** | `--glossary` یا `glossary.json` خودکار — اسامی قفل می‌شوند و فصل بعد حفظ می‌مانند |
+| **بریف داستان** | یک درخواست اضافه در ابتدای فصل برای حفظ لحن شخصیت‌ها (قابل خاموش با `--no-brief`) |
 | **رندر فارسی** | reshaper + bidi + فونت TTF + فونت لحن به‌ازای هر حالت (خشم، کمدی، زمزمه، نامه، …) |
 | **ورودی** | پوشه، تصویر، ZIP، PDF، URL تصویر یا صفحهٔ فصل |
 | **چندفصل** | با `*` همه فصل‌ها؛ با `,` فصل‌های مشخص — هر فصل خروجی جدا |
-| **خروجی** | پوشه تصویر / ZIP / PDF (کیفیت ۹۲+) / HTML |
-| **عرض ثابت** | همه صفحات به عرض یکسان |
+| **خروجی** | پوشه تصویر / ZIP / PDF / HTML — نام هوشمند از URL/مسیر |
+| **عرض ثابت** | خوشه‌بندی هوشمند عرض صفحات؛ سقف اختیاری با `--max-width` |
 | **Resume / کش** | اگر اجرا قطع شود از کش ادامه می‌دهد |
 | **Chunking / Stitch** | صفحات بلند تکه می‌شوند؛ کوتاه‌ها می‌چسبند (کمتر کردن مصرف API) |
 | **فیلتر تبلیغ / SFX** | واترمارک، لینک سایت، SFX خالص و junk ترجمه نمی‌شوند |
@@ -68,24 +68,28 @@
 یک فایل که خودش محیط را تشخیص می‌دهد:
 
 | محیط | رفتار |
-|------|-------|
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
 | ویندوز / لینوکس / مک (دسکتاپ) | پنجرهٔ برنامهٔ تیره (Tkinter) — ورودی، ارائه‌دهنده، فونت‌ها، گزینه‌ها، لاگ زنده، تاریخچه، تب سیستم |
 | Google Colab | رابط وب تیره + **لینک عمومی gradio.live** خودکار |
 | GitHub Codespaces | رابط وب + لینک عمومی (بدون نیاز به Port Forwarding) |
 
 - لانچرها منودار: `Manga.bat` / `manga.sh` → **App / Web / CLI / Exit**
-- وب: کلید API هر نفر فقط در نشست خودش ذخیره می‌شود؛ بعد از ترجمه دکمه‌های «👁 نمایش» (خوانندهٔ تمام‌عرض همهٔ صفحات به ترتیب) و «⬇ دانلود» فعال می‌شوند
+- وب: کلید API هر نفر فقط در نشست خودش ذخیره می‌شود؛ بعد از ترجمه دکمه‌های «👁 نمایش» و «⬇ دانلود» فعال می‌شوند
+- **خوانندهٔ وب**: تمام‌صفحه پایدار (با اسکرول از فول خارج نمی‌شود)
+  - **PC:** دکمه‌های `+` / `−` / `پهنا` · `Ctrl` + چرخ موس · کلیدهای `+` `-` `0` · Esc برای بستن
+  - **موبایل:** همان دکمه‌ها · پینچ دو انگشتی برای زوم · دابل‌تپ · اسکرول تک‌انگشتی
+- نام خروجی از URL/مسیر فصل به‌صورت خودکار ساخته می‌شود (مثلاً `solo-leveling-chapter-12_fa.pdf` نه `_fa.pdf`)
 - CLI تعاملی: خودش ورودی، ارائه‌دهنده (منوی ۸گزینه‌ای) و کلید را می‌پرسد
 - سرور وب اگر کرش کند، لانچر خودکار ری‌استارتش می‌کند؛ Python 3.12 خودکار ترجیح داده می‌شود (پایدارتر از 3.14)
-- گارد: اگر `manga.py` کنار برنامه، فایل مترجم نباشد (مثلاً اشتباهاً جای manga_app.py ذخیره شده باشد) پیام واضح می‌دهد
+- گارد: اگر `manga.py` کنار برنامه، فایل مترجم نباشد (مثلاً اشتباهاً جای `manga_app.py` ذخیره شده باشد) پیام واضح می‌دهد
 
 اجرا:
 
 ```bash
-python manga_app.py            # تشخیص خودکار
-python manga_app.py --web      # اجبار وب
-python manga_app.py --desktop  # اجبار پنجرهٔ برنامه
-python manga_app.py --cli      # CLI تعاملی
+python manga_app.py              # تشخیص خودکار
+python manga_app.py --web        # اجبار وب
+python manga_app.py --desktop    # اجبار پنجرهٔ برنامه
+python manga_app.py --cli        # CLI تعاملی
 # CLI مستقیم (آرگومان‌های manga.py بعد از --):
 python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu --lama
 ```
@@ -95,7 +99,7 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 ## ارائه‌دهنده‌های پشتیبانی‌شده
 
 | `--provider` | پیش‌فرض مدل | متغیر محیطی کلید |
-|--------------|-------------|------------------|
+| -------------------- | ----------------------------------------- | -------------------- |
 | `gemini` | `gemini-3.8-flash` (زنجیرهٔ fallback) | `GEMINI_API_KEY` |
 | `openai` / `chatgpt` | `gpt-4o-mini` | `OPENAI_API_KEY` |
 | `deepseek` | `deepseek-chat` | `DEEPSEEK_API_KEY` |
@@ -112,7 +116,7 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 ## پارامترهای مهم
 
 | پارامتر | توضیح | پیش‌فرض |
-|--------|--------|---------|
+| -------------------------- | ------------------------------------------------------------------------- | ---------------- |
 | `-i` / `--input` | پوشه، تصویر، ZIP، PDF یا URL (`*` همه فصل‌ها، `,` چند لینک) | **اجباری** |
 | `-o` / `--output` | مسیر خروجی (`.pdf` / `.zip` / `.html` / پوشه) یا فقط پسوند | **اجباری** |
 | `--font` | مسیر فونت TTF فارسی | **اجباری** |
@@ -120,20 +124,23 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 | `--api-key` | کلید API (قابل تکرار یا با کاما) | یا env مربوطه |
 | `--model` | نام مدل | پیش‌فرض provider |
 | `--ocr-lang` | زبان OCR (`en` / `ko en` / `ja en`) | `en` |
-| `--max-width` | عرض ثابت خروجی (پیکسل) | `900` |
-| `--img-format` | فرمت تصاویر خروجی: `webp` / `png` / `jpg` | `webp` |
+| `--max-width` | سقف عرض خروجی (پیکسل)؛ `0` = خاموش — عرض‌های نزدیک خودکار یکی می‌شوند | `0` |
+| `--img-format` | فرمت تصاویر خروجی: `webp` / `png` / `jpg` | `jpg` |
 | `--quality` | کیفیت فشرده‌سازی ۱–۱۰۰ | `90` |
 | `--gpu` / `--cpu` | اجبار GPU یا CPU | تشخیص خودکار |
-| `--lama` | **اجبار** LaMa-Manga برای همهٔ خوشه‌ها (خالی/حالت برنامه = انتخاب خودکار) | خودکار |
+| `--lama` | **اجبار** LaMa-Manga برای همهٔ خوشه‌ها (خالی = انتخاب خودکار) | خودکار |
 | `--bubbles-per-request` | چند حباب در هر درخواست ترجمه (کمتر کردن احتمال timeout) | `6` |
+| `--batch-workers` | تعداد بستهٔ ترجمهٔ موازی | `3` |
 | `--det-confidence` | آستانهٔ تشخیص حباب (پایین‌تر = تگ‌های چرخیده هم گرفته می‌شوند) | `0.16` |
+| `--glossary` | فایل واژه‌نامه اسامی (`English=فارسی` در هر خط) | — |
+| `--no-brief` | خاموش کردن بریف داستان قبل از ترجمه | — |
 | `--no-resume` | نادیده گرفتن کش و پردازش دوباره | — |
 | `--keep-old` | کش و خروجی فصل‌های قبلی را پاک نکن | — |
 | `--temperature` | دمای مدل | `0.85` |
 | `--max-retries` | حداکثر تلاش ترجمه در صورت خطا | `8` |
 | `--request-delay` | تأخیر بین درخواست‌های API (ثانیه) | `0` |
-| `--workers` | تعداد تیکه‌های موازی OCR | `2` |
-| `--api-timeout` | سقف انتظار هر درخواست ترجمه (ثانیه) | `40` |
+| `--workers` | تعداد worker موازی OCR/ترجمه | `3` |
+| `--api-timeout` | سقف انتظار هر درخواست ترجمه (ثانیه) | `30` |
 | `--max-chunk-height` | حداکثر ارتفاع هر تکه OCR | `3600` |
 | `--stitch-max-height` | سقف ارتفاع نوار بعد از چسباندن؛ `0` = خاموش | `14000` |
 | `--stitch-short-threshold` | صفحات کوتاه‌تر از این چسبانده می‌شوند | `6000` |
@@ -142,7 +149,9 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 | `--no-two-pass-ocr` | خاموش کردن پاس‌های اضافهٔ OCR (سریع‌تر، دقت کمتر) | — |
 | `--debug` | تصویر دیباگ با مربع رنگی دور هر بلوک | — |
 
-فونت‌های لحن (اختیاری): `--font-normal` (کودک) · `--font-shout` (خشم) · `--font-comedy-shout` (کمدی) · `--font-whisper` (زمزمه) · `--font-thought` (تفکر) · `--font-system` (سیستم/تگ) · `--font-letter` (نامه) · `--font-narrator` (راوی) · `--font-free` (متن آزاد) و … — برنامهٔ  این‌ها را بار اول خودکار دانلود و تنظیم می‌کند و پوشش فارسی هر کدام را تست می‌کند.
+فونت‌های لحن (اختیاری): `--font-normal` (کودک) · `--font-shout` (خشم) · `--font-comedy-shout` (کمدی) · `--font-whisper` (زمزمه) · `--font-thought` (تفکر) · `--font-system` (سیستم/تگ) · `--font-letter` (نامه) · `--font-narrator` (راوی) · `--font-free` (متن آزاد) و … — برنامه این‌ها را بار اول خودکار دانلود و تنظیم می‌کند و پوشش فارسی هر کدام را تست می‌کند.
+
+> با `-o .pdf` (فقط پسوند)، نام فایل از URL/مسیر ورودی ساخته می‌شود؛ مثلاً لینک فصل `solo-leveling/chapter-12` → `solo-leveling-chapter-12.pdf`.
 
 ---
 
@@ -151,7 +160,7 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 حالت **خودکار** (پیش‌فرض برنامه) برای هر خوشهٔ متن بهترین روش را انتخاب می‌کند:
 
 | شرایط ناحیه | روش |
-|--------------|-----|
+| -------------------------------------------- | -------------------------------------------- |
 | پس‌زمینهٔ دورِ متن تخت باشد (حباب سفید و…) | پرکردن مستقیم با رنگ پس‌زمینه — بی‌نقص و آنی |
 | پس‌زمینه ساده و ماسک کوچک | LaMa سریع (۲۵۶) |
 | آرت / پس‌زمینهٔ تیره / متن تیره یا ماسک بزرگ | **LaMa-Manga ۵۱۲** (fine-tune مانگا) |
@@ -178,14 +187,14 @@ python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api
 ### ۲) GitHub Codespaces
 
 ```bash
-!bash manga.sh
+bash manga.sh
 ```
 
 لینک عمومی خودکار می‌دهد؛ یا تب Ports → پورت 7860 → Public. برای زنده‌ماندن سرور بعد از بستن ترمینال از tmux استفاده کنید:
 
 ```bash
 tmux new -s manga 'python3 manga_app.py --web'
-# detach: Ctrl+B بعد D   |   بازگشت: tmux attach -t manga
+# detach: Ctrl+B بعد D | بازگشت: tmux attach -t manga
 ```
 
 ### ۳) اجرای لوکال
@@ -194,23 +203,23 @@ tmux new -s manga 'python3 manga_app.py --web'
 git clone https://github.com/amirwolf5122/Manga-AutoTranslate.git
 cd Manga-AutoTranslate
 
-Manga.bat        # ویندوز — منو: App / Web / CLI
-./manga.sh       # لینوکس / مک
+Manga.bat    # ویندوز — منو: App / Web / CLI
+./manga.sh   # لینوکس / مک
 ```
 
 یا مستقیم:
 
 ```bash
-python manga_app.py            # تشخیص خودکار (دسکتاپ یا وب)
-python manga_app.py --cli      # CLI تعاملی
+python manga_app.py          # تشخیص خودکار (دسکتاپ یا وب)
+python manga_app.py --cli    # CLI تعاملی
 python manga_app.py -- -i "https://...chapter-1/" -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu
 ```
 
 ### ۴) GitHub Actions
 
 1. ریپو را Fork کن
-2. در Settings → Secrets کلید موردنظر را بگذار (GEMINI یا OPENAI و …)
-3. 3. ورک‌فلو را Run کن و خروجی را از Artifacts دانلود کن
+2. در Settings → Secrets کلید موردنظر را بگذار (`GEMINI_API_KEY` یا `OPENAI_API_KEY` و …)
+3. ورک‌فلو را Run کن و خروجی را از Artifacts دانلود کن
 
 > Runnerهای GitHub GPU ندارند؛ پاکسازی خودکار روی CPU بهینه شده است.
 
@@ -228,13 +237,12 @@ python manga_app.py -- -i "https://...chapter-1/" -o out.pdf --font fonts/Vazirm
 ---
 
 ## حمایت مالی
-ヾ(•ω•`)o
 
-TON:`UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT`
+ヾ(•ω•\`)o
 
--
+**TON:** `UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT`
 
-TRX:`TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa`
+**TRX:** `TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa`
 
 ---
 
