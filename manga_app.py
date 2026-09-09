@@ -257,7 +257,6 @@ def smart_output_base(input_path: str) -> str:
     raw = (input_path or "").strip()
     if not raw:
         return "chapter_fa"
-
     is_url = raw.lower().startswith(("http://", "https://"))
     if is_url:
         from urllib.parse import urlparse, unquote
@@ -268,8 +267,7 @@ def smart_output_base(input_path: str) -> str:
             slug = parts[-1]
             m = re.search(
                 r"(.+?-chapter[-_]?(?:\d+|\*))(?:[-_].*)?$",
-                slug,
-                flags=re.I,
+                slug, flags=re.I,
             )
             if m:
                 base = m.group(1)
@@ -286,22 +284,16 @@ def smart_output_base(input_path: str) -> str:
             else:
                 if len(parts) >= 2:
                     cand = "-".join(parts[-2:])
-                    if len(cand) >= 4:
-                        base = cand
-                    else:
-                        base = slug
+                    base = cand if len(cand) >= 4 else slug
                 else:
                     base = slug
         base = re.sub(r"\*+", "", base)
         base = re.sub(r"[^\w\-.]+", "-", base)
-        base = re.sub(r"-{2,}", "-", base).strip("-._")
-        if not base:
-            base = "chapter"
+        base = re.sub(r"-{2,}", "-", base).strip("-._") or "chapter"
     else:
         path_only = raw.rstrip("/\\")
         base = os.path.splitext(os.path.basename(path_only))[0] or "output"
         base = re.sub(r"[^\w\-.]+", "-", base).strip("-._") or "output"
-
     if not base.lower().endswith("_fa"):
         base = base + "_fa"
     return base
@@ -805,6 +797,7 @@ def run_desktop():
     ttk.Combobox(row5b, textvariable=readord_var, values=["rtl", "ltr"],
                  state="readonly", width=5).pack(side="right")
 
+    # واژه‌نامه + بریف داستان
     row5c = ttk.Frame(adv); row5c.pack(fill="x", pady=(6, 0))
     brief_var = tk.BooleanVar(value=bool(cfg.get("story_brief", True)))
     ttk.Label(row5c, text="واژه‌نامهٔ اسامی (هر خط: English=فارسی):").pack(anchor="e")
@@ -1622,245 +1615,55 @@ def run_web():
             for u in urls)
         title = os.path.basename(os.path.dirname(files[0])) or "مانهوا"
         title_esc = (
-            str(title)
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
+            str(title).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;")
+        )
+        
+        
+        return (
+            '<style>'
+            '.rdr{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;'
+            'flex-direction:column;direction:ltr;font-family:inherit;touch-action:none;'
+            'overscroll-behavior:none;-webkit-user-select:none;user-select:none}'
+            '.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;'
+            'background:rgba(12,12,14,.96);border-bottom:1px solid #232326;flex:none;'
+            'backdrop-filter:blur(8px);z-index:2}'
+            '.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;'
+            'padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;'
+            'min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}'
+            '.rdr-btn:active{background:#2a2a30}'
+            '.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}'
+            '.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;'
+            'overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}'
+            '.rdrS{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;'
+            'touch-action:none;position:relative;background:#000}'
+            '.rdrC{margin:0 auto;max-width:min(100%,900px);width:100%;transition:none}'
+            '.rdrC img{display:block;width:100%;height:auto;max-width:none}'
+            '.rdr-progress{position:relative;height:3px;background:#1a1a1c;flex:none}'
+            '.rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}'
+            '.zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;'
+            'font-variant-numeric:tabular-nums}'
+            '@media (max-width:480px){'
+            '.rdr-bar{gap:4px;padding:6px 8px}'
+            '.rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}'
+            '.rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}'
+            '}'
+            '</style>'
+            f'<div class="rdr" id="manga_rdr" data-zoom="1">'
+            f'<div class="rdr-bar">'
+            f'<button type="button" class="rdr-btn" data-act="close" title="بستن">✕</button>'
+            f'<div class="rdr-title">{title_esc}</div>'
+            f'<button type="button" class="rdr-btn" data-act="zoom-out" title="دور">−</button>'
+            f'<span class="zlv">100%</span>'
+            f'<button type="button" class="rdr-btn" data-act="zoom-in" title="نزدیک">+</button>'
+            f'<button type="button" class="rdr-btn" data-act="zoom-fit" title="پهنای صفحه">پهنا</button>'
+            f'<button type="button" class="rdr-btn fs" data-act="fs" title="فول‌اسکرین مرورگر">⛶</button>'
+            f'</div>'
+            f'<div class="rdrS"><div class="rdrC">{imgs}</div></div>'
+            f'<div class="rdr-progress"><div class="rdrB"></div></div>'
+            f'</div>'
         )
 
-        
-        return f"""
-<style>
-.rdr{{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;
-  flex-direction:column;direction:ltr;font-family:inherit;touch-action:none;
-  overscroll-behavior:none;-webkit-user-select:none;user-select:none}}
-.rdr-bar{{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;
-  background:rgba(12,12,14,.96);border-bottom:1px solid #232326;flex:none;
-  backdrop-filter:blur(8px);z-index:2}}
-.rdr-btn{{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;
-  padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;
-  min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}}
-.rdr-btn:active{{background:#2a2a30}}
-.rdr-btn.fs{{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}}
-.rdr-title{{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}}
-.rdrS{{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
-  touch-action:none;position:relative;background:#000}}
-.rdrC{{margin:0 auto;max-width:min(100%,900px);width:100%;transition:none}}
-.rdrC img{{display:block;width:100%;height:auto;max-width:none}}
-.rdr-progress{{position:relative;height:3px;background:#1a1a1c;flex:none}}
-.rdrB{{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}}
-.zlv{{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}}
-@media (max-width:480px){{
-  .rdr-bar{{gap:4px;padding:6px 8px}}
-  .rdr-btn{{padding:7px 10px;font-size:.9rem;min-width:36px}}
-  .rdr-title{{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}}
-}}
-</style>
-<div class="rdr" id="manga_rdr" data-zoom="1">
-  <div class="rdr-bar">
-    <button type="button" class="rdr-btn" data-act="close" title="بستن">✕</button>
-    <div class="rdr-title">{title_esc}</div>
-    <button type="button" class="rdr-btn" data-act="zoom-out" title="دور">−</button>
-    <span class="zlv">100%</span>
-    <button type="button" class="rdr-btn" data-act="zoom-in" title="نزدیک">+</button>
-    <button type="button" class="rdr-btn" data-act="zoom-fit" title="پهنای صفحه">پهنا</button>
-    <button type="button" class="rdr-btn fs" data-act="fs" title="فول‌اسکرین مرورگر">⛶</button>
-  </div>
-  <div class="rdrS">
-    <div class="rdrC">{imgs}</div>
-  </div>
-  <div class="rdr-progress"><div class="rdrB"></div></div>
-</div>
-<script>
-(function(){{
-  var root = document.getElementById('manga_rdr');
-  if (!root || root._bound) return;
-  root._bound = true;
-  var sc = root.querySelector('.rdrS');
-  var c = root.querySelector('.rdrC');
-  var bar = root.querySelector('.zlv');
-  var prog = root.querySelector('.rdrB');
-  var z = 1;
-  var MIN = 0.5, MAX = 4;
-
-  function baseWidth() {{
-    return Math.max(200, Math.min(900, sc.clientWidth || window.innerWidth || 360));
-  }}
-
-  function applyZoom(nz, cx, cy) {{
-    nz = Math.min(MAX, Math.max(MIN, +nz || 1));
-    var rect = sc.getBoundingClientRect();
-    var sx = (typeof cx === 'number') ? cx : (rect.left + rect.width / 2);
-    var sy = (typeof cy === 'number') ? cy : (rect.top + rect.height / 2);
-    var relX = (sc.scrollLeft + (sx - rect.left)) / Math.max(0.01, z);
-    var relY = (sc.scrollTop + (sy - rect.top)) / Math.max(0.01, z);
-    z = nz;
-    var w = Math.round(baseWidth() * z);
-    c.style.maxWidth = 'none';
-    c.style.width = w + 'px';
-    c.style.marginLeft = 'auto';
-    c.style.marginRight = 'auto';
-    c.style.transform = 'none';
-    sc.scrollLeft = relX * z - (sx - rect.left);
-    sc.scrollTop = relY * z - (sy - rect.top);
-    bar.textContent = Math.round(z * 100) + '%';
-    root.dataset.zoom = String(z);
-  }}
-
-  function setZoom(nz) {{ applyZoom(nz); }}
-  function zoomBy(f, cx, cy) {{ applyZoom(z * f, cx, cy); }}
-
-  root.addEventListener('click', function(e) {{
-    var btn = e.target.closest('[data-act]');
-    if (!btn || !root.contains(btn)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    var act = btn.getAttribute('data-act');
-    if (act === 'close') {{
-      try {{
-        var isFs = document.fullscreenElement || document.webkitFullscreenElement;
-        if (isFs) {{
-          (document.exitFullscreen || document.webkitExitFullscreen ||
-           document.mozCancelFullScreen || document.msExitFullscreen).call(document);
-        }}
-      }} catch (err) {{}}
-      root.remove();
-      return;
-    }}
-    if (act === 'zoom-in') zoomBy(1.25);
-    else if (act === 'zoom-out') zoomBy(0.8);
-    else if (act === 'zoom-fit') setZoom(1);
-    else if (act === 'fs') {{
-      var isFs = document.fullscreenElement || document.webkitFullscreenElement
-              || document.mozFullScreenElement || document.msFullscreenElement;
-      if (isFs) {{
-        (document.exitFullscreen || document.webkitExitFullscreen
-         || document.mozCancelFullScreen || document.msExitFullscreen).call(document);
-      }} else {{
-        var req = root.requestFullscreen || root.webkitRequestFullscreen
-               || root.mozRequestFullScreen || root.msRequestFullscreen;
-        if (req) req.call(root).catch(function(){{}});
-      }}
-    }}
-  }});
-
-  sc.addEventListener('wheel', function(e) {{
-    if (!e.ctrlKey && !e.metaKey) return;
-    e.preventDefault();
-    e.stopPropagation();
-    var factor = e.deltaY < 0 ? 1.12 : (1 / 1.12);
-    zoomBy(factor, e.clientX, e.clientY);
-  }}, {{ passive: false }});
-
-  var lastTap = 0;
-  sc.addEventListener('dblclick', function(e) {{
-    e.preventDefault();
-    if (z > 1.3) setZoom(1);
-    else zoomBy(2.2, e.clientX, e.clientY);
-  }});
-
-  var pinch = null;
-  var pan = null;
-
-  function dist(t0, t1) {{
-    var dx = t0.clientX - t1.clientX, dy = t0.clientY - t1.clientY;
-    return Math.hypot(dx, dy);
-  }}
-  function mid(t0, t1) {{
-    return {{ x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 }};
-  }}
-
-  sc.addEventListener('touchstart', function(e) {{
-    if (e.touches.length === 2) {{
-      e.preventDefault();
-      pinch = {{
-        startDist: dist(e.touches[0], e.touches[1]),
-        startZ: z,
-        mid: mid(e.touches[0], e.touches[1])
-      }};
-      pan = null;
-    }} else if (e.touches.length === 1) {{
-      pan = {{
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        sl: sc.scrollLeft,
-        st: sc.scrollTop
-      }};
-      var now = Date.now();
-      if (now - lastTap < 280) {{
-        e.preventDefault();
-        var t = e.touches[0];
-        if (z > 1.3) setZoom(1);
-        else zoomBy(2.2, t.clientX, t.clientY);
-        lastTap = 0;
-        pan = null;
-      }} else {{
-        lastTap = now;
-      }}
-    }}
-  }}, {{ passive: false }});
-
-  sc.addEventListener('touchmove', function(e) {{
-    if (pinch && e.touches.length === 2) {{
-      e.preventDefault();
-      var d = dist(e.touches[0], e.touches[1]);
-      var m = mid(e.touches[0], e.touches[1]);
-      var nz = pinch.startZ * (d / Math.max(1, pinch.startDist));
-      applyZoom(nz, m.x, m.y);
-      pinch.mid = m;
-    }} else if (pan && e.touches.length === 1) {{
-      e.preventDefault();
-      var t = e.touches[0];
-      sc.scrollLeft = pan.sl - (t.clientX - pan.x);
-      sc.scrollTop = pan.st - (t.clientY - pan.y);
-    }}
-  }}, {{ passive: false }});
-
-  sc.addEventListener('touchend', function(e) {{
-    if (e.touches.length < 2) pinch = null;
-    if (e.touches.length === 0) pan = null;
-  }});
-  sc.addEventListener('touchcancel', function() {{ pinch = null; pan = null; }});
-
-  sc.addEventListener('scroll', function() {{
-    var m = sc.scrollHeight - sc.clientHeight;
-    prog.style.width = (m > 0 ? (sc.scrollTop / m * 100) : 0) + '%';
-  }}, {{ passive: true }});
-
-  function onKey(e) {{
-    if (e.key === 'Escape') {{
-      try {{
-        var isFs = document.fullscreenElement || document.webkitFullscreenElement;
-        if (isFs) {{
-          (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-          return;
-        }}
-      }} catch (err) {{}}
-      root.remove();
-      document.removeEventListener('keydown', onKey);
-    }} else if (e.key === '+' || e.key === '=') {{ zoomBy(1.15); }}
-    else if (e.key === '-' || e.key === '_') {{ zoomBy(0.87); }}
-    else if (e.key === '0') {{ setZoom(1); }}
-  }}
-  document.addEventListener('keydown', onKey);
-
-  var prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
-  var obs = new MutationObserver(function() {{
-    if (!document.body.contains(root)) {{
-      document.body.style.overflow = prevOverflow;
-      document.removeEventListener('keydown', onKey);
-      obs.disconnect();
-    }}
-  }});
-  obs.observe(document.body, {{ childList: true, subtree: true }});
-
-  setZoom(1);
-}})();
-</script>
-"""
 
     g6 = _gradio_major() >= 6
     blocks_kw = {} if g6 else {"theme": gr.themes.Soft(primary_hue="indigo",
@@ -2907,10 +2710,172 @@ def run_web():
             
             return gr.update(value=st + f"<!--v{time.time():.6f}-->", visible=True)
 
-        
         view_js = """
 () => {
-  try { document.body.style.overflow = 'hidden'; } catch (e) {}
+  const bind = () => {
+    const root = document.getElementById('manga_rdr') || document.querySelector('.rdr');
+    if (!root || root._bound) return !!root;
+    root._bound = true;
+    const sc = root.querySelector('.rdrS');
+    const c = root.querySelector('.rdrC');
+    const bar = root.querySelector('.zlv');
+    const prog = root.querySelector('.rdrB');
+    if (!sc || !c) return false;
+    let z = 1;
+    const MIN = 0.5, MAX = 4;
+
+    const baseWidth = () => Math.max(200, Math.min(900, sc.clientWidth || window.innerWidth || 360));
+    const applyZoom = (nz, cx, cy) => {
+      nz = Math.min(MAX, Math.max(MIN, +nz || 1));
+      const rect = sc.getBoundingClientRect();
+      const sx = (typeof cx === 'number') ? cx : (rect.left + rect.width / 2);
+      const sy = (typeof cy === 'number') ? cy : (rect.top + rect.height / 2);
+      const relX = (sc.scrollLeft + (sx - rect.left)) / Math.max(0.01, z);
+      const relY = (sc.scrollTop + (sy - rect.top)) / Math.max(0.01, z);
+      z = nz;
+      c.style.maxWidth = 'none';
+      c.style.width = Math.round(baseWidth() * z) + 'px';
+      c.style.marginLeft = 'auto';
+      c.style.marginRight = 'auto';
+      c.style.transform = 'none';
+      sc.scrollLeft = relX * z - (sx - rect.left);
+      sc.scrollTop = relY * z - (sy - rect.top);
+      if (bar) bar.textContent = Math.round(z * 100) + '%';
+      root.dataset.zoom = String(z);
+    };
+    const setZoom = (nz) => applyZoom(nz);
+    const zoomBy = (f, cx, cy) => applyZoom(z * f, cx, cy);
+
+    root.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act]');
+      if (!btn || !root.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const act = btn.getAttribute('data-act');
+      if (act === 'close') {
+        try {
+          const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+          if (isFs) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        } catch (err) {}
+        root.remove();
+        try { document.body.style.overflow = ''; } catch (err) {}
+        return;
+      }
+      if (act === 'zoom-in') zoomBy(1.25);
+      else if (act === 'zoom-out') zoomBy(0.8);
+      else if (act === 'zoom-fit') setZoom(1);
+      else if (act === 'fs') {
+        const isFs = document.fullscreenElement || document.webkitFullscreenElement
+                  || document.mozFullScreenElement || document.msFullscreenElement;
+        if (isFs) {
+          (document.exitFullscreen || document.webkitExitFullscreen
+           || document.mozCancelFullScreen || document.msExitFullscreen).call(document);
+        } else {
+          const req = root.requestFullscreen || root.webkitRequestFullscreen
+                   || root.mozRequestFullScreen || root.msRequestFullscreen;
+          if (req) req.call(root).catch(() => {});
+        }
+      }
+    });
+
+    sc.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
+    }, { passive: false });
+
+    let lastTap = 0;
+    sc.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      if (z > 1.3) setZoom(1);
+      else zoomBy(2.2, e.clientX, e.clientY);
+    });
+
+    let pinch = null, pan = null;
+    const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+
+    sc.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        pinch = { startDist: dist(e.touches[0], e.touches[1]), startZ: z };
+        pan = null;
+      } else if (e.touches.length === 1) {
+        pan = { x: e.touches[0].clientX, y: e.touches[0].clientY, sl: sc.scrollLeft, st: sc.scrollTop };
+        const now = Date.now();
+        if (now - lastTap < 280) {
+          e.preventDefault();
+          const t = e.touches[0];
+          if (z > 1.3) setZoom(1);
+          else zoomBy(2.2, t.clientX, t.clientY);
+          lastTap = 0;
+          pan = null;
+        } else lastTap = now;
+      }
+    }, { passive: false });
+
+    sc.addEventListener('touchmove', (e) => {
+      if (pinch && e.touches.length === 2) {
+        e.preventDefault();
+        const d = dist(e.touches[0], e.touches[1]);
+        const m = mid(e.touches[0], e.touches[1]);
+        applyZoom(pinch.startZ * (d / Math.max(1, pinch.startDist)), m.x, m.y);
+      } else if (pan && e.touches.length === 1) {
+        e.preventDefault();
+        const t = e.touches[0];
+        sc.scrollLeft = pan.sl - (t.clientX - pan.x);
+        sc.scrollTop = pan.st - (t.clientY - pan.y);
+      }
+    }, { passive: false });
+
+    sc.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) pinch = null;
+      if (e.touches.length === 0) pan = null;
+    });
+    sc.addEventListener('touchcancel', () => { pinch = null; pan = null; });
+
+    sc.addEventListener('scroll', () => {
+      if (!prog) return;
+      const m = sc.scrollHeight - sc.clientHeight;
+      prog.style.width = (m > 0 ? (sc.scrollTop / m * 100) : 0) + '%';
+    }, { passive: true });
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        try {
+          const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+          if (isFs) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+        } catch (err) {}
+        root.remove();
+        document.removeEventListener('keydown', onKey);
+        try { document.body.style.overflow = ''; } catch (err) {}
+      } else if (e.key === '+' || e.key === '=') zoomBy(1.15);
+      else if (e.key === '-' || e.key === '_') zoomBy(0.87);
+      else if (e.key === '0') setZoom(1);
+    };
+    document.addEventListener('keydown', onKey);
+    try { document.body.style.overflow = 'hidden'; } catch (err) {}
+
+    const obs = new MutationObserver(() => {
+      if (!document.body.contains(root)) {
+        try { document.body.style.overflow = ''; } catch (err) {}
+        document.removeEventListener('keydown', onKey);
+        obs.disconnect();
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    setZoom(1);
+    return true;
+  };
+
+  let n = 0;
+  const tick = () => {
+    if (bind() || n > 40) return;
+    n += 1;
+    setTimeout(tick, 50);
+  };
+  setTimeout(tick, 30);
   return [];
 }
 """
@@ -2948,8 +2913,23 @@ def run_web():
         )
 
     
-    dark_js = "() => { document.body.classList.add('dark');" \
-              " document.documentElement.classList.add('dark'); }"
+    
+    dark_js = r"""
+() => {
+  document.body.classList.add('dark');
+  document.documentElement.classList.add('dark');
+  const tryBind = () => {
+    try {
+      const root = document.getElementById('manga_rdr') || document.querySelector('.rdr');
+      if (!root || root._bound) return;
+      // اگر view_js قبلاً بایند کرده باشد _bound ست است؛ وگرنه رویداد کلیک نمایش دوباره bind می‌کند
+    } catch (e) {}
+  };
+  try {
+    new MutationObserver(tryBind).observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) {}
+}
+"""
     try:
         demo.load(None, None, None, js=dark_js)
     except Exception:
