@@ -251,6 +251,62 @@ def system_info() -> str:
     return "\n".join(lines)
 
 
+
+def smart_output_base(input_path: str) -> str:
+    
+    raw = (input_path or "").strip()
+    if not raw:
+        return "chapter_fa"
+
+    is_url = raw.lower().startswith(("http://", "https://"))
+    if is_url:
+        from urllib.parse import urlparse, unquote
+        path_u = unquote(urlparse(raw).path).strip("/")
+        parts = [p for p in path_u.split("/") if p]
+        base = "chapter"
+        if parts:
+            slug = parts[-1]
+            m = re.search(
+                r"(.+?-chapter[-_]?(?:\d+|\*))(?:[-_].*)?$",
+                slug,
+                flags=re.I,
+            )
+            if m:
+                base = m.group(1)
+            elif "chapter" in [p.lower() for p in parts]:
+                low_parts = [p.lower() for p in parts]
+                try:
+                    idx = low_parts.index("chapter")
+                    name = parts[idx - 1] if idx > 0 else "chapter"
+                    num = parts[idx + 1] if idx + 1 < len(parts) else ""
+                    num = re.sub(r"[^\w\-]", "", num.split("?")[0])
+                    base = f"{name}-{num}" if num else name
+                except ValueError:
+                    base = slug
+            else:
+                if len(parts) >= 2:
+                    cand = "-".join(parts[-2:])
+                    if len(cand) >= 4:
+                        base = cand
+                    else:
+                        base = slug
+                else:
+                    base = slug
+        base = re.sub(r"\*+", "", base)
+        base = re.sub(r"[^\w\-.]+", "-", base)
+        base = re.sub(r"-{2,}", "-", base).strip("-._")
+        if not base:
+            base = "chapter"
+    else:
+        path_only = raw.rstrip("/\\")
+        base = os.path.splitext(os.path.basename(path_only))[0] or "output"
+        base = re.sub(r"[^\w\-.]+", "-", base).strip("-._") or "output"
+
+    if not base.lower().endswith("_fa"):
+        base = base + "_fa"
+    return base
+
+
 def append_history(entry: dict) -> None:
     try:
         with open(HIST_PATH, "a", encoding="utf-8") as f:
@@ -398,7 +454,7 @@ def run_cli_interactive():
         print("❌ فونت فارسی پیدا نشد — fonts/ را آماده کنید.")
         return
 
-    base = os.path.splitext(os.path.basename(src))[0] + "_fa"
+    base = smart_output_base(src)
     out_v = os.path.join(OUT_DIR, base + ext)
     os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -749,7 +805,6 @@ def run_desktop():
     ttk.Combobox(row5b, textvariable=readord_var, values=["rtl", "ltr"],
                  state="readonly", width=5).pack(side="right")
 
-    # واژه‌نامه + بریف داستان
     row5c = ttk.Frame(adv); row5c.pack(fill="x", pady=(6, 0))
     brief_var = tk.BooleanVar(value=bool(cfg.get("story_brief", True)))
     ttk.Label(row5c, text="واژه‌نامهٔ اسامی (هر خط: English=فارسی):").pack(anchor="e")
@@ -1066,8 +1121,7 @@ def run_desktop():
             return
 
         ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[fmt_var.get()]
-        out_v = os.path.join(OUT_DIR,
-                             os.path.splitext(os.path.basename(src))[0] + "_fa" + ext)
+        out_v = os.path.join(OUT_DIR, smart_output_base(src) + ext)
 
         save_config({"last_input": src, "out_fmt": fmt_var.get(),
                      "quality": quality_var.get(), "api_keys": keys_var.get(),
@@ -1551,6 +1605,7 @@ def run_web():
         return [int(t) if t.isdigit() else t.lower()
                 for t in re.split(r"(\d+)", s)]
 
+
     def build_reader_html(files):
         import gradio as _gr
         gv = getattr(_gr, "__version__", "4")
@@ -1574,7 +1629,8 @@ def run_web():
             .replace('"', "&quot;")
         )
 
-        return f'''
+        
+        return f"""
 <style>
 .rdr{{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;
   flex-direction:column;direction:ltr;font-family:inherit;touch-action:none;
@@ -1701,8 +1757,8 @@ def run_web():
   var lastTap = 0;
   sc.addEventListener('dblclick', function(e) {{
     e.preventDefault();
-    zoomBy(z > 1.3 ? (1 / z) : 2.2, e.clientX, e.clientY);
-    if (z < 1.05) setZoom(1);
+    if (z > 1.3) setZoom(1);
+    else zoomBy(2.2, e.clientX, e.clientY);
   }});
 
   var pinch = null;
@@ -1804,7 +1860,7 @@ def run_web():
   setZoom(1);
 }})();
 </script>
-'''
+"""
 
     g6 = _gradio_major() >= 6
     blocks_kw = {} if g6 else {"theme": gr.themes.Soft(primary_hue="indigo",
@@ -2458,7 +2514,7 @@ def run_web():
                              "❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید.")
 
             ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "پوشهٔ تصاویر": ""}[out_fmt_v]
-            base = os.path.splitext(os.path.basename(str(src)))[0] + "_fa"
+            base = smart_output_base(str(src))
             user_out_dir = os.path.join(OUT_DIR, sid[:12])
             os.makedirs(user_out_dir, exist_ok=True)
             out_v = os.path.join(user_out_dir, base + ext)
@@ -2850,6 +2906,8 @@ def run_web():
                 return gr.update(value=st, visible=True)
             
             return gr.update(value=st + f"<!--v{time.time():.6f}-->", visible=True)
+
+        
         view_js = """
 () => {
   try { document.body.style.overflow = 'hidden'; } catch (e) {}
