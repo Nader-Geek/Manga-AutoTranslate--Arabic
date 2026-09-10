@@ -3601,9 +3601,7 @@ class MangaTranslator:
 
         remaining = cv2.bitwise_and(dil, cv2.bitwise_not(onnx_done))
         if np.any(remaining):
-            
-            
-            cleaned = cv2.inpaint(cleaned, remaining, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+            cleaned = self._opencv_inpaint_hq(cleaned, remaining)
 
         gray0 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         g2 = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
@@ -3623,9 +3621,15 @@ class MangaTranslator:
             med = float(np.median(orig))
             inky = (orig < med - 30) | (orig > med + 30)
             ink = ((diff < 20) & inky).astype(np.uint8) * 255
+            
+            bgr = cleaned[y0:y1, x0:x1]
+            bright = (
+                (bgr[:, :, 0] > 200) & (bgr[:, :, 1] > 200) & (bgr[:, :, 2] > 200)
+                & (orig < med + 15)
+            )
+            
             if zone is not None:
                 near = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=8)
-                
                 near = cv2.bitwise_and(
                     near,
                     cv2.dilate(dil[y0:y1, x0:x1], np.ones((3, 3), np.uint8), iterations=6),
@@ -3638,12 +3642,14 @@ class MangaTranslator:
                 near[:, :border] = 0
                 near[:, -border:] = 0
             ink = cv2.bitwise_and(ink, near)
-            
+            white_left = (bright.astype(np.uint8) * 255)
+            white_left = cv2.bitwise_and(white_left, near)
+            ink = cv2.bitwise_or(ink, white_left)
             n, lab, st, _ = cv2.connectedComponentsWithStats(ink, connectivity=8)
             keep = np.zeros_like(ink)
             for i in range(1, n):
                 a = int(st[i, cv2.CC_STAT_AREA])
-                if a < 8 or a > 0.5 * ch * cw:
+                if a < 6 or a > 0.5 * ch * cw:
                     continue
                 bx, by = int(st[i, cv2.CC_STAT_LEFT]), int(st[i, cv2.CC_STAT_TOP])
                 bw_, bh_ = int(st[i, cv2.CC_STAT_WIDTH]), int(st[i, cv2.CC_STAT_HEIGHT])
@@ -3653,10 +3659,143 @@ class MangaTranslator:
             residual[y0:y1, x0:x1] = cv2.bitwise_or(residual[y0:y1, x0:x1], keep)
         if np.any(residual):
             residual = cv2.dilate(residual, np.ones((3, 3), np.uint8), iterations=1)
-            cleaned = cv2.inpaint(cleaned, residual, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+            cleaned = self._opencv_inpaint_hq(cleaned, residual)
 
         print("  - پاکسازی فقط متن تمام شد — دیوارهٔ حباب حفظ شد.")
         return cleaned
+
+    def _opencv_inpaint_hq(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        
+        if mask is None or not np.any(mask):
+            return image
+        m = (mask > 0).astype(np.uint8) * 255
+        
+        pad = max(1, int(getattr(self, "mask_padding", 3) or 3))
+        if pad > 0:
+            k = 2 * pad + 1
+            m = cv2.dilate(m, np.ones((k, k), np.uint8), iterations=1)
+
+        base_r = max(2, int(getattr(self, "inpaint_radius", 3) or 3))
+        ys, xs = np.where(m > 0)
+        if len(xs) > 0:
+            bw = int(xs.max() - xs.min() + 1)
+            bh = int(ys.max() - ys.min() + 1)
+            span = max(bw, bh)
+            r_small = max(2, min(base_r, 4))
+            r_large = max(r_small + 1, min(base_r + 4, max(5, span // 18)))
+        else:
+            r_small, r_large = base_r, base_r + 2
+
+        out = image.copy()
+        
+        out = cv2.inpaint(out, m, inpaintRadius=r_small, flags=cv2.INPAINT_TELEA)
+        
+        gray0 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray1 = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
+        still = ((cv2.absdiff(gray0, gray1) < 12) & (m > 0)).astype(np.uint8) * 255
+        if np.count_nonzero(still) > 30:
+            still = cv2.dilate(still, np.ones((3, 3), np.uint8), iterations=1)
+            out = cv2.inpaint(out, still, inpaintRadius=r_large, flags=cv2.INPAINT_NS)
+        else:
+            out = cv2.inpaint(out, m, inpaintRadius=max(3, r_large - 1), flags=cv2.INPAINT_NS)
+
+        
+        out = self._scrub_bright_residuals(out, m)
+        return out
+
+    def _scrub_bright_residuals(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        
+        if mask is None or not np.any(mask):
+            return image
+        m0 = (mask > 0).astype(np.uint8)
+        if int(m0.sum()) < 20:
+            return image
+
+        out = image.copy()
+        
+        n, lab, st, _ = cv2.connectedComponentsWithStats(m0, connectivity=8)
+        for i in range(1, n):
+            area = int(st[i, cv2.CC_STAT_AREA])
+            if area < 25:
+                continue
+            bx = int(st[i, cv2.CC_STAT_LEFT])
+            by = int(st[i, cv2.CC_STAT_TOP])
+            bw = int(st[i, cv2.CC_STAT_WIDTH])
+            bh = int(st[i, cv2.CC_STAT_HEIGHT])
+            
+            pad = 14
+            x0 = max(0, bx - pad)
+            y0 = max(0, by - pad)
+            x1 = min(out.shape[1], bx + bw + pad)
+            y1 = min(out.shape[0], by + bh + pad)
+            crop = out[y0:y1, x0:x1]
+            clab = lab[y0:y1, x0:x1]
+            cm = (clab == i)
+            if not cm.any():
+                continue
+
+            
+            ring = cv2.dilate(cm.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
+            ring &= ~cm
+            
+            border = 2
+            ring[:border, :] = False
+            ring[-border:, :] = False
+            ring[:, :border] = False
+            ring[:, -border:] = False
+            if int(ring.sum()) < 40:
+                continue
+
+            ring_px = crop[ring].astype(np.float32)
+            
+            if float(ring_px.std(axis=0).mean()) > 22.0:
+                local_m = (cm.astype(np.uint8) * 255)
+                local_m = cv2.dilate(local_m, np.ones((3, 3), np.uint8), iterations=1)
+                fixed = cv2.inpaint(crop, local_m, inpaintRadius=4, flags=cv2.INPAINT_TELEA)
+                out[y0:y1, x0:x1] = fixed
+                continue
+
+            bg = np.median(ring_px, axis=0)  
+            
+            inside = crop[cm].astype(np.float32)
+            
+            bg_lum = 0.114 * bg[0] + 0.587 * bg[1] + 0.299 * bg[2]
+            in_lum = 0.114 * inside[:, 0] + 0.587 * inside[:, 1] + 0.299 * inside[:, 2]
+            
+            bright = (in_lum > bg_lum + 18) | (
+                (inside[:, 0] > 200) & (inside[:, 1] > 200) & (inside[:, 2] > 200)
+            )
+            
+            dark = in_lum < bg_lum - 28
+            bad = bright | dark
+            if not np.any(bad):
+                continue
+
+            
+            ys, xs = np.where(cm)
+            bad_full = np.zeros(cm.shape, dtype=bool)
+            bad_full[ys[bad], xs[bad]] = True
+            if int(bad_full.sum()) < 8:
+                continue
+
+            
+            inv = (~cm).astype(np.float32)
+            k = 21
+            filled = crop.astype(np.float32).copy()
+            for c in range(3):
+                num = cv2.blur(filled[:, :, c] * inv, (k, k))
+                den = cv2.blur(inv, (k, k))
+                est = num / np.maximum(den, 1e-4)
+                filled[:, :, c][bad_full] = est[bad_full]
+            filled = np.clip(filled, 0, 255).astype(np.uint8)
+
+            
+            bm = bad_full.astype(np.uint8) * 255
+            bm = cv2.dilate(bm, np.ones((3, 3), np.uint8), iterations=1)
+            filled = cv2.inpaint(filled, bm, inpaintRadius=3, flags=cv2.INPAINT_TELEA)
+            out[y0:y1, x0:x1] = filled
+
+        return out
 
     @staticmethod
     def _is_daily_quota_error(err: Exception) -> bool:
