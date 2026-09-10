@@ -143,6 +143,8 @@ def _ensure_all_dependencies() -> None:
         misc.append("tqdm")
     if not (_can_import("pymupdf") or _can_import("fitz")):
         misc.append("pymupdf")
+    if not _can_import("pytoshop"):
+        misc.append("pytoshop")
     if misc:
         _pip_install(*misc)
 
@@ -362,6 +364,40 @@ try:
 except ImportError:
     print("خطا: arabic-reshaper / python-bidi بعد از نصب خودکار هنوز نیستند.", file=sys.stderr)
     raise
+
+try:
+    from psd_export import BubbleLayer, PageForPSD, export_page_to_psd
+except ImportError:
+    BubbleLayer = None
+    PageForPSD = None
+    export_page_to_psd = None
+
+LANG_CONFIG = {
+    "fa": {
+        "label": "فارسی",
+        "reshaper_language": "Farsi",
+        "default_font": "fonts/Vazirmatn-Bold.ttf",
+        "prompt_instruction": (
+            "متن حباب‌ها را به فارسیِ محاوره‌ای و طبیعی ترجمه کن؛ "
+            "لحن شخصیت‌ها را حفظ کن."
+        ),
+    },
+    "ar": {
+        "label": "العربية",
+        "reshaper_language": "Arabic",
+        "default_font": "fonts/Cairo-Bold.ttf",
+        "prompt_instruction": (
+            "ترجم نص الحبابات إلى العربية الفصحى المبسطة أو العامية "
+            "الواضحة، بأسلوب طبيعي يحافظ على نبرة كل شخصية ومزاجها."
+        ),
+    },
+}
+
+def get_lang_config(code: str) -> dict:
+    if code not in LANG_CONFIG:
+        raise ValueError(f"لغة غير مدعومة: {code} (المتاح: {list(LANG_CONFIG)})")
+    return LANG_CONFIG[code]
+
 
 _HAS_GEMINI = False
 try:
@@ -1438,7 +1474,14 @@ class MangaTranslator:
         debug: bool = False,
         glossary_path: Optional[str] = None,
         story_brief: bool = True,
+        target_lang: str = "fa",
+        export_psd: bool = False,
     ):
+        self.target_lang = (target_lang or "fa").lower().strip()
+        self.export_psd = bool(export_psd)
+        self._last_cleaned_bg: Optional[Image.Image] = None
+        self._last_bubble_layers: List[Any] = []
+
         self.det_confidence = float(det_confidence)
         provider = (provider or "gemini").lower().strip()
         if provider not in PROVIDER_PRESETS:
@@ -1471,6 +1514,13 @@ class MangaTranslator:
         self._model_index: int = 0
         self._last_good_model: str = ""
         self.api_base = api_base or self.provider_cfg.get("base_url")
+
+        if not font_path:
+            lang_cfg = get_lang_config(self.target_lang)
+            font_path = lang_cfg.get("default_font")
+            if not font_path or not os.path.isfile(font_path):
+                if os.path.isfile("fonts/Lalezar-Regular.ttf"):
+                    font_path = "fonts/Lalezar-Regular.ttf"
 
         self.font_path = font_path
         
@@ -1545,9 +1595,11 @@ class MangaTranslator:
         self.openai_client = None
 
         if not font_path or not os.path.isfile(font_path):
+            lang_cfg = get_lang_config(self.target_lang)
+            df = lang_cfg.get("default_font", "fonts/Cairo-Bold.ttf")
             raise FileNotFoundError(
-                "یک فونت معتبر فارسی (ttf) با --font مشخص کنید. "
-                "پیشنهاد: فونت Vazirmatn (رایگان و متن‌باز)."
+                f"فونت نامعتبر است یا پیدا نشد: {font_path}. "
+                f"با --font مسیر فونت را مشخص کنید یا {df} را قرار دهید."
             )
 
         if gpu is None:
@@ -3704,8 +3756,122 @@ class MangaTranslator:
         return False
 
     def _get_system_instruction(self) -> str:
+        lang_cfg = get_lang_config(self.target_lang)
+        instruction = lang_cfg['prompt_instruction']
+        if self.target_lang == 'ar':
+            return (
+                "أنت «مُعِيد صياغة ومُعَرِّب حوارات» مانجا ومانهوا وكوميكس محترف ومبدع.\n"
+                "أنت لست مجرد مترجم ينقل الكلمات؛ مهمتك ليست ترجمة المفردات كلمة بكلمة، بل «إعادة خلق المشهد بالكامل» (Re-creation / بازآفرینی): إعادة تجسيد نفس اللحظة، نفس النبرة، نفس الانفعال، ونفس المقصد باللغة العربية بأسلوب حيوي وطبيعي وسلس ينسجم تماماً مع فن القصص المصورة.\n\n"
+                f"{instruction}\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "طريقة التفكير ومسار العمل\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "لكل حوار، لا تقم بالترجمة المباشرة من الإنجليزية إلى العربية إطلاقاً.\n"
+                "1. أولاً: افهم المشهد بدقة — ما الذي تريد الشخصية قوله فعلاً؟ ولماذا تقوله الآن؟ وما هي حالتها النفسية والعاطفية؟\n"
+                "2. ثانياً: تخيل هذه الشخصية لو كانت تتحدث العربية في هذا الموقف بالذات، كيف كانت ستعبر عن هذا الموقف بتلقائية وبدون أي تفكير في التركيب الإنجليزي؟\n"
+                "3. ثالثاً: أخرج هذا التعبير العربي الطبيعي فوراً.\n\n"
+                "المسار الصحيح المُلزم:\n"
+                "النص الإنجليزي → استيعاب المشهد → فهم الشخصية → استشعار الانفعال → ابتكار التعبير العربي الطبيعي → الإخراج\n"
+                "إياك واتباع هذا المسار الفاشل:\n"
+                "النص الإنجليزي → استبدال الكلمات → جملة عربية ركيكة تفوح منها رائحة الترجمة الآلية.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "قاعدة «الصوت الحقيقي»\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "الحوار لا يجوز أن يبدو كأنه صادر من المترجم خلف الشاشة، بل يجب أن يكون صوتاً نابضاً ينطلق من فم الشخصية نفسها.\n"
+                "إذا كانت الجملة صحيحة قواعدياً لكن لا يمكن لأي شخص عربي أن ينطق بها في موقف واقعي مشابه، فالترجمة تعتبر خاطئة وفاشلة ويجب استبدالها بصياغة حية.\n"
+                "كل سطر يجب أن يتميز بـ:\n"
+                "- إيقاع كلام شفهي طبيعي وسلس.\n"
+                "- مفردات حوارية واقعية تناسب السياق.\n"
+                "- ردود أفعال انفعالية متطابقة مع الموقف (دهشة، صدمة، سخرية، حزن).\n"
+                "- التحرر الكامل من أي قوالب لغوية مترجمة جامدة.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "الشخصية أهم من المفردات\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "الجملة الواحدة لا تُترجم بنفس الطريقة لشخصيتين مختلفتين.\n"
+                "راعِ دائماً: عمر المتحدث، مكانته، طبقته، درجة ثقته بنفسه، وطبعه النفسي.\n"
+                "- الشخصية المتغطرسة أو الشريرة لها نبرة فوقية وقاطعة.\n"
+                "- الشخصية الخجولة أو التابعة لها نبرة مترددة أو متلعثمة.\n"
+                "- الشخصية الساخرة المازحة تتهكم وتستعمل التشبيهات اللاذعة.\n"
+                "- إذا كانت الشخصية تكتم ضحكتها، يجب أن يشعر القارئ باختناق الضحكة في الكلمات.\n"
+                "- إذا كانت غاضبة أو تصرخ، لا تكتب جملة باردة أو متكلفة؛ اجعل الغضب يتطاير من الحروف.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "اصنع العربية من روح العربية\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "حين تجد تعبيراً اصطلاحياً أو مجازياً أو مثلاً إنجليزياً (Idiom)، ابحث عن المقابل العفوي الذي يؤدي نفس الغرض في ثقافة التخاطب العربية، ولا تترجمه ترجمة معجمية.\n"
+                "ترتيب الكلمات الإنجليزية لا قيمة له؛ يحق لك تقديم أو تأخير الكلمات، تقسيم الجملة، أو إعادة صياغتها بالكامل، طالما أن المعنى والنية والشعور والعلاقة بين المتحدثين محفوظة بدقة.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "طبيعة الحوار الشفهي\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "لغة الحوار في الكوميكس ليست مقالاً أكاديمياً ولا نصاً فصيحاً جافاً؛ بل هي «فصحى مبسطة ومعبرة» وقريبة من لغة التخاطب اليومية، مع تقبل العبارات الدارجة الشائعة إذا لزمت النبرة.\n"
+                "- الجمل الواقعية تكون أحياناً مقتضبة وسريعة.\n"
+                "- قد تتوقف الشخصية في منتصف الجملة أو تتلعثم.\n"
+                "- قد تكرر كلمة للتأكيد والدهشة.\n"
+                "استخدم هذه الخصائص فقط حين يقتضيها المشهد.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "لافتات وتسميات المتحدثين (Speaker Labels)\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "إذا بدأ النص بلافتة متحدث مثل:\n"
+                "(PARTY 1 LEADER: HAN أو <LEADERHAN> أو GUILD MASTER: NAME)،\n"
+                "قم بترجمة الحوار فقط واحذف اللافتة تماماً من حقل الترجمة (translation)، ويمكنك وضع الاسم في حقل names.\n"
+                "إذا كان النص بأكمله عبارة عن لافتة فقط بدون أي حوار، اترك حقل translation فارغاً (\"\"). إياك أن تدمج اسم المتحدث داخل حوار البالون.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "الشتائم، الإهانات والحدة الانفعالية\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "إذا كانت الشخصية تشتم أو تهين، حافظ على الشدة الانفعالية الحقيقية للعبارة:\n"
+                "- لا تخفف الشتيمة فتحول الغضب الهادر إلى كلام بارد لا معنى له.\n"
+                "- وفي نفس الوقت لا تبالغ وتختلق ألفاظاً فاحشة دون مبرر.\n"
+                "- اختر الألفاظ والشتائم العربية الشائعة والمفهومة التي تناسب الموقف الانفعالي (مثل: \"يا وقح\"، \"سحقاً لك\"، \"أيها اللعين\"، \"تباً\"، \"ما هذه الحماقة\"، \"هل جننت؟\").\n"
+                "تعامل بذكاء مع الشتائم الخاضعة للرقابة أو المشوهة في الـ OCR:\n"
+                "  F*ck / F**k / Fu*k / fck → fuck\n"
+                "  Sh*t / S**t → shit\n"
+                "  what theF / wtf → what the fuck\n"
+                "أمثلة:\n"
+                "  F*ck?! → سحقاً؟! / اللعنة؟! / ما هذا بحق الجحيم؟!\n"
+                "  What the F is wrong with you? → ما خطبك بحق الجحيم؟ / هل فقدت عقلك؟\n"
+                "إياك أن تنقل الرموز الرقابية مثل النجوم أو الأرقام داخل النص العربي.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "التعامل مع نصوص الـ OCR المشوهة\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "لا تعتبر نصوص الـ OCR نصوصاً مقدسة خالية من العيوب؛ فكثيراً ما تكون مشوهة أو متصلة أو ناقصة الحروف:\n"
+                "- افصل الكلمات الملتصقة تلقائياً بناءً على المعنى والسياق (مثل: CLEANRIGHT → CLEAN RIGHT | IMADESURE → I MADE SURE).\n"
+                "- استنتج الكلمات الناقصة من سياق الجملة والمشهد.\n"
+                "- احذف الرموز الغريبة والأخطاء العشوائية الناتجة عن المسح الضوئي.\n"
+                "استثناء صارم — أرقام المستويات والرتب (Levels / Stats):\n"
+                "إذا ورد رقم مستوى أو إحصائية مثل (LV.539 أو Level 12)، انقله بدقة تامة وبنفس القيمة الرقمية (مثل \"المستوى 539\") ولا تغيره أو تخمن رقماً آخر.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "أمثلة للمقارنة بين اللفظي والواقعي\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "What the hell are you doing?\n"
+                "→ ماذا تفعل بحق الجحيم؟ / وش قاعد تسوي؟ (مش: \"ماذا الجحيم أنت تفعل؟\")\n\n"
+                "I didn't come here to talk.\n"
+                "→ لم آتِ إلى هنا لتبادل أطراف الحديث. / ما جيت لهنا عشان أسولف.\n\n"
+                "Don't look at me like that.\n"
+                "→ لا تنظر إليّ بهذه الطريقة.\n\n"
+                "You're kidding, right?\n"
+                "→ أنت تمزح بالتأكيد؟ / تمزح، صح؟\n\n"
+                "I can't believe you actually did that.\n"
+                "→ لا أصدق أنك تجرأت وفعلتها فعلاً!\n\n"
+                "What?! I'm not a girl!\n"
+                "→ ماذا؟! لستُ فتاة!\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "القاعدة الذهبية والأولوية عند التعارض\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "في أي تعارض بين المعايير، التزم بهذا الترتيب الصارم:\n"
+                "طبيعية وتدفق الصياغة العربية > نبرة وصوت الشخصية > نقل الشعور والنية > نقل المعنى العام > الحرفية في نقل الإنجليزية.\n\n"
+                "حافظ على الأسماء الخاصة أو قم بنقلها صوتياً بشكل سليم.\n"
+                "لا تكتب أي شروحات أو تعليقات.\n"
+                "أرجع فقط مصفوفة JSON صالحة.\n"
+                'كل عنصر: {\"id\": عدد, \"translation\": \"النص العربي المصاغ\", \"tone\": \"لحن_البالون\", \"names\": [{\"source\": \"...\", \"target\": \"...\"}]}\n'
+                "tone (إلزامي) يجب أن يكون واحداً بدقة من القيم التالية:\n"
+                "normal | shout | comedy_shout | whisper | sun_thought | thought | "
+                "free_text | system | monster | cry | fear | broadcast | letter | "
+                "narrator | square_thought | black.\n"
+                "إذا كان لديك صورة فحدد شكل الحبابات ولحنها من الصورة؛ والقرار النهائي لك."
+            )
+
         return (
             "تو «بازآفرین دیالوگ» مانهوا هستی.\n"
+            f"{instruction}\n\n"
             "تو مترجم تحت‌اللفظی نیستی. کار تو ترجمه‌ی کلمات نیست؛ "
             "کار تو بازسازی همان لحظه، همان آدم، همان احساس و همان منظور به زبان فارسی است.\n\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
@@ -4383,8 +4549,31 @@ class MangaTranslator:
         payload = [{"id": r.id, "text": r.source_text} for r in regions]
         system_instruction = self._get_system_instruction()
         context_block = self._glossary_prompt_block() + self._brief_prompt_block()
-        user_prompt = (
-            "این‌ها دیالوگ‌های استخراج‌شده از یک صفحه‌ی مانهوا هستند.\n"
+        lang_cfg = get_lang_config(self.target_lang)
+        lang_instruction = lang_cfg["prompt_instruction"]
+        if self.target_lang == "ar":
+            user_prompt = (
+                "هذه هي الحوارات المستخرجة من صفحة المانجا/المانهوا.\n"
+                "النصوص مستخرجة بـ OCR وقد تحتوي على أخطاء إملائية أو كلمات ملتصقة أو ناقصة.\n"
+                "قبل الصياغة بالعربية، صحح النص الإنجليزي في ذهنك أولاً.\n"
+                "ثم أعد صياغة كل عنصر كحوار عربي طبيعي جداً ومناسب للسياق ولحن الشخصية.\n\n"
+                f"{context_block}"
+                f"توجيه الصياغة: {lang_instruction}\n\n"
+                "الأصل الأساسي:\n"
+                "لا تترجم حرفياً؛ اكتب الحوار كما لو أنه كُتب بالعربية أصلاً.\n"
+                "إذا كانت هناك حبابات متتالية لفكرة واحدة، حافظ على تسلسل النبرة.\n\n"
+                "لا تكتب أي تحليل أو شرح إضافي.\n"
+                "أرجع فقط JSON صالح. لكل عنصر إلزامي: id + translation + tone\n"
+                "tone واحد من:\n"
+                "normal | shout | comedy_shout | whisper | sun_thought | thought | "
+                "free_text | system | monster | cry | fear | broadcast | letter | "
+                "narrator | square_thought | black\n"
+                "اختر tone لكل نص (الافتراضي normal).\n\n"
+                f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
+            )
+        else:
+            user_prompt = (
+                "این‌ها دیالوگ‌های استخراج‌شده از یک صفحه‌ی مانهوا هستند.\n"
             "متن‌ها از OCR آمده‌اند و ممکن است خراب، ناقص، چسبیده یا دارای غلط املایی باشند.\n"
             "قبل از بازآفرینی فارسی، اول متن انگلیسی هر مورد را در ذهن خودت اصلاح کن "
             "(مثلاً MUDIYING→MODIFYING، NDYE/AND YE→AND YET، RECONSTRUC→RECONSTRUCTION).\n"
@@ -4456,8 +4645,16 @@ class MangaTranslator:
                 if missing and attempt < self.max_retries:
                     print(f"    [!] {len(missing)} حباب بدون ترجمه؛ تلاش مجدد...")
                     payload2 = [{"id": r.id, "text": r.source_text} for r in missing]
-                    user_prompt = (
-                        "اینا موندن بازآفرینی بشن. ترجمه نکن؛ دیالوگ طبیعی فارسی بساز. "
+                    if self.target_lang == "ar":
+                        user_prompt = (
+                            f"هذه الحوارات متبقية لإعادة الصياغة. {lang_instruction} "
+                            "التزم بقائمة المصطلحات ولحن الشخصيات.\n"
+                            "فقط JSON صالح:\n"
+                            f"{json.dumps(payload2, ensure_ascii=False, indent=2)}"
+                        )
+                    else:
+                        user_prompt = (
+                            "اینا موندن بازآفرینی بشن. ترجمه نکن؛ دیالوگ طبیعی فارسی بساز. "
                         "واژه‌نامهٔ قفل‌شده و لحن شخصیت‌ها را همان‌طور رعایت کن.\n"
                         "فقط JSON معتبر:\n"
                         f"{json.dumps(payload2, ensure_ascii=False, indent=2)}"
@@ -4936,23 +5133,28 @@ class MangaTranslator:
         return text_rgb, stroke_rgb
 
     def render_translations(self, image: np.ndarray, regions: List[TextRegion],
-                            original_image: np.ndarray) -> np.ndarray:
+                            original_image: np.ndarray, return_layers: bool = False):
         pil_img = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(pil_img)
+        bubble_layers = []
 
         for region in regions:
             if not region.translated_text:
                 continue
 
             try:
-                self._render_one_region(pil_img, draw, image, original_image, region)
+                bl = self._render_one_region(pil_img, draw, image, original_image, region)
+                if bl is not None:
+                    bubble_layers.append(bl)
             except Exception as e:
-                
-                
                 print(f"  [!] رندر ناحیه {region.id} خطا داد ({e}) → رد شد.")
                 continue
 
-        return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        self._last_bubble_layers = bubble_layers
+        rendered_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        if return_layers:
+            return rendered_bgr, bubble_layers
+        return rendered_bgr
 
     def _process_chunk_worker(self, args_tuple) -> List[TextRegion]:
         idx, y0, y1, image = args_tuple
@@ -5749,13 +5951,22 @@ class MangaTranslator:
             page_debug = self._draw_debug_regions(image, regions)
 
         print("[فاز ۴ - پاکسازی متن + رندر] ...")
+        cleaned_bg_pil = None
+        bubble_layers = []
         if translated_regions:
             cleaned_image = self.clean_image(image, translated_regions)
-            final_image = self.render_translations(cleaned_image, translated_regions, raw_image_copy)
-            print("  - پاکسازی متن + رندر فارسی تمام شد.")
+            cleaned_bg_pil = Image.fromarray(cv2.cvtColor(cleaned_image, cv2.COLOR_BGR2RGB))
+            final_image, bubble_layers = self.render_translations(
+                cleaned_image, translated_regions, raw_image_copy, return_layers=True
+            )
+            print("  - پاکسازی متن + رندر تمام شد.")
         else:
             final_image = image.copy()
+            cleaned_bg_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
             print("  - ترجمه‌ای نبود؛ تصویر بدون تغییر.")
+
+        self._last_cleaned_bg = cleaned_bg_pil
+        self._last_bubble_layers = bubble_layers
         return final_image, page_debug
 
     def process_core(self, image: np.ndarray) -> np.ndarray:
@@ -6963,9 +7174,25 @@ html, body { background: #0a0a0b; }
             if image is None:
                 return page_i, out_file, None, dbg
             if not regions:
+                if self.export_psd and export_page_to_psd and PageForPSD:
+                    try:
+                        bg = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                        page_obj = PageForPSD(background=bg, bubbles=[])
+                        psd_p = os.path.splitext(out_file)[0] + ".psd"
+                        export_page_to_psd(page_obj, psd_p)
+                    except Exception as _pe:
+                        print(f"  [!] تصدير PSD للصفحة #{page_i + 1} ناموفق: {_pe}")
                 return page_i, out_file, image, dbg
             try:
                 result, page_debug = self.finish_page_phase(image, regions)
+                if self.export_psd and export_page_to_psd and PageForPSD:
+                    try:
+                        bg = self._last_cleaned_bg or Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                        page_obj = PageForPSD(background=bg, bubbles=self._last_bubble_layers or [])
+                        psd_p = os.path.splitext(out_file)[0] + ".psd"
+                        export_page_to_psd(page_obj, psd_p)
+                    except Exception as _pe:
+                        print(f"  [!] تصدير PSD للصفحة #{page_i + 1} ناموفق: {_pe}")
                 
                 dbg_out = page_debug if page_debug is not None else dbg
                 return page_i, out_file, result, dbg_out
@@ -7098,6 +7325,35 @@ html, body { background: #0a0a0b; }
             return
 
         out_ext = os.path.splitext(output_path)[1].lower()
+
+        # Handle PSD export collection
+        if self.export_psd:
+            psd_files = sorted(
+                (os.path.join(out_dir, f) for f in os.listdir(out_dir) if f.lower().endswith(".psd")),
+                key=MangaTranslator._natural_sort_key
+            )
+            if psd_files:
+                if out_ext in (".pdf", ".zip", ".html"):
+                    if len(psd_files) == 1:
+                        target_psd = os.path.splitext(output_path)[0] + ".psd"
+                        shutil.copy(psd_files[0], target_psd)
+                        print(f"[✓] ملف PSD نهایی ذخیره شد در: {target_psd}")
+                    else:
+                        target_psd_dir = os.path.splitext(output_path)[0] + "_psd"
+                        os.makedirs(target_psd_dir, exist_ok=True)
+                        for pf in psd_files:
+                            shutil.copy(pf, os.path.join(target_psd_dir, os.path.basename(pf)))
+                        print(f"[✓] تم تصدير {len(psd_files)} ملف PSD إلى: {target_psd_dir}")
+                elif len(psd_files) == 1 and out_ext in IMAGE_EXTS:
+                    target_psd = os.path.splitext(output_path)[0] + ".psd"
+                    shutil.copy(psd_files[0], target_psd)
+                    print(f"[✓] ملف PSD نهایی ذخیره شد در: {target_psd}")
+                else:
+                    os.makedirs(output_path, exist_ok=True)
+                    for pf in psd_files:
+                        shutil.copy(pf, os.path.join(output_path, os.path.basename(pf)))
+                    print(f"[✓] تم تصدير {len(psd_files)} ملف PSD إلى المجلد: {output_path}")
+
         if out_ext == ".pdf":
             self._save_as_pdf(processed_files, output_path)
             print(f"[✓] PDF نهایی ذخیره شد در: {output_path}")
@@ -7146,26 +7402,23 @@ html, body { background: #0a0a0b; }
             except Exception as e:
                 print(f"    [!] ساخت HTML همراه ناموفق: {e}")
 
-    def _render_one_region(self, pil_img, draw, image, original_image, region) -> None:
+    def _render_one_region(self, pil_img, draw, image, original_image, region):
         x, y, w, h = region.rect
-
 
         short = len((region.translated_text or "").split()) <= 2
         if short and (w < 90 or h < 50):
-            
             expand = max(4, int(min(w, h) * 0.12))
             x = max(0, x - expand // 2)
             y = max(0, y - expand // 2)
             w = w + expand
             h = h + expand
-        
+
         pad = max(3, int(min(w, h) * (0.05 if short else 0.08)))
         box_w = max(14, w - 2 * pad)
         box_h = max(14, h - 2 * pad)
 
         style = (getattr(region, "bubble_style", None) or "").strip().lower()
-        
-        
+
         max_font = self._max_font_for_region(region)
         font, lines, sw = self._wrap_and_fit(
             draw, region.translated_text, box_w, box_h, style=style, max_size=max_font
@@ -7179,30 +7432,34 @@ html, body { background: #0a0a0b; }
         if angle != angle or angle in (float("inf"), float("-inf")):
             angle = 0.0
 
+        layer_name = f"حباب {region.id}"
+        bubble_layer = None
+
         if abs(angle) < 8:
             bb = font.getbbox("آیگچ", stroke_width=sw)
             glyph_h = bb[3] - bb[1]
 
             n = max(1, len(lines))
 
-            
             line_h = glyph_h + 1
             if line_h * n + 2 * sw > box_h:
                 line_h = max(4, (box_h - 2 * sw) // n)
             total_h = line_h * n
             start_y = y + pad + max(0, (box_h - total_h) // 2)
-            
             start_y = max(start_y, y + 1)
 
-            bottom_limit = y + pad + box_h
+            # Bubble layer canvas
+            patch_w = max(14, w)
+            patch_h = max(14, h)
+            patch = Image.new("RGBA", (patch_w, patch_h), (0, 0, 0, 0))
+            patch_draw = ImageDraw.Draw(patch)
 
             for i, line in enumerate(lines):
                 shaped = self._shape_farsi(line)
                 line_w = draw.textbbox((0, 0), shaped, font=font, stroke_width=sw)[2]
                 line_x = x + pad + max(0, (box_w - line_w) // 2)
                 line_y = start_y + i * line_h
-                
-                
+
                 draw.text(
                     (line_x, line_y),
                     shaped,
@@ -7210,6 +7467,24 @@ html, body { background: #0a0a0b; }
                     fill=text_rgb,
                     stroke_width=sw,
                     stroke_fill=stroke_rgb,
+                )
+                # Draw on transparent patch relative to (x, y)
+                patch_draw.text(
+                    (line_x - x, line_y - y),
+                    shaped,
+                    font=font,
+                    fill=text_rgb + (255,),
+                    stroke_width=sw,
+                    stroke_fill=stroke_rgb + (255,),
+                )
+
+            if BubbleLayer:
+                bubble_layer = BubbleLayer(
+                    name=layer_name,
+                    image=patch,
+                    left=x,
+                    top=y,
+                    text_raw=region.translated_text,
                 )
         else:
             line_h = font.getbbox("آی", stroke_width=sw)[3] + 6
@@ -7239,8 +7514,7 @@ html, body { background: #0a0a0b; }
                 )
 
             rotated = tmp.rotate(-angle, expand=True, resample=Image.BICUBIC)
-            
-            
+
             max_rw = max(24, int(w * 1.08))
             max_rh = max(24, int(h * 1.08))
             rw0, rh0 = rotated.size
@@ -7257,6 +7531,17 @@ html, body { background: #0a0a0b; }
             paste_y = int(cy - rh / 2)
 
             pil_img.paste(rotated, (paste_x, paste_y), rotated)
+
+            if BubbleLayer:
+                bubble_layer = BubbleLayer(
+                    name=layer_name,
+                    image=rotated,
+                    left=paste_x,
+                    top=paste_y,
+                    text_raw=region.translated_text,
+                )
+
+        return bubble_layer
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -7276,8 +7561,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="کلید API. چندبار یا با کاما. env متناظر هم خوانده می‌شود")
     p.add_argument("--api-base", default=None,
                    help="آدرس پایه API (اختیاری)")
-    p.add_argument("--font", required=True,
-                   help="فونت پیش‌فرض فارسی / بالن عادی (کودک) و fallback")
+    p.add_argument("--target-lang", "-tl",
+                   choices=list(LANG_CONFIG.keys()),
+                   default="fa",
+                   help="اللغة الهدف للترجمة (fa = فارسی، ar = العربية)")
+    p.add_argument("--psd", action="store_true",
+                   help="صدّر كل صفحة كملف PSD متعدد الطبقات بجانب/بدل الصيغة العادية")
+    p.add_argument("--font", default=None,
+                   help="فونت پیش‌فرض / بالن عادی و fallback")
     p.add_argument("--font-normal", default=None, help="بالن عادی گرد — کودک")
     p.add_argument("--font-shout", default=None, help="داد خشم دندانه — افسانه")
     p.add_argument("--font-comedy-shout", default=None, help="داد کمدی — کروش")
@@ -7410,13 +7701,25 @@ def main():
     if output_path != args.output:
         print(f"[*] نام خروجی خودکار: {output_path}")
 
+    target_lang = getattr(args, "target_lang", "fa") or "fa"
+    lang_cfg = get_lang_config(target_lang)
+    default_font_path = args.font or lang_cfg.get("default_font")
+    if not default_font_path or not os.path.isfile(default_font_path):
+        cand = lang_cfg.get("default_font")
+        if cand and os.path.isfile(cand):
+            default_font_path = cand
+        elif os.path.isfile("fonts/Lalezar-Regular.ttf"):
+            default_font_path = "fonts/Lalezar-Regular.ttf"
+
     translator = MangaTranslator(
         api_key=unique_keys or ["ollama"],
         provider=provider,
         ocr_langs=args.ocr_lang,
         model_name=args.model,
         api_base=args.api_base,
-        font_path=args.font,
+        font_path=default_font_path,
+        target_lang=target_lang,
+        export_psd=bool(getattr(args, "psd", False)),
         reading_order=args.reading_order,
         gpu=args.gpu,
         max_retries=args.max_retries,

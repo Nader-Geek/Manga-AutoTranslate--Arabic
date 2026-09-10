@@ -1,0 +1,40 @@
+# Manga-AutoTranslate — Python dependencies
+# ==========================================
+# التثبيت التلقائي: كل المكتبات دي بتتثبت تلقائياً عند أول تشغيل لـ manga.py
+# للتثبيت اليدوي كاملاً:
+#   pip install -r requirements.txt
+#
+# ملاحظة: torch/onnxruntime-gpu اختياريان — manga.py بيختار الأنسب
+# تلقائياً حسب الـ GPU المتاحة. لو مفيش GPU استخدم --cpu.
+
+# ─── Core ─────────────────────────────────────────────────────────────────────
+numpy
+opencv-python-headless>=4.8,<5
+Pillow
+
+# ─── Arabic / Persian text shaping ───────────────────────────────────────────
+arabic-reshaper
+python-bidi
+
+# ─── Misc utilities ───────────────────────────────────────────────────────────
+huggingface_hub
+requests
+beautifulsoup4
+pyyaml
+tqdm
+pymupdf
+
+# ─── PSD export (متطلب psd_export.py) ────────────────────────────────────────
+pytoshop
+
+# ─── OCR ──────────────────────────────────────────────────────────────────────
+# rapidocr-onnxruntime  # خفيف، بدون GPU — افتراضي
+# paddleocr             # دقة أعلى، اختياري
+
+# ─── Translation APIs (اختار الـ provider اللي بتستخدمه) ─────────────────────
+google-genai            # Gemini
+# openai                # OpenAI / DeepSeek / Groq / xAI / Ollama (متوافق)
+
+# ─── Inference runtime (اختياري — manga.py بيختار تلقائياً) ──────────────────
+# onnxruntime           # CPU فقط
+# onnxruntime-gpu       # مع CUDA
