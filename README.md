@@ -197,25 +197,7 @@ tmux new -s manga 'python3 manga_app.py --web'
 # detach: Ctrl+B بعد D | بازگشت: tmux attach -t manga
 ```
 
-### ۳) اجرای لوکال
-
-```bash
-git clone https://github.com/amirwolf5122/Manga-AutoTranslate.git
-cd Manga-AutoTranslate
-
-Manga.bat    # ویندوز — منو: App / Web / CLI
-./manga.sh   # لینوکس / مک
-```
-
-یا مستقیم:
-
-```bash
-python manga_app.py          # تشخیص خودکار (دسکتاپ یا وب)
-python manga_app.py --cli    # CLI تعاملی
-python manga_app.py -- -i "https://...chapter-1/" -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu
-```
-
-### ۴) GitHub Actions
+### ۳) GitHub Actions
 
 ریپو را Fork کن
 در Settings → Secrets and variables → Actions کلید را بگذار:
@@ -239,6 +221,24 @@ Runnerهای GitHub معمولاً GPU ندارند؛ اجرا روی CPU است
 - واترمارک‌های نصفه‌کاره گاهی به‌اشتباه دیالوگ تشخیص داده می‌شوند.
 - بعضی مدل‌های OpenAI-compatible ممکن است JSON را دقیق رعایت نکنند؛ با `--max-retries` بیشتر امتحان کنید.
 
+
+### ۴) اجرای لوکال
+
+```bash
+git clone https://github.com/amirwolf5122/Manga-AutoTranslate.git
+cd Manga-AutoTranslate
+
+Manga.bat    # ویندوز — منو: App / Web / CLI
+./manga.sh   # لینوکس / مک
+```
+
+یا مستقیم:
+
+```bash
+python manga_app.py          # تشخیص خودکار (دسکتاپ یا وب)
+python manga_app.py --cli    # CLI تعاملی
+python manga_app.py -- -i "https://...chapter-1/" -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --cpu
+```
 ---
 
 ## حمایت مالی
