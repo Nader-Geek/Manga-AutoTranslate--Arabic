@@ -8,20 +8,6 @@ on:
         required: false
         default: "60"
         type: string
-      provider:
-        description: "ارائه‌دهنده AI (برای Secret)"
-        required: false
-        default: "gemini"
-        type: choice
-        options:
-          - gemini
-          - openai
-          - deepseek
-          - groq
-          - xai
-          - openrouter
-          - together
-
 jobs:
   web:
     runs-on: ubuntu-latest
