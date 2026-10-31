@@ -919,7 +919,7 @@ def _run(job):
         keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
         if not keys and not (bool(p.get("fake")) or bool(p.get("clean_only"))):
             _log(job, "[!] حداقل یک کلید API لازم است — کلید بده یا "
-                      "«حالت تست» / «فقط پاکسازی» را در تنظیمات پیشرفته فعال کن.")
+                      "«حالت تست» / «حالت پاکسازی» را در تنظیمات پیشرفته فعال کن.")
             with STATE["lock"]:
                 job["done"] = True
                 job["error"] = True

@@ -1,0 +1,91 @@
+name: PC Linux Speed Test (extract end-to-end — lama-manga.onnx)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['manga.py', 'scripts/bench_speed.py', '.github/workflows/pc-speed-test.yml']
+  schedule:
+    - cron: '0 4 * * 1'   # هر دوشنبه ۰۴:۰۰ UTC — ردیابیِ رگرسیونِ سرعت
+
+permissions:
+  contents: read
+
+jobs:
+  pc-speed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install opencv-python-headless numpy pillow onnxruntime \
+            rapidocr rapidocr-onnxruntime arabic-reshaper python-bidi requests
+
+      - name: Show PC hardware
+        run: |
+          echo "cores: $(nproc) | arch: $(uname -m)"
+          lscpu | grep -E "Model name|MHz|CPU\(s\):" | head -5
+          free -h
+
+      - name: Collect sample images (repo + CDN best-effort)
+        run: |
+          mkdir -p /tmp/mt/imgs /tmp/mt/out
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+          # از خودِ ریپو — همیشه در دسترس
+          cp ci_imgs/IMG_20261018_140944_899.jpg /tmp/mt/imgs/ 2>/dev/null || true
+          cp ci_imgs/img2.webp /tmp/mt/imgs/ 2>/dev/null || true
+          cp ci_imgs/img4.jpg  /tmp/mt/imgs/ 2>/dev/null || true
+          cp examples/01.jpg   /tmp/mt/imgs/ 2>/dev/null || true
+          cp examples/IMG_20260929_025410_986.jpg /tmp/mt/imgs/ 2>/dev/null || true
+          # نمونههای کاربر از CDN — اگر CDN رانر را بلاک کرد رد میشویم
+          dl() { curl -sL --max-time 90 -A "$UA" -o "/tmp/mt/imgs/$2" "$1" && \
+                 python3 -c "import cv2,sys; sys.exit(0 if cv2.imread('/tmp/mt/imgs/$2') is not None else 1)" \
+                 || { echo "[skip] $2"; rm -f "/tmp/mt/imgs/$2"; }; }
+          dl "https://cdn.asurascans.com/asura-images/chapters/surviving-the-game-as-a-barbarian/2/012_p1.webp?v=1770499638" barbarian_012_p1.webp
+          dl "https://cdn.asurascans.com/asura-images/chapters/raising-villains-the-right-way/51/412e9e.webp?v=1788462175" raising_villains_412e9e.webp
+          dl "https://cdn.asurascans.com/asura-images/chapters/my-slain-dragon-bride/1/890fb1.webp?v=1787405548" dragon_bride_890fb1.webp
+          dl "https://cdn.asurascans.com/asura-images/chapters/the-greatest-estate-developer/222/001.webp?v=1770499638" ged_222_001.webp
+          dl "https://cdn.asurascans.com/asura-images/chapters/the-greatest-estate-developer/222/011.webp?v=1770499638" ged_222_011.webp
+          dl "https://imgsrv5.com/sv2/comic/1dx2/chapter-264/9.jpg" imgsrv5_1dx2_9.jpg
+          echo "--- samples ---"; ls -la /tmp/mt/imgs
+
+      - name: Run end-to-end speed bench (warmup + timed run)
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          python3 scripts/bench_speed.py \
+            --imgs /tmp/mt/imgs --out /tmp/mt/out/pc_run \
+            --label pc-linux --workers 2 \
+            --report /tmp/mt/pc_speed_report.json
+
+      - name: Print summary to job summary
+        if: always()
+        run: |
+          if [ -f /tmp/mt/pc_speed_report.md ]; then
+            cat /tmp/mt/pc_speed_report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          for f in /tmp/mt/out/*_log_*.txt; do
+            echo "### $f"; grep -E "\[TIME\]|نوار|چسباندن|برش امن" "$f" | head -40 || true
+          done
+
+      - name: Upload report + logs + debug output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-speed-report
+          path: |
+            /tmp/mt/pc_speed_report.json
+            /tmp/mt/pc_speed_report.md
+            /tmp/mt/out/
+          if-no-files-found: warn
+          retention-days: 14

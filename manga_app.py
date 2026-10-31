@@ -1638,7 +1638,22 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   var c = document.getElementById('c'), h = document.getElementById('h'),
       b = document.getElementById('n'), dot = document.getElementById('dot'),
       db = document.getElementById('db'), chip = document.getElementById('chip');
-  var haveDbg = !!DBG;
+  var haveDbg = !!DBG, dbgTotal = -1;
+  // v1.14.159 — دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
+  // صفحهٔ دیباگ واقعاً وجود دارد (قبلاً فقط وجودِ پوشه کافی بود → دکمه
+  // میآمد ولی فعال نبود). total.txt پوشهٔ دیباگ هر ۴ ثانیه چک میشود.
+  function pollDbgTotal(){
+    if (!haveDbg || dbgTotal > 0) return;
+    fetch(P + DBG + 'total.txt?r=' + STAMP, { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.text() : ''; })
+      .then(function(t){
+        var v = parseInt((t || '').trim(), 10);
+        if (v > 0) { dbgTotal = v; render(); }
+      })
+      .catch(function(){});
+  }
+  setInterval(pollDbgTotal, 4000);
+  pollDbgTotal();
   function pad(i){ return ('000' + i).slice(-4); }
   function curDir(){ return dbgMode ? DBG : D; }
   function curArrived(){ return dbgMode ? dbgArrived : arrived; }
@@ -1671,7 +1686,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     var fin = (total > 0 && a >= total);
     b.className = 'n' + (fin ? ' done' : '');
     dot.className = 'dot' + (fin ? ' off' : '');
-    if (haveDbg) db.style.display = (arrived > 0 || dbgArrived > 0 || total > 0) ? 'inline-block' : 'none';
+    if (haveDbg) db.style.display = ((dbgTotal > 0 || dbgArrived > 0) && (arrived > 0 || dbgArrived > 0 || total > 0)) ? 'inline-block' : 'none';
   }
   function probe(){
     if (busy) return;
@@ -2234,12 +2249,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     label="روش پاکسازی")
             with gr.Row():
                 two_pass = gr.Checkbox(label="OCR دومرحله‌ای", value=True)
-                fake_test = gr.Checkbox(label="حالت تست — متن فارسی الکی (بدون API)",
+                fake_test = gr.Checkbox(label="حالت تست",
                                         value=bool(cfg.get("fake_test", False)))
                 clean_only = gr.Checkbox(
-                    label="فقط پاکسازی بدون ترجمه (بدون API — تست تشخیص/inpaint)",
+                    label="حالت پاکسازی",
                     value=bool(cfg.get("clean_only", False)))
-                web_debug = gr.Checkbox(label="حالت دیباگ (مربع رنگی دور هر حباب)",
+                web_debug = gr.Checkbox(label="حالت دیباگ",
                                         value=bool(cfg.get("web_debug", False)))
             glossary_text = gr.Textbox(
                 label="واژه‌نامهٔ اسامی و اصطلاحات (هر خط: English=فارسی)",
@@ -3394,23 +3409,31 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             live_dir = os.path.join(user_out_dir, "live")
             shutil.rmtree(live_dir, ignore_errors=True)
             os.makedirs(live_dir, exist_ok=True)
-            live_dbg_dir = os.path.join(user_out_dir, "live_debug")
-            shutil.rmtree(live_dbg_dir, ignore_errors=True)
-            os.makedirs(live_dbg_dir, exist_ok=True)
+            # v1.14.159 — فیکسِ «دکمهٔ دیباگ فعال نیست ولی می‌آید»: پوشهٔ
+            # live_debug فقط وقتی ساخته/پاس داده میشود که کاربر «حالت دیباگ»
+            # را روشن کرده باشد؛ قبلاً همیشه ساخته میشد → دکمهٔ 🔍 دیباگِ
+            # خوانندهٔ زنده همیشه میآمد ولی هیچ‌وقت چیزی نشان نمیداد.
+            _dbg_on = bool(web_debug_v)
+            live_dbg_dir = ""
+            if _dbg_on:
+                live_dbg_dir = os.path.join(user_out_dir, "live_debug")
+                shutil.rmtree(live_dbg_dir, ignore_errors=True)
+                os.makedirs(live_dbg_dir, exist_ok=True)
             try:
                 _write_live_reader(live_dir, dbg_dir=live_dbg_dir)
             except Exception as _e:
                 print(f"[!] نوشتن live_reader.html ناموفق: {_e}")
             with job["lock"]:
                 job["live_dir"] = live_dir
-                job["live_dbg_dir"] = live_dbg_dir
+                job["live_dbg_dir"] = live_dbg_dir or None
                 job["live_files"] = []
 
             _env = os.environ.copy()
             _env["PYTHONUNBUFFERED"] = "1"
             _env["PYTHONIOENCODING"] = "utf-8"
             _env["MANGA_LIVE_DIR"] = live_dir
-            _env["MANGA_LIVE_DEBUG_DIR"] = live_dbg_dir
+            if _dbg_on:
+                _env["MANGA_LIVE_DEBUG_DIR"] = live_dbg_dir
             try:
                 proc = subprocess.Popen(
                     cmd, cwd=HERE, stdout=subprocess.PIPE,

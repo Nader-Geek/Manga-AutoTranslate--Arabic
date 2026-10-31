@@ -7190,6 +7190,15 @@ class MangaTranslator:
 
         latin_core = re.sub(r"[^A-Za-z]", "", stripped)
         _looks_promo = bool(DOMAIN_RE.search(stripped) or PROMO_RE.search(stripped))
+        # v1.14.159 — نامِ پلتفرم/واترمارک در متنِ کوتاه = کاندیدِ تبلیغ؛
+        # وگرنه شاخهٔ «شبیهِ جمله → دیالوگ» قبل از چکِ واترمارک برمی‌گشت
+        # و بنرهایِ «READ ON WEBTOON» / «NAVER WEBTOON» دیالوگ حساب میشدند.
+        if not _looks_promo and len(stripped) <= 40:
+            _low_probe = stripped.lower()
+            for _w in WATERMARK_PATTERNS:
+                if _w and _w in _low_probe:
+                    _looks_promo = True
+                    break
         if len(latin_core) >= 3 and not _looks_promo and re.fullmatch(r"[A-Za-z][A-Za-z\s.'\-]*[.!?…~]*", stripped.replace("...", ".").replace("…", ".")):
 
             if any(c in "AEIOUaeiou" for c in latin_core):
@@ -7326,10 +7335,14 @@ class MangaTranslator:
             return "promo"
         if re.search(r"(?i)\.(?:com|org|net|io|ink)\b", stripped):
             return "promo"
-        if re.search(r"(?i)(like|ike|vortex|kayn|asura|reaper)?manga[.\s]?(ink|unk|com|org)?", stripped) and len(stripped) <= 24:
+        # v1.14.159 — پسوند/پیشوندِ سایتِ «الزامی» شد؛ قبلاً هر متنی که
+        # فقط «manga» داشت (تا ۲۴ کاراکتر) promo میشد.
+        if re.search(r"(?i)((like|ike|vortex|kayn|asura|reaper)manga|manga[.\s]?(ink|unk|com|org))", stripped) and len(stripped) <= 24:
             return "promo"
+        # v1.14.159 — نشانهٔ دامنه لازم شد؛ قبلاً دیالوگِ کوتاهِ «DRUNK»/
+        # «BLINK»/«THINK» (پایانش unk/ink) promo میشد و رد میشد.
         if low_compact.endswith(("com", "org", "net", "ink", "unk")) and (
-            len(stripped) <= 28 or "scan" in low_compact or "manga" in low_compact or "series" in low_full
+            "." in stripped or "scan" in low_compact or "manga" in low_compact or "series" in low_full
         ):
             return "promo"
 
@@ -19820,11 +19833,21 @@ class MangaTranslator:
             if not parts:
                 continue
             if len(parts) == 1:
-                if parts[0] in token_set:
+                if parts[0] not in token_set and not (
+                        len(parts[0]) >= 8 and parts[0] in compact):
+                    continue
+                # v1.14.159 — کلمهٔ تکیِ پلتفرم (webtoon/asura/tapas/…)
+                # فقط در «متنِ کوتاه» (بنر/کریدیت/هندل) واترمارک است.
+                # جملهٔ بلندِ دیالوگی که نامِ پلتفرم را «ذکر میکند» متنِ
+                # اصلی است — باگِ GED 222: «"THE GREATEST ESTATE
+                # DEVELOPER" THE WEBTOON IS A STORY …» promo میشد و
+                # کلِ بلوک رد میشد (ترجمه/پاکسازی نمیشد).
+                if len(text or "") <= 32 or len(toks) <= 4:
                     return True
-
-                if len(parts[0]) >= 8 and parts[0] in compact:
-                    return True
+                if "_" in (text or "") and parts[0] in compact:
+                    return True  # هندلِ اجتماعی: webtoon_tged_official
+                if re.search(r"(?i)(\.(?:com|net|org|io|gg)|www\.|@)", text):
+                    return True  # دامنه/ایمیل/منشن — واترمارکِ واقعی
             else:
                 if parts in grams:
                     return True
@@ -30671,16 +30694,13 @@ html, body { background: #0a0a0b; }
                 valid_files.append(f)
                 del im0
             if valid_files:
-                # v1.14.106 — در حالتِ صفحاتِ مستقل، خوشهٔ عرض فقط از عرضِ خودِ
-                # صفحه ساخته می‌شود (دقیقاً مثلِ رانِ تکی) تا هیچ صفحه‌ای به‌خاطر
-                # صفحاتِ دیگر ریسایز نشود (باگِ 900→800ِ 412e9e در بچ).
-                if (getattr(self, "_independent_pages", False)
-                        and not getattr(self, "stitch_explicit", False)):
-                    wmap = {}
-                    for i, w in enumerate(widths):
-                        wmap[i] = self._cluster_widths([w]).get(0, w)
-                else:
-                    wmap = self._cluster_widths(widths, abs_tol=180, rel_tol=0.18)
+                # v1.14.159 — خواستهٔ کاربر: خوشهٔ عرضِ سراسری برای همهٔ
+                # ورودی‌ها (حتی چند-فایلی/چند-لینکی). عکس‌هایی که عرضشان
+                # نزدیک است (مثل 700/800/900 = 800 یا 1700/1800/1900 = 1800)
+                # به یک عرضِ هدفِ مشترک می‌رسند تا چسباندن/برشِ امنِ ~8000px
+                # بشود؛ صفحه‌ای که عرضش با بقیه فرقِ فاحش دارد (کاورِ عریض…)
+                # در خوشهٔ خودش می‌ماند و له نمیشود.
+                wmap = self._cluster_widths(widths, abs_tol=180, rel_tol=0.18)
                 cap = self.max_output_width if self.max_output_width and self.max_output_width > 0 else 0
                 if cap:
                     for i in list(wmap.keys()):
@@ -30724,10 +30744,16 @@ html, body { background: #0a0a0b; }
 
         # v1.14.106 — حالتِ صفحاتِ مستقل: چسباندن/برشِ نوار کلاً رد می‌شود؛
         # هر صفحه با ابعادِ بومی و جدا از بقیه پردازش می‌شود (= رانِ تکی).
-        # استثنا: کاربرِ CLI خودش --stitch-max-height داده یا اندروید (رمِ کم)
-        # صراحتاً خواسته — در این دو حالت رفتارِ قبلی حفظ می‌شود.
-        _indep_no_stitch = (getattr(self, "_independent_pages", False)
-                            and not getattr(self, "stitch_explicit", False))
+        # v1.14.159 — خواستهٔ صریحِ کاربر (PC/لینوکس): «برشِ امن» دوباره به‌طورِ
+        # پیشفرض انجام شود — همهٔ عکس‌هایی که عرضشان نزدیک است یکی میشوند و
+        # برشِ ~8000px (طول) میخورند؛ برشِ امنِ وسطِ حباب/متن هم با
+        # _find_safe_cut_y_smart رعایت میشود. حلقهٔ استیچ روی اختلافِ عرضِ
+        # > max(180px, 18%) فلش میکند → کاورِ عریض له نمیشود.
+        # خاموشیِ صریح: --stitch-max-height 0
+        _indep_no_stitch = (
+            getattr(self, "_independent_pages", False)
+            and int(getattr(self, "stitch_max_height", 0) or 0) <= 0
+            and not getattr(self, "stitch_explicit", False))
         if _indep_no_stitch and len(image_files) > 1:
             print(f"[*] حالت صفحات مستقل: {len(image_files)} صفحه هرکدام جدا مثل حالت تکی "
                   f"پردازش می‌شوند — بدون چسباندن/برشِ نوار (ریسایزِ گروهی هم نیست).")

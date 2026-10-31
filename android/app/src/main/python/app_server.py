@@ -85,7 +85,7 @@ PAGE = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
    <option>PDF</option><option>ZIP</option><option>HTML</option>
   </select>
   <label style="display:inline-flex;align-items:center;gap:8px;color:#97948c">
-   <input type="checkbox" id="dbg"> حالت دیباگ (مربع رنگی دور هر حباب)</label>
+   <input type="checkbox" id="dbg"> حالت دیباگ</label>
   <label style="display:inline-flex;align-items:center;gap:8px;color:#97948c">
    <input type="checkbox" id="fake" checked> بدون ترجمه (تست موتور)</label>
  </div>
