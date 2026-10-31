@@ -230,6 +230,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // v1.14.160 — «اپ میبندم پسزمینه داره کار میکنه با این که بستم»: خروجِ
+    // واقعی از اپ (دکمهٔ برگشت / finish) هم باید کارِ پایتون را متوقف کند.
+    // home و تعویضِ اپ onDestroy نمیدهند (فقط onStop) → ادامهٔ کار در
+    // پسزمینه همان مسیرِ قبلی است؛ فقط exitِ واقعی اینجا متوقف میشود.
+    // روتیشن هم onDestroy میدهد ولی isFinishing=false دارد → رد میشود.
+    override fun onDestroy() {
+        if (isFinishing && jobRunning) {
+            TranslationService.hardStopAndExit()
+        }
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         installCrashLogger()
@@ -2205,7 +2217,7 @@ class MainActivity : AppCompatActivity() {
             mutableListOf<String>().apply { addAll(dbgPaths) })
         if (paths.isEmpty() && dpaths.isEmpty() && total <= 0) return
 
-        val imgRx = Regex("/i/(\\d+)/?$")
+        val imgRx = Regex("/i/(\\d+)(?:\\?.*)?$")  // v1.14.160 — ?r= برایِ بهروزرسانیِ ۱۵تایی
         val dbgRx = Regex("/d/(\\d+)/?$")
         val mimeMap = mapOf(
             "png" to "image/png", "jpg" to "image/jpeg", "jpeg" to "image/jpeg",
@@ -2282,6 +2294,27 @@ class MainActivity : AppCompatActivity() {
                             mimeMap[df.extension.lowercase()] ?: "image/png", null,
                             df.inputStream())
                     } catch (_: Exception) { null }
+                }
+                                // v1.14.160 — mtimes.txt (زمانِ بهروزرسانیِ هر اسلات) برایِ
+                // بهروزرسانیِ ۱۵تاییِ نمایشِ زنده؛ فقط در حالتِ زنده
+                if (request.url.toString().contains("/mtimes")) {
+                    var mtf: java.io.File? = null
+                    try {
+                        synchronized(paths) {
+                            if (paths.isNotEmpty()) mtf = java.io.File(
+                                java.io.File(paths[0]).parentFile, "mtimes.txt")
+                        }
+                    } catch (_: Exception) {
+                    }
+                    if (mtf != null && mtf!!.isFile) {
+                        return try {
+                            android.webkit.WebResourceResponse(
+                                "text/plain", "utf-8", mtf!!.inputStream())
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    return null
                 }
                 val m = imgRx.find(request.url.toString()) ?: return null
                 val idx = m.groupValues[1].toIntOrNull() ?: return null

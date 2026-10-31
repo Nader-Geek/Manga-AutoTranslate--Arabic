@@ -4711,7 +4711,8 @@ PROVIDER_PRESETS = {
     "gemini-openai": {
         "type": "openai",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "default_model": "gemini-2.5-flash",
+        # v1.14.160 — gemini-2.5-flash مرده است؛ پیشفرضِ زنده
+        "default_model": "gemini-3.5-flash",
         "env_key": "GEMINI_API_KEY",
     },
     "openai": {
@@ -5420,12 +5421,23 @@ def uncensor_swears(text: str) -> str:
     return result.strip()
 
 
-def _live_dump(src, dbg: bool = False) -> None:
+_LIVE_SLOT_BY_KEY: Dict[str, int] = {}
+_LIVE_SLOT_LOCK = threading.Lock()
+
+
+def _live_dump(src, dbg: bool = False, key: Optional[str] = None) -> None:
     """یک صفحهٔ تازه‌تمام‌شده را برای «نمایش زنده» می‌نویسد.
 
     src یا مسیر فایل است یا آرایهٔ تصویر (مثل دیباگ). برای دیباگ پوشهٔ
     جداگانه از MANGA_LIVE_DEBUG_DIR خوانده می‌شود تا نمایش دیباگ هم
-    بتواند زنده باشد."""
+    بتواند زنده باشد.
+
+    v1.14.160 — key: شناسهٔ صفحه (مسیرِ خروجیِ همان صفحه). بارِ اول اسلات
+    جدید میگیرد (مثلِ قبل)؛ دفعاتِ بعدی «همان اسلات» به‌روز میشود — این
+    همان «۱۵ تا ۱۵ تا ترجمه کنه بذاره رو عکس نشون بده» است: هر بستهٔ
+    ترجمه همان صفحه را دوباره رندر و جای خودش زنده عوض میکند. برای هر
+    به‌روزرسانی یک خط «اسلات زمان» در mtimes.txt نوشته میشود تا نمایشگرِ
+    وب فقط اسلاتِ عوضشده را دوباره لود کند (بدونِ پرش اسکرول)."""
     d = (os.environ.get("MANGA_LIVE_DEBUG_DIR" if dbg else "MANGA_LIVE_DIR")
          or "").strip()
     if not d:
@@ -5441,6 +5453,20 @@ def _live_dump(src, dbg: bool = False) -> None:
             return
         os.makedirs(d, exist_ok=True)
         _sent = os.path.join(d, ".count")
+        slot = None
+        _slot_new = False
+        if key is not None and not dbg:
+            with _LIVE_SLOT_LOCK:
+                slot = _LIVE_SLOT_BY_KEY.get(key)
+                if slot is None:
+                    try:
+                        with open(_sent, encoding="utf-8") as f:
+                            _n = int(f.read().strip() or "0")
+                    except Exception:
+                        _n = 0
+                    slot = _n + 1
+                    _LIVE_SLOT_BY_KEY[key] = slot
+                    _slot_new = True
         try:
             with open(_sent, encoding="utf-8") as f:
                 n = int(f.read().strip() or "0")
@@ -5451,19 +5477,28 @@ def _live_dump(src, dbg: bool = False) -> None:
         if w > tw:
             img = cv2.resize(img, (tw, max(1, round(h * tw / w))),
                              interpolation=cv2.INTER_AREA)
-        n += 1
-        cv2.imwrite(os.path.join(d, f"live_{n:04d}.jpg"), img,
-                    [cv2.IMWRITE_JPEG_QUALITY, 86])
+        if slot is None:
+            n += 1
+            slot = n
+        out_name = os.path.join(d, f"live_{slot:04d}.jpg")
+        cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
         with open(_sent, "w", encoding="utf-8") as f:
-            f.write(str(n))
-        if not dbg:
-            print(f"[*] صفحهٔ {n} آماده شد", flush=True)
+            f.write(str(max(n, slot)))
+        # v1.14.160 — زمانِ هر اسلات برایِ به‌روزرسانیِ تدریجیِ نمایشگرِ وب
+        try:
+            with open(os.path.join(d, "mtimes.txt"), "a", encoding="utf-8") as f:
+                f.write(f"{slot} {int(time.time() * 1000)}\n")
+        except Exception:
+            pass
+        if not dbg and (key is None or _slot_new):
+            print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
+        # به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
     except Exception:
         pass
 
 
-def _live_page_dump(out_file: str) -> None:
-    _live_dump(out_file, dbg=False)
+def _live_page_dump(out_file: str, key: Optional[str] = None) -> None:
+    _live_dump(out_file, dbg=False, key=key)
 
 
 def _live_total_write(n: int) -> None:
@@ -5736,6 +5771,11 @@ class MangaTranslator:
         self._model_cascade: List[str] = []
         self._model_index: int = 0
         self._last_good_model: str = ""
+        # v1.14.160 — قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
+        # پیگیر اون مدل نشه؛ فقط اونای که یک بار کار کرده تست بزنه»
+        self._model_fail_counts: Dict[str, int] = {}
+        self._model_ok_counts: Dict[str, int] = {}
+        self._model_banned: set = set()
         _user_base = (api_base or "").strip()
         self.api_base = normalize_api_base(_user_base) if _user_base \
             else self.provider_cfg.get("base_url")
@@ -6583,17 +6623,20 @@ class MangaTranslator:
 
     @staticmethod
     def _static_fallback_models(primary: str) -> List[str]:
+        # v1.14.160 — خواستهٔ کاربر: «مدل‌های Flash-Lite هم در چرخ باشند؛
+        # لیستِ ثابت هم یک بار آپدیت شود». مدل‌هایِ مردهٔ 2.x (مثلِ
+        # gemini-2.5-flash که از رفته) از لیست حذف شدند و Liteها اول
+        # آمدند — لیستِ ثابت فقط وقتی استفاده میشود که کشفِ زندهٔ API
+        # (SDK + REST) هیچ مدلی برنگرداند.
         preferred = [
-            "gemini-3.5-flash-lite",  # v1.14.147 — پیشفرضِ جدید
+            "gemini-3.5-flash-lite",  # پیشفرضِ v1.14.147
+            "gemini-flash-lite-latest",
+            "gemini-3.1-flash-lite",
+            "gemini-flash-latest",
             "gemini-3.8-flash",
             "gemini-3.7-flash",
             "gemini-3.6-flash",
             "gemini-3.5-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-flash-latest",
-            "gemini-flash-lite-latest",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
         ]
         cascade = [primary] if primary else []
         for m in preferred:
@@ -6620,9 +6663,11 @@ class MangaTranslator:
             "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest"
         )
 
-        if is_flash and not is_lite and not is_pro:
+        # v1.14.160 — خواستهٔ کاربر: «چرا از Flash-Lite استفاده نمیکنه؟»
+        # Lite اول (سبک‌تر/ارزون‌تر)، بعد Flash، بعد preview/pro.
+        if is_lite:
             type_rank = 0
-        elif is_lite:
+        elif is_flash:
             type_rank = 1
         elif is_preview:
             type_rank = 2
@@ -6678,11 +6723,71 @@ class MangaTranslator:
                 names.append(short)
         except Exception as e:
             _msg = str(e).split(chr(10))[0][:120]
-            print(f"    [!] کشف مدل از API ناموفق: {_msg}")
+            print(f"    [!] کشفِ SDK مدل ناموفق: {_msg} → تلاشِ REST")
+
+        # v1.14.160 — خواستهٔ کاربر: «مدل‌ها همیشه از سایتِ گوگل گرفته شوند» —
+        # اگر خودِ SDK لیست نداد، مستقیم از REST سرورِ گوگل پرسیده میشود تا
+        # مدل‌هایِ مرده (مثلِ gemini-2.5-flash که از رفته) اصلاً در چرخ نیایند.
+        if not names:
+            names = self._discover_models_via_rest()
+        if not names:
             return []
 
         uniq = sorted(set(names), key=self._model_sort_key)
         return uniq
+
+    def _discover_models_via_rest(self) -> List[str]:
+        """v1.14.160 — کشفِ مدل با REST مستقیم (v1beta/models) وقتی SDK لیست
+        نداد. خروجی فقط مدل‌هایِ زندهٔ همین لحظهٔ گوگل است."""
+        import requests as _rq
+        key = ""
+        try:
+            key = (self._current_api_key() or "").strip()
+        except Exception:
+            key = ""
+        if not key:
+            return []
+        ban_substrings = (
+            "image", "tts", "live", "audio", "embedding", "gemma",
+            "robotics", "omni", "nano-banana", "imagen", "computer-use",
+            "computer_use", "antigravity", "veo", "lyria", "chirp",
+            "dialog", "code-execution", "aqa", "text-embedding",
+            "gecko", "vision", "dream", "bard",
+        )
+        out: List[str] = []
+        try:
+            r = _rq.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                params={"pageSize": 1000, "key": key},
+                timeout=20,
+            )
+            r.raise_for_status()
+            data = r.json() or {}
+            for m in (data.get("models") or []):
+                raw = str(m.get("name") or "")
+                short = raw.replace("models/", "").strip()
+                if not short:
+                    continue
+                low = short.lower()
+                if not low.startswith("gemini"):
+                    continue
+                if any(b in low for b in ban_substrings):
+                    continue
+                if "flash" not in low and "pro" not in low:
+                    continue
+                if "preview" in low and "flash" not in low:
+                    continue
+                methods = m.get("supportedGenerationMethods") or []
+                if methods and "generateContent" not in methods:
+                    continue
+                out.append(short)
+        except Exception as e:
+            _msg = str(e).split(chr(10))[0][:120]
+            print(f"    [!] کشفِ REST مدل هم ناموفق: {_msg}")
+            return []
+        if out:
+            print(f"[*] {len(out)} مدل زنده از REST گوگل گرفته شد.")
+        return sorted(set(out), key=self._model_sort_key)
 
     @staticmethod
     def _is_bad_translate_model(name: str) -> bool:
@@ -6729,6 +6834,10 @@ class MangaTranslator:
         if client is not None:
             discovered = self._discover_models_from_api(client)
 
+        # v1.14.160 — مدل‌هایِ بنشده (۳ بار ناموجود) برنمیگردند
+        discovered = [m for m in discovered
+                      if m not in getattr(self, "_model_banned", set())]
+
         if discovered:
             discovered = [m for m in discovered if not self._is_bad_translate_model(m)]
             discovered = sorted(set(discovered), key=self._model_sort_key)
@@ -6757,7 +6866,47 @@ class MangaTranslator:
                 return cascade
 
         print("[*] کشف API ممکن نشد / خالی → fallback محافظه‌کارانه")
-        return self._static_fallback_models(primary or "gemini-3.5-flash-lite")
+        static = self._static_fallback_models(primary or "gemini-3.5-flash-lite")
+        kept = [m for m in static if m not in getattr(self, "_model_banned", set())]
+        return kept or static
+
+    def _note_model_ok(self, name: str = "") -> None:
+        """v1.14.160 — مدلی که یک بار جوابِ درست داد «اثباتشده» میشود:
+        شمارندهٔ خطایش صفر میشود و دیگر با قاعدهٔ ۳-مردن بن نمیشود."""
+        try:
+            name = (name or self._thread_model() or "").replace("models/", "").strip()
+        except Exception:
+            name = (name or "").replace("models/", "").strip()
+        if not name:
+            return
+        self._model_ok_counts[name] = self._model_ok_counts.get(name, 0) + 1
+        self._model_fail_counts.pop(name, None)
+
+    def _note_model_fail(self, name: str = "", ban_after: int = 3) -> bool:
+        """v1.14.160 — قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
+        پیگیر اون مدل نشه». خطایِ دسترسیِ مدل (404/gone/UNAVAILABLE/bad)
+        شمرده میشود؛ ۳ بار بدونِ حتی یک جوابِ درست → بنِ نشست. مدلی که
+        حداقل یک بار کار کرده بن نمیشود. quota/rate شمرده نمیشود
+        (تقصیرِ مدل نیست). فقط میشمارد و بن میکند (بدونِ دست‌زدن به
+        cascade — تا ایندکس‌ها نپرند)؛ مدل‌هایِ بنشده در ریستِ بعدی و در
+        _switch_to_next_model رد میشوند. True = همین الان بن شد."""
+        try:
+            name = (name or self._thread_model() or "").replace("models/", "").strip()
+        except Exception:
+            name = (name or "").replace("models/", "").strip()
+        if not name:
+            return False
+        if self._model_ok_counts.get(name, 0) > 0:
+            return False
+        n = self._model_fail_counts.get(name, 0) + 1
+        self._model_fail_counts[name] = n
+        if n < ban_after:
+            return False
+        self._model_fail_counts.pop(name, None)
+        self._model_banned.add(name)
+        print(f"    [!] مدل «{name}» {ban_after} بار در دسترس نبود → بن شد؛ "
+              f"دیگر امتحان نمیشود.")
+        return True
 
     def _drop_current_model_and_switch(self, reason: str = "") -> bool:
 
@@ -6784,10 +6933,15 @@ class MangaTranslator:
 
     def _switch_to_next_model(self, reason: str = "") -> bool:
 
+        banned = getattr(self, "_model_banned", set())
         tls = getattr(self, "_tls", None)
         local = getattr(tls, "local_cascade", None) if tls is not None else None
         if local:
-            li = int(getattr(tls, "local_index", 0) or 0) + 1
+            li = int(getattr(tls, "local_index", 0) or 0)
+            # v1.14.160 — مدل‌هایِ بنشده (۳ بار ناموجود) در چرخ رد میشوند
+            while li + 1 < len(local) and local[li + 1] in banned:
+                li += 1
+            li += 1
             if li >= len(local):
                 return False
             tls.local_index = li
@@ -6798,7 +6952,11 @@ class MangaTranslator:
             return True
         if not self._model_cascade:
             return False
-        next_idx = self._model_index + 1
+        next_idx = self._model_index
+        while (next_idx + 1 < len(self._model_cascade)
+               and self._model_cascade[next_idx + 1] in banned):
+            next_idx += 1
+        next_idx += 1
         if next_idx >= len(self._model_cascade):
             return False
         self._model_index = next_idx
@@ -6810,7 +6968,13 @@ class MangaTranslator:
         return True
 
     def _reset_model_cascade(self, reason: str = "") -> None:
-        if not self._model_cascade:
+        # v1.14.160 — اگر اولِ کاسکاد مدلی بنشده باشد (۳ بار ناموجود)،
+        # کاسکاد باید از نو ساخته شود وگرنه همان مدلِ مرده دوباره اول
+        # میآمد و چرخِ بن تکرار میشد.
+        banned = getattr(self, "_model_banned", set())
+        _head_dead = bool(self._model_cascade) \
+            and self._model_cascade[0] in banned
+        if not self._model_cascade or _head_dead:
             client = getattr(self, "client", None)
             try:
                 client = self._thread_client()
@@ -6820,7 +6984,10 @@ class MangaTranslator:
                 getattr(self, "_last_good_model", "") or "",
                 client=client,
             )
-            self._model_cascade = rebuilt or self._static_fallback_models("gemini-3.5-flash-lite")
+            _banned = getattr(self, "_model_banned", set())
+            _static = [m for m in self._static_fallback_models("gemini-3.5-flash-lite")
+                       if m not in _banned] or self._static_fallback_models("gemini-3.5-flash-lite")
+            self._model_cascade = rebuilt or _static
         self._model_index = 0
         self.model_name = self._model_cascade[0]
         try:
@@ -20780,6 +20947,11 @@ class MangaTranslator:
 
                 if self.provider_type == "gemini" and self._is_bad_translate_model(self.model_name):
                     print(f"    [!] رد مدل نامناسب ترجمه: {self.model_name}")
+                    if self._note_model_fail():  # v1.14.160 — ۳ بار بد؟
+                        self._reset_model_cascade(reason="۳ بار مدل نامناسب")
+                        self._recreate_api_client()
+                        time.sleep(0.3)
+                        continue
                     if self._drop_current_model_and_switch(reason="bad model"):
                         continue
                     if self._switch_to_next_model(reason="bad model"):
@@ -20796,6 +20968,7 @@ class MangaTranslator:
 
 
                 self._parse_translation_response(text, work_regions)
+                self._note_model_ok()  # v1.14.160 — مدل جواب داد → اثباتشده
                 self.save_glossary()
 
                 for r in work_regions:
@@ -20986,16 +21159,18 @@ class MangaTranslator:
                         is_core_flash = any(
                             core == x or core.startswith(x)
                             for x in (
+                                # v1.14.160 — مدل‌هایِ مردهٔ 2.x/1.5 حذف شدند؛
+                                # رویِ مدلِ مرده چرخِ کلید بیهوده است → حذفِ مدل
                                 "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash",
-                                "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash",
-                                "gemini-flash-latest", "gemini-2.5-flash-lite",
-                                "gemini-flash-lite-latest", "gemini-3.5-flash-lite",
+                                "gemini-flash-latest", "gemini-flash-lite-latest",
+                                "gemini-3.5-flash-lite", "gemini-3.1-flash-lite",
                             )
                         )
                         suggested = self._extract_suggested_model(e)
                         if suggested:
                             print(f"    [!] مدل «{self.model_name}» دیگر در دسترس نیست → "
                                   f"پیشنهاد API: {suggested}")
+                            self._note_model_fail()  # v1.14.160 — شمارشِ ۳-مردن
 
                             dead = self.model_name
                             cascade = [x for x in (self._model_cascade or []) if x != dead]
@@ -21026,6 +21201,11 @@ class MangaTranslator:
                                 self._recreate_api_client()
                                 continue
                         else:
+                            if self._note_model_fail():  # v1.14.160 — ۳ بار نبود؟
+                                self._reset_model_cascade(reason="۳ بار ناموجودِ مدل")
+                                self._recreate_api_client()
+                                time.sleep(0.3)
+                                continue
                             print(f"    [!] مدل «{self.model_name}» ناسازگار → بعدی")
                             if self._drop_current_model_and_switch(reason=str(e)[:80]):
                                 time.sleep(0.5)
@@ -21035,6 +21215,11 @@ class MangaTranslator:
                                 continue
 
                     if self._is_model_unavailable_error(e):
+                        if self._note_model_fail():  # v1.14.160 — ۳ بار نبود؟
+                            self._reset_model_cascade(reason="۳ بار UNAVAILABLE")
+                            self._recreate_api_client()
+                            time.sleep(0.3)
+                            continue
                         if self._switch_to_next_model(reason="UNAVAILABLE"):
                             time.sleep(0.2)
                             continue
@@ -21136,6 +21321,7 @@ class MangaTranslator:
             )
             if got:
                 self._last_good_model = self.model_name
+                self._note_model_ok(self.model_name)  # v1.14.160
                 print(f"[فاز ۳ - نهایی {self.model_name}] {got} بالن نجات یافت.")
                 return
         except Exception as e:
@@ -29206,17 +29392,77 @@ class MangaTranslator:
         else:
             print(f"    [*] ترتیب HTML حفظ شد ({len(img_urls)} تصویر، بدون شماره ترتیبی).")
 
-        saved = []
-        for img_url in img_urls:
+        # v1.14.160 — «برشِ امن از دو طرفه» (خواستهٔ کاربر: «از عکسِ اول تا
+        # آخر، اون یکی از عکسِ آخر به اول بره — سریعتر باشه»): دو رشتهٔ
+        # موازی، یکی از اولِ لیست (0,1,2,…) و یکی از آخرِ لیست (…,2,1,0)
+        # برمی‌گردد و وسط به هم میرسند = تقریباً نصفِ زمانِ دانلود.
+        # امن: هر ایندکس دقیقاً یک بار برداشته میشود (پوینترِ مشترک + قفل)،
+        # هر خطا فقط همان صفحه را رد میکند و نتیجه در پایان به ترتیبِ
+        # اصلیِ صفحه‌ها چیده میشود؛ نوشتنِ فایل هم با قفل محافظت میشود تا
+        # دو صفحهٔ هم‌نام روی هم ننویسند.
+        saved_by_idx: Dict[int, str] = {}
+        _save_lock = threading.Lock()
+        _ptr_lock = threading.Lock()
+        _ptr = {"front": 0, "back": len(img_urls) - 1}
+
+        def _claim_front() -> Optional[int]:
+            with _ptr_lock:
+                if _ptr["front"] > _ptr["back"]:
+                    return None
+                idx = _ptr["front"]
+                _ptr["front"] += 1
+                return idx
+
+        def _claim_back() -> Optional[int]:
+            with _ptr_lock:
+                if _ptr["front"] > _ptr["back"]:
+                    return None
+                idx = _ptr["back"]
+                _ptr["back"] -= 1
+                return idx
+
+        def _dl_one(idx: int) -> None:
+            img_url = img_urls[idx]
             try:
                 r = requests.get(img_url, headers=headers, timeout=60)
                 r.raise_for_status()
             except Exception as e:
                 print(f"    [!] رد شد ({img_url[:90]}…): {e}")
-                continue
-            path = _save_bytes(r.content, len(saved) + 1, img_url)
-            if path:
-                saved.append(path)
+                return
+            # قفلِ نوشتن: بینِ «موجود است؟» و «بنویس» هیچ رشتهٔ دیگری
+            # نباید همان اسم را بردارد (دو صفحهٔ هم‌نامِ سایت‌های مختلف)
+            with _save_lock:
+                try:
+                    path = _save_bytes(r.content, idx + 1, img_url)
+                except Exception as e:
+                    print(f"    [!] رد شد ({img_url[:90]}…): {e}")
+                    return
+                if path:
+                    saved_by_idx[idx] = path
+
+        def _dl_side(claim) -> None:
+            while True:
+                idx = claim()
+                if idx is None:
+                    return
+                _dl_one(idx)
+
+        if len(img_urls) > 3:
+            _t_fwd = threading.Thread(target=_dl_side, args=(_claim_front,),
+                                      daemon=True)
+            _t_bwd = threading.Thread(target=_dl_side, args=(_claim_back,),
+                                      daemon=True)
+            _t_fwd.start()
+            _t_bwd.start()
+            while _t_fwd.is_alive() or _t_bwd.is_alive():
+                if _t_fwd.is_alive():
+                    _t_fwd.join(timeout=0.5)
+                if _t_bwd.is_alive():
+                    _t_bwd.join(timeout=0.5)
+        else:
+            _dl_side(_claim_front)
+            _dl_side(_claim_back)
+        saved = [saved_by_idx[i] for i in sorted(saved_by_idx)]
 
         print(f"    {len(saved)} تصویر از {url} دانلود شد "
               f"({time.time() - _t_dl66:.1f}s).")
@@ -30520,23 +30766,50 @@ html, body { background: #0a0a0b; }
                         "Chrome/120.0.0.0 Safari/537.36"
                     )
                 }
-                for i, u in enumerate(urls, 1):
+                # v1.14.160 — دانلودِ دوطرفهٔ امنِ تصویرهایِ مستقیم هم:
+                # یک رشته از اولِ لیست، یکی از آخرِ لیست → سریعتر.
+                _res_by_idx: Dict[int, str] = {}
+                _dir_lock = threading.Lock()
+                _dptr = {"front": 0, "back": len(urls) - 1}
+
+                def _dclaim_front() -> Optional[int]:
+                    with _dir_lock:
+                        if _dptr["front"] > _dptr["back"]:
+                            return None
+                        _i = _dptr["front"]
+                        _dptr["front"] += 1
+                        return _i
+
+                def _dclaim_back() -> Optional[int]:
+                    with _dir_lock:
+                        if _dptr["front"] > _dptr["back"]:
+                            return None
+                        _i = _dptr["back"]
+                        _dptr["back"] -= 1
+                        return _i
+
+                def _dl_direct(i: int) -> None:
+                    u = urls[i]
                     try:
                         _lp = u[7:] if u.lower().startswith("file://") else u
                         if (os.path.isfile(_lp)
                                 and os.path.splitext(_lp)[1].lower() in IMAGE_EXTS):
-                            _ub = os.path.splitext(os.path.basename(_lp))[0]
-                            _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
-                            _lext = os.path.splitext(_lp)[1].lower()
-                            out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}{_lext}")
-                            _kk = 2
-                            while os.path.exists(out_file):
-                                out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}-{_kk}{_lext}")
-                                _kk += 1
-                            shutil.copyfile(_lp, out_file)
-                            image_files.append(out_file)
-                            print(f"    [+] {i}/{len(urls)} فایل محلی کپی شد")
-                            continue
+                            with _dir_lock:
+                                _ub = os.path.splitext(os.path.basename(_lp))[0]
+                                _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
+                                _lext = os.path.splitext(_lp)[1].lower()
+                                out_file = os.path.join(
+                                    src_dir, f"{_ub or f'page_{i + 1:03d}'}{_lext}")
+                                _kk = 2
+                                while os.path.exists(out_file):
+                                    out_file = os.path.join(
+                                        src_dir,
+                                        f"{_ub or f'page_{i + 1:03d}'}-{_kk}{_lext}")
+                                    _kk += 1
+                                shutil.copyfile(_lp, out_file)
+                            _res_by_idx[i] = out_file
+                            print(f"    [+] {i + 1}/{len(urls)} فایل محلی کپی شد")
+                            return
                         u = self._normalize_image_url(u)
                         r = _req.get(u, headers=headers, timeout=60)
                         r.raise_for_status()
@@ -30554,100 +30827,113 @@ html, body { background: #0a0a0b; }
                         test_img, _reblob = MangaTranslator._decode_image_bytes(content)
                         if test_img is None:
                             print(f"    [!] تصویر نامعتبر: {u[:90]}")
-                            continue
+                            return
                         if _reblob is not None:
                             content, ext = _reblob, ".jpg"
-                        _ub = os.path.splitext(os.path.basename(u.split("?")[0]))[0]
-                        _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
-                        # v1.14.33: اسمِ بدونِ رقم (مثل «images» در گوگل‌تیتر) →
-                        # شمارهٔ صفحه تا ترتیبِ صفحات در سورتِ نیچرال حفظ شود؛
-                        # وگرنه images-2.jpg قبل از images.jpg سورت می‌شد!
-                        if not re.search(r"\d", _ub):
-                            _ub = f"page_{i:03d}"
-                        out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}{ext}")
-                        _kk = 2
-                        while os.path.exists(out_file):
-                            out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}-{_kk}{ext}")
-                            _kk += 1
-                        with open(out_file, "wb") as f:
-                            f.write(content)
-                        image_files.append(out_file)
-                        print(f"    [+] {i}/{len(urls)} ذخیره شد")
+                        # نام‌گذاری + نوشتن زیرِ قفل تا دو صفحهٔ هم‌نام
+                        # همزمان روی هم ننویسند
+                        with _dir_lock:
+                            _ub = os.path.splitext(os.path.basename(u.split("?")[0]))[0]
+                            _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
+                            # v1.14.33: اسمِ بدونِ رقم (مثل «images» در گوگل‌تیتر) →
+                            # شمارهٔ صفحه تا ترتیبِ صفحات در سورتِ نیچرال حفظ شود؛
+                            # وگرنه images-2.jpg قبل از images.jpg سورت می‌شد!
+                            if not re.search(r"\d", _ub):
+                                _ub = f"page_{i + 1:03d}"
+                            out_file = os.path.join(
+                                src_dir, f"{_ub or f'page_{i + 1:03d}'}{ext}")
+                            _kk = 2
+                            while os.path.exists(out_file):
+                                out_file = os.path.join(
+                                    src_dir, f"{_ub or f'page_{i + 1:03d}'}-{_kk}{ext}")
+                                _kk += 1
+                            with open(out_file, "wb") as f:
+                                f.write(content)
+                        _res_by_idx[i] = out_file
+                        print(f"    [+] {i + 1}/{len(urls)} ذخیره شد")
                     except Exception as e:
                         print(f"    [!] دانلود ناموفق ({u[:80]}…): {e}")
+
+                def _dside(claim) -> None:
+                    while True:
+                        _i = claim()
+                        if _i is None:
+                            return
+                        _dl_direct(_i)
+
+                if len(urls) > 3:
+                    _t_f = threading.Thread(target=_dside, args=(_dclaim_front,),
+                                            daemon=True)
+                    _t_b = threading.Thread(target=_dside, args=(_dclaim_back,),
+                                            daemon=True)
+                    _t_f.start()
+                    _t_b.start()
+                    while _t_f.is_alive() or _t_b.is_alive():
+                        if _t_f.is_alive():
+                            _t_f.join(timeout=0.5)
+                        if _t_b.is_alive():
+                            _t_b.join(timeout=0.5)
+                else:
+                    _dside(_dclaim_front)
+                    _dside(_dclaim_back)
+                image_files = [_res_by_idx[i] for i in sorted(_res_by_idx)]
                 if not image_files:
                     print("[!] هیچ تصویری دانلود نشد.", file=sys.stderr)
                     return
             else:
-                print(f"[*] {len(urls)} لینک پیدا شد. هر کدام جداگانه پردازش و "
-                      f"در نهایت یک خروجی یکپارچه ساخته می‌شود...")
-                out_ext = os.path.splitext(output_path)[1].lower()
-                chapter_ext = out_ext if out_ext in (".pdf", ".zip", ".html", ".psd") else ".pdf"
-                parent = os.path.dirname(os.path.abspath(output_path)) or "."
-                combined_pages: List[str] = []
+                # v1.14.160 — خواستهٔ صریحِ کاربر: با چند لینکِ فصل، اول
+                # «همهٔ» تصاویرِ همهٔ لینک‌ها دانلود میشوند، بعد یک‌جا
+                # استخراج/پاکسازی/ترجمه میشوند. قبلاً هر فصل دانلود+
+                # پردازشِ کامل میشد و بعدی شروع میشد (دانلود → پردازش →
+                # دانلودِ بعدی…) که هم کند بود هم صفحه‌ها را تکه‌تکه
+                # پردازش میکرد.
+                print(f"[*] {len(urls)} لینک فصل — اول دانلودِ همهٔ تصاویر، "
+                      f"بعد استخراج/پاکسازی/ترجمهٔ یک‌جا…")
+                os.makedirs(src_dir, exist_ok=True)
+                image_files = []
                 for i, url in enumerate(urls, 1):
+                    if stop_requested():
+                        raise JobCancelled("لغو توسط کاربر")
                     print(f"\n{'='*60}")
-                    print(f"[بخش {i}/{len(urls)}] {url}")
+                    print(f"[دانلود {i}/{len(urls)}] {url}")
                     print(f"{'='*60}")
-                    chapter_out = self._auto_output_path(url, chapter_ext)
-                    base_name = os.path.basename(chapter_out.rstrip("/\\"))
-                    if not os.path.splitext(base_name)[1]:
-                        base_name += chapter_ext
-                    chapter_out = os.path.join(parent, f"{i:02d}-{base_name}")
-
-                    self.run(url, chapter_out, resume=resume, clean_old=False)
-
-                    cache_out = os.path.join(chapter_out + ".cache", "out" + cache_tag)
-                    if os.path.isdir(cache_out):
-                        pages = sorted(
-                            (f for f in glob.glob(os.path.join(cache_out, "*"))
-                             if os.path.splitext(f)[1].lower() in IMAGE_EXTS),
-                            key=MangaTranslator._natural_sort_key,
-                        )
-                    elif chapter_ext == "" and os.path.isdir(chapter_out):
-                        pages = sorted(
-                            (f for f in glob.glob(os.path.join(chapter_out, "*"))
-                             if os.path.splitext(f)[1].lower() in IMAGE_EXTS),
-                            key=MangaTranslator._natural_sort_key,
-                        )
-                    else:
-                        pages = []
-                    if not pages:
-                        print(f"[!] بخش {i}: صفحه‌ای برای خروجی یکپارچه پیدا نشد.")
-                    combined_pages.extend(pages)
-
-                if not combined_pages:
-                    print("[!] هیچ صفحه‌ای برای خروجی یکپارچه پیدا نشد.", file=sys.stderr)
-                    return
-
-                if out_ext == ".pdf":
-                    self._save_as_pdf(combined_pages, output_path)
-                    print(f"[✓] PDF یکپارچه ({len(urls)} بخش) ذخیره شد: {output_path}")
-                elif out_ext == ".zip":
-                    tmpd = tempfile.mkdtemp(prefix="combined_zip_")
-                    for j, f in enumerate(combined_pages, 1):
-                        shutil.copy(f, os.path.join(
-                            tmpd, f"page_{j:03d}{os.path.splitext(f)[1].lower()}"))
-                    self._save_as_zip(tmpd, output_path)
-                    print(f"[✓] ZIP یکپارچه ({len(combined_pages)} صفحه) ذخیره شد: {output_path}")
-                elif out_ext == ".html":
-                    self._save_as_html(combined_pages, output_path)
-                    print(f"[✓] HTML یکپارچه ({len(combined_pages)} صفحه) ذخیره شد: {output_path}")
-                elif out_ext == ".psd":
-                    self._save_as_psd(combined_pages, output_path)
-                    print(f"[✓] PSD یکپارچه ({len(combined_pages)} لایه) ذخیره شد: {output_path}")
-                else:
-                    os.makedirs(output_path, exist_ok=True)
-                    for j, f in enumerate(combined_pages, 1):
-                        shutil.copy(f, os.path.join(
-                            output_path, f"page_{j:03d}{os.path.splitext(f)[1].lower()}"))
-                    html_path = output_path.rstrip("/\\") + ".html"
                     try:
-                        self._save_as_html(combined_pages, html_path)
+                        files_i = self._download_images_from_url(url, src_dir)
                     except Exception as e:
-                        print(f"    [!] ساخت HTML همراه ناموفق: {e}")
-                    print(f"[✓] {len(combined_pages)} صفحه در پوشهٔ {output_path} ذخیره شد.")
-                return
+                        print(f"[!] دانلود لینک {i} ناموفق: {str(e)[:120]}")
+                        files_i = []
+                    if not files_i:
+                        print(f"[!] لینک {i}: هیچ تصویری دانلود نشد — رد شد.")
+                        continue
+                    # پیشوندِ «01_ / 02_ / …» تا ترتیبِ فصل‌ها در سورتِ
+                    # نیچرال حفظ شود (فایلِ هم‌نامِ فصل‌ها تضمینی است!)
+                    for j, fsrc in enumerate(files_i, 1):
+                        _nb = f"{i:02d}_" + os.path.splitext(os.path.basename(fsrc))[0]
+                        _nb = re.sub(r'[\\/:*?"<>|]+', "_", _nb).strip("._ ")[:100] \
+                            or f"link{i:02d}_page_{j:03d}"
+                        _ext = os.path.splitext(fsrc)[1].lower() or ".jpg"
+                        out_file = os.path.join(src_dir, f"{_nb}{_ext}")
+                        _k = 2
+                        while (os.path.exists(out_file)
+                               and os.path.abspath(out_file) != os.path.abspath(fsrc)):
+                            out_file = os.path.join(src_dir, f"{_nb}-{_k}{_ext}")
+                            _k += 1
+                        try:
+                            if os.path.abspath(out_file) != os.path.abspath(fsrc):
+                                shutil.move(fsrc, out_file)
+                        except Exception:
+                            out_file = fsrc
+                        image_files.append(out_file)
+                    print(f"    [+] لینک {i}: {len(files_i)} تصویر آماده "
+                          f"(مجموع: {len(image_files)})")
+                if not image_files:
+                    print("[!] هیچ تصویری دانلود نشد.", file=sys.stderr)
+                    return
+                image_files.sort(key=MangaTranslator._natural_sort_key)
+                # v1.14.106 — صفحه‌های دانلودشده مستقل‌اند (هر فایل = یک صفحه)
+                self._independent_pages = True
+                print(f"[✓] دانلودِ همهٔ {len(urls)} لینک تمام شد: "
+                      f"{len(image_files)} تصویر → شروعِ استخراج/پاکسازی/ترجمه…")
         elif input_path.lower().endswith(".zip"):
             print(f"[*] استخراج فایل zip: {input_path}")
             image_files = self._extract_zip(input_path, src_dir)
@@ -30788,9 +31074,10 @@ html, body { background: #0a0a0b; }
         if skipped:
             print(f"[*] {skipped} صفحه از کش (resume).")
             # صفحه‌های از‌قبل‌ساخته را هم زنده نشان بده تا اسلات‌ها خالی نمانند
+            # (v1.14.160 — با اسلاتِ ثابتِ خودشان، به ترتیبِ صفحه)
             try:
                 for _rf in processed_files:
-                    _live_page_dump(_rf)
+                    _live_page_dump(_rf, key=_rf)
             except Exception:
                 pass
 
@@ -30914,7 +31201,7 @@ html, body { background: #0a0a0b; }
                 try:
                     self._write_image(result, out_file)
                     results_by_i[page_i] = (out_file, True, dbg_out)
-                    _live_page_dump(out_file)
+                    _live_page_dump(out_file, key=out_file)  # v1.14.160 — اسلاتِ ثابتِ صفحه
                     if self.debug and dbg_out is not None:
                         _live_dump(dbg_out, dbg=True)
                 except Exception as _werr:
@@ -30935,6 +31222,50 @@ html, body { background: #0a0a0b; }
                 if pending_by_page.get(page_i, 0) > 0:
                     continue
                 _finish_page_now(page_i)
+
+        # v1.14.160 — خواستهٔ کاربر: «۱۵ تا ۱۵ تا ترجمه کنه بذاره رو عکس نشون
+        # بده». بعد از تمامِ هر بستهٔ ۱۵تاییِ ترجمه، صفحه‌هایی که متنِ تازه
+        # گرفتن‌اند دوباره رندر و در «همان اسلاتِ» نمایشِ زنده به‌روز میشوند —
+        # نه اینکه تا ترجمهٔ همه صبر کند. فقط پیش‌نمایش است؛ رندرِ نهایی صفحه
+        # با _finish_page_now وقتی همهٔ دیالوگ‌هایش تمام شد انجام میشود.
+        _prev_counts: Dict[int, int] = {}
+        _prev_state = {"t": 0.0}
+        _prev_lock = threading.Lock()
+
+        def _preview_ready_pages(force: bool = False) -> None:
+            now = time.time()
+            if not force:
+                if now - _prev_state["t"] < 2.0:
+                    return
+            with _prev_lock:
+                if not force and time.time() - _prev_state["t"] < 2.0:
+                    return
+                _prev_state["t"] = time.time()
+            for page_i in sorted(extracted_map.keys()):
+                if page_i in finished_pages:
+                    continue
+                entry = extracted_map.get(page_i)
+                if entry is None:
+                    continue
+                out_file, image, precleaned, regions, dbg = entry
+                if image is None or not regions or precleaned is None:
+                    continue
+                if pending_by_page.get(page_i, 0) <= 0:
+                    continue  # کامل شده — با _finish_page_now تمام میشود
+                n_tr = sum(1 for r in regions
+                           if r.kind == "dialogue"
+                           and (r.translated_text or "").strip())
+                if n_tr <= 0 or n_tr <= _prev_counts.get(page_i, 0):
+                    continue
+                try:
+                    result, _pd = self.finish_page_phase(
+                        image, regions, skip_translate=True, precleaned=precleaned)
+                    self._write_image(result, out_file)
+                    _live_page_dump(out_file, key=out_file)
+                    _prev_counts[page_i] = n_tr
+                    del result
+                except Exception as _perr:
+                    print(f"    [!] پیش‌نمایش صفحهٔ {page_i + 1}: {str(_perr)[:80]}")
 
         def _flush_translate_buffer(force: bool = False) -> None:
             nonlocal dialogue_buffer
@@ -31065,6 +31396,7 @@ html, body { background: #0a0a0b; }
                         f"— صبر تا صفحات بعدی..."
                     )
             _finish_ready_pages()
+            _preview_ready_pages()  # v1.14.160 — پیش‌نمایشِ ۱۵تایی حینِ استخراج
 
 
         if stop_requested():
@@ -31073,11 +31405,31 @@ html, body { background: #0a0a0b; }
 
         _flush_translate_buffer(force=True)
         _t_trw67 = time.time()  # v1.14.67 — انتظارِ ترجمه
-        for _f in trans_futures:
-            try:
-                _f.result()
-            except Exception:
-                pass
+        # v1.14.160 — باگِ «تا کامل تموم نشه نشون نمیده»: قبلاً اینجا روی
+        # «همهٔ» بسته‌های ترجمه بلوکه میشد و هیچ صفحه‌ای زنده رندر نمیشد.
+        # حالا انتظارِ پیشرونده است: بعد از تمامِ هر بسته، صفحه‌های آماده
+        # نهایی و صفحه‌های نیمه‌تمام پیش‌نمایشِ ۱۵تایی میگیرند و زنده
+        # به‌روز میشوند — ترجمه از استخراج جدا کار میکند و نمایش هم همان
+        # لحظه جلو میرود.
+        import concurrent.futures as _cfw
+        _futures = list(trans_futures)
+        while _futures:
+            if stop_requested():
+                break
+            _done, _futures = _cfw.wait(
+                _futures, timeout=2.0,
+                return_when=_cfw.FIRST_COMPLETED)
+            if not _done:
+                _finish_ready_pages()
+                _preview_ready_pages()
+                continue
+            for _f in _done:
+                try:
+                    _f.result()
+                except Exception:
+                    pass
+            _finish_ready_pages()
+            _preview_ready_pages(force=True)
         try:
             print(f"[TIME] translate_wait={time.time() - _t_trw67:.1f}s",
                   flush=True)
@@ -31105,7 +31457,7 @@ html, body { background: #0a0a0b; }
                 processed_files.append(out_file)
             else:
                 self._write_image(result, out_file)
-                _live_page_dump(out_file)
+                _live_page_dump(out_file, key=out_file)  # v1.14.160 — اسلاتِ ثابت
                 processed_files.append(out_file)
             results_by_i[page_i] = (out_file, None, None)
             if self.debug and dbg is not None:

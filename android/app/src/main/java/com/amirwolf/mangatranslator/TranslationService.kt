@@ -40,6 +40,11 @@ class TranslationService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        // v1.14.160 — «اپ میبندم پسزمینه داره کار میکنه با این که بستم»:
+        // قبلاً فقط سرویس میایستاد ولی موتورِ پایتون (همان پروسه) با
+        // wakeLock تا تمامشدنِ کار در پسزمینه ادامه میداد. حالا بستنِ اپ
+        // از recentها = لغوِ فوریِ کارِ پایتون + خروجِ کاملِ پروسه.
+        TranslationService.hardStopAndExit()
         try {
             stopForeground(true)
         } catch (_: Exception) {
@@ -148,6 +153,41 @@ class TranslationService : Service() {
                 current?.notifyProgress(done, total, phase)
             } catch (_: Exception) {
             }
+        }
+
+        // v1.14.160 — توقفِ سختِ همه‌چیز: لغوِ کارِ پایتون (stop_requested →
+        // قطعِ بینِ صفحه‌ها) + یک فرصتِ کوتاه برای تمامشدنِ نوشتنِ فایلِ
+        // جاری + کشتنِ کاملِ پروسه. هم از onTaskRemoved (سوایپ از recentها)
+        // هم از onDestroyِ اکتیویتی وقتی isFinishing (خروجِ واقعی) صدا
+        // زده میشود — ولی هرگز در home/تعویضِ اپ (آن مسیرِ ادامهٔ کار است).
+        @Volatile
+        private var hardStopDone = false
+
+        @JvmStatic
+        fun hardStopAndExit() {
+            if (hardStopDone) return
+            hardStopDone = true
+            Thread {
+                try {
+                    if (com.chaquo.python.Python.isStarted()) {
+                        com.chaquo.python.Python.getInstance()
+                            .getModule("native_bridge").callAttr("cancel")
+                    }
+                } catch (_: Exception) {
+                }
+                try {
+                    Thread.sleep(1200)
+                } catch (_: Exception) {
+                }
+                try {
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                } catch (_: Exception) {
+                }
+                try {
+                    java.lang.System.exit(0)
+                } catch (_: Exception) {
+                }
+            }.start()
         }
     }
 }

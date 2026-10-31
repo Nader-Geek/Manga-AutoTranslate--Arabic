@@ -1635,6 +1635,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 (function(){
   var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__", STAMP = Date.now();
   var arrived = 0, total = 0, dbgArrived = 0, dbgMode = false, busy = false;
+  var mtimes = {};  // v1.14.160 — slot → mtime of last image update
   var c = document.getElementById('c'), h = document.getElementById('h'),
       b = document.getElementById('n'), dot = document.getElementById('dot'),
       db = document.getElementById('db'), chip = document.getElementById('chip');
@@ -1712,6 +1713,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       db.classList.toggle('on', dbgMode);
       db.textContent = dbgMode ? '📖 نهایی' : '🔍 دیباگ';
       c.innerHTML = '';
+      mtimes = {};  // v1.14.160 — folder switched, reset stamps
       h = document.createElement('div');
       h.className = 'hint';
       h.textContent = dbgMode ? 'در انتظار دیباگ…' : 'در انتظار صفحه…';
@@ -1719,6 +1721,33 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       render();
       probe();
     });
+  }
+  // v1.14.160 — progressive 15-by-15 refresh: the engine rewrites the same
+  // slot file after every translated batch and logs 'slot mtime' into
+  // mtimes.txt; here only the changed slot is re-fetched (no scroll jump).
+  var mtimeBusy = false;
+  function pollMtimes(){
+    if (mtimeBusy || arrived <= 0) return;
+    mtimeBusy = true;
+    fetch(P + curDir() + 'mtimes.txt?r=' + Date.now(), { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.text() : ''; })
+      .then(function(t){
+        mtimeBusy = false;
+        if (!t) return;
+        var lines = t.split('\n');
+        for (var k = 0; k < lines.length; k++) {
+          var m = lines[k].trim().split(/\\s+/);
+          if (m.length < 2) continue;
+          var slot = parseInt(m[0], 10), mt = m[1];
+          if (!(slot >= 1 && slot <= arrived)) continue;
+          if (mtimes[slot] === mt) continue;
+          mtimes[slot] = mt;
+          var el = c.children[slot - 1];
+          if (el && el.tagName === 'IMG')
+            el.src = P + curDir() + 'live_' + pad(slot) + '.jpg?r=' + Date.now();
+        }
+      })
+      .catch(function(){ mtimeBusy = false; });
   }
   // total.txt: تعداد کل صفحه‌ها → از اول اسلات لودینگ برای همه گذاشته می‌شود
   function pollTotal(){
@@ -1735,6 +1764,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   var lastNew = 0;
   setInterval(function(){
     pollTotal();
+    pollMtimes();
     var a = curArrived();
     if (a > lastNew) {
       if (!nearBottom()) chip.style.display = 'block';

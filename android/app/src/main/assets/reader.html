@@ -416,6 +416,39 @@
       renderLive();
     } catch (err) {}
   };
+  // v1.14.160 — پیشنمایشِ ۱۵تایی: موتور بعد از هر بستهِ ترجمه، همان اسلات را
+  // دوباره رندر میکند و زمانش را در mtimes.txt مینویسد؛ اینجا فقط اسلاتِ
+  // عوضشده دوباره لود میشود (بدون پرش اسکرول و بازسازی کل).
+  const mgMtimes = {};
+  let mgMtimesBusy = false;
+  function pollMtimes() {
+    if (!isLive || sessionDone || mgMtimesBusy || arrived <= 0) return;
+    mgMtimesBusy = true;
+    fetch('mtimes.txt?r=' + Date.now(), { cache: 'no-store' })
+      .then(function(r) { return r.ok ? r.text() : ''; })
+      .then(function(t) {
+        mgMtimesBusy = false;
+        if (!t) return;
+        const lines = t.split('\n');
+        for (let k = 0; k < lines.length; k++) {
+          const p = lines[k].trim().split(/\s+/);
+          if (p.length < 2) continue;
+          const slot = parseInt(p[0], 10), mt = p[1];
+          if (!(slot >= 1 && slot <= arrived)) continue;
+          if (mgMtimes[slot] === mt) continue;
+          mgMtimes[slot] = mt;
+          const el = lgF.children[slot - 1];
+          if (el && el.tagName === 'IMG') {
+            el.dataset.src = 'i/' + (slot - 1) + '?r=' + Date.now();
+            if (el.getAttribute('src') !== PH1)
+              el.setAttribute('src', el.dataset.src);
+          }
+        }
+      })
+      .catch(function() { mgMtimesBusy = false; });
+  }
+  setInterval(pollMtimes, 2500);
+
   if (arrived > 0 || staticPh > 0) renderLive();
   updateProgress();
 })();
