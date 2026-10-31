@@ -29421,10 +29421,34 @@ class MangaTranslator:
                 _ptr["back"] -= 1
                 return idx
 
-        def _dl_one(idx: int) -> None:
+        def _make_sess():
+            # v1.14.161 — اتصالِ keep-alive برایِ هر رشته: بهجایِ
+            # handshakeِ TLS برایِ تکتکِ صفحهها، همان اتصالِ زنده
+            # استفاده میشود → رویِ HTTPS سرعتِ واقعی میرود بالا.
+            try:
+                from requests.adapters import HTTPAdapter
+                _s = requests.Session()
+                _ad = HTTPAdapter(pool_connections=1, pool_maxsize=1)
+                _s.mount("https://", _ad)
+                _s.mount("http://", _ad)
+                _s.headers.update(headers)
+                return _s
+            except Exception:
+                class _Shim:
+                    def __init__(self, hd):
+                        self.headers = dict(hd)
+
+                    def get(self, u, timeout=60):
+                        return requests.get(u, headers=self.headers,
+                                            timeout=timeout)
+                return _Shim(headers)
+
+        _dl_count = {"front": 0, "back": 0}
+
+        def _dl_one(idx: int, sess) -> None:
             img_url = img_urls[idx]
             try:
-                r = requests.get(img_url, headers=headers, timeout=60)
+                r = sess.get(img_url, timeout=60)
                 r.raise_for_status()
             except Exception as e:
                 print(f"    [!] رد شد ({img_url[:90]}…): {e}")
@@ -29440,17 +29464,28 @@ class MangaTranslator:
                 if path:
                     saved_by_idx[idx] = path
 
-        def _dl_side(claim) -> None:
+        def _dl_side(claim, sess, tag: str) -> None:
             while True:
                 idx = claim()
                 if idx is None:
                     return
-                _dl_one(idx)
+                _dl_one(idx, sess)
+                _dl_count[tag] = _dl_count.get(tag, 0) + 1
+                # v1.14.161 — پیشرفتِ قابلِ دیدن: کاربر باید «دوطرفه»
+                # بودنِ دانلود را در لاگ ببیند (هر ۱۰ صفحه از هر طرف).
+                if len(img_urls) >= 10 and _dl_count[tag] % 10 == 0:
+                    print(f"    [↧ {tag}] {_dl_count[tag]}/{len(img_urls)} "
+                          f"صفحه دانلود شد")
 
         if len(img_urls) > 3:
-            _t_fwd = threading.Thread(target=_dl_side, args=(_claim_front,),
+            # v1.14.161 — لاگِ شروعِ دانلودِ دوطرفه
+            print(f"    [*] دانلودِ دوطرفه: رشتهٔ «جلو» از صفحهٔ ۱ و "
+                  f"رشتهٔ «عقب» از صفحهٔ {len(img_urls)} — همزمان")
+            _t_fwd = threading.Thread(target=_dl_side,
+                                      args=(_claim_front, _make_sess(), "جلو"),
                                       daemon=True)
-            _t_bwd = threading.Thread(target=_dl_side, args=(_claim_back,),
+            _t_bwd = threading.Thread(target=_dl_side,
+                                      args=(_claim_back, _make_sess(), "عقب"),
                                       daemon=True)
             _t_fwd.start()
             _t_bwd.start()
@@ -29460,8 +29495,9 @@ class MangaTranslator:
                 if _t_bwd.is_alive():
                     _t_bwd.join(timeout=0.5)
         else:
-            _dl_side(_claim_front)
-            _dl_side(_claim_back)
+            _sess66 = _make_sess()
+            _dl_side(_claim_front, _sess66, "جلو")
+            _dl_side(_claim_back, _sess66, "عقب")
         saved = [saved_by_idx[i] for i in sorted(saved_by_idx)]
 
         print(f"    {len(saved)} تصویر از {url} دانلود شد "
@@ -30862,6 +30898,9 @@ html, body { background: #0a0a0b; }
                         _dl_direct(_i)
 
                 if len(urls) > 3:
+                    # v1.14.161 — لاگِ شروعِ دانلودِ دوطرفه
+                    print(f"    [*] دانلودِ دوطرفه: رشتهٔ «جلو» از صفحهٔ ۱ و "
+                          f"رشتهٔ «عقب» از صفحهٔ {len(urls)} — همزمان")
                     _t_f = threading.Thread(target=_dside, args=(_dclaim_front,),
                                             daemon=True)
                     _t_b = threading.Thread(target=_dside, args=(_dclaim_back,),
@@ -31173,6 +31212,15 @@ html, body { background: #0a0a0b; }
             _raise_if_stop()
             if page_i in finished_pages:
                 return
+            # v1.14.161 — اگر پاکسازیِ بچِ همین صفحه هنوز در پسزمینه
+            # در جریان است، اول تمامشدنش صبر میشود تا دوبارِ پاکسازی
+            # (بچ + درونی) نشود؛ بعد entry تازه خوانده میشود.
+            _cfut = clean_futures.get(page_i)
+            if _cfut is not None:
+                try:
+                    _cfut.result(timeout=1800)
+                except Exception:
+                    pass
             entry = extracted_map.get(page_i)
             if entry is None:
                 return
@@ -31220,6 +31268,13 @@ html, body { background: #0a0a0b; }
                 if page_i in finished_pages:
                     continue
                 if pending_by_page.get(page_i, 0) > 0:
+                    continue
+                # v1.14.161 — پاکسازیٔ بچِ این صفحه هنوز در جریان است؟
+                # ردش کن — استخراجِ صفحههایِ بعدی نباید پشتِ پاکسازی
+                # بایستد؛ این صفحه در حلقهٔ انتظار (بعد از تمامشدنِ
+                # پاکسازیاش) تمام میشود.
+                _cfut = clean_futures.get(page_i)
+                if _cfut is not None and not _cfut.done():
                     continue
                 _finish_page_now(page_i)
 
@@ -31313,8 +31368,9 @@ html, body { background: #0a0a0b; }
             min_batch = 15
         else:
             print(
-                f"[*] حالت صرفه‌جویی API: تا رسیدن به {min_batch} دیالوگ ترجمه نمی‌شود؛ "
-                f"بعد از ترجمهٔ هر صفحه، پاکسازی و رندر همان صفحه بلافاصله انجام می‌شود."
+                f"[*] حالت صرفه‌جویی API: استخراج بدونِ توقف جلو میرود؛ "
+                f"به‌محضِ رسیدنِ بافر به {min_batch} دیالوگ، پاکسازیٔ "
+                f"صفحه‌هایِ همان بسته + ترجمه با هم شروع میشود."
             )
 
         quota_flag = {"dead": False}
@@ -31341,9 +31397,108 @@ html, body { background: #0a0a0b; }
                     _account_chunk(chunk)
 
             trans_futures.append(trans_pool.submit(_job))
+            # v1.14.161 — پاکسازیٔ بچ: صفحههایِ همین بستهٔ ترجمه، همزمان
+            # با شروعِ ترجمهاش در پسزمینه پاک میشوند (نه صفحه‌به‌صفحه
+            # بعد از هر استخراج).
+            try:
+                _dispatch_chunk_clean(chunk)
+            except Exception:
+                pass
+            # v1.14.161 — پاکسازیٔ بچ: صفحههایِ همین بستهٔ ترجمه، همزمان
+            # با شروعِ ترجمهاش در پسزمینه پاک میشوند (نه صفحه‌به‌صفحه
+            # بعد از هر استخراج).
+            try:
+                _dispatch_chunk_clean(chunk)
+            except Exception:
+                pass
 
         trans_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="translate")
+
+        # v1.14.161 — پاکسازی هم «بچِ ۱۵تایی» مثل ترجمه: خواستهٔ صریحِ
+        # کاربر — «نباید هر عکس استخراج تموم شد بره بپاکه؛ وقتی متنِ
+        # ۱۵ تا برسه بعدش بپاکه». استخراج بدونِ توقف جلو میرود و
+        # پاکسازیٔ صفحههایِ هر بسته، همان لحظهٔ شروعِ ترجمهٔ همان
+        # بسته، در پسزمینه انجام میشود (صفِ تک‌نمونه تا منابعِ
+        # PC/گوشی قفل نشود). قبلاً «پاکسازیٔ زودهنگام» درست بعد از
+        # استخراجِ تکتکِ صفحهها در خودِ حلقهٔ اصلی بود → هم استخراج
+        # کند شده بود هم پاکسازی صفحه‌به‌صفحه بود.
+        clean_pool = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="clean")
+        clean_futures: Dict[int, "object"] = {}
+        clean_started: set = set()
+
+        def _clean_regions_for_page(page_i: int) -> Optional[List[TextRegion]]:
+            entry = extracted_map.get(page_i)
+            if entry is None:
+                return None
+            _of, im, _pc, regions, _dbg = entry
+            if im is None or not regions:
+                return None
+            regs = [r for r in regions
+                    if r.kind == "dialogue"
+                    and not getattr(r, "ocr_empty", False)]
+            # همان قواعدِ پاکسازیٔ درونیِ finish_page_phase — تا رفتار
+            # عوض نشود فقط جایِ اجرا عقب برده شده:
+            if _android_gate("MANGA_CLEAN_TEXTFREE"):
+                regs = regs + [r for r in regions if r.kind == "text_free"]
+            if getattr(self, "clean_sfx", False):
+                regs = regs + [r for r in regions if r.kind == "sfx"]
+            return regs or None
+
+        def _clean_pages_bg(pages: List[int]) -> None:
+            pages = [p for p in dict.fromkeys(pages)
+                     if p not in finished_pages and p not in clean_started]
+            if not pages:
+                return
+            for _p in pages:
+                clean_started.add(_p)
+
+            def _job(_pages=list(pages)):
+                for _p in _pages:
+                    if stop_requested():
+                        break
+                    if _p in finished_pages:
+                        continue
+                    _of, im, _pc, regions, _dbg = extracted_map.get(
+                        _p, (None, None, None, None, None))
+                    if im is None:
+                        continue
+                    regs = _clean_regions_for_page(_p)
+                    if not regs:
+                        continue
+                    try:
+                        if _android_gate("MANGA_PHASE_PRINTS"):
+                            print(f"[*] پاکسازی متنِ صفحهٔ {_p + 1}…",
+                                  flush=True)
+                        _t0 = time.time()
+                        _pcn = self.clean_image(im, regs)
+                        if _p in finished_pages:
+                            continue  # همزمان تمام شده بود — بیخیال
+                        extracted_map[_p] = (_of, im, _pcn, regions, _dbg)
+                        try:
+                            print(f"[TIME] page#{_p + 1} "
+                                  f"clean={time.time() - _t0:.1f}s",
+                                  flush=True)
+                        except Exception:
+                            pass
+                    except GeminiQuotaExhausted as e:
+                        print(f"\n[!] {e}")
+                        quota_flag["dead"] = True
+                        break
+                    except Exception as e:
+                        print(f"    [!] پاکسازیِ صفحهٔ {_p + 1} ناموفق: "
+                              f"{str(e)[:120]}")
+
+            _fut = clean_pool.submit(_job)
+            for _p in pages:
+                clean_futures[_p] = _fut
+
+        def _dispatch_chunk_clean(chunk: List[TextRegion]) -> None:
+            _pgs = sorted({page_of_region.get(r.id) for r in chunk
+                           if page_of_region.get(r.id) is not None})
+            if _pgs:
+                _clean_pages_bg(_pgs)
 
         quota_dead = False
         for item in pending:
@@ -31369,27 +31524,6 @@ html, body { background: #0a0a0b; }
                     quota_dead = True
                     break
 
-                if not getattr(self, "clean_only", False):
-                    # v1.14.104 — قانونِ قطعیِ کاربر: «متنِ تبلیغ sfx رد
-                    # بشه نه پاک شه نه ترجمه شه». پاکسازیِ زودهنگام فقط
-                    # دیالوگ — بنرِ تبلیغ (promo) دیگر در هیچ حالتی پاک
-                    # نمی‌شود (v1.14.65 آن را اینجا اضافه کرده بود ولی
-                    # v1.14.95 سیاست را به «ازش رد شه» تغییر داد و این
-                    # مسیر از قلم افتاده بود → بنرِ تبلیغ در حالتِ
-                    # ترجمه‌دار تکه‌تکه پاک/اسکراب می‌شد).
-                    _dlg = [r for r in regions
-                            if r.kind == "dialogue"]
-                    if _dlg:
-                        try:
-                            if _android_gate("MANGA_PHASE_PRINTS"):
-                                print(f"[*] پاکسازی متنِ صفحهٔ {page_i + 1}…",
-                                      flush=True)
-                            _pc = self.clean_image(image, _dlg)
-                            extracted_map[page_i] = (out_file, image, _pc, regions, dbg)
-                            print(f"    [*] Early cleaning of page #{page_i + 1} done (parallel with background translation).")
-                        except Exception as e:
-                            print(f"    [!] Early cleaning of page #{page_i + 1} failed: {e}")
-
                 if dialogue_buffer and len(dialogue_buffer) < min_batch:
                     print(
                         f"    [*] بافر ترجمه: {len(dialogue_buffer)}/{min_batch} "
@@ -31412,7 +31546,14 @@ html, body { background: #0a0a0b; }
         # به‌روز میشوند — ترجمه از استخراج جدا کار میکند و نمایش هم همان
         # لحظه جلو میرود.
         import concurrent.futures as _cfw
-        _futures = list(trans_futures)
+        # v1.14.161 — انتظارِ مشترکِ ترجمه + پاکسازیٔ بچ: هر کدام زودتر
+        # تمام شد، صفحههایِ آماده همان لحظه نهایی/پیش‌نمایش میگیرند.
+        _seen_f: dict = {}
+        for _f in trans_futures:
+            _seen_f[id(_f)] = _f
+        for _f in list(clean_futures.values()):
+            _seen_f[id(_f)] = _f
+        _futures = list(_seen_f.values())
         while _futures:
             if stop_requested():
                 break
@@ -31443,6 +31584,10 @@ html, body { background: #0a0a0b; }
             _finish_page_now(page_i)
         try:
             trans_pool.shutdown(wait=True)
+        except Exception:
+            pass
+        try:
+            clean_pool.shutdown(wait=True)
         except Exception:
             pass
 

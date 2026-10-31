@@ -1734,7 +1734,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       .then(function(t){
         mtimeBusy = false;
         if (!t) return;
-        var lines = t.split('\n');
+        var lines = t.split('\\n');
         for (var k = 0; k < lines.length; k++) {
           var m = lines[k].trim().split(/\\s+/);
           if (m.length < 2) continue;
