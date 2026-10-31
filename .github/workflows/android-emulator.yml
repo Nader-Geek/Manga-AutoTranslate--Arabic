@@ -70,6 +70,9 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install pymupdf pillow numpy requests opencv-python-headless
 
+      - name: Fetch Paddle-Lite jar + native libs (v2.14-rc)
+        run: python3 android/scripts/fetch_paddle.py
+
       - name: Fetch vendored Python packages
         run: |
           python3 android/scripts/fetch_vendor.py --check || \
