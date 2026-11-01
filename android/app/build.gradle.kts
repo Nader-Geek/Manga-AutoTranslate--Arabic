@@ -82,9 +82,12 @@ chaquopy {
     }
 }
 
-// v1.14.120 — Paddle-Lite کلاً حذف شد (کرشهایِ RuntimeProgram + درخواستِ
-// کاربر). PaddleLiteBridge.kt و PaddlePredictor.jar و fetch_paddle.py
-// از مخزن پاک شدند؛ زنجیرهٔ OCR اندروید: ML Kit نیتیو → RapidOCR ONNX.
+// v1.14.166 — Paddle-Lite بازگشت (دستورِ سازنده: «استخراجِ متن تو گوشی
+// Paddle-Lite arm arm64 بزار»): PaddleLiteBridge.kt + PliteProbeService.kt
+// برمی‌گردند؛ jarِ API و libpaddle_lite_jni.so (arm64-v8a + armeabi-v7a)
+// با android/scripts/fetch_paddle.py از ریلیزِ رسمیِ v2.14-rc می‌آیند.
+// موتورِ OCRِ گوشی = Paddle-Lite فقط رویِ کراپهایِ detector-v4-s؛
+// فالبکِ خودکار به PP-OCRv6 ONNX.
 
 
 dependencies {
@@ -92,9 +95,12 @@ dependencies {
     // sess.run تقسیم‌برصفر (SIGFPE) می‌دهد → CI با 1.28 بیلد می‌کند
     // (APIِ جاوایِ shim با 1.28 هم سازگار است؛ گوشی همان 1.31 را می‌گیرد)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:${(findProperty("ortVer") as String?) ?: "1.31.0"}")
-    // v1.14.163 — ML Kit و Paddle-Lite کلاً حذف شدند (دستورِ سازنده:
+    // v1.14.163 — ML Kit حذف شد (دستورِ سازنده:
     // «سبکِ استخراج و پاکسازی رو گوشی کامل حذف کنی») — استخراجِ متنِ
-    // گوشی = detector-v4-s + PP-OCRv6 ONNX (عینِ PC)
+    // گوشی = detector-v4-s + (Paddle-Lite | PP-OCRv6 ONNX) (عینِ PC)
+    // v1.14.166 — jarِ APIِ Paddle-Lite (فایلهایِ so با fetch_paddle.py
+    // به jniLibs می‌روند؛ هر دو ABIِ arm)
+    implementation(files("libs/PaddlePredictor.jar"))
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")

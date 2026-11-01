@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.165"
+APP_VER = "1.14.166"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3325,6 +3325,689 @@ def _cjk_dominant_154(t: str) -> bool:
         return False
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# v1.14.166 — بازگشتِ Paddle-Lite (arm/arm64) به‌عنوانِ موتورِ OCRِ گوشی
+# (دستورِ سازنده: «استخراجِ متن تو گوشی Paddle-Lite arm arm64 بزار ببینم
+# چجور استخراج میکنه»). برخلافِ سبکِ قدیمیِ K3 دیگر هیچ کاسکاد و هیچ
+# پاسِ تمامصفحهای نیست — Paddle-Lite دقیقاً مثلِ PP-OCRv6 ONNX فقط رویِ
+# «کراپهایِ detector-v4-s_int8.onnx» صدا زده میشود (همان مسیرِ
+# _ocr_crop → RapidOCRBackend.ocr → self._mobile.ocr(crop, crop_mode)).
+#
+#   • مدلها: pplite_det_arm_cpu.nb + pplite_rec_{ch,ja,ko}_arm_cpu.nb
+#     (فقط-CPU، ساختهشده با optِ v2.14-rc؛ درسِ سیگفالتهایِ OpenCLِ
+#     1.14.106-119) — از ریلیزِ «models» دانلود میشوند.
+#   • پیش/پسپردازشِ det(DB)/rec(CTC) در پایتون؛ فقط tensor به پلِ
+#     PaddleLiteBridge.kt (jarِ رسمی + libpaddle_lite_jni.so هر دو ABI).
+#   • پروبِ :pliteprobe (پروسهٔ جدا) قبل از اولین استفاده مدلها را
+#     واقعاً run میکند؛ سیگفالت فقط پروب را میکشد → بنِ خود-ترمیم
+#     (plite_banned.txt) → فالبکِ خودکار به PP-OCRv6 ONNX.
+#   • خاموشی: MANGA_MOBILE_OCR_ENGINE=rapidocr (یا MANGA_K3_PLITE=0).
+# ═══════════════════════════════════════════════════════════════════════
+
+_PLITE_NB = {
+    "det": "pplite_det_arm_cpu.nb",
+    "en": "pplite_rec_ch_arm_cpu.nb",   # ch rec_slim = لاتینِ کامل در dict
+    "zh": "pplite_rec_ch_arm_cpu.nb",
+    "ja": "pplite_rec_ja_arm_cpu.nb",
+    "ko": "pplite_rec_ko_arm_cpu.nb",
+}
+_PLITE_DICT = {
+    "en": "ppocr_keys_v1.txt", "zh": "ppocr_keys_v1.txt",
+    "ja": "japan_dict.txt", "ko": "korean_dict.txt",
+}
+_PADDLE_LANG_MAP = {
+    "en": "en", "latin": "en", "english": "en",
+    "korean": "ko", "ko": "ko",
+    "japan": "ja", "ja": "ja", "japanese": "ja",
+    "ch": "zh", "zh": "zh", "chinese": "zh", "ch_sim": "zh",
+}
+
+
+def _plite_lang(lang):
+    return _PADDLE_LANG_MAP.get(str(lang or "en").lower(), "en")
+
+
+def _plocri_load_dict_txt(path):
+    """dictِ PP-OCR: هر خط یک کاراکتر."""
+    chars = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for _ln in f:
+                _c = _ln.rstrip("\r\n")
+                chars.append(_c)
+    except Exception:
+        pass
+    return chars
+
+
+def _plite_model_key(paths):
+    """کلیدِ بن/کَشِ پروب از حجمِ فایلهایِ مدل."""
+    _bits = []
+    for p in paths:
+        try:
+            _bits.append("%s=%d" % (os.path.basename(p),
+                                    os.path.getsize(p) if os.path.isfile(p) else -1))
+        except Exception:
+            _bits.append("%s=?" % os.path.basename(p))
+    return ";".join(_bits)
+
+
+def _plite_banned(bdir, key):
+    """بنِ خود-ترمیم — مدلها عوض شدند → بنِ قبلی میسوزد."""
+    try:
+        p = os.path.join(bdir, "plite_banned.txt")
+        if not os.path.isfile(p):
+            return False
+        try:
+            _old = (open(p, "r", encoding="utf-8").read() or "").strip()
+        except Exception:
+            _old = ""
+        if _old and _old != key:
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def _plite_ban_write(bdir, key):
+    try:
+        os.makedirs(bdir, exist_ok=True)
+        with open(os.path.join(bdir, "plite_banned.txt"), "w",
+                  encoding="utf-8") as f:
+            f.write(key)
+        print("[!] Paddle-Lite بن شد (پروبِ پروسهٔ جدا مرد/مردد) → "
+              "OCRِ گوشی = PP-OCRv6 ONNX")
+    except Exception:
+        pass
+
+
+def _plite_probe_alive() -> bool:
+    """پروسهٔ :pliteprobe هنوز زنده است؟ (الگویِ _ep_probe_proc_alive)"""
+    try:
+        from java import jclass
+        _ctx = _app_ctx_166()
+        if _ctx is None:
+            return True
+        _am = _ctx.getSystemService("activity")
+        _procs = _am.getRunningAppProcesses() or []
+        for _p in _procs:
+            try:
+                if str(_p.processName).endswith(":pliteprobe"):
+                    return True
+            except Exception:
+                pass
+        return False
+    except Exception:
+        return True
+
+
+def _app_ctx_166():
+    """Context فعلی برایِ startService (الگویِ اثباتشدهٔ
+    rapidocr_mobile._app_ctx: AndroidPlatform → ActivityThread)."""
+    try:
+        from java import jclass
+        try:
+            _c = jclass(
+                "com.chaquo.python.android.AndroidPlatform").getApplication()
+        except Exception:
+            _c = None
+        if _c is None:
+            try:
+                _c = jclass("android.app.ActivityThread").currentApplication()
+            except Exception:
+                _c = None
+        return _c
+    except Exception:
+        return None
+
+
+def _start_plite_probe(det_path, rec_path, out_path, threads):
+    """شروعِ PliteProbeService در پروسهٔ :pliteprobe (الگویِ EP-probe)."""
+    try:
+        _ctx = _app_ctx_166()
+        if _ctx is None:
+            return False
+        from java import jclass
+        _Intent = jclass("android.content.Intent")
+        _Srv = jclass("com.amirwolf.mangatranslator.PliteProbeService")
+        _it = _Intent(_ctx, _Srv)
+        _it.putExtra("det", str(det_path))
+        _it.putExtra("rec", str(rec_path))
+        _it.putExtra("out", str(out_path))
+        _it.putExtra("threads", str(threads))
+        _ctx.startService(_it)
+        return True
+    except Exception:
+        return False
+
+
+_PLITE_PROBE_LOCK = threading.Lock()
+
+
+def _plite_probe_ensure(pdir, det_path, rec_path):
+    """پروبِ تک-نمونه با کَش (کلید = حجمِ مدلها) — دو ورکرِ موازی هر دو
+    از یک پروب استفاده میکنند، دومی از کَش میخواند."""
+    import json as _json
+    _key = _plite_model_key([det_path, rec_path])
+    _cachef = os.path.join(pdir, ".plite_probe.json")
+    try:
+        if os.path.isfile(_cachef):
+            _c = _json.loads(open(_cachef, "r", encoding="utf-8").read() or "{}")
+            if _c.get("key") == _key:
+                return bool(_c.get("ok")), str(_c.get("ms") or "")
+    except Exception:
+        pass
+    with _PLITE_PROBE_LOCK:
+        try:
+            if os.path.isfile(_cachef):
+                _c = _json.loads(
+                    open(_cachef, "r", encoding="utf-8").read() or "{}")
+                if _c.get("key") == _key:
+                    return bool(_c.get("ok")), str(_c.get("ms") or "")
+        except Exception:
+            pass
+        return _plite_probe_run(pdir, det_path, rec_path)
+
+
+def _plite_probe_run(pdir, det_path, rec_path):
+    """تأییدِ سالم بودنِ Paddle-Lite رویِ همین گوشی با پروبِ پروسهٔ جدا.
+
+    «verdict ok det_ms=X rec_ms=Y» = سالم | فایلِ غایب = سیگفالتِ نیتیو
+    → بنِ مدل. خروجی: (ok, ms_desc)."""
+    import time as _time
+    import json as _json
+    _key = _plite_model_key([det_path, rec_path])
+    _cachef = os.path.join(pdir, ".plite_probe.json")
+    try:
+        if os.path.isfile(_cachef):
+            _c = _json.loads(open(_cachef, "r", encoding="utf-8").read() or "{}")
+            if _c.get("key") == _key:
+                return bool(_c.get("ok")), str(_c.get("ms") or "")
+    except Exception:
+        pass
+    if _plite_banned(pdir, _key):
+        return False, "banned"
+    _out = os.path.join(pdir, ".plite_probe.txt")
+    try:
+        os.remove(_out)
+    except Exception:
+        pass
+    _thr = 2
+    if not _start_plite_probe(det_path, rec_path, _out, _thr):
+        return False, "service-start-failed"
+    print("[⚡] پروبِ Paddle-Lite در پروسهٔ جدا (:pliteprobe) ...")
+    _t0 = _time.time()
+    try:
+        _tmo = float(os.environ.get("MANGA_PLITE_PROBE_TIMEOUT", "60") or 60)
+    except Exception:
+        _tmo = 60.0
+    _verdict = ""
+    while _time.time() - _t0 < _tmo:
+        if os.path.isfile(_out):
+            try:
+                _verdict = (open(_out, "r", encoding="utf-8").read()
+                            or "").strip()
+            except Exception:
+                _verdict = ""
+            break
+        if not _plite_probe_alive():
+            _verdict = ""
+            break
+        _time.sleep(0.25)
+    _ok = _verdict.startswith("verdict ok")
+    _ms = _verdict.replace("verdict ok", "").strip() if _ok else \
+        (_verdict.replace("verdict fail", "").strip() or "native-crash/timeouts"
+         if _verdict else "native-crash")
+    try:
+        with open(_cachef, "w", encoding="utf-8") as f:
+            _json.dump({"key": _key, "ok": bool(_ok),
+                        "ms": str(_ms)[:80],
+                        "app": str(APP_VER)}, f)
+    except Exception:
+        pass
+    if not _ok:
+        _plite_ban_write(pdir, _key)
+    return _ok, _ms
+
+
+class _PLOCR_LiteRunner:
+    """رانرِ Paddle-Lite جاوا (پلِ PaddleLiteBridge — فقط inference)."""
+
+    def __init__(self, model_path, threads=2, power="NO_BIND"):
+        from java import jclass, jarray
+        from java import jfloat as _jf
+        self._bridge = jclass(
+            "com.amirwolf.mangatranslator.PaddleLiteBridge")
+        self.path = str(model_path)
+        self.threads = max(1, min(8, int(threads or 2)))
+        self.power = str(power or "NO_BIND").strip().upper()
+        self._jarray = jarray
+        self._jf = _jf
+        if not self._bridge.ready(self.path, self.threads, self.power):
+            raise RuntimeError("PaddleLiteBridge.ready=False: " + self.path)
+
+    @property
+    def gpu_head(self):
+        try:
+            return self._bridge.backend(self.path) or "paddle-lite-cpu"
+        except Exception:
+            return "paddle-lite-cpu"
+
+    def run(self, arr):
+        _x = np.ascontiguousarray(arr.astype(np.float32))
+        ja = self._jarray(self._jf)(_x.reshape(-1))
+        fb = self._bridge.predict(self.path, [int(v) for v in _x.shape],
+                                  ja, self.threads, self.power)
+        if fb is None:
+            raise RuntimeError("PaddleLite predict returns null")
+        out = np.frombuffer(memoryview(fb), dtype=np.float32)
+        shp = self._bridge.predictShape(self.path)
+        if shp:
+            out = out.reshape([int(v) for v in shp])
+        return out.copy()
+
+
+class PliteCropOCR:
+    """OCRِ کراپ با Paddle-Lite نیتیو (موتورِ OCRِ گوشی — v1.14.166).
+
+    پیش/پسپردازشِ det(DB)/rec(CTC) در پایتون؛ فقط tensor به پلِ جاوا.
+    خروجی: [ [[box, (text, score)], ...] ] — دقیقاً هم‌قالبِ
+    RapidOcrMobile.ocr (قراردادِ بقیهٔ موتورها). فقط کراپ میگیرد؛
+    crop_mode فقط برایِ هم‌امضایی است (detِ داخلی سقفِ 960 دارد)."""
+
+    DET_CAP = 960      # سقفِ ضلعِ بزرگ (1:1 — برشِ درشت کوچک نمیشود)
+    DET_MIN = 128      # کفِ ضلعِ کوچک (کراپِ خیلی ریز کمی بزرگ میشود)
+    REC_H = 48
+    REC_MAX_W = 1280
+    BATCH = 8
+
+    def __init__(self, lang: str = "en"):
+        self.lang = _plite_lang(lang)
+        self.debug = True
+        _pdir = _model_cache_dir("paddle_models")
+        _det_name, _rec_name = _PLITE_NB["det"], _PLITE_NB[self.lang]
+        try:
+            _ensure_rapidocr_models(_pdir, files=[
+                _det_name, _rec_name, _PLITE_DICT[self.lang]])
+        except Exception as e:
+            raise RuntimeError(f"دانلودِ مدلهایِ Paddle-Lite ناموفق: {e}")
+        _det = os.path.join(_pdir, _det_name)
+        _rec = os.path.join(_pdir, _rec_name)
+        for _p in (_det, _rec):
+            if not (os.path.isfile(_p) and os.path.getsize(_p) > 10_000):
+                raise RuntimeError("مدلِ nb نیست: " + _p)
+        _ok, _ms = _plite_probe_ensure(_pdir, _det, _rec)
+        if not _ok:
+            raise RuntimeError("پروبِ Paddle-Lite مردود: " + str(_ms))
+        self.det_runner = _PLOCR_LiteRunner(_det, threads=2)
+        self.rec_runner = _PLOCR_LiteRunner(_rec, threads=2)
+        # v1.14.166 — dict از همان پوشهای خوانده میشود که دانلود شد
+        # (باگِ قدیمی: از rapidocr_models میخواند و برایِ ja/ko خالی بود)
+        _df = os.path.join(_pdir, _PLITE_DICT[self.lang])
+        if not os.path.isfile(_df):
+            _df = os.path.join(_model_cache_dir("rapidocr_models"),
+                               _PLITE_DICT[self.lang])
+        _lines = _plocri_load_dict_txt(_df)
+        if not _lines:
+            raise RuntimeError("dict خالی: " + _df)
+        self._charset = [""] + _lines + [" "]
+        self._cls_count = 0
+        print(f"[+] OCRِ گوشی: Paddle-Lite (arm) | lang={self.lang} "
+              f"| {_det_name} + {_rec_name} | پروب: {_ms} "
+              f"| فقط رویِ کراپهایِ detector-v4-s")
+
+    # ── det: پیش‌پردازش + run + پس‌پردازشِ DB (سبکِ کراپ: 1:1 با
+    #        سقفِ cap — بدونِ بزرگنماییِ 736) ─────────────────────────────
+    def _det(self, image_bgr):
+        h, w = image_bgr.shape[:2]
+        ratio = 1.0
+        if min(h, w) < self.DET_MIN:
+            ratio = self.DET_MIN / max(1, min(h, w))
+        if max(h, w) * ratio > self.DET_CAP:
+            ratio = self.DET_CAP / max(1, max(h, w))
+        rh, rw = max(32, int(round(h * ratio))), max(32, int(round(w * ratio)))
+        _img = cv2.resize(image_bgr, (rw, rh),
+                          interpolation=cv2.INTER_AREA if ratio < 1
+                          else cv2.INTER_CUBIC)
+        # DBNet: نرمال‌سازیِ ImageNet رویِ RGB
+        _img = cv2.cvtColor(_img, cv2.COLOR_BGR2RGB)
+        _x = (_img.astype(np.float32) / 255.0
+              - np.array([0.485, 0.456, 0.406], dtype=np.float32)) \
+            / np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        _x = cv2.copyMakeBorder(_x, 0, (-rh) % 32, 0, (-rw) % 32,
+                                cv2.BORDER_CONSTANT, value=0.0)
+        _x = _x.transpose(2, 0, 1)[None]  # NCHW
+        _out = self.det_runner.run(_x)
+        _p = np.asarray(_out)
+        while _p.ndim > 2:
+            _p = _p[0]
+        if _p.shape[0] != _x.shape[2] or _p.shape[1] != _x.shape[3]:
+            _p = cv2.resize(_p, (_x.shape[3], _x.shape[2]))
+        return _p.astype(np.float32)
+
+    @staticmethod
+    def _box_score(prob, box):
+        h, w = prob.shape[:2]
+        bx = np.rint(np.clip(box, 0, [w - 1, h - 1])).astype(np.int32)
+        msk = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(msk, [bx], 1)
+        n = int(msk.sum())
+        if n <= 0:
+            return 0.0
+        return float((prob * msk).sum() / n)
+
+    def _det_boxes(self, prob, orig_hw, det_thresh=0.3, box_thresh=0.5,
+                   unclip_ratio=1.8, min_size=3):
+        bitmap = (prob > det_thresh).astype(np.uint8)
+        oh, ow = orig_hw
+        sh, sw = prob.shape[:2]
+        sx, sy = ow / float(sw), oh / float(sh)
+        boxes = []
+        try:
+            _cnts, _ = cv2.findContours(bitmap * 255, cv2.RETR_LIST,
+                                        cv2.CHAIN_APPROX_SIMPLE)
+        except Exception:
+            return boxes
+        try:
+            import pyclipper as _pc
+        except Exception:
+            _pc = None
+        for cnt in _cnts:
+            if len(cnt) < 4:
+                continue
+            try:
+                rect = cv2.minAreaRect(cnt)
+                pts = cv2.boxPoints(rect)
+            except Exception:
+                continue
+            sc = self._box_score(prob, pts)
+            if sc < box_thresh:
+                continue
+            if _pc is not None:
+                try:
+                    _path = [(float(p[0]), float(p[1])) for p in pts]
+                    area = max(1.0, abs(cv2.contourArea(cnt)))
+                    _pa = np.asarray(pts, dtype=np.float64)
+                    _seg = np.linalg.norm(np.diff(
+                        np.vstack([_pa, _pa[:1]]), axis=0), axis=1)
+                    per = max(1.0, float(_seg.sum()))
+                    dist = area * unclip_ratio / per
+                    po = _pc.PyclipperOffset()
+                    po.AddPath(_path, _pc.JT_ROUND, _pc.ET_CLOSEDPOLYGON)
+                    _sol = po.Execute(dist)
+                    if not _sol:
+                        continue
+                    _big = max(_sol, key=lambda p: abs(_pc.Area(p)))
+                    nbox = np.asarray(_big, dtype=np.float32)
+                except Exception:
+                    nbox = None
+            else:
+                _m = np.zeros((sh, sw), dtype=np.uint8)
+                cv2.fillPoly(_m, [np.rint(pts).astype(np.int32)], 1)
+                _d = max(1, int(round(
+                    cv2.contourArea(cnt) * unclip_ratio /
+                    max(1.0, cv2.arcLength(cnt, True)) / max(1.0, sy))))
+                _k = cv2.getStructuringElement(
+                    cv2.MORPH_ELLIPSE, (2 * _d + 1, 2 * _d + 1))
+                _m = cv2.dilate(_m, _k)
+                _c2, _ = cv2.findContours(_m * 255, cv2.RETR_EXTERNAL,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+                if not _c2:
+                    continue
+                nbox = cv2.boxPoints(cv2.minAreaRect(max(
+                    _c2, key=cv2.contourArea))).astype(np.float32)
+            if nbox is None or len(nbox) < 3:
+                continue
+            try:
+                if len(nbox) != 4:
+                    nbox = cv2.boxPoints(
+                        cv2.minAreaRect(nbox.astype(np.float32)))
+                nbox = np.asarray(nbox, dtype=np.float32)
+            except Exception:
+                continue
+            if len(nbox) != 4:
+                continue
+            nbox[:, 0] = np.clip(nbox[:, 0] * sx, 0, ow - 1)
+            nbox[:, 1] = np.clip(nbox[:, 1] * sy, 0, oh - 1)
+            _bw = float(np.max(np.linalg.norm(
+                nbox[[1, 2]] - nbox[[0, 3]], axis=1)))
+            _bh = float(np.max(np.linalg.norm(
+                nbox[[3, 2]] - nbox[[0, 1]], axis=1)))
+            if _bw < min_size or _bh < min_size:
+                continue
+            boxes.append(np.rint(nbox).astype(np.float32))
+        boxes.sort(key=lambda b: (float(np.min(b[:, 1])) // 24,
+                                  float(np.min(b[:, 0]))))
+        return boxes
+
+    @staticmethod
+    def _order_pts(pts):
+        """ترتیبِ کانونیِ [TL,TR,BR,BL] — درسِ «THERE → THRE»."""
+        pts = np.asarray(pts, dtype=np.float32)
+        s = pts.sum(axis=1)
+        d = pts[:, 1] - pts[:, 0]
+        tl = pts[int(np.argmin(s))]
+        br = pts[int(np.argmax(s))]
+        tr = pts[int(np.argmin(d))]
+        bl = pts[int(np.argmax(d))]
+        return np.asarray([tl, tr, br, bl], dtype=np.float32)
+
+    @classmethod
+    def _crop_box(cls, img, box):
+        pts = cls._order_pts(box)
+        w = max(float(np.linalg.norm(pts[0] - pts[1])),
+                float(np.linalg.norm(pts[2] - pts[3])))
+        h = max(float(np.linalg.norm(pts[0] - pts[3])),
+                float(np.linalg.norm(pts[1] - pts[2])))
+        if w < 2 or h < 2:
+            return None
+        dst = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
+        try:
+            M = cv2.getPerspectiveTransform(pts, dst)
+            crop = cv2.warpPerspective(img, M, (int(round(w)), int(round(h))))
+        except Exception:
+            return None
+        if crop.shape[0] > crop.shape[1] * 1.5:
+            crop = np.ascontiguousarray(np.rot90(crop))
+        return crop
+
+    # ── rec: دسته‌بندی + CTC ────────────────────────────────────────────
+    def _rec_all(self, crops):
+        items = []
+        for i, c in enumerate(crops):
+            items.append((i, self._rec_prep(c)))
+        items.sort(key=lambda t: t[1][2])
+        batches, cur = [], []
+        for it in items:
+            cur.append(it)
+            if len(cur) >= self.BATCH:
+                batches.append(cur)
+                cur = []
+        if cur:
+            batches.append(cur)
+        outs = [None] * len(crops)
+        self._rec_batches(batches, self.rec_runner, outs)
+        return outs
+
+    def _rec_batches(self, batches, runner, outs):
+        for bt in batches:
+            try:
+                _x, _ratios = self._rec_batch_tensor(bt)
+                _out = runner.run(_x)
+                for _j, (idx, _p) in enumerate(bt):
+                    outs[idx] = self._ctc(_out[_j])
+            except Exception:
+                for idx, _p in bt:
+                    try:
+                        _x1 = self._rec_single_tensor(_p)
+                        outs[idx] = self._ctc(runner.run(_x1)[0])
+                    except Exception:
+                        outs[idx] = ("", 0.0)
+
+    def _rec_prep(self, crop):
+        h, w = crop.shape[:2]
+        ratio = w / float(max(1, h))
+        rw = int(np.ceil(self.REC_H * ratio))
+        rw = max(8, min(self.REC_MAX_W, rw))
+        img = cv2.resize(crop, (rw, self.REC_H),
+                         interpolation=cv2.INTER_AREA if rw < w
+                         else cv2.INTER_CUBIC)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        return img, ratio, ratio
+
+    def _rec_batch_tensor(self, bt):
+        max_w = max(self.REC_H * 4,
+                    max(img.shape[1] for img, _r, _rr in bt))
+        max_w = min(self.REC_MAX_W, int(np.ceil(max_w / 8.0) * 8))
+        _x = np.zeros((len(bt), 3, self.REC_H, max_w), dtype=np.float32)
+        for i, (img, _r, _rr) in enumerate(bt):
+            _t = (img.astype(np.float32) / 255.0 - 0.5) / 0.5
+            _t = _t.transpose(2, 0, 1)
+            _x[i, :, :, :_t.shape[2]] = _t
+        return _x, None
+
+    def _rec_single_tensor(self, prep):
+        img = prep[0]
+        _t = (img.astype(np.float32) / 255.0 - 0.5) / 0.5
+        _t = _t.transpose(2, 0, 1)[None]
+        return np.ascontiguousarray(_t)
+
+    def _ctc(self, out_row):
+        out_row = np.asarray(out_row)
+        if out_row.ndim == 3:
+            out_row = out_row[0]
+        # کالیبراسیونِ یک‌بارهٔ charset با تعدادِ کلاسِ واقعی
+        try:
+            _n = int(out_row.shape[-1])
+            if getattr(self, "_cls_count", 0) != _n:
+                self._cls_count = _n
+                _chars = self._charset
+                if _chars is not None and len(_chars) != _n:
+                    _lines = _chars[1:] if (_chars and _chars[0] == "") \
+                        else _chars
+                    if _lines and _lines[-1] == " ":
+                        _lines = _lines[:-1]
+                    if len(_lines) + 2 == _n:
+                        self._charset = [""] + _lines + [" "]
+                    elif len(_lines) + 1 == _n:
+                        self._charset = [""] + _lines
+        except Exception:
+            pass
+        chars = self._charset
+        if not chars:
+            return ("", 0.0)
+        idx = out_row.argmax(axis=-1)
+        prb = out_row.max(axis=-1)
+        keep, prev = [], -1
+        for _i, _v in enumerate(idx):
+            _v = int(_v)
+            if _v != prev and _v != 0:
+                keep.append((_v, float(prb[_i])))
+            prev = _v
+        txts, probs = [], []
+        for _v, _p in keep:
+            if 0 < _v < len(chars):
+                txts.append(chars[_v])
+                probs.append(_p)
+        if not txts:
+            return ("", 0.0)
+        return ("".join(txts), float(np.mean(probs)))
+
+    # ── خط لولهٔ کامل رویِ یک کراپ ──────────────────────────────────────
+    def ocr(self, image_bgr, crop_mode: bool = False):
+        """هم‌امضایِ RapidOcrMobile.ocr — خروجیِ [ [[box,(t,s)],...] ].
+
+        قفلِ سراسری: PaddlePredictor جاوا برایِ run() همزمان از چندنخ
+        امن نیست (درسِ کاسکادِ قبلی) — OCRِ موبایلِ پدل سریال میماند؛
+        ترجمه/پاکسازی همچنان موازی کار میکنند."""
+        if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
+            return None
+        with _PLITE_RUN_LOCK:
+            _t0 = time.time()
+            prob = self._det(image_bgr)
+            boxes = self._det_boxes(prob, image_bgr.shape[:2])
+            if not boxes:
+                _plite_stats_note(_t0, 0)
+                return None
+            pairs = []
+            for b in boxes:
+                c = self._crop_box(image_bgr, b)
+                if c is not None and min(c.shape[0], c.shape[1]) >= 8:
+                    pairs.append((b, c))
+            if not pairs:
+                _plite_stats_note(_t0, 0)
+                return None
+            results = self._rec_all([c for _b, c in pairs])
+            lines = []
+            for _bi, (b, _c) in enumerate(pairs):
+                if _bi >= len(results) or results[_bi] is None:
+                    continue
+                txt, sc = results[_bi]
+                txt = str(txt).strip()
+                if not txt or sc < 0.35:
+                    continue
+                lines.append([np.asarray(b, dtype=np.float32),
+                              (txt, float(sc))])
+            _plite_stats_note(_t0, len(lines))
+            return [lines] if lines else None
+
+
+# تک‌نمونهٔ Paddle-Lite برایِ کلِ نشست — ساختِ تنبل؛ هر خطا = فالبکِ خودکار
+# به PP-OCRv6 ONNX (بدونِ تلاشِ دوباره در همان نشست).
+_PLITE_STATE = {"obj": None, "lang": None, "dead": False, "note": False}
+_PLITE_BUILD_LOCK = threading.Lock()
+# قفلِ run: PaddlePredictor جاوا thread-safe نیست (runِ همزمان ممنوع)
+_PLITE_RUN_LOCK = threading.Lock()
+# سنجهٔ سرعتِ واقعیِ پدل-لایت رویِ گوشی («ببینم چجور استخراج میکنه»)
+_PLITE_STATS = {"ms": 0.0, "n": 0, "lines": 0}
+
+
+def _plite_stats_note(t0, nlines):
+    try:
+        _PLITE_STATS["ms"] += (time.time() - t0) * 1000.0
+        _PLITE_STATS["n"] += 1
+        _PLITE_STATS["lines"] += int(nlines or 0)
+        if _PLITE_STATS["n"] % 20 == 0:
+            print(f"[⚡] Paddle-Lite: {_PLITE_STATS['n']} OCR | "
+                  f"مجموعِ {_PLITE_STATS['ms'] / 1000.0:.1f}s | "
+                  f"میانگینِ {_PLITE_STATS['ms'] / max(1, _PLITE_STATS['n']):.0f}ms | "
+                  f"{_PLITE_STATS['lines']} خط")
+    except Exception:
+        pass
+
+
+def _plite_backend(lang="en"):
+    """موتورِ Paddle-Lite (تک‌نمونهٔ تنبل) — هر خطا = None یعنی فالبکِ
+    خودکار به PP-OCRv6 ONNX. خاموشیِ کامل: MANGA_K3_PLITE=0."""
+    st = _PLITE_STATE
+    if st.get("dead"):
+        return None
+    if str(os.environ.get("MANGA_K3_PLITE", "1") or "1").strip() == "0":
+        st["dead"] = True
+        return None
+    want = _plite_lang(lang)
+    if st.get("obj") is not None and st.get("lang") == want:
+        return st["obj"]
+    with _PLITE_BUILD_LOCK:
+        if st.get("obj") is not None and st.get("lang") == want:
+            return st["obj"]
+        try:
+            obj = PliteCropOCR(want)
+            st["obj"], st["lang"] = obj, want
+            return obj
+        except Exception as e:
+            st["dead"] = True
+            if not st.get("note"):
+                st["note"] = True
+                print(f"[!] Paddle-Lite آماده نشد "
+                      f"({str(e)[:140]}) → PP-OCRv6 ONNX")
+            return None
+
+
 class RapidOCRBackend:
 
     # v1.14.123 — مپِ charsetهایِ باندلشدهٔ موبایل (از metadataِ خودِ مدل
@@ -3599,6 +4282,24 @@ class RapidOCRBackend:
         خروجیِ clipper برایِ minAreaRect). سشن = شیمِ ORT باندلشده
         (پلِ Java ORT-android با XNNPACK/NNAPI opt-in).
         خطا → ImportError → زنجیرهٔ OCR به ML Kit برمیگردد."""
+        # v1.14.166 — انتخابِ موتورِ OCRِ گوشی (دستورِ سازنده: «استخراجِ
+        # متن تو گوشی Paddle-Lite arm arm64 بزار ببینم چجور استخراج
+        # میکنه»): پیشفرض = Paddle-Lite؛ هر خطا/بنِ پروب → فالبکِ خودکار
+        # به PP-OCRv6 ONNX. هر دو موتور فقط رویِ کراپهایِ detector-v4-s
+        # صدا زده میشوند (detector-first) — هیچ پاسِ تمامصفحهای نیست.
+        _eng = (os.environ.get("MANGA_ANDROID_OCR")
+                or os.environ.get("MANGA_MOBILE_OCR_ENGINE")
+                or "paddle").strip().lower()
+        if _eng in ("paddle", "paddlelite", "plite", "paddle-lite"):
+            if _android_x86_emulator():
+                print("[!] شبیهسازِ x86_64: Paddle-Lite (arm) رد شد "
+                      "→ PP-OCRv6 ONNX")
+            else:
+                _pb = _plite_backend(lang)
+                if _pb is not None:
+                    self._mobile = _pb
+                    return
+                print("[!] ادامه با PP-OCRv6 ONNX")
         try:
             from rapidocr_mobile import RapidOcrMobile
         except Exception as e:
@@ -3800,6 +4501,8 @@ class RapidOCRBackend:
 #     فقط جایی که هیچ باکسِ متنی نبیند (متن هرگز برش نمیخورد)
 #   • استخراجِ متن = detector-v4-s مکانِ متن را پیدا میکند و OCR فقط
 #     رویِ همان کراپها اجرا میشود — هیچ پاسِ تمامصفحه‌ای نیست
+# v1.14.166 — Paddle-Lite فقط به‌عنوانِ «موتورِ OCRِ کراپ» برگشت (بالا)؛
+# هیچ‌کدام از سبکهایِ حذفشدهٔ این بلاک (کاسکاد/تمامصفحه/ML Kit) بازنگشت.
 # ═══════════════════════════════════════════════════════════════════════
 
 def _dual_device_enabled() -> bool:
@@ -24966,7 +25669,7 @@ html, body { background: #0a0a0b; }
         # استفاده کنی») — دیگر هیچ هوریستیکِ پیکسلی/Canny و هیچ OCR/ML Kit
         # وسط نیست. فقط detector-v4-s: باکسهایِ متن در پنجرهٔ جستجو پیدا
         # میشوند، با حاشیهٔ امن دورشان میشوند و برش داخلِ بزرگترین فاصلهٔ
-        # بی‌متن (نزدیکترین به target_y = وسطِ باندِ ۷۵۰۰–۸۰۰۰) زده
+        # بی‌متن (نزدیکترین به target_y = وسطِ باندِ برش) زده
         # میشود. متن هرگز برش نمیخورد.
         if strip is None or strip.size == 0 or self.det is None:
             return None
@@ -25465,11 +26168,12 @@ html, body { background: #0a0a0b; }
             offset = 0
             while ih - offset >= work_h + min_strip:
                 max_cut = ih - max(min_strip, lookahead if not final else 0)
-                # v1.14.163 — باندِ برشِ امن = ارتفاعِ ۷۵۰۰–۸۰۰۰ (دستورِ
-                # سازنده: «۷۵۰۰ تا ۸۰۰۰ وسطش برش بزنی جای ک متن نباشه؛
-                # متن نباید برش بخوره») — هدف = وسطِ باند (۷۷۵۰) و برش
-                # فقط جایی که detector-v4-s هیچ متنی نبیند.
-                _band_lo = offset + max(0, int(work_h) - 500)
+                # v1.14.166 — باندِ برشِ امن = ۷۰۰۰–۸۰۰۰ (دستورِ سازنده:
+                # «برشِ امن گفتم ببین 7000 تا 8000 بررسی کنه پس چرا میره
+                # ۹۰۰0؛ نباید وسطِ متن برش بزنه باید با detector-v4-s
+                # برش بزنه»). هدف = وسطِ باند (۷۵۰۰)؛ برش فقط جایی که
+                # detector-v4-s هیچ متنی نبیند.
+                _band_lo = offset + max(0, int(work_h) - 1000)
                 _band_hi = offset + int(work_h)
                 _band_mid = (_band_lo + _band_hi) // 2
                 cut_y = None
@@ -25480,12 +26184,19 @@ html, body { background: #0a0a0b; }
                         protected_ranges=protected,
                     )
                 if cut_y is None:
-                    # فالبک: نزدیکترین جای بی‌متنِ بعد از باند — هرگز
-                    # کوتاهتر از باند و هرگز رویِ متن (نوار نمیماند بی‌برش)
-                    cut_y = self._find_safe_cut_y_smart(
-                        strip, _band_mid, _band_lo, max_cut,
-                        search_radius=ih, protected_ranges=protected,
-                    )
+                    # v1.14.166 — فالبکِ فقط-به-عقب: اگر کلِ باندِ
+                    # ۷۰۰۰–۸۰۰۰ پُر از متن بود، نزدیکترین جایِ بی‌متنِ
+                    # «قبل از» باند گرفته میشود. سقفِ برش هرگز از work_h
+                    # (۸۰۰۰) بالاتر نمیرود — رفتنِ به ۹۰۰۰ (فالبکِ
+                    # رو-به-جلوِ قدیمی) کلاً حذف شد؛ متن هم برش نمیخورد.
+                    _fb_hi = min(_band_lo, max_cut)
+                    _fb_lo = offset + max(120, int(work_h) // 3)
+                    if _fb_hi - _fb_lo >= 200:
+                        cut_y = self._find_safe_cut_y_smart(
+                            strip, _fb_hi, _fb_lo, _fb_hi,
+                            search_radius=max(200, _fb_hi - _fb_lo),
+                            protected_ranges=protected,
+                        )
                 if cut_y is None:
                     break
                 bounds = [b - offset for b in current_bounds if offset < b < cut_y]
