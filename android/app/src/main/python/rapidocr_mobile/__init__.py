@@ -559,7 +559,12 @@ def _ep_plan(det_path: str, rec_path: str):
     _wanted = [w for w in _wanted if w in _avail_eps()]
     if not _wanted:
         return None, {}
-    _key = _probe_key([det_path, rec_path])
+    # v1.14.176 — کلیدِ کَش = کلیدِ پروب + ترکیبِ wanted: وقتی سازنده از
+    # پنلِ «آزمایشگاهِ سرعت» شتابدهنده را عوض میکند (auto→nnapi→xnnpack→
+    # cpu یا no_nnapi.txt) پلنِ قبلیِ کَشده نباید برگردد — با wantedِ
+    # تازه دوباره تصمیمگیری میشود (کَشِ پروبِ رویِ دیسک سرِ جایش
+    # میماند → هیچ پروبِ تکراریِ گران نمیگیرد).
+    _key = _probe_key([det_path, rec_path]) + "#" + ",".join(_wanted)
     if _EP_PLAN_CACHE.get("key") == _key:
         return _EP_PLAN_CACHE["plan"]
     # v1.14.175 — نشانِ کرشِ اجرایِ «قبلی» (همان نسخه) → NNAPI از

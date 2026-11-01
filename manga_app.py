@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.107"
+APP_VER = "1.14.176"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -2310,6 +2310,44 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             story_brief = gr.Checkbox(
                 label="بریف داستان قبل از ترجمه (AI یک‌بار فصل را می‌خواند تا لحن شخصیت‌ها حفظ شود)",
                 value=bool(cfg.get("story_brief", True)))
+
+        # v1.14.176 — «آزمایشگاهِ سرعتِ استخراج» (دستورِ سازنده: «هر روشی
+        # بود براش دکمه بذار — روشن کنم تست کنم ببینم کدوم سریعه»):
+        # پنج کلید روی موتورِ OCRِ گوشی؛ پیشفرضِ هر کلید = رفتارِ فعلی،
+        # یعنی اگر چیزی را تغییر نداده باشید هیچ چیزی عوض نمیشود. بعد از هر
+        # کار، «گزارشِ سرعت» در لاگ زنده می‌آید تا مقایسه کنید.
+        with gr.Accordion("🧪 آزمایشگاه سرعت استخراج (هر روش را امتحان کن — کدام سریع‌تر است؟)", open=False):
+            ocr_ep = gr.Dropdown(
+                choices=[["auto", "خودکار — تورنمنت NNAPI+XNNPACK (پیشفرض)"],
+                         ["nnapi", "فقط NNAPI (شتاب سخت‌افزاری)"],
+                         ["xnnpack", "فقط XNNPACK (پردازنده)"],
+                         ["cpu", "بدون شتاب‌دهنده — CPU خالص"]],
+                value=str(cfg.get("ocr_ep", "auto")),
+                label="شتاب‌دهندهِ OCR",
+                info="خودکار: NNAPI و XNNPACK در پروسهِ جدا آزمایش می‌شوند و سالمِ سریع‌تر برنده است. بعد از یک کرش، اجرای بعد بدون NNAPI می‌شود.")
+            ocr_ladder = gr.Dropdown(
+                choices=[["full", "کامل: ML Kit ← پدل ← رپید (پیشفرض — دقیق‌تر)"],
+                         ["fast", "سریع: ML Kit ← رپید (مدل سنگینِ پدل حذف)"],
+                         ["mlkit", "فقط ML Kit (سریع‌ترین — کیفیت کمتر)"],
+                         ["rapid", "فقط رپید (مدل سبکِ PP-OCR روی همهِ کراپ‌ها)"],
+                         ["paddle", "فقط پدل (مدل سنگینِ PP-OCR روی همهِ کراپ‌ها)"]],
+                value=str(cfg.get("ocr_ladder", "full")),
+                label="روش استخراج متن",
+                info="کندی اصلی از مدلِ سنگینِ «پدل» است — «سریع» یا «فقط ML Kit» را امتحان کنید و گزارشِ سرعتِ آخرِ لاگ را مقایسه کنید.")
+            ocr_threads = _safe(gr.Slider, 0, 8, value=int(cfg.get("ocr_threads", 0)),
+                                step=1, label="نخ‌های OCR (0 = خودکار)",
+                                info="گوشی 8 هسته‌ای: 8 یا 6 را هم امتحان کنید. ورکرهای موازی را هم در «تنظیمات پیشرفته» دارید.")
+            ocr_detcap = gr.Dropdown(
+                choices=[["640", "640 — سریع‌تر"],
+                         ["960", "960 — پیشفرض"],
+                         ["1280", "1280 — دقیق‌تر و کندتر"]],
+                value=str(cfg.get("ocr_detcap", "960")),
+                label="سقف اندازهِ کراپ برای OCR",
+                info="کراپ‌های بزرگ‌تر = تشخیص بهتر ولی کندتر. 640 را برای سرعت امتحان کنید.")
+            ocr_boost = gr.Checkbox(
+                label="بزرگ‌نمایی کراپ‌های ریز (کیفیت بهتر، کمی کندتر)",
+                value=bool(cfg.get("ocr_boost", True)),
+                info="خاموش کنید اگر سرعت مهم‌تر است — متن‌های ریز ممکن است ضعیف‌تر خوانده شوند.")
 
         # v1.14.33: سیوِ فرم در «مرورگر وب» ۳۰ دقیقه می‌ماند (خواستهٔ کاربر).
         # در پنجرهٔ دسکتاپ (?desktop=1) و اپ اندروید (UA مخصوص) ذخیره دائمی است.

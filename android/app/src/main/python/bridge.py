@@ -959,6 +959,16 @@ def _run(job):
         hb = threading.Thread(target=_heartbeat, args=(job,), daemon=True)
         hb.start()
         handlers = _attach_log_handlers(tee)
+        # v1.14.176 — «آزمایشگاهِ سرعتِ استخراج»: تنظیمهایِ پنلِ اپ →
+        # envهایِ OCRِ گوشی (پیشفرض = رفتارِ قبل) + ریستِ سنجههایِ سرعت
+        try:
+            _sl = getattr(_manga(), "speed_lab_env", None)
+            if _sl:
+                _sl_line = _sl(p)
+                if _sl_line:
+                    _log(job, _sl_line)
+        except Exception:
+            pass
 
         def _def_workers():
             try:
@@ -1032,6 +1042,16 @@ def _run(job):
         finally:
             _detach_log_handlers(handlers)
             os.environ.pop("MANGA_LIVE_DIR", None)
+            # v1.14.176 — گزارشِ سرعتِ «این اجرا» (آزمایشگاهِ سرعت): میانگینِ
+            # کراپ + سهمِ پلهها → سازنده بینِ حالتهایِ پنل مقایسه میکند
+            try:
+                _rep = getattr(_manga(), "_k3_speed_report", None)
+                if _rep:
+                    _rep_line = _rep()
+                    if _rep_line:
+                        _log(job, _rep_line)
+            except Exception:
+                pass
 
         _ORIG_DIRS = ("src", "normalized", "stitched")
         imgs, dbg = [], []

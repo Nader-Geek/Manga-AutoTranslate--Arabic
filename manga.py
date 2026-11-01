@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.175"
+APP_VER = "1.14.176"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3657,6 +3657,18 @@ class K3LadderOCR:
     (crop_mode=False → مستقیمِ موتورِ ONNX برایِ مسیرهایِ جانبیِ قدیمی).
     خاموشی: MANGA_K3_LADDER=0 (فقط ML Kit — رفتارِ 1.14.170)."""
 
+    # v1.14.176 — «آزمایشگاهِ سرعت»: انتخابِ روشِ استخراج از داخلِ اپ
+    # (MANGA_K3_MODE — از پنلِ «🧪 آزمایشگاه سرعت استخراج»):
+    #   full   = کامل: ML Kit → پدل → رپید (پیشفرض — دقیقتر)
+    #   fast   = سریع: ML Kit → رپید (پدلِ mediumِ سنگین حذف — همان
+    #            کراپ مستقیم به مدلِ سبک میرود)
+    #   mlkit  = فقط ML Kit (سریعترین — هر چه ML Kit خواند برگردانده
+    #            میشود حتی با پوششِ کمتر)
+    #   rapid  = فقط رپید (مدلِ سبکِ PP-OCRv6 رویِ همهٔ کراپها؛ ML Kit
+    #            هم حذف)
+    #   paddle = فقط پدل (مدلِ سنگینِ PP-OCRv6 رویِ همهٔ کراپها)
+    _K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle")
+
     def __init__(self, mlkit, lang: str, build_onnx):
         self._mlkit = mlkit            # MlKitCropOCR آماده
         self._lang = lang
@@ -3665,6 +3677,11 @@ class K3LadderOCR:
         self._med_tried = False
         self._sml = None
         self._sml_tried = False
+        try:
+            _m = str(os.environ.get("MANGA_K3_MODE", "") or "").strip().lower()
+        except Exception:
+            _m = ""
+        self._mode = _m if _m in self._K3_MODES else "full"
 
     def _engine(self, small: bool):
         if small:
@@ -3699,32 +3716,52 @@ class K3LadderOCR:
                 return eng.ocr(image_bgr, crop_mode=False)
             return self._mlkit.ocr(image_bgr)
 
-        # ── پلهٔ ۱: ML Kit رویِ کراپِ تقویتشده ──
+        # ── پلهٔ ۱: ML Kit رویِ کراپِ تقویتشده (در «rapid» حذف) ──
+        _mode = self._mode
         lines1 = []
-        try:
-            boosted, pad, scale = _k3_boost_crop(image_bgr)
-            r1 = self._mlkit.ocr(boosted)
-            if r1 and r1[0]:
-                lines1 = _k3_map_boxes(r1[0], pad, scale)
-        except Exception:
-            lines1 = []
+        if _mode != "rapid":
+            try:
+                boosted, pad, scale = _k3_boost_crop(image_bgr)
+                r1 = self._mlkit.ocr(boosted)
+                if r1 and r1[0]:
+                    lines1 = _k3_map_boxes(r1[0], pad, scale)
+            except Exception:
+                lines1 = []
         cov1 = _k3_ink_coverage(image_bgr, lines1)
         conf1 = _k3_best_conf(lines1)
         if lines1 and cov1 >= 0.70 and conf1 >= 0.55:
             _k3_stats_note(_t0, 1)
             return [lines1]
+        if _mode == "mlkit":
+            # v1.14.176 — فقط ML Kit: هر چه خوانده برگردانده میشود (حتی
+            # با پوششِ کمتر) — سریعترین حالت برایِ تستِ سرعت
+            _k3_stats_note(_t0, 1)
+            return [lines1] if lines1 else None
 
-        # ── پلهٔ ۲: پدل (PP-OCRv6) رویِ همان کراپِ اصلی ──
+        # ── پلهٔ ۲: پدل (PP-OCRv6) رویِ همان کراپِ اصلی
+        #    (در «fast»/«rapid» حذف — مدلِ mediumِ سنگین اصلاً ساخته
+        #    نمیشود = رم + زمانِ هر دو آزاد) ──
+        eng2 = None
         lines2 = []
-        eng2 = self._engine(small=False)
-        if eng2 is not None:
-            try:
-                r2 = eng2.ocr(image_bgr, crop_mode=True)
-                if r2 and r2[0]:
-                    lines2 = list(r2[0])
-            except Exception as e:
-                print(f"[!] پدلِ کراپ خطا داد: {str(e)[:110]}")
+        if _mode in ("full", "paddle"):
+            eng2 = self._engine(small=False)
+            if eng2 is not None:
+                try:
+                    r2 = eng2.ocr(image_bgr, crop_mode=True)
+                    if r2 and r2[0]:
+                        lines2 = list(r2[0])
+                except Exception as e:
+                    print(f"[!] پدلِ کراپ خطا داد: {str(e)[:110]}")
         conf2 = _k3_best_conf(lines2)
+        if _mode == "paddle":
+            # v1.14.176 — فقط پدل: بدونِ پلهٔ ۳، برنده از ML Kit/پدل
+            _k3_stats_note(_t0, 2 if lines2 else 1)
+            _cands2 = [L for L in (lines1, lines2) if L]
+            if not _cands2:
+                return None
+            return [max(_cands2,
+                        key=lambda L: 0.6 * _k3_ink_coverage(image_bgr, L)
+                        + 0.4 * _k3_best_conf(L))]
         if lines2 and conf2 >= 0.80:
             _k3_stats_note(_t0, 2)
             return [lines2 if cov1 < 0.70 or not lines1 else
@@ -3775,6 +3812,112 @@ def _mlkit_stats_note(t0, nlines):
                   f"{_MLKIT_STATS['lines']} خط")
     except Exception:
         pass
+
+
+# ── v1.14.176 — «آزمایشگاهِ سرعتِ استخراج» ────────────────────────────
+# دستورِ سازنده: «هر روشی بود براش دکمه بذار — روشن کنم تست کنم ببینم
+# کدوم سریعه». تنظیمها از پنلِ اپ میآیند (م MangaApp: ocr_ep/ocr_ladder/
+# ocr_threads/ocr_detcap/ocr_boost) → bridge آنها را به
+# speed_lab_env() میدهد → envهایِ موتورِ OCRِ گوشی ست/پاک میشوند.
+# پیشفرضِ هر کلید = رفتارِ همین نسخه؛ پس چیزی که انتخاب نشود هیچ
+# چیز را عوض نمیکند.
+
+_SPEED_LAB_EP = ("auto", "nnapi", "xnnpack", "cpu")
+_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle")
+
+
+def speed_lab_env(p: dict) -> str:
+    """اعمالِ تنظیمهایِ «آزمایشگاهِ سرعت» (از اپ) رویِ envهایِ OCRِ گوشی
+    + ریستِ سنجههایِ سرعت برایِ گزارشِ همین اجرا. خروجی: خطِ لاگ.
+    فقط کلیدهایِ جدید خوانده میشوند؛ پیشفرض = بیت‌به‌بیتِ رفتارِ قبل."""
+    try:
+        _ep = str((p or {}).get("ocr_ep") or "auto").strip().lower()
+        if _ep not in _SPEED_LAB_EP:
+            _ep = "auto"
+        if _ep == "auto":
+            os.environ.pop("MANGA_MOBILE_OCR_EP", None)
+        else:
+            os.environ["MANGA_MOBILE_OCR_EP"] = _ep
+
+        _lad = str((p or {}).get("ocr_ladder") or "full").strip().lower()
+        if _lad not in _SPEED_LAB_LADDER:
+            _lad = "full"
+        if _lad == "full":
+            os.environ.pop("MANGA_K3_MODE", None)
+        else:
+            os.environ["MANGA_K3_MODE"] = _lad
+
+        try:
+            _th = int(float((p or {}).get("ocr_threads") or 0))
+        except Exception:
+            _th = 0
+        _th = max(0, min(8, _th))
+        if _th > 0:
+            os.environ["MANGA_OCR_THREADS"] = str(_th)
+            os.environ["MANGA_XNN_THREADS"] = str(_th)
+        else:
+            os.environ.pop("MANGA_OCR_THREADS", None)
+            os.environ.pop("MANGA_XNN_THREADS", None)
+
+        _cap = str((p or {}).get("ocr_detcap") or "960").strip()
+        if _cap not in ("640", "960", "1280"):
+            _cap = "960"
+        if _cap == "960":
+            os.environ.pop("MANGA_CROP_DET_CAP", None)
+        else:
+            os.environ["MANGA_CROP_DET_CAP"] = _cap
+
+        _boost = (p or {}).get("ocr_boost")
+        _boost = True if _boost is None else bool(_boost)
+        if _boost:
+            os.environ.pop("MANGA_CROP_ENH_SCALE", None)
+        else:
+            os.environ["MANGA_CROP_ENH_SCALE"] = "1.0"
+
+        # سنجههایِ سرعت = مالِ «این اجرا» — بینِ کارها ریست
+        for _k in ("n", "ms", "st1", "st2", "st3"):
+            _K3_STATS[_k] = 0 if _k != "ms" else 0.0
+        for _k in ("ms", "n", "lines"):
+            _MLKIT_STATS[_k] = 0 if _k != "ms" else 0.0
+
+        _th_l = str(_th) if _th > 0 else "خودکار"
+        _cap_l = _cap if _cap != "960" else "960 (پیشفرض)"
+        return ("[🧪] آزمایشگاهِ سرعت: شتاب‌دهنده=%s | روشِ استخراج=%s | "
+                "نخ=%s | سقفِ کراپ=%s | بزرگنماییِ کراپ=%s"
+                % (_ep, _lad, _th_l, _cap_l,
+                   "روشن" if _boost else "خاموش"))
+    except Exception:
+        return ""
+
+
+def _k3_speed_report() -> str:
+    """گزارشِ سرعتِ «این اجرا» — bridge بعد از پایانِ هر کار لاگش میکند
+    تا سازنده بتونه بینِ حالتهایِ آزمایشگاه مقایسه کنه."""
+    try:
+        _n = int(_K3_STATS.get("n") or 0)
+        if _n <= 0:
+            return ""
+        _ms = float(_K3_STATS.get("ms") or 0.0)
+        _out = ("[🧪] گزارشِ سرعتِ استخراج: %d کراپ | میانگینِ %.0fms | "
+                "پلهها: ML Kit=%d پدل=%d رپید=%d"
+                % (_n, _ms / max(1, _n), int(_K3_STATS.get("st1") or 0),
+                   int(_K3_STATS.get("st2") or 0),
+                   int(_K3_STATS.get("st3") or 0)))
+        try:
+            _mn = int(_MLKIT_STATS.get("n") or 0)
+            if _mn > 0:
+                _out += (" | ML Kitِ تنهایی: میانگینِ %.0fms"
+                         % (float(_MLKIT_STATS.get("ms") or 0.0) / _mn))
+        except Exception:
+            pass
+        try:
+            _lad = str(os.environ.get("MANGA_K3_MODE", "") or "").strip().lower()
+            _out += " | روش=%s" % (_lad if _lad else "full")
+        except Exception:
+            pass
+        return _out
+    except Exception:
+        return ""
 
 
 def _mlkit_backend(lang="en"):

@@ -47,21 +47,21 @@ def ok(msg):
 src = io.open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
 rsrc = io.open(RP, encoding="utf-8").read()
 
-# ۰) نسخه — 180/1.14.175 + خروجیِ MANGA_APP_VER در manga.py
+# ۰) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شماره — الگویِ 171؛
+#    از v1.14.176 به بعد شماره عوض میشود ولی مکانیزم سرِ جایش است)
 _m = re.search(r'^APP_VER = "([\d.]+)"', src, re.M)
 _ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
 _vn = re.search(r"versionName=([\d.]+)", _ver)
 _vc = re.search(r"versionCode=(\d+)", _ver)
 if not _m or not _vn or not _vc:
     fail("APP_VER/VERSION ناقص است")
-if _m.group(1) != _vn.group(1) or _vn.group(1) != "1.14.175":
-    fail(f"نسخه ناهمخوان: APP_VER={_m.group(1)} versionName="
-         f"{_vn.group(1) if _vn else '?'}")
-if _vc.group(1) != "180":
-    fail(f"versionCode باید 180 باشد — الان {_vc.group(1)}")
+if _m.group(1) != _vn.group(1):
+    fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
+if not re.match(r"^\d+$", _vc.group(1) or ""):
+    fail("versionCode عددی نیست")
 if 'os.environ.setdefault("MANGA_APP_VER", APP_VER)' not in src:
     fail("manga.py باید MANGA_APP_VER را ست کند (نشانِ نسخهآگاهِ کرش)")
-ok("نسخه 180/1.14.175 + MANGA_APP_VER در manga.py")
+ok(f"نسخه {_m.group(1)}/{_vc.group(1)} (APP_VER↔versionName↔versionCode)")
 
 # ۱) گیتهایِ مبدأ
 for s in ("def _nnapi_guard_stale", '"ver": os.environ.get("MANGA_APP_VER"'
