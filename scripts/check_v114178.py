@@ -152,10 +152,15 @@ import ast
 tree = ast.parse(src)
 picks = {}
 wanted = ["speed_test_run", "_speed_test_pool", "_speed_test_window",
-          "speed_test_load", "_speed_test_save", "_speed_test_path"]
+          "_speed_test_tiles", "speed_test_load", "_speed_test_save",
+          "_speed_test_path"]
 for node in tree.body:
     if isinstance(node, ast.FunctionDef) and node.name in wanted:
         picks[node.name] = ast.get_source_segment(src, node)
+for node in tree.body:
+    if isinstance(node, ast.Assign) and getattr(
+            node.targets[0], "id", "") == "_K3_MODE_FA":
+        picks["_K3_MODE_FA"] = ast.get_source_segment(src, node)
 m = src.index("class K3LadderOCR:")
 m2 = src.index("\nclass ", m + 10)
 picks["K3LadderOCR"] = src[m:m2]
@@ -230,10 +235,12 @@ class FakeBE:
         self.lang = lang
         self._mobile = g["K3LadderOCR"](
             FakeML(), lang,
-            lambda small: FakeEng("sml" if small else "med",
-                                  0.004 if small else 0.009))
-    def _build_mobile_onnx(self, lang, small=False):
-        return FakeEng("sml" if small else "med", 0.004 if small else 0.009)
+            lambda small=False, tiny=False: FakeEng(
+                "fl" if tiny else ("sml" if small else "med"),
+                0.002 if tiny else (0.004 if small else 0.009)))
+    def _build_mobile_onnx(self, lang, small=False, tiny=False):
+        return FakeEng("fl" if tiny else ("sml" if small else "med"),
+                       0.002 if tiny else (0.004 if small else 0.009))
 
 lines = []
 res = g["speed_test_run"](
@@ -242,22 +249,24 @@ res = g["speed_test_run"](
 stf = os.path.join(ST_DIR, "speed_test.json")
 assert res and os.path.isfile(stf), "نتیجه/فایل نبود"
 d = json.load(io.open(stf, encoding="utf-8"))
-assert d.get("ladder") in ("full", "fast", "mlkit", "rapid", "paddle"), d
+assert d.get("ladder") in ("full", "fast", "mlkit", "rapid", "paddle",
+                           "flutter"), d
 assert d.get("ep") in ("cpu", "xnnpack", "nnapi", "auto"), d
 assert d.get("crops") == 3, d
 assert not d.get("nnapi_pending"), d
 modes = [k for k, v in d["ladder_ms"].items() if v]
-assert set(modes) == {"full", "fast", "mlkit", "rapid", "paddle"}, d["ladder_ms"]
+assert set(modes) == {"full", "fast", "mlkit", "rapid", "paddle",
+                      "flutter"}, d["ladder_ms"]
 eps = [k for k, v in d["ep_ms"].items() if v]
 assert {"cpu", "xnnpack"} <= set(eps) and "nnapi" in d["ep_ms"], d["ep_ms"]
 tbl = [ln for ln in lines if "جدولِ روشها" in ln]
 win = [ln for ln in lines if ln.startswith("[⚡] برنده")]
 assert tbl and win, lines[-4:]
-# ذخیرهٔ تدریجی: پنجرههایِ واقعی در لاگ با میانگین (NNAPIِ معلق رد
-# میشود → ۷ پنجرهٔ اندازهگیری + ۱ ردشدگی)
+# ذخیرهٔ تدریجی: پنجرههایِ واقعی در لاگ با میانگین (v1.14.179: ۶ روش
+# اندازهگیری میشود؛ NNAPIِ معلق رد میشود → ۸ پنجرهٔ اندازهگیری + ۱ ردشدگی)
 wlines = [ln for ln in lines
           if ln.startswith("[⚡] (") and "میانگینِ" in ln]
-assert len(wlines) == 7, wlines
+assert len(wlines) == 8, wlines
 skip_line = [ln for ln in lines if "رد شد" in ln and "NNAPI از دست رفت" in ln]
 assert len(skip_line) == 1, skip_line
 # speed_lab_envِ فایل‌محور
@@ -268,7 +277,9 @@ g2 = {"os": os, "json": json,
       "_K3_STATS": {"n": 5, "ms": 9.0, "st1": 1, "st2": 2, "st3": 3},
       "_MLKIT_STATS": {"ms": 4.0, "n": 2, "lines": 7},
       "_SPEED_LAB_EP": ("auto", "nnapi", "xnnpack", "cpu"),
-      "_SPEED_LAB_LADDER": ("full", "fast", "mlkit", "rapid", "paddle"),
+      "_SPEED_LAB_LADDER": ("full", "fast", "mlkit", "rapid", "paddle",
+                            "flutter"),
+      "_K3_MODE_FA": g["_K3_MODE_FA"],
       "speed_test_load": g["speed_test_load"], "print": print}
 exec(compile(sle, "sle", "exec"), g2)
 banner = g2["speed_lab_env"]({"ocr_ep": "nnapi"})  # کلیدهایِ کهنه باید بیاثر باشند
@@ -301,7 +312,8 @@ with tempfile.TemporaryDirectory() as td:
         print(out[-3000:])
         fail("E2E: زیرپروسه شکست خورد")
     d = json.loads(out.split("E2E_OK", 1)[1].split("\n", 1)[0])
-    ok("E2E: تستِ سرعت واقعی ۸ پنجره + برنده=%s/%s + ردِ NNAPIِ معلق"
+    ok("E2E: تستِ سرعت واقعی ۹ پنجره (۶ روش + ۳ EP) + برنده=%s/%s "
+       "+ ردِ NNAPIِ معلق"
        % (d["ladder"], d["ep"]))
 
 # ── ۴) E2Eِ دروازهٔ main (MANGA_SPEED_TEST=1 قبل از چکِ کلید) ────

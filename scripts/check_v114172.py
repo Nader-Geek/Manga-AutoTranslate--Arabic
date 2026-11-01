@@ -68,12 +68,14 @@ ime = re.search(r"def _init_mobile_engine.*?(?=\n    def )", rb_src, re.S)
 if not ime:
     fail("_init_mobile_engine پیدا نشد")
 ime_src = ime.group(0)
-if not re.search(r"lambda small: self\._build_mobile_onnx\(\s*lang, "
-                 r"small=\(True if _emu171 else small\)\)", ime_src):
+if not re.search(r"lambda small(?:=False, tiny=False)?:\s*"
+                 r"self\._build_mobile_onnx\(\s*lang,\s*"
+                 r"small=\(True if _emu171 else small\)"
+                 r"(?:,\s*tiny=tiny)?\)", ime_src):
     fail("لامبداِ wiring باید lambda small: با کلیدواژهٔ small باشد")
 if re.search(r"lambda s: self\._build_mobile_onnx", ime_src):
     fail("لامبداِ خرابِ قدیمی (lambda s:) هنوز هست")
-ok("لامبداِ wiring = lambda small: (کلیدواژهایِ نردبان)")
+ok("لامبداِ wiring = lambda small (کلیدواژهایِ نردبان + tinyِ 179)")
 
 # ۲) تستِ عملی — builderِ فقط-کلیدواژهای (دقیقاً مثلِ صدای واقعیِ نردبان)
 sys.path.insert(0, ROOT)

@@ -96,7 +96,7 @@ bmo = re.search(r"def _build_mobile_onnx.*?(?=\n    def |\n    @)",
 if not bmo:
     fail("_build_mobile_onnx پیدا نشد")
 bmo_src = bmo.group(0)
-for s in ("_rapidocr_model_pair(lang, small=small)", "return _out171",
+for s in ("_rapidocr_model_pair(lang, small=small", "return _out171",
           "MANGA_MOBILE_DET_INT8", "MANGA_CROP_DET_CAP"):
     if s not in bmo_src:
         fail(f"_build_mobile_onnx ناقص است: {s!r}")
@@ -266,9 +266,11 @@ ok("T6 هر سه پله خالی → None بدونِ کرش")
 
 # T7 — فیکِ _build_mobile_onnx: امضایِ لامبدا در wiring (v1.14.172 —
 # پارامتر باید «small» باشد تا فراخوانیِ کلیدواژهایِ نردبان کار کند)
-sig = re.search(r"lambda small: self\._build_mobile_onnx\(\s*lang, "
-                r"small=\(True if _emu171 else small\)\)", src)
-assert sig, "لامبداِ wiring امضایِ درست ندارد (باید lambda small: باشد)"
+sig = re.search(r"lambda small(?:=False, tiny=False)?:\s*"
+                r"self\._build_mobile_onnx\(\s*lang,\s*"
+                r"small=\(True if _emu171 else small\)"
+                r"(?:,\s*tiny=tiny)?\)", src)
+assert sig, "لامبداِ wiring امضایِ درست ندارد (باید lambda small باشد)"
 ok("T7 امضایِ build_onnx (کلیدواژهایِ small + شبیهساز = مجموعهٔ سبک)")
 
 # T8 — PC/لینوکس: گیتِ گیردهِ دیوار خاموش است → helper = دیلیشنِ خالص

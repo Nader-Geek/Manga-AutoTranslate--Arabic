@@ -135,9 +135,11 @@ for s in ("cov1 >= 0.70", "conf1 >= 0.55", "conf2 >= 0.80"):
         fail(f"نردبانِ K3 تغییر کرده: {s!r}")
 rb = cls.get("RapidOCRBackend")
 rb_src = ast.get_source_segment(src, rb) or ""
-if not re.search(r"lambda small: self\._build_mobile_onnx\(\s*lang, "
-                 r"small=\(True if _emu171 else small\)\)", rb_src):
+if not re.search(r"lambda small(?:=False, tiny=False)?:\s*"
+                 r"self\._build_mobile_onnx\(\s*lang,\s*"
+                 r"small=\(True if _emu171 else small\)"
+                 r"(?:,\s*tiny=tiny)?\)", rb_src):
     fail("لامبداِ wiringِ 172 عوض شده")
-ok("نردبانِ K3 + لامبداِ کلیدواژهای سرِ جایش")
+ok("نردبانِ K3 + لامبداِ کلیدواژهای (با tinyِ 179) سرِ جایش")
 
 print("[✓] همهٔ گیتهایِ v1.14.173 PASS")

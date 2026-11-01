@@ -71,17 +71,17 @@ ok(f"نسخه {_vc.group(1) if _vc else '?'}/{_vn.group(1) if _vn else '?'}"
    " (APP_VER↔versionName↔versionCode)")
 
 # ۱) گیتهایِ manga.py — نردبانِ حالtdار + آزمایشگاه
-for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle")',
+for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           'os.environ.get("MANGA_K3_MODE"',
           'self._mode = _m if _m in self._K3_MODES else "full"',
-          'if _mode != "rapid":',
+          'if _mode not in ("rapid", "flutter"):',
           'if _mode == "mlkit":',
           'if _mode in ("full", "paddle"):',
           'if _mode == "paddle":',
           'def speed_lab_env(p: dict) -> str:',
           'def _k3_speed_report() -> str:',
           '_SPEED_LAB_EP = ("auto", "nnapi", "xnnpack", "cpu")',
-          '_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle")',
+          '_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           'os.environ["MANGA_K3_MODE"]',
           'os.environ.pop("MANGA_K3_MODE", None)',
           '_SPEED_TEST_FILE = "speed_test.json"',
@@ -89,7 +89,7 @@ for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle")',
           'speed_test_load()'):
     if s not in src:
         fail(f"گیتِ manga.py نیست: {s!r}")
-ok("manga.py: نردبانِ ۵حالته + speed_lab_env + _k3_speed_report")
+ok("manga.py: نردبانِ ۶حالته (با flutterِ 179) + speed_lab_env + _k3_speed_report")
 
 # ۲) rapidocr_mobile — کلیدِ کَش با wanted
 if '+ "#" + ",".join(_wanted)' not in rsrc:
@@ -139,7 +139,7 @@ _NEEDED = {"K3LadderOCR", "_k3_boost_crop", "_k3_map_boxes",
            "speed_test_load", "_speed_test_path",
            "_speed_test_save"}
 _CONSTS = {"_K3_STATS", "_MLKIT_STATS", "_SPEED_LAB_EP",
-           "_SPEED_LAB_LADDER", "_SPEED_TEST_FILE"}
+           "_SPEED_LAB_LADDER", "_SPEED_TEST_FILE", "_K3_MODE_FA"}
 _nodes = []
 for n in tree.body:
     if isinstance(n, ast.ClassDef) and n.name == "K3LadderOCR":

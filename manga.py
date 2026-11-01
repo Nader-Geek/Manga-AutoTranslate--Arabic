@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.178"
+APP_VER = "1.14.179"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3176,10 +3176,27 @@ _RAPIDOCR_FILES = {
         _RAPIDOCR_MS + "/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx",
     "ch_PP-OCRv4_rec_infer.onnx":
         _RAPIDOCR_MS + "/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx",
+    # v1.14.179 — موتورِ «فلاتر-پدل» (flutter-paddle-ocr) = PP-OCRv6 tiny
+    # (دستورِ سازنده: «flutter-paddle-ocr اینم اضافه کن واسه تست» —
+    # github.com/mencomao/flutter-paddle-ocr همان PP-OCRv6 tinyِ ONNXِ
+    # خالص رویِ ONNX Runtime است، نه Paddle-Lite). منبعِ اصلی = HFِ
+    # رسمیِ PaddlePaddle (همان الگویِ medium)؛ فالبک = ریلیزِ modelsِ
+    # خودمان. det 1.7MB + rec 4.3MB — سبکترین جفتِ خانوادهٔ v6.
+    "PP-OCRv6_tiny_det.onnx":
+        "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_det_onnx"
+        "/resolve/main/inference.onnx",
+    "PP-OCRv6_tiny_rec.onnx":
+        "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx"
+        "/resolve/main/inference.onnx",
+    # dictِ مخصوصِ tiny (۶۹۰۴ نویسه — استخراجشده از inference.ymlِ مدلِ
+    # رسمی؛ جدا از medium ۱۸۷۰۷ی و small ۶۶۲۳ی) — فقط از ریلیزِ خودمان
+    "ppocr_keys_v6_tiny_utf8.txt":
+        _RAPIDOCR_MIRROR + "ppocr_keys_v6_tiny_utf8.txt",
 }
 
 
-def _rapidocr_model_pair(lang: str, small: bool = False):
+def _rapidocr_model_pair(lang: str, small: bool = False,
+                         tiny: bool = False):
     """v1.14.152 — جفتِ (det, rec) بر اساسِ زبان.
 
     پیشفرض = مجموعهٔ K3 (دقیقاً همان ۵ فایلِ پوشهٔ K3):
@@ -3191,8 +3208,18 @@ def _rapidocr_model_pair(lang: str, small: bool = False):
            جداگانه دارد — خارج از scopeِ این تغییر)
     small=True (فقط شبیهسازِ x86_64 در CI) = مجموعهٔ سبکِ قبلی تا
     بودجهٔ زمانی و گیتهایِ CI دستنخورده بمانند.
+    v1.14.179 — tiny=True = «فلاتر-پدل»: PP-OCRv6_tiny det (1.7MB) +
+    PP-OCRv6_tiny_rec (4.3MB؛ dictِ ۶۹۰۴یِ خودش) — سبکترین جفت؛
+    ja/ko با recِ موبایلِ خودشان میمانند (tiny فقط لاتین/CHS است).
     """
     _low = str(lang).lower()
+    if tiny:
+        _det = "PP-OCRv6_tiny_det.onnx"
+        if _low in ("korean", "ko"):
+            return _det, "korean_PP-OCRv5_rec_mobile.onnx"
+        if _low in ("japan", "ja", "japanese"):
+            return _det, "japan_PP-OCRv4_rec_mobile.onnx"
+        return _det, "PP-OCRv6_tiny_rec.onnx"
     if small:
         _det = "PP-OCRv6_det_small.onnx"
         if _low in ("korean", "ko"):
@@ -3658,16 +3685,19 @@ class K3LadderOCR:
     خاموشی: MANGA_K3_LADDER=0 (فقط ML Kit — رفتارِ 1.14.170)."""
 
     # v1.14.176 — «آزمایشگاهِ سرعت»: انتخابِ روشِ استخراج از داخلِ اپ
-    # (MANGA_K3_MODE — از پنلِ «🧪 آزمایشگاه سرعت استخراج»):
-    #   full   = کامل: ML Kit → پدل → رپید (پیشفرض — دقیقتر)
-    #   fast   = سریع: ML Kit → رپید (پدلِ mediumِ سنگین حذف — همان
-    #            کراپ مستقیم به مدلِ سبک میرود)
-    #   mlkit  = فقط ML Kit (سریعترین — هر چه ML Kit خواند برگردانده
-    #            میشود حتی با پوششِ کمتر)
-    #   rapid  = فقط رپید (مدلِ سبکِ PP-OCRv6 رویِ همهٔ کراپها؛ ML Kit
-    #            هم حذف)
-    #   paddle = فقط پدل (مدلِ سنگینِ PP-OCRv6 رویِ همهٔ کراپها)
-    _K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle")
+    # (MANGA_K3_MODE — حالا فقط از نتیجهٔ «⚡ تستِ سرعت»):
+    #   full    = کامل: ML Kit → پدل → رپید (پیشفرض — دقیقتر)
+    #   fast    = سریع: ML Kit → رپید (پدلِ mediumِ سنگین حذف — همان
+    #             کراپ مستقیم به مدلِ سبک میرود)
+    #   mlkit   = فقط ML Kit (سریعترین — هر چه ML Kit خواند برگردانده
+    #             میشود حتی با پوششِ کمتر)
+    #   rapid   = فقط رپید (مدلِ سبکِ PP-OCRv6 رویِ همهٔ کراپها؛ ML Kit
+    #             هم حذف)
+    #   paddle  = فقط پدل (مدلِ سنگینِ PP-OCRv6 رویِ همهٔ کراپها)
+    #   flutter = v1.14.179 — فقط «فلاتر-پدل» (PP-OCRv6 tinyِ 1.7+4.3MB؛
+    #             همان مدلهایِ اپِ flutter-paddle-ocr — ONNXِ خالص، نه
+    #             Paddle-Lite) رویِ همهٔ کراپها
+    _K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")
 
     def __init__(self, mlkit, lang: str, build_onnx):
         self._mlkit = mlkit            # MlKitCropOCR آماده
@@ -3677,6 +3707,8 @@ class K3LadderOCR:
         self._med_tried = False
         self._sml = None
         self._sml_tried = False
+        self._fl = None          # v1.14.179 — فلاتر-پدل (tiny)
+        self._fl_tried = False
         try:
             _m = str(os.environ.get("MANGA_K3_MODE", "") or "").strip().lower()
         except Exception:
@@ -3704,6 +3736,18 @@ class K3LadderOCR:
             self._med = None
         return self._med
 
+    def _engine_tiny(self):
+        """v1.14.179 — موتورِ «فلاتر-پدل» (PP-OCRv6 tiny) با کشِ خودش."""
+        if self._fl_tried:
+            return self._fl
+        self._fl_tried = True
+        try:
+            self._fl = self._build_onnx(small=False, tiny=True)
+        except Exception as e:
+            print(f"[!] مدلِ فلاتر-پدل آماده نشد: {str(e)[:110]}")
+            self._fl = None
+        return self._fl
+
     def ocr(self, image_bgr: np.ndarray, crop_mode: bool = False):
         if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
             return None
@@ -3716,10 +3760,10 @@ class K3LadderOCR:
                 return eng.ocr(image_bgr, crop_mode=False)
             return self._mlkit.ocr(image_bgr)
 
-        # ── پلهٔ ۱: ML Kit رویِ کراپِ تقویتشده (در «rapid» حذف) ──
+        # ── پلهٔ ۱: ML Kit رویِ کراپِ تقویتشده (در «rapid»/«flutter» حذف) ──
         _mode = self._mode
         lines1 = []
-        if _mode != "rapid":
+        if _mode not in ("rapid", "flutter"):
             try:
                 boosted, pad, scale = _k3_boost_crop(image_bgr)
                 r1 = self._mlkit.ocr(boosted)
@@ -3769,9 +3813,14 @@ class K3LadderOCR:
                         key=lambda L: 0.6 * _k3_ink_coverage(image_bgr, L)
                         + 0.4 * _k3_best_conf(L))]
 
-        # ── پلهٔ ۳: رپید (اطمینانِ پدل زیرِ ۸۰٪ یا پدل نبود) ──
+        # ── پلهٔ ۳: رپید / فلاتر-پدل (اطمینانِ پدل زیرِ ۸۰٪ یا پدل نبود؛
+        #    در «rapid» بدونِ پلههایِ قبل — v1.14.179: در «flutter» بهجای
+        #    رپید، موتورِ tinyِ flutter-paddle-ocr) ──
         lines3 = []
-        eng3 = self._engine(small=True)
+        if _mode == "flutter":
+            eng3 = self._engine_tiny()
+        else:
+            eng3 = self._engine(small=True)
         if eng3 is not None and eng3 is not eng2:
             try:
                 r3 = eng3.ocr(image_bgr, crop_mode=True)
@@ -3823,7 +3872,15 @@ def _mlkit_stats_note(t0, nlines):
 # چیز را عوض نمیکند.
 
 _SPEED_LAB_EP = ("auto", "nnapi", "xnnpack", "cpu")
-_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle")
+# v1.14.179 — «flutter» اضافه شد (فلاتر-پدل = PP-OCRv6 tiny؛ نه Paddle-Lite)
+_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")
+
+# اسمِ فارسیِ هر روش برایِ لاگها (کلیدِ انگلیسی هم کنارش میآید تا لاگ
+# قابلِ جستجو بماند)
+_K3_MODE_FA = {
+    "full": "نردبانِ کامل", "fast": "سریع", "mlkit": "فقط ML Kit",
+    "rapid": "فقط رپید", "paddle": "فقط پدل", "flutter": "فلاتر-پدل",
+}
 
 
 def speed_lab_env(p: dict) -> str:
@@ -3880,8 +3937,8 @@ def speed_lab_env(p: dict) -> str:
             _MLKIT_STATS[_k] = 0 if _k != "ms" else 0.0
 
         if _w:
-            return ("[⚡] تنظیمِ برندهٔ «تستِ سرعت»: روشِ %s + شتاب‌دهندهٔ %s%s"
-                    % (_lad, _ep, _ms_l))
+            return ("[⚡] تنظیمِ برندهٔ «تستِ سرعت»: روشِ %s (%s) + شتاب‌دهندهٔ %s%s"
+                    % (_K3_MODE_FA.get(_lad, _lad), _lad, _ep, _ms_l))
         return ("[⚡] روشِ استخراج: پیشفرض (full | شتاب‌دهندهٔ auto) — "
                 "سریعترین حالت را «تستِ سرعت» خودش پیدا میکند: پنل ← "
                 "⚡ تستِ سرعت (هر حالت ۶۰ ثانیه)")
@@ -3959,6 +4016,40 @@ def _speed_test_pool(page, det0, cap: int = 24):
         return []
 
 
+def _speed_test_tiles(page, cap: int = 24):
+    """v1.14.179 — کراپهایِ جایگزین: وقتی تشخیصِ تمامصفحه چیزی نداد
+    (لاگِ 178: «در تصویر متنِ خواندنی پیدا نشد» → کلِ تست قطع شد و فقط
+    یک حالت «تست» شده بود)، صفحه به کاشیهایِ واقعی (~512px) بریده
+    میشود تا تستِ سرعت هیچوقت بنبست پیدا نکند و همهٔ روشها همیشه
+    اندازهگیری شوند. هر کاشی پیکسلِ واقعیِ همان صفحه است — هدفِ این
+    آزمون فقط سنجشِ سرعت است، نه دقت."""
+    try:
+        _H, _W = page.shape[:2]
+        if not _H or not _W:
+            return []
+        _side = 512.0
+        _ny = max(1, min(6, int(round(_H / _side)) or 1))
+        _nx = max(1, min(6, int(round(_W / _side)) or 1))
+        while _nx * _ny > cap:
+            if _nx >= _ny and _nx > 1:
+                _nx -= 1
+            elif _ny > 1:
+                _ny -= 1
+            else:
+                break
+        _out = []
+        for _iy in range(_ny):
+            for _ix in range(_nx):
+                _y0, _y1 = (_H * _iy) // _ny, (_H * (_iy + 1)) // _ny
+                _x0, _x1 = (_W * _ix) // _nx, (_W * (_ix + 1)) // _nx
+                if _y1 - _y0 < 64 or _x1 - _x0 < 64:
+                    continue
+                _out.append(page[_y0:_y1, _x0:_x1].copy())
+        return _out[:cap]
+    except Exception:
+        return []
+
+
 def _speed_test_window(runner, pool, per_mode, should_stop=None):
     """یک پنجرهٔ زمانی رویِ pool: کراپِ اول = گرمکردنِ مدلها (بیرونِ
     سنجه)؛ بعد تا پرشدنِ پنجره کراپها لوپ میشود. خروجی =
@@ -3994,9 +4085,13 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
                    should_stop=None, backend=None):
     """«تستِ سرعتِ استخراج» — دکمهٔ واحدِ پنل (v1.14.178).
 
-    ۱) تصویر ورودی باز میشود؛ یک پاسِ تشخیصِ کاملصفحه کراپهایِ
-       واقعیِ متن را میدهد (تا ۲۴ کراپ).
-    ۲) پنج پنجرهٔ روشِ استخراج: full/fast/mlkit/rapid/paddle.
+    ۱) تصویر ورودی باز میشود؛ موتورِ سبک (رپید) یک پاسِ تشخیصِ
+       کاملصفحه میزند و کراپهایِ واقعیِ متن را میدهد (تا ۲۴ کراپ).
+       اگر تشخیص چیزی نداد (لاگِ ۱۷۸: «در تصویر متنِ خواندنی پیدا نشد»
+       و کلِ تست قطع شد) — v1.14.179 صفحه به کاشیهایِ واقعی (~۵۱۲px)
+       بریده میشود؛ تست هیچوقت بنبست پیدا نمیکند.
+    ۲) شش پنجرهٔ روشِ استخراج: full/fast/mlkit/rapid/paddle +
+       flutter («فلاتر-پدل» = PP-OCRv6 tinyِ flutter-paddle-ocr).
     ۳) سه پنجرهٔ شتاب‌دهنده رویِ مسیرِ پدل: cpu/xnnpack/nnapi.
        NNAPI آخر است؛ نتیجه بعد از هر پنجره ذخیره میشود — اگر گوشی
        حینِ تستِ NNAPI کرش کند، برندهٔ بقیهٔ پنجرهها از دست نمیرود و
@@ -4010,8 +4105,11 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     except Exception:
         per_mode = 60.0
     lang = (langs[0] if langs else "en") or "en"
-    log("[⚡] تستِ سرعتِ استخراج: ۵ روش + ۳ شتاب‌دهنده × %d ثانیه ≈ ۸ دقیقه"
-        % int(per_mode))
+    _modes = tuple(K3LadderOCR._K3_MODES)
+    log("[⚡] تستِ سرعتِ استخراج: %d روش (%s) + ۳ شتاب‌دهنده × %d ثانیه ≈ %d دقیقه"
+        % (len(_modes),
+           " + ".join(_K3_MODE_FA.get(_m, _m) for _m in _modes),
+           int(per_mode), len(_modes) + 3))
     log("[⚡] در این حالت ترجمه انجام نمیشود — فقط استخراجِ متن "
         "اندازهگیری میشود؛ لطفاً برنامه را باز نگه دار…")
     _t_all = time.time()
@@ -4037,37 +4135,56 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     _prev = speed_test_load() or {}
     _nnapi_pending = bool(_prev.get("nnapi_pending"))
 
-    # ── استخرِ کراپها: یک پاسِ تشخیصِ کاملصفحه (موتورِ پدل) ──
-    log("[⚡] استخرِ کراپهایِ واقعی از تصویر…")
-    try:
-        _res0 = _lad0.ocr(page, crop_mode=False)
-    except Exception as _e:
-        _res0 = None
-        log("[!] تشخیصِ تمامصفحه خطا داد: %s" % str(_e)[:140])
-    pool = _speed_test_pool(page, _res0)
-    if not pool:
-        log("[!] در تصویر متنِ خواندنی پیدا نشد — یک صفحهٔ گفتگودار امتحان کن.")
-        return None
-    log("[⚡] %d کراپِ واقعی آماده شد — پنجرهها شروع میشوند…" % len(pool))
-
     # موتورهایِ ONNX یکبار ساخته میشوند و بینِ پنجرهها مشترکاند
     # (سشنِ تازه در هر پنجره = وقتِ بیفایده؛ گرمکردنِ هر پنجره هم هست)
-    _med, _sml = None, None
-    try:
-        _med = be._build_mobile_onnx(lang, small=False)
-    except Exception as _e:
-        log("[!] مدلِ پدل ساخته نشد: %s" % str(_e)[:120])
+    # v1.14.179 — ترتیبِ ساخت: سبک (رپید) اول — هم برایِ برداشتِ کراپ
+    # بدونِ دانلودِ سنگینِ ۱۳۰MBِ پدلِ medium (که در لاگِ ۱۷۸ «گیر»
+    # به نظر میرسید)، بعد پدل، بعد فلاتر-پدل (tiny)
+    _med, _sml, _tiny = None, None, None
     try:
         _sml = be._build_mobile_onnx(lang, small=True)
     except Exception as _e:
         log("[!] مدلِ رپید ساخته نشد: %s" % str(_e)[:120])
     try:
+        _med = be._build_mobile_onnx(lang, small=False)
+    except Exception as _e:
+        log("[!] مدلِ پدل ساخته نشد: %s" % str(_e)[:120])
+    try:
+        _tiny = be._build_mobile_onnx(lang, small=False, tiny=True)
+    except Exception as _e:
+        log("[!] مدلِ فلاتر-پدل ساخته نشد: %s" % str(_e)[:120])
+    try:
         _mlbe = _mlkit_backend(lang)
     except Exception:
         _mlbe = None
 
-    def _builder(small: bool):
+    def _builder(small: bool = False, tiny: bool = False):
+        if tiny:
+            return _tiny
         return _sml if small else _med
+
+    # ── استخرِ کراپها: یک پاسِ تشخیصِ کاملصفحه با موتورِ سبک (v1.14.179) ──
+    log("[⚡] استخرِ کراپهایِ واقعی از تصویر…")
+    _res0 = None
+    if _sml is not None:
+        try:
+            _res0 = _sml.ocr(page, crop_mode=False)
+        except Exception as _e:
+            _res0 = None
+            log("[!] تشخیصِ تمامصفحه خطا داد: %s" % str(_e)[:140])
+    pool = _speed_test_pool(page, _res0)
+    if not pool:
+        # v1.14.179 — پایانِ بنبستِ ۱۷۸: بهجایِ قطعِ کلِ تست (لاگ:
+        # «در تصویر متنِ خواندنی پیدا نشد» → فقط یک حالت «تست» شده بود)
+        # صفحه به کاشیهایِ واقعیِ خودش بریده میشود؛ همهٔ پنجرهها همیشه
+        # پیموده میشوند.
+        pool = _speed_test_tiles(page)
+        log("[⚡] تشخیصِ تمامصفحه چیزی ندید — با %d کاشیِ واقعیِ خودِ "
+            "صفحه ادامه میدهیم؛ همهٔ روشها اندازهگیری میشوند." % len(pool))
+    if not pool:
+        log("[!] تصویر خیلی ریز/خالی است — یک صفحهٔ بزرگتر امتحان کن.")
+        return None
+    log("[⚡] %d کراپِ آماده — پنجرهها شروع میشوند…" % len(pool))
 
     _res = {"app": APP_VER,
             "ts": time.strftime("%Y-%m-%d %H:%M"),
@@ -4077,7 +4194,6 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
             "ladder_ms": {}, "ep_ms": {},
             "ladder_n": {}, "ep_n": {},
             "nnapi_pending": False}
-    _modes = tuple(K3LadderOCR._K3_MODES)
     _total = len(_modes) + 3
     _wi = 0
 
@@ -4090,19 +4206,21 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
             "mlkit": _mlbe is not None,
             "rapid": _sml is not None,
             "paddle": _med is not None,
+            "flutter": _tiny is not None,   # v1.14.179 — فلاتر-پدل (tiny)
         }[_mode]
         if not _need_ok:
             _res["ladder_ms"][_mode] = None
-            log("[⚡] (%d/%d) روشِ %s → رد شد (موتورش رویِ این دستگاه آماده نیست)"
-                % (_wi, _total, _mode))
+            log("[⚡] (%d/%d) روشِ %s (%s) → رد شد (موتورش رویِ این دستگاه آماده نیست)"
+                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode))
             continue
         os.environ["MANGA_K3_MODE"] = _mode
         try:
             _lad = K3LadderOCR(_mlbe, lang, _builder)
         except Exception as _e:
             _res["ladder_ms"][_mode] = None
-            log("[⚡] (%d/%d) روشِ %s → نردبان ساخته نشد: %s"
-                % (_wi, _total, _mode, str(_e)[:100]))
+            log("[⚡] (%d/%d) روشِ %s (%s) → نردبان ساخته نشد: %s"
+                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode,
+                   str(_e)[:100]))
             continue
         _n, _ts, _err, _stp = _speed_test_window(
             lambda c, _l=_lad: _l.ocr(c, crop_mode=True),
@@ -4111,16 +4229,18 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
         _res["ladder_ms"][_mode] = _ms
         _res["ladder_n"][_mode] = _n
         if _err:
-            log("[⚡] (%d/%d) روشِ %s → خطا: %s"
-                % (_wi, _total, _mode, str(_err)[:100]))
+            log("[⚡] (%d/%d) روشِ %s (%s) → خطا: %s"
+                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode,
+                   str(_err)[:100]))
         elif _stp:
-            log("[⚡] (%d/%d) روشِ %s → متوقف شد (%d کراپ)"
-                % (_wi, _total, _mode, _n))
+            log("[⚡] (%d/%d) روشِ %s (%s) → متوقف شد (%d کراپ)"
+                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode, _n))
             _speed_test_save(_res)
             return _res
         else:
-            log("[⚡] (%d/%d) روشِ %s → %d کراپ | میانگینِ %.0fms/کراپ"
-                % (_wi, _total, _mode, _n, _ms))
+            log("[⚡] (%d/%d) روشِ %s (%s) → %d کراپ | میانگینِ %.0fms/کراپ"
+                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode,
+                   _n, _ms))
         _speed_test_save(_res)  # بعد از هر پنجره ذخیره — کرش = از دست نمیرود
 
     # ── پنجرههایِ شتاب‌دهنده (رویِ مسیرِ پدل — حساسترین مسیر به EP) ──
@@ -4177,7 +4297,7 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     _res["ladder"], _res["ep"] = _best_l, _best_e
     _res["seconds"] = int(time.time() - _t_all)
     _speed_test_save(_res)
-    _tbl = " | ".join("%s=%.0fms" % (k, v)
+    _tbl = " | ".join("%s(%s)=%.0fms" % (_K3_MODE_FA.get(k, k), k, v)
                       for k, v in sorted(_ok_l.items(), key=lambda kv: kv[1]))
     log("[⚡] جدولِ روشها (سریع → کند): %s" % (_tbl or "—"))
     _tbe = " | ".join(
@@ -4186,9 +4306,9 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
                      ("xnnpack", _res["ep_ms"].get("xnnpack")),
                      ("nnapi", _res["ep_ms"].get("nnapi"))))
     log("[⚡] جدولِ شتاب‌دهنده (رویِ پدل): %s" % _tbe)
-    log("[⚡] برنده: روشِ %s (%s) + شتاب‌دهندهٔ %s (%s) → ذخیره شد؛ "
+    log("[⚡] برنده: روشِ %s (%s؛ %s) + شتاب‌دهندهٔ %s (%s) → ذخیره شد؛ "
         "از کارِ بعد خودکار اعمال میشود."
-        % (_best_l,
+        % (_K3_MODE_FA.get(_best_l, _best_l), _best_l,
            ("%.0fms/کراپ" % _ok_l[_best_l]) if _best_l in _ok_l else "—",
            _best_e,
            ("%.0fms/کراپ" % _ok_e[_best_e]) if _best_e in _ok_e else "—"))
@@ -4571,8 +4691,10 @@ class RapidOCRBackend:
                         # فقط-کلیدواژهای میگیرد.
                         self._mobile = K3LadderOCR(
                             _pb, lang,
-                            lambda small: self._build_mobile_onnx(
-                                lang, small=(True if _emu171 else small)))
+                            lambda small=False, tiny=False:
+                                self._build_mobile_onnx(
+                                    lang, small=(True if _emu171 else small),
+                                    tiny=tiny))
                         print("[+] OCR گوشی: نردبانِ K3 — پلهٔ ۱ ML Kit رویِ "
                               "کراپِ تقویتشده | پوششِ جوهر <70٪ → پلهٔ ۲ پدل | "
                               "اطمینان <80٪ → پلهٔ ۳ رپید | فقط سطحِ کراپ")
@@ -4586,12 +4708,17 @@ class RapidOCRBackend:
         self._mobile = self._build_mobile_onnx(
             lang, small=_android_x86_emulator())
 
-    def _build_mobile_onnx(self, lang: str, small: bool = False):
+    def _build_mobile_onnx(self, lang: str, small: bool = False,
+                           tiny: bool = False):
         """v1.14.171 — ساختِ موتورِ PP-OCR ONNXِ گوشی (بدونِ دست‌زدن به
         self._mobile — تماسگیرنده تصمیمِ فالبک میگیرد).
         small=False = مجموعهٔ K3 (پدلِ نردبان: PP-OCRv6 medium det/rec —
         عینِ فایلهایِ اپِ K3) / small=True = مجموعهٔ سبک (رپیدِ نردبان یا
-        شبیهسازِ x86_64). خطا → ImportError."""
+        شبیهسازِ x86_64).
+        v1.14.179 — tiny=True = «فلاتر-پدل»: PP-OCRv6 tinyِ det+rec
+        (1.7+4.3MB — همان مدلهایِ اپِ flutter-paddle-ocr، ONNXِ خالص
+        رویِ همان ORT؛ نه Paddle-Lite) با dictِ ۶۹۰۴یِ خودش.
+        خطا → ImportError."""
         try:
             from rapidocr_mobile import RapidOcrMobile
         except Exception as e:
@@ -4605,6 +4732,22 @@ class RapidOCRBackend:
             _android_heal_model_dir(_mdir)
             _low = str(lang).lower()
             _chars = self._MOBILE_CHARS.get(_low, "ppocrv6_chars.txt")
+            _char_path = os.path.join(os.path.dirname(os.path.abspath(
+                sys.modules["rapidocr_mobile"].__file__)), _chars)
+            if tiny:
+                # v1.14.179 — dictِ مخصوصِ tiny (۶۹۰۴ نویسه؛ استخراجشده
+                # از inference.ymlِ مدلِ رسمی — جدا از medium ۱۸۷۰۷ی و
+                # small ۶۶۲۳ی)؛ از ریلیزِ models. نبودش → dictِ باندلشدهٔ
+                # medium (ناسازگاریِ جزئی بهتر از شکستِ کلِ موتور است؛
+                # در عمل بارِ اول دانلود میشود)
+                try:
+                    _ensure_rapidocr_models(
+                        _mdir, files=["ppocr_keys_v6_tiny_utf8.txt"])
+                except Exception:
+                    pass
+                _tp = os.path.join(_mdir, "ppocr_keys_v6_tiny_utf8.txt")
+                if os.path.isfile(_tp) and os.path.getsize(_tp) > 100:
+                    _char_path = _tp
             try:
                 _cpu_n = os.cpu_count() or 4
             except Exception:
@@ -4626,7 +4769,8 @@ class RapidOCRBackend:
             # medium det/rec + korean v5 + ch v4 (fp32 کامل، بدونِ int8 —
             # عینِ K3). شبیه‌سازِ x86_64 (CI) با مجموعهٔ سبک قبلی میماند
             # تا بودجهٔ زمانی و گیتهای CI دست‌نخورده بمانند.
-            _det_name, _rec = _rapidocr_model_pair(lang, small=small)
+            _det_name, _rec = _rapidocr_model_pair(lang, small=small,
+                                                   tiny=tiny)
             try:
                 _int8_on = os.environ.get(
                     "MANGA_MOBILE_DET_INT8", "1").strip() != "0"
@@ -4658,13 +4802,10 @@ class RapidOCRBackend:
             except Exception:
                 _det_cap = 960
             _out171 = RapidOcrMobile(
-                _p_det, _p_rec, charset_path=os.path.join(
-                    os.path.dirname(os.path.abspath(
-                        sys.modules["rapidocr_mobile"].__file__)),
-                    _chars),
+                _p_det, _p_rec, charset_path=_char_path,
                 intra_threads=_intra, det_cap=max(320, _det_cap))
             print(f"[+] OCR گوشی: "
-                  f"{'مجموعهٔ K3 (پدل)' if not small else 'مجموعهٔ سبک (رپید)'}"
+                  f"{'مجموعهٔ فلاتر-پدل (tiny)' if tiny else ('مجموعهٔ K3 (پدل)' if not small else 'مجموعهٔ سبک (رپید)')}"
                   f" | det={_det_name} | rec={_rec} | "
                   f"lang={lang} | threads={_intra}"
                   f" | crop-cap={max(320, _det_cap)}")
