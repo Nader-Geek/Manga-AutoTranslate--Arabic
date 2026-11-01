@@ -2324,7 +2324,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                          ["cpu", "بدون شتاب‌دهنده — CPU خالص"]],
                 value=str(cfg.get("ocr_ep", "auto")),
                 label="شتاب‌دهندهِ OCR",
-                info="خودکار: NNAPI و XNNPACK در پروسهِ جدا آزمایش می‌شوند و سالمِ سریع‌تر برنده است. بعد از یک کرش، اجرای بعد بدون NNAPI می‌شود.")
+                info="خودکار: NNAPI و XNNPACK در پروسهِ جدا آزمایش می‌شوند و سالمِ سریع‌تر برنده است. بعد از یک کرش، اجرای بعد بدون NNAPI می‌شود. «فقط NNAPI» را انتخاب کنی = تستِ دوبارهٔ NNAPI (نشانِ کرشِ کهنه پاک میشود).")
             ocr_ladder = gr.Dropdown(
                 choices=[["full", "کامل: ML Kit ← پدل ← رپید (پیشفرض — دقیق‌تر)"],
                          ["fast", "سریع: ML Kit ← رپید (مدل سنگینِ پدل حذف)"],
@@ -3262,6 +3262,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             clean_method_v, two_pass_v,
                             fake_test_v, clean_only_v, web_debug_v, prompt_mode_v, prompt_body_v,
                             glossary_text_v, story_brief_v, api_base_v,
+                            ocr_ep_v, ocr_ladder_v, ocr_threads_v, ocr_detcap_v, ocr_boost_v,
                             *tone_args):
             _t_prep68 = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
             sid = (sid or sid_box_v or "").strip()
@@ -3499,6 +3500,39 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             _env = os.environ.copy()
             _env["PYTHONUNBUFFERED"] = "1"
             _env["PYTHONIOENCODING"] = "utf-8"
+            # v1.14.177 — باگِ 176: پنلِ «آزمایشگاهِ سرعت» رویِ PC هم
+            # نمایش داده میشد ولی مقادیرش به زیرپروسهِ manga.py نمیرسید.
+            # حالا همان معناشناسیِ speed_lab_env: پیشفرض = حذفِ env
+            # (رفتارِ بیت‌به‌بیتِ قبل)؛ نامعتبر = فالبکِ امن.
+            _lab_ep = str(ocr_ep_v or "auto").strip().lower()
+            if _lab_ep in ("nnapi", "xnnpack", "cpu"):
+                _env["MANGA_MOBILE_OCR_EP"] = _lab_ep
+            else:
+                _env.pop("MANGA_MOBILE_OCR_EP", None)
+            _lab_lad = str(ocr_ladder_v or "full").strip().lower()
+            if _lab_lad in ("fast", "mlkit", "rapid", "paddle"):
+                _env["MANGA_K3_MODE"] = _lab_lad
+            else:
+                _env.pop("MANGA_K3_MODE", None)
+            try:
+                _lab_th = max(0, min(8, int(float(ocr_threads_v or 0))))
+            except Exception:
+                _lab_th = 0
+            if _lab_th > 0:
+                _env["MANGA_OCR_THREADS"] = str(_lab_th)
+                _env["MANGA_XNN_THREADS"] = str(_lab_th)
+            else:
+                _env.pop("MANGA_OCR_THREADS", None)
+                _env.pop("MANGA_XNN_THREADS", None)
+            _lab_cap = str(ocr_detcap_v or "960").strip()
+            if _lab_cap in ("640", "1280"):
+                _env["MANGA_CROP_DET_CAP"] = _lab_cap
+            else:
+                _env.pop("MANGA_CROP_DET_CAP", None)
+            if ocr_boost_v:
+                _env.pop("MANGA_CROP_ENH_SCALE", None)
+            else:
+                _env["MANGA_CROP_ENH_SCALE"] = "1.0"
             _env["MANGA_LIVE_DIR"] = live_dir
             if _dbg_on:
                 _env["MANGA_LIVE_DEBUG_DIR"] = live_dbg_dir
@@ -3569,7 +3603,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     batchw, maxre, reqdelay, temp, readord,
                     clean_method, two_pass,
                     fake_test, clean_only, web_debug, prompt_mode, prompt_preview_body,
-                    glossary_text, story_brief, api_base] + tone_uploads + tone_enables,
+                    glossary_text, story_brief, api_base,
+                    ocr_ep, ocr_ladder, ocr_threads, ocr_detcap, ocr_boost] + tone_uploads + tone_enables,
             outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
                      dl_btn_debug, btn_view_debug, debug_row, html_debug_state],
             concurrency_limit=8,

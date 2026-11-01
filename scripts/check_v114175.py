@@ -252,9 +252,18 @@ if plan9 != ("NnapiExecutionProvider", {}) or \
 reset(env={"MANGA_MOBILE_OCR_EP": "nnapi", "MANGA_APP_VER": "1.14.175"},
       guard=json.dumps({"launch": "old", "ver": "1.14.175"}))
 plan9b, out9b = plan()
-if plan9b != (None, {}) or "کرشِ احتمالی" not in out9b:
-    fail(f"S9b env=nnapi + نشانِ کرش خراب: {plan9b}")
-ok("S9 env=nnapi → فقط NNAPI؛ نشانِ کرش همان نسخه → CPU")
+_mk9b = None
+try:
+    with open(GD, encoding="utf-8") as _f:
+        _mk9b = (json.load(_f) or {}).get("launch")
+except Exception:
+    pass
+# v1.14.177 — انتخابِ صریحِ nnapi = «تستِ دوباره»: نشانِ کهنه پاک و
+# NNAPI دوباره آزموده میشود (گاردِ ضدِ حلقه فقط برایِ auto است).
+if plan9b != ("NnapiExecutionProvider", {}) or _mk9b == "old" \
+        or "کرشِ احتمالی" in out9b or "کهنه پاک شد" not in out9b:
+    fail(f"S9b env=nnapi + نشانِ کرش خراب: {plan9b} / {_mk9b}")
+ok("S9 env=nnapi → فقط NNAPI؛ نشانِ کهنه = تستِ دوباره (177)")
 
 # S10 — قفلِ no_nnapi.txt → فقط XNNPACK
 reset(no_nnapi=True, env={"MANGA_APP_VER": "1.14.175"})

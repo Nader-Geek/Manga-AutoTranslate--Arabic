@@ -1755,6 +1755,22 @@ class MainActivity : AppCompatActivity() {
                 k.startsWith("en_") -> map.put(k, o.optBoolean(k, true))
             }
         }
+        // v1.14.177 — باگِ 176: پنلِ «🧪 آزمایشگاه سرعت استخراج» نمایش
+        // داده میشد ولی collect این کلیدها را به پایتون نمیفرستاد
+        // (فقط لیستِ هاردکدِ قدیمی پاس داده میشد) → هرچه سازنده
+        // انتخاب میکرد لاگِ [🧪] همان پیشفرض میماند (روش=full). حالا
+        // هر ۵ کلید با نوعِ درست فرستاده میشود — نوعها از fieldViews
+        // (select=رشته، slider=عدد، bool=بولی) یا valuesِ ذخیرهشده
+        // (رشته) میآیند؛ optInt/optBoolean هر دو را میفهمند.
+        for (k in listOf("ocr_ep", "ocr_ladder", "ocr_detcap")) {
+            firstNonEmpty(o, k)?.let { map.put(k, it) }
+        }
+        if (o.has("ocr_threads") && !o.isNull("ocr_threads")) {
+            map.put("ocr_threads", o.optInt("ocr_threads", 0))
+        }
+        if (o.has("ocr_boost") && !o.isNull("ocr_boost")) {
+            map.put("ocr_boost", o.optBoolean("ocr_boost", true))
+        }
         for ((id, path) in pickedFiles) {
             if (id.startsWith("up_") || id == "font_upload") {
                 map.put(id + "_file", path)

@@ -16,7 +16,7 @@
    شتابدهنده از اپ همان اجرا اثر میکند (پلنِ کهنه برنمیگردد).
 ۵) عملی: AST-استخراجِ K3LadderOCR و speed_lab_env از manga.py و تستِ
    واقعیِ ۸ سناریویِ نردبان + ۶ سناریویِ env + گزارش.
-۶) نسخه 181/1.14.176.
+۶) نسخه (سازگاریِ درونی — مستقل از شماره).
 """
 import ast
 import importlib.util
@@ -59,14 +59,15 @@ _vn = re.search(r"versionName=([\d.]+)", _ver)
 _vc = re.search(r"versionCode=(\d+)", _ver)
 if not _m or not _vn or not _vc:
     fail("APP_VER/VERSION ناقص است")
-if _m.group(1) != _vn.group(1) or _vn.group(1) != "1.14.176":
+if _m.group(1) != (_vn.group(1) if _vn else None):
     fail(f"نسخه ناهمخوان: APP_VER={_m.group(1)} versionName="
          f"{_vn.group(1) if _vn else '?'}")
-if _vc.group(1) != "181":
-    fail(f"versionCode باید 181 باشد — الان {_vc.group(1)}")
+if not (_vc and _vc.group(1).isdigit()):
+    fail(f"versionCode نامعتبر: {_vc.group(1) if _vc else '?'}")
 if 'os.environ.setdefault("MANGA_APP_VER", APP_VER)' not in src:
     fail("manga.py باید MANGA_APP_VER را ست کند")
-ok("نسخه 181/1.14.176 (APP_VER↔versionName↔versionCode)")
+ok(f"نسخه {_vc.group(1) if _vc else '?'}/{_vn.group(1) if _vn else '?'}"
+   " (APP_VER↔versionName↔versionCode)")
 
 # ۱) گیتهایِ manga.py — نردبانِ حالtdار + آزمایشگاه
 for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle")',

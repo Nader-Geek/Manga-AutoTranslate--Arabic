@@ -515,6 +515,18 @@ def _ep_plan(det_path: str, rec_path: str):
         # ms=3969 تأیید شد و باز کرش کرد) در پایتون قابلِ گرفتن نیست —
         # ریسکِ تست با سازنده؛ ORT_FAILِ قابلِ گرفتن → فالبکِ CPU در
         # _Sess._open سرِ جایش است.
+        # v1.14.177 — انتخابِ صریحِ «فقط NNAPI» (پنلِ اپ یا env) =
+        # خواستهٔ روشنِ «تستِ دوباره» (دکمهٔ تستِ خودِ سازنده): نشانِ
+        # کرشِ کهنه پاک میشود تا NNAPI واقعاً آزموده شود. گاردِ ضدِ
+        # حلقهٔ کرش فقط برایِ auto/تورنمنت سرِ جایش است.
+        try:
+            _gp0 = _nnapi_guard_path(_mdir)
+            if os.path.isfile(_gp0):
+                os.remove(_gp0)
+                print("[*] تستِ صریحِ NNAPI → نشانِ کرشِ کهنه پاک شد — "
+                      "NNAPI دوباره آزموده میشود", flush=True)
+        except Exception:
+            pass
         try:
             print("[⚡] تستِ NNAPI (MANGA_MOBILE_OCR_EP=nnapi) — "
                   "اگر کرش کند اجرایِ بعدِ خودکار بدونِ NNAPI میشود",
@@ -573,8 +585,9 @@ def _ep_plan(det_path: str, rec_path: str):
     if "NnapiExecutionProvider" in _wanted \
             and _nnapi_guard_stale(_nnapi_guard_path(_mdir)):
         print("[!] NNAPI: اجرایِ قبل با NNAPI به یک کراپِ کامل نرسید "
-              "(کرشِ احتمالی) → این اجرا بدونِ NNAPI — حذفِ "
-              ".ep_nnapi_last یا آپدیتِ اپ = تستِ دوباره", flush=True)
+              "(کرشِ احتمالی) → این اجرا بدونِ NNAPI — تستِ دوباره: "
+              "«فقط NNAPI» را از پنلِ اپ انتخاب کن (یا .ep_nnapi_last "
+              "را حذف کن / اپ را آپدیت کن)", flush=True)
         _wanted = [w for w in _wanted
                    if w != "NnapiExecutionProvider"]
         if not _wanted:
