@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.167"
+APP_VER = "1.14.168"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3480,7 +3480,8 @@ def _plite_banned(bdir, key):
         if not os.path.isfile(p):
             return False
         try:
-            _old = (open(p, "r", encoding="utf-8").read() or "").strip()
+            with open(p, "r", encoding="utf-8") as _f:
+                _old = (_f.read() or "").strip()
         except Exception:
             _old = ""
         if _old and _old != key:
@@ -3577,7 +3578,8 @@ def _plite_probe_ensure(pdir, det_path, rec_path):
     _cachef = os.path.join(pdir, ".plite_probe.json")
     try:
         if os.path.isfile(_cachef):
-            _c = _json.loads(open(_cachef, "r", encoding="utf-8").read() or "{}")
+            with open(_cachef, "r", encoding="utf-8") as _f:
+                _c = _json.loads(_f.read() or "{}")
             if _c.get("key") == _key:
                 return bool(_c.get("ok")), str(_c.get("ms") or "")
     except Exception:
@@ -3585,8 +3587,8 @@ def _plite_probe_ensure(pdir, det_path, rec_path):
     with _PLITE_PROBE_LOCK:
         try:
             if os.path.isfile(_cachef):
-                _c = _json.loads(
-                    open(_cachef, "r", encoding="utf-8").read() or "{}")
+                with open(_cachef, "r", encoding="utf-8") as _f:
+                    _c = _json.loads(_f.read() or "{}")
                 if _c.get("key") == _key:
                     return bool(_c.get("ok")), str(_c.get("ms") or "")
         except Exception:
@@ -3605,7 +3607,8 @@ def _plite_probe_run(pdir, det_path, rec_path):
     _cachef = os.path.join(pdir, ".plite_probe.json")
     try:
         if os.path.isfile(_cachef):
-            _c = _json.loads(open(_cachef, "r", encoding="utf-8").read() or "{}")
+            with open(_cachef, "r", encoding="utf-8") as _f:
+                _c = _json.loads(_f.read() or "{}")
             if _c.get("key") == _key:
                 return bool(_c.get("ok")), str(_c.get("ms") or "")
     except Exception:
@@ -3686,9 +3689,15 @@ class _PLOCR_LiteRunner:
     def run(self, arr):
         _x = np.ascontiguousarray(arr, dtype="<f4")
         _b = _x.tobytes()
-        fb = self._bridge.predict(self.path, [int(v) for v in _x.shape],
-                                  _b, self.threads, self.power,
-                                  self.pool_max)
+        try:
+            fb = self._bridge.predict(self.path, [int(v) for v in _x.shape],
+                                      _b, self.threads, self.power,
+                                      self.pool_max)
+        except TypeError as e:
+            # v1.14.168 — پلِ قدیمیِ APK (۵آرگومان) → پیامِ روشن بهجایِ
+            # خطایِ مبهمِ Chaquopy
+            raise RuntimeError("پلِ قدیمی — APKِ جدید لازم است ("
+                               + str(e)[:80] + ")")
         if not fb:
             raise RuntimeError("PaddleLite predict returns null")
         out = np.frombuffer(fb, dtype="<f4")
@@ -3696,6 +3705,27 @@ class _PLOCR_LiteRunner:
         if shp:
             out = out.reshape([int(v) for v in shp])
         return np.array(out, dtype=np.float32)
+
+
+def _plite_bridge_selftest(runner):
+    """سلف‌تستِ پلِ PaddleLiteBridge با یک detِ ریزِ ۶۴×۶۴ (v1.14.168).
+
+    لاگِ واقعیِ گوشی: «predict takes 5 arguments (6 given)» — APKِ
+    نصب‌شده پلِ قدیمیِ 1.14.166 را دارد (۵آرگومانیِ float[] با خروجیِ
+    FloatBuffer) و manga.pyِ بهروزشده ۶آرگومان (byte[] + poolMax)
+    میفرستد. پلِ قدیمی از پایتون قابلِ استفاده نیست (FloatBuffer
+    پروتکلِ بافرِ پایتون را نمیدهد) → همین‌جا شکستِ صریح تا فالبکِ
+    خودکارِ PP-OCRv6 ONNX فعال شود — نه خطایِ تکراریِ سرِ هر کراپ.
+    با APKِ جدیدِ ساختهشده از همین نسخه، سلف‌تست پاس میشود و پدل با
+    استخرِ predictor کار میکند. TypeError = پلِ قدیمی."""
+    try:
+        out = runner.run(np.zeros((1, 3, 64, 64), dtype=np.float32))
+    except TypeError as e:
+        raise RuntimeError(
+            "پلِ PaddleLiteBridge در APKِ نصب‌شده قدیمی است "
+            "(فیکس با بهروزرسانیِ APK؛ فعلاً ONNX): " + str(e)[:90])
+    if not (isinstance(out, np.ndarray) and out.size > 0):
+        raise RuntimeError("سلف‌تستِ پلِ Paddle-Lite: خروجیِ نامعتبر")
 
 
 class PliteCropOCR:
@@ -3741,6 +3771,9 @@ class PliteCropOCR:
                                             pool_max=self.pool_max)
         self.rec_runner = _PLOCR_LiteRunner(_rec, threads=2,
                                             pool_max=self.pool_max)
+        # v1.14.168 — سلف‌تستِ پل: APKِ قدیمی (۵آرگومان/FloatBuffer) =
+        # شکستِ صریح در ساخت → فالبکِ خودکارِ ONNX (نه خطایِ هر کراپ)
+        _plite_bridge_selftest(self.det_runner)
         # v1.14.166 — dict از همان پوشهای خوانده میشود که دانلود شد
         # (باگِ قدیمی: از rapidocr_models میخواند و برایِ ja/ko خالی بود)
         _df = os.path.join(_pdir, _PLITE_DICT[self.lang])
