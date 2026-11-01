@@ -203,6 +203,53 @@ _EP_PROBE_VER = "v156.1"
 _EP_PLAN_CACHE = {"key": None, "plan": (None, {})}
 _EP_NOTE_156 = False
 
+# v1.14.174 — تستِ NNAPI بدونِ env (رویِ APK متغیرِ محیطی دستِ کاربر نیست —
+# گلایهٔ سازنده: «میگم nnapi بزار تست بزنم Xnnpack میزاری جاش؟»):
+#   • فایلِ «nnapi.txt» کنارِ فایلهایِ مدل (0 بایت) = اجازهٔ تستِ NNAPI
+#     (تورنمنتِ NNAPI+XNNPACK با گیتِ پروبِ پروسهٔ جدا).
+#   • نشانِ «.ep_nnapi_last» = «اجرایِ NNAPI شروع شد ولی به یک کراپِ
+#     کاملِ سالم نرسید» (کرشِ نیتیوِ اینفرنسِ واقعی که پروب نمیبیند)
+#     → اجرایِ بعدِ CPU — حلقهٔ کرش نمیسازد. اولین کراپِ سالم (پوشِ
+#     ocr) نشان را پاک میکند؛ NNAPIِ سالم همیشه میماند.
+_LAUNCH_TOKEN = "%d:%.6f" % (os.getpid(), __import__("time").time())
+_NNAPI_ACTIVE = False
+_NNAPI_GUARD = None
+_NNAPI_HINT = False
+
+
+def _nnapi_switch_path(mdir: str) -> str:
+    return os.path.join(mdir, "nnapi.txt")
+
+
+def _nnapi_guard_path(mdir: str) -> str:
+    return os.path.join(mdir, ".ep_nnapi_last")
+
+
+def _nnapi_guard_write(gpath: str) -> None:
+    """نوشتنِ نشان با شناسهٔ همین اجرا — پروسهٔ همین اجرا خودش را
+    میشناسد (موتورِ دومِ همان اجرا فالبکِ اشتباه نمیخورد)."""
+    global _NNAPI_GUARD
+    try:
+        with open(gpath, "w", encoding="utf-8") as _f:
+            _f.write(_LAUNCH_TOKEN)
+        _NNAPI_GUARD = gpath
+    except Exception:
+        _NNAPI_GUARD = None
+
+
+def _nnapi_guard_clear() -> None:
+    """اولین کراپِ کاملِ سالم با NNAPI → نشانِ کرش پاک (NNAPI میماند)."""
+    global _NNAPI_ACTIVE, _NNAPI_GUARD
+    if not _NNAPI_ACTIVE:
+        return
+    _NNAPI_ACTIVE = False
+    if _NNAPI_GUARD:
+        try:
+            os.remove(_NNAPI_GUARD)
+        except Exception:
+            pass
+        _NNAPI_GUARD = None
+
 
 def _ep_flag_path(mdir: str) -> str:
     return os.path.join(mdir, ".ep_probe.json")
@@ -306,10 +353,12 @@ def _start_ep_probe_service(det_path, rec_path, ep_short, out_path, threads):
 
 
 def _ep_probe_timeout() -> float:
+    # v1.14.174 — 90→180: بارِ اولِ بعد از آپدیت پروبِ 90 ثانیهایِ 1.14.173
+    # تایم‌اوت خورد (لاگِ گوشی: «Xnnpack=timeout») — سقفِ پیشفرض دوبرابر.
     try:
-        return float(os.environ.get("MANGA_EP_PROBE_TIMEOUT", "90") or 90)
+        return float(os.environ.get("MANGA_EP_PROBE_TIMEOUT", "180") or 180)
     except Exception:
-        return 90.0
+        return 180.0
 
 
 def _ep_gate_ensure(mdir, det_path, rec_path, wanted, threads):
@@ -389,12 +438,17 @@ def _ep_plan(det_path: str, rec_path: str):
     MANGA_MOBILE_OCR_EP: cpu | xnnpack | nnapi | auto (پیشفرض) —
     v1.14.173: auto/پیشفرض = فقط XNNPACK (NNAPI از انتخابِ خودکار حذف
     شد — پروبِ OK میگرفت ولی در اینفرنسِ واقعی کرشِ نیتیو میداد)؛
-    تستِ NNAPI فقط با مقدارِ صریحِ nnapi.
+    v1.14.174: تستِ NNAPI از «داخلِ اپ» هم ممکن شد (env رویِ APK دستِ
+    کاربر نیست): فایلِ «nnapi.txt» کنارِ فایلهایِ مدل = تورنمنتِ
+    NNAPI+XNNPACK با گیتِ پروبِ پروسهٔ جدا + نشانِ کرشِ .ep_nnapi_last
+    (کرشِ اینفرنسِ واقعی که پروب نمیبیند → اجرایِ بعدِ CPU — بدونِ
+    حلقهٔ کرش؛ اولین کراپِ سالم نشان را پاک میکند).
     MANGA_EP_NO_PROBE=1 فقط برایِ توسعه (EP خام، خطرِ کرش به عهدهٔ
     گیرنده). خروجی: (ep_name|None, opts) — None = CPU خالص."""
-    global _EP_PLAN_CACHE
+    global _EP_PLAN_CACHE, _NNAPI_HINT, _NNAPI_ACTIVE
     try:
-        _e = str(os.environ.get("MANGA_MOBILE_OCR_EP", "") or "")             .strip().lower()
+        _e = str(os.environ.get("MANGA_MOBILE_OCR_EP", "") or "") \
+            .strip().lower()
     except Exception:
         _e = ""
     if _e == "cpu":
@@ -406,6 +460,8 @@ def _ep_plan(det_path: str, rec_path: str):
         if "XnnpackExecutionProvider" in _avail_eps():
             return "XnnpackExecutionProvider", {}
         return None, {}
+    _mdir = os.path.dirname(det_path) or "."
+    _switch = os.path.isfile(_nnapi_switch_path(_mdir))
     if _e == "nnapi":
         # v1.14.173 — تستِ صریحِ NNAPI (دستورِ سازنده: «nnapi میخوام
         # تست کنم نه xnnpack»). پروبِ پروسهٔ جدا هنوز گیت است ولی کرشِ
@@ -415,16 +471,32 @@ def _ep_plan(det_path: str, rec_path: str):
         # _Sess._open سرِ جایش است.
         try:
             print("[⚡] تستِ NNAPI (MANGA_MOBILE_OCR_EP=nnapi) — "
-                  "اگر کرش کرد: MANGA_MOBILE_OCR_EP=cpu", flush=True)
+                  "اگر کرش کند اجرایِ بعدِ خودکار CPU میشود", flush=True)
         except Exception:
             pass
         _wanted = ["NnapiExecutionProvider"]
+    elif _switch:
+        # v1.14.174 — همان تستِ NNAPI ولی از داخلِ اپ: فایلِ صفرِ
+        # «nnapi.txt» کنارِ فایلهایِ مدل. تورنمنتِ NNAPI+XNNPACK:
+        # NNAPIِ سالمِ سریعتر برنده؛ پروبِ NNAPI شکست خورد → فالبکِ
+        # XNNPACK (CPUِ خالی نمیماند).
+        if not _NNAPI_HINT:
+            print("[⚡] تستِ NNAPI (فایلِ nnapi.txt) — پروبِ پروسهٔ جدا؛ "
+                  "اگر اجرا کرش کند اجرایِ بعدِ خودکار CPU میشود "
+                  "(حذفِ nnapi.txt = بازگشتِ به پیشفرض)", flush=True)
+            _NNAPI_HINT = True
+        _wanted = ["NnapiExecutionProvider", "XnnpackExecutionProvider"]
     elif _e in ("", "auto", "xnnpack,nnapi", "nnapi,xnnpack", "xnnpack"):
         # v1.14.173 — پیشفرض فقط XNNPACK: در 1.14.172 تورنمنتِ auto
         # NNAPI را برندهٔ پروب میکرد (ms=3969) ولی در اینفرنسِ واقعیِ
         # پروسهٔ اصلی کرشِ نیتیو میداد («سریعتر شد ولی کرش کرد — فعلا
-        # رو همون بیاد») → NNAPI از انتخابِ خودکار حذف شد؛ فقط با
-        # MANGA_MOBILE_OCR_EP=nnapi (تستِ صریح) به کار میرود.
+        # رو همون بیاد») → NNAPI فقط با nnapi.txt یا
+        # MANGA_MOBILE_OCR_EP=nnapi به کار میرود.
+        if not _NNAPI_HINT:
+            print("[*] NNAPI خاموش — برایِ تست: فایلِ «nnapi.txt» را "
+                  "کنارِ فایلهایِ مدل بسازید (0 بایت کافی است)",
+                  flush=True)
+            _NNAPI_HINT = True
         _wanted = ["XnnpackExecutionProvider"]
     else:
         _wanted = ["XnnpackExecutionProvider"]
@@ -434,7 +506,6 @@ def _ep_plan(det_path: str, rec_path: str):
     _key = _probe_key([det_path, rec_path])
     if _EP_PLAN_CACHE.get("key") == _key:
         return _EP_PLAN_CACHE["plan"]
-    _mdir = os.path.dirname(det_path) or "."
     _res = _ep_gate_ensure(_mdir, det_path, rec_path, _wanted,
                            _xnn_threads())
     _winner, _wt = None, None
@@ -465,6 +536,25 @@ def _ep_plan(det_path: str, rec_path: str):
               + " تأیید شد "
               "(پروبِ پروسهٔ جدا؛ "
               "ms=" + ("%.0f" % _wt) + ")")
+        if _winner == "NnapiExecutionProvider":
+            # v1.14.174 — نشانِ «شروعِ اجرایِ NNAPI»: تا اولین کراپِ
+            # کاملِ سالم زنده میماند؛ کرشِ نیتیوِ مسیرِ واقعی (که پروبِ
+            # پروسهٔ جدا نمیبیند) → فایل میماند → اجرایِ بعدی CPU.
+            _gp = _nnapi_guard_path(_mdir)
+            try:
+                with open(_gp, "r", encoding="utf-8") as _f:
+                    _prev = (_f.read() or "").strip()
+            except Exception:
+                _prev = ""
+            if _prev and _prev != _LAUNCH_TOKEN:
+                print("[!] NNAPI: اجرایِ قبل با NNAPI به یک کراپِ کامل "
+                      "نرسید (کرشِ احتمالی) → این اجرا CPU — برایِ "
+                      "تستِ دوباره فایلِ .ep_nnapi_last را حذف کنید",
+                      flush=True)
+                _plan = (None, {})
+            else:
+                _nnapi_guard_write(_gp)
+                _NNAPI_ACTIVE = True
     _EP_PLAN_CACHE = {"key": _key, "plan": _plan}
     return _plan
 
@@ -950,6 +1040,16 @@ class RapidOcrMobile:
 
     def ocr(self, image_bgr: np.ndarray, crop_mode: bool = False,
             det_cap=None):
+        """v1.14.174 — پوشِ نقطهٔ ورود: یک کراپِ کامل که بدونِ کرش تا
+        نتیجه برسد → نشانِ «کرشِ احتمالیِ NNAPI» (.ep_nnapi_last) پاک
+        میشود؛ NNAPIِ سالم همیشه میماند. خودِ نردبان = _ocr_k3
+        (عینِ ocrِ قبلی — بیت‌به‌بیت)."""
+        _r = self._ocr_k3(image_bgr, crop_mode=crop_mode, det_cap=det_cap)
+        _nnapi_guard_clear()
+        return _r
+
+    def _ocr_k3(self, image_bgr: np.ndarray, crop_mode: bool = False,
+                det_cap=None):
         """v1.14.157 — نردبانِ K3 رویِ هر کراپ: برشِ کوچک اول با نسخهٔ
         ارتقایافته (×۲+unsharp تا سقفِ det_cap)؛ اطمینانِ <0.80 یا خالی
         → یک تلاشِ ارتقایافتهٔ دیگر؛ برنده = خطِ بیشتر/اطمینانِ بالاتر.

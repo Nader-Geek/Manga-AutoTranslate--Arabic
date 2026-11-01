@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """چکِ رگرسیونِ v1.14.173 — DEBUGِ سبزِ detector رویِ همان DEBUGِ صفحه +
-NNAPI فقط با تستِ صریح:
+NNAPI فقط با تستِ صریح (v1.14.174: گیتِ NNAPI به فایلِ nnapi.txt بهروز شد):
 
 درخواستِ سازنده: «عکس جدا نشون نده رو همون عکس اصلی دیباگ بزاره با یک
 رنگ دیگ سبز نشون بده» + «استخراج کنده هنوز تو گوشی ولی EP=Nnapi وقتی
@@ -98,10 +98,17 @@ for n in ast.walk(rtree):
 if epf is None:
     fail("_ep_plan در rapidocr_mobile نیست")
 ep_src = ast.get_source_segment(rsrc, epf) or ""
-# پیشفرض/auto نباید NNAPI را در تورنمنت بیاورد
-if re.search(r'_wanted\s*=\s*\[\s*"XnnpackExecutionProvider"\s*,\s*'
-             r'"NnapiExecutionProvider"\s*\]', ep_src):
-    fail("تورنمنتِ auto هنوز NNAPI را میآورد")
+# v1.14.174 — NNAPI دیگر حذف نیست ولی باید «فقط» پشتِ فایلِ nnapi.txt
+# بیاید (env رویِ APK دستِ کاربر نیست)؛ مسیرِ پیشفرض همچنان XNNPACK-only
+_i_sw = ep_src.find("nnapi.txt")
+_i_both = ep_src.find('_wanted = ["NnapiExecutionProvider", '
+                      '"XnnpackExecutionProvider"]')
+if _i_sw < 0 or _i_both < 0 or _i_sw > _i_both:
+    fail("تورنمنتِ NNAPI+XNNPACK باید پشتِ گیتِ فایلِ nnapi.txt باشد")
+if "elif _switch:" not in ep_src or "_nnapi_switch_path(_mdir)" not in ep_src:
+    fail("گیتِ فایلِ nnapi.txt در _ep_plan نیست")
+if ".ep_nnapi_last" not in rsrc:
+    fail("نشانِ کرشِ .ep_nnapi_last نیست")
 # شاخهٔ تستِ صریحِ nnapi
 if '_e == "nnapi"' not in ep_src or \
         '_wanted = ["NnapiExecutionProvider"]' not in ep_src:
@@ -118,7 +125,7 @@ for s in ("_x86_machine()", "MANGA_EP_NO_PROBE", "_ep_gate_ensure(",
           "return None, {}"):
     if s not in ep_src:
         fail(f"گیتِ _ep_plan شکسته است: {s!r}")
-ok("EP: پیشفرض فقط XNNPACK — NNAPI فقط با MANGA_MOBILE_OCR_EP=nnapi")
+ok("EP: پیشفرض فقط XNNPACK — NNAPI با فایلِ nnapi.txt یا MANGA_MOBILE_OCR_EP=nnapi")
 
 # ۳) نردبانِ K3 و لامبداِ 172 سرِ جایش
 lad = cls.get("K3LadderOCR")
