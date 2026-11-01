@@ -21,7 +21,7 @@
    PC از نردبان/گیرده عبور نمیکند.
 ۴) CI: img6.jpg + گیتِ کلمهٔ «attraction» در android-emulator.yml و
    check_mlkit.py.
-۵) نسخهٔ 176/1.14.171.
+۵) نسخه — APP_VER↔versionName (مستقل از شماره — الگویِ 1.14.170).
 ۶) تستِ منطقیِ نردبان با موتورهایِ فیک (پلهٔ ۱/۲/۳/تمامصفحه/مپِ باکس/هیچ).
 """
 import ast
@@ -49,13 +49,16 @@ tree = ast.parse(src)
 cls = {n.name: n for n in tree.body if isinstance(n, ast.ClassDef)}
 topfns = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
 
-# ۰) نسخه
-if 'APP_VER = "1.14.171"' not in src:
-    fail("APP_VER ≠ 1.14.171")
-_ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-if "versionCode=176" not in _ver or "versionName=1.14.171" not in _ver:
-    fail("VERSION ≠ 176/1.14.171")
-ok("نسخه 176/1.14.171")
+# ۰) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شماره — الگویِ 1.14.170)
+_m = re.search(r'^APP_VER = "([\d.]+)"', src, re.M)
+_vn = re.search(r"versionName=([\d.]+)",
+                io.open(os.path.join(ROOT, "VERSION"),
+                        encoding="utf-8").read())
+if not _m or not _vn:
+    fail("APP_VER/VERSION ناقص است")
+if _m.group(1) != _vn.group(1):
+    fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
+ok(f"نسخه {_m.group(1)} (APP_VER↔versionName)")
 
 # ۱) نردبانِ K3 — کلاس/آستانهها/فقط-کراپ
 lad = cls.get("K3LadderOCR")
@@ -81,9 +84,13 @@ if not ime:
     fail("_init_mobile_engine پیدا نشد")
 ime_src = ime.group(0)
 for s in ("K3LadderOCR(", "_build_mobile_onnx(", "_k3_ladder_on()",
-          "MANGA_ANDROID_OCR", "small=(True if _emu171 else s)"):
+          "MANGA_ANDROID_OCR", "small=(True if _emu171 else small)"):
     if s not in ime_src:
         fail(f"_init_mobile_engine ناقص است: {s!r}")
+# v1.14.172 — لامبداِ خرابِ قدیمی (پارامترِ s) نبود — نردبان با کلیدواژه
+# صدا میزند و «lambda s:» ارورِ «unexpected keyword argument 'small'» میداد
+if re.search(r"lambda s: self\._build_mobile_onnx", ime_src):
+    fail("لامبداِ خرابِ قدیمی (lambda s:) هنوز در _init_mobile_engine هست")
 bmo = re.search(r"def _build_mobile_onnx.*?(?=\n    def |\n    @)",
                 rb_src, re.S)
 if not bmo:
@@ -257,11 +264,12 @@ lad6 = _mk_ladder(None, None, None)
 assert lad6.ocr(img, crop_mode=True) is None
 ok("T6 هر سه پله خالی → None بدونِ کرش")
 
-# T7 — فیکِ _build_mobile_onnx: امضایِ لامبدا در wiring
-sig = re.search(r"lambda s: self\._build_mobile_onnx\(\s*lang, "
-                r"small=\(True if _emu171 else s\)\)", src)
-assert sig, "لامبداِ wiring امضایِ درست ندارد"
-ok("T7 امضایِ build_onnx (شبیهساز = مجموعهٔ سبک برایِ هر دو پله)")
+# T7 — فیکِ _build_mobile_onnx: امضایِ لامبدا در wiring (v1.14.172 —
+# پارامتر باید «small» باشد تا فراخوانیِ کلیدواژهایِ نردبان کار کند)
+sig = re.search(r"lambda small: self\._build_mobile_onnx\(\s*lang, "
+                r"small=\(True if _emu171 else small\)\)", src)
+assert sig, "لامبداِ wiring امضایِ درست ندارد (باید lambda small: باشد)"
+ok("T7 امضایِ build_onnx (کلیدواژهایِ small + شبیهساز = مجموعهٔ سبک)")
 
 # T8 — PC/لینوکس: گیتِ گیردهِ دیوار خاموش است → helper = دیلیشنِ خالص
 # (دستورِ سازنده: «نباید استخراجِ پاکسازیِ پی سی لینوکس دست بزنی»)

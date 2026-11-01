@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.171"
+APP_VER = "1.14.172"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3758,6 +3758,11 @@ _MLKIT_STATE = {"obj": None, "lang": None, "dead": False, "note": False}
 _MLKIT_BUILD_LOCK = threading.Lock()
 # سنجهٔ سرعتِ واقعیِ ML Kit رویِ گوشی (دستور: «سریع هم باشه»)
 _MLKIT_STATS = {"ms": 0.0, "n": 0, "lines": 0}
+# v1.14.172 — نامِ صفحهٔ جاری برایِ DEBUGِ جداگانهٔ detector (thread-local:
+# صفحاتِ موازی هر کدام نامِ خودشان را میبینند). درخواستِ سازنده:
+# «detector-v4-s_int8.onnx جدا نشون بده تو عکس ببینم detector نتونسته
+# استخراج کنه یا ocr» — عکسِ <صفحه>_det.jpg کنارِ <صفحه>_debug.jpg.
+_DET_TLS = threading.local()
 
 
 def _mlkit_stats_note(t0, nlines):
@@ -4103,10 +4108,20 @@ class RapidOCRBackend:
                 if _k3_ladder_on():
                     try:
                         _emu171 = _android_x86_emulator()
+                        # v1.14.172 — فیکسِ ارورِ لاگِ گوشی «<lambda>() got an
+                        # unexpected keyword argument 'small'»: نردبانِ K3
+                        # فکتوری را با کلیدواژه صدا میزند (_build_onnx(
+                        # small=True/False)) پس پارامترِ لامبدا باید «small"
+                        # باشد نه «s» — وگرنه پلهٔ ۲ (پدل) و پلهٔ ۳ (رپید)
+                        # هیچوقت رویِ گوشی ساخته نمیشدند و نردبان عملاً به
+                        # فقط-ML Kit فرومیکاشت (لاگ: پدل=0 رپید=0). تستهایِ
+                        # منطقیِ 171 نمیتوانستند بگیرند چون فیکِشان def
+                        # build(small) داشت؛ حالا check_v114172 با builderِ
+                        # فقط-کلیدواژهای میگیرد.
                         self._mobile = K3LadderOCR(
                             _pb, lang,
-                            lambda s: self._build_mobile_onnx(
-                                lang, small=(True if _emu171 else s)))
+                            lambda small: self._build_mobile_onnx(
+                                lang, small=(True if _emu171 else small)))
                         print("[+] OCR گوشی: نردبانِ K3 — پلهٔ ۱ ML Kit رویِ "
                               "کراپِ تقویتشده | پوششِ جوهر <70٪ → پلهٔ ۲ پدل | "
                               "اطمینان <80٪ → پلهٔ ۳ رپید | فقط سطحِ کراپ")
@@ -23046,6 +23061,42 @@ class MangaTranslator:
                 out.append(r)
         return out
 
+    def _save_det_debug(self, image: np.ndarray, boxes: List[dict]) -> None:
+        """v1.14.172 — DEBUGِ جداگانهٔ detector-v4-s (درخواستِ سازنده:
+        «detector جدا نشون بده تو عکس ببینم detector نتونسته استخراج کنه
+        یا ocr»): باکسهایِ **خامِ** detector (قبلِ حذفِ تودرتو/جداکردنِ
+        حبابهایِ چسبیده/OCR) با شماره و کلاس رویِ **کپیِ** صفحه کشیده و
+        کنارِ DEBUGِ صفحه ذخیره میشود: <صفحه>_det.jpg در debug<tag>.
+        سبز = باکسِ خامِ detector، برچسبِ قرمز = شماره + کلاس.
+        فقط debug=True — هیچ اثری رویِ استخراج/پاکسازی (PC و اندروید):
+        تصویرِ اصلی دست نمیخورد و فقط یک فایلِ اضافه نوشته میشود."""
+        try:
+            _dir = getattr(self, "_dbg_cache_dir", None)
+            if not _dir or image is None or getattr(image, "size", 0) == 0:
+                return
+            vis = image.copy()
+            for _i, _b in enumerate(boxes or []):
+                try:
+                    _x1, _y1, _x2, _y2 = [int(v) for v in _b["rect"][:4]]
+                    cv2.rectangle(vis, (_x1, _y1), (_x2, _y2),
+                                  (0, 255, 0), 3)
+                    _lab = f"{_i:02d} {str(_b.get('class_name') or '')}".strip()
+                    cv2.putText(vis, _lab, (_x1 + 4, _y1 + 26),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                                (0, 0, 255), 2, cv2.LINE_AA)
+                except Exception:
+                    continue
+            _tag = getattr(self, "_dbg_cache_tag", "") or ""
+            _dd = os.path.join(_dir, "debug" + _tag)
+            os.makedirs(_dd, exist_ok=True)
+            _base = str(getattr(_DET_TLS, "base", "") or "page")
+            _p = os.path.join(_dd, f"{_base}_det.jpg")
+            self._write_image(vis, _p)
+            print(f"    [*] DEBUGِ detector ذخیره شد: {_p} "
+                  f"({len(boxes or [])} باکسِ خامِ detector-v4-s)")
+        except Exception:
+            pass
+
     def _extract_regions_from_bubbles(self, image: np.ndarray) -> List[TextRegion]:
 
         if self.det is None:
@@ -23054,6 +23105,13 @@ class MangaTranslator:
         if not boxes:
             return []
         n0 = len(boxes)
+        # v1.14.172 — عکسِ جداگانهٔ detector با باکسهایِ خام (قبلِ هر
+        # فیلتری) تا معلوم شود متنِ جامانده مقصرِ detector است یا OCR.
+        if self.debug:
+            try:
+                self._save_det_debug(image, boxes)
+            except Exception:
+                pass
         boxes = self._drop_contained_boxes(boxes, contain_thresh=0.72)
         if len(boxes) < n0 and self.debug:
             print(f"    [*] {n0 - len(boxes)} باکس تودرتو/تکراری حذف شد (از {n0})")
@@ -26192,6 +26250,9 @@ html, body { background: #0a0a0b; }
         src_dir = os.path.join(cache_dir, "src")
 
         cache_tag = "_safe_v3" if (self.stitch_max_height > 0 or getattr(self, "repair_page_seams", True)) else ""
+        # v1.14.172 — مقصدِ DEBUGِ جداگانهٔ detector (<صفحه>_det.jpg)
+        self._dbg_cache_dir = cache_dir
+        self._dbg_cache_tag = cache_tag
         out_dir = os.path.join(cache_dir, "out" + cache_tag)
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
@@ -26570,6 +26631,8 @@ html, body { background: #0a0a0b; }
                 if image is None:
                     raise ValueError(f"تصویر قابل خواندن نیست: {f}")
                 basename = os.path.basename(f)
+                # v1.14.172 — نامِ صفحه برایِ DEBUGِ جداگانهٔ detector
+                _DET_TLS.base = os.path.splitext(basename)[0]
                 if self._is_mostly_blank(image):
                     print(f"[!] رد شد (صفحه خالی): {basename}")
                     return page_i, out_file, None, None, None
