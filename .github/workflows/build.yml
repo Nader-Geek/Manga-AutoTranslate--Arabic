@@ -44,9 +44,6 @@ jobs:
           python3 android/scripts/fetch_vendor.py --check || \
             python3 android/scripts/fetch_vendor.py
 
-      - name: Fetch Paddle-Lite jar + native libs (v2.14-rc)
-        run: python3 android/scripts/fetch_paddle.py
-
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 

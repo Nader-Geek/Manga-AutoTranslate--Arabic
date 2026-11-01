@@ -967,3 +967,24 @@
 **۴) بنچمارکِ سرعتِ PC (scripts/bench_speed.py + .github/workflows/pc-speed-test.yml):** اسکریپت: گرم‌کردنِ اولین تصویر (کشِ مدلها بیرونِ تایم) → رانِ تایم‌شدهٔ کاملِ همهٔ تصاویر با `--fake-translate --clean-method lama-manga` → پارسِ خطهای `[TIME]` → گزارشِ JSON + Markdown + لاگِ کامل. ورک‌فلو: ubuntu-latest (PC لینوکس)، Python 3.11، نمونههای ریپو (ci_imgs/examples) + دانلودِ best-effortِ ۶ لینکِ CDNِ کاربر (GED 001/011، 012_p1، 412e9e، 890fb1، imgsrv5 ch264-9) با چکِ خواناییِ cv2؛ trigger = dispatch + push (manga.py) + هفتگی؛ خروجی = step summary + آرتیفکتِ گزارش/لاگ/خروجی. سندباکسِ ضعیفِ ۲ هستهای به‌عنوان دود: کلِ GED (کاور + استریپِ 14905px → ۳ نوار) شروع‌تاپایین = **۱۹۰s** (استخراجِ هر نوار ~۴۰-۵۲s؛ LaMaِ خوشهایِ نوارِ 8860px = 9.8s برای ۷ خوشه).
 
 **تست:** py_compile manga/manga_app/app_server/bridge ✓؛ تستِ ایزولهٔ استیچ (خوشهٔ عرض + برشِ امن + فلش) ✓؛ یونیتِ کلاس‌بندیِ ۲۳ موردی ✓؛ رانِ کاملِ PC روی GED 001+011 (قبل/بعدِ فیکسِ promo — بعد: بلوکِ THE WEBTOON ترجمه/پاکسازی شد، چشمی ✓)؛ اسموکِ bench_speed ✓ (۳۶.۸s کاور، گزارش JSON/MD).
+
+
+## v1.14.163 — برشِ امن = فقط detector-v4-s + حذفِ کاملِ سبکِ «استخراج و پاکسازی»ٔ گوشی + استخراجِ detector-first
+
+**درخواستِ سازنده (۳ حرفِ اصلی):** «۱) بجایِ استفاده از ocr واسهٔ پیدا کردنِ برشِ امن از detector-v4-s_int8.onnx استفاده کنی؛ برشِ امن کارش اینه همهٔ عکس‌ها رو یکی میکنه، عکس‌هایِ نزدیک رو یک اندازه میکنه (عرض) — مثال: 700/800/900=800، 1700/1800/1900=1800 — بعد وسطِ ۷۵۰۰ تا ۸۰۰۰ِ طولش برش بزنی جایی که متن نباشه؛ متن نباید برش بخوره. ۲) سبکِ استخراج و پاکسازی رو گوشی کامل حذف کنی؛ مالِ PC/لینوکس استفاده کنه. ۳) استخراجِ متن هم رو PC/لینوکس/اندروید اینجوری باشه: اول detector-v4-s مکان‌هایِ متن رو پیدا کنه، بعد فقط همون قسمت‌ها استخراج بشه؛ جای دیگه پیگیر نشه.»
+
+**۱) برشِ امن = فقط detector-v4-s (هر سه پلتفرم یکسان):**
+- `_find_safe_cut_y` (هوریستیکِ سطرخالی+Canny) و `_row_ink_profile` کلاً حذف شدند؛ `_find_safe_cut_y_smart` حالا خودِ تشخیصِ detector-v4-s است: باکسهایِ متن در پنجرهٔ پروب پیدا میشوند، با edge_margin دورشان میشوند و کاندیدهایِ برش = وسطِ فاصله‌هایِ بی‌متن + «اگر خودِ نقطهٔ هدف بی‌متن بود همان‌جا برش» (وسطِ باند اولویتِ اول).
+- باندِ برش = «[work_h−500، work_h]» → با هدفِ پیشفرضِ ۸۰۰۰ یعنی دقیقاً ۷۵۰۰–۸۰۰۰ و target=وسطِ باند (۷۷۵۰). فالبک: نزدیکترین جایِ بی‌متنِ بعد از باند (هرگز کوتاه‌تر از ۷۵۰۰، هرگز رویِ متن) — نوار بی‌نهایت رشد نمیکند و متن هرگز برش نمیخورد.
+- همهٔ مسیرهایِ ML Kit از برشِ امن حذف شدند: عبورِ «det=None» رویِ اندروید (v1.14.162)، مرزِ صفحهٔ اول، پیش‌تشخیصِ دوطرفهٔ `_pre_detect_page`، پنجره‌هایِ اسکنِ `_scan_window` — همگی فقط detector-v4-s. بدونِ detector → خطایِ شفاف («برش امن به detector-v4-s نیاز دارد…») نه برشِ کور.
+
+**۲) حذفِ کاملِ سبکِ «استخراج و پاکسازی»ٔ گوشی (~۴۹۰۰ خط):**
+- حذفشده‌ها: کاسکادِ K3 (پلهٔ Paddle-Lite: `_PLITE_NB/_PLITE_DICT/PliteCropOCR/_plite_*/_PLOCR_LiteRunner/پروبِ :pliteprobe`)، کلاسِ `MlKitBackend` و `_mlkit_guide`، `_mobile_banded_ocr`، و کلِ ماشینِ کاسکادِ استخراج (`_mlkit_page_lines/_mlkit_crop_fill/_mlkit_fill_thin_boxes/_mlkit_gap_rescue/_mlkit_split_cross_lines/_mlkit_ingap_fill/_cascade_page_ocr/_page_assign_lines/_page_leftover_cands/_merge_same_bubble_blocks/_split_mlkit_block_cands/_post_split_fill/_mlkit_retire_bridges/_split_multiblock_regions/_text_block_groups/_mlkit_minconf/_mlkit_ink_coverage`)، مسیرِ فالبکِ OCRِ تمامصفحه (`_process_chunk_worker/detect_text/_clahe_enhance/_mlkit_row_deficit`).
+- اندروید: `MlKitBridge.kt/PaddleLiteBridge.kt/PliteProbeService.kt` حذف؛ سرویسِ `:pliteprobe` از مانیفست و وابستگیهایِ mlkit + `PaddlePredictor.jar` از build.gradle برداشته شد؛ گامِ CI «Fetch Paddle-Lite jar» از هر دو ورک‌فلو حذف و `android/scripts/fetch_paddle.py` پاک شد. `ocr_engine=mlkit` در تنظیمات به rapidocr میرود (سازگاری).
+- OCRِ گوشی = PP-OCRv6 ONNX (RapidOCRBackend) — فقط رویِ کراپها با crop_mode=true.
+
+**۳) استخراجِ متنِ detector-first (PC/لینوکس/اندروید یکسان):**
+- `_extract_regions_from_bubbles` (بازنویسیِ ~۱۰۵ خطی): detector-v4-s باکسها را میدهد → حذفِ باکسِ تودرتو → جداکردنِ حبابهایِ چسبیده → OCR فقط رویِ همان کراپها (با block_rects تا حبابِ مجاور جذب نشود؛ موازی فقط برای RapidOCR) → نجاتِ OCRِ اجزایِ خالیِ حبابِ شکسته فقط داخلِ باکسِ کاملِ همان حباب.
+- فالبکِ «حبابی پیدا نشد → OCRِ تمامصفحه» حذف شد = «جای دیگ پیگیر نشه»: بدونِ باکسِ detector، هیچ OCRی اجرا نمیشود و فقط لاگِ «detector-v4-s در دسترس نیست → ناحیهٔ متنی پیدا نشد». جارویِ بنر/SFX (پاکسازیِ PC) سرِ جایش است — opt-in با --clean-sfx و رویِ گوشی پیشفرض خاموش.
+
+**تست:** ۱۴ چکِ PASS با detectorِ تقلیدیِ محتوامحور: برشِ وسطِ باندِ ۷۵۰۰–۸۰۰۰ ✓؛ فرارِ برش از متنِ داخلِ باند ✓؛ باندِ پُر از متن → فالبکِ بعد از باند بدونِ برشِ متن ✓؛ مرزِ صفحهٔ اول (عبور/عدمِ عبورِ متن) ✓؛ det=None → هیچ برشِ کور ✓؛ رانِ کاملِ استیچ (۶ صفحهٔ ۲۲۰۰px → نوارهایِ ۷۹۲۶/۵۲۷۴، هیچ نواری داخلِ متن شروع/تمام نشد) ✓؛ عرض 700→800 و 1900→1800 ✓؛ استخراج = هر OCR فقط داخلِ باکسِ detector ✓؛ صفحهٔ بی‌باکس = صفرِ فراخوانیِ OCR ✓. py_compileِ همهٔ پایتونها + YAMLِ دو ورک‌فلو ✓. VERSION: 168/1.14.163.

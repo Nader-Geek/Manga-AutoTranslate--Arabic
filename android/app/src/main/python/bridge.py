@@ -880,13 +880,16 @@ def _run(job):
         shutil.rmtree(job["live_dbg"], ignore_errors=True)
         os.environ["MANGA_LIVE_DEBUG_DIR"] = job["live_dbg"]
         langs = [x for x in str(p.get("ocr_lang") or "en").split() if x.strip()]
-        # v1.14.150 — انتخابِ موتورِ استخراج از تنظیماتِ اپ؛ پیشفرضِ
-        # پایتون: استخراجِ متن = PP-OCRv6 ONNX + برشِ امن = ML Kit →
-        # MANGA_ANDROID_OCR = rapidocr | mlkit
+        # v1.14.163 — سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
+        # فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا
+        # میکند و OCR (PP-OCRv6 ONNX) فقط رویِ همان کراپها اجرا میشود.
+        # انتخابِ قدیمیِ mlkit → rapidocr نگه داشته میشود (سازگاریِ تنظیمات)
         try:
             _oe = str(p.get("ocr_engine") or "").strip().lower()
-            if _oe and _oe not in ("mlkit", "rapidocr"):
-                _log(job, "[!] موتورِ «%s» ناشناخته است → پیشفرض (PP-OCRv6 ONNX)" % _oe)
+            if _oe == "mlkit":
+                _oe = "rapidocr"
+            if _oe and _oe != "rapidocr":
+                _log(job, "[!] موتورِ «%s» ناشناخته است → پیشفرض (PP-OCRv6 ONNX رویِ کراپهایِ detector-v4-s)" % _oe)
                 _oe = ""
             if _oe:
                 os.environ["MANGA_ANDROID_OCR"] = _oe

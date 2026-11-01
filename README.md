@@ -124,7 +124,7 @@ python manga_app.py -- -i input -o out.psd --font fonts/Vazirmatn-Bold.ttf --api
 
 - دانلود APK از [Releases](https://github.com/amirwolf512k/Manga-AutoTranslate/releases/tag/android) — یا بیلد از سورس با Gradle / GitHub Actions
 - راهنمای کامل نصب، بیلد و رفع مشکل: [`android/README.md`](android/README.md)
-- OCR روی گوشی با ML Kit (اگر نبود RapidOCR)؛ فونت‌ها و مدل‌ها بار اول خودکار دانلود می‌شوند
+- OCR روی گوشی = PP-OCRv6 ONNX فقط رویِ کراپهایِ detector-v4-s (سبکِ PC)؛ فونت‌ها و مدل‌ها بار اول خودکار دانلود می‌شوند
 
 ---
 
@@ -208,12 +208,12 @@ python manga_app.py -- -i input -o out.psd --font fonts/Vazirmatn-Bold.ttf --api
 
 | محیط | رانر | شتاب |
 |---|---|---|
-| اندروید (arm64) | Paddle-Lite | **OpenCL گوشی (GPU) + CPU همزمان** |
+| اندروید (arm64) | PP-OCRv6 ONNX (رویِ کراپهایِ detector-v4-s) | CPU چندنخی + سشن‌هایِ مشترک |
 | PC لینوکس/ویندوز/شبیه‌ساز | ONNX Runtime | CUDA/DML/OpenVINO + CPU همزمان |
 
 - زبان‌ها: `en` | `ko` | `ja` | `zh` (مدل مخصوص هر زبان خودکار دانلود می‌شود؛ dict از مدل خوانده می‌شود).
 - تست سریع روی PC: `python3 manga.py --ocr-test examples/01.jpg --ocr-lang en`
-- انتخاب موتور در اندروید: کلید `ocr_engine` در تنظیمات اپ = `paddlelite` (پیش‌فرض) | `mlkit` | `rapidocr` — روی PC با env `MANGA_OCR_BACKEND=paddlelite`.
+- استخراجِ متن (همهٔ پلتفرم‌ها): اول `detector-v4-s_int8.onnx` مکان‌هایِ متن را پیدا می‌کند و OCR فقط رویِ همان کراپ‌ها اجرا می‌شود؛ سبکِ قدیمیِ «استخراج و پاکسازی»ٔ گوشی (کاسکاد/ML Kit/Paddle-Lite) حذف شده است.
 - **dual-device** (پیش‌فرض خودکار): وقتی GPU واقعاً در دسترس باشد، پچ‌های پاکسازی و برش‌های rec بین GPU و CPU می‌چرخند → سرعت بیشتر. با `MANGA_DUAL_DEVICE=0` خاموش می‌شود. روی سیستم CPU-خالص هیچ تغییری نمی‌کند (خروجی بیت‌به‌بیت همان قبل).
 
 ---

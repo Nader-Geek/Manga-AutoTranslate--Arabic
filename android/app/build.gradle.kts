@@ -92,13 +92,9 @@ dependencies {
     // sess.run تقسیم‌برصفر (SIGFPE) می‌دهد → CI با 1.28 بیلد می‌کند
     // (APIِ جاوایِ shim با 1.28 هم سازگار است؛ گوشی همان 1.31 را می‌گیرد)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:${(findProperty("ortVer") as String?) ?: "1.31.0"}")
-    // v1.14.158 — بازگشتِ پلهٔ Paddle-Lite به کاسکادِ K3 (دستورِ سازندهٔ K3)
-    // jarِ API + libpaddle_lite_jni.so (هر دو ABI) + مدلهایِ nbِ فقط-CPU.
-    implementation(files("libs/PaddlePredictor.jar"))
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
-    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
-    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    // v1.14.163 — ML Kit و Paddle-Lite کلاً حذف شدند (دستورِ سازنده:
+    // «سبکِ استخراج و پاکسازی رو گوشی کامل حذف کنی») — استخراجِ متنِ
+    // گوشی = detector-v4-s + PP-OCRv6 ONNX (عینِ PC)
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")

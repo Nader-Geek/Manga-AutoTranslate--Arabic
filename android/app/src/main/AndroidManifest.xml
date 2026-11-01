@@ -46,11 +46,6 @@
             android:name=".EpProbeService"
             android:exported="false"
             android:process=":epprobe" />
-        <!-- v1.14.158 - prob e Paddle-Lite dar proseye joda: sigfalte ehtemali faghat in prose ra mikoshad; app-e asli dast-nakhorde mimanad va pale-ye padel ban mishavad -->
-        <service
-            android:name=".PliteProbeService"
-            android:exported="false"
-            android:process=":pliteprobe" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
