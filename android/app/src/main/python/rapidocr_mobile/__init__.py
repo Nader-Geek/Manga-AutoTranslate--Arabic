@@ -586,8 +586,8 @@ def _ep_plan(det_path: str, rec_path: str):
             and _nnapi_guard_stale(_nnapi_guard_path(_mdir)):
         print("[!] NNAPI: اجرایِ قبل با NNAPI به یک کراپِ کامل نرسید "
               "(کرشِ احتمالی) → این اجرا بدونِ NNAPI — تستِ دوباره: "
-              "«فقط NNAPI» را از پنلِ اپ انتخاب کن (یا .ep_nnapi_last "
-              "را حذف کن / اپ را آپدیت کن)", flush=True)
+              "«تستِ سرعت» را از پنلِ اپ اجرا کن (پنجرهٔ NNAPI خودش "
+              "نشان را پاک میکند؛ یا .ep_nnapi_last را حذف کن)", flush=True)
         _wanted = [w for w in _wanted
                    if w != "NnapiExecutionProvider"]
         if not _wanted:

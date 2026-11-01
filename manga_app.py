@@ -2316,39 +2316,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         # پنج کلید روی موتورِ OCRِ گوشی؛ پیشفرضِ هر کلید = رفتارِ فعلی،
         # یعنی اگر چیزی را تغییر نداده باشید هیچ چیزی عوض نمیشود. بعد از هر
         # کار، «گزارشِ سرعت» در لاگ زنده می‌آید تا مقایسه کنید.
-        with gr.Accordion("🧪 آزمایشگاه سرعت استخراج (هر روش را امتحان کن — کدام سریع‌تر است؟)", open=False):
-            ocr_ep = gr.Dropdown(
-                choices=[["auto", "خودکار — تورنمنت NNAPI+XNNPACK (پیشفرض)"],
-                         ["nnapi", "فقط NNAPI (شتاب سخت‌افزاری)"],
-                         ["xnnpack", "فقط XNNPACK (پردازنده)"],
-                         ["cpu", "بدون شتاب‌دهنده — CPU خالص"]],
-                value=str(cfg.get("ocr_ep", "auto")),
-                label="شتاب‌دهندهِ OCR",
-                info="خودکار: NNAPI و XNNPACK در پروسهِ جدا آزمایش می‌شوند و سالمِ سریع‌تر برنده است. بعد از یک کرش، اجرای بعد بدون NNAPI می‌شود. «فقط NNAPI» را انتخاب کنی = تستِ دوبارهٔ NNAPI (نشانِ کرشِ کهنه پاک میشود).")
-            ocr_ladder = gr.Dropdown(
-                choices=[["full", "کامل: ML Kit ← پدل ← رپید (پیشفرض — دقیق‌تر)"],
-                         ["fast", "سریع: ML Kit ← رپید (مدل سنگینِ پدل حذف)"],
-                         ["mlkit", "فقط ML Kit (سریع‌ترین — کیفیت کمتر)"],
-                         ["rapid", "فقط رپید (مدل سبکِ PP-OCR روی همهِ کراپ‌ها)"],
-                         ["paddle", "فقط پدل (مدل سنگینِ PP-OCR روی همهِ کراپ‌ها)"]],
-                value=str(cfg.get("ocr_ladder", "full")),
-                label="روش استخراج متن",
-                info="کندی اصلی از مدلِ سنگینِ «پدل» است — «سریع» یا «فقط ML Kit» را امتحان کنید و گزارشِ سرعتِ آخرِ لاگ را مقایسه کنید.")
-            ocr_threads = _safe(gr.Slider, 0, 8, value=int(cfg.get("ocr_threads", 0)),
-                                step=1, label="نخ‌های OCR (0 = خودکار)",
-                                info="گوشی 8 هسته‌ای: 8 یا 6 را هم امتحان کنید. ورکرهای موازی را هم در «تنظیمات پیشرفته» دارید.")
-            ocr_detcap = gr.Dropdown(
-                choices=[["640", "640 — سریع‌تر"],
-                         ["960", "960 — پیشفرض"],
-                         ["1280", "1280 — دقیق‌تر و کندتر"]],
-                value=str(cfg.get("ocr_detcap", "960")),
-                label="سقف اندازهِ کراپ برای OCR",
-                info="کراپ‌های بزرگ‌تر = تشخیص بهتر ولی کندتر. 640 را برای سرعت امتحان کنید.")
-            ocr_boost = gr.Checkbox(
-                label="بزرگ‌نمایی کراپ‌های ریز (کیفیت بهتر، کمی کندتر)",
-                value=bool(cfg.get("ocr_boost", True)),
-                info="خاموش کنید اگر سرعت مهم‌تر است — متن‌های ریز ممکن است ضعیف‌تر خوانده شوند.")
-
+        # v1.14.178 — دستورِ سازنده پس از دو باگِ زنجیرهٔ پنل (176/177):
+        # «حذفش کن — یک دکمه بذار فعال کردم همه حالت تست کنه، تایم
+        # بگیره یک دقیقه هرکدومشون، بعد ببینم کدومش سریعه». پس سوییچها
+        # حذف شدند؛ فقط یک کلید «تستِ سرعت» مانده که همهٔ حالتها را
+        # خودش تست میکند و برنده را در speed_test.json ذخیره میکند.
+        with gr.Accordion("⚡ تستِ سرعتِ استخراج (سریعترین حالت را خودش پیدا میکند)", open=False):
+            ocr_speedtest = gr.Checkbox(
+                label="⚡ تستِ سرعت — ۵ روش + ۳ شتاب‌دهنده، هرکدام ۶۰ ثانیه",
+                value=False,
+                info="روشن کن و کار را شروع کن: حالتهایِ full/fast/mlkit/rapid/paddle و cpu/xnnpack/nnapi پشتِ سرهم تست میشوند (≈۸ دقیقه — ترجمه انجام نمیشود)، جدولِ سرعت در لاگ میآید و سریعترین ذخیره میشود؛ از کارِ بعد خودکار با همان کار میکند و کلید خودکار خاموش میشود. مخصوصِ اپِ گوشی (نردبانِ K3). سوییچهایِ دستیِ نسخههایِ قبل حذف شدند.")
         # v1.14.33: سیوِ فرم در «مرورگر وب» ۳۰ دقیقه می‌ماند (خواستهٔ کاربر).
         # در پنجرهٔ دسکتاپ (?desktop=1) و اپ اندروید (UA مخصوص) ذخیره دائمی است.
         SESSION_TTL = 30 * 60
@@ -3262,7 +3239,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             clean_method_v, two_pass_v,
                             fake_test_v, clean_only_v, web_debug_v, prompt_mode_v, prompt_body_v,
                             glossary_text_v, story_brief_v, api_base_v,
-                            ocr_ep_v, ocr_ladder_v, ocr_threads_v, ocr_detcap_v, ocr_boost_v,
+                            ocr_speedtest_v,
                             *tone_args):
             _t_prep68 = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
             sid = (sid or sid_box_v or "").strip()
@@ -3500,39 +3477,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             _env = os.environ.copy()
             _env["PYTHONUNBUFFERED"] = "1"
             _env["PYTHONIOENCODING"] = "utf-8"
-            # v1.14.177 — باگِ 176: پنلِ «آزمایشگاهِ سرعت» رویِ PC هم
-            # نمایش داده میشد ولی مقادیرش به زیرپروسهِ manga.py نمیرسید.
-            # حالا همان معناشناسیِ speed_lab_env: پیشفرض = حذفِ env
-            # (رفتارِ بیت‌به‌بیتِ قبل)؛ نامعتبر = فالبکِ امن.
-            _lab_ep = str(ocr_ep_v or "auto").strip().lower()
-            if _lab_ep in ("nnapi", "xnnpack", "cpu"):
-                _env["MANGA_MOBILE_OCR_EP"] = _lab_ep
+            # v1.14.178 — سوییچهایِ آزمایشگاه حذف شدند؛ فقط دکمهٔ «تستِ
+            # سرعت». برندهٔ تست در speed_test.json ذخیره میشود و خودِ
+            # manga.py (speed_lab_env در main) آن را اعمال میکند.
+            if ocr_speedtest_v in (True, "true", "True", 1, "1"):
+                _env["MANGA_SPEED_TEST"] = "1"
             else:
-                _env.pop("MANGA_MOBILE_OCR_EP", None)
-            _lab_lad = str(ocr_ladder_v or "full").strip().lower()
-            if _lab_lad in ("fast", "mlkit", "rapid", "paddle"):
-                _env["MANGA_K3_MODE"] = _lab_lad
-            else:
-                _env.pop("MANGA_K3_MODE", None)
-            try:
-                _lab_th = max(0, min(8, int(float(ocr_threads_v or 0))))
-            except Exception:
-                _lab_th = 0
-            if _lab_th > 0:
-                _env["MANGA_OCR_THREADS"] = str(_lab_th)
-                _env["MANGA_XNN_THREADS"] = str(_lab_th)
-            else:
-                _env.pop("MANGA_OCR_THREADS", None)
-                _env.pop("MANGA_XNN_THREADS", None)
-            _lab_cap = str(ocr_detcap_v or "960").strip()
-            if _lab_cap in ("640", "1280"):
-                _env["MANGA_CROP_DET_CAP"] = _lab_cap
-            else:
-                _env.pop("MANGA_CROP_DET_CAP", None)
-            if ocr_boost_v:
-                _env.pop("MANGA_CROP_ENH_SCALE", None)
-            else:
-                _env["MANGA_CROP_ENH_SCALE"] = "1.0"
+                _env.pop("MANGA_SPEED_TEST", None)
             _env["MANGA_LIVE_DIR"] = live_dir
             if _dbg_on:
                 _env["MANGA_LIVE_DEBUG_DIR"] = live_dbg_dir
@@ -3604,7 +3555,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     clean_method, two_pass,
                     fake_test, clean_only, web_debug, prompt_mode, prompt_preview_body,
                     glossary_text, story_brief, api_base,
-                    ocr_ep, ocr_ladder, ocr_threads, ocr_detcap, ocr_boost] + tone_uploads + tone_enables,
+                    ocr_speedtest] + tone_uploads + tone_enables,
             outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
                      dl_btn_debug, btn_view_debug, debug_row, html_debug_state],
             concurrency_limit=8,
@@ -3633,12 +3584,27 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
         try:
-            run_btn.click(run_translation, show_progress="hidden", **_click_kw)
-        except TypeError:
+            _ev178 = None
             try:
-                run_btn.click(run_translation, show_progress=False, **_click_kw)
+                _ev178 = run_btn.click(run_translation,
+                                       show_progress="hidden", **_click_kw)
             except TypeError:
-                run_btn.click(run_translation, **_click_kw)
+                try:
+                    _ev178 = run_btn.click(run_translation,
+                                           show_progress=False,
+                                           **_click_kw)
+                except TypeError:
+                    _ev178 = run_btn.click(run_translation, **_click_kw)
+            # v1.14.178 — کلیدِ «تستِ سرعت» یک‌بارمصرف است: بعد از پایانِ
+            # هر کار خودکار خاموش میشود تا کارِ بعدی ترجمهٔ عادی باشد.
+            try:
+                _ev178.then(fn=lambda _v178b: gr.update(value=False),
+                            inputs=[ocr_speedtest],
+                            outputs=[ocr_speedtest])
+            except Exception:
+                pass
+        except Exception:
+            pass
 
         _save_inputs = [
             session_id, sid_box, inp_path, provider, api_keys, model, out_fmt, quality,

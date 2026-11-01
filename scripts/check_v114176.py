@@ -22,6 +22,7 @@ import ast
 import importlib.util
 import io
 import os
+import json
 import re
 import sys
 import time
@@ -83,9 +84,9 @@ for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle")',
           '_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle")',
           'os.environ["MANGA_K3_MODE"]',
           'os.environ.pop("MANGA_K3_MODE", None)',
-          'os.environ["MANGA_CROP_ENH_SCALE"] = "1.0"',
-          'os.environ.pop("MANGA_MOBILE_OCR_EP", None)',
-          'os.environ["MANGA_XNN_THREADS"] = str(_th)'):
+          '_SPEED_TEST_FILE = "speed_test.json"',
+          'def speed_test_run(',
+          'speed_test_load()'):
     if s not in src:
         fail(f"گیتِ manga.py نیست: {s!r}")
 ok("manga.py: نردبانِ ۵حالته + speed_lab_env + _k3_speed_report")
@@ -113,55 +114,32 @@ for s in mf["sections"]:
         FLDS[f["id"]] = f
 SEC = None
 for s in mf["sections"]:
-    if any(f["id"] == "ocr_ep" for f in s["fields"]):
+    if any(f["id"] == "ocr_speedtest" for f in s["fields"]):
         SEC = s
 if SEC is None:
-    fail("بخشِ «آزمایشگاه سرعت» در فرمِ گوشی استخراج نشد")
-if "آزمایشگاه سرعت" not in SEC["title"]:
-    fail(f"عنوانِ بخشِ سرعت خراب است: {SEC['title']}")
+    fail("بخشِ تستِ سرعت در فرمِ گوشی استخراج نشد")
+_oldk = [k for k in ("ocr_ep", "ocr_ladder", "ocr_threads",
+                     "ocr_detcap", "ocr_boost") if k in FLDS]
+if _oldk:
+    fail("سوییچهایِ کهنه هنوز در فرمِ گوشی هستند: %s" % _oldk)
+if "ocr_speedtest" not in FLDS:
+    fail("ocr_speedtest در فرمِ گوشی نیست")
+if FLDS.get("ocr_speedtest", {}).get("type") != "bool":
+    fail("ocr_speedtest باید bool باشد")
+_d = FLDS["ocr_speedtest"].get("default")
+_d = _d.get("default") if isinstance(_d, dict) else _d
+if _d is not False:
+    fail("پیشفرضِ ocr_speedtest باید خاموش باشد")
+ok("فرمِ گوشی: فقط دکمهٔ «تستِ سرعت» — سوییچها حذف شدند (استخراجِ واقعی)")
 
-
-def _dflt(fid):
-    d = (FLDS.get(fid) or {}).get("default")
-    if isinstance(d, dict):
-        return d.get("default")
-    return d
-
-
-if FLDS.get("ocr_ep", {}).get("type") != "select":
-    fail("ocr_ep باید select باشد")
-if [c[0] for c in FLDS["ocr_ep"]["choices"]] != \
-        ["auto", "nnapi", "xnnpack", "cpu"]:
-    fail("گزینههایِ ocr_ep خراب است")
-if _dflt("ocr_ep") != "auto":
-    fail("پیشفرضِ ocr_ep باید auto باشد")
-if [c[0] for c in FLDS["ocr_ladder"]["choices"]] != \
-        ["full", "fast", "mlkit", "rapid", "paddle"]:
-    fail("گزینههایِ ocr_ladder خراب است")
-if _dflt("ocr_ladder") != "full":
-    fail("پیشفرضِ ocr_ladder باید full باشد")
-if FLDS.get("ocr_threads", {}).get("type") != "slider":
-    fail("ocr_threads باید slider باشد")
-if (FLDS["ocr_threads"].get("min"), FLDS["ocr_threads"].get("max")) != (0, 8):
-    fail("بازهٔ ocr_threads باید 0..8 باشد")
-if _dflt("ocr_threads") != 0:
-    fail("پیشفرضِ ocr_threads باید 0 (خودکار) باشد")
-if [c[0] for c in FLDS["ocr_detcap"]["choices"]] != ["640", "960", "1280"]:
-    fail("گزینههایِ ocr_detcap خراب است")
-if _dflt("ocr_detcap") != "960":
-    fail("پیشفرضِ ocr_detcap باید 960 باشد")
-if FLDS.get("ocr_boost", {}).get("type") != "bool":
-    fail("ocr_boost باید bool باشد")
-if _dflt("ocr_boost") is not True:
-    fail("پیشفرضِ ocr_boost باید روشن باشد")
-ok("فرمِ گوشی: ۵ کلیدِ آزمایشگاه با نوع/گزینه/پیشفرضِ درست (استخراجِ واقعی)")
-
-# ۵) تستِ عملی — AST-استخراجِ کلاسِ نردبان + توابعِ آزمایشگاه از manga.py
 tree = ast.parse(src)
 _NEEDED = {"K3LadderOCR", "_k3_boost_crop", "_k3_map_boxes",
            "_k3_ink_coverage", "_k3_best_conf", "_k3_stats_note",
-           "speed_lab_env", "_k3_speed_report"}
-_CONSTS = {"_K3_STATS", "_MLKIT_STATS", "_SPEED_LAB_EP", "_SPEED_LAB_LADDER"}
+           "speed_lab_env", "_k3_speed_report",
+           "speed_test_load", "_speed_test_path",
+           "_speed_test_save"}
+_CONSTS = {"_K3_STATS", "_MLKIT_STATS", "_SPEED_LAB_EP",
+           "_SPEED_LAB_LADDER", "_SPEED_TEST_FILE"}
 _nodes = []
 for n in tree.body:
     if isinstance(n, ast.ClassDef) and n.name == "K3LadderOCR":
@@ -180,7 +158,7 @@ for n in _nodes:
         _got.add(n.name)
 if _got != _NEEDED:
     fail(f"AST-استخراج ناقص: کم است {_NEEDED - _got}")
-ns = {"os": os, "time": time, "cv2": cv2, "np": np}
+ns = {"os": os, "time": time, "cv2": cv2, "np": np, "json": json}
 exec(compile(ast.Module(body=_nodes, type_ignores=[]), "<chk176>", "exec"),
      ns)
 speed_lab_env = ns["speed_lab_env"]
@@ -190,23 +168,46 @@ K3LadderOCR = ns["K3LadderOCR"]
 # ── ۵الف) speed_lab_env — ۶ سناریو ──
 
 
+import json  # noqa: E402
+import tempfile  # noqa: E402
+
+_tmpdir = tempfile.mkdtemp(prefix="chk176_")
+os.environ["MANGA_FILES_DIR"] = _tmpdir
+_STF = os.path.join(_tmpdir, "speed_test.json")
+
+
+def _st_write(d):
+    io.open(_STF, "w", encoding="utf-8").write(json.dumps(d))
+
+
+def _st_del():
+    try:
+        os.remove(_STF)
+    except OSError:
+        pass
+
+
 def _env_pop(*ks):
     for k in ks:
         os.environ.pop(k, None)
 
 
-def sc_env(name, params, checks):
+def sc_env(name, data, checks):
+    """قراردادِ v1.14.178 — برندهٔ speed_test.json → env + خطِ لاگ."""
     _env_pop("MANGA_MOBILE_OCR_EP", "MANGA_K3_MODE", "MANGA_OCR_THREADS",
-             "MANGA_XNN_THREADS", "MANGA_CROP_DET_CAP",
-             "MANGA_CROP_ENH_SCALE")
-    line = speed_lab_env(params) or ""
+             "MANGA_XNN_THREADS", "MANGA_CROP_DET_CAP", "MANGA_CROP_ENH_SCALE")
+    if data is None:
+        _st_del()
+    else:
+        _st_write(data)
+    line = speed_lab_env({}) or ""
     for desc, fn in checks:
         if not fn():
             fail(f"{name}: {desc}")
     return line
 
 
-sc_env("E1 پیشفرض", {}, [
+sc_env("E1 بدونِ نتیجه", None, [
     ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
     ("نردبان پاک", lambda: "MANGA_K3_MODE" not in os.environ),
     ("نخ پاک", lambda: "MANGA_OCR_THREADS" not in os.environ),
@@ -214,51 +215,57 @@ sc_env("E1 پیشفرض", {}, [
     ("بزرگنمایی پاک", lambda: "MANGA_CROP_ENH_SCALE" not in os.environ),
 ])
 _l1 = speed_lab_env({})
-for frag in ("auto", "full", "خودکار", "روشن"):
+for frag in ("پیشفرض", "full", "auto", "تستِ سرعت"):
     if frag not in _l1:
         fail(f"E1 خطِ لاگ باید {frag!r} داشته باشد: {_l1}")
-ok("E1 پیشفرض = بیت‌به‌بیتِ رفتارِ قبل + خطِ لاگِ کامل")
+ok("E1 بدونِ نتیجه = پیشفرض (full|auto) + پاکسازیِ کلیدهایِ کهنه")
 
-sc_env("E2 nnapi+fast", {"ocr_ep": "nnapi", "ocr_ladder": "fast"}, [
-    ("EP=nnapi", lambda: os.environ.get("MANGA_MOBILE_OCR_EP") == "nnapi"),
-    ("MODE=fast", lambda: os.environ.get("MANGA_K3_MODE") == "fast"),
+sc_env("E2 برندهٔ fast+nnapi",
+       {"ladder": "fast", "ep": "nnapi", "ladder_ms": {"fast": 123}},
+       [("EP=nnapi", lambda: os.environ.get("MANGA_MOBILE_OCR_EP") == "nnapi"),
+        ("MODE=fast", lambda: os.environ.get("MANGA_K3_MODE") == "fast")])
+_l2 = speed_lab_env({})
+for frag in ("برندهٔ", "fast", "nnapi", "123ms"):
+    if frag not in _l2:
+        fail(f"E2 خطِ برنده باید {frag!r} داشته باشد: {_l2}")
+ok("E2 برندهٔ فایل → env + خطِ برنده")
+
+sc_env("E3 برندهٔ full+auto", {"ladder": "full", "ep": "auto"}, [
+    ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
+    ("نردبان پاک", lambda: "MANGA_K3_MODE" not in os.environ),
 ])
-ok("E2 شتابدهنده/روشِ صریح → env")
+ok("E3 full/auto = پاکسازیِ env (بیت‌به‌بیتِ پیشفرض)")
 
-sc_env("E3 نخِ 8", {"ocr_threads": 8}, [
-    ("OCR_THREADS=8", lambda: os.environ.get("MANGA_OCR_THREADS") == "8"),
-    ("XNN_THREADS=8", lambda: os.environ.get("MANGA_XNN_THREADS") == "8"),
-])
-sc_env("E4 سقفِ 640 + بدونِ بزرگنمایی",
-       {"ocr_detcap": "640", "ocr_boost": False}, [
-           ("CAP=640", lambda: os.environ.get("MANGA_CROP_DET_CAP") == "640"),
-           ("ENH_SCALE=1.0",
-            lambda: os.environ.get("MANGA_CROP_ENH_SCALE") == "1.0"),
-       ])
-ok("E3/E4 نخ و سقف و بزرگنمایی → env")
-
-_l5 = sc_env("E5 نامعتبر", {"ocr_ep": "weird", "ocr_ladder": "nope",
-                            "ocr_detcap": "999", "ocr_threads": 99}, [
+sc_env("E4 نامعتبر", {"ladder": "weird", "ep": "nope"}, [
     ("EP→پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
     ("MODE→پاک", lambda: "MANGA_K3_MODE" not in os.environ),
-    ("نخ→8 (clamp)",
-     lambda: os.environ.get("MANGA_OCR_THREADS") == "8"),
-    ("سقف→پاک", lambda: "MANGA_CROP_DET_CAP" not in os.environ),
 ])
-if "auto" not in _l5 or "full" not in _l5:
-    fail(f"E5 خطِ لاگ باید مقدارِ اصلاحشده را نشان دهد: {_l5}")
-ok("E5 مقدارهایِ نامعتبر → فالبکِ امن")
+ok("E4 مقدارهایِ نامعتبر → فالبکِ امن (full|auto)")
 
+# E5 کلیدهایِ کهنهٔ سوییچهایِ 176/177 نباید زنده بمانند
+os.environ["MANGA_OCR_THREADS"] = "8"
+os.environ["MANGA_XNN_THREADS"] = "8"
+os.environ["MANGA_CROP_DET_CAP"] = "640"
+os.environ["MANGA_CROP_ENH_SCALE"] = "1.0"
+_st_del()
+speed_lab_env({})
+for _k in ("MANGA_OCR_THREADS", "MANGA_XNN_THREADS",
+           "MANGA_CROP_DET_CAP", "MANGA_CROP_ENH_SCALE"):
+    if _k in os.environ:
+        fail(f"E5 کلیدِ کهنهٔ {_k} پاک نشد")
+ok("E5 کلیدهایِ کهنهٔ سوییچها پاک میشوند")
+
+# E6 ریستِ سنجهها
 ns["_K3_STATS"].update({"n": 7, "ms": 7000.0, "st1": 3, "st2": 2, "st3": 2})
 ns["_MLKIT_STATS"].update({"ms": 3000.0, "n": 6, "lines": 9})
+_st_del()
 speed_lab_env({})
 if ns["_K3_STATS"]["n"] != 0 or ns["_MLKIT_STATS"]["n"] != 0:
     fail("E6 سنجهها باید بینِ کارها ریست شوند")
 ok("E6 ریستِ سنجههایِ سرعت بینِ کارها")
 
 # ── ۵ب) _k3_speed_report ──
-if k3_report() != "":
-    fail("گزارش با سنجهٔ صفر باید خالی باشد")
+if k3_report() != "":    fail("گزارش با سنجهٔ صفر باید خالی باشد")
 ns["_K3_STATS"].update({"n": 40, "ms": 800000.0, "st1": 20, "st2": 15,
                         "st3": 5})
 _r = k3_report()

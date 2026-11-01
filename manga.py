@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.177"
+APP_VER = "1.14.178"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3827,52 +3827,51 @@ _SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle")
 
 
 def speed_lab_env(p: dict) -> str:
-    """اعمالِ تنظیمهایِ «آزمایشگاهِ سرعت» (از اپ) رویِ envهایِ OCRِ گوشی
-    + ریستِ سنجههایِ سرعت برایِ گزارشِ همین اجرا. خروجی: خطِ لاگ.
-    فقط کلیدهایِ جدید خوانده میشوند؛ پیشفرض = بیت‌به‌بیتِ رفتارِ قبل."""
+    """v1.14.178 — تنظیمِ موتورِ OCRِ گوشی از نتیجهٔ ذخیرهشدهٔ
+    «تستِ سرعت» (speed_test.json) — نه از پنل.
+
+    تاریخچه: 1.14.176 سوییچهایِ پنل (ocr_ep/ocr_ladder/ocr_threads/
+    ocr_detcap/ocr_boost) را آورد ولی زنجیرهٔ پنل→پایتون دو بار شکست
+    (176 و 177) و سازنده گفت: «حذفش کن — یک دکمه بذار خودش همه را
+    تست کنه». حالا پنل فقط یک دکمهٔ «تستِ سرعت» دارد؛ برندهٔ تست در
+    speed_test.json ذخیره میشود و همین تابع آن را رویِ envهایِ موتور
+    اعمال میکند. بدونِ نتیجه = پیشفرض (full | auto) — بیت‌به‌بیتِ
+    قبلِ 176. پارامترِ p دیگر خوانده نمیشود (سازگاریِ امضا با bridge)."""
     try:
-        _ep = str((p or {}).get("ocr_ep") or "auto").strip().lower()
-        if _ep not in _SPEED_LAB_EP:
-            _ep = "auto"
-        if _ep == "auto":
+        # کلیدهایِ قدیمیِ سوییچها هرگز از این نسخه ست نمیشوند — پاککاری
+        # برایِ اینکه envِ ماندهٔ پروسههایِ قدیمی اثر نگذارد.
+        for _k in ("MANGA_OCR_THREADS", "MANGA_XNN_THREADS",
+                   "MANGA_CROP_DET_CAP", "MANGA_CROP_ENH_SCALE"):
+            os.environ.pop(_k, None)
+
+        _w = speed_test_load()
+        if _w:
+            _ep = str(_w.get("ep") or "auto").strip().lower()
+            if _ep not in _SPEED_LAB_EP:
+                _ep = "auto"
+            if _ep == "auto":
+                os.environ.pop("MANGA_MOBILE_OCR_EP", None)
+            else:
+                os.environ["MANGA_MOBILE_OCR_EP"] = _ep
+            _lad = str(_w.get("ladder") or "full").strip().lower()
+            if _lad not in _SPEED_LAB_LADDER:
+                _lad = "full"
+            if _lad == "full":
+                os.environ.pop("MANGA_K3_MODE", None)
+            else:
+                os.environ["MANGA_K3_MODE"] = _lad
+            _ms_l = ""
+            try:
+                _lm = _w.get("ladder_ms") or {}
+                if _lm.get(_lad):
+                    _ms_l = " (%.0fms/کراپ — تستِ %s)" % (float(_lm[_lad]),
+                                                        str(_w.get("ts") or "?"))
+            except Exception:
+                _ms_l = ""
+        else:
+            _ep, _lad = "auto", "full"
             os.environ.pop("MANGA_MOBILE_OCR_EP", None)
-        else:
-            os.environ["MANGA_MOBILE_OCR_EP"] = _ep
-
-        _lad = str((p or {}).get("ocr_ladder") or "full").strip().lower()
-        if _lad not in _SPEED_LAB_LADDER:
-            _lad = "full"
-        if _lad == "full":
             os.environ.pop("MANGA_K3_MODE", None)
-        else:
-            os.environ["MANGA_K3_MODE"] = _lad
-
-        try:
-            _th = int(float((p or {}).get("ocr_threads") or 0))
-        except Exception:
-            _th = 0
-        _th = max(0, min(8, _th))
-        if _th > 0:
-            os.environ["MANGA_OCR_THREADS"] = str(_th)
-            os.environ["MANGA_XNN_THREADS"] = str(_th)
-        else:
-            os.environ.pop("MANGA_OCR_THREADS", None)
-            os.environ.pop("MANGA_XNN_THREADS", None)
-
-        _cap = str((p or {}).get("ocr_detcap") or "960").strip()
-        if _cap not in ("640", "960", "1280"):
-            _cap = "960"
-        if _cap == "960":
-            os.environ.pop("MANGA_CROP_DET_CAP", None)
-        else:
-            os.environ["MANGA_CROP_DET_CAP"] = _cap
-
-        _boost = (p or {}).get("ocr_boost")
-        _boost = True if _boost is None else bool(_boost)
-        if _boost:
-            os.environ.pop("MANGA_CROP_ENH_SCALE", None)
-        else:
-            os.environ["MANGA_CROP_ENH_SCALE"] = "1.0"
 
         # سنجههایِ سرعت = مالِ «این اجرا» — بینِ کارها ریست
         for _k in ("n", "ms", "st1", "st2", "st3"):
@@ -3880,14 +3879,325 @@ def speed_lab_env(p: dict) -> str:
         for _k in ("ms", "n", "lines"):
             _MLKIT_STATS[_k] = 0 if _k != "ms" else 0.0
 
-        _th_l = str(_th) if _th > 0 else "خودکار"
-        _cap_l = _cap if _cap != "960" else "960 (پیشفرض)"
-        return ("[🧪] آزمایشگاهِ سرعت: شتاب‌دهنده=%s | روشِ استخراج=%s | "
-                "نخ=%s | سقفِ کراپ=%s | بزرگنماییِ کراپ=%s"
-                % (_ep, _lad, _th_l, _cap_l,
-                   "روشن" if _boost else "خاموش"))
+        if _w:
+            return ("[⚡] تنظیمِ برندهٔ «تستِ سرعت»: روشِ %s + شتاب‌دهندهٔ %s%s"
+                    % (_lad, _ep, _ms_l))
+        return ("[⚡] روشِ استخراج: پیشفرض (full | شتاب‌دهندهٔ auto) — "
+                "سریعترین حالت را «تستِ سرعت» خودش پیدا میکند: پنل ← "
+                "⚡ تستِ سرعت (هر حالت ۶۰ ثانیه)")
     except Exception:
         return ""
+
+
+# ── v1.14.178 — «تستِ سرعت»: یک دکمه، همهٔ حالتها ───────────────────
+# دستورِ سازنده پس از دو باگِ زنجیرهٔ پنل (176/177): «حذفش کن — یک
+# دکمه بذار، فعال کردم همه حالت تست کنه، تایم بگیره یک دقیقه
+# هرکدومشون، بعد ببینم کدومش سریعه». پس: نه سوییچ، نه انتقالِ تنظیم
+# از پنل — خودِ موتور همهٔ حالتها را رویِ کراپهایِ واقعیِ همین تصویر
+# اندازه میگیرد (هر حالت یک پنجرهٔ ۶۰ ثانیهای) و برنده را در
+# speed_test.json ذخیره میکند؛ speed_lab_env از همان فایل هر کار را
+# تنظیم میکند. پروبِ ۱۸۰ ثانیهایِ epprobe هم عملاً بازنشسته میشود:
+# پنجرهٔ واقعیِ ۶۰ ثانیهای خودش سنجهٔ سالم/کرش را میدهد.
+
+_SPEED_TEST_FILE = "speed_test.json"
+
+
+def _speed_test_path() -> str:
+    return os.path.join(os.environ.get("MANGA_FILES_DIR") or os.getcwd(),
+                        _SPEED_TEST_FILE)
+
+
+def speed_test_load():
+    """نتیجهٔ ذخیرهشدهٔ «تستِ سرعت» — dict یا None."""
+    try:
+        with open(_speed_test_path(), "r", encoding="utf-8") as _f:
+            _d = json.loads(_f.read() or "{}")
+        if isinstance(_d, dict) and str(_d.get("ladder") or ""):
+            return _d
+    except Exception:
+        pass
+    return None
+
+
+def _speed_test_save(d: dict) -> None:
+    try:
+        with open(_speed_test_path(), "w", encoding="utf-8") as _f:
+            json.dump(d, _f, ensure_ascii=False, indent=2)
+    except Exception as _e:
+        print(f"[!] ذخیرهٔ نتیجهٔ «تستِ سرعت» ناموفق: {str(_e)[:120]}")
+
+
+def _speed_test_pool(page, det0, cap: int = 24):
+    """کراپهایِ واقعیِ متن از پاسِ تشخیصِ کاملصفحه — بزرگترینها تا
+    سقفِ cap. خروجی = لیستِ آرایههایِ BGR."""
+    try:
+        _boxes = []
+        for _item in (det0 or []):
+            try:
+                if not (isinstance(_item, (list, tuple)) and _item):
+                    continue
+                _b = np.asarray(_item[0], dtype=np.float32).reshape(-1, 2)
+                _x, _y, _w, _h = cv2.boundingRect(_b.astype(np.int32))
+                if _w < 8 or _h < 8:
+                    continue
+                _boxes.append((_w * _h, _x, _y, _w, _h))
+            except Exception:
+                continue
+        if not _boxes:
+            return []
+        _boxes.sort(key=lambda t: -t[0])
+        _H, _W = page.shape[:2]
+        _out = []
+        for _a, _x, _y, _w, _h in _boxes[:cap]:
+            _x0, _y0 = max(0, _x), max(0, _y)
+            _x1, _y1 = min(_W, _x + _w), min(_H, _y + _h)
+            if _x1 - _x0 < 8 or _y1 - _y0 < 8:
+                continue
+            _out.append(page[_y0:_y1, _x0:_x1].copy())
+        return _out
+    except Exception:
+        return []
+
+
+def _speed_test_window(runner, pool, per_mode, should_stop=None):
+    """یک پنجرهٔ زمانی رویِ pool: کراپِ اول = گرمکردنِ مدلها (بیرونِ
+    سنجه)؛ بعد تا پرشدنِ پنجره کراپها لوپ میشود. خروجی =
+    (تعداد، مجموعِ ثانیهٔ خالص، خطا، متوقفشده)."""
+    _n, _tsum, _err = 0, 0.0, None
+    try:
+        runner(pool[0])  # گرمکردن — ساختنِ سشن/مدل در سنجه نمیآید
+    except Exception as _e:
+        return 0, 0.0, str(_e), False
+    _t0 = time.time()
+    _stopped = False
+    while (time.time() - _t0) < per_mode:
+        for _crop in pool:
+            if should_stop is not None and should_stop():
+                _stopped = True
+                break
+            _t1 = time.time()
+            try:
+                runner(_crop)
+            except Exception as _e:
+                _err = str(_e)
+                break
+            _tsum += time.time() - _t1
+            _n += 1
+            if (time.time() - _t0) >= per_mode:
+                break
+        if _err or _stopped:
+            break
+    return _n, _tsum, _err, _stopped
+
+
+def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
+                   should_stop=None, backend=None):
+    """«تستِ سرعتِ استخراج» — دکمهٔ واحدِ پنل (v1.14.178).
+
+    ۱) تصویر ورودی باز میشود؛ یک پاسِ تشخیصِ کاملصفحه کراپهایِ
+       واقعیِ متن را میدهد (تا ۲۴ کراپ).
+    ۲) پنج پنجرهٔ روشِ استخراج: full/fast/mlkit/rapid/paddle.
+    ۳) سه پنجرهٔ شتاب‌دهنده رویِ مسیرِ پدل: cpu/xnnpack/nnapi.
+       NNAPI آخر است؛ نتیجه بعد از هر پنجره ذخیره میشود — اگر گوشی
+       حینِ تستِ NNAPI کرش کند، برندهٔ بقیهٔ پنجرهها از دست نمیرود و
+       اجرای بعدی پنجرهٔ NNAPI را رد میکند (نشانِ nnapi_pending).
+    ۴) برندهٔ روش + برندهٔ شتاب‌دهنده ذخیره و از کارِ بعد خودکار
+       اعمال میشود (speed_lab_env).
+    خروجی: dictِ نتیجه (یا None با پیامِ لاگ). backend فقط برایِ تست
+    (تزریقِ فیک) — پیشفرض = RapidOCRBackend واقعی."""
+    try:
+        per_mode = max(5.0, float(per_mode or 60.0))
+    except Exception:
+        per_mode = 60.0
+    lang = (langs[0] if langs else "en") or "en"
+    log("[⚡] تستِ سرعتِ استخراج: ۵ روش + ۳ شتاب‌دهنده × %d ثانیه ≈ ۸ دقیقه"
+        % int(per_mode))
+    log("[⚡] در این حالت ترجمه انجام نمیشود — فقط استخراجِ متن "
+        "اندازهگیری میشود؛ لطفاً برنامه را باز نگه دار…")
+    _t_all = time.time()
+    try:
+        page = MangaTranslator._imread_any(src)
+    except Exception as _e:
+        log("[!] تصویر ورودی باز نشد: %s" % str(_e)[:140])
+        return None
+    if page is None or getattr(page, "size", 0) == 0:
+        log("[!] تصویر ورودی باز نشد (%s)" % os.path.basename(str(src or "")))
+        return None
+    try:
+        be = backend if backend is not None else RapidOCRBackend(lang=lang)
+    except Exception as _e:
+        log("[!] موتورِ OCR ساخته نشد: %s" % str(_e)[:140])
+        return None
+    _lad0 = getattr(be, "_mobile", None)
+    if not isinstance(_lad0, K3LadderOCR):
+        log("[!] «تستِ سرعت» رویِ نردبانِ K3 کار میکند — این دستگاه "
+            "نردبان ندارد (PC/موتورِ دیگر). از اپِ گوشی تست کن.")
+        return None
+
+    _prev = speed_test_load() or {}
+    _nnapi_pending = bool(_prev.get("nnapi_pending"))
+
+    # ── استخرِ کراپها: یک پاسِ تشخیصِ کاملصفحه (موتورِ پدل) ──
+    log("[⚡] استخرِ کراپهایِ واقعی از تصویر…")
+    try:
+        _res0 = _lad0.ocr(page, crop_mode=False)
+    except Exception as _e:
+        _res0 = None
+        log("[!] تشخیصِ تمامصفحه خطا داد: %s" % str(_e)[:140])
+    pool = _speed_test_pool(page, _res0)
+    if not pool:
+        log("[!] در تصویر متنِ خواندنی پیدا نشد — یک صفحهٔ گفتگودار امتحان کن.")
+        return None
+    log("[⚡] %d کراپِ واقعی آماده شد — پنجرهها شروع میشوند…" % len(pool))
+
+    # موتورهایِ ONNX یکبار ساخته میشوند و بینِ پنجرهها مشترکاند
+    # (سشنِ تازه در هر پنجره = وقتِ بیفایده؛ گرمکردنِ هر پنجره هم هست)
+    _med, _sml = None, None
+    try:
+        _med = be._build_mobile_onnx(lang, small=False)
+    except Exception as _e:
+        log("[!] مدلِ پدل ساخته نشد: %s" % str(_e)[:120])
+    try:
+        _sml = be._build_mobile_onnx(lang, small=True)
+    except Exception as _e:
+        log("[!] مدلِ رپید ساخته نشد: %s" % str(_e)[:120])
+    try:
+        _mlbe = _mlkit_backend(lang)
+    except Exception:
+        _mlbe = None
+
+    def _builder(small: bool):
+        return _sml if small else _med
+
+    _res = {"app": APP_VER,
+            "ts": time.strftime("%Y-%m-%d %H:%M"),
+            "per_mode": int(per_mode), "crops": len(pool),
+            "ladder": str(_prev.get("ladder") or "full"),
+            "ep": str(_prev.get("ep") or "auto"),
+            "ladder_ms": {}, "ep_ms": {},
+            "ladder_n": {}, "ep_n": {},
+            "nnapi_pending": False}
+    _modes = tuple(K3LadderOCR._K3_MODES)
+    _total = len(_modes) + 3
+    _wi = 0
+
+    # ── پنجرههایِ روشِ استخراج ──
+    for _mode in _modes:
+        _wi += 1
+        _need_ok = {
+            "full": (_mlbe is not None) and (_med is not None or _sml is not None),
+            "fast": (_mlbe is not None) and (_sml is not None or _med is not None),
+            "mlkit": _mlbe is not None,
+            "rapid": _sml is not None,
+            "paddle": _med is not None,
+        }[_mode]
+        if not _need_ok:
+            _res["ladder_ms"][_mode] = None
+            log("[⚡] (%d/%d) روشِ %s → رد شد (موتورش رویِ این دستگاه آماده نیست)"
+                % (_wi, _total, _mode))
+            continue
+        os.environ["MANGA_K3_MODE"] = _mode
+        try:
+            _lad = K3LadderOCR(_mlbe, lang, _builder)
+        except Exception as _e:
+            _res["ladder_ms"][_mode] = None
+            log("[⚡] (%d/%d) روشِ %s → نردبان ساخته نشد: %s"
+                % (_wi, _total, _mode, str(_e)[:100]))
+            continue
+        _n, _ts, _err, _stp = _speed_test_window(
+            lambda c, _l=_lad: _l.ocr(c, crop_mode=True),
+            pool, per_mode, should_stop=should_stop)
+        _ms = (_ts * 1000.0 / _n) if _n else None
+        _res["ladder_ms"][_mode] = _ms
+        _res["ladder_n"][_mode] = _n
+        if _err:
+            log("[⚡] (%d/%d) روشِ %s → خطا: %s"
+                % (_wi, _total, _mode, str(_err)[:100]))
+        elif _stp:
+            log("[⚡] (%d/%d) روشِ %s → متوقف شد (%d کراپ)"
+                % (_wi, _total, _mode, _n))
+            _speed_test_save(_res)
+            return _res
+        else:
+            log("[⚡] (%d/%d) روشِ %s → %d کراپ | میانگینِ %.0fms/کراپ"
+                % (_wi, _total, _mode, _n, _ms))
+        _speed_test_save(_res)  # بعد از هر پنجره ذخیره — کرش = از دست نمیرود
+
+    # ── پنجرههایِ شتاب‌دهنده (رویِ مسیرِ پدل — حساسترین مسیر به EP) ──
+    for _ep in ("cpu", "xnnpack", "nnapi"):
+        _wi += 1
+        if _ep == "nnapi" and _nnapi_pending:
+            _res["ep_ms"][_ep] = None
+            log("[⚡] (%d/%d) شتاب‌دهندهٔ %s → رد شد (اجرایِ قبل حینِ تستِ "
+                "NNAPI از دست رفت — برایِ تلاشِ دوباره تست را یکبار دیگر "
+                "اجرا کن)" % (_wi, _total, _ep))
+            continue
+        os.environ["MANGA_MOBILE_OCR_EP"] = _ep
+        try:
+            _mob = be._build_mobile_onnx(lang, small=False)
+        except Exception as _e:
+            _res["ep_ms"][_ep] = None
+            log("[⚡] (%d/%d) شتاب‌دهندهٔ %s → مدل ساخته نشد: %s"
+                % (_wi, _total, _ep, str(_e)[:100]))
+            continue
+        if _ep == "nnapi":
+            # اگر گوشی حینِ این پنجره کرش کند، اجرایِ بعدی میداند
+            _res["nnapi_pending"] = True
+            _speed_test_save(_res)
+        _n, _ts, _err, _stp = _speed_test_window(
+            lambda c, _m=_mob: _m.ocr(c, crop_mode=True),
+            pool, per_mode, should_stop=should_stop)
+        _res["nnapi_pending"] = False
+        _ms = (_ts * 1000.0 / _n) if _n else None
+        _res["ep_ms"][_ep] = _ms
+        _res["ep_n"][_ep] = _n
+        if _err:
+            log("[⚡] (%d/%d) شتاب‌دهندهٔ %s → خطا: %s"
+                % (_wi, _total, _ep, str(_err)[:100]))
+        elif _stp:
+            log("[⚡] (%d/%d) شتاب‌دهندهٔ %s → متوقف شد (%d کراپ)"
+                % (_wi, _total, _ep, _n))
+            _speed_test_save(_res)
+            return _res
+        else:
+            log("[⚡] (%d/%d) شتاب‌دهندهٔ %s → %d کراپ | میانگینِ %.0fms/کراپ"
+                % (_wi, _total, _ep, _n, _ms))
+        _speed_test_save(_res)
+
+    # ── برندهها + جدولها ──
+    _ok_l = {k: v for k, v in _res["ladder_ms"].items() if v}
+    _ok_e = {k: v for k, v in _res["ep_ms"].items() if v}
+    if not _ok_l and not _ok_e:
+        log("[!] هیچ پنجرهٔ سالمی تمام نشد — نتیجه‌ای ذخیره نشد.")
+        return None
+    _best_l = min(_ok_l, key=_ok_l.get) if _ok_l else \
+        str(_prev.get("ladder") or "full")
+    _best_e = min(_ok_e, key=_ok_e.get) if _ok_e else \
+        str(_prev.get("ep") or "auto")
+    _res["ladder"], _res["ep"] = _best_l, _best_e
+    _res["seconds"] = int(time.time() - _t_all)
+    _speed_test_save(_res)
+    _tbl = " | ".join("%s=%.0fms" % (k, v)
+                      for k, v in sorted(_ok_l.items(), key=lambda kv: kv[1]))
+    log("[⚡] جدولِ روشها (سریع → کند): %s" % (_tbl or "—"))
+    _tbe = " | ".join(
+        ("%s=%.0fms" % (k, v)) if v else ("%s=کرش/رد" % k)
+        for k, v in (("cpu", _res["ep_ms"].get("cpu")),
+                     ("xnnpack", _res["ep_ms"].get("xnnpack")),
+                     ("nnapi", _res["ep_ms"].get("nnapi"))))
+    log("[⚡] جدولِ شتاب‌دهنده (رویِ پدل): %s" % _tbe)
+    log("[⚡] برنده: روشِ %s (%s) + شتاب‌دهندهٔ %s (%s) → ذخیره شد؛ "
+        "از کارِ بعد خودکار اعمال میشود."
+        % (_best_l,
+           ("%.0fms/کراپ" % _ok_l[_best_l]) if _best_l in _ok_l else "—",
+           _best_e,
+           ("%.0fms/کراپ" % _ok_e[_best_e]) if _best_e in _ok_e else "—"))
+    try:
+        log("[⚡] کلِ تست: %d دقیقه و %d ثانیه"
+            % (_res["seconds"] // 60, _res["seconds"] % 60))
+    except Exception:
+        pass
+    return _res
 
 
 def _k3_speed_report() -> str:
@@ -27858,6 +28168,20 @@ def main():
     except Exception:
         pass
     args = build_arg_parser().parse_args()
+
+    # v1.14.178 — «تستِ سرعت» (دکمهٔ واحدِ پنل): به‌جایِ ترجمه، همهٔ
+    # حالتهایِ استخراج اندازهگیری و برنده در speed_test.json ذخیره
+    # میشود. نیازی به کلیدِ API/فونت/موتورِ ترجمه ندارد؛ زودتر از همهٔ
+    # اعتبارسنجیها میآید. (اپِ PC با MANGA_SPEED_TEST=1 میفرستد.)
+    if str(os.environ.get("MANGA_SPEED_TEST", "") or "").strip() == "1":
+        try:
+            speed_lab_env({})  # برندهٔ ذخیرهشدهٔ قبلی + خطِ لاگِ آن
+        except Exception:
+            pass
+        speed_test_run(src=args.input,
+                       langs=tuple(args.ocr_lang or ["en"]),
+                       per_mode=60.0)
+        return
 
     provider = (args.provider or "gemini").lower().strip()
     if provider not in PROVIDER_PRESETS:

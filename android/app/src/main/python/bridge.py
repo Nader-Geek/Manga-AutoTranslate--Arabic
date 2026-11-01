@@ -857,6 +857,53 @@ def _detach_log_handlers(attached):
         pass
 
 
+def _speed_test_job(job, langs) -> None:
+    """v1.14.178 — اجرای «تستِ سرعت» به‌جایِ ترجمه (دکمهٔ واحدِ پنل).
+
+    سازنده: سوییچهایِ 176/177 را حذف کن — یک دکمه بذار خودش همهٔ
+    حالتها را تست کند (هر حالت ۶۰ ثانیه) و سریعترین را ذخیره کند.
+    این مسیر هیچ کلیدِ API/موتورِ ترجمه نمیخواهد؛ خروجیِ تصویری هم
+    ندارد — نتیجه در لاگ ([⚡] جدولِ برنده) و speed_test.json است."""
+    tee = _TeeStream(job)
+    hb = threading.Thread(target=_heartbeat, args=(job,), daemon=True)
+    hb.start()
+    handlers = _attach_log_handlers(tee)
+
+    def _should_stop() -> bool:
+        try:
+            with STATE["lock"]:
+                return bool(job.get("cancel_requested"))
+        except Exception:
+            return False
+
+    try:
+        with contextlib.redirect_stdout(tee), contextlib.redirect_stderr(tee):
+            _heal_models_dirs(job)
+            _st = getattr(_manga(), "speed_test_run", None)
+            if _st is None:
+                _log(job, "[!] نسخهٔ پایتون «تستِ سرعت» ندارد — اپ را آپدیت کن.")
+                with STATE["lock"]:
+                    job["error"] = True
+                return
+            _log(job, "[⚡] حالتِ «تستِ سرعت» — بعد از تمام شدن، کلید خودکار "
+                      "خاموش میشود و کارِ بعدی با بهترین حالت ترجمهٔ عادی است.")
+            _st(src=str(job["params"].get("src") or ""),
+                langs=langs or ["en"],
+                per_mode=60.0,
+                log=lambda m: _log(job, str(m)),
+                should_stop=_should_stop)
+    except Exception as _e:
+        _log(job, "[!] تستِ سرعت خطا داد: %s" % str(_e)[:200])
+        with STATE["lock"]:
+            job["error"] = True
+    finally:
+        _detach_log_handlers(handlers)
+        os.environ.pop("MANGA_LIVE_DIR", None)
+        os.environ.pop("MANGA_LIVE_DEBUG_DIR", None)
+        with STATE["lock"]:
+            job["done"] = True
+
+
 def _run(job):
     p = job["params"]
     job["_t0"] = time.time()
@@ -921,6 +968,18 @@ def _run(job):
         if _src1 != _src0:
             p["src"] = _src1
             _log(job, "پسوند ورودی اصلاح شد → %s" % os.path.basename(_src1))
+        # v1.14.178 — «تستِ سرعت»: دکمهٔ واحدِ پنل — همهٔ حالتها خودش
+        # تست میکند (هر حالت ۶۰ ثانیه) و برنده را ذخیره میکند؛ ترجمه
+        # انجام نمیشود و کلیدِ API لازم نیست (زودتر از چکِ کلید میآید).
+        try:
+            _stq = p.get("ocr_speedtest")
+            _streq = (_stq is True) or \
+                str(_stq).strip().lower() in ("1", "true")
+        except Exception:
+            _streq = False
+        if _streq:
+            _speed_test_job(job, langs)
+            return
         keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
         if not keys and not (bool(p.get("fake")) or bool(p.get("clean_only"))):
             _log(job, "[!] حداقل یک کلید API لازم است — کلید بده یا "
