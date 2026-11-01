@@ -66,13 +66,24 @@ for f in ROOT.rglob("*.py"):
                 FAILS.append(f"{f}: def {name}(self,…) تودرتو داخلِ "
                              f"{owner} (خط {ln}) — کدِ مرده؟")
 
-# ── ۳) manga.py: مسیرِ OCRِ کراپ + لاگِ بلندِ خطا ──
+# ── ۳) manga.py: مسیرِ OCRِ کراپ + لاگِ بلندِ خطا + سدِ دستهٔ ۱۶۵ ──
 m = (ROOT / "manga.py").read_text(encoding="utf-8")
 for needle in ("crop_mode=True",
                "خطایِ OCRِ موبایل",
-               "OCRِ برش خطا داد"):
+               "OCRِ برش خطا داد",
+               # v1.14.165 — نجاتِ تکه‌متنِ لبه + سدِ دسته
+               "_edge_sides",
+               "پاسِ ویژهٔ لبه",
+               "_dense165",
+               "_wait_batch_clean_barrier",
+               "MANGA_CLEAN_PAR"):
     if needle not in m:
         FAILS.append(f"manga.py: رشتهٔ لازمِ «{needle}» پیدا نشد")
+
+# ── ۴) rapidocr_mobile: قطعاتِ نردبانِ rec-only (v1.14.165) ──
+for need in ("_prep_work", "_rec_lines", "_detect_or_pred"):
+    if need not in methods:
+        FAILS.append(f"{p.name}: متدِ {need} در کلاسِ RapidOcrMobile نیست")
 
 if FAILS:
     print("FAIL:")

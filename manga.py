@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.164"
+APP_VER = "1.14.165"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -7572,14 +7572,35 @@ class MangaTranslator:
                 return None
             nz, lal, sts, _ = cv2.connectedComponentsWithStats(
                 fresh.astype(np.uint8), connectivity=8)
+            # v1.14.165 — اضلاعِ جعبه که به لبهٔ تصویر می‌خورند: تکه‌متنِ
+            # بریدهٔ لبه (نیم‌خطِ وبتون) ممکن است در یک کامپوننتِ پهن
+            # ادغام شده باشد؛ سقفِ معمولیِ 100px آن را رد می‌کرد →
+            # برایِ کامپوننت‌هایی که به ضلعِ لبه‌ای چسبیده‌اند سقف بزرگ‌تر.
+            _edge_sides = {"t": by0 <= 0, "b": by1 >= ih,
+                           "l": bx0 <= 0, "r": bx1 >= iw}
             keep = np.zeros_like(cu)
             for ci in range(1, nz):
                 a = int(sts[ci, cv2.CC_STAT_AREA])
                 cwd = int(sts[ci, cv2.CC_STAT_WIDTH])
                 chg = int(sts[ci, cv2.CC_STAT_HEIGHT])
+                _cy0 = int(sts[ci, cv2.CC_STAT_TOP])
+                _cx0 = int(sts[ci, cv2.CC_STAT_LEFT])
+                _on_edge = (
+                    (_edge_sides["t"] and _cy0 <= 1)
+                    or (_edge_sides["b"] and _cy0 + chg >= (by1 - by0) - 1)
+                    or (_edge_sides["l"] and _cx0 <= 1)
+                    or (_edge_sides["r"] and _cx0 + cwd >= (bx1 - bx0) - 1))
+                _max_dim = 240 if _on_edge else 100
+                _max_area = 2800 if _on_edge else 1600
                 # حروف: کوچک/کشیده؛ هنر: تودهٔ بزرگ یا مستطیلِ عظیم
-                if a < 8 or a > 1600 or max(cwd, chg) > 100:
+                if a < 8 or a > _max_area or max(cwd, chg) > _max_dim:
                     continue
+                if _on_edge:
+                    # قوسِ دیوارِ حباب هم به لبه می‌چسبد ولی «بلند» است
+                    # (نیم‌خطِ حرف ≤ ~16px)؛ بلندیِ >40px یا >45٪ جعبه =
+                    # دیوار/قاب، نه تکه‌متن.
+                    if chg > 40 or chg > 0.45 * max(24, by1 - by0):
+                        continue
                 # v1.14.73d — فقط «قلمِ نازکِ متن» (ضخامت ≤۶px): خطِ
                 # دست‌کشیدهٔ ضخیمِ حبابِ کیمتسو/ژاپنی جوهر نیست — دیوار است
                 try:
@@ -7591,6 +7612,66 @@ class MangaTranslator:
                 except Exception:
                     pass
                 keep |= (lal == ci)
+            # v1.14.165 — پاسِ ویژهٔ لبه: نیم‌خطِ بریدهٔ وبتون (صفحه‌ای که
+            # از وسطِ حباب شروع/تمام می‌شود) هیچ پالیِ OCR ندارد و
+            # known_d (دیلیتِ ۷ ماسکِ خطِ بعدی) آن را «پوشش‌داده» جا
+            # می‌زند. اینجا CC رویِ جوهرِ کاملِ جعبه: فقط کامپوننت‌هایی که
+            # (۱) پیکسلِ تازه در نوارِ ۱۴px لبه دارند (۲) خودِ کامپوننتِ
+            # کامل به ضلعِ لبه‌ای چسبیده (۳) کوتاه‌اند (≤40px و ≤45٪ جعبه —
+            # قوسِ بلندِ دیوار رد می‌شود) (۴) قلمِ نازک‌اند → نجات.
+            if any(_edge_sides.values()):
+                _eb = 14
+                _bandm = np.zeros_like(cu)
+                if _edge_sides["t"]:
+                    _bandm[:_eb, :] = 1
+                if _edge_sides["b"]:
+                    _bandm[-_eb:, :] = 1
+                if _edge_sides["l"]:
+                    _bandm[:, :_eb] = 1
+                if _edge_sides["r"]:
+                    _bandm[:, -_eb:] = 1
+                _fresh_edge = (cu > 0) & (_bandm > 0)
+                # نکته: «known» اینجا ماسکِ کارشده (نوارهای دیلیت‌شده) است
+                # و ردیف‌هایِ لبه را از قبل بلعیده؛ پس در نوارِ لبهِ ۱۴px
+                # همهٔ جوهرِ جعبه کاندید است — اجتماع با ماسکِ موجود
+                # بیضرر است و دیوار/محافظتها پایینتر فیلتر میشوند.
+                if _fresh_edge.any():
+                    _nz2, _lal2, _sts2, _ = cv2.connectedComponentsWithStats(
+                        cu.astype(np.uint8), connectivity=8)
+                    _bh = max(24, by1 - by0)
+                    for _c2 in range(1, _nz2):
+                        _comp = (_lal2 == _c2)
+                        if not bool((_comp & _fresh_edge).any()):
+                            continue
+                        _a2 = int(_sts2[_c2, cv2.CC_STAT_AREA])
+                        _w2 = int(_sts2[_c2, cv2.CC_STAT_WIDTH])
+                        _h2 = int(_sts2[_c2, cv2.CC_STAT_HEIGHT])
+                        _y2 = int(_sts2[_c2, cv2.CC_STAT_TOP])
+                        _x2 = int(_sts2[_c2, cv2.CC_STAT_LEFT])
+                        if not (
+                                (_edge_sides["t"] and _y2 <= 1)
+                                or (_edge_sides["b"] and
+                                    _y2 + _h2 >= (by1 - by0) - 1)
+                                or (_edge_sides["l"] and _x2 <= 1)
+                                or (_edge_sides["r"] and
+                                    _x2 + _w2 >= (bx1 - bx0) - 1)):
+                            continue
+                        # قوسِ دیوار = بلند؛ تکه‌متنِ حرف = کوتاه
+                        if _h2 > 40 or _h2 > 0.45 * _bh:
+                            continue
+                        if _a2 < 8 or _a2 > 2800 or max(_w2, _h2) > 240:
+                            continue
+                        try:
+                            _dt2 = cv2.distanceTransform(
+                                _comp.astype(np.uint8), cv2.DIST_L2, 3)
+                            if float(_dt2.max()) * 2.0 > 12.0:
+                                continue
+                        except Exception:
+                            pass
+                        # ~known نمیخواهیم: کامپوننتِ کوتاهِ نازکِ چسبیده
+                        # به لبه validated شده؛ اجتماع با ماسکِ موجود
+                        # idempotent است.
+                        keep |= _comp
             if int(cv2.countNonZero(keep)) < 16:
                 return None
             bands = cv2.dilate(keep, _k7)
@@ -7820,10 +7901,20 @@ class MangaTranslator:
                     bx0, by0, bx1, by1 = box
                     bw, bh = bx1 - bx0, by1 - by0
                     _pad_b = int(np.clip(min(bw, bh) * 0.10, 4, 14))
-                    ix0 = max(0, bx0 + _pad_b)
-                    iy0 = max(0, by0 + _pad_b)
-                    ix1 = min(w_img, bx1 - _pad_b)
-                    iy1 = min(h_img, by1 - _pad_b)
+                    # v1.14.165 — وبتون‌هایی که صفحه‌شان از وسطِ حباب شروع
+                    # می‌شود (نمونهٔ واقعی: imgsrv5 chapter-264 صفحهٔ ۱ =
+                    # نیم‌خطِ بریده در y=0): جعبهٔ حباب به لبهٔ تصویر
+                    # می‌خورد و تکه‌متنِ بریده آن‌سویِ اینستِ ۴-۱۴px پنهان
+                    # می‌ماند → «متنِ قبلی جا می‌ماند». ضلعِ برخوردی با
+                    # لبهٔ تصویر اینست نمی‌گیرد تا نجاتِ جوهرِ لبه ببیندش.
+                    _e_top = by0 <= 1
+                    _e_bot = by1 >= h_img - 1
+                    _e_lft = bx0 <= 1
+                    _e_rgt = bx1 >= w_img - 1
+                    ix0 = bx0 if _e_lft else max(0, bx0 + _pad_b)
+                    iy0 = by0 if _e_top else max(0, by0 + _pad_b)
+                    ix1 = bx1 if _e_rgt else min(w_img, bx1 - _pad_b)
+                    iy1 = by1 if _e_bot else min(h_img, by1 - _pad_b)
                     if ix1 - ix0 < 24 or iy1 - iy0 < 24:
                         continue
                     if not (out[iy0:iy1, ix0:ix1] > 0).any():
@@ -9079,7 +9170,12 @@ class MangaTranslator:
             core_u = cv2.morphologyEx(core_u, cv2.MORPH_CLOSE,
                                       np.ones((3, 3), np.uint8))
             near = cv2.dilate(core_u, np.ones((5, 5), np.uint8)) > 0
-            halo = (np.abs(g.astype(np.float32) - med) >= 18.0) \
+            # v1.14.165 — هالهٔ 14..30 (قبلاً 18..30): لبه‌هایِ نرمِ JPEGِ
+            # حروف که ۱۴-۱۷ سطح تیره‌تر از زمینه‌اند قبلاً بیرونِ ماسک
+            # می‌ماندند و شبحِ خاکستریِ کم‌کنتراست جا می‌گذاشتند (حبابِ
+            # «WE KNEW.» فصلِ 264). ۱۰ امتحان شد ولی کنارِ قوسِ حباب
+            # پخشِ خاکستریِ LaMa را بزرگ میکرد → ۱۴ (تعادل).
+            halo = (np.abs(g.astype(np.float32) - med) >= 14.0) \
                 & (np.abs(g.astype(np.float32) - med) <= 30.0) & near
             lm = ((core_u > 0) | halo)
             # v1.14.64 — نقشهٔ پالی‌هایِ OCR در برشِ نوار: حروف داخلِ پالی‌ها
@@ -9600,7 +9696,30 @@ class MangaTranslator:
                                 continue
                     except Exception:
                         pass
-                if MangaTranslator._polys_dense(_polys_raw):
+                # v1.14.165 — حبابِ تکخطی (polys=1): _polys_dense به ≥۲
+                # پالی نیاز دارد و حبابهایِ تکخطی («WE KNEW.») هرگز به
+                # line-strips نمیرسیدند → فالبکِ fillPoly = پرکردنِ کلِ
+                # داخلِ حباب با LaMa = نوار/لکهٔ خاکستریِ شبح‌مانند.
+                # پالیِ واحدِ پهن (خطِ متنِ افقی) هم مجاز شد؛ شرطهایِ داخلیِ
+                # _line_strips_mask (سهمِ جوهر، سازگاریِ rect) همچنان رد
+                # میکنند.
+                _dense165 = MangaTranslator._polys_dense(_polys_raw)
+                if not _dense165:
+                    try:
+                        _pp165 = [np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                                  for p in (_polys_raw or [])
+                                  if np.asarray(p).size]
+                        if len(_pp165) == 1:
+                            _pw165 = float(_pp165[0][:, 0].max()
+                                           - _pp165[0][:, 0].min())
+                            _ph165 = float(_pp165[0][:, 1].max()
+                                           - _pp165[0][:, 1].min())
+                            _dense165 = (_pw165 >= 1.3 * _ph165
+                                         and _pw165 >= 18.0
+                                         and _ph165 >= 8.0)
+                    except Exception:
+                        _dense165 = False
+                if _dense165:
                     if self.debug:
                         try:
                             print("  [🔍] → تلاشِ line-strips")
@@ -26072,9 +26191,10 @@ html, body { background: #0a0a0b; }
             min_batch = 15
         else:
             print(
-                f"[*] حالت صرفه‌جویی API: استخراج بدونِ توقف جلو میرود؛ "
-                f"به‌محضِ رسیدنِ بافر به {min_batch} دیالوگ، پاکسازیٔ "
-                f"صفحه‌هایِ همان بسته + ترجمه با هم شروع میشود."
+                f"[*] حالت بچ‌همگام: استخراج تا بافرِ {min_batch} دیالوگ جلو "
+                f"میرود؛ بعد استخراج می‌ایستد تا پاکسازیٔ صفحههایِ همان "
+                f"بسته تمام شود و دوباره ادامه میدهد — فقط ترجمه همزمان "
+                f"با پاکسازی کار میکند (MANGA_CLEAN_PAR=1 = موازیِ قبل)."
             )
 
         quota_flag = {"dead": False}
@@ -26108,11 +26228,17 @@ html, body { background: #0a0a0b; }
                 _dispatch_chunk_clean(chunk)
             except Exception:
                 pass
-            # v1.14.161 — پاکسازیٔ بچ: صفحههایِ همین بستهٔ ترجمه، همزمان
-            # با شروعِ ترجمهاش در پسزمینه پاک میشوند (نه صفحه‌به‌صفحه
-            # بعد از هر استخراج).
+            # v1.14.165 — سدِ دسته: فیوچرهایِ پاکسازیِ همین بسته ثبت
+            # میشوند تا حلقهٔ استخراج درختی بعدی پشتِ آنها وایستد
+            # (فقط ترجمه همزمان با پاکسازی کار میکند).
             try:
-                _dispatch_chunk_clean(chunk)
+                for _r165 in chunk:
+                    _p165 = page_of_region.get(_r165.id)
+                    if _p165 is None:
+                        continue
+                    _f165 = clean_futures.get(_p165)
+                    if _f165 is not None and not _f165.done():
+                        _batch_clean_futs.append(_f165)
             except Exception:
                 pass
 
@@ -26131,6 +26257,49 @@ html, body { background: #0a0a0b; }
             max_workers=1, thread_name_prefix="clean")
         clean_futures: Dict[int, "object"] = {}
         clean_started: set = set()
+
+        # v1.14.165 — سدِ دسته (خواستهٔ کاربر: «وقتی ۱۵ تا متن استخراج کرد
+        # … استخراج ادامه نده تا پاکسازیش تموم شه؛ بعد تموم شد ادامه بده»):
+        # استخراج تا پرشدنِ بافرِ ۱۵تایی جلو میرود، بعد پشتِ پاکسازیِ همان
+        # بسته وایست می‌دارد؛ فقط ترجمه (شبکه‌ای، سبک) همزمان کار میکند.
+        # رفتارِ موازیِ قبل: MANGA_CLEAN_PAR=1.
+        _batch_clean_futs: list = []
+        try:
+            _clean_par = str(os.environ.get("MANGA_CLEAN_PAR", "0")).strip() == "1"
+        except Exception:
+            _clean_par = False
+
+        def _wait_batch_clean_barrier() -> None:
+            if _clean_par or not _batch_clean_futs:
+                return
+            import concurrent.futures as _cfb
+            _futs: list = []
+            for _f in _batch_clean_futs:
+                if _f is None or _f.done():
+                    continue
+                if all(id(_f) != id(_g) for _g in _futs):
+                    _futs.append(_f)
+            _batch_clean_futs.clear()
+            if not _futs:
+                return
+            print("[⚡] دستهٔ ۱۵تایی پر شد — استخراج متوقف تا پاکسازیِ "
+                  "همین بسته تمام شود…", flush=True)
+            _t0 = time.time()
+            _wait = list(_futs)
+            while _wait:
+                if stop_requested():
+                    break
+                _done, _wait = _cfb.wait(
+                    _wait, timeout=2.0, return_when=_cfb.FIRST_COMPLETED)
+                for _f in _done:
+                    try:
+                        _f.result()
+                    except Exception:
+                        pass
+                _finish_ready_pages()
+                _preview_ready_pages()
+            print(f"[✓] پاکسازیِ بسته تمام شد ({time.time() - _t0:.0f}s) "
+                  "→ ادامهٔ استخراج", flush=True)
 
         def _clean_regions_for_page(page_i: int) -> Optional[List[TextRegion]]:
             entry = extracted_map.get(page_i)
@@ -26227,6 +26396,9 @@ html, body { background: #0a0a0b; }
                     print(f"\n[!] {e}")
                     quota_dead = True
                     break
+                # v1.14.165 — سدِ دسته: اگر همین صفحه بافر را پر کرد،
+                # پاکسازیِ بسته صف شده → استخراجِ صفحهٔ بعدی صبر میکند.
+                _wait_batch_clean_barrier()
 
                 if dialogue_buffer and len(dialogue_buffer) < min_batch:
                     print(

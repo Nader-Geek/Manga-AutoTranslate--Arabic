@@ -864,22 +864,10 @@ class RapidOcrMobile:
         rw = w / float(img.shape[1])
         return img, rh, rw
 
-    def _ocr_impl(self, image_bgr: np.ndarray, crop_mode: bool = False,
-            det_cap=None):
-        """خروجی: [ [box, (text, score)], ... ] یا None (خالی).
-
-        خطِ کاملِ rapidocr: bounds-resize → vertical-padding → det →
-        crop → rec → فیلترِ text_score → mapِ باکسها به تصویرِ اصلی.
-        v1.14.125 — crop_mode=True: detِ بدونِ بزرگنمایی با سقفِ det_cap
-        (برشِ کاسکاد؛ ورودیِ کوچک = سریع، مثلِ K3)."""
-        if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
-            return None
-        ori_h, ori_w = image_bgr.shape[:2]
-
-        # ۱) resize در محدوده (عینِ Global.use_preprocess_img)
+    def _prep_work(self, image_bgr: np.ndarray):
+        """v1.14.165 — آمادهسازیِ مشترکِ _ocr_impl/نردبان: bounds-resize + pad.
+        خروجی: (work, rh, rw, pad_top)."""
         work, rh, rw = self._within_bounds(image_bgr)
-
-        # ۲) paddingِ عمودی برایِ کراپهایِ خیلی پهن (width_height_ratio=8)
         pad_top = 0
         h, w = work.shape[:2]
         if (w / float(max(1, h)) > 8.0) or h <= 30:
@@ -888,28 +876,17 @@ class RapidOcrMobile:
             work = cv2.copyMakeBorder(
                 work, pad_top, pad_top, 0, 0,
                 cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        return work, rh, rw, pad_top
 
-        # ۳) det
-        dets, pred = self._detect(work, crop_mode=crop_mode, det_cap=det_cap)
-        if not dets and pred is not None:
-            # v1.14.155 — دورِ دومِ آستانهٔ باز رویِ همان pred (بدونِ
-            # اجرایِ دوبارهٔ مدل): متنِ کمکنتراست/سبکِ مانگا که در
-            # thresh=0.3/box=0.5 حذف میشد (شکایتِ «عکسِ دومتنی هم
-            # استخراج نمیشود»). فقط وقتی دورِ اول «هیچ» نداد —
-            # بقیهٔ مسیرها بیتبهبیت مثلِ قبل.
-            dets = self._boxes_from_pred(
-                pred, work.shape[0], work.shape[1],
-                thresh=max(0.15, self.thresh - 0.15),
-                box_thresh=max(0.30, self.box_thresh - 0.20),
-                unclip_ratio=self.unclip_ratio + 0.4)
+    def _rec_lines(self, dets, work, rh, rw, pad_top,
+                   ori_h: int, ori_w: int):
+        """v1.14.165 — crop + rec + فیلتر + map (نیمهٔ دومِ _ocr_impl)
+        تا نردبانِ K3 بتواند در تلاشِ دوم فقط rec را صدا بزند.
+        خروجی: [ [box, (text, score)], ... ] یا None."""
         if not dets:
             return None
-
-        # ۴) crop از تصویرِ کاری + rec (عینِ detect_and_crop)
         crops = [self._get_rotate_crop(work, b) for b, _s in dets]
         recs = self._recognize(crops)
-
-        # ۵) خروجی + فیلتر + mapِ باکسها به تصویرِ اصلی
         lines = []
         for (box, _ds), (text, rscore) in zip(dets, recs):
             if not text.strip() or rscore < self.text_score:
@@ -923,6 +900,37 @@ class RapidOcrMobile:
             lines.append([bx, (text, float(rscore))])
         return [lines] if lines else None
 
+    def _detect_or_pred(self, work, crop_mode: bool = False, det_cap=None):
+        """det + دورِ دومِ آستانهٔ باز (v1.14.155) رویِ همان pred."""
+        dets, pred = self._detect(work, crop_mode=crop_mode, det_cap=det_cap)
+        if not dets and pred is not None:
+            dets = self._boxes_from_pred(
+                pred, work.shape[0], work.shape[1],
+                thresh=max(0.15, self.thresh - 0.15),
+                box_thresh=max(0.30, self.box_thresh - 0.20),
+                unclip_ratio=self.unclip_ratio + 0.4)
+        return dets
+
+    def _ocr_impl(self, image_bgr: np.ndarray, crop_mode: bool = False,
+            det_cap=None):
+        """خروجی: [ [box, (text, score)], ... ] یا None (خالی).
+
+        خطِ کاملِ rapidocr: bounds-resize → vertical-padding → det →
+        crop → rec → فیلترِ text_score → mapِ باکسها به تصویرِ اصلی.
+        v1.14.125 — crop_mode=True: detِ بدونِ بزرگنمایی با سقفِ det_cap
+        (برشِ کاسکاد؛ ورودیِ کوچک = سریع، مثلِ K3).
+        v1.14.165 — بازنویسی رویِ _prep_work/_detect_or_pred/_rec_lines
+        (رفتار بیت‌به‌بیت)."""
+        if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
+            return None
+        ori_h, ori_w = image_bgr.shape[:2]
+        work, rh, rw, pad_top = self._prep_work(image_bgr)
+        dets = self._detect_or_pred(work, crop_mode=crop_mode,
+                                    det_cap=det_cap)
+        if not dets:
+            return None
+        return self._rec_lines(dets, work, rh, rw, pad_top, ori_h, ori_w)
+
     def ocr(self, image_bgr: np.ndarray, crop_mode: bool = False,
             det_cap=None):
         """v1.14.157 — نردبانِ K3 رویِ هر کراپ: برشِ کوچک اول با نسخهٔ
@@ -935,12 +943,24 @@ class RapidOcrMobile:
             return self._ocr_impl(image_bgr, crop_mode=crop_mode,
                                   det_cap=det_cap)
         _h, _w = image_bgr.shape[:2]
+        _ori_h, _ori_w = image_bgr.shape[:2]
         _s1 = _enh_scale_for(_w, _h, det_cap)
+        _dets1 = None
+        _prep1 = None
         if _s1 > 1.0:
             _r1 = _rescale_res(self._ocr_impl(
                 _enhance_crop(image_bgr, _s1), True, det_cap), 1.0 / _s1)
         else:
-            _r1 = self._ocr_impl(image_bgr, crop_mode=True, det_cap=det_cap)
+            # v1.14.165 — قطعاتِ پاسِ اول نگه داشته میشوند تا تلاشِ دوم
+            # فقط rec باشد (detِ گرانِ دوباره حذف — همان باکسها، rec روی
+            # کراپِ واضحتر = اطمینانِ بالاتر؛ دقیقاً هدفِ «افزایشِ کیفیتِ
+            # کراپ» در دستورِ K3).
+            _work1, _rh1, _rw1, _pt1 = self._prep_work(image_bgr)
+            _prep1 = (_rh1, _rw1, _pt1)
+            _dets1 = self._detect_or_pred(_work1, crop_mode=True,
+                                          det_cap=det_cap)
+            _r1 = self._rec_lines(_dets1, _work1, _rh1, _rw1, _pt1,
+                                  _ori_h, _ori_w) if _dets1 else None
         if not _low_quality(_r1):
             return _r1
         if _s1 > 1.0:
@@ -953,8 +973,40 @@ class RapidOcrMobile:
                 _cap / float(max(_w, _h))
             if _s2 <= 1.05:
                 return _r1  # برشِ درشتِ کماطمینان — ارتقا در سقف جا نمیشود
-        _r2 = _rescale_res(self._ocr_impl(
-            _enhance_crop(image_bgr, _s2), True, det_cap), 1.0 / _s2)
+        _big = _enhance_crop(image_bgr, _s2)
+        if _dets1:
+            # v1.14.165 — فقط rec: باکسهایِ detِ پاسِ اول از مختصاتِ کارِ
+            # پاسِ اول به مختصاتِ کارِ کراپِ ارتقایافته میرود.
+            _rh1, _rw1, _pt1 = _prep1
+            _work2, _rh2, _rw2, _pt2 = self._prep_work(_big)
+            _h2, _w2 = _work2.shape[:2]
+            _d2 = []
+            for _b, _sc in _dets1:
+                try:
+                    _bb = np.asarray(_b, dtype=np.float32).copy()
+                    _bb[:, 0] = (_bb[:, 0] * _rw1) / max(1e-6, _rw2)
+                    _bb[:, 1] = ((_bb[:, 1] - _pt1) * _rh1) \
+                        / max(1e-6, _rh2) + _pt2
+                    _bb[:, 0] = np.clip(_bb[:, 0], 0, _w2 - 1)
+                    _bb[:, 1] = np.clip(_bb[:, 1], 0, _h2 - 1)
+                    _d2.append((_bb, _sc))
+                except Exception:
+                    continue
+            _r2 = None
+            if _d2:
+                _r2 = _rescale_res(
+                    self._rec_lines(_d2, _work2, _rh2, _rw2, _pt2,
+                                    _big.shape[0], _big.shape[1]),
+                    1.0 / _s2)
+            if _r2 is None:
+                # rec فقط چیزی نداد (باکسهایِ پاسِ اول بینتیجه بودند)
+                # → فالبکِ کاملِ det+rec رویِ ارتقایافته (رفتارِ قبل).
+                _r2 = _rescale_res(self._ocr_impl(_big, True, det_cap),
+                                   1.0 / _s2)
+        else:
+            # پاسِ اول اصلاً باکس نداشت → detِ کامل رویِ ارتقایافته.
+            _r2 = _rescale_res(self._ocr_impl(_big, True, det_cap),
+                               1.0 / _s2)
         if not _K3_NOTE_157["retry"]:
             print("[⚡] کاسکادِ K3: "
                   "کراپِ کماطمینان "
