@@ -68,13 +68,17 @@ class PliteProbeService : Service() {
         return true
     }
 
-    /** float[] → byte[]ِ little-endian — ورودیِ جدیدِ پلِ v1.14.167 */
+    /** float[] → byte[]ِ little-endian — ورودیِ جدیدِ پلِ v1.14.167.
+     *  v1.14.169 — فیکسِ ارورِ کامپایلِ CI («Build arm64 APK» از 1.14.167
+     *  شکست میخورد): «return type mismatch: expected 'kotlin.ByteArray',
+     *  actual 'kotlin.FloatArray!'» — fbv یک FloatBuffer است و
+     *  FloatBuffer.array() برمیگرداند float[] نه byte[]؛ باید array()
+     *  خودِ ByteBuffer برگردد (viewِ float همان را پر میکند). */
     private fun floatBytes(n: Int): ByteArray {
-        val fbv = java.nio.ByteBuffer.allocate(n * 4)
-            .order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-        val fa = FloatArray(n) { 0.25f }
-        fbv.put(fa)
-        return fbv.array()
+        val bb = java.nio.ByteBuffer.allocate(n * 4)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        bb.asFloatBuffer().put(FloatArray(n) { 0.25f })
+        return bb.array()
     }
 
     /** یک run با شکلِ مشخص؛ خروجی: (سالم؟، ms) */

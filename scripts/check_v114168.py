@@ -99,12 +99,18 @@ for s in ("data: ByteArray", "poolMax: Int = 1", "LinkedBlockingDeque"):
     if s not in kt:
         fail(f"PaddleLiteBridge.kt محتوایِ لازم را ندارد: {s!r}")
 
-# ۶) نسخه
-if 'APP_VER = "1.14.168"' not in src:
-    fail("APP_VER هنوز 1.14.168 نشده")
+# ۶) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شمارهٔ نسخهٔ جاری)
 ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-if "versionCode=173" not in ver or "versionName=1.14.168" not in ver:
-    fail("VERSION باید 173/1.14.168 باشد")
+import re as _re
+_m = _re.search(r'^APP_VER = "([\d.]+)"', src, _re.M)
+_vn = _re.search(r'^versionName=([\d.]+)', ver, _re.M)
+_vc = _re.search(r'^versionCode=(\d+)', ver, _re.M)
+if not _m or not _vn or not _vc:
+    fail("APP_VER/VERSION ناقص است")
+if _m.group(1) != _vn.group(1):
+    fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
+if not _vc.group(1).isdigit():
+    fail("versionCode عددی نیست")
 
 print("PASS — چکِ رگرسیونِ v1.14.168: سلف‌تستِ پلِ پدل (APKِ قدیمی = "
       "فالبکِ خودکارِ ONNX با پیامِ روشن، نه خطایِ هر کراپ)؛ گاردِ "
