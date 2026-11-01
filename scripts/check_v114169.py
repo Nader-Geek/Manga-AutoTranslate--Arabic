@@ -12,6 +12,7 @@
 """
 import io
 import os
+import re
 import subprocess
 import sys
 
@@ -54,13 +55,15 @@ for s in ("Tasks.await", "BitmapFactory.decodeByteArray",
 if "com.google.mlkit.vision.text" not in k:
     fail("MlKitBridge.kt به ML Kit وصل نیست")
 
-# ۳) نسخه
+# ۳) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شماره — الگویِ 1.14.168)
 src = io.open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
-if 'APP_VER = "1.14.170"' not in src:
-    fail("APP_VER هنوز 1.14.170 نشده")
 ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-if "versionCode=175" not in ver or "versionName=1.14.170" not in ver:
-    fail("VERSION باید 175/1.14.170 باشد")
+_m = re.search(r'^APP_VER = "([\d.]+)"', src, re.M)
+_vn = re.search(r'^versionName=([\d.]+)', ver, re.M)
+if not _m or not _vn:
+    fail("APP_VER/VERSION ناقص است")
+if _m.group(1) != _vn.group(1):
+    fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
 
 print("PASS — چکِ رگرسیونِ v1.14.170/169: خانوادهٔ Paddle-Lite کامل حذف "
       "(بدونِ الگویِ FloatBuffer.array)؛ پلِ ML Kit با Tasks.await؛ "

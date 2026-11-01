@@ -17,7 +17,9 @@ lang_ja_color / lang_ko / lang_zh / up0929_zh) ناحیههایِ استخراج
 ناحیهها با همان قاعدهٔ check_extract.py خوانده میشوند (#NN … rect= سپس
 «متن: …»). خروجی: exit 0 = عبور؛ exit 1 = شکست.
 
-usage: check_mlkit.py LOG LANG   (LANG = ja|ko|zh|en — پیشوند کافی است)
+usage: check_mlkit.py LOG LANG [WORD]   (LANG = ja|ko|zh|en — پیشوند کافی است؛
+WORD اختیاری: رشتهٔ موردِ نیاز (بیت‌بزرگی نادیده) در متنِ یکی از ناحیهها —
+gیتِ محتواییِ صفحهٔ مشخص مثلِ img6 = «attraction»)
 """
 import re
 import sys
@@ -61,9 +63,10 @@ def _counts(t: str):
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: check_mlkit.py LOG LANG")
+        print("usage: check_mlkit.py LOG LANG [WORD]")
         return 1
     lang = sys.argv[2].strip().lower().split()[0]
+    word = sys.argv[3].strip().lower() if len(sys.argv) > 3 else ""
     try:
         with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as f:
             log = f.read()
@@ -97,13 +100,33 @@ def main() -> int:
     n_regions = re.findall(r"متن\s*استخراج\s*شد:\s*(\d+)\s*ناحیه", log)
     n = max([int(x) for x in n_regions], default=0)
     crashed = bool(re.search(r"Traceback|خطای مهلک|FATAL", log))
+    # v1.14.171 — گیتِ کلمهٔ الزامی (مثلاً متنِ گمشدهٔ img6 رویِ گوشی:
+    # «you're the real attraction here.»). OCR ممکن است نویسه/فاصله
+    # جابجا بخواند → تطبیقِ فاصله-چندپذیر رویِ حروفِ کلمه.
+    word_ok = True
+    word_desc = "—"
+    if word:
+        word_ok = False
+        letters = re.sub(r"[^a-z]", "", word)
+        for t in nonempty:
+            flat = re.sub(r"[^a-z]", "", t.lower())
+            if letters and letters in flat:
+                word_ok = True
+                word_desc = f"«{word}» found"
+                break
     print(f"[mlkit-gate] {lang}: regions={n} | nonempty-texts={len(nonempty)} "
           f"| script-proof: {desc if ok else '—'} "
-          f"| crash: {crashed} | {'PASS' if (ok and not crashed) else 'FAIL'}")
+          f"| word: {word_desc} "
+          f"| crash: {crashed} | "
+          f"{'PASS' if (ok and not crashed and word_ok) else 'FAIL'}")
     if not ok:
         print("--- first 3 region texts ---")
         for t in nonempty[:3]:
             print("   «" + t[:90] + "»")
+        return 1
+    if not word_ok:
+        print(f"[mlkit-gate] FAIL — required word «{word}» not in any region "
+              "(detector missed the crop or ladder stages all failed)")
         return 1
     return 0
 

@@ -84,12 +84,14 @@ if "check_mlkit.py" not in emu:
 if "fetch_paddle" in emu:
     fail("گامِ fetch_paddle هنوز در emulator workflow است")
 
-# ۵) نسخه
-if 'APP_VER = "1.14.170"' not in src:
-    fail("APP_VER باید 1.14.170 باشد")
+# ۵) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شماره — الگویِ 1.14.168)
 ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-if "versionCode=175" not in ver or "versionName=1.14.170" not in ver:
-    fail("VERSION باید 175/1.14.170 باشد")
+_m = re.search(r'^APP_VER = "([\d.]+)"', src, re.M)
+_vn = re.search(r'^versionName=([\d.]+)', ver, re.M)
+if not _m or not _vn:
+    fail("APP_VER/VERSION ناقص است")
+if _m.group(1) != _vn.group(1):
+    fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
 
 print("PASS — چکِ رگرسیونِ v1.14.170: OCRِ گوشی = ML Kit (ja/ko/zh/latin "
       "باندلشده، کشفِ خودکارِ اسکریپت) فقط رویِ کراپهایِ detector-v4-s؛ "

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.170"
+APP_VER = "1.14.171"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3527,6 +3527,233 @@ class MlKitCropOCR:
 
 # تک‌نمونهٔ ML Kit برایِ کلِ نشست — ساختِ تنبل؛ هر خطا = فالبکِ خودکار
 # به PP-OCRv6 ONNX (بدونِ تلاشِ دوباره در همان نشست).
+def _k3_ladder_on() -> bool:
+    """v1.14.171 — نردبانِ K3 پیشفرض روشن؛ خاموشی: MANGA_K3_LADDER=0."""
+    try:
+        return str(os.environ.get("MANGA_K3_LADDER", "1") or "1").strip() != "0"
+    except Exception:
+        return True
+
+
+def _k3_boost_crop(crop_bgr: np.ndarray):
+    """گامِ «افزایشِ کیفیتِ کراپ»ٔ K3: پدِ سفید دورِ کراپ (متنِ چسبیده به
+    لبه — مثلِ img6 «You're the real attraction here.» که رویِ لبهٔ چپِ
+    صفحه است) + بزرگنماییِ کراپهایِ ریز تا ML Kit بتواند بخواند.
+    خروجی: (کراپِ تقویتشده، pad، scale) برایِ برگرداندنِ مختصات."""
+    try:
+        h, w = crop_bgr.shape[:2]
+    except Exception:
+        return crop_bgr, 0, 1.0
+    pad = 12
+    scale = 1.0
+    m = min(h, w)
+    if m < 96:
+        scale = 3.0
+    elif max(h, w) < 480:
+        scale = 2.0
+    out = cv2.copyMakeBorder(crop_bgr, pad, pad, pad, pad,
+                             cv2.BORDER_CONSTANT, value=(255, 255, 255))
+    if scale > 1.01:
+        out = cv2.resize(out, None, fx=scale, fy=scale,
+                         interpolation=cv2.INTER_CUBIC)
+    return out, pad, scale
+
+
+def _k3_map_boxes(lines, pad: float, scale: float):
+    """باکسهایِ کراپِ تقویتشده → مختصاتِ کراپِ اصلی."""
+    out = []
+    if pad == 0 and scale == 1.0:
+        return lines
+    for box, pair in (lines or []):
+        try:
+            b = np.asarray(box, dtype=np.float32).reshape(-1, 2)
+            b = (b - float(pad)) / float(scale)
+            out.append([b.astype(np.float32), pair])
+        except Exception:
+            continue
+    return out
+
+
+def _k3_ink_coverage(crop_bgr: np.ndarray, lines) -> float:
+    """«درصدِ پوششِ متن»ٔ K3: چه کسری از جوهرِ واقعیِ کراپ داخلِ باکسهایِ
+    OCR افتاده؟ جوهر = اقلیتِ باینریِ اوتسو (متنِ تیره رویِ زمینهٔ روشن یا
+    برعکس). نبودِ جوهرِ محسوس = 1.0 (چیزی برایِ پوشاندن نیست)."""
+    try:
+        if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
+            return 1.0
+        gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+        _, bw = cv2.threshold(gray, 0, 255,
+                              cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        ink = (bw < 128) if float(bw.mean()) >= 127.0 else (bw >= 128)
+        total = int(ink.sum())
+        if total < 30:
+            return 1.0
+        cov = np.zeros(ink.shape, dtype=np.uint8)
+        got = False
+        for item in (lines or []):
+            try:
+                b = np.asarray(item[0], dtype=np.float32).reshape(-1, 2)
+                cv2.fillPoly(cov, [b.astype(np.int32)], 1)
+                got = True
+            except Exception:
+                continue
+        if not got:
+            return 0.0
+        cov = cv2.dilate(cov, np.ones((5, 5), np.uint8)) > 0
+        return float(int((ink & cov).sum())) / float(total)
+    except Exception:
+        return 1.0
+
+
+def _k3_best_conf(lines) -> float:
+    """بهترین اطمینانِ خطهایِ یک نتیجه (بدونِ خط = 0.0)."""
+    best = 0.0
+    for item in (lines or []):
+        try:
+            pair = item[1]
+            c = float(pair[1]) if isinstance(pair, (list, tuple)) \
+                and len(pair) > 1 else 1.0
+            best = max(best, c)
+        except Exception:
+            continue
+    return best
+
+
+_K3_STATS = {"n": 0, "ms": 0.0, "st1": 0, "st2": 0, "st3": 0}
+
+
+def _k3_stats_note(t0: float, stage: int) -> None:
+    try:
+        _K3_STATS["n"] += 1
+        _K3_STATS["ms"] += (time.time() - t0) * 1000.0
+        _K3_STATS[f"st{stage}"] += 1
+        if _K3_STATS["n"] % 20 == 0:
+            n = _K3_STATS["n"]
+            print(f"[⚡] نردبانِ K3: {n} کراپ | پلهها: "
+                  f"ML Kit={_K3_STATS['st1']} پدل={_K3_STATS['st2']} "
+                  f"رپید={_K3_STATS['st3']} | "
+                  f"میانگینِ {_K3_STATS['ms'] / max(1, n):.0f}ms")
+    except Exception:
+        pass
+
+
+class K3LadderOCR:
+    """v1.14.171 — نردبانِ ترکیبیِ K3 رویِ کراپهایِ detector-v4-s.
+
+    دقیقاً دستورِ توسعه‌دهندهٔ K3 (نقلِ قولِ سازنده):
+      «اول با RT-DETR در سطح بلوک متنها رو تشخیص میدم … کراپ میکنم …
+       بعد از افزایش کیفیت کراپ، اون کراپ رو میدم به Google Kit LM …
+       اگه درصد پوشش متن اون زیر ۷۰ درصد بود مدل پدل رو برای همون کراپ
+       صدا میزنم … اگه درصد اطمینان اون زیر ۸۰ درصد بود مدل رپید رو
+       صدا میزنم … فقط باید در سطح کراپی که از RT-DETR گرفتی کار کنی
+       نه رو تمام صفحه — این مورد رو گوشی خیلی مهمه»
+    → پلهٔ ۱: کراپِ تقویتشده (پد + بزرگنماییِ ریزها) → ML Kit (سریع)
+      پلهٔ ۲: پوششِ جوهرِ متن < 70٪ → PP-OCRv6 ONNX (پدل) رویِ همان کراپ
+      پلهٔ ۳: اطمینانِ پدل < 80٪ → مدلِ رپید (PP-OCRv6 small) همان کراپ
+    برنده = بالاترین (پوشش×0.6 + اطمینان×0.4). هیچ پاسِ تمامصفحهای نیست
+    (crop_mode=False → مستقیمِ موتورِ ONNX برایِ مسیرهایِ جانبیِ قدیمی).
+    خاموشی: MANGA_K3_LADDER=0 (فقط ML Kit — رفتارِ 1.14.170)."""
+
+    def __init__(self, mlkit, lang: str, build_onnx):
+        self._mlkit = mlkit            # MlKitCropOCR آماده
+        self._lang = lang
+        self._build_onnx = build_onnx  # callable(small: bool) → موتورِ ONNX
+        self._med = None
+        self._med_tried = False
+        self._sml = None
+        self._sml_tried = False
+
+    def _engine(self, small: bool):
+        if small:
+            if self._sml_tried:
+                return self._sml
+            self._sml_tried = True
+            try:
+                self._sml = self._build_onnx(small=True)
+            except Exception as e:
+                print(f"[!] مدلِ رپید آماده نشد: {str(e)[:110]}")
+                self._sml = None
+            return self._sml
+        if self._med_tried:
+            return self._med
+        self._med_tried = True
+        try:
+            self._med = self._build_onnx(small=False)
+        except Exception as e:
+            print(f"[!] مدلِ پدل آماده نشد: {str(e)[:110]}")
+            self._med = None
+        return self._med
+
+    def ocr(self, image_bgr: np.ndarray, crop_mode: bool = False):
+        if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
+            return None
+        _t0 = time.time()
+        # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → مستقیمِ ONNX؛ ML Kit
+        # فقط رویِ کراپ (دستورِ K3: «نه رو تمام صفحه»)
+        if not crop_mode:
+            eng = self._engine(small=False)
+            if eng is not None:
+                return eng.ocr(image_bgr, crop_mode=False)
+            return self._mlkit.ocr(image_bgr)
+
+        # ── پلهٔ ۱: ML Kit رویِ کراپِ تقویتشده ──
+        lines1 = []
+        try:
+            boosted, pad, scale = _k3_boost_crop(image_bgr)
+            r1 = self._mlkit.ocr(boosted)
+            if r1 and r1[0]:
+                lines1 = _k3_map_boxes(r1[0], pad, scale)
+        except Exception:
+            lines1 = []
+        cov1 = _k3_ink_coverage(image_bgr, lines1)
+        conf1 = _k3_best_conf(lines1)
+        if lines1 and cov1 >= 0.70 and conf1 >= 0.55:
+            _k3_stats_note(_t0, 1)
+            return [lines1]
+
+        # ── پلهٔ ۲: پدل (PP-OCRv6) رویِ همان کراپِ اصلی ──
+        lines2 = []
+        eng2 = self._engine(small=False)
+        if eng2 is not None:
+            try:
+                r2 = eng2.ocr(image_bgr, crop_mode=True)
+                if r2 and r2[0]:
+                    lines2 = list(r2[0])
+            except Exception as e:
+                print(f"[!] پدلِ کراپ خطا داد: {str(e)[:110]}")
+        conf2 = _k3_best_conf(lines2)
+        if lines2 and conf2 >= 0.80:
+            _k3_stats_note(_t0, 2)
+            return [lines2 if cov1 < 0.70 or not lines1 else
+                    max([lines1, lines2],
+                        key=lambda L: 0.6 * _k3_ink_coverage(image_bgr, L)
+                        + 0.4 * _k3_best_conf(L))]
+
+        # ── پلهٔ ۳: رپید (اطمینانِ پدل زیرِ ۸۰٪ یا پدل نبود) ──
+        lines3 = []
+        eng3 = self._engine(small=True)
+        if eng3 is not None and eng3 is not eng2:
+            try:
+                r3 = eng3.ocr(image_bgr, crop_mode=True)
+                if r3 and r3[0]:
+                    lines3 = list(r3[0])
+            except Exception as e:
+                print(f"[!] رپیدِ کراپ خطا داد: {str(e)[:110]}")
+        _k3_stats_note(_t0, 3 if lines3 else (2 if lines2 else 1))
+        cands = [L for L in (lines1, lines2, lines3) if L]
+        if not cands:
+            return None
+        best = max(cands,
+                   key=lambda L: 0.6 * _k3_ink_coverage(image_bgr, L)
+                   + 0.4 * _k3_best_conf(L))
+        return [best]
+
+
+# ── v1.14.171 — انتخابِ موتورِ OCRِ گوشی ─────────────────────────────
+#   MANGA_ANDROID_OCR / MANGA_MOBILE_OCR_ENGINE:
+#     k3 (پیشفرض) = نردبانِ K3: ML Kit → پوشش <70٪ → پدل → اطمینان <80٪ → رپید
+#     mlkit        = فقط ML Kit (رفتارِ 1.14.170)
+#     onnx|rapidocr = فقط PP-OCRv6 ONNX (مسیرِ خالص)
 _MLKIT_STATE = {"obj": None, "lang": None, "dead": False, "note": False}
 _MLKIT_BUILD_LOCK = threading.Lock()
 # سنجهٔ سرعتِ واقعیِ ML Kit رویِ گوشی (دستور: «سریع هم باشه»)
@@ -3848,13 +4075,18 @@ class RapidOCRBackend:
         خروجیِ clipper برایِ minAreaRect). سشن = شیمِ ORT باندلشده
         (پلِ Java ORT-android با XNNPACK/NNAPI opt-in).
         خطا → ImportError → زنجیرهٔ OCR به ML Kit برمیگردد."""
-        # v1.14.170 — انتخابِ موتورِ OCRِ گوشی (دستورِ سازنده: «حذف کن بره
-        # paddle-lite ناقص استخراج میزنه ml kit بزار … همه زبان هارو خوب
-        # بتونه استخراج کنه انگلیسی ژاپنی کره چینی»): پیشفرض = ML Kit
-        # (مدلهایِ باندلشدهٔ ja/ko/zh/latin — آفلاین، بدونِ Play
-        # Services)؛ نبودِ پل (APKِ قدیمی) یا هر خطا → فالبکِ خودکار به
-        # PP-OCRv6 ONNX. هر دو موتور فقط رویِ کراپهایِ detector-v4-s
-        # صدا زده میشوند (detector-first) — هیچ پاسِ تمامصفحهای نیست.
+        # v1.14.170/171 — انتخابِ موتورِ OCRِ گوشی: پیشفرض = «نردبانِ K3»
+        # (دستورِ سازنده + نقلِ دقیقِ توسعه‌دهندهٔ K3: «اول با RT-DETR در
+        # سطحِ بلوک متنها رو تشخیص میدم … کراپ میکنم … بعد از افزایشِ
+        # کیفیتِ کراپ میدم به Google Kit LM … اگه پوششِ متن زیرِ ۷۰٪ بود
+        # مدل پدل رو برای همون کراپ صدا میزنم … اگه اطمینان زیرِ ۸۰٪ بود
+        # مدل رپید رو صدا میزنم … فقط باید در سطحِ کراپ کار کنی نه تمام
+        # صفحه — این مورد رو گوشی خیلی مهمه»). پلهٔ ۱ = ML Kitِ باندلشده
+        # (ja/ko/zh/latin — آفلاین)؛ پلهٔ ۲/۳ = موتورِ PC (PP-OCRv6 ONNX)
+        # رویِ «همان کراپ» — عینِ درخواستِ «مالِ پی سی میخوام استفاده کنه».
+        # خاموشیِ نردبان: MANGA_K3_LADDER=0 (رفتارِ خالصِ 1.14.170)؛
+        # موتورِ خالصِ ONNX: MANGA_ANDROID_OCR=onnx. هر سه پله فقط رویِ
+        # کراپهایِ detector-v4-s صدا زده میشوند — هیچ پاسِ تمامصفحهای نیست.
         _eng = (os.environ.get("MANGA_ANDROID_OCR")
                 or os.environ.get("MANGA_MOBILE_OCR_ENGINE")
                 or "mlkit").strip().lower()
@@ -3862,9 +4094,38 @@ class RapidOCRBackend:
             # «paddle» و مقدارهایِ ناشناختهٔ قدیمی هم → ML Kit (سازگاری)
             _pb = _mlkit_backend(lang)
             if _pb is not None:
+                # v1.14.171 — نردبانِ K3 (پیشفرض). موتورهایِ پدل/رپید تنبل
+                # ساخته میشوند (فقط وقتی اولین کراپ به پلهٔ ۲/۳ برسد) تا
+                # بوتِ اپ مثلِ قبل سریع بماند. در شبیهسازِ x86_64 (CI) هر
+                # دو پله با مجموعهٔ سبک ساخته میشوند تا بودجهِٔ زمانیِ CI
+                # دستنخورده بماند؛ رویِ گوشیِ واقعی پلهٔ ۲ = مجموعهٔ K3
+                # (عینِ K3: PaddleV5PipelineOnCrop) و پلهٔ ۳ = مجموعهٔ سبک.
+                if _k3_ladder_on():
+                    try:
+                        _emu171 = _android_x86_emulator()
+                        self._mobile = K3LadderOCR(
+                            _pb, lang,
+                            lambda s: self._build_mobile_onnx(
+                                lang, small=(True if _emu171 else s)))
+                        print("[+] OCR گوشی: نردبانِ K3 — پلهٔ ۱ ML Kit رویِ "
+                              "کراپِ تقویتشده | پوششِ جوهر <70٪ → پلهٔ ۲ پدل | "
+                              "اطمینان <80٪ → پلهٔ ۳ رپید | فقط سطحِ کراپ")
+                        return
+                    except Exception as e:
+                        print(f"[!] نردبانِ K3 ساخته نشد ({str(e)[:120]}) "
+                              "→ فقط ML Kit")
                 self._mobile = _pb
                 return
             print("[!] ادامه با PP-OCRv6 ONNX")
+        self._mobile = self._build_mobile_onnx(
+            lang, small=_android_x86_emulator())
+
+    def _build_mobile_onnx(self, lang: str, small: bool = False):
+        """v1.14.171 — ساختِ موتورِ PP-OCR ONNXِ گوشی (بدونِ دست‌زدن به
+        self._mobile — تماسگیرنده تصمیمِ فالبک میگیرد).
+        small=False = مجموعهٔ K3 (پدلِ نردبان: PP-OCRv6 medium det/rec —
+        عینِ فایلهایِ اپِ K3) / small=True = مجموعهٔ سبک (رپیدِ نردبان یا
+        شبیهسازِ x86_64). خطا → ImportError."""
         try:
             from rapidocr_mobile import RapidOcrMobile
         except Exception as e:
@@ -3899,8 +4160,7 @@ class RapidOCRBackend:
             # medium det/rec + korean v5 + ch v4 (fp32 کامل، بدونِ int8 —
             # عینِ K3). شبیه‌سازِ x86_64 (CI) با مجموعهٔ سبک قبلی میماند
             # تا بودجهٔ زمانی و گیتهای CI دست‌نخورده بمانند.
-            _small_set = _android_x86_emulator()
-            _det_name, _rec = _rapidocr_model_pair(lang, small=_small_set)
+            _det_name, _rec = _rapidocr_model_pair(lang, small=small)
             try:
                 _int8_on = os.environ.get(
                     "MANGA_MOBILE_DET_INT8", "1").strip() != "0"
@@ -3931,21 +4191,21 @@ class RapidOCRBackend:
                     "MANGA_CROP_DET_CAP", "960") or 960)
             except Exception:
                 _det_cap = 960
-            self._mobile = RapidOcrMobile(
+            _out171 = RapidOcrMobile(
                 _p_det, _p_rec, charset_path=os.path.join(
                     os.path.dirname(os.path.abspath(
                         sys.modules["rapidocr_mobile"].__file__)),
                     _chars),
                 intra_threads=_intra, det_cap=max(320, _det_cap))
             print(f"[+] OCR گوشی: "
-                  f"{'مجموعهٔ K3' if not _small_set else 'مجموعهٔ سبک (شبیهساز)'}"
+                  f"{'مجموعهٔ K3 (پدل)' if not small else 'مجموعهٔ سبک (رپید)'}"
                   f" | det={_det_name} | rec={_rec} | "
                   f"lang={lang} | threads={_intra}"
                   f" | crop-cap={max(320, _det_cap)}")
+            return _out171
         except ImportError:
             raise
         except Exception as e:
-            self._mobile = None
             raise ImportError(f"موتورِ موبایلِ PP-OCR ساخته نشد: {e}") from e
 
     @staticmethod
@@ -8618,6 +8878,31 @@ class MangaTranslator:
         except Exception:
             return rm
 
+    def _pad_dilate_wall_safe(self, rm: np.ndarray, image: np.ndarray,
+                              region: "TextRegion",
+                              pad_k) -> np.ndarray:
+        """v1.14.171 — دیلیشنِ ماسک + گیردهِ دوباره به داخلِ حباب (فقطِ
+        اندروید — دستورِ سازنده: «حبابِ متن خراب نشه … خوده k3 ببین چکار
+        کرده»). دیکدِ K3: اپِ K3 هیچ مدلِ inpaintی ندارد و فقط پالیِ تنگِ
+        خطهایِ OCR را با رنگِ زمینه پر میکند — دیوارِ حباب هرگز لمس
+        نمیشود. نزدیکترین معادلِ امنِ همین‌جا: پدِ ماسکِ اندروید (۸px —
+        درسِ 1.14.133 برایِ دورخطِ ضخیمِ حبابهایِ زرد) بعد از گیردهِ حباب
+        اعمال میشود و میتواند ۸ پیکسل از دیوار را ببلعد؛ پس بعدِ دیلیشن
+        دوباره به داخلِ حباب گیرده میکنیم. _limit_mask_to_bubble فقط
+        کوچک میکند و فقط با «حبابِ واقعیِ تاییدشده» (دیوارِ تیرهٔ +۴۰
+        گری + گیتِ سرریزِ ۰.۷۵) کلیپ میکند → متنِ آزادِ بیرونِ حباب
+        دستنخورده میماند و درسِ 1.14.133 (پوششِ دورخطِ داخلِ حباب) هم
+        سرِ جایش است. PC/لینوکس هرگز این مسیر را نمیرود (گیتِ اندرویدِ
+        MANGA_MASK_WALL_RECLIP) — رفتارِ PC بیت‌به‌بیتِ قبلی."""
+        if pad_k is not None:
+            rm = cv2.dilate(rm, pad_k)
+        try:
+            if _android_gate("MANGA_MASK_WALL_RECLIP"):
+                rm = self._limit_mask_to_bubble(image, rm, region)
+        except Exception:
+            pass
+        return rm
+
     def _ink_is_light(self, image: np.ndarray,
                       ink: Optional[np.ndarray]) -> bool:
         """v1.14.59 — قطبیتِ متن: جوهرِ گلیف‌ها به‌وضوح روشن‌تر از زمینهٔ
@@ -9969,8 +10254,8 @@ class MangaTranslator:
                                         image, _rm, None)
                                 except Exception:
                                     pass
-                                if _pad_k is not None:
-                                    _rm = cv2.dilate(_rm, _pad_k)
+                                _rm = self._pad_dilate_wall_safe(
+                                    _rm, image, region, _pad_k)
                                 m = cv2.bitwise_or(m, _rm)
                                 n_ok += 1
                                 continue
@@ -10034,8 +10319,8 @@ class MangaTranslator:
                                 pass
                             _rm = self._limit_mask_to_bubble(
                                 image, _rm, region)
-                            if _pad_k is not None:
-                                _rm = cv2.dilate(_rm, _pad_k)
+                            _rm = self._pad_dilate_wall_safe(
+                                _rm, image, region, _pad_k)
                             m = cv2.bitwise_or(m, _rm)
                             n_ok += 1
                             continue
@@ -10171,9 +10456,9 @@ class MangaTranslator:
                                                             _inkB, _rm96)
                                                     except Exception:
                                                         _rm = _inkB
-                                                    if _pad_k is not None:
-                                                        _rm = cv2.dilate(
-                                                            _rm, _pad_k)
+                                                    _rm = self._pad_dilate_wall_safe(
+                                                        _rm, image, region,
+                                                        _pad_k)
                                                     m = cv2.bitwise_or(m, _rm)
                                                     n_ok += 1
                                                     if self.debug:
@@ -10197,8 +10482,8 @@ class MangaTranslator:
                                                          int(getattr(region, "id", -1))])
                                                 except Exception:
                                                     pass
-                                                if _pad_k is not None:
-                                                    _rm = cv2.dilate(_rm, _pad_k)
+                                                _rm = self._pad_dilate_wall_safe(
+                                                    _rm, image, region, _pad_k)
                                                 m = cv2.bitwise_or(m, _rm)
                                                 n_ok += 1
                                                 continue
@@ -10221,7 +10506,8 @@ class MangaTranslator:
                                 except Exception:
                                     pass
                                 if _pad_k is not None:
-                                    _rm = cv2.dilate(_rm, _pad_k)
+                                    _rm = self._pad_dilate_wall_safe(
+                                        _rm, image, region, _pad_k)
                                 m = cv2.bitwise_or(m, _rm)
                                 try:
                                     _dm3 = os.environ.get("MANGA_DUMP_MASK3")
@@ -10328,7 +10614,8 @@ class MangaTranslator:
                 except Exception:
                     pass
                 if _pad_k is not None:
-                    _rm = cv2.dilate(_rm, _pad_k)
+                    _rm = self._pad_dilate_wall_safe(
+                        _rm, image, region, _pad_k)
                 m = cv2.bitwise_or(m, _rm)
                 n_ok += 1
             else:
@@ -10357,7 +10644,8 @@ class MangaTranslator:
                         except Exception:
                             pass
                         if _pad_k is not None:
-                            _rm = cv2.dilate(_rm, _pad_k)
+                            _rm = self._pad_dilate_wall_safe(
+                                _rm, image, region, _pad_k)
                         m = cv2.bitwise_or(m, _rm)
                         n_ok += 1
                 except Exception:

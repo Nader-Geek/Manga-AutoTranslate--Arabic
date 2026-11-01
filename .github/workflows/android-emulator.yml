@@ -285,7 +285,11 @@ jobs:
           # img4.jpg = صفحهٔ قانونیِ 690×11200 (همان خانوادهٔ صفحهٔ _9 کاربر از
           # imgsrv5 1dx2/chapter-264/9) — درخواستِ کاربر: «تستِ اندرویدِ واقعیِ
           # arm64 رویِ همان صفحهای که خراب درمیآید»
-          EXT_SET="img4.jpg:en up0929_zh.jpg:zh_en up0904_en.jpg:en up0822_en.jpg:en lang_ja_bw.jpg:ja_en lang_ja_color.jpg:ja_en lang_ko.jpg:ko_en lang_zh.jpg:zh_en"
+          # v1.14.171 — img6.jpg = صفحهٔ «ML Kit خوب نیست»ِ کاربر: متنِ
+          # گوشهٔ بالا-چپِ «you're the real attraction here.» رویِ گوشی
+          # با ML Kitِ خالی پیدا نمیشد → با نردبانِ K3 (پلهٔ ۲ پدل) باید
+          # برگردد؛ گیتِ کلمهٔ «attraction» آن را الزامی میکند.
+          EXT_SET="img4.jpg:en up0929_zh.jpg:zh_en up0904_en.jpg:en up0822_en.jpg:en lang_ja_bw.jpg:ja_en lang_ja_color.jpg:ja_en lang_ko.jpg:ko_en lang_zh.jpg:zh_en img6.jpg:en"
           for tok in $EXT_SET; do
             F="${tok%%:*}"; L="${tok#*:}"; L="${L//_/ }"
             curl -fsSL --retry 2 --max-time 120 -o "/tmp/mt/ext/$F" "$B1/$F" \
@@ -337,17 +341,20 @@ jobs:
                grep -qE "Cleanup: .*'OpenCV': [1-9]" "/tmp/emulout/ext_${N}.log"; then
               echo "::warning::$F — OpenCV fallback in cleanup"
             fi
-            # ── v1.14.170 — گیتِ ML Kit: متنِ واقعیِ هر زبان باید خوانده شده باشد ──
+            # ── v1.14.170/171 — گیتِ ML Kit/نردبان: متنِ واقعیِ هر زبان باید
+            # خوانده شده باشد؛ img6 کلمهٔ «attraction» را هم الزامی میکند
             # دستورِ سازنده: «همه زبان هارو خوب بتونه استخراج کنه انگلیسی
-            # ژاپنی کره چینی … رو GitHub action تست کن»
-            python3 .ci_scripts/check_mlkit.py "/tmp/emulout/ext_${N}.log" "$L" \
-              || { echo "::error::$F — ML Kit multilang gate failed"; FAIL=1; continue; }
+            # ژاپنی کره چینی … رو GitHub action تست کن» + «ml kit خوب نیست»
+            _WORD171=""
+            if [ "$F" = "img6.jpg" ]; then _WORD171="attraction"; fi
+            python3 .ci_scripts/check_mlkit.py "/tmp/emulout/ext_${N}.log" "$L" "$_WORD171" \
+              || { echo "::error::$F — ML Kit/ladder multilang gate failed"; FAIL=1; continue; }
             echo "[✓] $F → PDF ${SZ} bytes + ML Kit text gate OK"
           done
           adb shell rm -f /data/local/tmp/ext_settings.xml || true
           cp /tmp/emulout/* emul-artifacts/ 2>/dev/null || true
           if [ "$FAIL" != "0" ]; then echo "::error::extended test set FAILED"; exit 1; fi
-          if [ "$RAN" -lt 7 ]; then echo "::error::only $RAN/7 images ran"; exit 1; fi
+          if [ "$RAN" -lt 8 ]; then echo "::error::only $RAN/8 images ran"; exit 1; fi
           echo "[✓] extended test set passed ($RAN images)"
 
       # ── v1.14.127 — گیتِ ۶ استریپِ کاربر حذف شد ──
