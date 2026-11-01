@@ -211,6 +211,10 @@ _EP_NOTE_156 = False
 #     کاملِ سالم نرسید» (کرشِ نیتیوِ اینفرنسِ واقعی که پروب نمیبیند)
 #     → اجرایِ بعدِ CPU — حلقهٔ کرش نمیسازد. اولین کراپِ سالم (پوشِ
 #     ocr) نشان را پاک میکند؛ NNAPIِ سالم همیشه میماند.
+# v1.14.175 — دستورِ سازنده («هرچیزی ترکیبی nnapi xnnpack و… فقط سریع
+# استخراج بزنه»): تورنمنتِ ترکیبیِ NNAPI+XNNPACK «پیشفرض» شد؛ نشانِ
+# کرش نسخهآگاه شد (آپدیتِ اپ = فرصتِ تازه)، فالبکِ کرش = XNNPACK نه
+# CPU، کوتاهبرِ پروب = اولین سالم کافی، «no_nnapi.txt» = قفلِ خاموش.
 _LAUNCH_TOKEN = "%d:%.6f" % (os.getpid(), __import__("time").time())
 _NNAPI_ACTIVE = False
 _NNAPI_GUARD = None
@@ -226,15 +230,44 @@ def _nnapi_guard_path(mdir: str) -> str:
 
 
 def _nnapi_guard_write(gpath: str) -> None:
-    """نوشتنِ نشان با شناسهٔ همین اجرا — پروسهٔ همین اجرا خودش را
-    میشناسد (موتورِ دومِ همان اجرا فالبکِ اشتباه نمیخورد)."""
+    """نوشتنِ نشان با شناسهٔ همین اجرا + نسخهٔ اپ (MANGA_APP_VER) —
+    پروسهٔ همین اجرا خودش را میشناسد (موتورِ دومِ همان اجرا فالبکِ
+    اشتباه نمیخورد)؛ آپدیتِ اپ = فرصتِ تازه برایِ NNAPI."""
     global _NNAPI_GUARD
     try:
+        import json as _json
         with open(gpath, "w", encoding="utf-8") as _f:
-            _f.write(_LAUNCH_TOKEN)
+            _json.dump({"launch": _LAUNCH_TOKEN,
+                        "ver": os.environ.get("MANGA_APP_VER", "")}, _f)
         _NNAPI_GUARD = gpath
     except Exception:
         _NNAPI_GUARD = None
+
+
+def _nnapi_guard_stale(gpath: str) -> bool:
+    """نشانِ «اجرایِ قبلیِ NNAPI که به یک کراپِ کامل نرسید»؟
+    • نشانِ همین اجرا (شناسه/موتورِ دوم) = تازه → نه
+    • نشانِ اجرایِ قبلی با همان نسخهٔ اپ = کرشِ احتمالی → بله
+    • نشانِ نسخهٔ دیگر (آپدیتِ اپ) یا محتوایِ متنیِ قدیمیِ 1.14.174
+      = فرصتِ تازه برایِ NNAPI → نه"""
+    try:
+        with open(gpath, "r", encoding="utf-8") as _f:
+            _txt = (_f.read() or "").strip()
+    except Exception:
+        return False
+    if not _txt:
+        return False
+    try:
+        import json as _json
+        _d = _json.loads(_txt)
+        _launch = str(_d.get("launch") or "")
+        _ver = str(_d.get("ver") or "")
+    except Exception:
+        # محتوایِ متنیِ سادهٔ 1.14.174 = نشانِ نسخهٔ دیگر → فرصتِ تازه
+        return False
+    if _launch == _LAUNCH_TOKEN:
+        return False
+    return _ver == os.environ.get("MANGA_APP_VER", "")
 
 
 def _nnapi_guard_clear() -> None:
@@ -362,12 +395,18 @@ def _ep_probe_timeout() -> float:
 
 
 def _ep_gate_ensure(mdir, det_path, rec_path, wanted, threads):
-    """پروبِ پروسهٔ جدا برایِ EPهایِ هنوزتأییدنشده؛ خروجی: name→info."""
+    """پروبِ پروسهٔ جدا برایِ EPهایِ هنوزتأییدنشده؛ خروجی: name→info.
+    v1.14.175 — کوتاهبرِ ترتیب: به ترتیبِ wanted پروب میگیرد و با
+    «اولین سالم» میایستد (وقتی NNAPI سالم است XNNPACK دیگر پروبِ
+    دوباره نمیگیرد — استارتِ سریعتر؛ ترتیبِ wanted = اولویتِ برنده)."""
     global _EP_NOTE_156
     import time as _time
     _res = _ep_probe_read(mdir, _probe_key([det_path, rec_path]))
     for _name in wanted:
         if _name in _res:
+            # v1.14.175 — اولین سالمِ کَشِده = کوتاهبر (ترتیبِ wanted)
+            if (_res[_name] or {}).get("ok"):
+                break
             continue
         _short = "nnapi" if "Nnapi" in _name else "xnnpack"
         _out = os.path.join(mdir, ".ep_probe_%s.txt" % _short)
@@ -419,6 +458,9 @@ def _ep_gate_ensure(mdir, det_path, rec_path, wanted, threads):
         if _info is None:
             _info = {"ok": False, "why": "timeout"}
         _res[_name] = _info
+        # v1.14.175 — اولین سالمِ تازه = کوتاهبر (بقیه پروب نمیگیرند)
+        if _info.get("ok"):
+            break
     _ep_probe_write(mdir, _probe_key([det_path, rec_path]), _res)
     return _res
 
@@ -436,15 +478,19 @@ def _ep_plan(det_path: str, rec_path: str):
     مدلِ گوشی) → بارِ اول پس از هر آپدیت، بارهایِ بعد فوری.
 
     MANGA_MOBILE_OCR_EP: cpu | xnnpack | nnapi | auto (پیشفرض) —
-    v1.14.173: auto/پیشفرض = فقط XNNPACK (NNAPI از انتخابِ خودکار حذف
-    شد — پروبِ OK میگرفت ولی در اینفرنسِ واقعی کرشِ نیتیو میداد)؛
-    v1.14.174: تستِ NNAPI از «داخلِ اپ» هم ممکن شد (env رویِ APK دستِ
-    کاربر نیست): فایلِ «nnapi.txt» کنارِ فایلهایِ مدل = تورنمنتِ
-    NNAPI+XNNPACK با گیتِ پروبِ پروسهٔ جدا + نشانِ کرشِ .ep_nnapi_last
-    (کرشِ اینفرنسِ واقعی که پروب نمیبیند → اجرایِ بعدِ CPU — بدونِ
-    حلقهٔ کرش؛ اولین کراپِ سالم نشان را پاک میکند).
-    MANGA_EP_NO_PROBE=1 فقط برایِ توسعه (EP خام، خطرِ کرش به عهدهٔ
-    گیرنده). خروجی: (ep_name|None, opts) — None = CPU خالص."""
+    v1.14.173: auto = فقط XNNPACK (کرشِ نیتیوِ NNAPI در اینفرنسِ واقعی
+    — پروبِ OK ولی سیگفالت در پروسهٔ اصلی).
+    v1.14.174: تستِ NNAPI با فایلِ «nnapi.txt» کنارِ مدلها (env رویِ
+    APK دستِ کاربر نیست).
+    v1.14.175 — دستورِ سازنده («هرچیزی ترکیبی nnapi xnnpack و… فقط
+    سریع استخراج بزنه»): auto/پیشفرض = تورنمنتِ ترکیبیِ NNAPI+XNNPACK
+    (NNAPI مقدم — اولین سالمِ گیتِ پروب کافی است). نشانِ کرشِ
+    .ep_nnapi_last: شروعِ اجرایِ NNAPI نوشته، اولین کراپِ سالم پاک
+    میشود؛ نشانِ مانده از اجرایِ «قبلیِ» همان نسخه → NNAPI از تورنمنتِ
+    آن اجرا حذف (فالبکِ XNNPACK — CPUِ خالی نمیماند)؛ آپدیتِ اپ یا
+    محتوایِ قدیمیِ 1.14.174 = فرصتِ تازه. فایلِ «no_nnapi.txt» = قفلِ
+    فقط-XNNPACK (خاموشکردنِ NNAPI از داخلِ اپ). MANGA_EP_NO_PROBE=1
+    فقط برایِ توسعه. خروجی: (ep_name|None, opts) — None = CPU خالص."""
     global _EP_PLAN_CACHE, _NNAPI_HINT, _NNAPI_ACTIVE
     try:
         _e = str(os.environ.get("MANGA_MOBILE_OCR_EP", "") or "") \
@@ -471,33 +517,43 @@ def _ep_plan(det_path: str, rec_path: str):
         # _Sess._open سرِ جایش است.
         try:
             print("[⚡] تستِ NNAPI (MANGA_MOBILE_OCR_EP=nnapi) — "
-                  "اگر کرش کند اجرایِ بعدِ خودکار CPU میشود", flush=True)
+                  "اگر کرش کند اجرایِ بعدِ خودکار بدونِ NNAPI میشود",
+                  flush=True)
         except Exception:
             pass
         _wanted = ["NnapiExecutionProvider"]
-    elif _switch:
-        # v1.14.174 — همان تستِ NNAPI ولی از داخلِ اپ: فایلِ صفرِ
-        # «nnapi.txt» کنارِ فایلهایِ مدل. تورنمنتِ NNAPI+XNNPACK:
-        # NNAPIِ سالمِ سریعتر برنده؛ پروبِ NNAPI شکست خورد → فالبکِ
-        # XNNPACK (CPUِ خالی نمیماند).
+    elif os.path.isfile(os.path.join(_mdir, "no_nnapi.txt")):
+        # v1.14.175 — قفلِ فقط-XNNPACK از داخلِ اپ (فایلِ 0بایتیِ
+        # «no_nnapi.txt» کنارِ مدلها) — برایِ وقتی که NNAPI مدام کرش
+        # میکند و سازنده نمیخواهد دیگر امتحان شود.
         if not _NNAPI_HINT:
-            print("[⚡] تستِ NNAPI (فایلِ nnapi.txt) — پروبِ پروسهٔ جدا؛ "
-                  "اگر اجرا کرش کند اجرایِ بعدِ خودکار CPU میشود "
-                  "(حذفِ nnapi.txt = بازگشتِ به پیشفرض)", flush=True)
-            _NNAPI_HINT = True
-        _wanted = ["NnapiExecutionProvider", "XnnpackExecutionProvider"]
-    elif _e in ("", "auto", "xnnpack,nnapi", "nnapi,xnnpack", "xnnpack"):
-        # v1.14.173 — پیشفرض فقط XNNPACK: در 1.14.172 تورنمنتِ auto
-        # NNAPI را برندهٔ پروب میکرد (ms=3969) ولی در اینفرنسِ واقعیِ
-        # پروسهٔ اصلی کرشِ نیتیو میداد («سریعتر شد ولی کرش کرد — فعلا
-        # رو همون بیاد») → NNAPI فقط با nnapi.txt یا
-        # MANGA_MOBILE_OCR_EP=nnapi به کار میرود.
-        if not _NNAPI_HINT:
-            print("[*] NNAPI خاموش — برایِ تست: فایلِ «nnapi.txt» را "
-                  "کنارِ فایلهایِ مدل بسازید (0 بایت کافی است)",
+            print("[*] no_nnapi.txt → فقط XNNPACK (NNAPI خاموش)",
                   flush=True)
             _NNAPI_HINT = True
         _wanted = ["XnnpackExecutionProvider"]
+    elif _switch:
+        # v1.14.174 — فایلِ «nnapi.txt» (در 1.14.175 تورنمنتِ ترکیبی
+        # پیشفرض شد؛ فایل همان رفتار + پیامِ مخصوصِ خودش را دارد).
+        if not _NNAPI_HINT:
+            print("[⚡] تستِ NNAPI (فایلِ nnapi.txt) — تورنمنتِ پروبِ "
+                  "پروسهٔ جدا؛ بعد از یک کرش، اجرایِ بعد بدونِ NNAPI "
+                  "میشود", flush=True)
+            _NNAPI_HINT = True
+        _wanted = ["NnapiExecutionProvider", "XnnpackExecutionProvider"]
+    elif _e in ("", "auto", "xnnpack,nnapi", "nnapi,xnnpack"):
+        # v1.14.175 — دستورِ سازنده («هرچیزی ترکیبی nnapi xnnpack و…
+        # فقط سریع استخراج بزنه»): تورنمنتِ ترکیبیِ NNAPI+XNNPACK
+        # پیشفرض شد (در 1.14.173/174 فقط-XNNPACK بود). NNAPI مقدم —
+        # اولین سالمِ گیتِ پروب کافی است؛ بعد از یک کرشِ واقعی، نشانِ
+        # .ep_nnapi_last NNAPI را از اجرایِ بعد حذف میکند (آپدیتِ اپ =
+        # فرصتِ تازه). قفلِ فقط-XNNPACK: فایلِ no_nnapi.txt یا
+        # MANGA_MOBILE_OCR_EP=xnnpack.
+        if not _NNAPI_HINT:
+            print("[⚡] تورنمنتِ ترکیبیِ NNAPI+XNNPACK — برنده = "
+                  "سالمِ سریعتر (پروبِ پروسهٔ جدا؛ بعد از یک کرش، "
+                  "اجرایِ بعد بدونِ NNAPI میشود)", flush=True)
+            _NNAPI_HINT = True
+        _wanted = ["NnapiExecutionProvider", "XnnpackExecutionProvider"]
     else:
         _wanted = ["XnnpackExecutionProvider"]
     _wanted = [w for w in _wanted if w in _avail_eps()]
@@ -506,6 +562,19 @@ def _ep_plan(det_path: str, rec_path: str):
     _key = _probe_key([det_path, rec_path])
     if _EP_PLAN_CACHE.get("key") == _key:
         return _EP_PLAN_CACHE["plan"]
+    # v1.14.175 — نشانِ کرشِ اجرایِ «قبلی» (همان نسخه) → NNAPI از
+    # تورنمنت حذف میشود؛ حتی پروبِ دوباره نمیگیرد (استارتِ سریع)،
+    # فالبک = XNNPACK نه CPUِ خالی.
+    if "NnapiExecutionProvider" in _wanted \
+            and _nnapi_guard_stale(_nnapi_guard_path(_mdir)):
+        print("[!] NNAPI: اجرایِ قبل با NNAPI به یک کراپِ کامل نرسید "
+              "(کرشِ احتمالی) → این اجرا بدونِ NNAPI — حذفِ "
+              ".ep_nnapi_last یا آپدیتِ اپ = تستِ دوباره", flush=True)
+        _wanted = [w for w in _wanted
+                   if w != "NnapiExecutionProvider"]
+        if not _wanted:
+            _EP_PLAN_CACHE = {"key": _key, "plan": (None, {})}
+            return (None, {})
     _res = _ep_gate_ensure(_mdir, det_path, rec_path, _wanted,
                            _xnn_threads())
     _winner, _wt = None, None
@@ -537,24 +606,12 @@ def _ep_plan(det_path: str, rec_path: str):
               "(پروبِ پروسهٔ جدا؛ "
               "ms=" + ("%.0f" % _wt) + ")")
         if _winner == "NnapiExecutionProvider":
-            # v1.14.174 — نشانِ «شروعِ اجرایِ NNAPI»: تا اولین کراپِ
-            # کاملِ سالم زنده میماند؛ کرشِ نیتیوِ مسیرِ واقعی (که پروبِ
-            # پروسهٔ جدا نمیبیند) → فایل میماند → اجرایِ بعدی CPU.
-            _gp = _nnapi_guard_path(_mdir)
-            try:
-                with open(_gp, "r", encoding="utf-8") as _f:
-                    _prev = (_f.read() or "").strip()
-            except Exception:
-                _prev = ""
-            if _prev and _prev != _LAUNCH_TOKEN:
-                print("[!] NNAPI: اجرایِ قبل با NNAPI به یک کراپِ کامل "
-                      "نرسید (کرشِ احتمالی) → این اجرا CPU — برایِ "
-                      "تستِ دوباره فایلِ .ep_nnapi_last را حذف کنید",
-                      flush=True)
-                _plan = (None, {})
-            else:
-                _nnapi_guard_write(_gp)
-                _NNAPI_ACTIVE = True
+            # v1.14.174/175 — نشانِ «شروعِ اجرایِ NNAPI»: تا اولین
+            # کراپِ کاملِ سالم زنده میماند؛ کرشِ نیتیوِ مسیرِ واقعی
+            # (که پروبِ پروسهٔ جدا نمیبیند) → فایل میماند → اجرایِ
+            # بعدی بدونِ NNAPI (XNNPACK/CPU).
+            _nnapi_guard_write(_nnapi_guard_path(_mdir))
+            _NNAPI_ACTIVE = True
     _EP_PLAN_CACHE = {"key": _key, "plan": _plan}
     return _plan
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.174"
+APP_VER = "1.14.175"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -187,6 +187,9 @@ os.environ.setdefault("FLAGS_onednn", "0")
 os.environ.setdefault("FLAGS_enable_pir_in_executor", "0")
 os.environ.setdefault("FLAGS_enable_pir_api", "0")
 os.environ.setdefault("FLAGS_pir_apply_shape_optimization_pass", "0")
+# v1.14.175 — نسخهٔ اپ برایِ نشانِ کرشِ NNAPI در rapidocr_mobile
+# (آپدیتِ اپ = فرصتِ تازه برایِ NNAPI؛ MANGA_APP_VER در _nnapi_guard_*)
+os.environ.setdefault("MANGA_APP_VER", APP_VER)
 os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 
 

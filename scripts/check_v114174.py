@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """چکِ رگرسیونِ v1.14.174 — تستِ NNAPI از داخلِ اپ (فایلِ nnapi.txt) + نشانِ کرش:
+(v1.14.175: به مکانیزمِ ترکیبیِ پیشفرض بهروز شد — تورنمنتِ NNAPI+XNNPACK
+پیشفرض؛ نشانِ کرش نسخهآگاه؛ فالبکِ کرش = XNNPACK نه CPU.)
 
 گلایهٔ سازنده: «ببینم با من لج داری؟ میگم nnapi بزار تست بزنم Xnnpack
 میزاری جاش؟ همچنین nnapi برداشتی؟» — ریشه: تستِ NNAPI در 1.14.173 فقط با
@@ -19,7 +21,7 @@ envِ MANGA_MOBILE_OCR_EP بود که رویِ APK دستِ کاربر نیست 
 ۴) تایم‌اوتِ پروب 90→180 (لاگِ گوشیِ 1.14.173: «Xnnpack=timeout» در بارِ
    اولِ بعد از آپدیت).
 ۵) عملی: _ep_plan با monkeypatch (env/فایل/گیتِ قلابی) — ۹ سناریو.
-۶) نسخه 179/1.14.174 + نردبانِ K3 و لامبداِ 172 دستنخورده.
+۶) نسخه — APP_VER↔versionName↔versionCode (مستقل از شماره — الگویِ 171) + نردبانِ K3 و لامبداِ 172 دستنخورده.
 """
 import ast
 import contextlib
@@ -47,19 +49,18 @@ def ok(msg):
 src = io.open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
 rsrc = io.open(RP, encoding="utf-8").read()
 
-# ۰) نسخه — 179/1.14.174
+# ۰) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شماره — الگویِ 171)
 _m = re.search(r'^APP_VER = "([\d.]+)"', src, re.M)
 _ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
 _vn = re.search(r"versionName=([\d.]+)", _ver)
 _vc = re.search(r"versionCode=(\d+)", _ver)
 if not _m or not _vn or not _vc:
     fail("APP_VER/VERSION ناقص است")
-if _m.group(1) != _vn.group(1) or _vn.group(1) != "1.14.174":
-    fail(f"نسخه ناهمخوان: APP_VER={_m.group(1)} versionName="
-         f"{_vn.group(1) if _vn else '?'}")
-if _vc.group(1) != "179":
-    fail(f"versionCode باید 179 باشد — الان {_vc.group(1)}")
-ok("نسخه 179/1.14.174 (APP_VER↔versionName↔versionCode)")
+if _m.group(1) != _vn.group(1):
+    fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
+if not re.match(r"^\d+$", _vc.group(1) or ""):
+    fail("versionCode عددی نیست")
+ok(f"نسخه {_m.group(1)}/{_vc.group(1)} (APP_VER↔versionName↔versionCode)")
 
 # ۱) گیتهایِ مبدأِ rapidocr_mobile
 rtree = ast.parse(rsrc)
@@ -104,7 +105,8 @@ if epf is None:
 ep_src = ast.get_source_segment(rsrc, epf) or ""
 for s in ('os.path.isfile(_nnapi_switch_path(_mdir))',
           '_wanted = ["NnapiExecutionProvider", "XnnpackExecutionProvider"]',
-          '_prev != _LAUNCH_TOKEN', "_nnapi_guard_write(_gp)",
+          '_nnapi_guard_stale(',
+          '_nnapi_guard_write(_nnapi_guard_path(_mdir))',
           '_e == "nnapi"', '_e == "cpu"', "_x86_machine()",
           "MANGA_EP_NO_PROBE", "return None, {}"):
     if s not in ep_src:
@@ -177,16 +179,16 @@ def plan():
     return _p, buf.getvalue()
 
 
-# S1 — پیشفرض: فقط XNNPACK (بدونِ فایل/env)
+# S1 — پیشفرض (v1.14.175): تورنمنتِ ترکیبی — برندهِ NNAPI + نشان
 reset()
 plan1, out1 = plan()
-if plan1 != ("XnnpackExecutionProvider",
-             {"intra_op_num_threads": "4"}) or \
-        SEEN["wanted"] != ["XnnpackExecutionProvider"]:
-    fail(f"S1 پیشفرض خراب: {plan1} / {SEEN['wanted']}")
-if "nnapi.txt" not in out1:
-    fail("S1 پیامِ راهنمایِ nnapi.txt ندارد")
-ok("S1 پیشفرض = فقط XNNPACK + پیامِ راهنمایِ nnapi.txt")
+if plan1 != ("NnapiExecutionProvider", {}) or \
+        SEEN["wanted"] != ["NnapiExecutionProvider",
+                           "XnnpackExecutionProvider"]:
+    fail(f"S1 پیشفرضِ ترکیبی خراب: {plan1} / {SEEN['wanted']}")
+if "ترکیبی" not in out1 or not os.path.isfile(GD):
+    fail("S1 پیامِ ترکیبی/نوشتنِ نشان خراب")
+ok("S1 پیشفرض = تورنمنتِ ترکیبی، برنده NNAPI + نشان")
 
 # S2 — فایلِ nnapi.txt + NNAPI سالم → برندهِ NNAPI + نشان نوشته میشود
 reset(switch=True)
@@ -195,9 +197,9 @@ if plan2 != ("NnapiExecutionProvider", {}) or \
         SEEN["wanted"] != ["NnapiExecutionProvider",
                            "XnnpackExecutionProvider"]:
     fail(f"S2 تورنمنت خراب: {plan2} / {SEEN['wanted']}")
-if not os.path.isfile(GD) or \
-        (io.open(GD, encoding="utf-8").read() or "").strip() \
-        != rpm._LAUNCH_TOKEN:
+_gc2 = (io.open(GD, encoding="utf-8").read() or "") \
+    if os.path.isfile(GD) else ""
+if rpm._LAUNCH_TOKEN not in _gc2:
     fail("S2 نشانِ .ep_nnapi_last با شناسهٔ اجرا نوشته نشد")
 if "تستِ NNAPI (فایلِ nnapi.txt)" not in out2:
     fail("S2 پیامِ تستِ NNAPI (فایل) ندارد")
@@ -208,11 +210,13 @@ _prev_token = io.open(GD, encoding="utf-8").read()
 rpm._LAUNCH_TOKEN = "launch-2"
 reset(switch=True, guard=_prev_token)
 plan3, out3 = plan()
-if plan3 != (None, {}):
-    fail(f"S3 فالبکِ بعد از کرش خراب: {plan3}")
+if plan3 != ("XnnpackExecutionProvider",
+             {"intra_op_num_threads": "4"}) or \
+        SEEN["wanted"] != ["XnnpackExecutionProvider"]:
+    fail(f"S3 فالبکِ بعد از کرش خراب: {plan3} / {SEEN['wanted']}")
 if "کرشِ احتمالی" not in out3 or ".ep_nnapi_last" not in out3:
-    fail("S3 پیامِ «کرشِ احتمالی → CPU» ندارد")
-ok("S3 نشانِ اجرایِ قبلی مانده → CPU + پیامِ راهنما")
+    fail("S3 پیامِ «کرشِ احتمالی → بدونِ NNAPI» ندارد")
+ok("S3 نشانِ اجرایِ قبلی مانده → بدونِ NNAPI (XNNPACK) + پیام")
 
 # S4 — پاککردنِ دستیِ نشان → تستِ دوبارهٔ NNAPI
 os.remove(GD)
@@ -220,7 +224,7 @@ rpm._EP_PLAN_CACHE = {"key": None, "plan": (None, {})}
 plan4, _ = plan()
 if plan4 != ("NnapiExecutionProvider", {}):
     fail(f"S4 تستِ دوباره خراب: {plan4}")
-if (io.open(GD, encoding="utf-8").read() or "").strip() != "launch-2":
+if "launch-2" not in (io.open(GD, encoding="utf-8").read() or ""):
     fail("S4 نشان باید با شناسهٔ اجرایِ فعلی دوباره نوشته میشد")
 ok("S4 حذفِ نشان → NNAPI دوباره؛ نشان با شناسهٔ تازه")
 
