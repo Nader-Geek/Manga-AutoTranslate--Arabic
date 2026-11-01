@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.163"
+APP_VER = "1.14.164"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3707,7 +3707,12 @@ class RapidOCRBackend:
                 # نیست؛ فراخوانیِ تمامصفحه فقط برای مسیرهایِ قدیمیِ
                 # جانبی (detect_text) میماند.
                 _out = self._mobile.ocr(image_bgr, crop_mode=crop_mode)
-            except Exception:
+            except Exception as _e164:
+                # v1.14.164 — خطایِ بیصدا ممنوع: رگِ «متن پیدا نشد»ٔ
+                # 1.14.163 یک AttributeErrorِ بیصدا بود (رگرسیونِ
+                # تودرتوییِ _ocr_impl)؛ حالا هر خرابیِ OCR یک خطِ کوتاه
+                # و مشخص در لاگ میدهد تا ریشه فوراً دیده شود.
+                print(f"[!] خطایِ OCRِ موبایل: {str(_e164)[:150]}")
                 return None
             if not _out or not _out[0]:
                 return None
@@ -21274,7 +21279,12 @@ class MangaTranslator:
                     results = _oc125.ocr(crop_bgr, crop_mode=True)
                 else:
                     results = _oc125.ocr(crop_bgr)
-            except Exception:
+            except Exception as _e164:
+                # v1.14.164 — خرابیِ OCRِ برش دیگر بیصدا نمیماند
+                # (دیباگ: خطِ کوتاهِ خطا — ریشهِ «متن پیدا نشد» فوراً
+                # در لاگ دیده میشود).
+                if getattr(self, "debug", False):
+                    print(f"    [!] OCRِ برش خطا داد: {str(_e164)[:140]}")
                 return "", [], 0.0, []
             if not results or not results[0]:
                 return "", [], 0.0, []
