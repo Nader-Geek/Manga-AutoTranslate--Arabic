@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.172"
+APP_VER = "1.14.173"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3758,11 +3758,6 @@ _MLKIT_STATE = {"obj": None, "lang": None, "dead": False, "note": False}
 _MLKIT_BUILD_LOCK = threading.Lock()
 # سنجهٔ سرعتِ واقعیِ ML Kit رویِ گوشی (دستور: «سریع هم باشه»)
 _MLKIT_STATS = {"ms": 0.0, "n": 0, "lines": 0}
-# v1.14.172 — نامِ صفحهٔ جاری برایِ DEBUGِ جداگانهٔ detector (thread-local:
-# صفحاتِ موازی هر کدام نامِ خودشان را میبینند). درخواستِ سازنده:
-# «detector-v4-s_int8.onnx جدا نشون بده تو عکس ببینم detector نتونسته
-# استخراج کنه یا ocr» — عکسِ <صفحه>_det.jpg کنارِ <صفحه>_debug.jpg.
-_DET_TLS = threading.local()
 
 
 def _mlkit_stats_note(t0, nlines):
@@ -21600,6 +21595,39 @@ class MangaTranslator:
                 cv2.putText(vis, st, (x + 2, y + 14),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1, cv2.LINE_AA)
 
+      # v1.14.173 — باکسهایِ خامِ detector-v4-s با رنگِ سبز رویِ همین
+      # DEBUGِ صفحه — مقایسهٔ مستقیمِ detector در برابرِ OCR بدونِ عکسِ
+      # جدا (دستورِ سازنده: «عکس جدا نشون نده رو همون عکس اصلی دیباگ
+      # بزاره با یک رنگ دیگ سبز نشون بده»): سبزِ D## = باکسِ خامِ
+      # detectorِ قبلِ فیلتر/OCR؛ قرمزِ [##] = ناحیهٔ نهاییِ بعدِ OCR.
+      # اگر متنی در DEBUG سبزِ نداشته باشد → detector نتونسته پیدا کند؛
+      # اگر سبز دارد ولی متنِ قرمزش غلط/خالی است → مقصرِ OCR است.
+      _det_raw0 = None
+      for _r0 in regions:
+        _v0 = getattr(_r0, "det_raw", None)
+        if _v0:
+          _det_raw0 = _v0
+          break
+      if _det_raw0:
+        try:
+          _v_h, _v_w = vis.shape[:2]
+          for _di, (_dbox, _dcls) in enumerate(_det_raw0):
+            try:
+              _dx1 = max(0, int(_dbox[0]))
+              _dy1 = max(0, int(_dbox[1]))
+              _dx2 = max(_dx1 + 1, min(int(_dbox[2]), _v_w - 1))
+              _dy2 = max(_dy1 + 1, min(int(_dbox[3]), _v_h - 1))
+              cv2.rectangle(vis, (_dx1, _dy1), (_dx2, _dy2),
+                            (0, 255, 0), 3)
+              cv2.putText(vis, f"D{_di:02d} {_dcls}".strip(),
+                          (_dx1 + 4, min(_v_h - 2, _dy1 + 26)),
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                          (0, 255, 0), 2, cv2.LINE_AA)
+            except Exception:
+              continue
+        except Exception:
+          pass
+
       return vis
 
 
@@ -23061,42 +23089,6 @@ class MangaTranslator:
                 out.append(r)
         return out
 
-    def _save_det_debug(self, image: np.ndarray, boxes: List[dict]) -> None:
-        """v1.14.172 — DEBUGِ جداگانهٔ detector-v4-s (درخواستِ سازنده:
-        «detector جدا نشون بده تو عکس ببینم detector نتونسته استخراج کنه
-        یا ocr»): باکسهایِ **خامِ** detector (قبلِ حذفِ تودرتو/جداکردنِ
-        حبابهایِ چسبیده/OCR) با شماره و کلاس رویِ **کپیِ** صفحه کشیده و
-        کنارِ DEBUGِ صفحه ذخیره میشود: <صفحه>_det.jpg در debug<tag>.
-        سبز = باکسِ خامِ detector، برچسبِ قرمز = شماره + کلاس.
-        فقط debug=True — هیچ اثری رویِ استخراج/پاکسازی (PC و اندروید):
-        تصویرِ اصلی دست نمیخورد و فقط یک فایلِ اضافه نوشته میشود."""
-        try:
-            _dir = getattr(self, "_dbg_cache_dir", None)
-            if not _dir or image is None or getattr(image, "size", 0) == 0:
-                return
-            vis = image.copy()
-            for _i, _b in enumerate(boxes or []):
-                try:
-                    _x1, _y1, _x2, _y2 = [int(v) for v in _b["rect"][:4]]
-                    cv2.rectangle(vis, (_x1, _y1), (_x2, _y2),
-                                  (0, 255, 0), 3)
-                    _lab = f"{_i:02d} {str(_b.get('class_name') or '')}".strip()
-                    cv2.putText(vis, _lab, (_x1 + 4, _y1 + 26),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8,
-                                (0, 0, 255), 2, cv2.LINE_AA)
-                except Exception:
-                    continue
-            _tag = getattr(self, "_dbg_cache_tag", "") or ""
-            _dd = os.path.join(_dir, "debug" + _tag)
-            os.makedirs(_dd, exist_ok=True)
-            _base = str(getattr(_DET_TLS, "base", "") or "page")
-            _p = os.path.join(_dd, f"{_base}_det.jpg")
-            self._write_image(vis, _p)
-            print(f"    [*] DEBUGِ detector ذخیره شد: {_p} "
-                  f"({len(boxes or [])} باکسِ خامِ detector-v4-s)")
-        except Exception:
-            pass
-
     def _extract_regions_from_bubbles(self, image: np.ndarray) -> List[TextRegion]:
 
         if self.det is None:
@@ -23105,13 +23097,20 @@ class MangaTranslator:
         if not boxes:
             return []
         n0 = len(boxes)
-        # v1.14.172 — عکسِ جداگانهٔ detector با باکسهایِ خام (قبلِ هر
-        # فیلتری) تا معلوم شود متنِ جامانده مقصرِ detector است یا OCR.
+        # v1.14.173 — باکسهایِ خامِ detector برایِ رسمِ سبز رویِ همان
+        # DEBUGِ صفحه (دستورِ سازنده: «عکس جدا نشون نده رو همون عکس اصلی
+        # دیباگ بزاره با یک رنگ دیگ سبز نشون بده») — فایلِ جدا حذف شد؛
+        # باکسها رویِ خودِ ناحیهها سوار میشوند تا از استخرِ استخراج تا
+        # فازِ صفحه (پاکسازی/رندر) زنده بمانند — استخرهایِ موازی/مختلف.
+        _raw_det_dbg = []
         if self.debug:
             try:
-                self._save_det_debug(image, boxes)
+                _raw_det_dbg = [
+                    ([int(v) for v in _b["rect"][:4]],
+                     str(_b.get("class_name") or ""))
+                    for _b in boxes]
             except Exception:
-                pass
+                _raw_det_dbg = []
         boxes = self._drop_contained_boxes(boxes, contain_thresh=0.72)
         if len(boxes) < n0 and self.debug:
             print(f"    [*] {n0 - len(boxes)} باکس تودرتو/تکراری حذف شد (از {n0})")
@@ -23431,6 +23430,9 @@ class MangaTranslator:
                 det_class=b.get("class_name", "") or "",
             ))
             regions[-1].angle_src = ang_src
+            if _raw_det_dbg:
+                # v1.14.173 — باکسِ خامِ detector برایِ DEBUGِ سبزِ صفحه
+                regions[-1].det_raw = _raw_det_dbg
             if _sys_ok:
                 # تک‌خطی/تگ براکت‌دار مثل [ Daily Quest ] — فونت سیستم
                 regions[-1].bubble_style = "system"
@@ -26250,9 +26252,6 @@ html, body { background: #0a0a0b; }
         src_dir = os.path.join(cache_dir, "src")
 
         cache_tag = "_safe_v3" if (self.stitch_max_height > 0 or getattr(self, "repair_page_seams", True)) else ""
-        # v1.14.172 — مقصدِ DEBUGِ جداگانهٔ detector (<صفحه>_det.jpg)
-        self._dbg_cache_dir = cache_dir
-        self._dbg_cache_tag = cache_tag
         out_dir = os.path.join(cache_dir, "out" + cache_tag)
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
@@ -26631,8 +26630,6 @@ html, body { background: #0a0a0b; }
                 if image is None:
                     raise ValueError(f"تصویر قابل خواندن نیست: {f}")
                 basename = os.path.basename(f)
-                # v1.14.172 — نامِ صفحه برایِ DEBUGِ جداگانهٔ detector
-                _DET_TLS.base = os.path.splitext(basename)[0]
                 if self._is_mostly_blank(image):
                     print(f"[!] رد شد (صفحه خالی): {basename}")
                     return page_i, out_file, None, None, None

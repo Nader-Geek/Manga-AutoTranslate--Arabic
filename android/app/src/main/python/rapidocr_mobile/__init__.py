@@ -387,6 +387,9 @@ def _ep_plan(det_path: str, rec_path: str):
     مدلِ گوشی) → بارِ اول پس از هر آپدیت، بارهایِ بعد فوری.
 
     MANGA_MOBILE_OCR_EP: cpu | xnnpack | nnapi | auto (پیشفرض) —
+    v1.14.173: auto/پیشفرض = فقط XNNPACK (NNAPI از انتخابِ خودکار حذف
+    شد — پروبِ OK میگرفت ولی در اینفرنسِ واقعی کرشِ نیتیو میداد)؛
+    تستِ NNAPI فقط با مقدارِ صریحِ nnapi.
     MANGA_EP_NO_PROBE=1 فقط برایِ توسعه (EP خام، خطرِ کرش به عهدهٔ
     گیرنده). خروجی: (ep_name|None, opts) — None = CPU خالص."""
     global _EP_PLAN_CACHE
@@ -403,12 +406,26 @@ def _ep_plan(det_path: str, rec_path: str):
         if "XnnpackExecutionProvider" in _avail_eps():
             return "XnnpackExecutionProvider", {}
         return None, {}
-    if _e in ("", "auto", "xnnpack,nnapi", "nnapi,xnnpack"):
-        _wanted = ["XnnpackExecutionProvider", "NnapiExecutionProvider"]
-    elif _e == "xnnpack":
-        _wanted = ["XnnpackExecutionProvider"]
-    elif _e == "nnapi":
+    if _e == "nnapi":
+        # v1.14.173 — تستِ صریحِ NNAPI (دستورِ سازنده: «nnapi میخوام
+        # تست کنم نه xnnpack»). پروبِ پروسهٔ جدا هنوز گیت است ولی کرشِ
+        # نیتیوِ اینفرنسِ واقعی (لاگِ گوشیِ 1.14.172: پروبِ NNAPI با
+        # ms=3969 تأیید شد و باز کرش کرد) در پایتون قابلِ گرفتن نیست —
+        # ریسکِ تست با سازنده؛ ORT_FAILِ قابلِ گرفتن → فالبکِ CPU در
+        # _Sess._open سرِ جایش است.
+        try:
+            print("[⚡] تستِ NNAPI (MANGA_MOBILE_OCR_EP=nnapi) — "
+                  "اگر کرش کرد: MANGA_MOBILE_OCR_EP=cpu", flush=True)
+        except Exception:
+            pass
         _wanted = ["NnapiExecutionProvider"]
+    elif _e in ("", "auto", "xnnpack,nnapi", "nnapi,xnnpack", "xnnpack"):
+        # v1.14.173 — پیشفرض فقط XNNPACK: در 1.14.172 تورنمنتِ auto
+        # NNAPI را برندهٔ پروب میکرد (ms=3969) ولی در اینفرنسِ واقعیِ
+        # پروسهٔ اصلی کرشِ نیتیو میداد («سریعتر شد ولی کرش کرد — فعلا
+        # رو همون بیاد») → NNAPI از انتخابِ خودکار حذف شد؛ فقط با
+        # MANGA_MOBILE_OCR_EP=nnapi (تستِ صریح) به کار میرود.
+        _wanted = ["XnnpackExecutionProvider"]
     else:
         _wanted = ["XnnpackExecutionProvider"]
     _wanted = [w for w in _wanted if w in _avail_eps()]

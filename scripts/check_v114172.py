@@ -155,65 +155,72 @@ e_sml = lad4._engine(small=True)
 assert e_med is med and e_sml is sml and BUILT == {"med": 1, "sml": 1}, BUILT
 ok("_engine(small=False/True) با کلیدواژه ✓")
 
-# ۳) DEBUGِ جداگانهٔ detector
-if "def _save_det_debug" not in src or "_DET_TLS = threading.local()" not in src:
-    fail("_save_det_debug/_DET_TLS نیست")
+# ۳) DEBUGِ detector — v1.14.173: دیگر فایلِ جدا نیست؛ باکسهایِ خامِ
+# detector رویِ همان DEBUGِ صفحه با سبز کشیده میشوند (دستورِ سازنده:
+# «عکس جدا نشون نده رو همون عکس اصلی دیباگ بزاره با یک رنگ دیگ سبز»)
+for gone in ("def _save_det_debug", "_DET_TLS = threading.local()",
+             "self._dbg_cache_dir = cache_dir",
+             '_DET_TLS.base = os.path.splitext(basename)[0]'):
+    if gone in src:
+        fail(f"مکانیزمِ قدیمیِ عکسِ جدا حذف نشده: {gone!r}")
 dd = cls.get("MangaTranslator")
 dd_src = ast.get_source_segment(src, dd) or ""
-sd = re.search(r"def _save_det_debug.*?(?=\n    def )", dd_src, re.S)
-if not sd:
-    fail("_save_det_debug پیدا نشد")
-sd_src = sd.group(0)
-for s in ("image.copy()", "_dbg_cache_dir", "_dbg_cache_tag",
-          "_DET_TLS", '_det.jpg"', "self._write_image(vis, _p)"):
-    if s not in sd_src:
-        fail(f"_save_det_debug ناقص است: {s!r}")
-# call-site: قبلِ حذفِ تودرتو (باکسهایِ خام) و فقط زیرِ self.debug
-i_call = src.find("self._save_det_debug(image, boxes)")
-i_drop = src.find("boxes = self._drop_contained_boxes(boxes, contain_thresh=0.72)")
-if i_call < 0 or i_drop < 0 or i_call > i_drop:
-    fail("call-siteِ _save_det_debug باید قبلِ حذفِ تودرتو باشد (باکسِ خام)")
-_seg = src[max(0, i_call - 220):i_call]
-if "if self.debug:" not in _seg:
-    fail("_save_det_debug باید فقط زیرِ self.debug صدا زده شود")
-# TLS base + مقصد در پروسهٔ اصلی
-if "_DET_TLS.base = os.path.splitext(basename)[0]" not in src:
-    fail("_DET_TLS.base در _extract_one ست نمیشود")
-if "self._dbg_cache_dir = cache_dir" not in src \
-        or "self._dbg_cache_tag = cache_tag" not in src:
-    fail("self._dbg_cache_dir/_tag در پروسهٔ اصلی ست نمیشود")
-ok("DEBUGِ detector: باکسِ خام، زیرِ debug، TLS + مقصدِ cache")
+erb = re.search(r"def _extract_regions_from_bubbles.*?(?=\n    def )",
+                dd_src, re.S)
+if not erb:
+    fail("_extract_regions_from_bubbles پیدا نشد")
+erb_src = erb.group(0)
+for s in ("_raw_det_dbg", "det_raw = _raw_det_dbg", "if self.debug:"):
+    if s not in erb_src:
+        fail(f"استفادهٔ det_raw در استخراج ناقص است: {s!r}")
+# سبز باید داخلِ _draw_debug_regions باشد (نقطهٔ واحد — هم استخراج
+# هم clean-only که خودش دوباره صدا میزند)
+ddr = re.search(r"def _draw_debug_regions.*?(?=\n    @|\n    def )",
+                dd_src, re.S)
+if not ddr:
+    fail("_draw_debug_regions پیدا نشد")
+ddr_src = ddr.group(0)
+for s in ("det_raw", "(0, 255, 0)", 'f"D{_di:02d} {_dcls}"', "cv2.rectangle"):
+    if s not in ddr_src:
+        fail(f"پوششِ سبزِ detector در _draw_debug_regions ناقص است: {s!r}")
+i_green = ddr_src.find("det_raw")
+i_ret = ddr_src.rfind("return vis")
+if i_green < 0 or i_ret < 0 or i_green > i_ret:
+    fail("پوششِ سبز باید قبل از return vis در _draw_debug_regions باشد")
+ok("DEBUGِ detector = سبز رویِ همان DEBUGِ صفحه (بدونِ فایلِ جدا)")
 
-# ۳-ب) تستِ عملیِ _save_det_debug با fake-self (مسیر/نام/عدمِ تغییرِ اصل)
+# ۳-ب) تستِ عملیِ پوششِ سبز رویِ خروجیِ _draw_debug_regions
 import cv2  # noqa: E402
 
-SAVED = []
-_tmpd = tempfile.mkdtemp(prefix="det_dbg_")
+
+class _FR:
+    """ناحیهٔ فیک با هم قراردادِ TextRegion برایِ رسمِ دیباگ."""
+
+    def __init__(self, rid, det_raw=None):
+        self.id = rid
+        self.rect = (10, 10, 80, 50)
+        self.kind = "dialogue"
+        self.source_text = "HELLO"
+        self.translated_text = ""
+        if det_raw is not None:
+            self.det_raw = det_raw
 
 
-class _FakeSelf:
-    _dbg_cache_dir = _tmpd
-    _dbg_cache_tag = "_safe_v3"
-
-    def _write_image(self, im, p):
-        SAVED.append(p)
-        cv2.imwrite(p, im)
-
-
-_probe = img.copy()
-manga._DET_TLS.base = "pick_test_01"
-try:
-    manga.MangaTranslator._save_det_debug(
-        _FakeSelf(), _probe,
-        [{"rect": [5, 5, 90, 60], "class_name": "dialogue"}])
-finally:
-    manga._DET_TLS.base = ""
-assert len(SAVED) == 1 and SAVED[0].endswith(
-    os.path.join("debug_safe_v3", "pick_test_01_det.jpg")), SAVED
-assert os.path.isfile(SAVED[0]) and os.path.getsize(SAVED[0]) > 0
-# تصویرِ اصلی نباید دست خورده باشد (رویِ کپی کشیده میشود)
-assert (_probe == img).all(), "_save_det_debug تصویرِ اصلی را تغییر داد"
-ok("عملیِ det-debug: <صفحه>_det.jpg در debug_safe_v3 + تصویرِ اصل دست‌نخورده")
+_raw = [([5, 5, 90, 60], "dialogue")]
+_vis = manga.MangaTranslator._draw_debug_regions(None, img.copy(),
+                                                 [_FR(0, _raw)])
+# سبزِ خالص (0،255،0) باید در تصویر باشد (باکسِ D00)
+_green = int(((_vis[:, :, 1] > 240) & (_vis[:, :, 0] < 40)
+              & (_vis[:, :, 2] < 40)).sum())
+assert _green > 50, f"پیکسلِ سبزِ detector نیست: {_green}"
+# بدونِ det_raw → بدونِ سبزِ D (فقط سبزِ متنِ کوتاهِ (0،200،0) که
+# فیلترِ بالا آن را نمیگیرد)
+_vis2 = manga.MangaTranslator._draw_debug_regions(None, img.copy(),
+                                                  [_FR(1)])
+_green2 = int(((_vis2[:, :, 1] > 240) & (_vis2[:, :, 0] < 40)
+               & (_vis2[:, :, 2] < 40)).sum())
+assert _green2 == 0, f"بدونِ det_raw نباید سبزِ detector باشد: {_green2}"
+ok("عملیِ پوششِ سبز: با det_raw سبزِ D رسم میشود؛ بدونِ آن نه")
 
 # ۴) نردبانِ 171 سرِ جایش (آستانهها + فقط-کراپ)
 lad = cls.get("K3LadderOCR")
