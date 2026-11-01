@@ -4,8 +4,12 @@ import android.util.Log
 import com.baidu.paddle.lite.MobileConfig
 import com.baidu.paddle.lite.PaddlePredictor
 import com.baidu.paddle.lite.PowerMode
-import java.nio.FloatBuffer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.LinkedBlockingDeque
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * v1.14.166 — بازگشتِ پلِ Paddle-Lite (مجموعهٔ رسمیِ ppocr_demo) به‌عنوانِ
@@ -15,10 +19,28 @@ import java.util.concurrent.ConcurrentHashMap
  * برخلافِ سبکِ قدیمیِ K3 دیگر کاسکادی نیست؛ manga.py (PliteCropOCR)
  * پیش/پس‌پردازش را انجام میدهد و فقط «تانسور» میفرستد — و OCR فقط رویِ
  * کراپهایِ detector-v4-s_int8.onnx اجرا میشود، هرگز تمامصفحه:
- *   predict(path, shape, floatData, threads, power) → FloatBuffer خروجی
- *   predictShape(path)                             → شکلِ خروجیِ آخرِ همان مدل
- *   ready(path, threads, power)                    → ساختِ موفقِ predictor؟
- *   backend(path)                                  → "paddle-lite-cpu" یا ""
+ *   predict(path, shape, floatBytesLE, threads, power, poolMax) → خروجیِ float بهصورتِ bytesِ LE
+ *   predictShape(path)                                         → شکلِ خروجیِ آخرِ همان مدل
+ *   ready(path, threads, power)                                → ساختِ موفقِ predictor؟
+ *   backend(path)                                              → "paddle-lite-cpu" یا ""
+ *
+ * v1.14.167 — دو فیکس بر سرِ لاگِ واقعیِ گوشی (manga.log):
+ *   ۱) «memoryview: a bytes-like object is required, not 'HeapFloatBuffer'»:
+ *      نسخهٔ قبلی خروجی را FloatBuffer.wrap(arr) برمیگرداند؛ Chaquopy
+ *      java.nio.FloatBuffer را به پروتکلِ بافرِ پایتون تبدیل نمیکند →
+ *      np.frombuffer(memoryview(fb)) در پایتون TypeError میداد و «همهٔ»
+ *      ناحیه‌ها «بدونِ متن» میشدند. حالا ورودی و خروجی هر دو byte[] است
+ *      (floatهایِ little-endian) — Chaquopy byte[] ↔ bytes را صفر-کپی
+ *      تبدیل میکند؛ هم باگ رفع است هم ردِ دادهٔ ۲.۷مگیِ det (که قبلاً
+ *      عنصربه‌عنصر از jarray(jfloat) ساخته میشد) حذف شد.
+ *   ۲) استخراجِ موازیِ ناحیهها (دستورِ سازنده: «هر بخش متن یک مقدار ram
+ *      cpu همزمان کار کنن… حداکثر توانش»): PaddlePredictor برایِ runِ
+ *      همزمانِ «یک نمونه» امن نیست ولی نمونههایِ جدا برایِ هر نخ الگویِ
+ *      رسمیِ خودِ Paddle-Lite است (هر نخ predictor خودش). پس یک «استخرِ
+ *      predictor» بهازای هر مدل ساخته میشود؛ predict یک نمونهٔ آزاد
+ *      برمیدارد (تا سقفِ poolMax؛ در صورتِ اشباع تا ۳۰s منتظرِ آزادشدن
+ *      میماند) و بعدِ کار برمیگرداند. سقفِ استخر از پایتون میآید
+ *      (= تعدادِ کارگرِ OCRِ همان صفحه).
  *
  * درسهایِ کرشهایِ 1.14.106-119 (RuntimeProgram رویِ POCO F4/Adreno):
  *   ۱) مدلهایِ nb فقط-CPUاند (valid_targets=arm با optِ همان نسخهٔ
@@ -34,6 +56,7 @@ import java.util.concurrent.ConcurrentHashMap
 object PaddleLiteBridge {
 
     private const val TAG = "PaddleLiteBridge"
+    private const val POOL_WAIT_MS = 30_000L
 
     @Volatile
     private var libState: Int = -1 // 1=لود شد، 0=نبود/نشد، -1=هنوز نه
@@ -64,9 +87,10 @@ object PaddleLiteBridge {
     @JvmStatic
     fun libName(): String = "libpaddle_lite_jni.so"
 
-    // کشِ predictor per-model — det و rec هرکدام یک مسیر
-    private val predictors = ConcurrentHashMap<String, PaddlePredictor>()
-    private val building = ConcurrentHashMap<String, Any>()
+    // ── استخرِ predictor per-model (v1.14.167 — OCRِ موازیِ ناحیهها) ──
+    private val pools = ConcurrentHashMap<String, LinkedBlockingDeque<PaddlePredictor>>()
+    private val poolLive = ConcurrentHashMap<String, AtomicInteger>()
+    private val buildLocks = ConcurrentHashMap<String, Any>()
     private val lastOutShape = ConcurrentHashMap<String, LongArray>()
 
     private fun parsePower(p: String?): PowerMode = when (
@@ -77,14 +101,15 @@ object PaddleLiteBridge {
         else -> PowerMode.LITE_POWER_HIGH
     }
 
-    @Synchronized
-    private fun getOrCreate(modelPath: String, threads: Int,
-                            power: String): PaddlePredictor? {
+    /** ساختِ «یک» نمونهٔ جدید اگر زیرِ سقفِ استخر باشیم؛ وگرنه null */
+    private fun createOne(modelPath: String, threads: Int,
+                          power: String, poolMax: Int): PaddlePredictor? {
         if (!ensureLib()) return null
-        predictors[modelPath]?.let { return it }
-        // ساختِ همزمانِ دوباره را جلوگیری کن (قفلِ ساده per-path)
-        synchronized(building.getOrPut(modelPath) { Any() }) {
-            predictors[modelPath]?.let { return it }
+        val live = poolLive.getOrPut(modelPath) { AtomicInteger(0) }
+        val lock = buildLocks.getOrPut(modelPath) { Any() }
+        synchronized(lock) {
+            // دوبارِ چکِ داخلِ قفل — شاید نخِ دیگر همین الان ساخت
+            if (live.get() >= poolMax) return null
             return try {
                 val cfg = MobileConfig()
                 cfg.setModelFromFile(modelPath)
@@ -92,8 +117,9 @@ object PaddleLiteBridge {
                 cfg.powerMode = parsePower(power)
                 val p = PaddlePredictor.createPaddlePredictor(cfg)
                 if (p != null) {
-                    predictors[modelPath] = p
-                    Log.i(TAG, "predictor ready: $modelPath (threads=$threads)")
+                    live.incrementAndGet()
+                    Log.i(TAG, "predictor ready: $modelPath "
+                            + "(threads=$threads, pool=${live.get()}/$poolMax)")
                 } else {
                     Log.e(TAG, "createPaddlePredictor returned null: $modelPath")
                 }
@@ -105,39 +131,77 @@ object PaddleLiteBridge {
         }
     }
 
-    /** آیا این مدل میتواند ساخته شود؟ (بدونِ اجرا) */
+    /** آیا این مدل میتواند ساخته شود؟ (بدونِ اجرا — یک نمونه در استخر میماند) */
     @JvmStatic
     fun ready(modelPath: String, threads: Int = 2,
-              power: String = "HIGH"): Boolean =
-        getOrCreate(modelPath, threads, power) != null
+              power: String = "HIGH"): Boolean {
+        val pool = pools.getOrPut(modelPath) { LinkedBlockingDeque() }
+        if (!pool.isEmpty()) return true
+        val p = createOne(modelPath, threads, power, 1) ?: return false
+        pool.offerFirst(p)
+        return true
+    }
 
     /** بکاندِ شتابِ این کتابخانه — برایِ لاگِ پایتون (خالی = لود نشده) */
     @JvmStatic
     fun backend(modelPath: String): String =
         if (ensureLib()) "paddle-lite-cpu" else ""
 
+    /** float[] → byte[] (little-endian) — برایِ خروجیِ به پایتون */
+    private fun floatsToBytes(arr: FloatArray): ByteArray {
+        val bb = ByteBuffer.allocate(arr.size * 4)
+            .order(ByteOrder.LITTLE_ENDIAN)
+        bb.asFloatBuffer().put(arr)
+        return bb.array()
+    }
+
     /**
-     * یک بارِ inference: ورودیِ float با شکلِ [shape] → خروجی بهصورت
-     * FloatBuffer (پایتون با memoryview میخواند — بدونِ کپیِ عنصری).
+     * یک بارِ inference: ورودیِ float32 بهصورتِ bytesِ little-endian با
+     * شکلِ [shape] → خروجیِ float32 بهصورتِ bytesِ little-endian.
+     * predictor از استخرِ همان مدل برمیدارد (تا poolMax نمونهٔ همزمان —
+     * v1.14.167: OCRِ موازیِ ناحیهها) و بعدِ کار برمیگرداند.
      */
     @JvmStatic
-    fun predict(modelPath: String, shape: LongArray, data: FloatArray,
-                threads: Int = 2, power: String = "HIGH"): FloatBuffer? {
+    fun predict(modelPath: String, shape: LongArray, data: ByteArray,
+                threads: Int = 2, power: String = "NO_BIND",
+                poolMax: Int = 1): ByteArray? {
         if (!ensureLib()) return null
-        val p = getOrCreate(modelPath, threads, power) ?: return null
-        return try {
-            val input = p.getInput(0) ?: return null
+        val maxN = if (poolMax in 1..8) poolMax else 1
+        val pool = pools.getOrPut(modelPath) { LinkedBlockingDeque() }
+        var pred = pool.pollFirst()
+        if (pred == null) {
+            // استخر خالی → اگر زیرِ سقفیم بساز؛ در سقف → منتظرِ آزادشدن
+            pred = createOne(modelPath, threads, power, maxN)
+                ?: pool.pollFirst(POOL_WAIT_MS, TimeUnit.MILLISECONDS)
+                ?: return null
+        }
+        var ok = false
+        try {
+            val floats = FloatArray(data.size / 4)
+            ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
+                .asFloatBuffer().get(floats)
+            val input = pred.getInput(0) ?: return null
             if (!input.resize(shape)) return null
-            if (!input.setData(data)) return null
-            if (!p.run()) return null
-            val out = p.getOutput(0) ?: return null
+            if (!input.setData(floats)) return null
+            if (!pred.run()) return null
+            val out = pred.getOutput(0) ?: return null
             val shp = out.shape()
             if (shp != null) lastOutShape[modelPath] = shp
             val arr = out.floatData ?: return null
-            FloatBuffer.wrap(arr)
+            ok = true
+            return floatsToBytes(arr)
         } catch (t: Throwable) {
             Log.e(TAG, "predict failed: $modelPath", t)
-            null
+            return null
+        } finally {
+            if (ok) {
+                pool.offerFirst(pred)
+            } else {
+                // نمونهٔ مشکوک به خرابی — به استخر برنمیگردد؛ جایش
+                // آزاد است تا در فراخوانیِ بعدی نمونهٔ تازه ساخته شود
+                val live = poolLive[modelPath]
+                live?.decrementAndGet()
+            }
         }
     }
 
@@ -148,7 +212,8 @@ object PaddleLiteBridge {
     /** آزادسازی — فعلاً predictorها تا پایانِ پروسه کش میمانند */
     @JvmStatic
     fun releaseAll() {
-        predictors.clear()
+        pools.clear()
+        poolLive.clear()
         lastOutShape.clear()
     }
 }

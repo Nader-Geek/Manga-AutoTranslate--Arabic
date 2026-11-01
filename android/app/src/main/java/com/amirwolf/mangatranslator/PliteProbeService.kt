@@ -68,16 +68,29 @@ class PliteProbeService : Service() {
         return true
     }
 
+    /** float[] → byte[]ِ little-endian — ورودیِ جدیدِ پلِ v1.14.167 */
+    private fun floatBytes(n: Int): ByteArray {
+        val fbv = java.nio.ByteBuffer.allocate(n * 4)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        val fa = FloatArray(n) { 0.25f }
+        fbv.put(fa)
+        return fbv.array()
+    }
+
     /** یک run با شکلِ مشخص؛ خروجی: (سالم؟، ms) */
     private fun runOnce(path: String, shape: LongArray, threads: Int): Pair<Boolean, Long> {
         val n = shape.fold(1L) { a, b -> a * b }.toInt()
-        val data = FloatArray(n) { 0.25f }
+        val data = floatBytes(n)
         val t0 = System.currentTimeMillis()
-        val fb = PaddleLiteBridge.predict(path, shape, data, threads, "NO_BIND")
+        // v1.14.167 — پلِ byte-based (بازگشتِ floatهایِ little-endian)
+        val out = PaddleLiteBridge.predict(path, shape, data, threads,
+                                           "NO_BIND", 1)
             ?: return Pair(false, -1L)
         val ms = System.currentTimeMillis() - t0
-        val arr = FloatArray(fb.remaining())
-        fb.get(arr)
+        val fbv = java.nio.ByteBuffer.wrap(out)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        val arr = FloatArray(fbv.remaining())
+        fbv.get(arr)
         return Pair(isSane(arr), ms)
     }
 

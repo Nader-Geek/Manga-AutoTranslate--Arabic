@@ -59,9 +59,15 @@ if not {"_plite_lang", "_plite_backend", "_plite_probe_run",
 
 for s in ("pplite_det_arm_cpu.nb", "PliteProbeService", ":pliteprobe",
           "MANGA_ANDROID_OCR", "MANGA_MOBILE_OCR_ENGINE",
-          "_PLITE_RUN_LOCK", '"paddle", "paddlelite", "plite", "paddle-lite"'):
+          '"paddle", "paddlelite", "plite", "paddle-lite"'):
     if s not in src:
         fail(f"رشتهٔ لازم در manga.py نیست: {s!r}")
+# v1.14.167 — قفلِ سراسریِ run باید حذف شده باشد (استخرِ predictorِ
+# پلِ جاوا جای آن را گرفت — OCRِ موازیِ ناحیه‌ها)
+if "_PLITE_RUN_LOCK" in src:
+    fail("_PLITE_RUN_LOCK هنوز هست — قفلِ سراسریِ OCRِ پدل باید حذف شود")
+if "self._bridge.predict(" not in src or "self.pool_max" not in src:
+    fail("رانرِ پدل به پلِ byte-based با استخرِ predictor وصل نیست")
 
 # برشِ امن: باندِ ۷۰۰۰–۸۰۰۰ + فالبکِ به-عقب؛ قدیمیِ رو-به-جو حذف شده باشد
 if "int(work_h) - 1000" not in src:
@@ -75,6 +81,10 @@ if "search_radius=ih, protected_ranges=protected" in src:
 checks = [
     ("android/app/src/main/java/com/amirwolf/mangatranslator/"
      "PaddleLiteBridge.kt", "createPaddlePredictor"),
+    ("android/app/src/main/java/com/amirwolf/mangatranslator/"
+     "PaddleLiteBridge.kt", "data: ByteArray"),
+    ("android/app/src/main/java/com/amirwolf/mangatranslator/"
+     "PaddleLiteBridge.kt", "LinkedBlockingDeque"),
     ("android/app/src/main/java/com/amirwolf/mangatranslator/"
      "PliteProbeService.kt", "verdict ok"),
     ("android/scripts/fetch_paddle.py", "inference_lite_lib.android.armv8"),

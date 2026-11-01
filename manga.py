@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.166"
+APP_VER = "1.14.167"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -290,6 +290,87 @@ def _ort_has_cuda() -> bool:
         return "CUDAExecutionProvider" in _ort.get_available_providers()
     except Exception:
         return False
+
+
+def _parallel_budget(kind: str = "ocr") -> int:
+    """v1.14.167 — بودجهٔ موازیِ سیستم: چند ناحیهٔ متن همزمان کار کنند.
+
+    دستورِ سازنده: «هر بخش متن یک مقدار ram cpu gpu (gpu اگه داره) همزمان
+    کار کنن سریعتر باشن… بجای اینکه تک تک متن‌ها رو استخراج کنه همهٔ
+    قسمت‌های متن استخراج بزنه؛ باید به اندازهٔ توانِ سیستم انجام بده —
+    حداکثر توانش — همچنین پاکسازیش همینجور».
+
+    ورودی: cpu (os.cpu_count) + ramِ آزاد (/proc/meminfo؛ ویندوز:
+    GlobalMemoryStatusEx) + gpu (CUDAِ onnxruntime). سقفِ عقلانی:
+      • OCR — اندروید: cpu÷2 (سقف ۴؛ هر predictor پدل ۲ نخ؛ جمع ≈ همهٔ
+        هسته‌ها)؛ PC/لینوکس: cpu−1 (سقف ۸) + ۱ اگر CUDA.
+      • پاکسازی — cpu−1 (سقف ۸) رویِ همهٔ پلتفرم‌ها + ۱ اگر CUDA
+        (پرکننده‌هایِ تخت/رنگیِ cv2 فقط CPUاند؛ LaMa خودش موازی است).
+      • RAMِ آزادِ کم: ‎<1.2GB → ۲ کارگر، ‎<2.5GB → ۳ کارگر.
+    override دستی: MANGA_REGION_WORKERS=N (هر دو)؛ MANGA_OCR_WORKERS
+    (فقط OCR، مثلِ قبل) و MANGA_LAMA_WORKERS (فقط LaMa، مثلِ قبل)."""
+    try:
+        cpu = os.cpu_count() or 4
+    except Exception:
+        cpu = 4
+    # RAMِ آزاد
+    ram_gb = 0.0
+    try:
+        with open("/proc/meminfo", encoding="ascii") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    ram_gb = int(line.split()[1]) / (1024 * 1024)
+                    break
+    except Exception:
+        pass
+    if ram_gb <= 0.0 and os.name == "nt":
+        try:
+            import ctypes
+            class _MSE(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong),
+                            ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong),
+                            ("ullAvailPhys", ctypes.c_ulonglong)]
+            st = _MSE()
+            st.dwLength = ctypes.sizeof(_MSE)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(
+                    ctypes.byref(st)):
+                ram_gb = st.ullAvailPhys / (1024 ** 3)
+        except Exception:
+            pass
+    if ram_gb <= 0.0:
+        try:
+            import psutil as _ps
+            ram_gb = float(_ps.virtual_memory().available) / (1024 ** 3)
+        except Exception:
+            pass
+    try:
+        _env = int(os.environ.get("MANGA_REGION_WORKERS", "0") or 0)
+    except Exception:
+        _env = 0
+    if _env > 0:
+        return max(1, min(8, _env))
+    try:
+        _gpu = (not _IS_ANDROID) and _ort_has_cuda()
+    except Exception:
+        _gpu = False
+    if kind == "clean":
+        base = max(2, min(8, cpu - 1))
+        if _gpu:
+            base += 1
+    else:
+        if _IS_ANDROID:
+            base = max(2, min(4, cpu // 2))
+        else:
+            base = max(2, min(8, cpu - 1))
+            if _gpu:
+                base += 1
+    if ram_gb > 0.0:
+        if ram_gb < 1.2:
+            base = min(base, 2)
+        elif ram_gb < 2.5:
+            base = min(base, 3)
+    return max(1, base)
 
 
 def _torch_available() -> bool:
@@ -3549,8 +3630,8 @@ def _plite_probe_run(pdir, det_path, rec_path):
     while _time.time() - _t0 < _tmo:
         if os.path.isfile(_out):
             try:
-                _verdict = (open(_out, "r", encoding="utf-8").read()
-                            or "").strip()
+                with open(_out, "r", encoding="utf-8") as _pf:
+                    _verdict = (_pf.read() or "").strip()
             except Exception:
                 _verdict = ""
             break
@@ -3575,18 +3656,23 @@ def _plite_probe_run(pdir, det_path, rec_path):
 
 
 class _PLOCR_LiteRunner:
-    """رانرِ Paddle-Lite جاوا (پلِ PaddleLiteBridge — فقط inference)."""
+    """رانرِ Paddle-Lite جاوا (پلِ PaddleLiteBridge — فقط inference).
 
-    def __init__(self, model_path, threads=2, power="NO_BIND"):
-        from java import jclass, jarray
-        from java import jfloat as _jf
+    v1.14.167 — ورودی/خروجیِ پل = byte[] (floatهایِ little-endian):
+    Chaquopy byte[] ↔ bytes را صفر-کپی تبدیل میکند. نسخهٔ قبلی خروجی را
+    FloatBuffer میگرفت و «memoryview: a bytes-like object is required,
+    not 'HeapFloatBuffer'» میداد (لاگِ واقعیِ گوشی — همهٔ OCRها مردود)
+    و ورودی را عنصربه‌عنصر با jarray(jfloat) میساخت (۲.۷مگیِ det = کند).
+    pool_max = سقفِ استخرِ predictorِ همان مدل (OCRِ موازیِ ناحیهها)."""
+
+    def __init__(self, model_path, threads=2, power="NO_BIND", pool_max=1):
+        from java import jclass
         self._bridge = jclass(
             "com.amirwolf.mangatranslator.PaddleLiteBridge")
         self.path = str(model_path)
         self.threads = max(1, min(8, int(threads or 2)))
         self.power = str(power or "NO_BIND").strip().upper()
-        self._jarray = jarray
-        self._jf = _jf
+        self.pool_max = max(1, min(8, int(pool_max or 1)))
         if not self._bridge.ready(self.path, self.threads, self.power):
             raise RuntimeError("PaddleLiteBridge.ready=False: " + self.path)
 
@@ -3598,17 +3684,18 @@ class _PLOCR_LiteRunner:
             return "paddle-lite-cpu"
 
     def run(self, arr):
-        _x = np.ascontiguousarray(arr.astype(np.float32))
-        ja = self._jarray(self._jf)(_x.reshape(-1))
+        _x = np.ascontiguousarray(arr, dtype="<f4")
+        _b = _x.tobytes()
         fb = self._bridge.predict(self.path, [int(v) for v in _x.shape],
-                                  ja, self.threads, self.power)
-        if fb is None:
+                                  _b, self.threads, self.power,
+                                  self.pool_max)
+        if not fb:
             raise RuntimeError("PaddleLite predict returns null")
-        out = np.frombuffer(memoryview(fb), dtype=np.float32)
+        out = np.frombuffer(fb, dtype="<f4")
         shp = self._bridge.predictShape(self.path)
         if shp:
             out = out.reshape([int(v) for v in shp])
-        return out.copy()
+        return np.array(out, dtype=np.float32)
 
 
 class PliteCropOCR:
@@ -3628,6 +3715,13 @@ class PliteCropOCR:
     def __init__(self, lang: str = "en"):
         self.lang = _plite_lang(lang)
         self.debug = True
+        # v1.14.167 — سقفِ استخرِ predictorها = بودجهٔ موازیِ سیستم؛
+        # چند ناحیه همزمان OCR میشوند (دستور: «هر بخش متن یک مقدار ram
+        # cpu همزمان کار کنن… حداکثر توانش»)
+        try:
+            self.pool_max = _parallel_budget("ocr")
+        except Exception:
+            self.pool_max = 2
         _pdir = _model_cache_dir("paddle_models")
         _det_name, _rec_name = _PLITE_NB["det"], _PLITE_NB[self.lang]
         try:
@@ -3643,8 +3737,10 @@ class PliteCropOCR:
         _ok, _ms = _plite_probe_ensure(_pdir, _det, _rec)
         if not _ok:
             raise RuntimeError("پروبِ Paddle-Lite مردود: " + str(_ms))
-        self.det_runner = _PLOCR_LiteRunner(_det, threads=2)
-        self.rec_runner = _PLOCR_LiteRunner(_rec, threads=2)
+        self.det_runner = _PLOCR_LiteRunner(_det, threads=2,
+                                            pool_max=self.pool_max)
+        self.rec_runner = _PLOCR_LiteRunner(_rec, threads=2,
+                                            pool_max=self.pool_max)
         # v1.14.166 — dict از همان پوشهای خوانده میشود که دانلود شد
         # (باگِ قدیمی: از rapidocr_models میخواند و برایِ ja/ko خالی بود)
         _df = os.path.join(_pdir, _PLITE_DICT[self.lang])
@@ -3656,9 +3752,13 @@ class PliteCropOCR:
             raise RuntimeError("dict خالی: " + _df)
         self._charset = [""] + _lines + [" "]
         self._cls_count = 0
+        # v1.14.167 — کالیبراسیونِ charset در runِ همزمانِ چندنخی را قفل کن
+        self._ctc_lock = threading.Lock()
+        self._pool_note = False
         print(f"[+] OCRِ گوشی: Paddle-Lite (arm) | lang={self.lang} "
               f"| {_det_name} + {_rec_name} | پروب: {_ms} "
-              f"| فقط رویِ کراپهایِ detector-v4-s")
+              f"| فقط رویِ کراپهایِ detector-v4-s "
+              f"| استخرِ موازی: {self.pool_max} کارگر")
 
     # ── det: پیش‌پردازش + run + پس‌پردازشِ DB (سبکِ کراپ: 1:1 با
     #        سقفِ cap — بدونِ بزرگنماییِ 736) ─────────────────────────────
@@ -3921,47 +4021,47 @@ class PliteCropOCR:
     def ocr(self, image_bgr, crop_mode: bool = False):
         """هم‌امضایِ RapidOcrMobile.ocr — خروجیِ [ [[box,(t,s)],...] ].
 
-        قفلِ سراسری: PaddlePredictor جاوا برایِ run() همزمان از چندنخ
-        امن نیست (درسِ کاسکادِ قبلی) — OCRِ موبایلِ پدل سریال میماند؛
-        ترجمه/پاکسازی همچنان موازی کار میکنند."""
+        v1.14.167 — موازی: قفلِ سراسریِ run حذف شد؛ همزمانی از «استخرِ
+        predictor» در پلِ جاوا تامین میشود (هر نخِ OCR یک نمونهٔ خودش
+        را برمیدارد — الگویِ رسمیِ Paddle-Lite برایِ چندنخی). سقفِ همزمانی
+        = pool_max (بودجهٔ موازیِ سیستم). پاکسازی/ترجمه همچنان موازی کار میکنند."""
         if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
             return None
-        with _PLITE_RUN_LOCK:
-            _t0 = time.time()
-            prob = self._det(image_bgr)
-            boxes = self._det_boxes(prob, image_bgr.shape[:2])
-            if not boxes:
-                _plite_stats_note(_t0, 0)
-                return None
-            pairs = []
-            for b in boxes:
-                c = self._crop_box(image_bgr, b)
-                if c is not None and min(c.shape[0], c.shape[1]) >= 8:
-                    pairs.append((b, c))
-            if not pairs:
-                _plite_stats_note(_t0, 0)
-                return None
-            results = self._rec_all([c for _b, c in pairs])
-            lines = []
-            for _bi, (b, _c) in enumerate(pairs):
-                if _bi >= len(results) or results[_bi] is None:
-                    continue
-                txt, sc = results[_bi]
-                txt = str(txt).strip()
-                if not txt or sc < 0.35:
-                    continue
-                lines.append([np.asarray(b, dtype=np.float32),
-                              (txt, float(sc))])
-            _plite_stats_note(_t0, len(lines))
-            return [lines] if lines else None
+        _t0 = time.time()
+        prob = self._det(image_bgr)
+        boxes = self._det_boxes(prob, image_bgr.shape[:2])
+        if not boxes:
+            _plite_stats_note(_t0, 0)
+            return None
+        pairs = []
+        for b in boxes:
+            c = self._crop_box(image_bgr, b)
+            if c is not None and min(c.shape[0], c.shape[1]) >= 8:
+                pairs.append((b, c))
+        if not pairs:
+            _plite_stats_note(_t0, 0)
+            return None
+        results = self._rec_all([c for _b, c in pairs])
+        lines = []
+        for _bi, (b, _c) in enumerate(pairs):
+            if _bi >= len(results) or results[_bi] is None:
+                continue
+            txt, sc = results[_bi]
+            txt = str(txt).strip()
+            if not txt or sc < 0.35:
+                continue
+            lines.append([np.asarray(b, dtype=np.float32),
+                          (txt, float(sc))])
+        _plite_stats_note(_t0, len(lines))
+        return [lines] if lines else None
 
 
 # تک‌نمونهٔ Paddle-Lite برایِ کلِ نشست — ساختِ تنبل؛ هر خطا = فالبکِ خودکار
 # به PP-OCRv6 ONNX (بدونِ تلاشِ دوباره در همان نشست).
 _PLITE_STATE = {"obj": None, "lang": None, "dead": False, "note": False}
 _PLITE_BUILD_LOCK = threading.Lock()
-# قفلِ run: PaddlePredictor جاوا thread-safe نیست (runِ همزمان ممنوع)
-_PLITE_RUN_LOCK = threading.Lock()
+# v1.14.167 — قفلِ سراسریِ run حذف شد (همزمانی از استخرِ predictorِ پلِ
+# جاوا تامین میشود؛ هر نخِ OCR نمونهٔ خودش را دارد)
 # سنجهٔ سرعتِ واقعیِ پدل-لایت رویِ گوشی («ببینم چجور استخراج میکنه»)
 _PLITE_STATS = {"ms": 0.0, "n": 0, "lines": 0}
 
@@ -5863,17 +5963,25 @@ class MangaTranslator:
                 print(f"[*] RAM آزاد کم است ({avail_ram:.1f} GB) → workers={self.max_workers} به ۲ محدود شد.")
                 self.max_workers = 2
         if self.max_workers <= 1:
+            # v1.14.167 — بودجهٔ موازیِ سیستم (cpu+ram+gpu) به‌جایِ عددِ
+            # خجالتیِ ۲/۳: همهٔ نواحیِ متن همزمان استخراج و پاک میشوند
+            # (دستور: «حداکثر توانش»)
             try:
-                if _on_android():
-                    self.max_workers = 2
-                else:
-                    _cores = self._cpu_core_count()
-                    if _cores >= 4 and avail_ram >= 2.5:
-                        self.max_workers = 3
-                    elif _cores >= 2 and avail_ram >= 1.5:
-                        self.max_workers = 2
+                self.max_workers = _parallel_budget("ocr")
             except Exception:
-                pass
+                self.max_workers = 2
+        try:
+            _clean_w167 = _parallel_budget("clean")
+        except Exception:
+            _clean_w167 = 2
+        try:
+            print(f"[*] توانِ موازی: OCR تا {self.max_workers} ناحیهٔ همزمان "
+                  f"| پاکسازی تا {_clean_w167} خوشهٔ همزمان "
+                  f"(cpu={self._cpu_core_count()}, "
+                  f"ram={avail_ram:.1f}GB, "
+                  f"gpu={'بله' if self.use_gpu else 'نخ'})")
+        except Exception:
+            pass
 
         use_paddle = _HAS_PADDLE and avail_ram >= 6.0
         if _HAS_PADDLE and not use_paddle:
@@ -15510,7 +15618,13 @@ class MangaTranslator:
         _pg_h, _pg_w = image.shape[:2]
         _pg_area = float(max(1, _pg_h * _pg_w))
         _webtoon = (min(_pg_h, _pg_w) * 2.5 < max(_pg_h, _pg_w))
-        for bx0, by0, bx1, by1 in self._mask_clusters(mask, pad=3):
+        # v1.14.167 — حلقهٔ پرکنندهٔ خوشه‌ها به تابعِ مستقل تبدیل شد تا
+        # خوشه‌ها همزمان پر شوند (بودجهٔ موازیِ سیستم — «پاکسازیش
+        # همینجور»): هر خوشه فقط result میسازد و رویِ cleaned نمینویسد؛
+        # نوشتنِ نتیجه‌ها همان مسیرِ ترتیبیِ بعدِ LaMa است.
+        _clusters_l167 = list(self._mask_clusters(mask, pad=3))
+
+        def _fill_one_cluster(bx0, by0, bx1, by1):
             cx0, cy0 = max(0, bx0 - 29), max(0, by0 - 29)
             cx1, cy1 = min(image.shape[1], bx1 + 29), min(image.shape[0], by1 + 29)
             crop_img = image[cy0:cy1, cx0:cx1]
@@ -15667,7 +15781,25 @@ class MangaTranslator:
                         and self._bg_is_textured(crop_img, crop_msk,
                                                  strong=True)):
                     result = None
-            crops.append([cx0, cy0, cx1, cy1, crop_msk, result, method])
+            return [cx0, cy0, cx1, cy1, crop_msk, result, method]
+
+        _fill_w167 = 1
+        try:
+            _fill_w167 = _parallel_budget("clean")
+        except Exception:
+            _fill_w167 = 1
+        if len(_clusters_l167) >= 2 and _fill_w167 > 1:
+            try:
+                with ThreadPoolExecutor(max_workers=min(
+                        _fill_w167, len(_clusters_l167))) as _fillx:
+                    crops = list(_fillx.map(
+                        lambda _cc: _fill_one_cluster(*_cc),
+                        _clusters_l167))
+            except Exception:
+                crops = [_fill_one_cluster(*_cc)
+                         for _cc in _clusters_l167]
+        else:
+            crops = [_fill_one_cluster(*_cc) for _cc in _clusters_l167]
         try:
             _pv81c = os.environ.get("MANGA_PROBE", "")
             if _pv81c and "," in _pv81c:
@@ -23237,10 +23369,17 @@ class MangaTranslator:
                     block_rects=_blk90)
 
             n_workers = max(1, min(int(getattr(self, "max_workers", 3) or 1), len(cand)))
-            # v1.14.120 — RapidOCR مجازِ موازی: سشن‌های det/rec ORT مشترک
-            # و thread-safe هستند.
+            # v1.14.167 — همهٔ ناحیهها همزمان (حداکثرِ توانِ سیستم):
+            # RapidOCR مجازِ موازی: سشن‌های det/rec ORT مشترک و
+            # thread-safe هستند؛ موتورِ Paddle-Lite هم حالا با «استخرِ
+            # predictor» در پلِ جاوا موازی شد (هر کارگر یک نمونهٔ
+            # predictor خودش را برمیدارد — قفلِ سراسریِ run حذف شد).
             _ocr_ts90 = isinstance(self.ocr, RapidOCRBackend)
             if n_workers > 1 and _ocr_ts90:
+                if self.debug and not getattr(self, "_par_note90", False):
+                    self._par_note90 = True
+                    print(f"    [*] استخراجِ موازی: {len(cand)} ناحیه × "
+                          f"{n_workers} کارگر (cpu={os.cpu_count()})")
                 with ThreadPoolExecutor(max_workers=n_workers) as ex:
                     ocr_results = list(ex.map(_ocr_one90, range(len(cand))))
             else:
