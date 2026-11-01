@@ -882,18 +882,16 @@ def _run(job):
         langs = [x for x in str(p.get("ocr_lang") or "en").split() if x.strip()]
         # v1.14.163 — سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
         # فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا
-        # میکند و OCR (PP-OCRv6 ONNX) فقط رویِ همان کراپها اجرا میشود.
-        # v1.14.166 — انتخابِ موتورِ OCRِ گوشی: «paddle» (پیشفرضِ جدید —
-        # Paddle-Lite arm رویِ کراپهایِ detector-v4-s) یا «rapidocr»
-        # (PP-OCRv6 ONNX). انتخابِ قدیمیِ mlkit → rapidocr (سازگاری).
+        # میکند و OCR فقط رویِ همان کراپها اجرا میشود.
+        # v1.14.170 — موتورِ OCRِ گوشی = «mlkit» (پیشفرض — ML Kit گوگل با
+        # چهار مدلِ باندلشدهٔ ja/ko/zh/latin) یا «rapidocr» (فالبکِ
+        # PP-OCRv6 ONNX). انتخابهایِ قدیمیِ paddle* → mlkit (سازگاری).
         try:
             _oe = str(p.get("ocr_engine") or "").strip().lower()
-            if _oe == "mlkit":
-                _oe = "rapidocr"
             if _oe in ("paddle", "paddlelite", "plite", "paddle-lite"):
-                _oe = "paddle"
-            if _oe and _oe not in ("rapidocr", "paddle"):
-                _log(job, "[!] موتورِ «%s» ناشناخته است → پیشفرض (Paddle-Lite رویِ کراپهایِ detector-v4-s)" % _oe)
+                _oe = "mlkit"
+            if _oe and _oe not in ("mlkit", "ml-kit", "rapidocr", "onnx"):
+                _log(job, "[!] موتورِ «%s» ناشناخته است → پیشفرض (ML Kit رویِ کراپهایِ detector-v4-s)" % _oe)
                 _oe = ""
             if _oe:
                 os.environ["MANGA_ANDROID_OCR"] = _oe

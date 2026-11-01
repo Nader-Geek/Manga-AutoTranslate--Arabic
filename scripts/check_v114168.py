@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""چکِ رگرسیونِ v1.14.168 — بدونِ وابستگی (فقط ast/فایل):
+"""چکِ رگرسیونِ v1.14.170 (بهروزِ 168) — بدونِ وابستگی (فقط ast/فایل):
 
-زمینه: لاگِ واقعیِ گوشی — «predict takes 5 arguments (6 given)»:
-APKِ نصب‌شده پلِ قدیمیِ 1.14.166 را دارد (۵آرگومانیِ float[] با
-خروجیِ FloatBuffer) و manga.pyِ بهروزشده ۶آرگومان (byte[] + poolMax)
-میفرستد → همهٔ OCRهایِ پدل مردود و همهٔ ناحیهها «cleaning only».
+درسِ 168 («predict takes 5 arguments (6 given)») حالا برایِ پلِ ML Kit:
+APKِ قدیمیِ نصبشده MlKitBridge ندارد → سلف‌تستِ دسترسپذیری در
+MlKitCropOCR.__init__ باید شکستِ صریحِ یک‌باره بدهد (پیامِ «APKِ جدید»)
+تا فالبکِ خودکارِ _mlkit_backend به PP-OCRv6 ONNX فعال شود — نه خطایِ
+تکراریِ سرِ هر کراپ.
 
-۱) سلف‌تستِ پل: _plite_bridge_selftest تابعِ سطحِ بالاست؛ detِ ریزِ
-   ۶۴×۶۴ را ران میکند؛ TypeError → RuntimeError با پیامِ «قدیمی»؛
-   PliteCropOCR.__init__ آن را بعدِ ساختِ رانرها صدا میزند.
-۲) گاردِ TypeError در _PLOCR_LiteRunner.run (پلِ قدیمی = پیامِ روشن).
-۳) ResourceWarningِ لاگِ کاربر: هیچ «open(...).read()»ی بدونِ with
-   در مسیرِ پروب/بن نمیماند (الگوهایِ قدیمیِ عینی ممنوع).
-۴) فالبکِ خودکار: _plite_backend هر شکستِ ساخت را dead میکند → ONNX.
-۵) Kotlin: امضایِ ۶آرگومانیِ byte[] + poolMax سرِ جایش (برایِ APKِ جدید).
+۱) سلف‌تستِ پلِ ML Kit (recognizeAuto رویِ ۶۴×۶۴؛ پیامِ «APKِ جدید»).
+۲) هیچ «open(...).read()»ی بدونِ with در manga.py نمیماند (الگوهایِ عینی).
+۳) فالبکِ خودکار: dead + پیامِ ONNX.
+۴) نسخه — APP_VER == versionName (مستقل از شمارهٔ نسخه).
 """
 import ast
 import io
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,88 +29,55 @@ def fail(msg):
 
 src = io.open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
 tree = ast.parse(src)
-
-fns = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
 cls = {n.name: n for n in tree.body if isinstance(n, ast.ClassDef)}
 
-# ۱) سلف‌تستِ پل
-st = fns.get("_plite_bridge_selftest")
-if st is None:
-    fail("_plite_bridge_selftest تابعِ سطحِ بالای manga.py نیست")
-st_src = ast.get_source_segment(src, st) or ""
-if "(1, 3, 64, 64)" not in st_src:
-    fail("سلف‌تستِ پل detِ ریزِ ۶۴×۶۴ را ران نمیکند")
-if "except TypeError" not in st_src:
-    fail("سلف‌تستِ پل TypeError را نمیگیرد (پلِ قدیمی تشخیص نمیشود)")
-if "قدیمی" not in st_src or not isinstance(st, ast.FunctionDef):
-    fail("سلف‌تستِ پل برایِ پلِ قدیمی پیامِ روشن ندارد")
-
-plite = cls.get("PliteCropOCR")
-if plite is None:
-    fail("PliteCropOCR نیست")
-p_init = next((m for m in plite.body
+# ۱) سلف‌تستِ پلِ ML Kit در __init__
+mk = cls.get("MlKitCropOCR")
+if mk is None:
+    fail("MlKitCropOCR نیست")
+p_init = next((m for m in mk.body
                if isinstance(m, ast.FunctionDef) and m.name == "__init__"),
               None)
 if p_init is None:
-    fail("PliteCropOCR.__init__ نیست")
-if "_plite_bridge_selftest" not in ast.dump(p_init):
-    fail("PliteCropOCR.__init__ سلف‌تستِ پل را صدا نمیزند")
+    fail("MlKitCropOCR.__init__ نیست")
+i_src = ast.get_source_segment(src, p_init) or ""
+if "recognizeAuto" not in i_src:
+    fail("سلف‌تستِ پلِ ML Kit recognizeAuto را صدا نمیزند")
+if "(64, 64, 3)" not in i_src:
+    fail("سلف‌تستِ ML Kit رویِ کراپِ ریزِ ۶۴×۶۴ نیست")
+if "APKِ جدید" not in i_src:
+    fail("پلِ غایب (APKِ قدیمی) پیامِ روشنِ «APKِ جدید» ندارد")
 
-# ۲) گاردِ TypeError در runِ رانر
-runner = cls.get("_PLOCR_LiteRunner")
-if runner is None:
-    fail("_PLOCR_LiteRunner نیست")
-r_run = next((m for m in runner.body
-              if isinstance(m, ast.FunctionDef) and m.name == "run"), None)
-if r_run is None:
-    fail("رانرِ پدل متدِ run ندارد")
-r_src = ast.get_source_segment(src, r_run) or ""
-if "except TypeError" not in r_src or "پلِ قدیمی" not in r_src:
-    fail("runِ رانرِ پدل گاردِ پلِ قدیمی (TypeError) ندارد")
-if 'np.frombuffer(fb, dtype="<f4")' not in r_src:
-    fail("رانرِ پدل خروجیِ byte-based نمیخواند (باگِ HeapFloatBuffer برگشت؟)")
-
-# ۳) ResourceWarning — الگوهایِ قدیمیِ «فایلِ بستهنشدنی» ممنوع
+# ۲) ResourceWarning — الگوهایِ «فایلِ بستهنشدنی» ممنوع
 for bad in ('open(_cachef, "r", encoding="utf-8").read()',
             '(open(p, "r", encoding="utf-8").read() or "")',
-            'open(_out, "r", encoding="utf-8").read()'):
+            'open(_out, "r", encoding="utf-8").read()',
+            'open("plite_banned.txt", "r"'):
     if bad in src:
         fail(f"خواندنِ بدونِ with هنوز هست: {bad!r}")
 
-# ۴) فالبکِ خودکارِ _plite_backend
-pb = fns.get("_plite_backend")
-if pb is None:
-    fail("_plite_backend نیست")
-pb_src = ast.get_source_segment(src, pb) or ""
-if '"dead"] = True' not in pb_src.replace(" ", "") and 'dead"] = True' \
-        not in pb_src:
-    fail("_plite_backend شکستِ ساخت را dead نمیکند")
-if "PP-OCRv6 ONNX" not in pb_src:
-    fail("پیامِ فالبکِ ONNX در _plite_backend نیست")
+# ۳) فالبکِ خودکار
+fns = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+if "_mlkit_backend" not in fns:
+    fail("_mlkit_backend نیست")
+mb_src = ""
+for n in tree.body:
+    if isinstance(n, ast.FunctionDef) and n.name == "_mlkit_backend":
+        mb_src = ast.get_source_segment(src, n) or ""
+if 'dead"]=True' not in mb_src.replace(" ", ""):
+    fail("_mlkit_backend شکست را dead نمیکند (تلاشِ تکراریِ هر کراپ؟)")
+if "PP-OCRv6 ONNX" not in mb_src:
+    fail("پیامِ فالبکِ ONNX در _mlkit_backend نیست")
 
-# ۵) Kotlin — امضایِ جدید (پلِ APKِ جدید)
-kt_rel = ("android/app/src/main/java/com/amirwolf/mangatranslator/"
-          "PaddleLiteBridge.kt")
-kt = io.open(os.path.join(ROOT, kt_rel), encoding="utf-8",
-             errors="ignore").read()
-for s in ("data: ByteArray", "poolMax: Int = 1", "LinkedBlockingDeque"):
-    if s not in kt:
-        fail(f"PaddleLiteBridge.kt محتوایِ لازم را ندارد: {s!r}")
-
-# ۶) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شمارهٔ نسخهٔ جاری)
+# ۴) نسخه — سازگاریِ APP_VER با VERSION
 ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-import re as _re
-_m = _re.search(r'^APP_VER = "([\d.]+)"', src, _re.M)
-_vn = _re.search(r'^versionName=([\d.]+)', ver, _re.M)
-_vc = _re.search(r'^versionCode=(\d+)', ver, _re.M)
-if not _m or not _vn or not _vc:
+_m = re.search(r'^APP_VER = "([\d.]+)"', src, re.M)
+_vn = re.search(r'^versionName=([\d.]+)', ver, re.M)
+if not _m or not _vn:
     fail("APP_VER/VERSION ناقص است")
 if _m.group(1) != _vn.group(1):
     fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
-if not _vc.group(1).isdigit():
-    fail("versionCode عددی نیست")
 
-print("PASS — چکِ رگرسیونِ v1.14.168: سلف‌تستِ پلِ پدل (APKِ قدیمی = "
-      "فالبکِ خودکارِ ONNX با پیامِ روشن، نه خطایِ هر کراپ)؛ گاردِ "
-      "TypeError در run؛ همهٔ خواندنهایِ پروب/بن با with بسته شد؛ پلِ "
-      "۶آرگومانیِ byte[] برایِ APKِ جدید سرِ جایش")
+print("PASS — چکِ رگرسیونِ v1.14.170/168: سلف‌تستِ پلِ ML Kit (APKِ قدیمی "
+      "= فالبکِ خودکارِ ONNX با پیامِ روشن، نه خطایِ هر کراپ)؛ خواندنهایِ "
+      "فایل با with؛ APP_VER↔versionName سازگار")
