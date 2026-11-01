@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.158"
+APP_VER = "1.14.162"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3243,6 +3243,25 @@ def _android_heal_model_dir(mdir, quiet=False):
         pass
 
 
+# v1.14.162 — قفلِ تک‌نمونهٔ دانلودِ هر فایل: دو ورکرِ OCR که همزمان
+# PliteCropOCR میسازند هر دو «همان .nb را دانلود میکردند»؛ یکی تمام میشد
+# و .part را rename میکرد، دومی وسطِ نوشتن/rename با «[Errno 2] No such
+# file or directory … .part» میرفت و لاگِ «دانلود ناموفق — اینترنت/VPN
+# را چک کن» میداد در حالیکه فایل سالم بود. حالا هر فایل قفلِ خودش را
+# دارد؛ نفرِ دوم منتظر میماند و بعد داخلِ قفل «از قبل هست» را میبیند.
+_DL_FILE_LOCKS: Dict[str, threading.Lock] = {}
+_DL_FILE_LOCKS_GUARD = threading.Lock()
+
+
+def _dl_file_lock(dst: str) -> threading.Lock:
+    with _DL_FILE_LOCKS_GUARD:
+        lk = _DL_FILE_LOCKS.get(dst)
+        if lk is None:
+            lk = threading.Lock()
+            _DL_FILE_LOCKS[dst] = lk
+        return lk
+
+
 def _ensure_rapidocr_models(mdir, files=None):
     wanted = files or list(_RAPIDOCR_FILES)
     for fname in wanted:
@@ -3253,24 +3272,34 @@ def _ensure_rapidocr_models(mdir, files=None):
         if os.path.isfile(dst) and os.path.getsize(dst) > _min_sz:
             continue
         done = False
-        for url in (_RAPIDOCR_MIRROR + fname, _RAPIDOCR_FILES.get(fname)):
-            if not url:
+        _lk = _dl_file_lock(dst)
+        with _lk:
+            # داخلِ قفلِ همان فایل دوباره چک کن — شاید ورکرِ دیگر همین
+            # حالا آن را دانلود کرده باشد (ریشهٔ ارورِ .part)
+            if os.path.isfile(dst) and os.path.getsize(dst) > _min_sz:
                 continue
+            for url in (_RAPIDOCR_MIRROR + fname, _RAPIDOCR_FILES.get(fname)):
+                if not url:
+                    continue
+                try:
+                    print(f"  دانلود {fname} ...")
+                    _dl_to(url, dst, name=fname)
+                    done = True
+                    break
+                except Exception as e:
+                    # اگر ورکرِ دیگر فایل را تمام کرده، این شکست نیست
+                    if os.path.isfile(dst) and os.path.getsize(dst) > _min_sz:
+                        done = True
+                        break
+                    host = url.split("/")[2] if url else "?"
+                    print(f"  [!] {fname} از {host} نشد: {e}")
+            if not done:
+                print(f"  [!] دانلود {fname} ناموفق — اینترنت/VPN را چک کن")
             try:
-                print(f"  دانلود {fname} ...")
-                _dl_to(url, dst, name=fname)
-                done = True
-                break
-            except Exception as e:
-                host = url.split("/")[2] if url else "?"
-                print(f"  [!] {fname} از {host} نشد: {e}")
-        if not done:
-            print(f"  [!] دانلود {fname} ناموفق — اینترنت/VPN را چک کن")
-        try:
-            if os.path.isfile(dst + ".part"):
-                os.remove(dst + ".part")
-        except Exception:
-            pass
+                if os.path.isfile(dst + ".part"):
+                    os.remove(dst + ".part")
+            except Exception:
+                pass
 
 
 def _cjk_dominant_154(t: str) -> bool:
@@ -4064,7 +4093,38 @@ def _start_plite_probe(det_path, rec_path, out_path, threads):
         return False
 
 
+# v1.14.162 — تک‌نمونهٔ پروب: دو ورکرِ کاسکاد که همزمان PliteCropOCR
+# میسازند، هر دو به اینجا میآمدند و «دو پروبِ» جدا راه میانداختند (لاگِ
+# «[⚡] پروبِ Paddle-Lite …» دوبار چاپ میشد) و دو پروسه رویِ یک
+# .plite_probe.txt مینوشتند. نفرِ دوم حالا منتظر میماند و از کَش میخواند.
+_PLITE_PROBE_LOCK = threading.Lock()
+
+
 def _plite_probe_ensure(pdir, det_path, rec_path):
+    import json as _json
+    _key = _plite_model_key([det_path, rec_path])
+    _cachef = os.path.join(pdir, ".plite_probe.json")
+    try:
+        if os.path.isfile(_cachef):
+            _c = _json.loads(open(_cachef, "r", encoding="utf-8").read() or "{}")
+            if _c.get("key") == _key:
+                return bool(_c.get("ok")), str(_c.get("ms") or "")
+    except Exception:
+        pass
+    with _PLITE_PROBE_LOCK:
+        # داخلِ قفل دوباره از کَش بپرس — پروبِ نخِ دیگر همین حالا تمام شده
+        try:
+            if os.path.isfile(_cachef):
+                _c = _json.loads(
+                    open(_cachef, "r", encoding="utf-8").read() or "{}")
+                if _c.get("key") == _key:
+                    return bool(_c.get("ok")), str(_c.get("ms") or "")
+        except Exception:
+            pass
+        return _plite_probe_run(pdir, det_path, rec_path)
+
+
+def _plite_probe_run(pdir, det_path, rec_path):
     """تأییدِ سالم بودنِ Paddle-Lite رویِ همین گوشی با پروبِ پروسهٔ جدا.
 
     کَش: <pdir>/.plite_probe.json (کلید = حجمِ مدلها + نسخهٔ اپ) → بارِ
@@ -4493,10 +4553,20 @@ class PliteCropOCR:
 
 # تک‌نمونهٔ Paddle-Lite برایِ کلِ نشست — ساختِ تنبل؛ هر خطا = پله خاموش
 _PLITE_STATE = {"obj": None, "lang": None, "dead": False, "note": False}
+# v1.14.162 — سنجهٔ سرعتِ واقعیِ پدل-لایت رویِ گوشی (خواستهٔ کاربر:
+# «میخوام ببینم رو گوشی سرعتش چقدره») — مجموعِ میلی‌ثانیه/تعدادِ OCR
+_PLITE_STATS = {"ms": 0.0, "n": 0}
+# v1.14.162 — قفلِ ساخت: دو ورکرِ کاسکاد همزمان دو نسخهٔ PliteCropOCR
+# میساختند → دانلودِ دوبارهٔ همان .nbها (ریشهٔ ارورِ .part) و دو پروب.
+_PLITE_BUILD_LOCK = threading.Lock()
 # predictorهایِ پدل-لایت per-instance نیستند thread-safe → احضارِ پلهٔ
 # پدل از ورکرهایِ موازیِ کاسکاد سریال میشود (کراپِ نوبتی؛ هر کراپ
 # ~۱۵۰-۳۰۰ms — از هزینهش کمتر از ریسکِ raceِ بومی).
 _PLITE_LOCK = threading.Lock()
+
+
+def _plite_dead() -> bool:
+    return bool(_PLITE_STATE.get("dead"))
 
 
 def _plite_crop_ocr(lang, image_bgr):
@@ -4516,22 +4586,32 @@ def _plite_crop_ocr(lang, image_bgr):
         return None
     _lg = _plite_lang(lang)
     if st["obj"] is None or st["lang"] != _lg:
-        try:
-            st["obj"] = PliteCropOCR(lang=_lg)
-            st["lang"] = _lg
-        except Exception as e:
-            st["obj"] = None
-            st["dead"] = True
-            print(f"[!] پلهٔ Paddle-Lite غیرفعال شد ({str(e)[:120]}) "
-                  "→ کاسکاد: رپیدِ PP-OCRv6")
-            return None
+        with _PLITE_BUILD_LOCK:
+            # داخلِ قفل دوباره چک کن — ورکرِ دیگر همین حالا ساخت
+            if st["obj"] is None or st["lang"] != _lg:
+                try:
+                    st["obj"] = PliteCropOCR(lang=_lg)
+                    st["lang"] = _lg
+                except Exception as e:
+                    st["obj"] = None
+                    st["dead"] = True
+                    print(f"[!] پلهٔ Paddle-Lite غیرفعال شد ({str(e)[:120]}) "
+                          "→ فالبکِ PP-OCRv6")
+                    return None
     try:
+        _t0 = time.time()
         with _PLITE_LOCK:
-            return st["obj"].ocr(image_bgr)
+            _res = st["obj"].ocr(image_bgr)
+        try:
+            _PLITE_STATS["ms"] += (time.time() - _t0) * 1000.0
+            _PLITE_STATS["n"] += 1
+        except Exception:
+            pass
+        return _res
     except Exception as e:
         st["dead"] = True
         print(f"[!] خطایِ inference پدل-لایت ({str(e)[:120]}) → "
-              "پله خاموش؛ رپیدِ PP-OCRv6")
+              "فالبکِ PP-OCRv6")
         return None
 
 
@@ -6034,14 +6114,16 @@ class MangaTranslator:
                 print(f"[!] PaddleOCR لود نشد ({e}) → RapidOCR ONNX")
 
         if self.ocr is None and _on_android():
-            # v1.14.150 — پیشفرضِ جدیدِ اندروید به درخواستِ کاربر:
-            # «رویِ گوشی هم PaddleOCR فعال کن؛ فقط قسمتِ استخراجِ متن از
-            # آن استفاده کند — PaddleOCR ONNX بدونِ DFT — ببینم چقدر
-            # سرعت دارد؛ فقط برشِ امن ML Kit استفاده کند».
-            # پس: استخراجِ متن = PP-OCRv6 ONNX (PaddleOCR-ONNX)؛
-            # پاکسازی هم از قبل LaMaِ بدونِ DFT است (v1.14.147).
-            # ML Kit فقط «راهنمایِ برشِ امن» (کاسکادِ K3) و فال‌بکِ
-            # بارگذاری است. فرارِ دستی: MANGA_ANDROID_OCR=mlkit
+            # v1.14.162 — پیشفرضِ جدیدِ اندروید به درخواستِ کاربر:
+            # «استخراجِ متن رو گوشی هرچی هست نیست حذف کن؛ فقط برشِ امنش
+            # از ML Kit استفاده کن؛ استخراجِ متن از Paddle-Lite رو گوشی —
+            # میخوام ببینم رو گوشی سرعتش چقدره».
+            # پس: استخراجِ متنِ گوشی = فقط Paddle-Lite نیتیو (مدلهایِ
+            # رسمیِ ppocr_demo، فقط-CPU + پروبِ پروسهٔ جدا) رویِ کراپهایِ
+            # RT-DETR؛ ML Kit فقط «راهنمایِ برشِ امن» (پیش‌تشخیصِ دوطرفهٔ
+            # برشِ امن). بکاندِ PP-OCRv6 ONNX فقط حاملِ سشن/فالبکِ وقتی
+            # پدل در دسترس نیست میماند (132MB دانلودِ اول از قبل کَش است).
+            # فرارِ دستی: MANGA_ANDROID_OCR=mlkit
             _aocr = os.environ.get("MANGA_ANDROID_OCR", "").strip().lower()
             if _aocr and _aocr not in ("mlkit", "rapidocr"):
                 print(f"[!] موتورِ «{_aocr}» ناشناخته است → PP-OCRv6 ONNX")
@@ -6051,19 +6133,20 @@ class MangaTranslator:
                     self.ocr = RapidOCRBackend(
                         lang=main_lang, prefer_gpu=self.use_gpu)
                     self._ocr_backend_name = "rapidocr"
-                    print("[*] اندروید: استخراجِ متن = PP-OCRv6 ONNX "
-                          "(PaddleOCR) — v1.14.150")
-                    # راهنمایِ برشِ امنِ ML Kit (کاسکادِ K3): استخراجِ
-                    # یک بار با ML Kit، بعدِ PP-OCRv6 فقط رویِ همان نقاط —
-                    # برشِ امن همیشه با ML Kit، مثلِ خواستهٔ کاربر.
+                    print("[*] اندروید: استخراجِ متن = Paddle-Lite نیتیو "
+                          "(رویِ کراپهایِ RT-DETR) — v1.14.162 "
+                          "| فالبک: PP-OCRv6 ONNX")
+                    # راهنمایِ برشِ امنِ ML Kit: برشِ امن (پیش‌تشخیصِ
+                    # دوطرفه + پنجره‌هایِ اسکن) همیشه با ML Kit —
+                    # مثلِ خواستهٔ کاربر.
                     self._mlkit_guide = None
                     try:
                         self._mlkit_guide = MlKitBackend(lang=main_lang)
-                        print("[*] برشِ امن = ML Kit (کاسکادِ K3: "
-                              "PP-OCRv6 فقط رویِ برش‌ها)")
+                        print("[*] برشِ امن = ML Kit (دوطرفه؛ استخراجِ "
+                              "متن فقط Paddle-Lite)")
                     except Exception as _e2:
                         print(f"[!] راهنمایِ ML Kit در دسترس نیست ({_e2}) "
-                              "→ PP-OCRv6 تمام‌صفحه")
+                              "→ برشِ امن با RT-DETR")
                 except Exception as e:
                     print(f"[!] PP-OCRv6 ONNX لود نشد ({e}) → ML Kit نیتیو")
             if self.ocr is None:
@@ -24644,13 +24727,15 @@ class MangaTranslator:
             _det_cap = 960
 
         def _run_one(crect):
-            """v1.14.158 — نردبانِ دستورِ K3 رویِ هر کراپ:
-            پلهٔ ۱: ML Kit (پوششِ جوهرِ متنِ ≥۷۰٪ = قبول؛ K3-وفادار)
-            پلهٔ ۲: Paddle-Lite نیتیو (اطمینانِ ≥۸۰٪ = قبول)
-            پلهٔ ۳: رپیدِ PP-OCRv6 (نهایی)
-            خروجی: (crect, (tier, res, cov)) — tier: ml|pl|rp|ml!|pl!|none
-            «!» = هیچ آستانه‌ای قبول نشد ولی متنِ پلهٔ پایینتر نگه داشته
-            شد (هیچوقت متن از دست نمیرود). غیرِ K3 = فقط رپید (قبل)."""
+            """v1.14.162 — استخراجِ گوشی = فقط Paddle-Lite رویِ هر کراپ:
+            پلهٔ ۰: افزایشِ کیفیتِ کراپ (مانندِ دستورِ K3)
+            پلهٔ ۱: Paddle-Lite نیتیو — متنِ آن همیشه پذیرفته میشود
+            (زیرِ ۸۰٪ = «pl!»؛ چون پلهٔ بعدی حذف شده هیچ متنی دور
+            ریخته نمیشود)
+            فالبک (فقط وقتی پدل در دسترس نیست): رپیدِ PP-OCRv6
+            خروجی: (crect, (tier, res, cov)) — tier: pl|pl!|rp|none
+            ML Kit فقط برشِ امن میگیرد (نه استخراجِ متن). غیرِ K3 =
+            فقط رپید (قبل)."""
             cx1, cy1, cx2, cy2 = crect
             try:
                 _crop = image[cy1:cy2, cx1:cx2]
@@ -24676,41 +24761,46 @@ class MangaTranslator:
             except Exception:
                 _feed = _crop
                 _s1 = 1.0
-            # ── پلهٔ ۱: ML Kit رویِ کراپ + گیتِ پوششِ جوهر ──────────
-            _ml = []
+            # ── v1.14.162 — استخراجِ متنِ گوشی = فقط Paddle-Lite ──────
+            # (درخواستِ صریحِ کاربر: «استخراجِ متن رو گوشی هرچی هست نیست
+            # حذف کن؛ فقط برشِ امنش از ML Kit استفاده کن؛ استخراجِ متن از
+            # Paddle-Lite رو گوشی» — پلهٔ ML Kitِ کراپ و پلهٔ رپیدِ کراپ
+            # حذف شدند؛ ML Kit فقط برشِ امن میگیرد.)
             _cov = -1.0
-            if self._mlkit_guide is not None:
-                try:
-                    _ml = self._mlkit_page_lines(_feed)
-                except Exception:
-                    _ml = []
-                if _ml:
-                    _cov = self._mlkit_ink_coverage(
-                        _feed, [e[2] for e in _ml])
-                    if _k3_mlkit_text and _cov >= _k3_cov:
-                        return crect, ("ml", _rescale_ml(_ml, _s1), _cov)
-            # ── پلهٔ ۲: Paddle-Lite (پوششِ زیرِ ۷۰٪ → مدلِ پدل) ──────
             _pl = _plite_crop_ocr(_plite_lang_now, _feed)
             if _pl and _pl[0]:
+                # v1.14.162 — باکسهایِ پدل از کراپِ ارتقایافته به کراپِ
+                # اصلی (×1/s — همان درسِ rescaleِ 1.14.157؛ در ۱۵۸ فقط
+                # ML Kit rescale میشد و پدل بهندرت پلهٔ اول بود)
+                if _s1 and _s1 > 1.0:
+                    _pl0 = []
+                    for _b, _p in _pl[0]:
+                        try:
+                            _bb = np.asarray(
+                                _b, dtype=np.float32) / float(_s1)
+                            _pl0.append(
+                                [np.rint(_bb).astype(np.float32), _p])
+                        except Exception:
+                            _pl0.append([_b, _p])
+                    _pl = [_pl0]
                 try:
                     _sc = [float(p[1]) for _b, p in _pl[0]]
                     _msc = sum(_sc) / max(1, len(_sc))
                 except Exception:
                     _msc = 0.0
-                if _msc >= _k3_conf:
-                    return crect, ("pl", _pl, _cov)
-            # ── پلهٔ ۳: رپیدِ PP-OCRv6 (زیرِ ۸۰٪ → مدلِ رپید) ─────────
-            try:
-                _rp = _mob.ocr(_crop, crop_mode=True, det_cap=_det_cap)
-            except Exception:
-                _rp = None
-            if _rp and _rp[0]:
-                return crect, ("rp", _rp, _cov)
-            # هیچ پلهای قبول نشد → بهترینِ موجود
-            if _pl and _pl[0]:
-                return crect, ("pl!", _pl, _cov)
-            if _ml:
-                return crect, ("ml!", _rescale_ml(_ml, _s1), _cov)
+                # متنِ پدل همیشه نگه داشته میشود (زیرِ ۸۰٪ = «pl!» —
+                # چون پلهٔ بعدی حذف شده، هیچ متنی دور ریخته نمیشود)
+                return crect, ("pl" if _msc >= _k3_conf else "pl!",
+                               _pl, _cov)
+            if _plite_dead():
+                # پدل در دسترس نیست (لود/پروب/inference مرده) → فالبکِ
+                # همان موتورِ همیشگی فقط در این حالت — تا متن نماند
+                try:
+                    _rp = _mob.ocr(_crop, crop_mode=True, det_cap=_det_cap)
+                except Exception:
+                    _rp = None
+                if _rp and _rp[0]:
+                    return crect, ("rp", _rp, _cov)
             return crect, (None, None, _cov)
 
         def _collect(crect, out):
@@ -24793,6 +24883,9 @@ class MangaTranslator:
 
         _tstats = {}
         _tcovs = []
+        # v1.14.162 — سنجهٔ سرعتِ پدل فقط برایِ همین صفحه (دلتا)
+        _plite_ms0 = float(_PLITE_STATS.get("ms", 0.0))
+        _plite_n0 = int(_PLITE_STATS.get("n", 0))
         try:
             _w_env = int(os.environ.get("MANGA_CASCADE_WORKERS", "0") or 0)
         except Exception:
@@ -24898,9 +24991,10 @@ class MangaTranslator:
                     _nresc += 1
                     continue
                 # v1.14.125 — نجاتِ legacy (variants/upscale) فقط وقتی
-                # PP-OCRv6 رویِ برشِ خودِ باکس هم چیزی نیافت؛ اورراید:
-                # MANGA_CROP_RESCUE=0 (پیشفرضِ روشن برایِ استخراجِ کامل)
-                if _rescue:
+                # پدل در دسترس نیست (استخراجِ گوشی = فقط Paddle-Lite؛
+                # با پدلِ زنده، کراپِ خالی = واقعاً بی‌متن). اورراید:
+                # MANGA_CROP_RESCUE=0
+                if _rescue and _plite_dead():
                     _blk = [(rects[j][0], rects[j][1], rects[j][2],
                              rects[j][3])
                             for j in range(len(cand)) if j != _k]
@@ -24915,11 +25009,13 @@ class MangaTranslator:
             if _k3mode:
                 _ts = " ".join(f"{k}={v}" for k, v in
                                sorted(_tstats.items()))
-                _tc = ("، پوششِ MLKitِ میانگین="
-                       + ("%.0f%%" % (100.0 * sum(_tcovs) / len(_tcovs)))
-                       if _tcovs else "")
-                print(f"    [*]K3-کاسکادِ ۱۵۸: کراپِ RT-DETR={len(_rects)} "
-                      f"| پله‌ها: {_ts}{_tc} | خط={len(_rapid)} "
+                _pl_ms = _PLITE_STATS["ms"] - _plite_ms0
+                _pl_n = _PLITE_STATS["n"] - _plite_n0
+                _pl_s = (f" | پدل={_pl_ms:.0f}ms/{_pl_n}کراپ"
+                         f" (میانگین={_pl_ms / max(1, _pl_n):.0f}ms)"
+                         if _pl_n else "")
+                print(f"    [*]K3-کاسکادِ ۱۶۲: کراپِ RT-DETR={len(_rects)} "
+                      f"| پله‌ها: {_ts}{_pl_s} | خط={len(_rapid)} "
                       f"(جایگزین={_nrep}) | باکس="
                       f"{sum(1 for _u in used if _u)}/{len(cand)} "
                       f"+{_nresc} نجات | +{len(ec)} بیرون | "
@@ -26344,11 +26440,11 @@ class MangaTranslator:
         # خاموش‌کننده: MANGA_CASCADE=0 (کاسکاد) | MANGA_MLKIT_PAGE=0 (پاسِ ML Kit)
         _page_done = False
         _bn_ocr = getattr(self, "_ocr_backend_name", "")
-        # ── v1.14.124 — کاسکادِ K3: ML Kit (یک بار) → برشِ امن →
-        # PP-OCRv6 فقط رویِ برش‌ها (دیکدِ K3: RunRapidOcrPipelineOnCrop).
-        # خطای/خالیِ کاسکاد → مسیرِ پاسِ ML Kitِ خالص → مسیرِ قدیمی.
+        # ── v1.14.162 — کاسکادِ گوشی: کراپهایِ RT-DETR → فقط Paddle-Lite
+        # (استخراجِ متن = Paddle-Lite؛ ML Kit فقط برشِ امن). دیگر به حضورِ
+        # راهنمایِ ML Kit وابسته نیست — پلهٔ پدل خودش مستقل است.
+        # خطای/خالیِ کاسکاد → مسیرِ قدیمی.
         if (cand and _on_android() and _bn_ocr == "rapidocr"
-                and getattr(self, "_mlkit_guide", None) is not None
                 and os.environ.get("MANGA_CASCADE", "1").strip() != "0"):
             try:
                 _casc = self._cascade_page_ocr(image, cand)
@@ -29392,113 +29488,18 @@ class MangaTranslator:
         else:
             print(f"    [*] ترتیب HTML حفظ شد ({len(img_urls)} تصویر، بدون شماره ترتیبی).")
 
-        # v1.14.160 — «برشِ امن از دو طرفه» (خواستهٔ کاربر: «از عکسِ اول تا
-        # آخر، اون یکی از عکسِ آخر به اول بره — سریعتر باشه»): دو رشتهٔ
-        # موازی، یکی از اولِ لیست (0,1,2,…) و یکی از آخرِ لیست (…,2,1,0)
-        # برمی‌گردد و وسط به هم میرسند = تقریباً نصفِ زمانِ دانلود.
-        # امن: هر ایندکس دقیقاً یک بار برداشته میشود (پوینترِ مشترک + قفل)،
-        # هر خطا فقط همان صفحه را رد میکند و نتیجه در پایان به ترتیبِ
-        # اصلیِ صفحه‌ها چیده میشود؛ نوشتنِ فایل هم با قفل محافظت میشود تا
-        # دو صفحهٔ هم‌نام روی هم ننویسند.
-        saved_by_idx: Dict[int, str] = {}
-        _save_lock = threading.Lock()
-        _ptr_lock = threading.Lock()
-        _ptr = {"front": 0, "back": len(img_urls) - 1}
-
-        def _claim_front() -> Optional[int]:
-            with _ptr_lock:
-                if _ptr["front"] > _ptr["back"]:
-                    return None
-                idx = _ptr["front"]
-                _ptr["front"] += 1
-                return idx
-
-        def _claim_back() -> Optional[int]:
-            with _ptr_lock:
-                if _ptr["front"] > _ptr["back"]:
-                    return None
-                idx = _ptr["back"]
-                _ptr["back"] -= 1
-                return idx
-
-        def _make_sess():
-            # v1.14.161 — اتصالِ keep-alive برایِ هر رشته: بهجایِ
-            # handshakeِ TLS برایِ تکتکِ صفحهها، همان اتصالِ زنده
-            # استفاده میشود → رویِ HTTPS سرعتِ واقعی میرود بالا.
+        saved = []
+        for img_url in img_urls:
             try:
-                from requests.adapters import HTTPAdapter
-                _s = requests.Session()
-                _ad = HTTPAdapter(pool_connections=1, pool_maxsize=1)
-                _s.mount("https://", _ad)
-                _s.mount("http://", _ad)
-                _s.headers.update(headers)
-                return _s
-            except Exception:
-                class _Shim:
-                    def __init__(self, hd):
-                        self.headers = dict(hd)
-
-                    def get(self, u, timeout=60):
-                        return requests.get(u, headers=self.headers,
-                                            timeout=timeout)
-                return _Shim(headers)
-
-        _dl_count = {"front": 0, "back": 0}
-
-        def _dl_one(idx: int, sess) -> None:
-            img_url = img_urls[idx]
-            try:
-                r = sess.get(img_url, timeout=60)
+                r = requests.get(img_url, headers=headers, timeout=60)
                 r.raise_for_status()
             except Exception as e:
                 print(f"    [!] رد شد ({img_url[:90]}…): {e}")
-                return
-            # قفلِ نوشتن: بینِ «موجود است؟» و «بنویس» هیچ رشتهٔ دیگری
-            # نباید همان اسم را بردارد (دو صفحهٔ هم‌نامِ سایت‌های مختلف)
-            with _save_lock:
-                try:
-                    path = _save_bytes(r.content, idx + 1, img_url)
-                except Exception as e:
-                    print(f"    [!] رد شد ({img_url[:90]}…): {e}")
-                    return
-                if path:
-                    saved_by_idx[idx] = path
+                continue
+            path = _save_bytes(r.content, len(saved) + 1, img_url)
+            if path:
+                saved.append(path)
 
-        def _dl_side(claim, sess, tag: str) -> None:
-            while True:
-                idx = claim()
-                if idx is None:
-                    return
-                _dl_one(idx, sess)
-                _dl_count[tag] = _dl_count.get(tag, 0) + 1
-                # v1.14.161 — پیشرفتِ قابلِ دیدن: کاربر باید «دوطرفه»
-                # بودنِ دانلود را در لاگ ببیند (هر ۱۰ صفحه از هر طرف).
-                if len(img_urls) >= 10 and _dl_count[tag] % 10 == 0:
-                    print(f"    [↧ {tag}] {_dl_count[tag]}/{len(img_urls)} "
-                          f"صفحه دانلود شد")
-
-        if len(img_urls) > 3:
-            # v1.14.161 — لاگِ شروعِ دانلودِ دوطرفه
-            print(f"    [*] دانلودِ دوطرفه: رشتهٔ «جلو» از صفحهٔ ۱ و "
-                  f"رشتهٔ «عقب» از صفحهٔ {len(img_urls)} — همزمان")
-            _t_fwd = threading.Thread(target=_dl_side,
-                                      args=(_claim_front, _make_sess(), "جلو"),
-                                      daemon=True)
-            _t_bwd = threading.Thread(target=_dl_side,
-                                      args=(_claim_back, _make_sess(), "عقب"),
-                                      daemon=True)
-            _t_fwd.start()
-            _t_bwd.start()
-            while _t_fwd.is_alive() or _t_bwd.is_alive():
-                if _t_fwd.is_alive():
-                    _t_fwd.join(timeout=0.5)
-                if _t_bwd.is_alive():
-                    _t_bwd.join(timeout=0.5)
-        else:
-            _sess66 = _make_sess()
-            _dl_side(_claim_front, _sess66, "جلو")
-            _dl_side(_claim_back, _sess66, "عقب")
-        saved = [saved_by_idx[i] for i in sorted(saved_by_idx)]
 
         print(f"    {len(saved)} تصویر از {url} دانلود شد "
               f"({time.time() - _t_dl66:.1f}s).")
@@ -30298,8 +30299,13 @@ html, body { background: #0a0a0b; }
         start_idx = 0
 
         if self.det is None and (len(image_files) > 1 or not self.stitch_keep_first):
-            raise RuntimeError("برش امن به تشخیص حباب نیاز دارد؛ RT-DETR بارگذاری نشده است. "
-                               "برای حفظ فایل‌های اصلی --stitch-max-height 0 را بزنید.")
+            # v1.14.162 — اندروید: برشِ امن با ML Kit بدونِ RT-DETR هم
+            # میشود (خط‌هایِ متنِ ML Kit = محدودهٔ محافظتشدهٔ برش)
+            if not (_on_android()
+                    and getattr(self, "_mlkit_guide", None) is not None):
+                raise RuntimeError("برش امن به تشخیص حباب نیاز دارد؛ RT-DETR بارگذاری نشده است. "
+                                   "برای حفظ فایل‌های اصلی --stitch-max-height 0 را بزنید.")
+            print("[*] برشِ امن بدونِ RT-DETR = ML Kit نیتیو (اندروید)")
 
         keep_first = bool(self.stitch_keep_first)
         current_protected: List[Tuple[int, int]] = []
@@ -30324,10 +30330,27 @@ html, body { background: #0a0a0b; }
                 seam_y = len(tail)
                 padding = max(40, int(round(seam_w * 0.05)))
                 try:
-                    protected = [
-                        (box["rect"][1] - padding, box["rect"][3] + padding)
-                        for box in self.det.detect(preview)
-                    ]
+                    _mlg_p = getattr(self, "_mlkit_guide", None)
+                    if _on_android() and _mlg_p is not None:
+                        # v1.14.162 — مرزِ صفحهٔ اول هم با ML Kit
+                        _mlr0 = _mlg_p.ocr(preview)
+                        protected = []
+                        if _mlr0 and _mlr0[0]:
+                            for _ln in _mlr0[0]:
+                                try:
+                                    _arr = np.asarray(
+                                        _ln[0],
+                                        dtype=np.float32).reshape(-1, 2)
+                                    protected.append(
+                                        (int(_arr[:, 1].min()) - padding,
+                                         int(_arr[:, 1].max()) + padding))
+                                except Exception:
+                                    continue
+                    else:
+                        protected = [
+                            (box["rect"][1] - padding, box["rect"][3] + padding)
+                            for box in self.det.detect(preview)
+                        ]
                 except Exception as exc:
                     raise RuntimeError("بررسی مرز صفحهٔ اول ناموفق بود؛ برای جلوگیری از قطع متن "
                                        "صفحه جدا نشد.") from exc
@@ -30405,14 +30428,34 @@ html, body { background: #0a0a0b; }
                     pass
                 _bx: List[Tuple[int, int]] = []
                 if not _blank:
-                    try:
-                        for _box in self.det.detect(_im, fast=True):
-                            _r = _box.get("rect")
-                            if not _r:
-                                continue
-                            _bx.append((int(_r[1]), int(_r[3])))
-                    except Exception:
-                        _bx = []
+                    _mlg = getattr(self, "_mlkit_guide", None)
+                    if _on_android() and _mlg is not None:
+                        # v1.14.162 — برشِ امنِ اندروید = ML Kit نیتیوِ
+                        # گوگل (خواستهٔ صریح: «رو اندروید برشِ امنش با
+                        # ml kit باشه») — باکسِ خطهایِ متن = محدودهٔ
+                        # محافظتشدهٔ برش؛ سریع و بومی
+                        try:
+                            _mlr = _mlg.ocr(_im)
+                            for _ln in (_mlr[0] if _mlr and _mlr[0] else []):
+                                try:
+                                    _arr = np.asarray(
+                                        _ln[0],
+                                        dtype=np.float32).reshape(-1, 2)
+                                    _bx.append((int(_arr[:, 1].min()),
+                                                int(_arr[:, 1].max())))
+                                except Exception:
+                                    continue
+                        except Exception:
+                            _bx = []
+                    else:
+                        try:
+                            for _box in self.det.detect(_im, fast=True):
+                                _r = _box.get("rect")
+                                if not _r:
+                                    continue
+                                _bx.append((int(_r[1]), int(_r[3])))
+                        except Exception:
+                            _bx = []
                 with _pre_lock:
                     _pre_boxes[_idx] = (_pw, _bx, _blank)
             except Exception:
@@ -30420,10 +30463,17 @@ html, body { background: #0a0a0b; }
                     _pre_boxes.setdefault(_idx, (0.0, [], True))
 
         _pre_threads: List[threading.Thread] = []
-        if _pre_pages and self.det is not None:
+        _sc_mlg0 = getattr(self, "_mlkit_guide", None)
+        _sc_mlkit = bool(_on_android() and _sc_mlg0 is not None)
+        if _pre_pages and (self.det is not None or _sc_mlkit):
             try:
                 from collections import deque as _deque
                 _dq = _deque(_pre_pages)
+                _pre_total = len(_pre_pages)
+                _pre_prog = {"جلو": 0, "عقب": 0}
+                _pre_step = max(3, _pre_total // 6)
+                _pre_t0 = time.time()
+                _pre_done_flag = {"d": False}
                 try:
                     _n_pre = 2 if _on_android() else max(2, min(4, (os.cpu_count() or 2)))
                 except Exception:
@@ -30431,20 +30481,42 @@ html, body { background: #0a0a0b; }
                 _n_pre = max(1, min(_n_pre, len(_pre_pages)))
 
                 def _pre_worker(_from_right: bool) -> None:
+                    _tag = "عقب" if _from_right else "جلو"
                     while True:
                         try:
                             _idx = _dq.pop() if _from_right else _dq.popleft()
                         except IndexError:
                             return
                         _pre_detect_page(_idx)
+                        # v1.14.162 — پیشرفتِ قابلِ دیدنِ دو سر: کاربر باید
+                        # در لاگ ببیند که یک رشته از صفحهٔ اول و همزمان
+                        # رشتهٔ دیگر از صفحهٔ آخر جلو میرود
+                        _show = _fin = False
+                        with _pre_lock:
+                            _pre_prog[_tag] += 1
+                            _show = (_pre_total >= 6
+                                     and _pre_prog[_tag] % _pre_step == 0)
+                            if (not _pre_done_flag["d"]
+                                    and (_pre_prog["جلو"] + _pre_prog["عقب"])
+                                    >= _pre_total):
+                                _pre_done_flag["d"] = True
+                                _fin = True
+                        if _show:
+                            print(f"    [برش {_tag}] صفحهٔ {_idx + 1} از "
+                                  f"{_pre_total} کش شد")
+                        if _fin:
+                            print(f"[✓] برش امن دوطرفه: هر {_pre_total} صفحه "
+                                  f"از دو طرف کش شد "
+                                  f"({time.time() - _pre_t0:.1f}s)")
 
                 for _k in range(_n_pre):
                     _t = threading.Thread(
                         target=_pre_worker, args=(bool(_k % 2),), daemon=True)
                     _t.start()
                     _pre_threads.append(_t)
-                print(f"[*] برش امن دوطرفه: {_n_pre} کارگر تشخیص — یکی از صفحهٔ "
-                      f"اول به آخر، یکی از آخر به اول")
+                _src_nm = "ML Kit" if _sc_mlkit else "RT-DETR"
+                print(f"[*] برش امن دوطرفه ({_src_nm}): {_n_pre} کارگر تشخیص "
+                      f"— یکی از صفحهٔ اول به آخر، یکی از آخر به اول")
             except Exception:
                 _pre_threads = []
 
@@ -30565,6 +30637,26 @@ html, body { background: #0a0a0b; }
                     except Exception:
                         pass
                     _out: List[Tuple[int, int]] = []
+                    _mlg = getattr(self, "_mlkit_guide", None)
+                    if _on_android() and _mlg is not None:
+                        # v1.14.162 — برشِ امنِ اندروید = ML Kit (کَشِ
+                        # پیش‌تشخیص دوطرفه نبود → پاسِ زندهٔ ML Kit)
+                        try:
+                            _mlr = _mlg.ocr(_win)
+                            for _ln in (_mlr[0] if _mlr and _mlr[0] else []):
+                                try:
+                                    _arr = np.asarray(
+                                        _ln[0],
+                                        dtype=np.float32).reshape(-1, 2)
+                                    _out.append(
+                                        (_top + int(_arr[:, 1].min()) - padding,
+                                         _top + int(_arr[:, 1].max()) + padding))
+                                except Exception:
+                                    continue
+                            return _out
+                        except Exception:
+                            if self.det is None:
+                                return []  # بدونِ RT-DETR: برشِ هوشمندِ بدونِ محدوده
                     try:
                         for box in self.det.detect(_win, fast=True):
                             _, y1, _, y2 = box["rect"]
@@ -30802,50 +30894,23 @@ html, body { background: #0a0a0b; }
                         "Chrome/120.0.0.0 Safari/537.36"
                     )
                 }
-                # v1.14.160 — دانلودِ دوطرفهٔ امنِ تصویرهایِ مستقیم هم:
-                # یک رشته از اولِ لیست، یکی از آخرِ لیست → سریعتر.
-                _res_by_idx: Dict[int, str] = {}
-                _dir_lock = threading.Lock()
-                _dptr = {"front": 0, "back": len(urls) - 1}
-
-                def _dclaim_front() -> Optional[int]:
-                    with _dir_lock:
-                        if _dptr["front"] > _dptr["back"]:
-                            return None
-                        _i = _dptr["front"]
-                        _dptr["front"] += 1
-                        return _i
-
-                def _dclaim_back() -> Optional[int]:
-                    with _dir_lock:
-                        if _dptr["front"] > _dptr["back"]:
-                            return None
-                        _i = _dptr["back"]
-                        _dptr["back"] -= 1
-                        return _i
-
-                def _dl_direct(i: int) -> None:
-                    u = urls[i]
+                for i, u in enumerate(urls, 1):
                     try:
                         _lp = u[7:] if u.lower().startswith("file://") else u
                         if (os.path.isfile(_lp)
                                 and os.path.splitext(_lp)[1].lower() in IMAGE_EXTS):
-                            with _dir_lock:
-                                _ub = os.path.splitext(os.path.basename(_lp))[0]
-                                _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
-                                _lext = os.path.splitext(_lp)[1].lower()
-                                out_file = os.path.join(
-                                    src_dir, f"{_ub or f'page_{i + 1:03d}'}{_lext}")
-                                _kk = 2
-                                while os.path.exists(out_file):
-                                    out_file = os.path.join(
-                                        src_dir,
-                                        f"{_ub or f'page_{i + 1:03d}'}-{_kk}{_lext}")
-                                    _kk += 1
-                                shutil.copyfile(_lp, out_file)
-                            _res_by_idx[i] = out_file
-                            print(f"    [+] {i + 1}/{len(urls)} فایل محلی کپی شد")
-                            return
+                            _ub = os.path.splitext(os.path.basename(_lp))[0]
+                            _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
+                            _lext = os.path.splitext(_lp)[1].lower()
+                            out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}{_lext}")
+                            _kk = 2
+                            while os.path.exists(out_file):
+                                out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}-{_kk}{_lext}")
+                                _kk += 1
+                            shutil.copyfile(_lp, out_file)
+                            image_files.append(out_file)
+                            print(f"    [+] {i}/{len(urls)} فایل محلی کپی شد")
+                            continue
                         u = self._normalize_image_url(u)
                         r = _req.get(u, headers=headers, timeout=60)
                         r.raise_for_status()
@@ -30863,59 +30928,27 @@ html, body { background: #0a0a0b; }
                         test_img, _reblob = MangaTranslator._decode_image_bytes(content)
                         if test_img is None:
                             print(f"    [!] تصویر نامعتبر: {u[:90]}")
-                            return
+                            continue
                         if _reblob is not None:
                             content, ext = _reblob, ".jpg"
-                        # نام‌گذاری + نوشتن زیرِ قفل تا دو صفحهٔ هم‌نام
-                        # همزمان روی هم ننویسند
-                        with _dir_lock:
-                            _ub = os.path.splitext(os.path.basename(u.split("?")[0]))[0]
-                            _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
-                            # v1.14.33: اسمِ بدونِ رقم (مثل «images» در گوگل‌تیتر) →
-                            # شمارهٔ صفحه تا ترتیبِ صفحات در سورتِ نیچرال حفظ شود؛
-                            # وگرنه images-2.jpg قبل از images.jpg سورت می‌شد!
-                            if not re.search(r"\d", _ub):
-                                _ub = f"page_{i + 1:03d}"
-                            out_file = os.path.join(
-                                src_dir, f"{_ub or f'page_{i + 1:03d}'}{ext}")
-                            _kk = 2
-                            while os.path.exists(out_file):
-                                out_file = os.path.join(
-                                    src_dir, f"{_ub or f'page_{i + 1:03d}'}-{_kk}{ext}")
-                                _kk += 1
-                            with open(out_file, "wb") as f:
-                                f.write(content)
-                        _res_by_idx[i] = out_file
-                        print(f"    [+] {i + 1}/{len(urls)} ذخیره شد")
+                        _ub = os.path.splitext(os.path.basename(u.split("?")[0]))[0]
+                        _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
+                        # v1.14.33: اسمِ بدونِ رقم (مثل «images» در گوگل‌تیتر) →
+                        # شمارهٔ صفحه تا ترتیبِ صفحات در سورتِ نیچرال حفظ شود؛
+                        # وگرنه images-2.jpg قبل از images.jpg سورت می‌شد!
+                        if not re.search(r"\d", _ub):
+                            _ub = f"page_{i:03d}"
+                        out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}{ext}")
+                        _kk = 2
+                        while os.path.exists(out_file):
+                            out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}-{_kk}{ext}")
+                            _kk += 1
+                        with open(out_file, "wb") as f:
+                            f.write(content)
+                        image_files.append(out_file)
+                        print(f"    [+] {i}/{len(urls)} ذخیره شد")
                     except Exception as e:
                         print(f"    [!] دانلود ناموفق ({u[:80]}…): {e}")
-
-                def _dside(claim) -> None:
-                    while True:
-                        _i = claim()
-                        if _i is None:
-                            return
-                        _dl_direct(_i)
-
-                if len(urls) > 3:
-                    # v1.14.161 — لاگِ شروعِ دانلودِ دوطرفه
-                    print(f"    [*] دانلودِ دوطرفه: رشتهٔ «جلو» از صفحهٔ ۱ و "
-                          f"رشتهٔ «عقب» از صفحهٔ {len(urls)} — همزمان")
-                    _t_f = threading.Thread(target=_dside, args=(_dclaim_front,),
-                                            daemon=True)
-                    _t_b = threading.Thread(target=_dside, args=(_dclaim_back,),
-                                            daemon=True)
-                    _t_f.start()
-                    _t_b.start()
-                    while _t_f.is_alive() or _t_b.is_alive():
-                        if _t_f.is_alive():
-                            _t_f.join(timeout=0.5)
-                        if _t_b.is_alive():
-                            _t_b.join(timeout=0.5)
-                else:
-                    _dside(_dclaim_front)
-                    _dside(_dclaim_back)
-                image_files = [_res_by_idx[i] for i in sorted(_res_by_idx)]
                 if not image_files:
                     print("[!] هیچ تصویری دانلود نشد.", file=sys.stderr)
                     return
