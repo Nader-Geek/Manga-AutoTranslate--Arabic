@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- v1.14.184 — SDKِ رسمیِ ppocr-android با minSdkِ 26 آمده؛
+         اپ با ۲۴ میماند (OpenCV/ORT رویِ API 24-25 هم اجرا میشوند؛
+         کدِ SDK از APIِ 26+ استفاده نمیکند) -->
+    <uses-sdk tools:overrideLibrary="com.paddle.ocr" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -16,6 +22,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
+        android:name=".MtApp"
         android:label="مانگا مترجم"
         android:icon="@mipmap/ic_launcher"
         android:supportsRtl="true"

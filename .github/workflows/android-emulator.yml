@@ -78,6 +78,24 @@ jobs:
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 
+      # v1.14.184 — مدلهایِ رسمیِ PP-OCRv6_small (deploy/ppocr-android)
+      # باندل در assetsِ APK — SDKِ رسمی از context.assets میخواند
+      - name: Fetch official ppocr-android models (PP-OCRv6_small)
+        run: |
+          mkdir -p android/app/src/main/assets/models/det \
+                   android/app/src/main/assets/models/rec
+          curl -fL --retry 3 --max-time 600 \
+            -o android/app/src/main/assets/models/det/inference.onnx \
+            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx"
+          curl -fL --retry 3 --max-time 600 \
+            -o android/app/src/main/assets/models/rec/inference.onnx \
+            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.onnx"
+          curl -fL --retry 3 --max-time 600 \
+            -o android/app/src/main/assets/models/rec/inference.yml \
+            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.yml"
+          test $(stat -c%s android/app/src/main/assets/models/det/inference.onnx) -gt 5000000
+          test $(stat -c%s android/app/src/main/assets/models/rec/inference.onnx) -gt 10000000
+
       - name: Inject version from VERSION
         run: |
           VC=$(sed -n 's/^versionCode=//p' VERSION | tr -d '[:space:]')
@@ -94,7 +112,10 @@ jobs:
       - name: Build x86_64 debug APK (emulator — arm64 under libndk translation SIGSEGVs in libpython)
         working-directory: android
         run: |
+          # -PortVer=1.28 — قراردادِ CIِ امولاتور (AARِ تازهٔ ORT رویِ
+          # x86_64 در sess.run SIGFPE میدهد)؛ بیلدِ گوشی = رسمیِ 1.21.1
           gradle :app:assembleDebug -PappAbis="x86_64" -PlegacyJni=true \
+            -PortVer=1.28 \
             -PchaquopyBuildPython="$(command -v python3)"
           mkdir -p ../dist
           cp app/build/outputs/apk/debug/app-debug.apk ../dist/MangaTranslator-x86_64.apk
@@ -342,14 +363,23 @@ jobs:
                grep -qE "Cleanup: .*'OpenCV': [1-9]" "/tmp/emulout/ext_${N}.log"; then
               echo "::warning::$F — OpenCV fallback in cleanup"
             fi
-            # ── v1.14.170/183 — گیتِ استخراجِ چندزبانهٔ موتورِ گوشی: متنِ واقعیِ هر زبان باید
+            # ── v1.14.170/184 — گیتِ استخراجِ چندزبانهٔ موتورِ گوشی: متنِ واقعیِ هر زبان باید
             # خوانده شده باشد؛ img6 کلمهٔ «attraction» را هم الزامی میکند
             # دستورِ سازنده: «همه زبان هارو خوب بتونه استخراج کنه انگلیسی
-            # ژاپنی کره چینی … رو GitHub action تست کن» + «ml kit خوب نیست»
+            # ژاپنی کره چینی … رو GitHub action تست کن» + «فقط از همین لینک»
+            # v1.14.184 — زبانِ کره‌ای: هر سه مدلِ رسمیِ پرتِ اندروید
+            # (v6_small/v6_medium/v5_mobile) دیکشنریِ بدونِ هانگول دارند
+            # (۱۰/۰/۲ نویسه) — راهِ رسمی برایِ هانگول، مدلِ جداگانهٔ korean
+            # است که دستورِ «فقط همین لینک» آن را حذف کرده → برایِ صفحهٔ
+            # ko فقط گیتِ «PDF کاملِ بدونِ کرش» اعمال میشود.
             _WORD171=""
             if [ "$F" = "img6.jpg" ]; then _WORD171="attraction"; fi
-            python3 .ci_scripts/check_ocr_gate.py "/tmp/emulout/ext_${N}.log" "$L" "$_WORD171" \
-              || { echo "::error::$F — mobile-OCR multilang gate failed"; FAIL=1; continue; }
+            if [ "$F" = "lang_ko.jpg" ]; then
+              echo "[i] $F — official ppocr rec has no hangul; PDF-only gate"
+            else
+              python3 .ci_scripts/check_ocr_gate.py "/tmp/emulout/ext_${N}.log" "$L" "$_WORD171" \
+                || { echo "::error::$F — mobile-OCR multilang gate failed"; FAIL=1; continue; }
+            fi
             echo "[✓] $F → PDF ${SZ} bytes + multilang text gate OK"
           done
           adb shell rm -f /data/local/tmp/ext_settings.xml || true

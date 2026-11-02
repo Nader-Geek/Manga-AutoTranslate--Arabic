@@ -53,9 +53,11 @@ if "MlKitCropOCR" in cls or "class MlKitCropOCR" in src:
 kt = io.open(os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
                                 "mangatranslator/PaddleOcrBridge.kt"),
              encoding="utf-8", errors="ignore").read()
-for s in ("fun recognize(", "fun recognizeAuto(", "OrtSession"):
+for s in ("fun recognizeAuto(", "PaddleOCR.create", "com.paddle.ocr"):
     if s not in kt:
         fail(f"PaddleOcrBridge.kt ناقص است: {s!r}")
+if "ai.onnxruntime" in kt:
+    fail("PaddleOcrBridge.kt نباید ORTِ مستقیم داشته باشد (v1.14.184)")
 import os as _os
 if _os.path.exists(os.path.join(
         ROOT, "android/app/src/main/java/com/amirwolf/mangatranslator/"
@@ -77,10 +79,11 @@ if _bpa is None or "_parallel_budget" not in fns:
 # ۳) PC دستنخورده — wrapperهایِ PC و فالبکِ ONNXِ موبایل سرِ جایش
 if "PaddleOCRWrapper" not in src:
     fail("PaddleOCRWrapper (PC) نباید حذف میشد")
-if "RapidOcrMobile" not in src:
-    fail("فالبکِ ONNXِ موبایل (RapidOcrMobile) نباید حذف میشد")
-if "from rapidocr_mobile import RapidOcrMobile" not in src:
-    fail("importِ فالبکِ موبایل عوض شده")
+# v1.14.184 — فالبکِ ONNXِ موبایل حذف شد (دستورِ سازنده)
+if "from rapidocr_mobile import RapidOcrMobile" in src:
+    fail("importِ rapidocr_mobile باید حذف شده باشد")
+if "def _build_mobile_onnx" in src:
+    fail("_build_mobile_onnx باید حذف شده باشد")
 
 # ۴) CI — گیتِ چندزبانه (نامِ جدیدِ 183)
 if not os.path.isfile(os.path.join(ROOT, ".ci_scripts/check_ocr_gate.py")):

@@ -86,60 +86,25 @@ if ddr_src.rfind("return vis") < ddr_src.find("det_raw"):
 ok("باکسهایِ خامِ detector = سبزِ D## رویِ همان DEBUGِ صفحه")
 
 # ۲) EPِ موبایل — پیشفرض فقط XNNPACK؛ NNAPI فقط تستِ صریح
-rp = os.path.join(ROOT, "android", "app", "src", "main", "python",
-                  "rapidocr_mobile", "__init__.py")
-rsrc = io.open(rp, encoding="utf-8").read()
-rtree = ast.parse(rsrc)
-epf = None
-for n in ast.walk(rtree):
-    if isinstance(n, ast.FunctionDef) and n.name == "_ep_plan":
-        epf = n
-        break
-if epf is None:
-    fail("_ep_plan در rapidocr_mobile نیست")
-ep_src = ast.get_source_segment(rsrc, epf) or ""
-# v1.14.174 — NNAPI دیگر حذف نیست ولی باید «فقط» پشتِ فایلِ nnapi.txt
-# بیاید (env رویِ APK دستِ کاربر نیست)؛ مسیرِ پیشفرض همچنان XNNPACK-only
-_i_sw = ep_src.find("nnapi.txt")
-_i_both = ep_src.find('_wanted = ["NnapiExecutionProvider", '
-                      '"XnnpackExecutionProvider"]')
-if _i_sw < 0 or _i_both < 0 or _i_sw > _i_both:
-    fail("تورنمنتِ NNAPI+XNNPACK باید پشتِ گیتِ فایلِ nnapi.txt باشد")
-if "elif _switch:" not in ep_src or "_nnapi_switch_path(_mdir)" not in ep_src:
-    fail("گیتِ فایلِ nnapi.txt در _ep_plan نیست")
-if ".ep_nnapi_last" not in rsrc:
-    fail("نشانِ کرشِ .ep_nnapi_last نیست")
-# شاخهٔ تستِ صریحِ nnapi
-if '_e == "nnapi"' not in ep_src or \
-        '_wanted = ["NnapiExecutionProvider"]' not in ep_src:
-    fail("شاخهٔ تستِ صریحِ MANGA_MOBILE_OCR_EP=nnapi نیست")
-if "تستِ NNAPI" not in ep_src:
-    fail("پیامِ تستِ NNAPI نیست")
-# پیشفرض فقط XNNPACK
-if '_wanted = ["XnnpackExecutionProvider"]' not in ep_src:
-    fail("پیشفرضِ XNNPACK-only نیست")
-if "v1.14.173" not in ep_src:
-    fail("نشانِ v1.14.173 در _ep_plan نیست")
-# گیتِ PC/x86 + پروبِ اجباری سرِ جایش
-for s in ("_x86_machine()", "MANGA_EP_NO_PROBE", "_ep_gate_ensure(",
-          "return None, {}"):
-    if s not in ep_src:
-        fail(f"گیتِ _ep_plan شکسته است: {s!r}")
-ok("EP: پیشفرض فقط XNNPACK — NNAPI با فایلِ nnapi.txt یا MANGA_MOBILE_OCR_EP=nnapi")
+# ۲) EPِ موبایل — از 184 بازنشسته: SDKِ رسمیِ ppocr-android رویِ CPU
+if os.path.exists(os.path.join(ROOT, "android", "app", "src", "main",
+                               "python", "rapidocr_mobile")):
+    fail("rapidocr_mobile/ باید حذف شده باشد (v1.14.184)")
+if 'os.environ["MANGA_MOBILE_OCR_EP"]' in src:
+    fail("MANGA_MOBILE_OCR_EP هنوز ست میشود")
+ok("EPِ موبایل بازنشسته — SDKِ رسمی رویِ CPU (بدونِ rapidocr_mobile)")
 
-# ۳) نردبانِ K3 و لامبداِ 172 سرِ جایش
+# ۳) نردبانِ 184 — تکپلهٔ SDKِ رسمی (بدونِ آستانههایِ پلهای)
 lad = cls.get("K3LadderOCR")
 lad_src = ast.get_source_segment(src, lad) or ""
-for s in ("cov1 >= 0.70", "conf1 >= 0.55", "conf2 >= 0.80"):
+for s in ("_k3_boost_crop(image_bgr)", "_k3_map_boxes(r0[0], pad, scale)",
+          '_K3_MODES = ("padandroid",)'):
     if s not in lad_src:
-        fail(f"نردبانِ K3 تغییر کرده: {s!r}")
+        fail(f"نردبانِ 184 تغییر کرده: {s!r}")
 rb = cls.get("RapidOCRBackend")
 rb_src = ast.get_source_segment(src, rb) or ""
-if not re.search(r"lambda small(?:=False, tiny=False)?:\s*"
-                 r"self\._build_mobile_onnx\(\s*lang,\s*"
-                 r"small=\(True if _emu171 else small\)"
-                 r"(?:,\s*tiny=tiny)?\)", rb_src):
-    fail("لامبداِ wiringِ 172 عوض شده")
-ok("نردبانِ K3 + لامبداِ کلیدواژهای (با tinyِ 179) سرِ جایش")
+if "_build_paddle_android(lang)" not in rb_src:
+    fail("wiringِ 184 (SDKِ رسمی) در _init_mobile_engine نیست")
+ok("نردبانِ 184 = تکپلهٔ SDKِ رسمی سرِ جایش")
 
 print("[✓] همهٔ گیتهایِ v1.14.173 PASS")

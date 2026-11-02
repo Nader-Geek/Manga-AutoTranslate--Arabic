@@ -110,8 +110,15 @@ for s in ('implementation("com.google.mlkit', "text-recognition:16.0.1",
           "text-recognition-chinese"):
     if s in g:
         fail(f"وابستگیِ ML Kit هنوز در gradle است: {s!r}")
-if "onnxruntime-android" not in g:
-    fail("onnxruntime-android از gradle حذف شده!")
+# v1.14.184 — ORT فقط داخلِ ماژولِ رسمیِ :ppocr-sdk است (نه gradleِ app)
+if "onnxruntime-android" in g:
+    fail("onnxruntime-android هنوز در gradleِ app است (باید فقط در :ppocr-sdk باشد)")
+_sdk_g = io.open(os.path.join(ROOT, "android", "ppocr-sdk", "build.gradle.kts"),
+                 encoding="utf-8").read()
+if "onnxruntime-android" not in _sdk_g:
+    fail("onnxruntime-android در :ppocr-sdk نیست")
+if "com.quickbirdstudios:opencv" not in _sdk_g:
+    fail("OpenCVِ رسمیِ ppocr-android در :ppocr-sdk نیست")
 if "PaddlePredictor" in g:
     fail("PaddlePredictor.jar هنوز در gradle است")
 

@@ -68,21 +68,16 @@ ime = re.search(r"def _init_mobile_engine.*?(?=\n    def )", rb_src, re.S)
 if not ime:
     fail("_init_mobile_engine پیدا نشد")
 ime_src = ime.group(0)
-if not re.search(r"lambda small(?:=False, tiny=False)?:\s*"
-                 r"self\._build_mobile_onnx\(\s*lang,\s*"
-                 r"small=\(True if _emu171 else small\)"
-                 r"(?:,\s*tiny=tiny)?\)", ime_src):
-    fail("لامبداِ wiring باید lambda small: با کلیدواژهٔ small باشد")
-if re.search(r"lambda s: self\._build_mobile_onnx", ime_src):
-    fail("لامبداِ خرابِ قدیمی (lambda s:) هنوز هست")
-ok("لامبداِ wiring = lambda small (کلیدواژهایِ نردبان + tinyِ 179)")
+# v1.14.184 — wiring بدونِ لامبدا: مستقیمِ SDKِ رسمی
+if "lambda small" in ime_src or "_build_mobile_onnx" in ime_src:
+    fail("wiringِ قدیمی (lambda/_build_mobile_onnx) هنوز در _init_mobile_engine است")
+if "_build_paddle_android(lang)" not in ime_src:
+    fail("_init_mobile_engine باید _build_paddle_android را صدا بزند")
+ok("wiringِ 184 = SDKِ رسمیِ اندروید (بدونِ لامبدا/ONNX)")
 
-# ۲) تستِ عملی — builderِ فقط-کلیدواژهای (دقیقاً مثلِ صدای واقعیِ نردبان)
+# ۲) تستِ عملی — build_onnx هرگز صدا نمیشود؛ فقط SDKِ رسمی
 sys.path.insert(0, ROOT)
-os.environ.setdefault("MANGA_K3_LADDER", "1")
-# v1.14.183 — پلهٔ ۱ = پدلِ رسمیِ اندروید (ML Kit حذف شد)؛ این چکِ
-# قدیمی، مسیرِ خاموشِ پلهٔ ۲/۳ را تست میکند → صریحاً full
-os.environ["MANGA_K3_MODE"] = "full"
+os.environ["MANGA_K3_MODE"] = "padandroid"
 import manga  # noqa: E402
 
 H, W = 120, 200
@@ -117,51 +112,22 @@ class FakeEng:
         return [[[_box_full(), (self.text, self.conf)]]]
 
 
-BUILT = {"med": 0, "sml": 0}
-med = FakeEng("FROM PADDLE", 0.9)
-sml = FakeEng("FROM RAPID", 0.85)
+class _Forbidden:
+    def __call__(self, *a, **k):
+        raise AssertionError("موتورِ ONNXِ گوشی باید هرگز ساخته نمیشود")
 
 
-def build_kw(*, small):
-    """فقط-کلیدواژهای — با «lambda s:»ٔ قدیمی = TypeError."""
-    BUILT["sml" if small else "med"] += 1
-    return sml if small else med
-
-
-# ۲-الف) پلهٔ ۲: پدلِ رسمی خالی → پدلِ ONNX باید با کلیدواژه ساخته شود
-BUILT["med"] = BUILT["sml"] = 0
-_pad_none = FakePad(None)
-lad2 = manga.K3LadderOCR("en", build_kw, build_pad=lambda: _pad_none)
-out2 = lad2.ocr(img, crop_mode=True)
-assert out2 and out2[0][0][1][0] == "FROM PADDLE", out2
-assert BUILT == {"med": 1, "sml": 0}, BUILT
-assert med.calls == [True], med.calls
-ok("پلهٔ ۲: builderِ فقط-کلیدواژهای → پدل ساخته شد (باگِ 171 کرش میکرد)")
-
-# ۲-ب) پلهٔ ۳: اطمینانِ پدل <80٪ → رپید
-BUILT["med"] = BUILT["sml"] = 0
-med_weak = FakeEng("WEAK", 0.5)
-sml2 = FakeEng("RAPID WINS", 0.85)
-
-
-def build_kw2(*, small):
-    BUILT["sml" if small else "med"] += 1
-    return sml2 if small else med_weak
-
-
-lad3 = manga.K3LadderOCR("en", build_kw2, build_pad=lambda: _pad_none)
-out3 = lad3.ocr(img, crop_mode=True)
-assert out3 and out3[0][0][1][0] == "RAPID WINS", out3
-assert BUILT == {"med": 1, "sml": 1}, BUILT
-ok("پلهٔ ۳: اطمینانِ <80٪ → رپید با کلیدواژهٔ small ساخته شد")
-
-# ۲-ج) فراخوانیِ مستقیمِ _engine با کلیدواژه (هر دو پله)
-BUILT["med"] = BUILT["sml"] = 0
-lad4 = manga.K3LadderOCR("en", build_kw, build_pad=lambda: _pad_none)
-e_med = lad4._engine(small=False)
-e_sml = lad4._engine(small=True)
-assert e_med is med and e_sml is sml and BUILT == {"med": 1, "sml": 1}, BUILT
-ok("_engine(small=False/True) با کلیدواژه ✓")
+_forbidden = _Forbidden()
+pad_ok = FakePad([[_box_full(), ("FROM OFFICIAL", 0.9)]])
+lad = manga.K3LadderOCR("en", _forbidden, build_pad=lambda: pad_ok)
+out = lad.ocr(img, crop_mode=True)
+assert out and out[0][0][1][0] == "FROM OFFICIAL", out
+outf = lad.ocr(img, crop_mode=False)
+assert outf and outf[0][0][1][0] == "FROM OFFICIAL", outf
+pad_none = FakePad(None)
+lad2 = manga.K3LadderOCR("en", _forbidden, build_pad=lambda: pad_none)
+assert lad2.ocr(img, crop_mode=True) is None
+ok("تکپلهٔ 184: SDKِ رسمی جواب میدهد؛ خالی = None؛ build_onnx هرگز صدا نشد")
 
 # ۳) DEBUGِ detector — v1.14.173: دیگر فایلِ جدا نیست؛ باکسهایِ خامِ
 # detector رویِ همان DEBUGِ صفحه با سبز کشیده میشوند (دستورِ سازنده:
@@ -230,12 +196,13 @@ _green2 = int(((_vis2[:, :, 1] > 240) & (_vis2[:, :, 0] < 40)
 assert _green2 == 0, f"بدونِ det_raw نباید سبزِ detector باشد: {_green2}"
 ok("عملیِ پوششِ سبز: با det_raw سبزِ D رسم میشود؛ بدونِ آن نه")
 
-# ۴) نردبانِ 171 سرِ جایش (آستانهها + فقط-کراپ)
+# ۴) تکپلهٔ 184 — تقویتِ کراپ → SDKِ رسمی → بازگشت
 lad = cls.get("K3LadderOCR")
 lad_src = ast.get_source_segment(src, lad) or ""
-for s in ("cov1 >= 0.70", "conf1 >= 0.55", "conf2 >= 0.80", "if not crop_mode:"):
+for s in ("_k3_boost_crop(image_bgr)", "_k3_map_boxes(r0[0], pad, scale)",
+          "if not crop_mode:", '_K3_MODES = ("padandroid",)'):
     if s not in lad_src:
-        fail(f"نردبانِ K3 تغییر کرده: {s!r}")
-ok("آستانههایِ نردبانِ K3 (70/80/55) دستنخورده")
+        fail(f"نردبانِ 184 تغییر کرده: {s!r}")
+ok("تکپلهٔ 184 (تقویت → SDKِ رسمی → بازگشت) سرِ جایش")
 
 print("[✓] همهٔ گیتهایِ v1.14.172 PASS")

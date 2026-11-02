@@ -47,6 +47,27 @@ jobs:
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 
+      # v1.14.184 — مدلهایِ رسمیِ PP-OCRv6_small (deploy/ppocr-android)
+      # از HuggingFaceِ رسمیِ PaddlePaddle دانلود و در assets باندل
+      # میشوند — رویِ گوشی هیچ دانلودِ زمانِ اجرایی نیست
+      - name: Fetch official ppocr-android models (PP-OCRv6_small)
+        run: |
+          mkdir -p android/app/src/main/assets/models/det \
+                   android/app/src/main/assets/models/rec
+          curl -fL --retry 3 --max-time 600 \
+            -o android/app/src/main/assets/models/det/inference.onnx \
+            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx"
+          curl -fL --retry 3 --max-time 600 \
+            -o android/app/src/main/assets/models/rec/inference.onnx \
+            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.onnx"
+          curl -fL --retry 3 --max-time 600 \
+            -o android/app/src/main/assets/models/rec/inference.yml \
+            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.yml"
+          ls -la android/app/src/main/assets/models/det android/app/src/main/assets/models/rec
+          test $(stat -c%s android/app/src/main/assets/models/det/inference.onnx) -gt 5000000
+          test $(stat -c%s android/app/src/main/assets/models/rec/inference.onnx) -gt 10000000
+          test $(stat -c%s android/app/src/main/assets/models/rec/inference.yml) -gt 50000
+
       - name: Inject version from VERSION
         run: |
           VC=$(sed -n 's/^versionCode=//p' VERSION | tr -d '[:space:]')

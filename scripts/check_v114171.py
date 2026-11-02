@@ -65,14 +65,18 @@ lad = cls.get("K3LadderOCR")
 if lad is None:
     fail("K3LadderOCR نیست")
 lad_src = ast.get_source_segment(src, lad) or ""
-for s in ("cov1 >= 0.70", "conf1 >= 0.55", "conf2 >= 0.80",
-          "if not crop_mode:", "_k3_boost_crop", "_k3_ink_coverage",
-          "_k3_best_conf", "_k3_map_boxes", "_k3_stats_note"):
+# v1.14.184 — نردبانِ چندپلهای حذف شد؛ تنها پله = SDKِ رسمی رویِ کراپ
+for s in ("if not crop_mode:", "_k3_boost_crop", "_k3_map_boxes",
+          "_k3_stats_note", '_K3_MODES = ("padandroid",)'):
     if s not in lad_src:
         fail(f"K3LadderOCR محتوایِ لازم را ندارد: {s!r}")
-if "_k3_ladder_on" not in topfns or "MANGA_K3_LADDER" not in src:
-    fail("گیتِ MANGA_K3_LADDER نیست")
-ok("K3LadderOCR + آستانههایِ 70/80 + گیتِ خاموشی")
+for gone in ("_k3_ink_coverage", "_k3_best_conf", "_engine_tiny",
+             "_build_onnx(small"):
+    if gone in lad_src:
+        fail(f"K3LadderOCR هنوز موتورِ قدیمی دارد: {gone!r}")
+if "_k3_ladder_on" in topfns or "MANGA_K3_LADDER" in src:
+    fail("گیتِ MANGA_K3_LADDER باید حذف شده باشد")
+ok("K3LadderOCR = تکپلهٔ SDKِ رسمی (بدونِ پلههایِ ۲/۳)")
 
 # ۲) wiringِ _init_mobile_engine
 rb = cls.get("RapidOCRBackend")
@@ -83,25 +87,19 @@ ime = re.search(r"def _init_mobile_engine.*?(?=\n    def )", rb_src, re.S)
 if not ime:
     fail("_init_mobile_engine پیدا نشد")
 ime_src = ime.group(0)
-for s in ("K3LadderOCR(", "_build_mobile_onnx(", "_k3_ladder_on()",
-          "MANGA_ANDROID_OCR", "small=(True if _emu171 else small)"):
+for s in ("_build_paddle_android(lang)", "فالبکی نیست"):
     if s not in ime_src:
         fail(f"_init_mobile_engine ناقص است: {s!r}")
+for gone in ("_build_mobile_onnx(", "_k3_ladder_on()", "MANGA_ANDROID_OCR"):
+    if gone in ime_src:
+        fail(f"_init_mobile_engine هنوز مسیرِ قدیمی دارد: {gone!r}")
 # v1.14.172 — لامبداِ خرابِ قدیمی (پارامترِ s) نبود — نردبان با کلیدواژه
 # صدا میزند و «lambda s:» ارورِ «unexpected keyword argument 'small'» میداد
 if re.search(r"lambda s: self\._build_mobile_onnx", ime_src):
     fail("لامبداِ خرابِ قدیمی (lambda s:) هنوز در _init_mobile_engine هست")
-bmo = re.search(r"def _build_mobile_onnx.*?(?=\n    def |\n    @)",
-                rb_src, re.S)
-if not bmo:
-    fail("_build_mobile_onnx پیدا نشد")
-bmo_src = bmo.group(0)
-for s in ("_rapidocr_model_pair(lang, small=small", "return _out171",
-          "MANGA_MOBILE_DET_INT8", "MANGA_CROP_DET_CAP"):
-    if s not in bmo_src:
-        fail(f"_build_mobile_onnx ناقص است: {s!r}")
-if "self._mobile = None" in bmo_src:
-    fail("_build_mobile_onnx نباید self._mobile را دست بزند")
+# v1.14.184 — موتورِ ONNXِ گوشی کامل حذف شد
+if "_build_mobile_onnx" in rb_src or "_MOBILE_CHARS" in rb_src:
+    fail("_build_mobile_onnx/_MOBILE_CHARS باید حذف شده باشند")
 # PC دستنخورده: _init_mobile_engine فقط زیرِ if _IS_ANDROID
 i_android = rb_src.find("if _IS_ANDROID:")
 i_ime = rb_src.find("self._init_mobile_engine(lang)")
@@ -218,31 +216,21 @@ assert out1 and out1[0] and abs(out1[0][0][1][1] - 0.95) < 1e-6, out1
 assert BUILT == {"med": 0, "sml": 0}, BUILT
 ok("T1 پلهٔ ۱: پدلِ رسمی پوششِ بالا → موتورِ ONNX ساخته نشد")
 
-# T2 — پلهٔ ۲: پدلِ رسمی خالی → پدلِ ONNXِ اطمینانِ بالا → رپیدِ ساختهنشده
+# T2 — SDKِ رسمی خالی → None (بدونِ هیچ فالبکِ ONNX — دستورِ 184)
 med2 = FakeEng([[_box_full(), ("FROM PADDLE", 0.9)]], 0.9)
 lad2 = _mk_ladder(None, med2, None)
 out2 = lad2.ocr(img, crop_mode=True)
-assert out2 and out2[0][0][1][0] == "FROM PADDLE", out2
-assert BUILT == {"med": 1, "sml": 0}, BUILT
-assert med2.calls == [True], med2.calls
-ok("T2 پلهٔ ۲: پوششِ <70٪ → پدل رویِ همان کراپ (crop_mode=True)")
+assert out2 is None, out2
+assert BUILT == {"med": 0, "sml": 0}, BUILT
+ok("T2: SDKِ رسمی خالی → None؛ موتورِ ONNX هرگز ساخته نشد")
 
-# T3 — پلهٔ ۳: اطمینانِ پدل <80٪ → رپید
-med3 = FakeEng([[_box_full(), ("WEAK", 0.5)]], 0.5)
-sml3 = FakeEng([[_box_full(), ("RAPID WINS", 0.85)]], 0.85)
-lad3 = _mk_ladder(None, med3, sml3)
-out3 = lad3.ocr(img, crop_mode=True)
-assert out3 and out3[0][0][1][0] == "RAPID WINS", out3
-assert BUILT == {"med": 1, "sml": 1}, BUILT
-ok("T3 پلهٔ ۳: اطمینانِ <80٪ → رپید رویِ همان کراپ")
-
-# T4 — مسیرِ تمامصفحه (مسیرِ جانبیِ قدیمی): خالیِ موتورِ رسمی → ONNXِ med
+# T4 — مسیرِ تمامصفحه (مسیرِ جانبیِ قدیمی): SDKِ رسمی؛ خالی = None
 med4 = FakeEng([[_box_full(), ("FULLPAGE", 0.9)]], 0.9)
 lad4 = _mk_ladder(None, med4, None)
 out4 = lad4.ocr(img, crop_mode=False)
-assert out4 and out4[0][0][1][0] == "FULLPAGE", out4
-assert med4.calls == [False], med4.calls
-ok("T4 تمامصفحه: خالیِ پدلِ رسمی → ONNXِ medium (بدونِ ML Kit)")
+assert out4 is None, out4
+assert BUILT == {"med": 0, "sml": 0}, BUILT
+ok("T4 تمامصفحه: خالیِ SDKِ رسمی → None (فالبکی نیست)")
 
 # T5 — تقویتِ کراپ + مپِ برگشتِ باکسها به مختصاتِ اصلی
 class ShapePad(FakePad):
@@ -270,14 +258,11 @@ lad6 = _mk_ladder(None, None, None)
 assert lad6.ocr(img, crop_mode=True) is None
 ok("T6 هر سه پله خالی → None بدونِ کرش")
 
-# T7 — فیکِ _build_mobile_onnx: امضایِ لامبدا در wiring (v1.14.172 —
-# پارامتر باید «small» باشد تا فراخوانیِ کلیدواژهایِ نردبان کار کند)
-sig = re.search(r"lambda small(?:=False, tiny=False)?:\s*"
-                r"self\._build_mobile_onnx\(\s*lang,\s*"
-                r"small=\(True if _emu171 else small\)"
-                r"(?:,\s*tiny=tiny)?\)", src)
-assert sig, "لامبداِ wiring امضایِ درست ندارد (باید lambda small باشد)"
-ok("T7 امضایِ build_onnx (کلیدواژهایِ small + شبیهساز = مجموعهٔ سبک)")
+# T7 — wiringِ 184: بدونِ لامبدا؛ مستقیمِ _build_paddle_android
+assert "lambda small" not in re.search(
+    r"def _init_mobile_engine.*?(?=\n    def )", src, re.S).group(0), \
+    "wiringِ قدیمیِ lambda برگشته"
+ok("T7 wiringِ 184 = مستقیمِ SDKِ رسمی (بدونِ لامبدا/ONNX)")
 
 # T8 — PC/لینوکس: گیتِ گیردهِ دیوار خاموش است → helper = دیلیشنِ خالص
 # (دستورِ سازنده: «نباید استخراجِ پاکسازیِ پی سی لینوکس دست بزنی»)

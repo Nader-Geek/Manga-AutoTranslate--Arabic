@@ -12,8 +12,8 @@ android {
         applicationId = "com.amirwolf.mangatranslator"
         minSdk = 24
         targetSdk = 34
-        versionCode = 84
-        versionName = "1.14.70"
+        versionCode = 189
+        versionName = "1.14.184"
 
         val buildAbis = ((findProperty("appAbis") as String?)
             ?: "arm64-v8a,armeabi-v7a")
@@ -82,21 +82,25 @@ chaquopy {
     }
 }
 
-// v1.14.183 — موتورِ OCRِ گوشی = «پدلِ رسمیِ اندروید» (پرتِ رسمیِ
-// ppocr-android با مدلهایِ PP-OCRv6 medium رویِ PaddleOcrBridge.kt —
-// دستورِ سازنده: «کامل بخون paddleocr.ai …/android_deployment.html و
-// از PP-OCRv6_medium بزار تو کد خودم قسمت استخراجم»). ML Kit کامل حذف
-// شد («ml kit حذف کن خوب نیست»): نه MlKitBridge.kt، نه وابستگیهایِ
-// com.google.mlkit — چهار مدلِ باندلشدهٔ گوگل هم از APK خارج شدند.
-// موتورِ OCRِ گوشی فقط رویِ کراپهایِ detector-v4-s_int8.onnx کار میکند
-// (هیچ پاسِ تمامصفحهای) — مدلها زمانِ اجرا دانلود میشوند.
+// v1.14.184 — موتورِ OCRِ گوشی = SDKِ رسمیِ PaddleOCR اندروید، بیت‌به‌بیت
+// (ماژولِ :ppocr-sdk وندورشده از PaddleOCR/deploy/ppocr-android — پرتِ
+// رسمیِ paddleocr.ai …/android_deployment.html). دستورِ سازنده:
+// «هرروشی تو و گوشی واسه استخراج شده حذف کن فقط از همین لینک بالا
+// استفاده کنه» → پرتِ دستیِ ONNXِ 182/183 (که هیچ متنی برنمیگرداند)
+// کامل حذف شد و پلِ PaddleOcrBridge.kt حالا فقط پلِ نازک رویِ
+// PaddleOCR.createِ رسمی است. مدلهایِ رسمیِ PP-OCRv6_small (det 9.9MB +
+// rec 21.2MB + inference.yml) زمانِ بیلدِ CI از HuggingFaceِ رسمی
+// دانلود و در assetsِ APK باندل میشوند (هیچ دانلودِ زمانِ اجرایی —
+// آفلاین هم کار میکند). ML Kit از 183 کامل حذف است.
 dependencies {
-    // v1.14.67 — ortVer برایِ CIِ امولاتور: AARِ 1.31 رویِ x86_64 در
-    // sess.run تقسیم‌برصفر (SIGFPE) می‌دهد → CI با 1.28 بیلد می‌کند
-    // (APIِ جاوایِ shim با 1.28 هم سازگار است؛ گوشی همان 1.31 را می‌گیرد)
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:${(findProperty("ortVer") as String?) ?: "1.31.0"}")
+    // v1.14.184 — وابستگیِ مستقیمِ ORT از app حذف شد: ORT فقط مالِ
+    // SDKِ رسمی است (نسخهٔ رسمیِ 1.21.1 داخلِ :ppocr-sdk؛ رویِ شبیهسازِ
+    // CI همان قراردادِ -PortVer=1.28 اعمال میشود).
     // v1.14.183 — وابستگیهایِ com.google.mlkit حذف شدند (دستورِ سازنده:
     // «ml kit حذف کن خوب نیست») — استخراج = پدلِ رسمیِ اندروید.
+    // v1.14.184 — SDKِ رسمی + coroutines (برایِ runBlockingِ پل)
+    implementation(project(":ppocr-sdk"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")

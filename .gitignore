@@ -16,3 +16,7 @@ out_*/
 # v1.14.106 — کتابخانهٔ Paddle-Lite (دانلودی — با fetch_paddle.py)
 android/app/libs/PaddlePredictor.jar
 android/app/src/main/jniLibs/*/libpaddle_lite_jni.so
+
+# v1.14.184 — مدلهایِ رسمیِ PP-OCRv6_small (ppocr-android) زمانِ بیلدِ CI
+# دانلود و در assets باندل میشوند — در گیت نمیآیند
+android/app/src/main/assets/models/

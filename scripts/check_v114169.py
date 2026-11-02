@@ -53,10 +53,14 @@ kt2 = os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
 if not os.path.isfile(kt2):
     fail("PaddleOcrBridge.kt نیست")
 k = io.open(kt2, encoding="utf-8", errors="ignore").read()
-for s in ("BitmapFactory.decodeByteArray", "OnnxTensor", "OrtSession",
-          "META|"):
+# v1.14.184 — پلِ نازک رویِ SDKِ رسمی (بدونِ هیچ ORTِ مستقیم)
+for s in ("fun recognizeAuto(", "PaddleOCR.create", "com.paddle.ocr",
+          "META|", "models/det/inference.onnx"):
     if s not in k:
         fail(f"PaddleOcrBridge.kt محتوایِ لازم را ندارد: {s!r}")
+for s in ("ai.onnxruntime", "OrtSession", "OnnxTensor"):
+    if s in k:
+        fail(f"PaddleOcrBridge.kt نباید {s!r} داشته باشد (فقط SDKِ رسمی)")
 if "com.google.mlkit" in k:
     fail("PaddleOcrBridge.kt به ML Kit وصل است!")
 

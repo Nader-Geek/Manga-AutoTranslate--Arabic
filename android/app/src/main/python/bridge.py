@@ -884,17 +884,17 @@ def _run(job):
         # v1.14.163 — سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
         # فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا
         # میکند و OCR فقط رویِ همان کراپها اجرا میشود.
-        # v1.14.170→183 — موتورِ OCRِ گوشی = «پدلِ رسمیِ اندروید»
-        # (PaddleOcrBridge با PP-OCRv6 mediumِ رسمی). v1.14.183 —
-        # «ml kit حذف کن خوب نیست» → ML Kit کامل حذف شد؛ هر انتخابِ
-        # کهنه (mlkit/rapidocr/onnx/paddle/…) نادیده گرفته میشود و
-        # پیشفرضِ manga.py (موتورِ رسمی) بهکار میرود.
+        # v1.14.170→184 — موتورِ OCRِ گوشی = SDKِ رسمیِ PaddleOCR
+        # اندروید (ppocr-sdkِ وندورشده با PP-OCRv6_smallِ باندل).
+        # v1.14.184 — «هرروشی تو گوشی واسه استخراج شده حذف کن فقط از
+        # همین لینک بالا استفاده کنه» → هر انتخابِ کهنه
+        # (mlkit/rapidocr/onnx/paddle/…) نادیده گرفته میشود.
         try:
             _oe = str(p.get("ocr_engine") or "").strip().lower()
             if _oe:
                 _log(job, "[!] انتخابِ موتورِ «%s» دیگر پشتیبانی نمیشود "
-                          "(v1.14.183) — موتورِ رسمیِ اندروید "
-                          "(PP-OCRv6 medium) بهکار میرود" % _oe)
+                          "(v1.14.184) — SDKِ رسمیِ PaddleOCR اندروید "
+                          "(PP-OCRv6_smallِ باندل) بهکار میرود" % _oe)
         except Exception:
             pass
         _src0 = str(p.get("src") or "")
@@ -922,7 +922,8 @@ def _run(job):
             p["src"] = _src1
             _log(job, "پسوند ورودی اصلاح شد → %s" % os.path.basename(_src1))
         # v1.14.181 — دکمهٔ «تستِ سرعت» (v1.14.178) کامل حذف شد؛ روشِ
-        # استخراج = فقط ML Kit — speed_lab_env پایینتر اعمالش میکند.
+        # استخراج = فقط SDKِ رسمیِ PaddleOCR — speed_lab_env پایینتر
+        # اعمالش میکند.
         keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
         if not keys and not (bool(p.get("fake")) or bool(p.get("clean_only"))):
             _log(job, "[!] حداقل یک کلید API لازم است — کلید بده یا "

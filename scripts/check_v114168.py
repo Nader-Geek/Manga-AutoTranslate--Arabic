@@ -70,8 +70,8 @@ if "return PaddleAndroidOCR(lang)" not in bp_src:
     fail("_build_paddle_android موتورِ رسمی را نمیسازد")
 if "return None" not in bp_src:
     fail("_build_paddle_android شکست را None نمیکند (تلاشِ تکراریِ هر کراپ؟)")
-if "ML Kit" not in bp_src:
-    fail("یادداشتِ حذفِ فالبکِ ML Kit در _build_paddle_android نیست")
+if "فالبکی نیست" not in bp_src:
+    fail("یادداشتِ «فالبکی نیست» در _build_paddle_android نیست")
 
 # ۴) نسخه — سازگاریِ APP_VER با VERSION
 ver = io.open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
