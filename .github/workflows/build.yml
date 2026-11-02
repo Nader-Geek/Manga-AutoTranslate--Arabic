@@ -47,26 +47,44 @@ jobs:
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 
-      # v1.14.184 — مدلهایِ رسمیِ PP-OCRv6_small (deploy/ppocr-android)
-      # از HuggingFaceِ رسمیِ PaddlePaddle دانلود و در assets باندل
-      # میشوند — رویِ گوشی هیچ دانلودِ زمانِ اجرایی نیست
-      - name: Fetch official ppocr-android models (PP-OCRv6_small)
+      # v1.14.187 — مدلهایِ RapidOCR (RapidOcrAndroidOnnx) از
+      # ModelScopeِ رسمیِ RapidAI/RapidOCR (v3.9.2) دانلود و در assets
+      # باندل میشوند — سهگانهٔ PP-OCRv4_mobile (det+cls+rec) +
+      # واریانتهایِ زبانِ rec (en/ja/ko) + دیکشنریها — رویِ گوشی هیچ
+      # دانلودِ زمانِ اجرایی نیست
+      - name: Fetch RapidOCR models (PP-OCRv4_mobile — RapidOcrAndroidOnnx)
         run: |
-          mkdir -p android/app/src/main/assets/models/det \
-                   android/app/src/main/assets/models/rec
-          curl -fL --retry 3 --max-time 600 \
-            -o android/app/src/main/assets/models/det/inference.onnx \
-            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx"
-          curl -fL --retry 3 --max-time 600 \
-            -o android/app/src/main/assets/models/rec/inference.onnx \
-            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.onnx"
-          curl -fL --retry 3 --max-time 600 \
-            -o android/app/src/main/assets/models/rec/inference.yml \
-            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.yml"
-          ls -la android/app/src/main/assets/models/det android/app/src/main/assets/models/rec
-          test $(stat -c%s android/app/src/main/assets/models/det/inference.onnx) -gt 5000000
-          test $(stat -c%s android/app/src/main/assets/models/rec/inference.onnx) -gt 10000000
-          test $(stat -c%s android/app/src/main/assets/models/rec/inference.yml) -gt 50000
+          base="https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2"
+          A=android/app/src/main/assets/models
+          mkdir -p $A/det $A/cls $A/rec $A/rec_en $A/rec_ja $A/rec_ko
+          curl -fL --retry 3 --max-time 600 -o $A/det/inference.onnx \
+            "$base/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/cls/inference.onnx \
+            "$base/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile/ppocr_keys_v1.txt"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_en/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/en_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_en/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/en_PP-OCRv4_rec_mobile/en_dict.txt"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ja/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/japan_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ja/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/japan_PP-OCRv4_rec_mobile/japan_dict.txt"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ko/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/korean_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ko/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/korean_PP-OCRv4_rec_mobile/korean_dict.txt"
+          ls -la $A/det $A/cls $A/rec $A/rec_en $A/rec_ja $A/rec_ko
+          test $(stat -c%s $A/det/inference.onnx) -gt 3000000
+          test $(stat -c%s $A/cls/inference.onnx) -gt 300000
+          test $(stat -c%s $A/rec/inference.onnx) -gt 8000000
+          test $(stat -c%s $A/rec/dict.txt) -gt 20000
+          test $(stat -c%s $A/rec_en/inference.onnx) -gt 5000000
+          test $(stat -c%s $A/rec_ja/inference.onnx) -gt 7000000
+          test $(stat -c%s $A/rec_ko/inference.onnx) -gt 15000000
 
       - name: Inject version from VERSION
         run: |

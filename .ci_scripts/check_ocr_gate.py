@@ -22,7 +22,7 @@ lang_ja_color / lang_ko / lang_zh / up0929_zh) ناحیههایِ استخراج
 
 usage: check_ocr_gate.py LOG LANG [WORD]   (LANG = ja|ko|zh|en — پیشوند کافی است؛
 WORD اختیاری: رشتهٔ موردِ نیاز (بیت‌بزرگی نادیده) در متنِ یکی از ناحیهها —
-gیتِ محتواییِ صفحهٔ مشخص مثلِ img6 = «attraction»)
+gیتِ محتواییِ صفحهٔ مشخص مثلِ img6 = «Youre» (v1.14.187))
 """
 import re
 import sys

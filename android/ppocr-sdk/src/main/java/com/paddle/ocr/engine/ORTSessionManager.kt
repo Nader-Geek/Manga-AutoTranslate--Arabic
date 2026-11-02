@@ -29,10 +29,89 @@ class ORTSessionManager(
     private var env: OrtEnvironment? = null
     private var detSession: OrtSession? = null
     private var recSession: OrtSession? = null
+    private var clsSession: OrtSession? = null
     private var detInputName: String = "x"
     private var recInputName: String = "x"
+    private var clsInputName: String = "x"
     var coldLoadTimeMs: Long = 0
         private set
+
+    /** v1.14.187 — RapidOCR: سشنِ clsِ اضافی (ch_ppocr_mobile_v2.0_cls). */
+    fun hasCls(): Boolean = clsSession != null
+
+    /**
+     * v1.14.187 — بارگذاریِ سشنِ cls (RapidOCR AngleNet).
+     * مدل = ch_ppocr_mobile_v2.0_cls (ورودیِ [N,3,48,192]، خروجیِ [N,2]).
+     */
+    fun loadClsModel(clsAssetPath: String) {
+        val ortEnv = env
+            ?: throw OCRError.ModelLoadFailed("cls", Exception("Environment not initialized"))
+        val clsBytes = readModelAsset(clsAssetPath)
+        val opts = OrtSession.SessionOptions().apply {
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            setIntraOpNumThreads(config.numThreads)
+        }
+        try {
+            clsSession = try {
+                ortEnv.createSession(clsBytes, opts)
+            } catch (t: Throwable) {
+                throw OCRError.ModelLoadFailed("cls", t)
+            }
+            clsInputName = try {
+                clsSession!!.inputNames.iterator().next()
+            } catch (t: Throwable) {
+                throw OCRError.ModelLoadFailed("cls", t)
+            }
+        } finally {
+            opts.close()
+        }
+    }
+
+    /**
+     * v1.14.187 — تعویضِ داغِ سشنِ rec برایِ واریانتِ زبان (RapidOCR).
+     * سشنِ قبلی بسته میشود؛ det/cls دستنخورده میمانند.
+     */
+    fun loadRecModel(recAssetPath: String) {
+        val ortEnv = env
+            ?: throw OCRError.ModelLoadFailed("recognition", Exception("Environment not initialized"))
+        val recBytes = readModelAsset(recAssetPath)
+        val opts = OrtSession.SessionOptions().apply {
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            setIntraOpNumThreads(config.numThreads)
+        }
+        var fresh: OrtSession? = null
+        try {
+            fresh = try {
+                ortEnv.createSession(recBytes, opts)
+            } catch (t: Throwable) {
+                throw OCRError.ModelLoadFailed("recognition", t)
+            }
+            val freshInputName = try {
+                fresh!!.inputNames.iterator().next()
+            } catch (t: Throwable) {
+                throw OCRError.ModelLoadFailed("recognition", t)
+            }
+            val old = recSession
+            recSession = fresh
+            recInputName = freshInputName
+            fresh = null
+            old?.close()
+        } finally {
+            // اگر تعویضِ نام/بستنِ قدیمی خطا بزند، سشنِ تازه رها نشود
+            if (fresh != null) {
+                try { fresh.close() } catch (_: Throwable) {}
+            }
+            opts.close()
+        }
+    }
+
+    fun runClassification(input: FloatArray, shape: LongArray): Pair<FloatArray, LongArray> {
+        val session = clsSession
+            ?: throw OCRError.ModelLoadFailed("cls", Exception("Session not initialized"))
+        val ortEnv = env
+            ?: throw OCRError.ModelLoadFailed("cls", Exception("Environment not initialized"))
+        return runSession(ortEnv, session, clsInputName, input, shape, "cls")
+    }
 
     fun loadModels(detAssetPath: String, recAssetPath: String) {
         val loadStart = System.currentTimeMillis()
@@ -99,7 +178,12 @@ class ORTSessionManager(
                 recSession?.close()
             } finally {
                 recSession = null
-                env = null
+                try {
+                    clsSession?.close()
+                } finally {
+                    clsSession = null
+                    env = null
+                }
             }
         }
     }

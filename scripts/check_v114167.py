@@ -61,7 +61,7 @@ if not bp_src:
     fail("_build_paddle_android نیست")
 if "return None" not in bp_src:
     fail("_build_paddle_android شکستِ ساخت را None نمیکند")
-if "PP-OCRv6" not in bp_src:
+if "PP-OCRv4" not in bp_src:
     fail("پیامِ مدلِ رسمی در _build_paddle_android نیست")
 
 # ۳) موازیِ پاکسازی

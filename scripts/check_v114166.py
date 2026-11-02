@@ -85,7 +85,7 @@ kt2 = os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
 if not os.path.isfile(kt2):
     fail("PaddleOcrBridge.kt نیست")
 kt2s = io.open(kt2, encoding="utf-8", errors="ignore").read()
-for s in ("object PaddleOcrBridge", "recognizeAuto", "PP-OCRv6"):
+for s in ("object PaddleOcrBridge", "recognizeAuto", "PP-OCRv4"):
     if s not in kt2s:
         fail(f"PaddleOcrBridge.kt محتوایِ لازم را ندارد: {s!r}")
 for rel in ("android/app/src/main/java/com/amirwolf/mangatranslator/"

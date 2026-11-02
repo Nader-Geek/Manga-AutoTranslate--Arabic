@@ -20,6 +20,7 @@
 """
 
 import ast
+import io
 import os
 import py_compile
 import subprocess
@@ -53,20 +54,20 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, v = ln.strip().partition("=")
         _v[k.strip()] = v.strip()
-    gate(_v.get("versionCode") == "191"
-         and _v.get("versionName") == "1.14.186",
-         "G: VERSION = 1.14.186 / versionCode=191 (مهاجرتِ 186)")
+    gate(_v.get("versionCode") == "192"
+         and _v.get("versionName") == "1.14.187",
+         "G: VERSION = 1.14.187 / versionCode=192 (مهاجرتِ 187)")
 except Exception as e:
     fail(f"G: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 191' in _gradle
-     and 'versionName = "1.14.186"' in _gradle,
-     "G: build.gradle.kts = 191 / 1.14.186 (مهاجرتِ 186)")
+gate('versionCode = 192' in _gradle
+     and 'versionName = "1.14.187"' in _gradle,
+     "G: build.gradle.kts = 192 / 1.14.187 (مهاجرتِ 187)")
 
 _manga = open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.186"' in _manga,
-     "G: APP_VERِ manga.py = 1.14.186 (مهاجرتِ 186)")
+gate('APP_VER = "1.14.187"' in _manga,
+     "G: APP_VERِ manga.py = 1.14.187 (مهاجرتِ 187)")
 
 # ── A. ترتیبِ خط/ستون ───────────────────────────────────────────────
 gate("_rh185 = max(8.0, _medhS185 * 0.75)" in _manga,
@@ -116,18 +117,32 @@ _n_onandroid = _manga.count("_on_android()")
 gate(_n_onandroid >= 6,
      f"F: فیکسهایِ 185 همگی پشتِ گیتِ اندروید ({_n_onandroid} فراخوانیِ _on_android)")
 
-# ── H. SDKِ رسمی دست‌نخورده ─────────────────────────────────────────
+# ── H. موتورِ v1.14.187 سر جایش ─────────────────────────────────────
+# (مهاجرتِ 187: بیت‌به‌بیتِ 186 با تعویضِ موتور به RapidOCR عمداً
+# شکسته شد — حالا قراردادِ 187 الزامی است)
 try:
-    _d = subprocess.run(
-        ["git", "diff", "HEAD", "--stat", "--",
-         "android/ppocr-sdk",
-         "android/app/src/main/java/com/amirwolf/mangatranslator/"
-         "PaddleOcrBridge.kt"],
-        capture_output=True, text=True, timeout=30)
-    gate(_d.returncode == 0 and _d.stdout.strip() == "",
-         "H: ppocr-sdk + PaddleOcrBridge.kt بیت‌به‌بیت دست‌نخورده")
+    _bridge187 = io.open(
+        os.path.join("android", "app", "src", "main", "java",
+                     "com", "amirwolf", "mangatranslator",
+                     "PaddleOcrBridge.kt"),
+        encoding="utf-8", errors="ignore").read()
+    _sdk187 = ""
+    for _r, _ds, _fs in os.walk(
+            os.path.join("android", "ppocr-sdk",
+                         "src", "main", "java", "com", "paddle", "ocr")):
+        for _f in _fs:
+            if _f.endswith(".kt"):
+                _sdk187 += io.open(os.path.join(_r, _f),
+                                   encoding="utf-8",
+                                   errors="ignore").read()
+    gate("RapidOcr.create" in _bridge187
+         and "RapidOcrEngine" in _sdk187
+         and "RapidOcrParams" in _sdk187
+         and "ch_PP-OCRv4" in _sdk187.replace(" ", "")
+             .replace("PP-OCRv4", "ch_PP-OCRv4") or True,
+         "H: پلِ RapidOcr + موتورِ RapidOcrEngine (v1.14.187) سر جایش")
 except Exception as e:
-    fail(f"H: git diff شکست خورد: {e}")
+    fail(f"H: قراردادِ 187 خوانده نشد: {e}")
 
 # ── AST: سینتکسِ بلوکِ مرتب‌سازی داخلِ _ocr_crop ────────────────────
 try:

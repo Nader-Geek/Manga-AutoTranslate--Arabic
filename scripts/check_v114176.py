@@ -47,9 +47,9 @@ if 'os.environ["MANGA_K3_MODE"] = "padandroid"' not in lab:
     fail("forceِ padandroid در speed_lab_env نیست")
 if 'os.environ.pop("MANGA_MOBILE_OCR_EP", None)' not in lab:
     fail("پاکسازیِ EPِ کهنه در speed_lab_env نیست")
-if "SDKِ رسمیِ PaddleOCR اندروید" not in lab or \
-        "PP-OCRv6_small" not in lab:
-    fail("پیامِ SDKِ رسمی در speed_lab_env نیست")
+if "RapidOCRِ اندروید" not in lab or \
+        "PP-OCRv4_mobile" not in lab:
+    fail("پیامِ RapidOCR در speed_lab_env نیست")
 
 # ── عملی: execِ sandbox — envِ کهنه پاک + force + پیام ──
 import time  # noqa: E402
@@ -78,10 +78,11 @@ try:
         fail("forceِ padandroid اعمال نشد")
     if os.environ.get("MANGA_MOBILE_OCR_EP") is not None:
         fail("EPِ کهنه پاک نشد")
-    if "SDKِ رسمیِ PaddleOCR اندروید" not in ret or \
-            ("v1.14.184" not in ret and "v1.14.185" not in ret):
-        fail("پیامِ خروجیِ 184/185 نیست: %r" % ret[:120])
-    ok("عملی: EP پاک + padandroid force + پیامِ 184/185")
+    if "RapidOCRِ اندروید" not in ret or \
+            ("v1.14.184" not in ret and "v1.14.185" not in ret
+             and "v1.14.187" not in ret):
+        fail("پیامِ خروجیِ 184/187 نیست: %r" % ret[:120])
+    ok("عملی: EP پاک + padandroid force + پیامِ 184/187")
 finally:
     os.environ.pop("MANGA_MOBILE_OCR_EP", None)
     os.environ.pop("MANGA_K3_MODE", None)

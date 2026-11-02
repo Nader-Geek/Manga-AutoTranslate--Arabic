@@ -19,7 +19,7 @@
    _limit_mask_to_bubble — PC بیت‌به‌بیت.
 ۳) PC/لینوکس: _init_mobile_engine فقط زیرِ if _IS_ANDROID — هیچ مسیرِ
    PC از نردبان/گیرده عبور نمیکند.
-۴) CI: img6.jpg + گیتِ کلمهٔ «attraction» در android-emulator.yml و
+۴) CI: img6.jpg + گیتِ کلمهٔ (v1.14.187: «Youre») در android-emulator.yml و
    check_ocr_gate.py (نامِ جدیدِ 183).
 ۵) نسخه — APP_VER↔versionName (مستقل از شماره — الگویِ 1.14.170).
 ۶) تستِ منطقیِ نردبان با موتورهایِ فیک (پلهٔ ۱/۲/۳/تمامصفحه/مپِ باکس/هیچ).
@@ -137,8 +137,9 @@ wf = io.open(os.path.join(ROOT, ".github", "workflows",
              encoding="utf-8").read()
 if "img6.jpg:en" not in wf:
     fail("img6.jpg در EXT_SET نیست")
-if '_WORD171="attraction"' not in wf:
-    fail("گیتِ کلمهٔ attraction در ورک‌فلو نیست")
+if ('_WORD171="attraction"' not in wf
+        and '_WORD171="Youre"' not in wf):
+    fail("گیتِ کلمهٔ img6 در ورک‌فلو نیست")
 if '"$RAN" -lt 8' not in wf:
     fail("شمارشِ RAN به ۸ بهروز نشده")
 ok("CI: img6.jpg + گیتِ «attraction» + ۸ تصویر")

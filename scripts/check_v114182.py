@@ -89,9 +89,10 @@ if not (_i_ov < _i_ms):
     fail("L: forceِ padandroid باید قبل از _ms_l باشد")
 if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env پاکسازی را صدا نمیزند")
-if "SDKِ رسمیِ PaddleOCR اندروید" not in _lab \
-        or ("v1.14.184" not in _lab and "v1.14.185" not in _lab) \
-        or "PP-OCRv6_small" not in _lab:
+if "RapidOCRِ اندروید" not in _lab \
+        or ("v1.14.184" not in _lab and "v1.14.185" not in _lab
+            and "v1.14.187" not in _lab) \
+        or "PP-OCRv4_mobile" not in _lab:
     fail("L: پیامِ «SDKِ رسمیِ PaddleOCR اندروید / v1.14.184» در "
          "speed_lab_env نیست")
 ok("L: speed_lab_env = SDKِ رسمیِ PaddleOCR اندروید "
@@ -121,7 +122,7 @@ _cls = src[src.index("class PaddleAndroidOCR:"):]
 _cls = _cls[:_cls.index("\nclass ", 10)]
 for _frag in ("com.amirwolf.mangatranslator.PaddleOcrBridge",
               "self._bridge.init(_intra)", "recognizeAuto(",
-              "startswith(\"META\")", "PP-OCRv6_small",
+              "startswith(\"META\")", "PP-OCRv4_mobile",
               "باندلِ APK"):
     if _frag not in _cls:
         fail("E: PaddleAndroidOCR فاقدِ %s" % _frag)
@@ -135,7 +136,7 @@ if 'self._mode = "padandroid"' not in src:
     fail("K: mode باید همیشه padandroid باشد")
 if '_K3_MODES = ("padandroid",)' not in src:
     fail("K: _K3_MODESِ 184 (تکروش) نیست")
-if '"padandroid": "پدلِ رسمیِ اندروید"' not in src:
+if '"padandroid": "رپیدِ رسمیِ اندروید"' not in src:
     fail("K: برچسبِ فارسیِ padandroid در _K3_MODE_FA نیست")
 if "def _engine_pad(" not in src:
     fail("K: _engine_pad (سازندهٔ تنلِ پدلِ رسمی) نیست")
@@ -160,8 +161,8 @@ ok("K: کراپِ تقویتشده → SDKِ رسمی → بازگشتِ خطه�
 # ── ۵) PaddleOcrBridge.kt — پرتِ رسمی ────────────────────────────
 # v1.14.184 — پل = نازک رویِ SDKِ رسمی (ppocr-sdkِ وندورشده)
 for _frag in ("object PaddleOcrBridge", "fun recognizeAuto(",
-              "\"META|", "PaddleOCR.create", "com.paddle.ocr",
-              "models/det/inference.onnx", "models/rec/inference.yml",
+              "\"META|", "RapidOcr.create", "com.paddle.ocr",
+              "models/det/inference.onnx", "models/rec/dict.txt",
               "OpenCVUtils.init"):
     if _frag not in ksrc:
         fail("KT: PaddleOcrBridge.kt فاقدِ %s" % _frag)
@@ -264,8 +265,9 @@ assert os.environ.get("MANGA_K3_MODE") == "padandroid", os.environ.get(
     "MANGA_K3_MODE")
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, os.environ.get(
     "MANGA_MOBILE_OCR_EP")
-assert "SDKِ رسمیِ PaddleOCR اندروید" in ret, ret
-assert ("v1.14.184" in ret or "v1.14.185" in ret), ret
+assert "RapidOCRِ اندروید" in ret, ret
+assert ("v1.14.184" in ret or "v1.14.185" in ret
+        or "v1.14.187" in ret), ret
 
 # برندهٔ کهنهٔ flutter/mlkit در فایل هم مهم نیست — forceِ padandroid
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:
@@ -283,7 +285,7 @@ os.environ["MANGA_MOBILE_OCR_EP"] = "nnapi"
 ret2 = g["speed_lab_env"]({})
 assert os.environ.get("MANGA_K3_MODE") == "padandroid", "بدونِ فایل هم نیست"
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, "ep باید auto/pop میشد"
-assert "SDKِ رسمیِ PaddleOCR اندروید" in ret2, ret2
+assert "RapidOCRِ اندروید" in ret2, ret2
 print("LAB_OK")
 '''
 with tempfile.TemporaryDirectory() as td:
@@ -456,7 +458,8 @@ assert os.path.isfile(os.path.join(mdir, LOSERS[0])), "PC: فایل حذف شد!
 
 os.environ["MANGA_PURGE_ONNX_MODELS"] = "1"
 msg = purge()
-assert msg and "SDKِ رسمیِ PaddleOCR اندروید" in msg, msg
+assert msg and ("SDKِ رسمیِ PaddleOCR اندروید" in msg
+                or "RapidOCRِ اندروید" in msg), msg
 for fn in LOSERS:
     assert not os.path.isfile(os.path.join(mdir, fn)), "باقی مانده: " + fn
 assert os.path.isfile(os.path.join(mdir, KEEP)), "فایلِ خارجِ فهرست حذف شد!"

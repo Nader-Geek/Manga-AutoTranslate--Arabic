@@ -41,6 +41,28 @@ data class ModelConfig(
             return ModelConfig(characterList = charListWithSpace)
         }
 
+        /**
+         * v1.14.187 — پارسرِ دیکشنریِ متنیِ ساده (RapidOCR dict — یک نویسه
+         * در هر سطر: ppocr_keys_v1.txt / en_dict.txt / japan_dict.txt /
+         * korean_dict.txt). سطرهایِ خالی رد میشوند؛ « » در انتها اضافه
+         * میشود (دقیقاً مثلِ keysِ CrnnNetِ RapidOCR: blank=۰ + سطرها + فاصله).
+         * CTCDecoder با charIdx = idx-1 رویِ همین فهرست کار میکند.
+         */
+        fun fromDictText(content: String, dictPath: String): ModelConfig {
+            val characters = content
+                .replace("\r\n", "\n")
+                .replace('\r', '\n')
+                .lines()
+                .filter { it.isNotEmpty() }
+            if (characters.isEmpty()) {
+                throw OCRError.ConfigParseFailed("Empty dict: $dictPath")
+            }
+            val charListWithSpace = characters.toMutableList().apply {
+                if (lastOrNull() != " ") add(" ")
+            }
+            return ModelConfig(characterList = charListWithSpace)
+        }
+
         private fun extractCharacterDict(content: String, assetPath: String): List<String> {
             val lines = content.replace("\r\n", "\n").replace('\r', '\n').lines()
             val postProcessLine = lines.indexOfFirst { it.trim() == "PostProcess:" }

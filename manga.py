@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.186"
+APP_VER = "1.14.187"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3445,22 +3445,23 @@ def _cjk_dominant_154(t: str) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# v1.14.184 — موتورِ OCRِ گوشی = SDKِ رسمیِ PaddleOCR اندروید (تنها روش).
-# دستورِ سازنده: «استفاده نکرد از onnx استخراج نزد هرروشی تو و گوشی واسه
-# استخراج شده حذف کن فقط از همین لینک بالا استفاده کنه» — لینکِ رسمی:
-#   paddleocr.ai/…/version3.x/inference_deployment/cross_platform/
-#   android_deployment.html
-# یعنی: پرتِ دستیِ ONNXِ نسخهٔ 182/183 (که رویِ گوشی هیچ متنی برنگرداند)
-# و همهٔ موتورهایِ دیگرِ گوشی (پدلِ ONNXِ medium، رپیدِ small،
-# فلاتر-پدلِ tiny) حذف شدند. استخراج = ماژولِ رسمیِ «ppocr-sdk» که
-# بیت‌به‌بیت از PaddleOCR/deploy/ppocr-android وندور شده (کدِ
-# com.paddle.ocr دست نخورده) + مدلهایِ رسمیِ PP-OCRv6_small باندلشده
-# در assetsِ APK.
+# v1.14.187 — موتورِ OCRِ گوشی = RapidOCRِ اندروید (ONNXِ خالص — تنها روش).
+# دستورِ سازنده: «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا
+# ۱.۱۴.۱۸۶ https://github.com/RapidAI/RapidOcrAndroidOnnx ببین چجور به
+# این خوبی استخراج میکنه همونو رو گوشی بزار … این خیلی خوب استخراج
+# میزنه متن هاش خوب در میاره» — یعنی سهگانهٔ RapidOcrAndroidOnnx:
+#   det = ch_PP-OCRv4_det_mobile.onnx (DBNet 4.5MB) + cls =
+#   ch_ppocr_mobile_v2.0_cls (AngleNet) + rec = ch_PP-OCRv4_rec_mobile
+#   (CRNN 10.4MB) — داخلِ ماژولِ «ppocr-sdk» رویِ همان ORTِ رسمی،
+#   بیت‌به‌بیتِ پیشپردازش/پسپردازشِ RapidOCR (dilate 2×2، clsِ 192×48،
+#   recِ ارتفاعِ ۴۸ + CTCِ blank=۰ + دیکشنریِ متنی).
 #   • استخراج فقط رویِ «کراپهایِ detector-v4-s_int8.onnx» صدا زده میشود
 #     (همان مسیرِ _ocr_crop → RapidOCRBackend.ocr → self._mobile.ocr)
-#     — هیچ پاسِ تمامصفحهای نیست (دستورِ همیشگیِ سازنده).
-#   • SDKِ رسمی رویِ هر کراپ det+recِ کامل اجرا میکند: DetPreprocessor →
-#     DBPostProcessor → QuadTextCrop → RecPreprocessor → CTCDecoder.
+#     — هیچ پاسِ تمامصفحهای نیست (دستورِ همیشگیِ سازنده: «باید اول
+#     detector-v4-s_int8.onnx خوب قسمت های متن پیدا کنه بعد همون قسمت
+#     باید استخراج متن استفاده کنه»).
+#   • موتور رویِ هر کراپ det+recِ کامل اجرا میکند: DetPreprocessor →
+#     DBPostProcessor → QuadTextCrop → cls → RecPreprocessor → CTCDecoder.
 #   • قراردادِ خروجی = سطرِ META|lang|n + سطرهایِ ang|conf|box|text|blk
 #     (همان قراردادِ همیشه) — پارسرِ مشترک بدونِ تغییر.
 # ═══════════════════════════════════════════════════════════════════════
@@ -3480,17 +3481,20 @@ def _mobile_lang(lang):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# v1.14.184 — موتورِ OCRِ کراپ = SDKِ رسمیِ PaddleOCR اندروید
-# (ppocr-sdkِ وندورشده — deploy/ppocr-android). دستورِ سازنده: «هرروشی
-# تو گوشی واسه استخراج شده حذف کن فقط از همین لینک بالا استفاده کنه»
-# (paddleocr.ai …/android_deployment.html) + دستورِ قبلی: «اول
+# v1.14.187 — موتورِ OCRِ کراپ = RapidOCRِ اندروید (RapidOcrAndroidOnnx)
+# داخلِ ppocr-sdkِ وندورشده رویِ ORTِ رسمی. دستورِ سازنده: «ببین چجور
+# به این خوبی استخراج میکنه همونو رو گوشی بزار» + دستورِ قبلی: «اول
 # detector-v4-s همه قسمت هایِ متن پیدا کنه فقط همون قسمت ها استخراج
 # کنه تا سریعتر باشه». پلِ Kotlin = PaddleOcrBridge (پلِ نازک رویِ
-# SDKِ رسمی) با قراردادِ سطرهایِ META
+# RapidOcr.create) با قراردادِ سطرهایِ META
 # (META|lang|n + ang|conf|box|text|blk) تا پارسرِ مشترک کار کند.
-# مدلها = رسمیِ PP-OCRv6_small: det (9.9MB) + rec (21.2MB) +
-# inference.yml (charset) — باندلشده در assetsِ APK؛ هیچ دانلودِ
-# زمانِ اجرایی نیست. فالبکی نیست؛ خطایِ موتور = خروجیِ خالیِ همان کراپ.
+# مدلها = سهگانهٔ RapidOCRِ PP-OCRv4_mobile: det (4.5MB) + cls (0.6MB)
+# + rec (10.4MB) + دیکشنریِ متنی (ppocr_keys_v1) + واریانتهایِ زبانِ
+# rec (en/ja/ko) — باندلشده در assetsِ APK؛ هیچ دانلودِ زمانِ اجرایی
+# نیست. انتخابِ زبان: «نمیشه یک زبان انتخاب کرد مثلا انگلیسی بزارم» →
+# recognizeAuto زبانِ هر کراپ را میگیرد و سشنِ rec رویِ واریانتِ همان
+# زبان گرم میشود (latin→en، ja→japan، ko→korean، zh/سایر→ch).
+# فالبکی نیست؛ خطایِ موتور = خروجیِ خالیِ همان کراپ.
 # ═══════════════════════════════════════════════════════════════════
 _PAD_STATS = {"ms": 0.0, "n": 0, "lines": 0}
 
@@ -3510,11 +3514,13 @@ def _pad_stats_note(t0, nlines):
 
 
 class PaddleAndroidOCR:
-    """OCRِ کراپ با موتورِ رسمیِ PP-OCRِ اندروید (پرتِ ppocr-android —
-    v1.14.182). det (PP-OCRv6 medium) → DBPostProcessِ رسمی → کراپِ
-    پرسپکتیو → rec (PP-OCRv6 medium، بچِ پدشده) → CTC با charsetِ
-    inference.yml. خروجی: [ [[box, (text, score)], ...] ] — هم‌قالبِ
-    RapidOcrMobile. crop_mode فقط برایِ هم‌امضایی."""
+    """OCRِ کراپ با موتورِ RapidOCRِ اندروید (RapidOcrAndroidOnnx —
+    v1.14.187). det (ch_PP-OCRv4_det_mobile) → DBPostProcess (dilate 2×2،
+    unclip 1.6) → کراپِ پرسپکتیو → cls (AngleNetِ 192×48) → rec
+    (ch_PP-OCRv4_rec_mobileِ واریانتِ زبان، ارتفاعِ ۴۸، بچِ پدشده) →
+    CTC با دیکشنریِ متنی (blank=۰ + سطرها + فاصله). خروجی:
+    [ [[box, (text, score)], ...] ] — هم‌قالبِ RapidOcrMobile.
+    crop_mode فقط برایِ هم‌امضایی."""
 
     def __init__(self, lang: str = "en"):
         try:
@@ -3524,12 +3530,13 @@ class PaddleAndroidOCR:
         except Exception as e:
             raise RuntimeError(
                 "پلِ PaddleOcrBridge در APKِ نصب‌شده نیست — APKِ جدید "
-                "(v1.14.185+) را نصب کن: " + str(e)[:90])
+                "(v1.14.187+) را نصب کن: " + str(e)[:90])
         self.lang = _mobile_lang(lang)
         self.debug = True
-        # v1.14.184 — مدلها (PP-OCRv6_small det/rec + inference.yml) در
-        # assetsِ APK باندلند (assets/models/{det,rec}) — هیچ دانلودی
-        # وجود ندارد؛ SDKِ رسمی از context.assets میخواند.
+        # v1.14.187 — مدلها (سهگانهٔ RapidOCR: det v4 + cls + recِ v4 با
+        # واریانتهایِ زبان + دیکشنریها) در assetsِ APK باندلند
+        # (assets/models/{det,cls,rec,rec_en,rec_ja,rec_ko}) — هیچ دانلودی
+        # وجود ندارد؛ موتور از context.assets میخواند.
         try:
             _cpu_n = os.cpu_count() or 4
         except Exception:
@@ -3543,7 +3550,7 @@ class PaddleAndroidOCR:
             pass
         if not self._bridge.init(_intra):
             raise RuntimeError(
-                "initِ PaddleOcrBridge ناموفق بود (SDKِ رسمی/APK)")
+                "initِ PaddleOcrBridge ناموفق بود (RapidOCR/APK)")
         # سلف‌تستِ دسترسپذیری: کراپِ ریزِ سفید → باید سطرِ META برگردد؛
         # شکستِ یک‌باره = خطایِ صریح (فالبکی نیست — ML Kit حذف شده).
         try:
@@ -3553,16 +3560,17 @@ class PaddleAndroidOCR:
                 bytes(_buf.tobytes()), self.lang, 1, 1)
             if not _out or not str(_out[0]).startswith("META"):
                 raise RuntimeError(
-                    "خروجیِ سلف‌تستِ پدلِ اندروید نامعتبر است: "
+                    "خروجیِ سلف‌تستِ RapidOCRِ اندروید نامعتبر است: "
                     + str([str(x)[:80] for x in (_out or [])])[:200])
         except RuntimeError:
             raise
         except Exception as e:
             raise RuntimeError(
-                "سلف‌تستِ پلِ پدلِ اندروید مردود شد: "
+                "سلف‌تستِ پلِ RapidOCRِ اندروید مردود شد: "
                 + str(e)[:90])
-        print(f"[+] OCR گوشی: پدلِ رسمیِ اندروید آماده | SDKِ رسمیِ "
-              f"ppocr-android | det=PP-OCRv6_small rec=PP-OCRv6_small "
+        print(f"[+] OCR گوشی: RapidOCRِ اندروید آماده | "
+              f"RapidOcrAndroidOnnx | det=PP-OCRv4_mobile "
+              f"cls=v2.0_cls rec=PP-OCRv4_mobile/{self.lang} "
               f"(باندلِ APK) | threads={_intra}")
 
     def ocr(self, image_bgr, crop_mode: bool = False):
@@ -3667,30 +3675,31 @@ def _k3_stats_note(t0: float, stage: int) -> None:
 
 
 class K3LadderOCR:
-    """v1.14.184 — استخراجِ کراپ با SDKِ رسمیِ PaddleOCR اندروید.
+    """v1.14.187 — استخراجِ کراپ با RapidOCRِ اندروید (ONNXِ خالص).
 
-    دستورِ سازنده: «هرروشی تو و گوشی واسه استخراج شده حذف کن فقط از
-    همین لینک بالا استفاده کنه» (paddleocr.ai …/android_deployment.html)
-    → نردبانِ چندپلهای (پدلِ ONNXِ medium / رپیدِ small / فلاتر-پدلِ
-    tiny و مقایسههایِ پوشش/اطمینان) کامل حذف شد. فقط:
+    دستورِ سازنده: «ببین چجور به این خوبی استخراج میکنه همونو رو گوشی
+    بزار» (RapidOcrAndroidOnnx) → سهگانهٔ RapidOCR (detِ v4 + cls + recِ
+    v4ِ واریانتِ زبان) جایگزینِ PP-OCRv6_small شد؛ نردبانِ چندپلهای
+    قدیمی (پدلِ ONNXِ medium / رپیدِ small / فلاتر-پدلِ tiny و
+    مقایسههایِ پوشش/اطمینان) همچنان حذف است. فقط:
       کراپِ detector-v4-s → تقویت (پد + بزرگنماییِ ریزها) →
-      SDKِ رسمی (det+rec رویِ همان کراپ — PP-OCRv6_smallِ باندل) →
+      RapidOCR (det+cls+rec رویِ همان کراپ — PP-OCRv4_mobileِ باندل) →
       برگرداندنِ مختصات. هیچ پاسِ تمامصفحهای نیست (بهجز مسیرِ جانبیِ
       قدیمیِ crop_mode=False) و هیچ فالبکی وجود ندارد (خالی = خالی)."""
 
-    # v1.14.184 — تنها روشِ استخراجِ گوشی = SDKِ رسمیِ PaddleOCR اندروید
-    # (دستورِ سازنده: «هرروشی تو گوشی واسه استخراج شده حذف کن فقط از
-    # همین لینک بالا استفاده کنه»). مقدارهایِ کهنهٔ MANGA_K3_MODE
+    # v1.14.187 — تنها روشِ استخراجِ گوشی = RapidOCRِ اندروید
+    # (دستورِ سازنده: «ببین چجور به این خوبی استخراج میکنه همونو رو
+    # گوشی بزار»). مقدارهایِ کهنهٔ MANGA_K3_MODE
     # (full/fast/rapid/paddle/flutter/mlkit/…) همگی نادیده گرفته میشوند.
     _K3_MODES = ("padandroid",)
 
     def __init__(self, lang: str, build_onnx=None, build_pad=None):
         # v1.14.184 — build_onnx دیگر «هرگز» صدا زده نمیشود (هیچ موتورِ
         # ONNXِ دیگری رویِ گوشی وجود ندارد؛ پارامتر فقط برایِ سازگاریِ
-        # امضایِ قدیمی نگاه داشته شده). فقط build_pad = SDKِ رسمی.
+        # امضایِ قدیمی نگاه داشته شده). فقط build_pad = RapidOCRِ اندروید.
         self._lang = lang
         self._build_onnx = None
-        self._build_pad = build_pad    # callable() → SDKِ رسمیِ ppocr-android
+        self._build_pad = build_pad    # callable() → RapidOCRِ اندروید (ppocr-sdk)
         self._pad = None
         self._pad_tried = False
         # v1.14.184 — هر مقدارِ کهنه (full/fast/rapid/paddle/flutter/
@@ -3698,7 +3707,7 @@ class K3LadderOCR:
         self._mode = "padandroid"
 
     def _engine_pad(self):
-        """v1.14.182 — موتورِ «پدلِ رسمیِ اندروید» با کشِ خودش.
+        """v1.14.187 — موتورِ «RapidOCRِ اندروید» با کشِ خودش.
         هر خطا/نبودِ پل → None (کراپِ بدونِ موتور = خروجیِ خالی)."""
         if self._pad_tried:
             return self._pad
@@ -3708,7 +3717,7 @@ class K3LadderOCR:
         try:
             self._pad = self._build_pad()
         except Exception as e:
-            print(f"[!] پدلِ رسمیِ اندروید آماده نشد: {str(e)[:110]}")
+            print(f"[!] رپیدِ رسمیِ اندروید آماده نشد: {str(e)[:110]}")
             self._pad = None
         return self._pad
 
@@ -3716,7 +3725,7 @@ class K3LadderOCR:
         if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
             return None
         _t0 = time.time()
-        # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → SDKِ رسمی؛ استخراجِ
+        # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → RapidOCR؛ استخراجِ
         # اصلی فقط رویِ کراپ است (دستورِ K3: «نه رو تمام صفحه»).
         if not crop_mode:
             eng0 = self._engine_pad()
@@ -3726,11 +3735,11 @@ class K3LadderOCR:
             try:
                 return eng0.ocr(image_bgr)
             except Exception as e:
-                print(f"[!] پدلِ رسمیِ اندروید خطا داد: {str(e)[:110]}")
+                print(f"[!] رپیدِ رسمیِ اندروید خطا داد: {str(e)[:110]}")
                 _k3_stats_note(_t0, 1)
                 return None
 
-        # ── SDKِ رسمی رویِ کراپِ تقویتشده (تنها پله؛ بدونِ پلههایِ ۲/۳) ──
+        # ── RapidOCR رویِ کراپِ تقویتشده (تنها پله؛ بدونِ پلههایِ ۲/۳) ──
         eng0 = self._engine_pad()
         if eng0 is None:
             _k3_stats_note(_t0, 1)
@@ -3741,38 +3750,38 @@ class K3LadderOCR:
             lines1 = _k3_map_boxes(r0[0], pad, scale) \
                 if r0 and r0[0] else []
         except Exception as e:
-            print(f"[!] پدلِ رسمیِ اندروید خطا داد: {str(e)[:110]}")
+            print(f"[!] رپیدِ رسمیِ اندروید خطا داد: {str(e)[:110]}")
             lines1 = []
         _k3_stats_note(_t0, 1)
         return [lines1] if lines1 else None
 
 
-# ── v1.14.184 — انتخابِ موتورِ OCRِ گوشی ─────────────────────────────
-#   تنها روش = «پدلِ رسمیِ اندروید» (SDKِ رسمیِ ppocr-android با
-#   PP-OCRv6_smallِ باندل در assetsِ APK) — MANGA_ANDROID_OCR /
+# ── v1.14.187 — انتخابِ موتورِ OCRِ گوشی ─────────────────────────────
+#   تنها روش = «RapidOCRِ اندروید» (سهگانهٔ RapidOcrAndroidOnnx با
+#   PP-OCRv4_mobileِ باندل در assetsِ APK) — MANGA_ANDROID_OCR /
 #   MANGA_MOBILE_OCR_ENGINE و مقدارهایِ کهنهٔ MANGA_K3_MODE همگی
-#   نادیده گرفته میشوند (دستورِ سازنده: «فقط از همین لینک بالا
-#   استفاده کنه»).
+#   نادیده گرفته میشوند (دستورِ سازنده: «همونو رو گوشی بزار»).
 # ── v1.14.176 — «آزمایشگاهِ سرعتِ استخراج» ────────────────────────────
 # تنظیمها از پنلِ اپ میآیند → bridge آنها را به speed_lab_env() میدهد →
 # envهایِ مانده ست/پاک میشوند. پیشفرضِ هر کلید = رفتارِ همین نسخه.
 
 _SPEED_LAB_EP = ("auto",)
-# v1.14.184 — SDKِ رسمی رویِ CPU اجرا میشود؛ EPهایِ ONNXِ قدیمی
+# v1.14.187 — RapidOCR رویِ CPU اجرا میشود؛ EPهایِ ONNXِ قدیمی
 # (nnapi/xnnpack/cpu) دیگر معنا ندارند. روشِ یگانه = padandroid.
 _SPEED_LAB_LADDER = ("padandroid",)
 
 # اسمِ فارسیِ هر روش برایِ لاگها (کلیدِ انگلیسی هم کنارش میآید تا لاگ
 # قابلِ جستجو بماند)
 _K3_MODE_FA = {
-    "padandroid": "پدلِ رسمیِ اندروید",
+    "padandroid": "رپیدِ رسمیِ اندروید",
 }
 
 # v1.14.181 — پاکسازیِ یکبارِ مصرفِ مدلهایِ ONNXِ بازنده از گوشی.
 # دستورِ سازنده: «بقیش حذف کن تو گوشی استفاده نکنه». v1.14.183 —
 # ML Kit هم کلاً حذف شد (دستور: «ml kit حذف کن خوب نیست»). v1.14.184 —
-# مدلهایِ medium هم بازنده شدند: استخراج = SDKِ رسمیِ ppocr-android
-# با PP-OCRv6_smallِ باندلشده در APK (هیچ مدلِ OCRی دانلود نمیشود).
+# مدلهایِ medium هم بازنده شدند. v1.14.187 — استخراج = RapidOCRِ
+# اندروید (RapidOcrAndroidOnnx) با سهگانهٔ PP-OCRv4_mobileِ باندلشده
+# در APK (هیچ مدلِ OCRی دانلود نمیشود).
 # سه مجموعهٔ مدلِ بازنده از پوشهٔ rapidocr_modelsِ گوشی حذف میشوند:
 #   رپید (small): PP-OCRv6_det_small[.int8]/rec_small + cls + ja/ko
 #   پدل (K3 medium): PP-OCRv6_medium_det/rec + korean v5 + ch v4
@@ -3805,9 +3814,8 @@ def _purge_loser_onnx_models() -> str:
         if os.path.isfile(_mk):
             return ""
         _names = set(_RAPIDOCR_FILES) | set(_K3_PURGE_EXTRA)
-        # v1.14.184 — مدلهایِ medium (~132MB) هم بازندهاند: موتورِ
-        # گوشی = SDKِ رسمی با PP-OCRv6_smallِ باندل در APK — هیچ فایلِ
-        # مدلی در rapidocr_models نگه داشته نمیشود.
+        # v1.14.187 — موتورِ گوشی = RapidOCR با سهگانهٔ PP-OCRv4_mobileِ
+        # باندل در APK — هیچ فایلِ مدلی در rapidocr_models نگه داشته نمیشود.
         _keep = ()
         _freed = 0
         _n = 0
@@ -3834,7 +3842,7 @@ def _purge_loser_onnx_models() -> str:
             print("[🧹] v1.14.181 — %d فایلِ مدلِ بازنده (%s) از گوشی حذف شد"
                   % (_n, _fmt_mb(_freed)))
             return ("مدلهایِ بازنده حذف شد: %d فایل / %s آزاد شد — "
-                    "روشِ فعالِ v1.14.184 = SDKِ رسمیِ PaddleOCR اندروید"
+                    "روشِ فعالِ v1.14.187 = RapidOCRِ اندروید"
                     % (_n, _fmt_mb(_freed)))
         return ""
     except Exception:
@@ -3842,15 +3850,15 @@ def _purge_loser_onnx_models() -> str:
 
 
 def speed_lab_env(p: dict) -> str:
-    """v1.14.184 — روشِ استخراجِ گوشی = SDKِ رسمیِ PaddleOCR اندروید
-    (ppocr-android با PP-OCRv6_smallِ باندل).
+    """v1.14.187 — روشِ استخراجِ گوشی = RapidOCRِ اندروید
+    (RapidOcrAndroidOnnx با سهگانهٔ PP-OCRv4_mobileِ باندل).
 
     تاریخچه: 1.14.176 سوییچهایِ پنل؛ 1.14.178 دکمهٔ «تستِ سرعت»؛
     1.14.181 forceِ برنده + پاکسازیِ مدلهایِ بازنده؛ 1.14.182/183 پدلِ
-    رسمیِ اندروید و حذفِ ML Kit؛ 1.14.184 — دستورِ سازنده: «هرروشی تو
-    گوشی واسه استخراج شده حذف کن فقط از همین لینک بالا استفاده کنه» →
-    تنها روش = SDKِ رسمی؛ پارامترِ p خوانده نمیشود (سازگاریِ امضا با
-    bridge)."""
+    رسمیِ اندروید و حذفِ ML Kit؛ 1.14.184 — تنها روش = SDKِ رسمی؛
+    1.14.187 — دستورِ سازنده: «متن هاش اشتباهه بعضی وقتا … همونو رو
+    گوشی بزار» → تنها روش = RapidOCRِ اندروید؛ پارامترِ p خوانده نمیشود
+    (سازگاریِ امضا با bridge)."""
     try:
         # کلیدهایِ قدیمیِ سوییچها هرگز از این نسخه ست نمیشوند — پاککاری
         # برایِ اینکه envِ ماندهٔ پروسههایِ قدیمی اثر نگذارد.
@@ -3858,7 +3866,7 @@ def speed_lab_env(p: dict) -> str:
                    "MANGA_CROP_DET_CAP", "MANGA_CROP_ENH_SCALE"):
             os.environ.pop(_k, None)
 
-        # v1.14.184 — SDKِ رسمی رویِ CPU اجرا میشود؛ هر EPِ کهنه پاک
+        # v1.14.187 — RapidOCR رویِ CPU اجرا میشود؛ هر EPِ کهنه پاک
         # میشود و روشِ فعال همیشه «padandroid» است.
         os.environ.pop("MANGA_MOBILE_OCR_EP", None)
         _w = speed_test_load()
@@ -3883,12 +3891,12 @@ def speed_lab_env(p: dict) -> str:
             _PAD_STATS[_k] = 0 if _k != "ms" else 0.0
 
         if _purge:
-            return ("[⚡] روشِ استخراج: SDKِ رسمیِ PaddleOCR اندروید — "
-                    "PP-OCRv6_smallِ باندل (%s)%s | v%s: %s"
+            return ("[⚡] روشِ استخراج: RapidOCRِ اندروید — "
+                    "PP-OCRv4_mobileِ باندل (%s)%s | v%s: %s"
                     % (_K3_MODE_FA.get(_lad, _lad), _ms_l,
                        APP_VER, _purge))
-        return ("[⚡] روشِ استخراج: SDKِ رسمیِ PaddleOCR اندروید — "
-                "PP-OCRv6_smallِ باندل (deploy/ppocr-android — "
+        return ("[⚡] روشِ استخراج: RapidOCRِ اندروید — "
+                "PP-OCRv4_mobileِ باندل (RapidOcrAndroidOnnx — "
                 "v%s)%s"
                 % (APP_VER, _ms_l))
     except Exception:
@@ -4032,17 +4040,17 @@ def _speed_test_window(runner, pool, per_mode, should_stop=None):
 
 def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
                    should_stop=None, backend=None):
-    """«تستِ سرعتِ استخراج» — یک پنجره رویِ روشِ یگانهٔ v1.14.184.
+    """«تستِ سرعتِ استخراج» — یک پنجره رویِ روشِ یگانهٔ v1.14.187.
 
-    ۱) تصویر ورودی باز میشود؛ SDKِ رسمیِ PaddleOCR یک پاسِ تشخیصِ
+    ۱) تصویر ورودی باز میشود؛ RapidOCRِ اندروید یک پاسِ تشخیصِ
        کاملصفحه میزند و کراپهایِ واقعیِ متن را میدهد (تا ۲۴ کراپ).
        اگر تشخیص چیزی نداد — صفحه به کاشیهایِ واقعیِ (~۵۱۲px) بریده
        میشود؛ تست هیچوقت بنبست پیدا نمیکند (v1.14.179).
-    ۲) یک پنجرهٔ روش (padandroid = SDKِ رسمیِ ppocr-android با
-       PP-OCRv6_smallِ باندل) رویِ همان کراپها؛ موتورِ واقعی
+    ۲) یک پنجرهٔ روش (padandroid = RapidOCRِ اندروید با
+       PP-OCRv4_mobileِ باندل) رویِ همان کراپها؛ موتورِ واقعی
        اندازهگیری میشود. پنجرههایِ روشها/شتاب‌دهندههایِ قدیمی
        (full/fast/rapid/paddle/flutter + cpu/xnnpack/nnapi) حذف شدند —
-       فقط یک روش وجود دارد (دستورِ سازنده: «فقط از همین لینک»).
+       فقط یک روش وجود دارد (دستورِ سازنده: «همونو رو گوشی بزار»).
     ۳) نتیجه در speed_test.json ذخیره میشود (speed_lab_env) — دیگر
        هیچ انتخابی در کار نیست؛ فقط برایِ لاگِ سازنده.
     خروجی: dictِ نتیجه (یا None با پیامِ لاگ). backend فقط برایِ تست
@@ -4082,13 +4090,13 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     _prev = speed_test_load() or {}
     _nnapi_pending = bool(_prev.get("nnapi_pending"))
 
-    # v1.14.184 — تنها موتورِ اندازهگیری = SDKِ رسمیِ PaddleOCR اندروید
+    # v1.14.187 — تنها موتورِ اندازهگیری = RapidOCRِ اندروید
     try:
         _padbe = be._build_paddle_android(lang)
     except Exception:
         _padbe = None
 
-    # ── استخرِ کراپها: یک پاسِ تشخیصِ کاملصفحه با SDKِ رسمی ──
+    # ── استخرِ کراپها: یک پاسِ تشخیصِ کاملصفحه با RapidOCR ──
     log("[⚡] استخرِ کراپهایِ واقعی از تصویر…")
     _res0 = None
     if _padbe is not None:
@@ -4161,7 +4169,7 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
                    _n, _ms))
         _speed_test_save(_res)  # بعد از هر پنجره ذخیره — کرش = از دست نمیرود
 
-    # ── v1.14.184 — پنجرههایِ شتاب‌دهنده حذف شدند: SDKِ رسمی رویِ CPU ──
+    # ── v1.14.187 — پنجرههایِ شتاب‌دهنده حذف شدند: RapidOCR رویِ CPU ──
 
     # ── برندهها + جدولها ──
     _ok_l = {k: v for k, v in _res["ladder_ms"].items() if v}
@@ -4179,7 +4187,7 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     _tbl = " | ".join("%s(%s)=%.0fms" % (_K3_MODE_FA.get(k, k), k, v)
                       for k, v in sorted(_ok_l.items(), key=lambda kv: kv[1]))
     log("[⚡] جدولِ روشها (سریع → کند): %s" % (_tbl or "—"))
-    log("[⚡] شتاب‌دهندهٔ جداگانه ندارد — SDKِ رسمی رویِ CPU با "
+    log("[⚡] شتاب‌دهندهٔ جداگانه ندارد — RapidOCR رویِ CPU با "
         "EngineConfig.numThreads اجرا میشود (v1.14.184).")
     log("[⚡] برنده: روشِ %s (%s؛ %s) → ذخیره شد (v1.14.184: تنها روش — "
         "شتاب‌دهندهٔ جداگانه ندارد)."
@@ -4207,7 +4215,7 @@ def _k3_speed_report() -> str:
         try:
             _pn = int(_PAD_STATS.get("n") or 0)
             if _pn > 0:
-                _out += (" | پدلِ رسمیِ تنهایی: میانگینِ %.0fms"
+                _out += (" | رپیدِ رسمیِ تنهایی: میانگینِ %.0fms"
                          % (float(_PAD_STATS.get("ms") or 0.0) / _pn))
         except Exception:
             pass
@@ -4477,12 +4485,12 @@ class RapidOCRBackend:
         print(f"[+] RapidOCR (ONNX, PP-OCRv3 قدیمی) آماده | lang={lang}")
 
     def _init_mobile_engine(self, lang: str) -> None:
-        """v1.14.184 — موتورِ یگانهٔ استخراجِ گوشی = SDKِ رسمیِ PaddleOCR
-        اندروید (ماژولِ رسمیِ ppocr-sdkِ وندورشده — deploy/ppocr-android
-        با PP-OCRv6_smallِ باندل در assets).
+        """v1.14.187 — موتورِ یگانهٔ استخراجِ گوشی = RapidOCRِ اندروید
+        (ppocr-sdkِ وندورشده — سهگانهٔ RapidOcrAndroidOnnx با
+        PP-OCRv4_mobileِ باندل در assets).
 
-        دستورِ سازنده: «هرروشی تو و گوشی واسه استخراج شده حذف کن فقط از
-        همین لینک بالا استفاده کنه» → همهٔ موتورهایِ دیگر (پدلِ ONNXِ
+        دستورِ سازنده: «متن هاش اشتباهه بعضی وقتا … ببین چجور به این
+        خوبی استخراج میکنه همونو رو گوشی بزار» → همهٔ موتورهایِ دیگر (پدلِ ONNXِ
         medium، رپیدِ small، فلاتر-پدلِ tiny و envهایِ کهنهٔ انتخابِ
         موتور) حذف شدند؛ فالبکی وجود ندارد — خطایِ
         ساختِ موتور = استخراجِ خالیِ صریح (با لاگ). استخراج همچنان فقط
@@ -4491,23 +4499,23 @@ class RapidOCRBackend:
         if _pb is not None:
             self._mobile = _pb
             return
-        print("[!] SDKِ رسمیِ PaddleOCR اندروید آماده نشد — استخراجِ گوشی "
+        print("[!] RapidOCRِ اندروید آماده نشد — استخراجِ گوشی "
               "خالی میماند (فالبکی نیست — همهٔ روشهایِ دیگر حذف شدند؛ "
-              "دستورِ سازنده: «فقط از همین لینک بالا استفاده کنه»)")
+              "دستورِ سازنده: «همونو رو گوشی بزار»)")
         self._mobile = None
 
     def _build_paddle_android(self, lang: str):
-        """v1.14.184 — ساختِ موتورِ «SDKِ رسمیِ PaddleOCR اندروید»
-        (ماژولِ رسمیِ ppocr-sdkِ وندورشده از deploy/ppocr-android با
-        مدلهایِ رسمیِ PP-OCRv6_smallِ باندل در assets) — دستورِ سازنده:
-        «هرروشی تو و گوشی واسه استخراج شده حذف کن فقط از همین لینک بالا
-        استفاده کنه». پلِ Kotlin = PaddleOcrBridge (پلِ نازک رویِ
-        PaddleOCR.createِ رسمی). هر خطا (APKِ قدیمی/بیلدِ ناقص) → None
+        """v1.14.187 — ساختِ موتورِ «RapidOCRِ اندروید»
+        (ppocr-sdkِ وندورشده — سهگانهٔ RapidOcrAndroidOnnx با
+        PP-OCRv4_mobileِ باندل در assets) — دستورِ سازنده:
+        «متن هاش اشتباهه بعضی وقتا … ببین چجور به این خوبی استخراج
+        میکنه همونو رو گوشی بزار». پلِ Kotlin = PaddleOcrBridge (پلِ
+        نازک رویِ RapidOcr.create). هر خطا (APKِ قدیمی/بیلدِ ناقص) → None
         (هیچ فالبکی نیست — همهٔ روشهایِ دیگر حذف شدهاند)."""
         try:
             return PaddleAndroidOCR(lang)
         except Exception as e:
-            print(f"[!] پدلِ رسمیِ اندروید آماده نشد: {str(e)[:130]}")
+            print(f"[!] RapidOCRِ اندروید آماده نشد: {str(e)[:130]}")
             return None
 
     @staticmethod
@@ -4633,8 +4641,8 @@ class RapidOCRBackend:
 # v1.14.170 — موتورِ OCRِ کراپ = ML Kit شد (پدل کامل حذف شد)؛ همین
 # قاعده پابرجاست: فقط کراپِ detector-v4-s، هیچ پاسِ تمامصفحهای نیست.
 # v1.14.183 — ML Kit هم کامل حذف شد (پلِ MlKitBridge.kt + وابستگیهایِ
-# com.google.mlkit از APK)؛ موتورِ کراپ = پدلِ رسمیِ اندروید (PP-OCRv6
-# medium) — قاعدهٔ «فقط کراپِ detector-v4-s» پابرجاست.
+# com.google.mlkit از APK)؛ موتورِ کراپ = رپیدِ رسمیِ اندروید (PP-OCRv4_mobile)
+# — قاعدهٔ «فقط کراپِ detector-v4-s» پابرجاست.
 # ═══════════════════════════════════════════════════════════════════════
 
 def _dual_device_enabled() -> bool:
@@ -4686,7 +4694,7 @@ def _android_like_env() -> bool:
 # v1.14.110 — گاردِ کرشِ nativeِ Paddle-Lite رویِ گوشی: سیگ‌فالت از
 # لاگ‌گیرِ جاوای اپ رد نمیشود → قبل از کارِ خطرناکِ native ردپا
 # میگذاریم؛ اگر پروسه مرد، استارتِ بعدیِ اپ لاگ را نشان میدهد و
-# موتورِ جایگزین (پدلِ رسمی/ONNX) میآید — درخواستِ کاربر: «لاگ بزنه
+# موتورِ جایگزین (رپیدِ رسمیِ اندروید/ONNX) میآید — درخواستِ کاربر: «لاگ بزنه
 # کرش کنه، مجدد اپ باز کردم لاگ کرشش بیاد»
 def _on_android() -> bool:
     try:
@@ -6069,8 +6077,8 @@ class MangaTranslator:
             # تمامصفحه. استخراجِ متنِ گوشی = همان سبکِ PC/لینوکس:
             # detector-v4-s_int8.onnx مکانِ متن را پیدا میکند و OCR فقط
             # رویِ همان کراپها اجرا میشود.
-            # v1.14.170→183 — موتورِ OCRِ کراپ = پدلِ رسمیِ اندروید
-            # (PP-OCRv6 mediumِ نیتیو؛ ML Kitِ قبلی کامل حذف شد).
+            # v1.14.170→187 — موتورِ OCRِ کراپ = رپیدِ رسمیِ اندروید
+            # (PP-OCRv4_mobileِ ONNX؛ ML Kitِ قبلی کامل حذف شد).
             try:
                 self.ocr = RapidOCRBackend(
                     lang=main_lang, prefer_gpu=self.use_gpu)
@@ -6119,7 +6127,7 @@ class MangaTranslator:
                 # خورده بود و با workers=2 ناخواسته کند میشد)
                 threads=4 if _on_android() else max(1, int(self.max_workers or 2)),
                 # v1.14.123 — multi_scale رویِ اندروید هم (عینِ PC) وقتی
-                # موتورِ OCR = PP-OCRv6 ONNX است. کیفیتِ تشخیصِ حباب = PC.
+                # موتورِ OCR = PP-OCRv4_mobileِ ONNX است. کیفیتِ تشخیصِ حباب = PC.
                 multi_scale=(not _IS_ANDROID)
                             or (self._ocr_backend_name == "rapidocr"),
             )

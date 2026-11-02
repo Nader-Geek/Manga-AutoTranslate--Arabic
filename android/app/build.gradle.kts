@@ -12,8 +12,8 @@ android {
         applicationId = "com.amirwolf.mangatranslator"
         minSdk = 24
         targetSdk = 34
-        versionCode = 191
-        versionName = "1.14.186"
+        versionCode = 192
+        versionName = "1.14.187"
 
         val buildAbis = ((findProperty("appAbis") as String?)
             ?: "arm64-v8a,armeabi-v7a")
@@ -85,16 +85,19 @@ chaquopy {
     }
 }
 
-// v1.14.184 — موتورِ OCRِ گوشی = SDKِ رسمیِ PaddleOCR اندروید، بیت‌به‌بیت
-// (ماژولِ :ppocr-sdk وندورشده از PaddleOCR/deploy/ppocr-android — پرتِ
-// رسمیِ paddleocr.ai …/android_deployment.html). دستورِ سازنده:
-// «هرروشی تو و گوشی واسه استخراج شده حذف کن فقط از همین لینک بالا
-// استفاده کنه» → پرتِ دستیِ ONNXِ 182/183 (که هیچ متنی برنمیگرداند)
-// کامل حذف شد و پلِ PaddleOcrBridge.kt حالا فقط پلِ نازک رویِ
-// PaddleOCR.createِ رسمی است. مدلهایِ رسمیِ PP-OCRv6_small (det 9.9MB +
-// rec 21.2MB + inference.yml) زمانِ بیلدِ CI از HuggingFaceِ رسمی
-// دانلود و در assetsِ APK باندل میشوند (هیچ دانلودِ زمانِ اجرایی —
-// آفلاین هم کار میکند). ML Kit از 183 کامل حذف است.
+// v1.14.187 — موتورِ OCRِ گوشی = RapidOCRِ اندروید (RapidOcrAndroidOnnx)
+// دستورِ سازنده: «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا
+// ۱.۱۴.۱۸۶ … ببین چجور به این خوبی استخراج میکنه همونو رو گوشی بزار …
+// نمیشه یک زبان انتخاب کرد مثلا انگلیسی بزارم». سهگانهٔ
+// ch_PP-OCRv4_det_mobile + ch_ppocr_mobile_v2.0_cls +
+// ch_PP-OCRv4_rec_mobile (+ واریانتهایِ en/ja/ko + دیکشنریها) داخلِ
+// ماژولِ :ppocr-sdk رویِ همان ORTِ رسمی (1.21.1) اجرا میشود؛ پلِ
+// PaddleOcrBridge.kt فقط پلِ نازک رویِ RapidOcr.create است (هیچ
+// ORT/پردازشی از خودش ندارد). مدلها زمانِ بیلدِ CI از ModelScopeِ
+// رسمیِ RapidAI/RapidOCR (v3.9.2) دانلود و در assetsِ APK باندل
+// میشوند (هیچ دانلودِ زمانِ اجرایی — آفلاین هم کار میکند).
+// انتخابِ زبان = تعویضِ داغِ سشنِ rec با واریانتِ زبانِ هر کراپ.
+// ML Kit از 183 کامل حذف است.
 dependencies {
     // v1.14.184 — وابستگیِ مستقیمِ ORT از app حذف شد: ORT فقط مالِ
     // SDKِ رسمی است (نسخهٔ رسمیِ 1.21.1 داخلِ :ppocr-sdk؛ رویِ شبیهسازِ

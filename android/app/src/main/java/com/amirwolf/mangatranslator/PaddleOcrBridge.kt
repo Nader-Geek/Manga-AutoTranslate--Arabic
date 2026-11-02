@@ -1,32 +1,40 @@
-// v1.14.184 — پلِ استخراجِ متنِ گوشی = SDKِ رسمیِ PaddleOCR اندروید
+// v1.14.187 — پلِ استخراجِ متنِ گوشی = RapidOCRِ اندروید (ONNXِ خالص)
 // ═══════════════════════════════════════════════════════════════════════
-// دستورِ سازنده (نقلِ مستقیم):
-//   «استفاده نکرد از onnx استخراج نزد هرروشی تو و گوشی واسه استخراج
-//    شده حذف کن فقط از همین لینک بالا استفاده کنه»
-// لینکِ رسمی:
-//   https://www.paddleocr.ai/latest/en/version3.x/inference_deployment/
-//   cross_platform/android_deployment.html
+// دستورِ سازنده (v1.14.187 — نقلِ مستقیم):
+//   «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا ۱.۱۴.۱۸۶
+//    https://github.com/RapidAI/RapidOcrAndroidOnnx ببین چجور به این
+//    خوبی استخراج میکنه همونو رو گوشی بزار … این خیلی خوب استخراج میزنه
+//    متن هاش خوب در میاره فقط مشکلش این ک همه زبانس نمیشه یک زبان
+//    انتخاب کرد مثلا انگلیسی بزارم»
 //
-//   • موتورِ قبلی (پرتِ دستیِ ONNX با PP-OCRv6 medium که رویِ گوشی هیچ
-//     متنی برنگرداند) کامل حذف شد — این فایل دیگر هیچ ONNX/پردازشی از
-//     خودش ندارد؛ فقط یک پلِ نازک رویِ ماژولِ رسمیِ «ppocr-sdk» است که
-//     بیت‌به‌بیت از PaddleOCR/deploy/ppocr-android وندور شده:
-//     DetPreprocessor → DBPostProcessor → QuadTextCrop →
-//     RecPreprocessor → CTCDecoder (کدِ com.paddle.ocr رسمی).
-//   • مدلها = رسمیِ PP-OCRv6_small (det 9.9MB + rec 21.2MB +
-//     inference.yml) باندلشده در assets/models/{det,rec}/ — زمانِ بیلدِ
-//     CI از HuggingFaceِ رسمی دانلود میشوند؛ رویِ گوشی هیچ دانلودِ
-//     زمانِ اجرایی در کار نیست و آفلاین هم کار میکند.
-//   • شکلِ پیکربندی = عینِ بخشِ «SDK Integration» READMEِ رسمی:
-//     PaddleOCR.create(context, PaddleOCRConfig(), EngineConfig(threads),
-//     "models/det/inference.onnx", "models/rec/inference.onnx",
-//     "models/rec/inference.yml") + OpenCVUtils.init(context).
+//   • موتور = سهگانهٔ RapidOcrAndroidOnnx داخلِ ماژولِ ppocr-sdk
+//     (det: ch_PP-OCRv4_det_mobile + cls: ch_ppocr_mobile_v2.0_cls +
+//     rec: ch_PP-OCRv4_rec_mobile + دیکشنریِ متنی) — بیت‌به‌بیتِ همان
+//     پیشپردازش/پسپردازش (DB dilate 2×2، clsِ 192×48، recِ ارتفاعِ ۴۸ +
+//     CTCِ blank=۰) رویِ همان ORTِ 1.21.1. این پل فقط پلِ نازک است و
+//     هیچ ORT/پردازشی از خودش ندارد (قراردادِ v1.14.184 پابرجاست).
+//   • مدلها زمانِ بیلدِ CI از ModelScopeِ رسمیِ RapidAI/RapidOCR
+//     (v3.9.2) دانلود و در assetsِ APK باندل میشوند — هیچ دانلودِ
+//     زمانِ اجرایی در کار نیست و آفلاین هم کار میکند:
+//       models/det/inference.onnx      (ch_PP-OCRv4_det_mobile 4.5MB)
+//       models/cls/inference.onnx      (ch_ppocr_mobile_v2.0_cls 0.6MB)
+//       models/rec/inference.onnx      (ch_PP-OCRv4_rec_mobile 10.4MB)
+//       models/rec/dict.txt            (ppocr_keys_v1.txt)
+//       models/rec_en/inference.onnx   (en_PP-OCRv4_rec_mobile 7.3MB)
+//       models/rec_en/dict.txt         (en_dict.txt)
+//       models/rec_ja/inference.onnx   (japan_PP-OCRv4_rec_mobile 9.3MB)
+//       models/rec_ja/dict.txt         (japan_dict.txt)
+//       models/rec_ko/inference.onnx   (korean_PP-OCRv4_rec_mobile 23MB)
+//       models/rec_ko/dict.txt         (korean_dict.txt)
+//   • انتخابِ زبان (خلافِ دموی RapidOcrAndroidOnnx که «همه زبان» است):
+//     manga.py زبانِ هر کراپ را در recognizeAuto(png, lang, w, h)
+//     میفرستد؛ این پل سشنِ rec را رویِ واریانتِ همان زبان گرم میکند:
+//       latin→rec_en ، ja→rec_ja ، ko→rec_ko ، zh/سایر→rec_ch (پیشفرض)
 //   • قراردادِ خروجی = همان سطرهایِ META همیشه
 //     (META|lang|n + ang|conf|box|text|blk) تا manga.py
 //     (PaddleAndroidOCR) بدونِ تغییرِ پارسر وصل شود.
-//   • thread-safety: SDKِ رسمی در هر run ماتریسهایِ خودش را میسازد؛
-//     برایِ حذفِ هر رقابتِ احتمالی، همهٔ recognizeها با یک قفل
-//     سری میشوند (کرانکِ OCRِ پایتون چندکارگری است).
+//   • thread-safety: همهٔ recognizeها با یک قفل سری میشوند (کرانکِ
+//     OCRِ پایتون چندکارگری است) — تعویضِ زبان هم زیرِ همان قفل.
 // ═══════════════════════════════════════════════════════════════════════
 
 package com.amirwolf.mangatranslator
@@ -34,8 +42,7 @@ package com.amirwolf.mangatranslator
 import android.content.Context
 import android.util.Log
 import com.paddle.ocr.EngineConfig
-import com.paddle.ocr.PaddleOCR
-import com.paddle.ocr.PaddleOCRConfig
+import com.paddle.ocr.RapidOcr
 import com.paddle.ocr.util.OpenCVUtils
 import kotlinx.coroutines.runBlocking
 
@@ -43,31 +50,48 @@ object PaddleOcrBridge {
 
     private const val TAG = "PaddleOcrBridge"
 
-    // مسیرهایِ رسمیِ READMEِ ppocr-android (بخشِ «SDK Integration»)
+    // مسیرهایِ assets — عینِ چیدمانِ v1.14.184 (build.yml مدلها را همینجا
+    // میریزد) + cls و واریانتهایِ زبانِ جدیدِ v1.14.187
     private const val DET_ASSET = "models/det/inference.onnx"
+    private const val CLS_ASSET = "models/cls/inference.onnx"
     private const val REC_ASSET = "models/rec/inference.onnx"
-    private const val REC_YML_ASSET = "models/rec/inference.yml"
+    private const val REC_DICT_ASSET = "models/rec/dict.txt"
+
+    // واریانتهایِ زبانِ rec — «نمیشه یک زبان انتخاب کرد مثلا انگلیسی
+    // بزارم» (سازنده) — ch = پیشفرضِ همهٔ زبانهایِ ناشناخته
+    private val LANG_VARIANTS: Map<String, Pair<String, String>> = mapOf(
+        "latin" to ("models/rec_en/inference.onnx" to "models/rec_en/dict.txt"),
+        "ja" to ("models/rec_ja/inference.onnx" to "models/rec_ja/dict.txt"),
+        "ko" to ("models/rec_ko/inference.onnx" to "models/rec_ko/dict.txt"),
+    )
+
+    /** واریانتِ پیشفرض (ch — en هم داخلش هست) برایِ zh/ناشناخته. */
+    private val DEFAULT_VARIANT: Pair<String, String> =
+        REC_ASSET to REC_DICT_ASSET
 
     @Volatile
-    private var engine: PaddleOCR? = null
+    private var engine: RapidOcr? = null
 
     @Volatile
     private var ctx: Context? = null
+
+    @Volatile
+    private var currentVariant: String = "ch"
 
     private val lock = Any()
 
     /** MtApp در onCreateِ کلِ اپ این را صدا میزند (قبل از هر Activity). */
     @JvmStatic
     fun hold(context: Context) {
-        // Context فقط برایِ سازندهٔ SDK لازم است — همینجا نگهش میداریم
+        // Context فقط برایِ سازندهٔ موتور لازم است — همینجا نگهش میداریم
         // تا init() بدونِ پارامترِ Context از پایتون صدا شود.
         if (ctx == null) ctx = context.applicationContext
     }
 
     /**
-     * v1.14.184 — ساختِ موتورِ رسمی (PP-OCRv6_smallِ باندل).
-     * [numThreads] = EngineConfig.numThreadsِ رسمی (پیشفرضِ رسمی ۴).
-     * true = موتورِ رسمی آماده است؛ false = هیچ فالبکی نیست — manga.py
+     * v1.14.187 — ساختِ موتورِ RapidOCR (سهگانهٔ PP-OCRv4_mobileِ باندل).
+     * [numThreads] = EngineConfig.numThreads (پیشفرض ۴).
+     * true = موتور آماده است؛ false = هیچ فالبکی نیست — manga.py
      * استخراجِ خالی میبیند و پیامِ خطا چاپ میشود.
      */
     @JvmStatic
@@ -78,22 +102,23 @@ object PaddleOcrBridge {
             return false
         }
         return try {
-            // یادداشتِ رسمیِ README: «Call OpenCVUtils.init(context)
-            // before PaddleOCR.create()»
+            // یادداشتِ رسمیِ ppocr-android: OpenCVUtils.init(context)
+            // قبل از ساختِ هر موتوری (کلاسهایِ Mat/OpenCV)
             OpenCVUtils.init(context)
             val threads = numThreads.coerceIn(1, 8)
             engine = runBlocking {
-                PaddleOCR.create(
+                RapidOcr.create(
                     context = context,
-                    config = PaddleOCRConfig(),
                     engineConfig = EngineConfig(numThreads = threads),
                     detModelAssetPath = DET_ASSET,
+                    clsModelAssetPath = CLS_ASSET,
                     recModelAssetPath = REC_ASSET,
-                    recConfigAssetPath = REC_YML_ASSET,
+                    recDictAssetPath = REC_DICT_ASSET,
                 )
             }
-            Log.i(TAG, "PaddleOCR SDK (official ppocr-android) ready — " +
-                    "PP-OCRv6_small, threads=$threads")
+            currentVariant = "ch"
+            Log.i(TAG, "RapidOCR (RapidOcrAndroidOnnx pipeline) ready — " +
+                    "PP-OCRv4_mobile det+cls+rec, threads=$threads")
             true
         } catch (t: Throwable) {
             Log.e(TAG, "init failed", t)
@@ -106,18 +131,38 @@ object PaddleOcrBridge {
     fun ready(): Boolean = engine != null
 
     /**
+     * زبانِ META → واریانتِ rec. zh/ناشناخته = ch (پیشفرض) — همیشه جفتِ
+     * معتبر برمیگردد تا تعویضِ برگشت (مثلاً ja→zh) هم انجام شود.
+     */
+    private fun variantFor(lang: String): Pair<String, Pair<String, String>> {
+        val key = lang.lowercase().trim()
+        val variant = LANG_VARIANTS[key] ?: DEFAULT_VARIANT
+        return if (LANG_VARIANTS.containsKey(key)) key to variant
+        else "ch" to variant
+    }
+
+    /**
      * کراپ (PNG/JPEG) → سطرهایِ META.
      * قرارداد: سطرِ اول «META|lang|n»؛ بعد هر خطِ متن:
      *   ang|conf|x1,y1,x2,y2,x3,y3,x4,y4|text|blk
-     * ang/blk همیشه 0 — SDKِ رسمیِ v6 خودش کراپِ چرخیده را داخلِ
-     * det/rec هندل میکند و زاویهٔ جداگانه گزارش نمیکند.
-     * هر خطا → null (manga.py خروجیِ خالی میبیند — فالبکی نیست).
+     * ang/blk همیشه 0 — چرخشِ ۱۸۰ داخلِ موتور با cls هندل میشود و
+     * زاویهٔ جداگانه گزارش نمیکند.
+     * هر خطا → سطرِ ERR (manga.py خروجیِ خالی میبیند — فالبکی نیست).
      */
     @JvmStatic
     fun recognizeAuto(png: ByteArray, lang: String, w: Int, h: Int):
             Array<String>? = synchronized(lock) {
         val eng = engine ?: return null
         try {
+            // انتخابِ زبانِ rec — تعویضِ داغِ سشن فقط وقتی واریانت عوض شود
+            val (variantKey, variant) = variantFor(lang)
+            if (variantKey != currentVariant) {
+                runBlocking {
+                    eng.setLanguageVariant(variant.first, variant.second)
+                }
+                currentVariant = variantKey
+                Log.i(TAG, "rec variant → $variantKey (lang=$lang)")
+            }
             val res = runBlocking { eng.recognize(png) }
             val items = res.results
             val out = ArrayList<String>(items.size + 1)
@@ -139,17 +184,18 @@ object PaddleOcrBridge {
             }
             out.toTypedArray()
         } catch (t: Throwable) {
-            // v1.14.184 — خطا → سطرِ تشخیصیِ ERR (پارسرِ manga.py آن را
-            // مثلِ خروجیِ خالی میبیند) تا سلف‌تست/لاگ، ریشه را نشان دهد
+            // خطا → سطرِ تشخیصیِ ERR (پارسرِ manga.py آن را مثلِ
+            // خروجیِ خالی میبیند) تا سلف‌تست/لاگ، ریشه را نشان دهد
             Log.e(TAG, "recognize failed", t)
             arrayOf("ERR|" + t.javaClass.simpleName + "|" +
                     (t.message ?: "no message").replace("|", " "))
         }
     }
 
-    /** نسخهٔ کوتاه برایِ لاگِ manga.py (کدام SDK رویِ گوشی است). */
+    /** نسخهٔ کوتاه برایِ لاگِ manga.py (کدام موتور رویِ گوشی است). */
     @JvmStatic
-    fun sdkInfo(): String = "ppocr-android SDK (official) — PP-OCRv6_small"
+    fun sdkInfo(): String =
+        "RapidOCR ONNX (RapidOcrAndroidOnnx pipeline) — PP-OCRv4_mobile"
 
     private fun fmt(v: Float): String =
         if (v == v.toLong().toFloat()) v.toLong().toString()

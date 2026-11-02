@@ -54,7 +54,7 @@ if not os.path.isfile(kt2):
     fail("PaddleOcrBridge.kt نیست")
 k = io.open(kt2, encoding="utf-8", errors="ignore").read()
 # v1.14.184 — پلِ نازک رویِ SDKِ رسمی (بدونِ هیچ ORTِ مستقیم)
-for s in ("fun recognizeAuto(", "PaddleOCR.create", "com.paddle.ocr",
+for s in ("fun recognizeAuto(", "RapidOcr.create", "com.paddle.ocr",
           "META|", "models/det/inference.onnx"):
     if s not in k:
         fail(f"PaddleOcrBridge.kt محتوایِ لازم را ندارد: {s!r}")

@@ -53,7 +53,7 @@ if "MlKitCropOCR" in cls or "class MlKitCropOCR" in src:
 kt = io.open(os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
                                 "mangatranslator/PaddleOcrBridge.kt"),
              encoding="utf-8", errors="ignore").read()
-for s in ("fun recognizeAuto(", "PaddleOCR.create", "com.paddle.ocr"):
+for s in ("fun recognizeAuto(", "RapidOcr.create", "com.paddle.ocr"):
     if s not in kt:
         fail(f"PaddleOcrBridge.kt ناقص است: {s!r}")
 if "ai.onnxruntime" in kt:

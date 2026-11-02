@@ -78,23 +78,40 @@ jobs:
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 
-      # v1.14.184 — مدلهایِ رسمیِ PP-OCRv6_small (deploy/ppocr-android)
-      # باندل در assetsِ APK — SDKِ رسمی از context.assets میخواند
-      - name: Fetch official ppocr-android models (PP-OCRv6_small)
+      # v1.14.187 — مدلهایِ RapidOCR (RapidOcrAndroidOnnx) از
+      # ModelScopeِ رسمیِ RapidAI/RapidOCR (v3.9.2) — باندل در assetsِ APK
+      - name: Fetch RapidOCR models (PP-OCRv4_mobile — RapidOcrAndroidOnnx)
         run: |
-          mkdir -p android/app/src/main/assets/models/det \
-                   android/app/src/main/assets/models/rec
-          curl -fL --retry 3 --max-time 600 \
-            -o android/app/src/main/assets/models/det/inference.onnx \
-            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx"
-          curl -fL --retry 3 --max-time 600 \
-            -o android/app/src/main/assets/models/rec/inference.onnx \
-            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.onnx"
-          curl -fL --retry 3 --max-time 600 \
-            -o android/app/src/main/assets/models/rec/inference.yml \
-            "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.yml"
-          test $(stat -c%s android/app/src/main/assets/models/det/inference.onnx) -gt 5000000
-          test $(stat -c%s android/app/src/main/assets/models/rec/inference.onnx) -gt 10000000
+          base="https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2"
+          A=android/app/src/main/assets/models
+          mkdir -p $A/det $A/cls $A/rec $A/rec_en $A/rec_ja $A/rec_ko
+          curl -fL --retry 3 --max-time 600 -o $A/det/inference.onnx \
+            "$base/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/cls/inference.onnx \
+            "$base/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile/ppocr_keys_v1.txt"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_en/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/en_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_en/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/en_PP-OCRv4_rec_mobile/en_dict.txt"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ja/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/japan_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ja/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/japan_PP-OCRv4_rec_mobile/japan_dict.txt"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ko/inference.onnx \
+            "$base/onnx/PP-OCRv4/rec/korean_PP-OCRv4_rec_mobile.onnx"
+          curl -fL --retry 3 --max-time 600 -o $A/rec_ko/dict.txt \
+            "$base/paddle/PP-OCRv4/rec/korean_PP-OCRv4_rec_mobile/korean_dict.txt"
+          test $(stat -c%s $A/det/inference.onnx) -gt 3000000
+          test $(stat -c%s $A/cls/inference.onnx) -gt 300000
+          test $(stat -c%s $A/rec/inference.onnx) -gt 8000000
+          test $(stat -c%s $A/rec/dict.txt) -gt 20000
+          test $(stat -c%s $A/rec_en/inference.onnx) -gt 5000000
+          test $(stat -c%s $A/rec_ja/inference.onnx) -gt 7000000
+          test $(stat -c%s $A/rec_ko/inference.onnx) -gt 15000000
 
       - name: Inject version from VERSION
         run: |
@@ -312,8 +329,8 @@ jobs:
           # v1.14.171 — img6.jpg = صفحهٔ ناراضیِ کاربر: متنِ گوشهٔ
           # بالا-چپِ «you're the real attraction here.» با موتورِ آن
           # روزِ گوشی (ML Kit) پیدا نمیشد → از v1.14.183 با موتورِ رسمیِ
-          # اندروید (PP-OCRv6 medium) باید برگردد؛ گیتِ کلمهٔ
-          # «attraction» آن را الزامی میکند.
+          # اندروید (PP-OCRv4_mobile) باید برگردد؛ گیتِ کلمهٔ
+          # «Youre» (you're — خوانشِ پایدارِ v4) آن را الزامی میکند.
           EXT_SET="img4.jpg:en up0929_zh.jpg:zh_en up0904_en.jpg:en up0822_en.jpg:en lang_ja_bw.jpg:ja_en lang_ja_color.jpg:ja_en lang_ko.jpg:ko_en lang_zh.jpg:zh_en img6.jpg:en"
           for tok in $EXT_SET; do
             F="${tok%%:*}"; L="${tok#*:}"; L="${L//_/ }"
@@ -367,7 +384,7 @@ jobs:
               echo "::warning::$F — OpenCV fallback in cleanup"
             fi
             # ── v1.14.170/184 — گیتِ استخراجِ چندزبانهٔ موتورِ گوشی: متنِ واقعیِ هر زبان باید
-            # خوانده شده باشد؛ img6 کلمهٔ «attraction» را هم الزامی میکند
+            # خوانده شده باشد؛ img6 کلمهٔ «Youre» را هم الزامی میکند
             # دستورِ سازنده: «همه زبان هارو خوب بتونه استخراج کنه انگلیسی
             # ژاپنی کره چینی … رو GitHub action تست کن» + «فقط از همین لینک»
             # v1.14.184 — زبانِ کره‌ای: هر سه مدلِ رسمیِ پرتِ اندروید
@@ -376,7 +393,7 @@ jobs:
             # است که دستورِ «فقط همین لینک» آن را حذف کرده → برایِ صفحهٔ
             # ko فقط گیتِ «PDF کاملِ بدونِ کرش» اعمال میشود.
             _WORD171=""
-            if [ "$F" = "img6.jpg" ]; then _WORD171="attraction"; fi
+            if [ "$F" = "img6.jpg" ]; then _WORD171="Youre"; fi
             if [ "$F" = "lang_ko.jpg" ]; then
               echo "[i] $F — official ppocr rec has no hangul; PDF-only gate"
             else

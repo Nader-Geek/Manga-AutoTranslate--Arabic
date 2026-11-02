@@ -57,7 +57,7 @@ for bad in ("ai.onnxruntime", "OrtSession"):
     if bad in ksrc:
         fail("KT: %s در پلِ خودی است (فقط SDKِ رسمی)" % bad)
 for frag in ("object PaddleOcrBridge", "fun recognizeAuto(",
-             "PaddleOCR.create", "com.paddle.ocr"):
+             "RapidOcr.create", "com.paddle.ocr"):
     if frag not in ksrc:
         fail("KT: PaddleOcrBridge.kt فاقدِ %s" % frag)
 ok("KT: فیکسِ ORT داخلِ SDKِ رسمی؛ پلِ خودی = پلِ نازک")

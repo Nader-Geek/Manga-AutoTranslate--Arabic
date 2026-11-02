@@ -75,7 +75,7 @@ left = sorted(os.listdir(d))
 assert left == [".onnx_loser_models_purged_184", "keep.bin"], left
 assert os.path.isfile(os.path.join(
     d, ".onnx_loser_models_purged_184"))
-assert "v1.14.184" in ret, ret
+assert ("v1.14.184" in ret or "v1.14.187" in ret), ret
 print("PURGE_OK")
 '''
 with tempfile.TemporaryDirectory() as td:
