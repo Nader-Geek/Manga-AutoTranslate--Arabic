@@ -91,9 +91,9 @@ if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env پاکسازی را صدا نمیزند")
 if "RapidOCRِ اندروید" not in _lab \
         or ("v1.14.184" not in _lab and "v1.14.185" not in _lab
-            and "v1.14.187" not in _lab) \
-        or "PP-OCRv4_mobile" not in _lab:
-    fail("L: پیامِ «SDKِ رسمیِ PaddleOCR اندروید / v1.14.184» در "
+            and "v1.14.187" not in _lab and "v1.14.188" not in _lab) \
+        or "PP-OCRv6" not in _lab:
+    fail("L: پیامِ «RapidOCRِ اندروید / v1.14.188» در "
          "speed_lab_env نیست")
 ok("L: speed_lab_env = SDKِ رسمیِ PaddleOCR اندروید "
    "(PP-OCRv6_smallِ باندل) + پاکسازی")
@@ -109,8 +109,10 @@ for _u in ("PP-OCRv6_medium_det_onnx.onnx", "PP-OCRv6_medium_rec_onnx.onnx",
 if ("https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx"
         not in src) or ("/resolve/main/inference.yml" not in src):
     fail("M: آدرسِ رسمیِ inference.yml در _RAPIDOCR_FILES نیست")
-if src.count("_rapidocr_model_pair(lang, small=True)") < 2:
-    fail("PC: RapidOCRBackend (PC) باید مثلِ قبل small=True بگیرد")
+if src.count("_rapidocr_model_pair(") < 2 \
+        or src.count("small=_pc_ocr_small()") < 2:
+    fail("PC: هر دو call-site باید از _pc_ocr_small() بگیرند "
+         "(v1.14.188 — PC = ستِ medium؛ امولاتور/MANGA_OCR_SMALL = سبک)")
 if "def _ensure_rapidocr_models(mdir, files=None):" not in src:
     fail("PC: امضای _ensure_rapidocr_models عوض شده")
 ok("PC: مدلهایِ PC بیت‌به‌بیت + ymlِ رسمیِ medium اضافه شد")
@@ -122,7 +124,7 @@ _cls = src[src.index("class PaddleAndroidOCR:"):]
 _cls = _cls[:_cls.index("\nclass ", 10)]
 for _frag in ("com.amirwolf.mangatranslator.PaddleOcrBridge",
               "self._bridge.init(_intra)", "recognizeAuto(",
-              "startswith(\"META\")", "PP-OCRv4_mobile",
+              "startswith(\"META\")", "PP-OCRv6",
               "باندلِ APK"):
     if _frag not in _cls:
         fail("E: PaddleAndroidOCR فاقدِ %s" % _frag)
@@ -267,7 +269,7 @@ assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, os.environ.get(
     "MANGA_MOBILE_OCR_EP")
 assert "RapidOCRِ اندروید" in ret, ret
 assert ("v1.14.184" in ret or "v1.14.185" in ret
-        or "v1.14.187" in ret), ret
+        or "v1.14.187" in ret or "v1.14.188" in ret), ret
 
 # برندهٔ کهنهٔ flutter/mlkit در فایل هم مهم نیست — forceِ padandroid
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:

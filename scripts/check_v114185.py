@@ -54,20 +54,20 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, v = ln.strip().partition("=")
         _v[k.strip()] = v.strip()
-    gate(_v.get("versionCode") == "192"
-         and _v.get("versionName") == "1.14.187",
-         "G: VERSION = 1.14.187 / versionCode=192 (مهاجرتِ 187)")
+    gate(_v.get("versionCode") == "193"
+         and _v.get("versionName") == "1.14.188",
+         "G: VERSION = 1.14.187 / versionCode=193 (مهاجرتِ 187)")
 except Exception as e:
     fail(f"G: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 192' in _gradle
-     and 'versionName = "1.14.187"' in _gradle,
+gate('versionCode = 193' in _gradle
+     and 'versionName = "1.14.188"' in _gradle,
      "G: build.gradle.kts = 192 / 1.14.187 (مهاجرتِ 187)")
 
 _manga = open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.187"' in _manga,
-     "G: APP_VERِ manga.py = 1.14.187 (مهاجرتِ 187)")
+gate('APP_VER = "1.14.188"' in _manga,
+     "G: APP_VERِ manga.py = 1.14.188 (مهاجرتِ 188)")
 
 # ── A. ترتیبِ خط/ستون ───────────────────────────────────────────────
 gate("_rh185 = max(8.0, _medhS185 * 0.75)" in _manga,

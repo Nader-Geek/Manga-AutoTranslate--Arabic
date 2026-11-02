@@ -78,25 +78,23 @@ jobs:
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 
-      # v1.14.187 — مدلهایِ RapidOCR (RapidOcrAndroidOnnx) از
-      # ModelScopeِ رسمیِ RapidAI/RapidOCR (v3.9.2) — باندل در assetsِ APK
-      - name: Fetch RapidOCR models (PP-OCRv4_mobile — RapidOcrAndroidOnnx)
+      # v1.14.188 — مدلهایِ RapidOCR (PP-OCRv6): detِ small (همان PC) +
+      # recِ MEDIUM (دستورِ صریحِ سازنده) از ریلیزِ modelsِ خودمان +
+      # cls/ja/ko از ModelScopeِ رسمی — باندل در assetsِ APK
+      - name: Fetch RapidOCR models (PP-OCRv6 — det small + rec MEDIUM)
         run: |
           base="https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2"
+          rel="https://github.com/amirwolf512k/Manga-AutoTranslate/releases/download/models"
           A=android/app/src/main/assets/models
-          mkdir -p $A/det $A/cls $A/rec $A/rec_en $A/rec_ja $A/rec_ko
+          mkdir -p $A/det $A/cls $A/rec $A/rec_ja $A/rec_ko
           curl -fL --retry 3 --max-time 600 -o $A/det/inference.onnx \
-            "$base/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx"
+            "$base/onnx/PP-OCRv6/det/PP-OCRv6_det_small.onnx"
+          curl -fL --retry 3 --max-time 900 -o $A/rec/inference.onnx \
+            "$rel/PP-OCRv6_medium_rec_onnx.onnx"
+          curl -fL --retry 3 --max-time 300 -o $A/rec/dict.txt \
+            "$rel/ppocrv6_chars.txt"
           curl -fL --retry 3 --max-time 600 -o $A/cls/inference.onnx \
             "$base/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx"
-          curl -fL --retry 3 --max-time 600 -o $A/rec/inference.onnx \
-            "$base/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx"
-          curl -fL --retry 3 --max-time 600 -o $A/rec/dict.txt \
-            "$base/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile/ppocr_keys_v1.txt"
-          curl -fL --retry 3 --max-time 600 -o $A/rec_en/inference.onnx \
-            "$base/onnx/PP-OCRv4/rec/en_PP-OCRv4_rec_mobile.onnx"
-          curl -fL --retry 3 --max-time 600 -o $A/rec_en/dict.txt \
-            "$base/paddle/PP-OCRv4/rec/en_PP-OCRv4_rec_mobile/en_dict.txt"
           curl -fL --retry 3 --max-time 600 -o $A/rec_ja/inference.onnx \
             "$base/onnx/PP-OCRv4/rec/japan_PP-OCRv4_rec_mobile.onnx"
           curl -fL --retry 3 --max-time 600 -o $A/rec_ja/dict.txt \
@@ -105,11 +103,10 @@ jobs:
             "$base/onnx/PP-OCRv4/rec/korean_PP-OCRv4_rec_mobile.onnx"
           curl -fL --retry 3 --max-time 600 -o $A/rec_ko/dict.txt \
             "$base/paddle/PP-OCRv4/rec/korean_PP-OCRv4_rec_mobile/korean_dict.txt"
-          test $(stat -c%s $A/det/inference.onnx) -gt 3000000
+          test $(stat -c%s $A/det/inference.onnx) -gt 8000000
           test $(stat -c%s $A/cls/inference.onnx) -gt 300000
-          test $(stat -c%s $A/rec/inference.onnx) -gt 8000000
-          test $(stat -c%s $A/rec/dict.txt) -gt 20000
-          test $(stat -c%s $A/rec_en/inference.onnx) -gt 5000000
+          test $(stat -c%s $A/rec/inference.onnx) -gt 60000000
+          test $(stat -c%s $A/rec/dict.txt) -gt 60000
           test $(stat -c%s $A/rec_ja/inference.onnx) -gt 7000000
           test $(stat -c%s $A/rec_ko/inference.onnx) -gt 15000000
 

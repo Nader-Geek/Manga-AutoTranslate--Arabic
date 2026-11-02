@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.187"
+APP_VER = "1.14.188"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3245,6 +3245,94 @@ def _rapidocr_model_pair(lang: str, small: bool = False,
     return _det, "PP-OCRv6_medium_rec_onnx.onnx"
 
 
+def _pc_ocr_small() -> bool:
+    """v1.14.188 — مجموعهٔ مدلِ OCRِ PC. دستورِ سازنده: «چرت پرت هم زیاد
+    استخراج میکنه نمیشه یک کاری کرد از نسخهٔ پی سی استخراج استفاده کنه
+    همون مدل onnx v6 ocr … مدل v6_medium استفاده کن بعد توجه ک کردم رو
+    پی سی هم ناقص استخراج میشه رو اونم چک کن هردوشو چک بزن» → PC هم از
+    مجموعهٔ کاملِ medium استفاده میکند (detِ medium + recِ medium —
+    همان ستِ K3). MANGA_OCR_SMALL=1 یا شبیهسازِ x86_64 (CI) = ستِ سبک
+    (small) تا بودجهٔ زمانیِ CI دستنخورده بماند."""
+    _v = str(os.environ.get("MANGA_OCR_SMALL", "") or "").strip().lower()
+    if _v in ("1", "true", "yes", "on"):
+        return True
+    if _v in ("0", "false", "no", "off"):
+        return False
+    return bool(_android_x86_emulator())
+
+
+def _latin_lang188(tr) -> bool:
+    """v1.14.188 — زبانِ صفحه لاتین است؟ (برایِ فیلترِ آشغالِ لاتین؛
+    صفحاتِ ja/ko/zh هرگز این فیلتر را نمیگیرند.)"""
+    try:
+        _lg = str(getattr(getattr(tr, "ocr", None), "lang", "") or "").lower()
+        if not _lg:
+            _lg = str(getattr(tr, "lang", "") or "en").lower()
+    except Exception:
+        _lg = "en"
+    return _lg not in ("ja", "japan", "japanese", "ko", "korean",
+                       "zh", "ch", "chinese", "ch_sim", "zh_hans",
+                       "zh_hant", "zh-tw", "zh_tw")
+
+
+def _line_is_foreign188(bb, block_rects, own_area: float) -> bool:
+    """v1.14.188 — مالکیتِ خط. خطی که مرکزش داخلِ مستطیلِ «ناحیهٔ
+    همسایهٔ» تنگتر است (مساحتِ همسایه < ۸۵٪ ناحیهٔ خودی) و حداقل ۴۵٪
+    خط در آن افتاده، متعلق به همان همسایه است — نه این کراپ. ریشهٔ
+    «چرت‌پرت» در img6: متنِ حبابِ کوچکِ «You're the real attraction
+    here.» داخلِ کراپِ ناحیهٔ بزرگِ زرد نشت میکرد (rectهای RT-DETR
+    همپوشانی دارند)."""
+    if not block_rects or bb is None:
+        return False
+    try:
+        cx = (float(bb[0]) + float(bb[2])) * 0.5
+        cy = (float(bb[1]) + float(bb[3])) * 0.5
+        lw = max(1.0, float(bb[2]) - float(bb[0]))
+        lh = max(1.0, float(bb[3]) - float(bb[1]))
+        la = lw * lh
+    except Exception:
+        return False
+    for _r in (block_rects or []):
+        try:
+            bx1, by1, bx2, by2 = [float(v) for v in _r]
+            if not (bx1 - 4.0 <= cx <= bx2 + 4.0
+                    and by1 - 4.0 <= cy <= by2 + 4.0):
+                continue
+            ix = max(0.0, min(float(bb[2]), bx2) - max(float(bb[0]), bx1))
+            iy = max(0.0, min(float(bb[3]), by2) - max(float(bb[1]), by1))
+            if la <= 0 or (ix * iy) / la < 0.45:
+                continue
+            nb_area = max(1.0, (bx2 - bx1) * (by2 - by1))
+            if nb_area < own_area * 0.85:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _latin_junk_line188(text) -> bool:
+    """v1.14.188 — خطِ آشغالِ لاتین («چرت‌پرت») — فقط کلِ خط:
+      • بدونِ هیچ حرفِ لاتین و کوتاه (≤۴ نویسه): «23»، «豊»، «H/»
+      • همهٔ توکنها ≤۲ حرف و هیچ واکه‌ای ندارند: «FL»، «SS»، «Px»
+    خطهایِ واقعی («GO!»، «Wha!?»، «OK») میمانند؛ فقط برایِ صفحاتِ
+    لاتین صدا زده میشود (_latin_lang188)."""
+    s = str(text or "").strip()
+    if not s:
+        return True
+    toks = re.findall(r"[A-Za-z]+", s)
+    if not toks:
+        return len(s) <= 4
+    # «77,I» / «1,I» — دودigits + حرفِ تک؛ خوانشِ اشتباهِ حرفِ ایتالیک
+    if sum(c.isdigit() for c in s) >= 2 \
+            and sum(c.isascii() and c.isalpha() for c in s) <= 2:
+        return True
+    if all(len(t) <= 2 for t in toks):
+        _vow = "AEIOUaeiou"
+        if not any(any(c in _vow for c in t) for t in toks):
+            return True
+    return False
+
+
 def _fmt_mb(n: float) -> str:
     return f"{n / (1024 * 1024):.1f}MB"
 
@@ -3488,12 +3576,17 @@ def _mobile_lang(lang):
 # کنه تا سریعتر باشه». پلِ Kotlin = PaddleOcrBridge (پلِ نازک رویِ
 # RapidOcr.create) با قراردادِ سطرهایِ META
 # (META|lang|n + ang|conf|box|text|blk) تا پارسرِ مشترک کار کند.
-# مدلها = سهگانهٔ RapidOCRِ PP-OCRv4_mobile: det (4.5MB) + cls (0.6MB)
-# + rec (10.4MB) + دیکشنریِ متنی (ppocr_keys_v1) + واریانتهایِ زبانِ
-# rec (en/ja/ko) — باندلشده در assetsِ APK؛ هیچ دانلودِ زمانِ اجرایی
-# نیست. انتخابِ زبان: «نمیشه یک زبان انتخاب کرد مثلا انگلیسی بزارم» →
-# recognizeAuto زبانِ هر کراپ را میگیرد و سشنِ rec رویِ واریانتِ همان
-# زبان گرم میشود (latin→en، ja→japan، ko→korean، zh/سایر→ch).
+# v1.14.188 — دستورِ سازنده: «چرت پرت هم زیاد استخراج میکنه … همون
+# مدل onnx v6 ocr … مدل v6_medium استفاده کن» → مدلها = detِ
+# PP-OCRv6_small (10MB — همان detِ PC) + cls (0.6MB) + recِ
+# PP-OCRv6_MEDIUM (73MB؛ charsetِ ۱۸۷۰۸یِ ppocrv6_chars) + واریانتهایِ
+# زبانِ rec (ja/ko) — باندلشده در assetsِ APK؛ latin/zh = recِ mediumِ
+# پیشفرض (واریانتِ rec_enِ v4 حذف شد).
+# (تاریخچهٔ v1.14.187: سهگانهٔ PP-OCRv4_mobile — det 4.5MB + rec 10.4MB
+# + ppocr_keys_v1) انتخابِ زبان (v1.14.188: latin/zh = recِ mediumِ
+# پیشفرض؛ فقط ja/ko سشن عوض میکنند) →
+# recognizeAuto زبانِ هر کراپ را میفرستد و سشنِ rec رویِ واریانتِ همان
+# زبان گرم میشود (ja→japan، ko→korean، بقیه→mediumِ پیشفرض).
 # فالبکی نیست؛ خطایِ موتور = خروجیِ خالیِ همان کراپ.
 # ═══════════════════════════════════════════════════════════════════
 _PAD_STATS = {"ms": 0.0, "n": 0, "lines": 0}
@@ -3569,8 +3662,8 @@ class PaddleAndroidOCR:
                 "سلف‌تستِ پلِ RapidOCRِ اندروید مردود شد: "
                 + str(e)[:90])
         print(f"[+] OCR گوشی: RapidOCRِ اندروید آماده | "
-              f"RapidOcrAndroidOnnx | det=PP-OCRv4_mobile "
-              f"cls=v2.0_cls rec=PP-OCRv4_mobile/{self.lang} "
+              f"RapidOcrAndroidOnnx | det=PP-OCRv6_small "
+              f"cls=v2.0_cls rec=PP-OCRv6_medium/{self.lang} "
               f"(باندلِ APK) | threads={_intra}")
 
     def ocr(self, image_bgr, crop_mode: bool = False):
@@ -3892,11 +3985,11 @@ def speed_lab_env(p: dict) -> str:
 
         if _purge:
             return ("[⚡] روشِ استخراج: RapidOCRِ اندروید — "
-                    "PP-OCRv4_mobileِ باندل (%s)%s | v%s: %s"
+                    "PP-OCRv6ِ باندل (%s)%s | v%s: %s"
                     % (_K3_MODE_FA.get(_lad, _lad), _ms_l,
                        APP_VER, _purge))
         return ("[⚡] روشِ استخراج: RapidOCRِ اندروید — "
-                "PP-OCRv4_mobileِ باندل (RapidOcrAndroidOnnx — "
+                "PP-OCRv6ِ باندل (det=small + rec=MEDIUM — "
                 "v%s)%s"
                 % (APP_VER, _ms_l))
     except Exception:
@@ -4316,7 +4409,8 @@ class RapidOCRBackend:
                     # v1.14.29: فقط مدل‌های همین زبان دانلود می‌شود — نه همهٔ زبان‌ها
                     # (det مشترک است؛ rec مخصوص زبان؛ cls دیگر استفاده نمی‌شود)
                     # v1.14.152 — مجموعهٔ K3 با helperِ مشترک
-                    _det_n52, _rec_n52 = _rapidocr_model_pair(lang, small=True)  # v1.14.154 — PC = مجموعهٔ سبکِ قبلی (دستنخورده)
+                    _det_n52, _rec_n52 = _rapidocr_model_pair(
+                        lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
                     _ensure_rapidocr_models(_mdir,
                                             files=[_det_n52, _rec_n52])
                 except Exception as _e:
@@ -4331,7 +4425,8 @@ class RapidOCRBackend:
             if _mdir:
                 try:
                     # v1.14.152 — مسیرِ صریحِ مدلها از helperِ مجموعهٔ K3
-                    _det_n52, _rec_n52 = _rapidocr_model_pair(lang, small=True)  # v1.14.154 — PC = مجموعهٔ سبکِ قبلی (دستنخورده)
+                    _det_n52, _rec_n52 = _rapidocr_model_pair(
+                        lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
                     for _sec69, _fn69 in (
                             ("Det", _det_n52),
                             ("Rec", _rec_n52),
@@ -22628,6 +22723,40 @@ class MangaTranslator:
                     if e[2] is not None:
                         e[2][:, 0] += inset_used
                         e[2][:, 1] += inset_used
+            # v1.14.188 — دو فیلترِ ضدِ «چرت‌پرت» (دستورِ سازنده: «چرت پرت
+            # هم زیاد استخراج میکنه … از نسخهٔ پی سی استخراج استفاده کنه
+            # همون مدل onnx v6 ocr … رو پی سی هم ناقص استخراج میشه رو اونم
+            # چک کن هردوشو چک بزن») — PC و اندروید یکسان:
+            #   الف) مالکیتِ خط: خطی که به ناحیهٔ همسایهٔ تنگتر تعلق دارد
+            #   از این ناحیه حذف میشود (نمونهٔ img6 #02: نشتِ متنِ حبابِ
+            #   «You're the real attraction here.» به کراپِ حبابِ زرد).
+            #   ب) خطِ آشغالِ لاتین: خطِ تکقسمتیِ بیواکل/بیحرفِ کوتاه
+            #   («FL»، «SS»، «23»، «豊») که فقط جوهرِ هنر است.
+            # هر دو رویِ مختصاتِ صفحه (بعد از جبرانِ inset) اعمال میشوند.
+            _own188 = max(1.0, float((x2 - x1) * (y2 - y1)))
+            if entries:
+                _keep188 = []
+                for _e188 in entries:
+                    _bb188 = _bb_of(_e188[2]) if _e188[2] is not None else None
+                    if _bb188 is not None and _line_is_foreign188(
+                            _bb188, block_rects, _own188):
+                        if self.debug:
+                            print(f"    [🔍188] خطِ ناحیهٔ مجاور حذف شد: "
+                                  f"{str(_e188[0])[:36]!r}")
+                        continue
+                    if _latin_lang188(self) and _latin_junk_line188(_e188[0]):
+                        if self.debug:
+                            print(f"    [🔍188] خطِ آشغالِ لاتین حذف شد: "
+                                  f"{str(_e188[0])[:36]!r}")
+                        continue
+                    _keep188.append(_e188)
+                if len(_keep188) != len(entries):
+                    entries = _keep188
+                    txt = " ".join(e[0] for e in entries).strip()
+                    polys = [np.asarray(e[2], dtype=np.int32)
+                             for e in entries if e[2] is not None]
+                    conf = (float(np.mean([e[1] for e in entries]))
+                            if entries else 0.0)
             _poly_angs = [float(e[3]) if len(e) > 3 else 0.0
                           for e in entries if e[2] is not None]
             for e in entries:
@@ -22748,6 +22877,11 @@ class MangaTranslator:
                             continue
                         _bE = _bb_of(_pE)
                         if _bE is None or (_bE[3] - _bE[1]) < 8:
+                            continue
+                        # v1.14.188 — همان دو فیلترِ ضدِ چرت‌پرت رویِ نجاتِ لبه
+                        if _line_is_foreign188(_bE, block_rects, _own188):
+                            continue
+                        if _latin_lang188(self) and _latin_junk_line188(_tE):
                             continue
                         _oyE = min(_yhi86, _bE[3]) - max(_ylo86, _bE[1])
                         if _oyE <= 0.3 * max(1.0, _bE[3] - _bE[1]):

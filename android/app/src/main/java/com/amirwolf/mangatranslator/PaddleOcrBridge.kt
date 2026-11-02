@@ -1,4 +1,10 @@
-// v1.14.187 — پلِ استخراجِ متنِ گوشی = RapidOCRِ اندروید (ONNXِ خالص)
+// v1.14.188 — پلِ استخراجِ متنِ گوشی = RapidOCRِ اندروید (ONNXِ خالص)
+// دستورِ سازنده (۱۴.۱۸۸): «چرت پرت هم زیاد استخراج میکنه … همون مدل
+// onnx v6 ocr … مدل v6_medium استفاده کن» → det = PP-OCRv6_small
+// (همان detِ PC) + rec = PP-OCRv6_MEDIUM (charsetِ ۱۸۷۰۸ی؛ ورودیِ
+// ۴۸×W — بدونِ تغییرِ RecPreprocessor/CTCDecoder). بنچمارکِ img6:
+// فاصلههایِ درست، «Wha!?» به‌جایِ «ijeym»، حذفِ خطاهایِ حرفیِ v4.
+// (تاریخچهٔ ۱۴.۱۸۷ = سهگانهٔ PP-OCRv4_mobile)
 // ═══════════════════════════════════════════════════════════════════════
 // دستورِ سازنده (v1.14.187 — نقلِ مستقیم):
 //   «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا ۱.۱۴.۱۸۶
@@ -16,12 +22,10 @@
 //   • مدلها زمانِ بیلدِ CI از ModelScopeِ رسمیِ RapidAI/RapidOCR
 //     (v3.9.2) دانلود و در assetsِ APK باندل میشوند — هیچ دانلودِ
 //     زمانِ اجرایی در کار نیست و آفلاین هم کار میکند:
-//       models/det/inference.onnx      (ch_PP-OCRv4_det_mobile 4.5MB)
+//       models/det/inference.onnx      (PP-OCRv6_det_small 10MB)
 //       models/cls/inference.onnx      (ch_ppocr_mobile_v2.0_cls 0.6MB)
-//       models/rec/inference.onnx      (ch_PP-OCRv4_rec_mobile 10.4MB)
-//       models/rec/dict.txt            (ppocr_keys_v1.txt)
-//       models/rec_en/inference.onnx   (en_PP-OCRv4_rec_mobile 7.3MB)
-//       models/rec_en/dict.txt         (en_dict.txt)
+//       models/rec/inference.onnx      (PP-OCRv6_MEDIUM 73MB)
+//       models/rec/dict.txt            (ppocrv6_chars — ۱۸۷۰۸ سطر)
 //       models/rec_ja/inference.onnx   (japan_PP-OCRv4_rec_mobile 9.3MB)
 //       models/rec_ja/dict.txt         (japan_dict.txt)
 //       models/rec_ko/inference.onnx   (korean_PP-OCRv4_rec_mobile 23MB)
@@ -29,7 +33,9 @@
 //   • انتخابِ زبان (خلافِ دموی RapidOcrAndroidOnnx که «همه زبان» است):
 //     manga.py زبانِ هر کراپ را در recognizeAuto(png, lang, w, h)
 //     میفرستد؛ این پل سشنِ rec را رویِ واریانتِ همان زبان گرم میکند:
-//       latin→rec_en ، ja→rec_ja ، ko→rec_ko ، zh/سایر→rec_ch (پیشفرض)
+//       latin/zh/سایر → recِ پیشفرضِ v6_medium (rec_enِ v4 حذف شد؛
+//         medium برایِ لاتین دقیقتر است — بنچمارک: «thereal» در برابرِ
+//         «theregl»)، ja→rec_ja ، ko→rec_ko
 //   • قراردادِ خروجی = همان سطرهایِ META همیشه
 //     (META|lang|n + ang|conf|box|text|blk) تا manga.py
 //     (PaddleAndroidOCR) بدونِ تغییرِ پارسر وصل شود.
@@ -57,15 +63,15 @@ object PaddleOcrBridge {
     private const val REC_ASSET = "models/rec/inference.onnx"
     private const val REC_DICT_ASSET = "models/rec/dict.txt"
 
-    // واریانتهایِ زبانِ rec — «نمیشه یک زبان انتخاب کرد مثلا انگلیسی
-    // بزارم» (سازنده) — ch = پیشفرضِ همهٔ زبانهایِ ناشناخته
+    // واریانتهایِ زبانِ rec — v1.14.188: latin/zh/ناشناخته = recِ
+    // پیشفرضِ v6_medium (دستورِ «مدل v6_medium استفاده کن»)؛ فقط
+    // ja/ko سشن عوض میکنند
     private val LANG_VARIANTS: Map<String, Pair<String, String>> = mapOf(
-        "latin" to ("models/rec_en/inference.onnx" to "models/rec_en/dict.txt"),
         "ja" to ("models/rec_ja/inference.onnx" to "models/rec_ja/dict.txt"),
         "ko" to ("models/rec_ko/inference.onnx" to "models/rec_ko/dict.txt"),
     )
 
-    /** واریانتِ پیشفرض (ch — en هم داخلش هست) برایِ zh/ناشناخته. */
+    /** واریانتِ پیشفرض (PP-OCRv6_MEDIUM — latin/zh هم داخلش هست). */
     private val DEFAULT_VARIANT: Pair<String, String> =
         REC_ASSET to REC_DICT_ASSET
 
@@ -89,7 +95,7 @@ object PaddleOcrBridge {
     }
 
     /**
-     * v1.14.187 — ساختِ موتورِ RapidOCR (سهگانهٔ PP-OCRv4_mobileِ باندل).
+     * v1.14.188 — ساختِ موتورِ RapidOCR (detِ v6_small + recِ v6_MEDIUM).
      * [numThreads] = EngineConfig.numThreads (پیشفرض ۴).
      * true = موتور آماده است؛ false = هیچ فالبکی نیست — manga.py
      * استخراجِ خالی میبیند و پیامِ خطا چاپ میشود.
@@ -118,7 +124,7 @@ object PaddleOcrBridge {
             }
             currentVariant = "ch"
             Log.i(TAG, "RapidOCR (RapidOcrAndroidOnnx pipeline) ready — " +
-                    "PP-OCRv4_mobile det+cls+rec, threads=$threads")
+                    "PP-OCRv6 det=small rec=MEDIUM, threads=$threads")
             true
         } catch (t: Throwable) {
             Log.e(TAG, "init failed", t)
@@ -195,7 +201,8 @@ object PaddleOcrBridge {
     /** نسخهٔ کوتاه برایِ لاگِ manga.py (کدام موتور رویِ گوشی است). */
     @JvmStatic
     fun sdkInfo(): String =
-        "RapidOCR ONNX (RapidOcrAndroidOnnx pipeline) — PP-OCRv4_mobile"
+        "RapidOCR ONNX (RapidOcrAndroidOnnx pipeline) — " +
+                "PP-OCRv6 (det=small + rec=MEDIUM)"
 
     private fun fmt(v: Float): String =
         if (v == v.toLong().toFloat()) v.toLong().toString()

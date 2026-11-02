@@ -65,19 +65,19 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, val = ln.strip().partition("=")
         _v[k.strip()] = val.strip()
-    gate(_v.get("versionCode") == "192"
-         and _v.get("versionName") == "1.14.187",
-         "A: VERSION = 1.14.187 / versionCode=192")
+    gate(_v.get("versionCode") == "193"
+         and _v.get("versionName") == "1.14.188",
+         "A: VERSION = 1.14.188 / versionCode=193 (مهاجرتِ 188)")
 except Exception as e:
     fail(f"A: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 192' in _gradle
-     and 'versionName = "1.14.187"' in _gradle,
-     "A: build.gradle.kts = 192 / 1.14.187")
+gate('versionCode = 193' in _gradle
+     and 'versionName = "1.14.188"' in _gradle,
+     "A: build.gradle.kts = 193 / 1.14.188 (مهاجرتِ 188)")
 
 _manga = io.open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.187"' in _manga, "A: APP_VERِ manga.py = 1.14.187")
+gate('APP_VER = "1.14.188"' in _manga, "A: APP_VERِ manga.py = 1.14.188 (مهاجرتِ 188)")
 
 # ── B. manga.py — مسیرِ اندروید ─────────────────────────────────────
 try:
@@ -97,7 +97,7 @@ for _frag in ("com.amirwolf.mangatranslator.PaddleOcrBridge",
               "self._bridge.init(_intra)", "recognizeAuto(",
               "bytes(_buf.tobytes())", "startswith(\"META\")",
               "reshape(4, 2)", "باندلِ APK",
-              "det=PP-OCRv4_mobile", "RapidOCRِ اندروید",
+              "det=PP-OCRv6_small", "rec=PP-OCRv6_medium", "RapidOCRِ اندروید",
               "v1.14.187+"):
     if _frag not in _cls:
         fail(f"B: PaddleAndroidOCR فاقدِ {_frag!r}")
@@ -107,7 +107,7 @@ for _frag in ('_K3_MODES = ("padandroid",)',
               'self._mode = "padandroid"',
               '_SPEED_LAB_LADDER = ("padandroid",)',
               '"padandroid": "رپیدِ رسمیِ اندروید"',
-              "PP-OCRv4_mobileِ باندل (RapidOcrAndroidOnnx — "):
+              "PP-OCRv6ِ باندل (det=small + rec=MEDIUM — "):
     if _frag not in _manga:
         fail(f"B: نردبان/پیامِ RapidOCR نیست: {_frag!r}")
 ok("B: نردبانِ تکپلهای padandroid + پیامِ «روشِ استخراج» = RapidOCRِ v4")
@@ -138,11 +138,10 @@ for _frag in ("object PaddleOcrBridge", "fun recognizeAuto(",
               "EngineConfig(numThreads", "OpenCVUtils.init",
               "models/det/inference.onnx", "models/cls/inference.onnx",
               "models/rec/inference.onnx", "models/rec/dict.txt",
-              "models/rec_en/inference.onnx", "models/rec_en/dict.txt",
               "models/rec_ja/inference.onnx", "models/rec_ja/dict.txt",
               "models/rec_ko/inference.onnx", "models/rec_ko/dict.txt",
               "LANG_VARIANTS", "setLanguageVariant", "currentVariant",
-              "\"latin\"", "\"ja\"", "\"ko\"",
+              "\"ja\"", "\"ko\"",
               "ERR|", "runBlocking"):
     if _frag not in _kt:
         fail(f"C: PaddleOcrBridge.kt فاقدِ {_frag!r}")
@@ -209,26 +208,26 @@ ok("D: دروازهٔ RapidOcr.kt = create/recognize/setLanguageVariant/release"
 for _wf in (".github/workflows/build.yml",
             ".github/workflows/android-emulator.yml"):
     _w = io.open(_wf, encoding="utf-8").read()
-    for _frag in ("ch_PP-OCRv4_det_mobile.onnx",
+    for _frag in ("PP-OCRv6_det_small.onnx",
                   "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
-                  "ch_PP-OCRv4_rec_mobile.onnx",
-                  "ppocr_keys_v1.txt",
-                  "en_PP-OCRv4_rec_mobile.onnx",
+                  "PP-OCRv6_medium_rec_onnx.onnx",
+                  "ppocrv6_chars.txt",
                   "japan_PP-OCRv4_rec_mobile.onnx",
                   "korean_PP-OCRv4_rec_mobile.onnx",
                   "$A/rec/dict.txt",
-                  "$A/rec_en/inference.onnx",
                   "$A/rec_ja/dict.txt",
                   "$A/rec_ko/inference.onnx",
-                  "mkdir -p $A/det $A/cls $A/rec $A/rec_en $A/rec_ja $A/rec_ko",
+                  "mkdir -p $A/det $A/cls $A/rec $A/rec_ja $A/rec_ko",
                   "RapidAI/RapidOCR/resolve/v3.9.2"):
         if _frag not in _w:
             fail(f"E: {_wf} فاقدِ {_frag!r}")
     if "PaddlePaddle/PP-OCRv6_small_det_onnx" in _w \
             or "PaddlePaddle/PP-OCRv6_small_rec_onnx" in _w:
         fail(f"E: {_wf} هنوز PP-OCRv6ِ PaddlePaddle را میگیرد")
-ok("E: build.yml + android-emulator.yml = باندلِ RapidOCRِ v4 (det+cls+rec"
-   " + en/ja/ko + دیکشنریها) — بدونِ PP-OCRv6")
+    if "rec_en" in _w:
+        fail(f"E: {_wf} هنوز واریانتِ rec_enِ v4 را میگیرد (v1.14.188: حذف)")
+ok("E: build.yml + android-emulator.yml = باندلِ PP-OCRv6 "
+   "(det=small + rec=MEDIUM + cls/ja/ko + دیکشنریها)")
 
 _fm = io.open(".github/workflows/fetch_models.yml", encoding="utf-8").read()
 for _frag in ("ch_PP-OCRv4_det_mobile.onnx", "ch_PP-OCRv4_rec_mobile.onnx",
@@ -256,5 +255,5 @@ print()
 if FAILS:
     print(f"[✗] {len(FAILS)} گیتِ v1.14.187 شکست خورد")
     sys.exit(1)
-print("[✓] همهٔ گیتهایِ v1.14.187 PASS — گوشی = RapidOcrAndroidOnnxِ v4 با"
-      " انتخابِ زبان؛ PC بیت‌به‌بیت")
+print("[✓] همهٔ گیتهایِ v1.14.187 PASS (مهاجرت‌شده به 188) — گوشی = "
+      "RapidOcrAndroidOnnxِ v6 (det=small + rec=MEDIUM)؛ PC = ستِ medium")
