@@ -100,8 +100,14 @@ man = io.open(os.path.join(ROOT, "android/app/src/main/AndroidManifest.xml"),
               encoding="utf-8").read()
 if "PliteProbeService" in man or ":pliteprobe" in man:
     fail("سرویسِ :pliteprobe هنوز در مانیفست است")
-if ".EpProbeService" not in man:
-    fail("EpProbeService نباید حذف میشد")
+# v1.14.184 — سرویسِ پروبِ EP (موتورِ قدیمیِ OCR) حذف شد
+if ".EpProbeService" in man:
+    fail("EpProbeService هنوز در مانیفست است")
+import os as _os
+if _os.path.exists(os.path.join(
+        ROOT, "android/app/src/main/java/com/amirwolf/mangatranslator/"
+        "EpProbeService.kt")):
+    fail("EpProbeService.kt باید حذف شده باشد")
 
 g = io.open(os.path.join(ROOT, "android/app/build.gradle.kts"),
             encoding="utf-8").read()

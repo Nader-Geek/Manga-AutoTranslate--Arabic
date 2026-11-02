@@ -46,14 +46,9 @@
             android:name=".TranslationService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
-        <!-- v1.14.156 — پروبِ XNNPACK/NNAPI در پروسهٔ جدا: سیگ‌فالتِ نیتیوِ
-             شتابدهنده فقط این پروسه را میکشد؛
-             اپِ اصلیِ ترجمه دستنخورده میماند -->
-        <service
-            android:name=".EpProbeService"
-            android:exported="false"
-            android:process=":epprobe" />
-        <!-- v1.14.170 — پروبِ Paddle-Lite حذف شد (موتورِ OCRِ گوشی = ML Kit) -->
+        <!-- v1.14.184 — سرویسِ EpProbeService (پروبِ EPِ ONNXِ موتورِ
+             قدیمیِ OCR) حذف شد: SDKِ رسمیِ ppocr-android رویِ CPU اجرا
+             میشود و هیچ شتابدهنده/پروبِ جداگانهای ندارد -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
