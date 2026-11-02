@@ -3,7 +3,7 @@
 """چکِ رگرسیونِ v1.14.189 — چهار مشکلِ دستورِ سازنده.
 
 گیتها:
-  A. نسخه = 1.14.189 / versionCode=194 در manga.py + VERSION + gradle.
+  A. نسخه = 1.14.190 / versionCode=195 در manga.py + VERSION + gradle.
   B. مشکل۲ — پرامپتهایِ اسنیفشده: untitled.py → FLASH_PROMPT،
      untitled2.py → FLASH_LITE_PROMPT، SYSTEM_INSTRUCTION_PROTOCOL،
      temperature 0.7 + topP 0.9 در هر چهار مسیرِ ارسال؛ بدونِ URLِ فیکِ
@@ -61,20 +61,20 @@ _msrc_kt = io.open(
 _build_yml = io.open(".github/workflows/build.yml", encoding="utf-8").read()
 
 # ── A. نسخه ──────────────────────────────────────────────────────────
-gate('APP_VER = "1.14.189"' in _manga, "A: APP_VERِ manga.py = 1.14.189")
+gate('APP_VER = "1.14.190"' in _manga, "A: APP_VERِ manga.py = 1.14.190")
 _v = {}
 try:
     for ln in open("VERSION", encoding="utf-8"):
         if "=" in ln:
             k, val = ln.strip().split("=", 1)
             _v[k] = val
-    gate(_v.get("versionCode") == "194"
-         and _v.get("versionName") == "1.14.189",
-         "A: VERSION = 1.14.189 / versionCode=194")
+    gate(_v.get("versionCode") == "195"
+         and _v.get("versionName") == "1.14.190",
+         "A: VERSION = 1.14.190 / versionCode=195")
 except Exception as e:
     fail(f"A: VERSION خوانده نشد: {e}")
-gate('versionCode = 194' in _gradle
-     and 'versionName = "1.14.189"' in _gradle,
+gate('versionCode = 195' in _gradle
+     and 'versionName = "1.14.190"' in _gradle,
      "A: build.gradle.kts = 194 / 1.14.189")
 
 # ── B. مشکل۲ — پرامپتها ─────────────────────────────────────────────
@@ -150,7 +150,7 @@ gate('return "I"' in _manga
 # ── E. مشکل۴ — حذفِ باندل + دانلودِ زبان‌آگاه ───────────────────────
 for frag in ("https://github.com/amirwolf512k/Manga-AutoTranslate/releases/download/models/",
              '"models/det/inference.onnx"', '"models/rec/inference.onnx"',
-             '"models/rec_ja/inference.onnx"', '"models/rec_ko/inference.onnx"',
+             '"models/rec_ko/inference.onnx"',
              "PP-OCRv6_medium_rec_onnx.onnx", "ppocrv6_chars.txt",
              "fun pathsForLang", "fun ensure("):
     gate(frag in _store_kt, f"E: OcrModelStore — {frag[:44]}")
@@ -175,7 +175,7 @@ gate('github.event_name == \'workflow_dispatch\' && inputs.bundle_ocr_models' in
      and "bundle_ocr_models:" in _build_yml
      and "default: false" in _build_yml,
      "E: build.yml — باندل فقط با فلگِ تست؛ پیشفرض = APKِ سبک")
-gate("korean_PP-OCRv4_rec_mobile.onnx" in _build_yml,
+gate("korean_PP-OCRv5_rec_mobile.onnx" in _build_yml,
      "E: مسیرِ باندلِ تستِ شبیهساز پابرجاست")
 
 # ── F. کامپایل + تستهایِ عملی ───────────────────────────────────────

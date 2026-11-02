@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.176"
+APP_VER = "1.14.190"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -2188,7 +2188,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     ("کره‌ای (+ انگلیسی)", "ko en"),
                     ("ژاپنی (+ انگلیسی)", "ja en"),
                     ("چینی (+ انگلیسی)", "zh en"),
-                    ("چندزبانه (کره‌ای/ژاپنی/چینی/انگلیسی)", "ko ja zh en"),
+                    ("چندزبانه (کره‌ای/ژاپنی/چینی/انگلیسی)", "multi"),
                 ],
                 value=str(cfg.get("ocr_lang", "en")),
                 label="زبان متن مانگا (OCR)",

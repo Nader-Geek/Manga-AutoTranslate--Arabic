@@ -65,19 +65,19 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, val = ln.strip().partition("=")
         _v[k.strip()] = val.strip()
-    gate(_v.get("versionCode") == "194"
-         and _v.get("versionName") == "1.14.189",
-         "A: VERSION = 1.14.189 / versionCode=194 (مهاجرتِ 188)")
+    gate(_v.get("versionCode") == "195"
+         and _v.get("versionName") == "1.14.190",
+         "A: VERSION = 1.14.190 / versionCode=195 (مهاجرتِ 188)")
 except Exception as e:
     fail(f"A: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 194' in _gradle
-     and 'versionName = "1.14.189"' in _gradle,
+gate('versionCode = 195' in _gradle
+     and 'versionName = "1.14.190"' in _gradle,
      "A: build.gradle.kts = 194 / 1.14.189 (مهاجرتِ 188)")
 
 _manga = io.open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.189"' in _manga, "A: APP_VERِ manga.py = 1.14.188 (مهاجرتِ 188)")
+gate('APP_VER = "1.14.190"' in _manga, "A: APP_VERِ manga.py = 1.14.188 (مهاجرتِ 188)")
 
 # ── B. manga.py — مسیرِ اندروید ─────────────────────────────────────
 try:
@@ -138,10 +138,9 @@ for _frag in ("object PaddleOcrBridge", "fun recognizeAuto(",
               "EngineConfig(numThreads", "OpenCVUtils.init",
               "models/det/inference.onnx", "models/cls/inference.onnx",
               "models/rec/inference.onnx", "models/rec/dict.txt",
-              "models/rec_ja/inference.onnx", "models/rec_ja/dict.txt",
               "models/rec_ko/inference.onnx", "models/rec_ko/dict.txt",
               "LANG_VARIANTS", "setLanguageVariant", "currentVariant",
-              "\"ja\"", "\"ko\"",
+              "\"ko\"",
               "ERR|", "runBlocking"):
     if _frag not in _kt:
         fail(f"C: PaddleOcrBridge.kt فاقدِ {_frag!r}")
@@ -212,12 +211,11 @@ for _wf in (".github/workflows/build.yml",
                   "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
                   "PP-OCRv6_medium_rec_onnx.onnx",
                   "ppocrv6_chars.txt",
-                  "japan_PP-OCRv4_rec_mobile.onnx",
-                  "korean_PP-OCRv4_rec_mobile.onnx",
+                  "ppocrv5_korean_dict.txt",
+                  "korean_PP-OCRv5_rec_mobile.onnx",
                   "$A/rec/dict.txt",
-                  "$A/rec_ja/dict.txt",
                   "$A/rec_ko/inference.onnx",
-                  "mkdir -p $A/det $A/cls $A/rec $A/rec_ja $A/rec_ko",
+                  "mkdir -p $A/det $A/cls $A/rec $A/rec_ko",
                   "RapidAI/RapidOCR/resolve/v3.9.2"):
         if _frag not in _w:
             fail(f"E: {_wf} فاقدِ {_frag!r}")
@@ -231,10 +229,13 @@ ok("E: build.yml + android-emulator.yml = باندلِ PP-OCRv6 "
 
 _fm = io.open(".github/workflows/fetch_models.yml", encoding="utf-8").read()
 for _frag in ("ch_PP-OCRv4_det_mobile.onnx", "ch_PP-OCRv4_rec_mobile.onnx",
-              "en_PP-OCRv4_rec_mobile.onnx", "korean_PP-OCRv4_rec_mobile.onnx"):
+              "japan_PP-OCRv4_rec_mobile.onnx",
+              "korean_PP-OCRv5_rec_mobile.onnx", "ppocrv5_korean_dict.txt"):
     if _frag not in _fm:
         fail(f"E: fetch_models.yml فاقدِ {_frag!r}")
-ok("E: mirrorِ fetch_models.yml مدلهایِ v4 را هم دارد")
+if "korean_PP-OCRv4_rec_mobile.onnx" in _fm:
+    fail("E: fetch_models.yml هنوز خطِ مردهٔ korean v4 را دارد (v1.14.190: حذف)")
+ok("E: mirrorِ fetch_models.yml = ستِ سالمِ v1.14.190 (ko=v5 + دیکشنریِ رسمی)")
 
 # ── F. کامپایل + گیتِ اندروید/PC ────────────────────────────────────
 try:

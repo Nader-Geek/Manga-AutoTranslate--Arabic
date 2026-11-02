@@ -61,19 +61,19 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, val = ln.strip().partition("=")
         _v[k.strip()] = val.strip()
-    gate(_v.get("versionCode") == "194"
-         and _v.get("versionName") == "1.14.189",
-         "A: VERSION = 1.14.189 / versionCode=194")
+    gate(_v.get("versionCode") == "195"
+         and _v.get("versionName") == "1.14.190",
+         "A: VERSION = 1.14.190 / versionCode=195")
 except Exception as e:
     fail(f"A: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 194' in _gradle
-     and 'versionName = "1.14.189"' in _gradle,
+gate('versionCode = 195' in _gradle
+     and 'versionName = "1.14.190"' in _gradle,
      "A: build.gradle.kts = 194 / 1.14.189")
 
 _manga = io.open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.189"' in _manga, "A: APP_VERِ manga.py = 1.14.188")
+gate('APP_VER = "1.14.190"' in _manga, "A: APP_VERِ manga.py = 1.14.188")
 
 # ── B. manga.py ─────────────────────────────────────────────────────
 try:
@@ -99,7 +99,7 @@ if _tree is not None:
         if isinstance(n, ast.ClassDef) and n.name == "PaddleAndroidOCR":
             _cls = ast.get_source_segment(_manga, n) or ""
 for _frag in ("det=PP-OCRv6_small", "rec=PP-OCRv6_medium/",
-              "RapidOcrAndroidOnnx", "دانلودی — v1.14.189",
+              "RapidOcrAndroidOnnx", "دانلودی — v1.14.190",
               "com.amirwolf.mangatranslator.PaddleOcrBridge"):
     if _frag not in _cls:
         fail(f"B2: PaddleAndroidOCR فاقدِ {_frag!r}")
@@ -176,7 +176,7 @@ for _frag in ("object PaddleOcrBridge", "fun recognizeAuto(",
               "\"META|", "RapidOcr.create", "LANG_VARIANTS",
               "models/det/inference.onnx", "models/rec/inference.onnx",
               "models/rec/dict.txt",
-              "models/rec_ja/inference.onnx", "models/rec_ko/inference.onnx",
+              "models/rec_ko/inference.onnx",
               "PP-OCRv6_MEDIUM", "setLanguageVariant", "ERR|"):
     if _frag not in _kt:
         fail(f"C: PaddleOcrBridge.kt فاقدِ {_frag!r}")
@@ -212,10 +212,10 @@ for _wf in (".github/workflows/build.yml",
                   "PP-OCRv6_medium_rec_onnx.onnx",
                   "ppocrv6_chars.txt",
                   "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
-                  "japan_PP-OCRv4_rec_mobile.onnx",
-                  "korean_PP-OCRv4_rec_mobile.onnx",
+                  "ppocrv5_korean_dict.txt",
+                  "korean_PP-OCRv5_rec_mobile.onnx",
                   "$A/rec/dict.txt",
-                  "mkdir -p $A/det $A/cls $A/rec $A/rec_ja $A/rec_ko",
+                  "mkdir -p $A/det $A/cls $A/rec $A/rec_ko",
                   "test $(stat -c%s $A/rec/inference.onnx) -gt 60000000"):
         if _frag not in _w:
             fail(f"E: {_wf} فاقدِ {_frag!r}")

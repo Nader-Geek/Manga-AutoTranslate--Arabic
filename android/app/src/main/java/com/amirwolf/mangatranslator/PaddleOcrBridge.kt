@@ -29,16 +29,16 @@
 //       models/cls/inference.onnx      (ch_ppocr_mobile_v2.0_cls 0.6MB)
 //       models/rec/inference.onnx      (PP-OCRv6_MEDIUM 73MB)
 //       models/rec/dict.txt            (ppocrv6_chars — ۱۸۷۰۸ سطر)
-//       models/rec_ja/inference.onnx   (japan_PP-OCRv4_rec_mobile 9.3MB)
-//       models/rec_ja/dict.txt         (japan_dict.txt)
-//       models/rec_ko/inference.onnx   (korean_PP-OCRv4_rec_mobile 23MB)
-//       models/rec_ko/dict.txt         (korean_dict.txt)
+//       models/rec_ko/inference.onnx   (korean_PP-OCRv5_rec_mobile 13.5MB)
+//       models/rec_ko/dict.txt         (ppocrv5_korean_dict.txt — ۱۱۹۴۵ سطر)
 //   • انتخابِ زبان (خلافِ دموی RapidOcrAndroidOnnx که «همه زبان» است):
 //     manga.py زبانِ هر کراپ را در recognizeAuto(png, lang, w, h)
 //     میفرستد؛ این پل سشنِ rec را رویِ واریانتِ همان زبان گرم میکند:
-//       latin/zh/سایر → recِ پیشفرضِ v6_medium (rec_enِ v4 حذف شد؛
-//         medium برایِ لاتین دقیقتر است — بنچمارک: «thereal» در برابرِ
-//         «theregl»)، ja→rec_ja ، ko→rec_ko
+//       latin/zh/ja/سایر → recِ پیشفرضِ v6_medium (بنچمارکِ v1.14.190:
+//         صفحهٔ تستِ سازنده — medium ژاپنی را کاملتر از japan v4 میخواند:
+//         «一緒にがんばりましょう»✓ در برابرِ «ましよう»✗؛ کلمهٔ
+//         «かわい» فقط با medium)؛ ko→rec_ko؛ multi→پیشفرض + دوئلِ ko
+//         (manga.py تصمیم میگیرد — واریانتِ ko لازمالآمد دانلود میشود)
 //   • قراردادِ خروجی = همان سطرهایِ META همیشه
 //     (META|lang|n + ang|conf|box|text|blk) تا manga.py
 //     (PaddleAndroidOCR) بدونِ تغییرِ پارسر وصل شود.
@@ -66,11 +66,10 @@ object PaddleOcrBridge {
     private const val REC_ASSET = "models/rec/inference.onnx"
     private const val REC_DICT_ASSET = "models/rec/dict.txt"
 
-    // واریانتهایِ زبانِ rec — v1.14.188: latin/zh/ناشناخته = recِ
-    // پیشفرضِ v6_medium (دستورِ «مدل v6_medium استفاده کن»)؛ فقط
-    // ja/ko سشن عوض میکنند
+    // واریانتهایِ زبانِ rec — v1.14.190: همهٔ زبانها recِ پیشفرضِ
+    // v6_medium را میگیرند (ja هم — بنچمارکِ صفحهٔ تستِ سازنده)؛ فقط
+    // ko سشن عوض میکند (v6 هیچ هانگولی در charset ندارد — ۰ از ۱۸۷۰۸)
     private val LANG_VARIANTS: Map<String, Pair<String, String>> = mapOf(
-        "ja" to ("models/rec_ja/inference.onnx" to "models/rec_ja/dict.txt"),
         "ko" to ("models/rec_ko/inference.onnx" to "models/rec_ko/dict.txt"),
     )
 
@@ -107,22 +106,30 @@ object PaddleOcrBridge {
     fun init(numThreads: Int): Boolean = init(numThreads, null)
 
     /**
-     * v1.14.189 — نسخهٔ زبان‌آگاه: [primaryLang] = زبانِ انتخابیِ کاربر
-     * («به حساب زبان انتخاب شده همون مدل دانلود کنه») — قبل از ساختِ
-     * موتور، فقط مدلهایِ همان زبان (ستِ مشترک + واریانتِ ja/ko اگر
-     * انتخاب شده) اگر نبود دانلود میشوند؛ نه همه با هم.
+     * v1.14.190 — نسخهٔ زبان‌آگاه با تضمینِ همیشگیِ مدلها: حتی وقتی
+     * موتور از اجرایِ قبلیِ همین پروسس گرم است، مدلهایِ زبانِ این اجرا
+     * حتماً بررسی/دانلود میشوند (باگِ v1.14.189: موتورِ گرم + واریانتِ
+     * غایب = خطایِ ERR|ModelDownload در سلف‌تست — «زبان چینی کره ای
+     * اصلا استخراج نمیزنه ارور میده»). [primaryLang] = زبانِ انتخابیِ
+     * کاربر («به حساب زبان انتخاب شده همون مدل دانلود کنه») — فقط
+     * مدلهایِ همان زبان (اگ نبود) دانلود میشوند؛ نه همه با هم.
      */
     @JvmStatic
     fun init(numThreads: Int, primaryLang: String?): Boolean = synchronized(lock) {
-        if (engine != null) return true
         val context = ctx ?: run {
             Log.e(TAG, "init: MtApp هنوز Context نداده است")
             return false
         }
-        return try {
-            // v1.14.189 — مدلها دیگر باندل نیستند: اگر نبود، دانلودِ
-            // زمانِ اجرا (اولین اجرا؛ دفعاتِ بعد از کشِ filesDir)
+        try {
+            // v1.14.190 — همیشه (موتورِ گرم هم): فایلهایِ زبانِ این اجرا
             OcrModelStore.ensure(context, OcrModelStore.pathsForLang(primaryLang))
+        } catch (t: Throwable) {
+            Log.e(TAG, "model ensure failed (lang=$primaryLang)", t)
+            engine = null
+            return false
+        }
+        if (engine != null) return true
+        return try {
             // یادداشتِ رسمیِ ppocr-android: OpenCVUtils.init(context)
             // قبل از ساختِ هر موتوری (کلاسهایِ Mat/OpenCV)
             OpenCVUtils.init(context)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.189"
+APP_VER = "1.14.190"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3269,8 +3269,9 @@ def _rapidocr_model_pair(lang: str, small: bool = False,
     _det = "PP-OCRv6_medium_det_onnx.onnx"
     if _low in ("korean", "ko"):
         return _det, "PP-OCRv5_korean_rec.onnx"
-    if _low in ("japan", "ja", "japanese"):
-        return _det, "japan_PP-OCRv4_rec_mobile.onnx"
+    # v1.14.190 — ja هم از recِ mediumِ پیشفرض میخواند (بنچمارکِ صفحهٔ
+    # تستِ سازنده: v6_medium ژاپنیِ مانگا را کاملتر از japan v4 میخواند —
+    # عینِ تصمیمِ گوشی؛ recِ جداگانهیِ ja حذف شد)
     return _det, "PP-OCRv6_medium_rec_onnx.onnx"
 
 
@@ -3593,6 +3594,9 @@ _MOBILE_LANG_MAP = {
     "japan": "ja", "ja": "ja", "japanese": "ja",
     "ch": "zh", "zh": "zh", "chinese": "zh", "ch_sim": "zh",
     "zh_hans": "zh", "zh_hant": "zh", "zh-tw": "zh", "zh_tw": "zh",
+    # v1.14.190 — چندزبانه: پاسِ اول با recِ پیشفرضِ v6_medium + دوئلِ
+    # koِ لازمالآمد (PaddleAndroidOCR._ocr_multi) — «همشو یکجا دانلود نزنه»
+    "multi": "multi",
 }
 
 
@@ -3659,6 +3663,28 @@ class PaddleAndroidOCR:
                 "(v1.14.187+) را نصب کن: " + str(e)[:90])
         self.lang = _mobile_lang(lang)
         self.debug = True
+        # v1.14.190 — وضعیتِ دوئلِ چندزبانه (حافظهٔ کوتاهِ کراپ به کراپ)
+        self._multi_pref = None
+        self._multi_ko_logged = False
+        # v1.14.190 — پیشرفتِ دانلودِ مدلها به لاگِ اپ (دستورِ سازنده:
+        # «وقتی داره onnx دانلود میزنه نشون نمیده تو لاگش چقدر دانلود
+        # شده») — sinkِ پایتونی به OcrModelStore داده میشود؛ خطوطِ
+        # [دانلود] دقیقاً به همان جریانِ لاگی میروند که کاربر میبیند.
+        # رویِ APKِ قدیمی/PC بیاثر (best-effort)
+        try:
+            from java import jclass as _jc, dynamic_proxy as _dp
+
+            class _PyDlSink(_dp(_jc("com.paddle.ocr.util.OcrProgressSink"))):
+                def onProgress(self, line):
+                    try:
+                        print(str(line))
+                    except Exception:
+                        pass
+
+            _jc("com.amirwolf.mangatranslator.OcrModelStore"
+                ).setProgressSink(_PyDlSink())
+        except Exception:
+            pass
         # v1.14.189 — مدلها دیگر باندلِ APK نیستند (دستورِ سازنده: «onnx
         # تو گوشی واسه استخراج با نصب نیاد … حجم اپ زیاد میشه»)؛ اپ در
         # اولین استفاده فقط مدلهایِ زبانِ انتخابی را از ریلیزِ «models»
@@ -3703,7 +3729,84 @@ class PaddleAndroidOCR:
         print(f"[+] OCR گوشی: RapidOCRِ اندروید آماده | "
               f"RapidOcrAndroidOnnx | det=PP-OCRv6_small "
               f"cls=v2.0_cls rec=PP-OCRv6_medium/{self.lang} "
-              f"(دانلودی — v1.14.189) | threads={_intra}")
+              f"(دانلودی — v1.14.190) | threads={_intra}")
+
+    # v1.14.190 — آستانهٔ دوئلِ چندزبانه: زیرِ این اطمینان، تلاشِ ko هم
+    # میشود (متنِ کره‌ای با recِ پیشفرضِ v6 چرت میزند — charsetِ v6
+    # هیچ هانگولی ندارد؛ بنچمارکِ دیکشنری: ۰ از ۱۸۷۰۸)
+    _MULTI_CONF_FLOOR = 0.72
+
+    def _call_auto(self, buf, lang):
+        """فراخوانیِ پل با زبانِ دلخواه — خطا = None (لاگِ کامل)."""
+        try:
+            return self._bridge.recognizeAuto(bytes(buf), lang, 1, 1)
+        except Exception as e:
+            print(f"[!] خطایِ پدلِ اندروید: {str(e)[:140]}")
+            return None
+
+    @staticmethod
+    def _meta_score(out):
+        """(نوعارهایِ سالم، میانگینِ اطمینان) از سطرهایِ META —
+        سطرهایِ META/ERR رد؛ confِ پایین (<0.25) هم رد."""
+        texts, confs = [], []
+        for item in (out or []):
+            s = str(item)
+            if s.startswith(("META", "ERR")):
+                continue
+            parts = s.split("|", 4)
+            if len(parts) < 5:
+                continue
+            try:
+                conf = float(parts[1])
+            except Exception:
+                continue
+            txt = parts[3].strip()
+            if not txt or conf < 0.25:
+                continue
+            texts.append(txt)
+            confs.append(conf)
+        return texts, (sum(confs) / len(confs) if confs else 0.0)
+
+    def _ocr_multi(self, buf):
+        """چندزبانه (v1.14.190 — دستورِ سازنده: «دکمه چند زبانه خودش
+        همه زبان هارو استخراج میزنه کار نمیکنه»): پاسِ اول با recِ
+        پیشفرضِ v6_medium (latin/zh/ja را میخواند). اگر ضعیف بود =
+        مظنونِ کره‌ای (v6 هانگول ندارد) → یک تلاشِ ko؛ بهترِ دو پاس
+        برمیگردد. واریانتِ ko همینجا و فقط با اولین کراپِ کره‌ای دانلود
+        میشود («همشو یکجا دانلود نزنه» — به حسابِ زبانِ انتخابی). کراپهای
+        بعدیِ همان صفحه از ko شروع میکنند (صفحهها معمولاً تکزبانهاند)."""
+        if self._multi_pref == "ko":
+            out_a = self._call_auto(buf, "ko")
+            ta, ca = self._meta_score(out_a)
+            if ta and ca >= self._MULTI_CONF_FLOOR \
+                    and not str((out_a or [""])[0]).startswith("ERR"):
+                return out_a
+            out_b = self._call_auto(buf, "multi")
+            tb, cb = self._meta_score(out_b)
+            if tb and cb > ca + 0.02 \
+                    and not str((out_b or [""])[0]).startswith("ERR"):
+                self._multi_pref = None
+                return out_b
+            if ta:
+                return out_a
+            self._multi_pref = None
+            return out_b if tb else out_a
+        out1 = self._call_auto(buf, "multi")
+        t1, c1 = self._meta_score(out1)
+        if (t1 and c1 >= self._MULTI_CONF_FLOOR) \
+                or str((out1 or [""])[0]).startswith("ERR"):
+            return out1
+        out2 = self._call_auto(buf, "ko")
+        t2, c2 = self._meta_score(out2)
+        if out2 and t2 and c2 > c1 + 0.02 \
+                and not str(out2[0]).startswith("ERR"):
+            if not self._multi_ko_logged:
+                self._multi_ko_logged = True
+                print("[*] چندزبانه: متنِ کره‌ای شناخته شد → recِ کره‌ای "
+                      "(مدلِ ~۱۳.۵MB فقط بار اول دانلود شد)")
+            self._multi_pref = "ko"
+            return out2
+        return out1 if t1 else (out2 if t2 else out1)
 
     def ocr(self, image_bgr, crop_mode: bool = False):
         """هم‌امضایِ RapidOcrMobile — خروجیِ [ [[box,(t,s)],...] ]."""
@@ -3715,8 +3818,12 @@ class PaddleAndroidOCR:
                 ".png", np.ascontiguousarray(image_bgr))
             if not _ok:
                 return None
-            out = self._bridge.recognizeAuto(
-                bytes(_buf.tobytes()), self.lang, 1, 1)
+            # v1.14.190 — چندزبانه: دوئلِ واریانتِ rec (سمتِ manga)
+            if self.lang == "multi":
+                out = self._ocr_multi(_buf.tobytes())
+            else:
+                out = self._bridge.recognizeAuto(
+                    bytes(_buf.tobytes()), self.lang, 1, 1)
         except Exception as e:
             print(f"[!] خطایِ پدلِ اندروید: {str(e)[:140]}")
             return None
@@ -6124,6 +6231,11 @@ class MangaTranslator:
         }
         main_lang = "en"
         for lang in self.ocr_langs:
+            # v1.14.190 — چندزبانه: اندروید = موتورِ دوئلیِ «multi»؛ PC =
+            # مثلِ قبل (ko اولِ لیستِ قدیمی بود)
+            if str(lang).lower().strip() == "multi":
+                main_lang = "multi" if _on_android() else "korean"
+                break
             if lang in lang_map:
                 main_lang = lang_map[lang]
                 break
@@ -7339,6 +7451,10 @@ class MangaTranslator:
     def _ocr_lang_flags(self):
 
         langs = [str(x).lower().strip() for x in (getattr(self, "ocr_langs", None) or ["en"])]
+        if "multi" in langs:
+            # v1.14.190 — چندزبانه = همهٔ خطها مجاز (وگرنه فیلترِ
+            # ضدِ چرت، متنِ CJK را «غیرِ انگلیسی» میپنداشت و حذف میکرد)
+            return True, True, True, True
         allow_en = any(l == "en" or l.startswith("en") for l in langs)
         allow_ko = any(l == "ko" or l.startswith("ko") or l in ("korean", "hangul") for l in langs)
         allow_ja = any(l == "ja" or l.startswith("ja") or l in ("jp", "japanese") for l in langs)
