@@ -112,10 +112,10 @@ jobs:
       - name: Build x86_64 debug APK (emulator — arm64 under libndk translation SIGSEGVs in libpython)
         working-directory: android
         run: |
-          # -PortVer=1.28 — قراردادِ CIِ امولاتور (AARِ تازهٔ ORT رویِ
-          # x86_64 در sess.run SIGFPE میدهد)؛ بیلدِ گوشی = رسمیِ 1.21.1
+          # v1.14.184 — بدونِ -PortVer: نسخهٔ رسمیِ 1.21.1 (همان READMEِ
+          # ppocr-android) رویِ همهٔ بیلدها یکسان است؛ «1.28»یِ قدیمی اصلاً
+          # در Maven وجود نداشت (checkDebugAarMetadata میخورد)
           gradle :app:assembleDebug -PappAbis="x86_64" -PlegacyJni=true \
-            -PortVer=1.28 \
             -PchaquopyBuildPython="$(command -v python3)"
           mkdir -p ../dist
           cp app/build/outputs/apk/debug/app-debug.apk ../dist/MangaTranslator-x86_64.apk
