@@ -2311,21 +2311,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 label="بریف داستان قبل از ترجمه (AI یک‌بار فصل را می‌خواند تا لحن شخصیت‌ها حفظ شود)",
                 value=bool(cfg.get("story_brief", True)))
 
-        # v1.14.176 — «آزمایشگاهِ سرعتِ استخراج» (دستورِ سازنده: «هر روشی
-        # بود براش دکمه بذار — روشن کنم تست کنم ببینم کدوم سریعه»):
-        # پنج کلید روی موتورِ OCRِ گوشی؛ پیشفرضِ هر کلید = رفتارِ فعلی،
-        # یعنی اگر چیزی را تغییر نداده باشید هیچ چیزی عوض نمیشود. بعد از هر
-        # کار، «گزارشِ سرعت» در لاگ زنده می‌آید تا مقایسه کنید.
-        # v1.14.178 — دستورِ سازنده پس از دو باگِ زنجیرهٔ پنل (176/177):
-        # «حذفش کن — یک دکمه بذار فعال کردم همه حالت تست کنه، تایم
-        # بگیره یک دقیقه هرکدومشون، بعد ببینم کدومش سریعه». پس سوییچها
-        # حذف شدند؛ فقط یک کلید «تستِ سرعت» مانده که همهٔ حالتها را
-        # خودش تست میکند و برنده را در speed_test.json ذخیره میکند.
-        with gr.Accordion("⚡ تستِ سرعتِ استخراج (سریعترین حالت را خودش پیدا میکند)", open=False):
-            ocr_speedtest = gr.Checkbox(
-                label="⚡ تستِ سرعت — ۵ روش + ۳ شتاب‌دهنده، هرکدام ۶۰ ثانیه",
-                value=False,
-                info="روشن کن و کار را شروع کن: حالتهایِ full/fast/mlkit/rapid/paddle و cpu/xnnpack/nnapi پشتِ سرهم تست میشوند (≈۸ دقیقه — ترجمه انجام نمیشود)، جدولِ سرعت در لاگ میآید و سریعترین ذخیره میشود؛ از کارِ بعد خودکار با همان کار میکند و کلید خودکار خاموش میشود. مخصوصِ اپِ گوشی (نردبانِ K3). سوییچهایِ دستیِ نسخههایِ قبل حذف شدند.")
+        # v1.14.176–180 — «آزمایشگاهِ سرعتِ استخراج» و دکمهٔ «تستِ سرعت».
+        # v1.14.181 — دستورِ سازنده: «خب ml kit بزار… بقیش حذف کن تو گوشی
+        # استفاده نکنه و اون دکمه تست همه استخراج حذف کن» → دکمه کامل
+        # حذف شد؛ برندهٔ ذخیرهشدهٔ تستِ ۱۷۹ (mlkit) و پاکسازیِ مدلهایِ
+        # بازنده را خودِ پایتون (speed_lab_env) انجام میدهد.
         # v1.14.33: سیوِ فرم در «مرورگر وب» ۳۰ دقیقه می‌ماند (خواستهٔ کاربر).
         # در پنجرهٔ دسکتاپ (?desktop=1) و اپ اندروید (UA مخصوص) ذخیره دائمی است.
         SESSION_TTL = 30 * 60
@@ -3239,7 +3229,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             clean_method_v, two_pass_v,
                             fake_test_v, clean_only_v, web_debug_v, prompt_mode_v, prompt_body_v,
                             glossary_text_v, story_brief_v, api_base_v,
-                            ocr_speedtest_v,
                             *tone_args):
             _t_prep68 = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
             sid = (sid or sid_box_v or "").strip()
@@ -3477,13 +3466,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             _env = os.environ.copy()
             _env["PYTHONUNBUFFERED"] = "1"
             _env["PYTHONIOENCODING"] = "utf-8"
-            # v1.14.178 — سوییچهایِ آزمایشگاه حذف شدند؛ فقط دکمهٔ «تستِ
-            # سرعت». برندهٔ تست در speed_test.json ذخیره میشود و خودِ
-            # manga.py (speed_lab_env در main) آن را اعمال میکند.
-            if ocr_speedtest_v in (True, "true", "True", 1, "1"):
-                _env["MANGA_SPEED_TEST"] = "1"
-            else:
-                _env.pop("MANGA_SPEED_TEST", None)
+            # v1.14.181 — دکمهٔ «تستِ سرعت» حذف شد؛ کلیدِ محیطیِ کهنهٔ
+            # نشستهایِ قبلی هم پاک میشود تا مسیرِ آزمایشگاه بیدار نشود.
+            _env.pop("MANGA_SPEED_TEST", None)
             _env["MANGA_LIVE_DIR"] = live_dir
             if _dbg_on:
                 _env["MANGA_LIVE_DEBUG_DIR"] = live_dbg_dir
@@ -3555,7 +3540,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     clean_method, two_pass,
                     fake_test, clean_only, web_debug, prompt_mode, prompt_preview_body,
                     glossary_text, story_brief, api_base,
-                    ocr_speedtest] + tone_uploads + tone_enables,
+                ] + tone_uploads + tone_enables,
             outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
                      dl_btn_debug, btn_view_debug, debug_row, html_debug_state],
             concurrency_limit=8,
@@ -3595,14 +3580,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                            **_click_kw)
                 except TypeError:
                     _ev178 = run_btn.click(run_translation, **_click_kw)
-            # v1.14.178 — کلیدِ «تستِ سرعت» یک‌بارمصرف است: بعد از پایانِ
-            # هر کار خودکار خاموش میشود تا کارِ بعدی ترجمهٔ عادی باشد.
-            try:
-                _ev178.then(fn=lambda _v178b: gr.update(value=False),
-                            inputs=[ocr_speedtest],
-                            outputs=[ocr_speedtest])
-            except Exception:
-                pass
+            # v1.14.181 — کلیدِ یک‌بارمصرفِ «تستِ سرعت» (v1.14.178) با خودِ
+            # دکمه حذف شد؛ کارهایِ بعدی همیشه ترجمهٔ عادیاند.
         except Exception:
             pass
 

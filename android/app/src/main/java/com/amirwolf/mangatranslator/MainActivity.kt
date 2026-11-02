@@ -78,9 +78,6 @@ class MainActivity : AppCompatActivity() {
     // «در حال ترجمه…» حالتِ دیباگ هم موقعِ تمام‌شدن برداشته شود
     @Volatile private var liveDone = false
     private var jobRunning = false
-    // v1.14.178 — کلیدِ «تستِ سرعت» برایِ همین کار فرستاده شد؟
-    // (بعد از پایانِ کار خودکار خاموش میشود)
-    private var speedTestSent = false
     private var cancelPending = false
     private lateinit var loadingRow: LinearLayout
     private val values = HashMap<String, Any?>()
@@ -1758,11 +1755,8 @@ class MainActivity : AppCompatActivity() {
                 k.startsWith("en_") -> map.put(k, o.optBoolean(k, true))
             }
         }
-        // v1.14.178 — سوییچهایِ «آزمایشگاه سرعت» حذف شدند (دو بار
-        // زنجیرهٔ پنل→پایتون شکست: 176 و 177)؛ فقط دکمهٔ «تستِ سرعت»
-        // مانده که یک‌بارمصرف است و برنده در speed_test.json (سمتِ
-        // پایتون) ذخیره میشود — دیگر کلیدی به موتورِ OCR منتقل نمیشود.
-        map.put("ocr_speedtest", optBool(o, "ocr_speedtest"))
+        // v1.14.181 — دکمهٔ «تستِ سرعت» (v1.14.178) کامل حذف شد؛ روشِ
+        // استخراج = فقط ML Kit (برندهٔ تستِ ۱۷۹ — سمتِ پایتون اعمال میشود).
         for ((id, path) in pickedFiles) {
             if (id.startsWith("up_") || id == "font_upload") {
                 map.put(id + "_file", path)
@@ -1840,9 +1834,6 @@ class MainActivity : AppCompatActivity() {
         }
         try {
             val p = collect()
-            // v1.14.178 — اگر این کار «تستِ سرعت» باشد، بعد از پایان
-            // کلیدِ پنل خودکار خاموش میشود (یک‌بارمصرف).
-            speedTestSent = p.optBoolean("ocr_speedtest", false)
             if ((p.optString("src") ?: "").isBlank() ||
                 (p.optString("src") ?: "").equals("null", true)) {
                 Toast.makeText(this, "فایل یا لینک ورودی بده", Toast.LENGTH_SHORT).show()
@@ -1974,20 +1965,6 @@ class MainActivity : AppCompatActivity() {
                         liveBtn = null
                         showResults(s)
                         autoSaveLog()
-                        // v1.14.178 — پایانِ «تستِ سرعت»: کلیدِ پنل خودکار
-                        // خاموش میشود تا کارِ بعدی ترجمهٔ عادی باشد
-                        // (برنده در speed_test.json ماند و پایتون خودش
-                        // در کارهایِ بعدی اعمالش میکند).
-                        if (speedTestSent) {
-                            speedTestSent = false
-                            (fieldViews["ocr_speedtest"] as? SwitchCompat)
-                                ?.isChecked = false
-                            values.remove("ocr_speedtest")
-                            prefs.edit().putString("ocr_speedtest", "false").apply()
-                            Toast.makeText(this@MainActivity,
-                                "⚡ تستِ سرعت تمام شد — سریعترین حالت ذخیره شد (لاگ را ببین)",
-                                Toast.LENGTH_LONG).show()
-                        }
 
                     } else ui.postDelayed({ pollLoop() }, 800)
                 } catch (e: Exception) {

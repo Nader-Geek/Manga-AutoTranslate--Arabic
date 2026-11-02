@@ -71,6 +71,7 @@ else:
 APP_VER = _m.group(1)
 
 # ── ۱) پنل: فقط یک کلید ──────────────────────────────────────────
+# ── ۱) پنل — v1.14.181: دکمهٔ «تستِ سرعت» هم حذف شد ─────────────
 sys.path.insert(0, os.path.join(ROOT, "android", "app", "src",
                                 "main", "python"))
 import extract_ui as eu  # noqa: E402
@@ -81,13 +82,19 @@ for sec in ((fields or {}).get("sections") or []):
     for f in (sec.get("fields") or []):
         if isinstance(f, dict) and str(f.get("id", "")).startswith("ocr_"):
             found[f["id"]] = f
-if list(found.keys()) != ["ocr_speedtest"]:
-    fail("U: پنل باید فقط ocr_speedtest را داشته باشد (دارد: %s)"
+if found:
+    fail("U: v1.14.181 پنل نباید هیچ کلیدِ ocr_* داشته باشد (دارد: %s)"
          % list(found.keys()))
-elif found["ocr_speedtest"].get("type") != "bool":
-    fail("U: ocr_speedtest باید bool باشد")
 else:
-    ok("U: پنل = فقط «⚡ تستِ سرعت» (bool) — سوییچها حذف شدند")
+    ok("U: پنل بدونِ دکمهٔ «تستِ سرعت» و سوییچها — فقط ML Kit (181)")
+old_keys = [k for k in ("ocr_ep", "ocr_ladder", "ocr_threads",
+                        "ocr_detcap", "ocr_boost", "ocr_speedtest")
+            if ("gr.Dropdown" in asrc and ('"%s"' % k) in asrc
+            and k in asrc.split("def run_translation")[0])]
+if old_keys:
+    fail("U: سوییچهایِ کهنه هنوز در ویجتها هستند: %s" % old_keys)
+else:
+    ok("U: هیچ سوییچ/دکمهٔ کهنهای در ویجتها نیست")
 old_keys = [k for k in ("ocr_ep", "ocr_ladder", "ocr_threads",
                         "ocr_detcap", "ocr_boost")
             if ("gr.Dropdown" in asrc and ('"%s"' % k) in asrc
@@ -106,32 +113,32 @@ elif 'os.environ.get("MANGA_SPEED_TEST"' not in src:
 elif 'nnapi_pending' not in src:
     fail("S: نشانِ nnapi_pending در manga.py نیست")
 else:
-    ok("S: ماشینِ «تستِ سرعت» در manga.py کامل است")
-if "_speed_test_job(" not in bsrc or 'p.get("ocr_speedtest")' not in bsrc:
-    fail("B: bridge مسیرِ تستِ سرعت ندارد")
-_pos_branch = bsrc.index('p.get("ocr_speedtest")')
-_pos_keys = bsrc.index('keys = [k.strip() for k in str(p.get("keys")')
-if _pos_branch > _pos_keys:
-    fail("B: مسیرِ تستِ سرعت باید قبل از چکِ کلیدِ API باشد")
+    ok("S: ماشینِ «تستِ سرعت» (خاموش — بدونِ دکمه) در manga.py کامل است")
+# v1.14.181 — bridge دیگر مسیرِ تستِ سرعت ندارد؛ روشِ استخراج = فقط ML Kit
+if "_speed_test_job(" in bsrc or 'p.get("ocr_speedtest")' in bsrc:
+    fail("B: v1.14.181 — مسیرِ تستِ سرعت باید از bridge حذف شده باشد")
+elif 'getattr(_manga(), "speed_lab_env", None)' not in bsrc:
+    fail("B: speed_lab_env سرِ جایش نیست")
 else:
-    ok("B: bridge مسیرِ تست را قبل از چکِ کلید میگیرد + should_stop")
-if 'map.put("ocr_speedtest", optBool(o, "ocr_speedtest"))' not in ksrc:
-    fail("K: collect() دیگر ocr_speedtest را نمیفرستد")
-for _k in ("ocr_ep", "ocr_ladder", "ocr_threads", "ocr_detcap", "ocr_boost"):
+    ok("B: bridge بدونِ دکمهٔ تستِ سرعت + speed_lab_env (فقط ML Kit)")
+# v1.14.181 — collect() دیگر ocr_speedtest نمیفرستد
+if 'map.put("ocr_speedtest"' in ksrc or "speedTestSent" in ksrc \
+        or 'fieldViews["ocr_speedtest"]' in ksrc:
+    fail("K: v1.14.181 — کلید/سوییچِ تستِ سرعت باید از MainActivity حذف "
+         "شده باشد")
+for _k in ("ocr_ep", "ocr_ladder", "ocr_threads", "ocr_detcap",
+           "ocr_boost", "ocr_speedtest"):
     if _k in ksrc:
         fail("K: کلیدِ کهنهٔ %s هنوز در MainActivity است" % _k)
 else:
-    ok("K: collect فقط ocr_speedtest + خاموشیِ خودکار در done")
-if "speedTestSent" not in ksrc or 'fieldViews["ocr_speedtest"]' not in ksrc:
-    fail("K: خاموشیِ خودکارِ کلید بعد از done نیست")
+    ok("K: MainActivity بدونِ کلیدِ تستِ سرعت و سوییچهایِ کهنه")
+# v1.14.181 — سیمکشیِ PC هم حذف شد (فقط پاکسازیِ کلیدِ محیطیِ کهنه)
+if "ocr_speedtest_v" in asrc or "outputs=[ocr_speedtest]" in asrc:
+    fail("P: v1.14.181 — سیمکشیِ ocr_speedtest باید از manga_app حذف شود")
+elif '_env.pop("MANGA_SPEED_TEST", None)' not in asrc:
+    fail("P: پاکسازیِ کلیدِ محیطیِ کهنهٔ MANGA_SPEED_TEST در manga_app نیست")
 else:
-    ok("K: speedTestSent → uncheck/prefs/Toast بعد از پایانِ کار")
-if 'MANGA_SPEED_TEST' not in asrc or "ocr_speedtest_v" not in asrc:
-    fail("P: manga_app سیمکشیِ MANGA_SPEED_TEST/ocr_speedtest_v ندارد")
-elif ".then(" not in asrc or "outputs=[ocr_speedtest]" not in asrc:
-    fail("P: خاموشیِ خودکارِ کلید (then→value=False) در manga_app نیست")
-else:
-    ok("P: PC = MANGA_SPEED_TEST + خاموشیِ خودکارِ Checkbox")
+    ok("P: PC بدونِ دکمهٔ تستِ سرعت (popِ envِ کهنه مانده)")
 
 # ── ۳) E2E عملی در زیرپروسه ─────────────────────────────────────
 # تصویرِ مصنوعی با جعبههایِ سفید (متنِ فرضی) — backendِ فیک تزریق
@@ -280,20 +287,31 @@ g2 = {"os": os, "json": json,
       "_SPEED_LAB_LADDER": ("full", "fast", "mlkit", "rapid", "paddle",
                             "flutter"),
       "_K3_MODE_FA": g["_K3_MODE_FA"],
-      "speed_test_load": g["speed_test_load"], "print": print}
+      "speed_test_load": g["speed_test_load"], "print": print,
+      # v1.14.181 — وابستگیهایِ تابعِ پاکسازی (گیتِ False = skip)
+      "_K3_PURGE_EXTRA": ("PP-OCRv6_det_small.int8.onnx",),
+      "_PURGE_MARKER": ".onnx_loser_models_purged_181",
+      "_android_gate": lambda name: False,
+      "_RAPIDOCR_FILES": {},
+      "_fmt_mb": lambda n: "0.0MB",
+      "APP_VER": "1.14.181", "time": time}
+pl = ast.get_source_segment(src, next(
+    n for n in ast.parse(src).body
+    if isinstance(n, ast.FunctionDef)
+    and n.name == "_purge_loser_onnx_models"))  # v1.14.181
+exec(compile(pl, "pl", "exec"), g2)
 exec(compile(sle, "sle", "exec"), g2)
 banner = g2["speed_lab_env"]({"ocr_ep": "nnapi"})  # کلیدهایِ کهنه باید بیاثر باشند
-# v1.14.180 — forceِ «فلاتر-پدل» (تستِ کیفیتِ نایبقهرمان): برندهٔ
-# ذخیرهشده فعلاً کنار میرود؛ نیتِ اصلی (فایل‌محور + کلیدهایِ کهنهٔ
-# بیاثر) سرِ جایش است
-assert "فلاتر-پدل" in banner and "flutter" in banner, banner
-assert os.environ.get("MANGA_K3_MODE") == "flutter"
+# v1.14.181 — forceِ «فقط ML Kit» (برندهٔ تستِ ۱۷۹): نیتِ اصلی
+# (فایل‌محور + کلیدهایِ کهنهٔ بیاثر) سرِ جایش است
+assert "فقط ML Kit" in banner and "v1.14.181" in banner, banner
+assert os.environ.get("MANGA_K3_MODE") == "mlkit"
 assert "MANGA_OCR_THREADS" not in os.environ, "کلیدِ کهنه پاک نشد"
-# بدونِ نتیجه → v1.14.180: باز هم فلاتر-پدل (تستِ کیفیت)
+# بدونِ نتیجه → باز هم فقط ML Kit
 os.remove(stf)
 banner2 = g2["speed_lab_env"]({})
-assert "فلاتر-پدل" in banner2 and \
-    os.environ.get("MANGA_K3_MODE") == "flutter", banner2
+assert "فقط ML Kit" in banner2 and \
+    os.environ.get("MANGA_K3_MODE") == "mlkit", banner2
 print("E2E_OK", json.dumps({"ladder": d["ladder"], "ep": d["ep"]},
                            ensure_ascii=False))
 '''

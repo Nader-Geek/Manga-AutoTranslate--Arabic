@@ -148,6 +148,9 @@ ok("CI: img6.jpg + گیتِ «attraction» + ۸ تصویر")
 # ۵) تستِ منطقیِ نردبان با موتورهایِ فیک
 sys.path.insert(0, ROOT)
 os.environ.setdefault("MANGA_K3_LADDER", "1")
+# v1.14.181 — پیشفرضِ نردبان «mlkit» شد (دستورِ سازنده: فقط ML Kit)؛
+# این چکِ قدیمی، مسیرِ خاموشِ پلهٔ ۲/۳ را تست میکند → صریحاً full
+os.environ["MANGA_K3_MODE"] = "full"
 import manga  # noqa: E402
 
 H, W = 120, 200

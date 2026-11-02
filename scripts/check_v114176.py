@@ -73,7 +73,7 @@ ok(f"نسخه {_vc.group(1) if _vc else '?'}/{_vn.group(1) if _vn else '?'}"
 # ۱) گیتهایِ manga.py — نردبانِ حالtdار + آزمایشگاه
 for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           'os.environ.get("MANGA_K3_MODE"',
-          'self._mode = _m if _m in self._K3_MODES else "full"',
+          'self._mode = _m if _m in self._K3_MODES else "mlkit"',
           'if _mode not in ("rapid", "flutter"):',
           'if _mode == "mlkit":',
           'if _mode in ("full", "paddle"):',
@@ -83,14 +83,14 @@ for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           '_SPEED_LAB_EP = ("auto", "nnapi", "xnnpack", "cpu")',
           '_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           'os.environ["MANGA_K3_MODE"]',
-          # v1.14.180 — forceِ «فلاتر-پدل» (تستِ کیفیت) جای popِ قدیمی را گرفت
-          'os.environ["MANGA_K3_MODE"] = "flutter"',
+          # v1.14.181 — forceِ «فلاتر-پدلِ» 180 با «فقط ML Kit» جایگزین شد
+          'os.environ["MANGA_K3_MODE"] = "mlkit"',
           '_SPEED_TEST_FILE = "speed_test.json"',
           'def speed_test_run(',
           'speed_test_load()'):
     if s not in src:
         fail(f"گیتِ manga.py نیست: {s!r}")
-ok("manga.py: نردبانِ ۶حالته (با flutterِ 179) + speed_lab_env + _k3_speed_report")
+ok("manga.py: نردبانِ ۶حالته + speed_lab_env (فقطِ ML Kitِ 181) + _k3_speed_report")
 
 # ۲) rapidocr_mobile — کلیدِ کَش با wanted
 if '+ "#" + ",".join(_wanted)' not in rsrc:
@@ -104,7 +104,7 @@ if 'getattr(_manga(), "_k3_speed_report", None)' not in bsrc:
     fail("bridge باید گزارشِ سرعت را در finally لاگ کند")
 ok("bridge.py: speed_lab_env + گزارشِ سرعت در finally")
 
-# ۴) استخراجِ واقعیِ فرمِ گوشی
+# ۴) استخراجِ واقعیِ فرمِ گوشی — v1.14.181: دکمهٔ «تستِ سرعت» حذف شد
 sys.path.insert(0, os.path.dirname(os.path.dirname(RP)))
 from extract_ui import extract  # noqa: E402
 
@@ -117,30 +117,24 @@ SEC = None
 for s in mf["sections"]:
     if any(f["id"] == "ocr_speedtest" for f in s["fields"]):
         SEC = s
-if SEC is None:
-    fail("بخشِ تستِ سرعت در فرمِ گوشی استخراج نشد")
+if SEC is not None:
+    fail("v1.14.181: بخشِ تستِ سرعت نباید در فرمِ گوشی باشد")
 _oldk = [k for k in ("ocr_ep", "ocr_ladder", "ocr_threads",
-                     "ocr_detcap", "ocr_boost") if k in FLDS]
+                     "ocr_detcap", "ocr_boost", "ocr_speedtest") if k in FLDS]
 if _oldk:
-    fail("سوییچهایِ کهنه هنوز در فرمِ گوشی هستند: %s" % _oldk)
-if "ocr_speedtest" not in FLDS:
-    fail("ocr_speedtest در فرمِ گوشی نیست")
-if FLDS.get("ocr_speedtest", {}).get("type") != "bool":
-    fail("ocr_speedtest باید bool باشد")
-_d = FLDS["ocr_speedtest"].get("default")
-_d = _d.get("default") if isinstance(_d, dict) else _d
-if _d is not False:
-    fail("پیشفرضِ ocr_speedtest باید خاموش باشد")
-ok("فرمِ گوشی: فقط دکمهٔ «تستِ سرعت» — سوییچها حذف شدند (استخراجِ واقعی)")
+    fail("سوییچهایِ کهنه/دکمهٔ تست هنوز در فرمِ گوشی هستند: %s" % _oldk)
+ok("فرمِ گوشی: دکمهٔ «تستِ سرعت» هم حذف شد — فقط ML Kit (استخراجِ واقعی)")
 
 tree = ast.parse(src)
 _NEEDED = {"K3LadderOCR", "_k3_boost_crop", "_k3_map_boxes",
            "_k3_ink_coverage", "_k3_best_conf", "_k3_stats_note",
            "speed_lab_env", "_k3_speed_report",
            "speed_test_load", "_speed_test_path",
-           "_speed_test_save"}
+           "_speed_test_save",
+           "_purge_loser_onnx_models"}  # v1.14.181
 _CONSTS = {"_K3_STATS", "_MLKIT_STATS", "_SPEED_LAB_EP",
-           "_SPEED_LAB_LADDER", "_SPEED_TEST_FILE", "_K3_MODE_FA"}
+           "_SPEED_LAB_LADDER", "_SPEED_TEST_FILE", "_K3_MODE_FA",
+           "_K3_PURGE_EXTRA", "_PURGE_MARKER"}  # v1.14.181
 _nodes = []
 for n in tree.body:
     if isinstance(n, ast.ClassDef) and n.name == "K3LadderOCR":
@@ -159,7 +153,13 @@ for n in _nodes:
         _got.add(n.name)
 if _got != _NEEDED:
     fail(f"AST-استخراج ناقص: کم است {_NEEDED - _got}")
-ns = {"os": os, "time": time, "cv2": cv2, "np": np, "json": json}
+ns = {"os": os, "time": time, "cv2": cv2, "np": np, "json": json,
+      # v1.14.181 — وابستگیهایِ تابعِ پاکسازی (رویِ PC گیت False = skip)
+      "_android_gate": lambda name: False,
+      "_RAPIDOCR_FILES": {"PP-OCRv6_tiny_det.onnx": "u",
+                          "ppocr_keys_v6_tiny_utf8.txt": "u"},
+      "_fmt_mb": lambda n: "%.1fMB" % (n / (1024 * 1024)),
+      "APP_VER": "1.14.181"}
 exec(compile(ast.Module(body=_nodes, type_ignores=[]), "<chk176>", "exec"),
      ns)
 speed_lab_env = ns["speed_lab_env"]
@@ -208,46 +208,46 @@ def sc_env(name, data, checks):
     return line
 
 
-# v1.14.180 — در این نسخه speed_lab_env «فلاتر-پدل» را رویِ همهٔ کارها
-# force میکند (تستِ کیفیتِ نایبقهرمان — دستورِ سازنده)؛ قراردادهایِ
-# EP/کلیدهایِ کهنه سرِ جایشان هستند.
+# v1.14.181 — speed_lab_env در «هر دو» شاخه فقط ML Kit را force میکند
+# (برندهٔ تستِ ۱۷۹؛ مدلهایِ بازنده پاک، دکمهٔ تست حذف)؛ EP/کلیدهایِ کهنه
+# سرِ جایشان هستند.
 sc_env("E1 بدونِ نتیجه", None, [
     ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("MODE=flutter", lambda: os.environ.get("MANGA_K3_MODE") == "flutter"),
+    ("MODE=mlkit", lambda: os.environ.get("MANGA_K3_MODE") == "mlkit"),
     ("نخ پاک", lambda: "MANGA_OCR_THREADS" not in os.environ),
     ("سقف پاک", lambda: "MANGA_CROP_DET_CAP" not in os.environ),
     ("بزرگنمایی پاک", lambda: "MANGA_CROP_ENH_SCALE" not in os.environ),
 ])
 _l1 = speed_lab_env({})
-for frag in ("فلاتر-پدل", "flutter", "تستِ کیفیتِ نایبقهرمان"):
+for frag in ("فقط ML Kit", "v1.14.181"):
     if frag not in _l1:
         fail(f"E1 خطِ لاگ باید {frag!r} داشته باشد: {_l1}")
-ok("E1 بدونِ نتیجه = فلاتر-پدل (forceِ 180) + پاکسازیِ کلیدهایِ کهنه")
+ok("E1 بدونِ نتیجه = فقط ML Kit (پیشفرضِ 181) + پاکسازیِ کلیدهایِ کهنه")
 
 sc_env("E2 برندهٔ fast+nnapi",
        {"ladder": "fast", "ep": "nnapi", "ladder_ms": {"fast": 123}},
        [("EP=nnapi", lambda: os.environ.get("MANGA_MOBILE_OCR_EP") == "nnapi"),
-        ("MODE=flutter (forceِ 180)",
-         lambda: os.environ.get("MANGA_K3_MODE") == "flutter")])
+        ("MODE=mlkit (forceِ 181)",
+         lambda: os.environ.get("MANGA_K3_MODE") == "mlkit")])
 _l2 = speed_lab_env({})
-for frag in ("برندهٔ", "فلاتر-پدل", "flutter", "nnapi"):
+for frag in ("فقط ML Kit", "nnapi", "v1.14.181", "بازنده"):
     if frag not in _l2:
         fail(f"E2 خطِ برنده باید {frag!r} داشته باشد: {_l2}")
-ok("E2 برندهٔ فایل → EP + روشِ فلاتر-پدل (forceِ 180)")
+ok("E2 برندهٔ فایل → EP + روشِ فقط ML Kit (forceِ 181)")
 
 sc_env("E3 برندهٔ full+auto", {"ladder": "full", "ep": "auto"}, [
     ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("MODE=flutter (forceِ 180)",
-     lambda: os.environ.get("MANGA_K3_MODE") == "flutter"),
+    ("MODE=mlkit (forceِ 181)",
+     lambda: os.environ.get("MANGA_K3_MODE") == "mlkit"),
 ])
-ok("E3 full/auto = EP پاک + فلاتر-پدل (forceِ 180)")
+ok("E3 full/auto = EP پاک + فقط ML Kit (forceِ 181)")
 
 sc_env("E4 نامعتبر", {"ladder": "weird", "ep": "nope"}, [
     ("EP→پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("MODE=flutter (forceِ 180)",
-     lambda: os.environ.get("MANGA_K3_MODE") == "flutter"),
+    ("MODE=mlkit (forceِ 181)",
+     lambda: os.environ.get("MANGA_K3_MODE") == "mlkit"),
 ])
-ok("E4 مقدارهایِ نامعتبر → EPِ امن + فلاتر-پدل (forceِ 180)")
+ok("E4 مقدارهایِ نامعتبر → EPِ امن + فقط ML Kit (forceِ 181)")
 
 # E5 کلیدهایِ کهنهٔ سوییچهایِ 176/177 نباید زنده بمانند
 os.environ["MANGA_OCR_THREADS"] = "8"
@@ -279,8 +279,8 @@ _r = k3_report()
 for frag in ("40 کراپ", "20000ms", "ML Kit=20", "پدل=15", "رپید=5"):
     if frag not in _r:
         fail(f"گزارشِ سرعت باید {frag!r} داشته باشد: {_r}")
-# v1.14.180 — روشِ فعلی = فلاتر-پدل (forceِ تستِ کیفیتِ سازنده)
-if "روش=flutter" not in _r:
+# v1.14.181 — روشِ فعلی = mlkit (forceِ فقط-ML-Kit)
+if "روش=mlkit" not in _r:
     fail("گزارش باید روشِ فعلی را بگوید: " + _r)
 ok("گزارشِ سرعت: میانگین/پلهها/روش — فرمتِ درست")
 
@@ -340,7 +340,8 @@ MED_WEAK = _lines(("med weak", 0.50))
 SML_OK = _lines(("Rapid text", 0.85))
 
 # T1 — full + ML Kitِ قوی: همان رفتارِ قبل؛ موتورِ ONNX هرگز ساخته نمیشود
-reset_ladder({})
+# (v1.14.181: پیشفرضِ نردبان mlkit شد؛ full فقط برایِ این سناریوهایِ فیک)
+reset_ladder({"MANGA_K3_MODE": "full"})
 ml, fb = FakeMLKit(STRONG), FakeBuild(MED_OK, SML_OK)
 lad = K3LadderOCR(ml, "en", fb)
 r = lad.ocr(_CROP, crop_mode=True)
@@ -353,7 +354,7 @@ if ns["_K3_STATS"]["st1"] != 1:
 ok("T1 full + ML Kitِ قوی → پلهٔ ۱ (بدونِ ساختنِ ONNX) — رفتارِ قبل")
 
 # T2 — full + ML Kitِ ضعیف + پدلِ قوی: پلهٔ ۲؛ رپید ساخته نمیشود
-reset_ladder({})
+reset_ladder({"MANGA_K3_MODE": "full"})
 ml, fb = FakeMLKit(WEAK), FakeBuild(MED_OK, SML_OK)
 lad = K3LadderOCR(ml, "en", fb)
 r = lad.ocr(_CROP, crop_mode=True)
@@ -364,7 +365,7 @@ if fb.made != [False] or ns["_K3_STATS"]["st2"] != 1:
 ok("T2 full + پدلِ قوی → پلهٔ ۲ (رپید ساخته نمیشود)")
 
 # T3 — full + پدلِ ضعیف: پلهٔ ۳ (رپید)
-reset_ladder({})
+reset_ladder({"MANGA_K3_MODE": "full"})
 ml, fb = FakeMLKit(WEAK), FakeBuild(MED_WEAK, SML_OK)
 lad = K3LadderOCR(ml, "en", fb)
 r = lad.ocr(_CROP, crop_mode=True)
@@ -426,16 +427,18 @@ if ns["_K3_STATS"]["st3"] != 0:
     fail("T7 پلهٔ ۳ نباید شمرده شود")
 ok("T7 paddle = فقط پدل (رپید هرگز)")
 
-# T8 — حالتِ ناشناخته → full + همهٔ پلهها سالم
+# T8 — حالتِ ناشناخته → mlkit (پیشفرضِ امنِ 181 — بازندهها بیدار نمیشوند)
 reset_ladder({"MANGA_K3_MODE": "weird"})
 ml, fb = FakeMLKit(WEAK), FakeBuild(MED_OK, SML_OK)
 lad = K3LadderOCR(ml, "en", fb)
-if lad._mode != "full":
-    fail("T8 حالتِ ناشناخته باید full شود")
+if lad._mode != "mlkit":
+    fail("T8 حالتِ ناشناخته باید mlkit شود")
 r = lad.ocr(_CROP, crop_mode=True)
-if not r or r[0][0][1][0] != "Medium text":
-    fail(f"T8 fullِ فالبک خراب: {r}")
-ok("T8 MANGA_K3_MODEِ ناشناخته → full (پیشفرضِ امن)")
+if not r or r[0][0][1][0] != "hm":
+    fail(f"T8 فالبکِ mlkit خراب: {r}")
+if fb.made:
+    fail(f"T8 در فالبکِ mlkit نباید ONNX ساخته شود: made={fb.made}")
+ok("T8 MANGA_K3_MODEِ ناشناخته → mlkit (پیشفرضِ امنِ 181)")
 
 # ۶) py_compile نهایی
 import py_compile  # noqa: E402

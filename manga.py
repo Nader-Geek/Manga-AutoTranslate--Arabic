@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.180"
+APP_VER = "1.14.181"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3713,7 +3713,9 @@ class K3LadderOCR:
             _m = str(os.environ.get("MANGA_K3_MODE", "") or "").strip().lower()
         except Exception:
             _m = ""
-        self._mode = _m if _m in self._K3_MODES else "full"
+        # v1.14.181 — فالبکِ مقدارِ نامشخص/خالی = «mlkit» (برندهٔ تستِ ۱۷۹)
+        # نه «full» — روشهایِ بازنده نباید حتی تصادفی بیدار شوند.
+        self._mode = _m if _m in self._K3_MODES else "mlkit"
 
     def _engine(self, small: bool):
         if small:
@@ -3761,6 +3763,10 @@ class K3LadderOCR:
                 eng = self._engine_tiny()
                 if eng is not None:
                     return eng.ocr(image_bgr, crop_mode=False)
+                return self._mlkit.ocr(image_bgr)
+            # v1.14.181 — روشِ برنده = فقط ML Kit: پاسِ تمامصفحهٔ جانبی هم
+            # با ML Kit میرود؛ مدلهایِ ONNXِ حذفشده بیدار/دانلود نمیشوند.
+            if self._mode == "mlkit":
                 return self._mlkit.ocr(image_bgr)
             eng = self._engine(small=False)
             if eng is not None:
@@ -3889,21 +3895,85 @@ _K3_MODE_FA = {
     "rapid": "فقط رپید", "paddle": "فقط پدل", "flutter": "فلاتر-پدل",
 }
 
+# v1.14.181 — پاکسازیِ یکبارِ مصرفِ مدلهایِ ONNXِ بازنده از گوشی.
+# دستورِ سازنده: «خب ml kit بزار ولی ناقص استخراج میزنه بقیش حذف کن تو
+# گوشی استفاده نکنه». برندهٔ تستِ ۱۷۹ = mlkit (۳۴۹ms) → فقط ML Kit میماند؛
+# سه مجموعهٔ مدلِ بازنده از پوشهٔ rapidocr_modelsِ گوشی حذف میشوند:
+#   رپید (small): PP-OCRv6_det_small[.int8]/rec_small + cls + ja/ko
+#   پدل (K3 medium): PP-OCRv6_medium_det/rec + korean v5 + ch v4
+#   فلاتر-پدل (tiny): PP-OCRv6_tiny_det/rec + dictِ tiny
+# فهرستِ نامها از خودِ _RAPIDOCR_FILES میآید (بدونِ تغییرِ آن dict —
+# PC از همان helper برایِ مجموعهٔ سبکِ خودش استفاده میکند و بیت‌به‌بیت
+# دستنخورده میماند) + نوعِ int8ِ detِ رپید.
+_K3_PURGE_EXTRA = ("PP-OCRv6_det_small.int8.onnx",)
+_PURGE_MARKER = ".onnx_loser_models_purged_181"
+
+
+def _purge_loser_onnx_models() -> str:
+    """v1.14.181 — حذفِ یکبارِ مدلهایِ ONNXِ بازنده از گوشی.
+
+    فقط اندروید (گیتِ MANGA_PURGE_ONNX_MODELS) — PC بیت‌به‌بیت
+    دستنخورده (پوشهٔ هم‌نام رویِ PC مدلهایِ موتورِ خودش را دارد و
+    rapidocr از همان میخواند). یکبارمصرف با فایلِ مارکر: اگر مسیرِ
+    فالبکِ ONNX (مثلاً APKِ خیلی قدیمی بدونِ پلِ ML Kit) بعداً مدلی
+    بخواهد، همان موقع دانلود میشود و پاکِ دوباره نمیشود. خروجی = خطِ
+    لاگِ «چه چیزی آزاد شد» یا ""."""
+    try:
+        if not _android_gate("MANGA_PURGE_ONNX_MODELS"):
+            return ""
+        _mdir = os.path.join(
+            os.environ.get("MANGA_FILES_DIR") or os.getcwd(),
+            "rapidocr_models")
+        if not os.path.isdir(_mdir):
+            return ""
+        _mk = os.path.join(_mdir, _PURGE_MARKER)
+        if os.path.isfile(_mk):
+            return ""
+        _names = set(_RAPIDOCR_FILES) | set(_K3_PURGE_EXTRA)
+        _freed = 0
+        _n = 0
+        for _fn in sorted(os.listdir(_mdir)):
+            _fp = os.path.join(_mdir, _fn)
+            if not os.path.isfile(_fp):
+                continue
+            if _fn in _names or _fn.endswith(".part"):
+                try:
+                    _freed += os.path.getsize(_fp)
+                    os.remove(_fp)
+                    _n += 1
+                except Exception:
+                    pass
+        try:
+            with open(_mk, "w", encoding="utf-8") as _f:
+                _f.write("purged at %s (APP_VER %s)\n"
+                         % (time.strftime("%Y-%m-%d %H:%M"), APP_VER))
+        except Exception:
+            pass
+        if _n:
+            print("[🧹] v1.14.181 — %d فایلِ مدلِ بازنده (%s) از گوشی حذف شد"
+                  " — استخراج فقط با ML Kit" % (_n, _fmt_mb(_freed)))
+            return ("مدلهایِ بازنده حذف شد: %d فایل / %s آزاد شد — "
+                    "فقط ML Kit میماند" % (_n, _fmt_mb(_freed)))
+        return ""
+    except Exception:
+        return ""
+
 
 def speed_lab_env(p: dict) -> str:
-    """v1.14.178 — تنظیمِ موتورِ OCRِ گوشی از نتیجهٔ ذخیرهشدهٔ
-    «تستِ سرعت» (speed_test.json) — نه از پنل.
+    """v1.14.181 — روشِ استخراجِ گوشی = فقط ML Kit؛ مدلهایِ بازنده پاک.
 
-    تاریخچه: 1.14.176 سوییچهایِ پنل (ocr_ep/ocr_ladder/ocr_threads/
-    ocr_detcap/ocr_boost) را آورد ولی زنجیرهٔ پنل→پایتون دو بار شکست
-    (176 و 177) و سازنده گفت: «حذفش کن — یک دکمه بذار خودش همه را
-    تست کنه». حالا پنل فقط یک دکمهٔ «تستِ سرعت» دارد؛ برندهٔ تست در
-    speed_test.json ذخیره میشود و همین تابع آن را رویِ envهایِ موتور
-    اعمال میکند. بدونِ نتیجه = پیشفرض (full | auto) — بیت‌به‌بیتِ
-    قبلِ 176. پارامترِ p دیگر خوانده نمیشود (سازگاریِ امضا با bridge).
-    v1.14.180 — موقتاً: روشِ «فلاتر-پدل» (نایبقهرمانِ تستِ ۱۷۹) رویِ
-    همهٔ کارها فعال است (تستِ کیفیتِ سازنده)؛ برندهٔ ذخیرهشده فقط برای
-    شتاب‌دهنده خوانده میشود و بعدِ تأییدِ کیفیت به mlkit برمیگردیم."""
+    تاریخچه: 1.14.176 سوییچهایِ پنل را آورد ولی زنجیرهٔ پنل→پایتون دو
+    بار شکست (176 و 177)؛ 1.14.178 یک دکمهٔ «تستِ سرعت» شد که برنده را
+    در speed_test.json ذخیره میکرد. v1.14.180 موقتاً نایبقهرمانِ تست
+    (فلاتر-پدل/tiny) برایِ تستِ کیفیت فعال بود.
+    v1.14.181 — دستورِ نهاییِ سازنده: «خب ml kit بزار ولی ناقص استخراج
+    میزنه بقیش حذف کن تو گوشی استفاده نکنه و اون دکمه تست همه استخراج
+    حذف کن» → برندهٔ تستِ ۱۷۹ = mlkit (۳۴۹ms/کراپ) در هر دو شاخه force
+    میشود؛ مدلهایِ ONNXِ بازنده یکبار از گوشی پاک میشوند
+    (_purge_loser_onnx_models) و دکمهٔ «تستِ سرعت» از پنل حذف شد.
+    فقط شتاب‌دهندهٔ ذخیرهشده (برایِ مسیرهایِ ONNXِ باقیمانده/آینده) از
+    speed_test.json خوانده میشود. پارامترِ p خوانده نمیشود (سازگاریِ
+    امضا با bridge)."""
     try:
         # کلیدهایِ قدیمیِ سوییچها هرگز از این نسخه ست نمیشوند — پاککاری
         # برایِ اینکه envِ ماندهٔ پروسههایِ قدیمی اثر نگذارد.
@@ -3912,41 +3982,31 @@ def speed_lab_env(p: dict) -> str:
             os.environ.pop(_k, None)
 
         _w = speed_test_load()
+        _ep = "auto"
         if _w:
             _ep = str(_w.get("ep") or "auto").strip().lower()
             if _ep not in _SPEED_LAB_EP:
                 _ep = "auto"
-            if _ep == "auto":
-                os.environ.pop("MANGA_MOBILE_OCR_EP", None)
-            else:
-                os.environ["MANGA_MOBILE_OCR_EP"] = _ep
-            _lad = str(_w.get("ladder") or "full").strip().lower()
-            if _lad not in _SPEED_LAB_LADDER:
-                _lad = "full"
-            # v1.14.180 — دستورِ سازنده: «یک چیزی قبل حذف کنی تست میخوام
-            # کنم بجز نسخهٔ ml kit کدومش سریعتر بود؟ اونو فعال کن ببینم
-            # متن هارو درست در میاره» → برندهٔ ذخیرهشده (mlkit) موقتاً
-            # کنار میرود؛ نایبقهرمانِ تستِ ۱۷۹ = «فلاتر-پدل» (PP-OCRv6
-            # tiny؛ ۳۸۵۵ms/کراپ بعد از ML Kitِ ۳۴۹ms) رویِ همهٔ کارها
-            # فعال میشود تا کیفیتِ استخراجش دیده شود. حذفِ مدلهایِ
-            # بازنده مالِ بعدِ تأییدِ کیفیت است — فعلاً هیچ مدلی حذف
-            # نشده. شتاب‌دهندهٔ ذخیرهشده (xnnpack) میماند.
-            _lad = "flutter"
-            os.environ["MANGA_K3_MODE"] = "flutter"
-            _ms_l = ""
-            try:
-                _lm = _w.get("ladder_ms") or {}
-                if _lm.get(_lad):
-                    _ms_l = " (%.0fms/کراپ — تستِ %s)" % (float(_lm[_lad]),
-                                                        str(_w.get("ts") or "?"))
-            except Exception:
-                _ms_l = ""
-        else:
-            _ep, _lad = "auto", "flutter"
+        if _ep == "auto":
             os.environ.pop("MANGA_MOBILE_OCR_EP", None)
-            # v1.14.180 — حتی بدونِ نتیجهٔ ذخیرهشده، تستِ کیفیتِ
-            # فلاتر-پدل فعال میماند
-            os.environ["MANGA_K3_MODE"] = "flutter"
+        else:
+            os.environ["MANGA_MOBILE_OCR_EP"] = _ep
+        # v1.14.181 — برندهٔ نهاییِ «تستِ سرعتِ ۱۷۹» = mlkit در هر دو
+        # شاخه force میشود («بقیش حذف کن تو گوشی استفاده نشه»)؛ مقدارِ
+        # کهنهٔ env (حتی flutterِ 180) هرگز زنده نمیماند.
+        _lad = "mlkit"
+        os.environ["MANGA_K3_MODE"] = "mlkit"
+        _ms_l = ""
+        try:
+            _lm = (_w or {}).get("ladder_ms") or {}
+            if _lm.get(_lad):
+                _ms_l = " (%.0fms/کراپ — تستِ %s)" % (float(_lm[_lad]),
+                                                    str((_w or {}).get("ts") or "?"))
+        except Exception:
+            _ms_l = ""
+
+        # v1.14.181 — پاکسازیِ یکبارِ مدلهایِ ONNXِ بازنده از گوشی
+        _purge = _purge_loser_onnx_models()
 
         # سنجههایِ سرعت = مالِ «این اجرا» — بینِ کارها ریست
         for _k in ("n", "ms", "st1", "st2", "st3"):
@@ -3954,14 +4014,17 @@ def speed_lab_env(p: dict) -> str:
         for _k in ("ms", "n", "lines"):
             _MLKIT_STATS[_k] = 0 if _k != "ms" else 0.0
 
+        if _purge:
+            return ("[⚡] روشِ استخراج: فقط ML Kit (%s) + شتاب‌دهندهٔ %s%s "
+                    "| v1.14.181: %s؛ دکمهٔ «تستِ سرعت» هم برداشته شد"
+                    % (_K3_MODE_FA.get(_lad, _lad), _ep, _ms_l, _purge))
         if _w:
-            return ("[⚡] تنظیمِ برندهٔ «تستِ سرعت»: روشِ %s (%s) + شتاب‌دهندهٔ %s%s"
-                    % (_K3_MODE_FA.get(_lad, _lad), _lad, _ep, _ms_l)
-                    + " | v1.14.180 = تستِ کیفیتِ نایبقهرمان — مدلها هنوز "
-                      "حذف نشدهاند؛ بعدِ تأییدِ شما حذف میشوند")
-        return ("[⚡] روشِ استخراج: فلاتر-پدل (flutter؛ tiny) — تستِ کیفیتِ "
-                "نایبقهرمانِ «تستِ سرعت» (v1.14.180؛ مدلها هنوز حذف "
-                "نشدهاند)")
+            return ("[⚡] روشِ استخراج: فقط ML Kit (%s) + شتاب‌دهندهٔ %s%s"
+                    " | v1.14.181: مدلهایِ بازنده (رپید/پدل/فلاتر-پدل) "
+                    "حذف شدند — فقط ML Kit"
+                    % (_K3_MODE_FA.get(_lad, _lad), _ep, _ms_l))
+        return ("[⚡] روشِ استخراج: فقط ML Kit (پیشفرضِ v1.14.181 — "
+                "نتیجهٔ ذخیرهشدهای از «تستِ سرعت» نیست)")
     except Exception:
         return ""
 
