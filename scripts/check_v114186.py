@@ -95,7 +95,7 @@ gate("if _soft186 or abs(_fmed140 - _rmed140) > 22.0 or \\" in _manga
      "A: تریگرِ قدیمیِ دود/تیره دست‌نخورده + OR با SOFTQC")
 gate("if not _soft186:" in _manga,
      "A: محاسبهٔ دوبارهٔ hf برایِ مسیرِ قدیمی حذف شد (سریعتر)")
-gate("'ضدِ لکهٔ شیری (SOFTQC)'" in _manga,
+gate("_tag140 = (\"ضدِ لکهٔ شیری (SOFTQC)\"" in _manga,
      "A: لاگِ قابلِ تشخیصِ SOFTQC در لاگِ گوشی")
 
 # ── B. MANGA_PROT_CACHE ─────────────────────────────────────────────
@@ -198,6 +198,30 @@ for _f in ("manga.py", ".ci_scripts/ext_settings.py"):
         ok(f"py_compile: {_f}")
     except Exception as e:
         fail(f"py_compile: {_f} → {e}")
+
+# ── سازگاریِ 3.11 (CI = Python 3.11؛ سندباکس = 3.12+) ───────────────
+# v1.14.186b — f-stringِ چندخطی (PEP 701) در 3.11 SyntaxError میداد و
+# PC-speed CI را کشت؛ حالا همهٔ فایلهایِ تغییرپذیر با گرامرِ 3.11
+# پارس میشوند.
+try:
+    import glob as _glob
+    _pyfiles = (["manga.py", ".ci_scripts/ext_settings.py",
+                 "scripts/bench_speed.py",
+                 "android/app/src/main/python/bridge.py"]
+                + sorted(_glob.glob("scripts/check_v11*.py")))
+    _bad311 = []
+    for _pf in _pyfiles:
+        try:
+            ast.parse(open(_pf, encoding="utf-8").read(),
+                      filename=_pf, feature_version=(3, 11))
+        except SyntaxError as _se:
+            _bad311.append(f"{_pf}:{_se.lineno} {_se.msg}")
+    gate(not _bad311,
+         "PY311: همهٔ فایلها با گرامرِ Python 3.11 پارس میشوند"
+         if not _bad311 else
+         f"PY311: ناسازگارِ 3.11 → {_bad311}")
+except Exception as e:
+    fail(f"PY311: اسکن شکست خورد: {e}")
 
 print()
 if FAILS:

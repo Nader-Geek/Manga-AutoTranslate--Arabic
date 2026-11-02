@@ -12564,9 +12564,13 @@ class MangaTranslator:
                             sub_bgr[_fm] = np.clip(
                                 _fill140, 0, 255).astype(
                                     np.uint8)[_fm]
-                            print(f"    [✓] {'ضدِ لکهٔ شیری (SOFTQC)'
-                                        if _soft186 else
-                                        'ضدِ دودِ زمینهٔ تیره'}: "
+                            # v1.14.186b — f-stringِ چندخطی در 3.11
+                            # سینتکس-ارور میداد (PEP 701 = 3.12) → لیبل
+                            # قبل از print محاسبه میشود
+                            _tag140 = ("ضدِ لکهٔ شیری (SOFTQC)"
+                                       if _soft186 else
+                                       "ضدِ دودِ زمینهٔ تیره")
+                            print(f"    [✓] {_tag140}: "
                                   f"hf={_hf_in:.1f} vs "
                                   f"حلقه={_hf_rg:.1f} → پرِ ردیفیِ "
                                   f"حلقه ({int(_okI.size)}/"
