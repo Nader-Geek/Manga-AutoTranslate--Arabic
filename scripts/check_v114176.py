@@ -71,9 +71,10 @@ ok(f"نسخه {_vc.group(1) if _vc else '?'}/{_vn.group(1) if _vn else '?'}"
    " (APP_VER↔versionName↔versionCode)")
 
 # ۱) گیتهایِ manga.py — نردبانِ حالtdار + آزمایشگاه
-for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
+for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter",',
+          '"padandroid")',
           'os.environ.get("MANGA_K3_MODE"',
-          'self._mode = _m if _m in self._K3_MODES else "mlkit"',
+          'self._mode = _m if _m in self._K3_MODES else "padandroid"',
           'if _mode not in ("rapid", "flutter"):',
           'if _mode == "mlkit":',
           'if _mode in ("full", "paddle"):',
@@ -81,16 +82,16 @@ for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           'def speed_lab_env(p: dict) -> str:',
           'def _k3_speed_report() -> str:',
           '_SPEED_LAB_EP = ("auto", "nnapi", "xnnpack", "cpu")',
-          '_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
+          '_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle", "flutter",',
           'os.environ["MANGA_K3_MODE"]',
-          # v1.14.181 — forceِ «فلاتر-پدلِ» 180 با «فقط ML Kit» جایگزین شد
-          'os.environ["MANGA_K3_MODE"] = "mlkit"',
+          # v1.14.182 — forceِ «فقط ML Kitِ» 181 با «پدلِ رسمیِ اندروید» جایگزین شد
+          'os.environ["MANGA_K3_MODE"] = "padandroid"',
           '_SPEED_TEST_FILE = "speed_test.json"',
           'def speed_test_run(',
           'speed_test_load()'):
     if s not in src:
         fail(f"گیتِ manga.py نیست: {s!r}")
-ok("manga.py: نردبانِ ۶حالته + speed_lab_env (فقطِ ML Kitِ 181) + _k3_speed_report")
+ok("manga.py: نردبانِ ۷حالته + speed_lab_env (پدلِ رسمیِ 182) + _k3_speed_report")
 
 # ۲) rapidocr_mobile — کلیدِ کَش با wanted
 if '+ "#" + ",".join(_wanted)' not in rsrc:
@@ -159,6 +160,8 @@ ns = {"os": os, "time": time, "cv2": cv2, "np": np, "json": json,
       "_RAPIDOCR_FILES": {"PP-OCRv6_tiny_det.onnx": "u",
                           "ppocr_keys_v6_tiny_utf8.txt": "u"},
       "_fmt_mb": lambda n: "%.1fMB" % (n / (1024 * 1024)),
+      # v1.14.182 — speed_lab_env این سنجه را هم ریست میکند
+      "_PAD_STATS": {"ms": 0.0, "n": 0, "lines": 0},
       "APP_VER": "1.14.181"}
 exec(compile(ast.Module(body=_nodes, type_ignores=[]), "<chk176>", "exec"),
      ns)
@@ -213,41 +216,42 @@ def sc_env(name, data, checks):
 # سرِ جایشان هستند.
 sc_env("E1 بدونِ نتیجه", None, [
     ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("MODE=mlkit", lambda: os.environ.get("MANGA_K3_MODE") == "mlkit"),
+    ("MODE=padandroid",
+     lambda: os.environ.get("MANGA_K3_MODE") == "padandroid"),
     ("نخ پاک", lambda: "MANGA_OCR_THREADS" not in os.environ),
     ("سقف پاک", lambda: "MANGA_CROP_DET_CAP" not in os.environ),
     ("بزرگنمایی پاک", lambda: "MANGA_CROP_ENH_SCALE" not in os.environ),
 ])
 _l1 = speed_lab_env({})
-for frag in ("فقط ML Kit", "v1.14.181"):
+for frag in ("پدلِ رسمیِ اندروید", "v1.14.182"):
     if frag not in _l1:
         fail(f"E1 خطِ لاگ باید {frag!r} داشته باشد: {_l1}")
-ok("E1 بدونِ نتیجه = فقط ML Kit (پیشفرضِ 181) + پاکسازیِ کلیدهایِ کهنه")
+ok("E1 بدونِ نتیجه = پدلِ رسمیِ اندروید (پیشفرضِ 182) + پاکسازیِ کلیدهایِ کهنه")
 
 sc_env("E2 برندهٔ fast+nnapi",
        {"ladder": "fast", "ep": "nnapi", "ladder_ms": {"fast": 123}},
        [("EP=nnapi", lambda: os.environ.get("MANGA_MOBILE_OCR_EP") == "nnapi"),
-        ("MODE=mlkit (forceِ 181)",
-         lambda: os.environ.get("MANGA_K3_MODE") == "mlkit")])
+        ("MODE=padandroid (forceِ 182)",
+         lambda: os.environ.get("MANGA_K3_MODE") == "padandroid")])
 _l2 = speed_lab_env({})
-for frag in ("فقط ML Kit", "nnapi", "v1.14.181", "بازنده"):
+for frag in ("پدلِ رسمیِ اندروید", "nnapi", "v1.14.182"):
     if frag not in _l2:
         fail(f"E2 خطِ برنده باید {frag!r} داشته باشد: {_l2}")
-ok("E2 برندهٔ فایل → EP + روشِ فقط ML Kit (forceِ 181)")
+ok("E2 برندهٔ فایل → EP + روشِ پدلِ رسمیِ اندروید (forceِ 182)")
 
 sc_env("E3 برندهٔ full+auto", {"ladder": "full", "ep": "auto"}, [
     ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("MODE=mlkit (forceِ 181)",
-     lambda: os.environ.get("MANGA_K3_MODE") == "mlkit"),
+    ("MODE=padandroid (forceِ 182)",
+     lambda: os.environ.get("MANGA_K3_MODE") == "padandroid"),
 ])
-ok("E3 full/auto = EP پاک + فقط ML Kit (forceِ 181)")
+ok("E3 full/auto = EP پاک + پدلِ رسمیِ اندروید (forceِ 182)")
 
 sc_env("E4 نامعتبر", {"ladder": "weird", "ep": "nope"}, [
     ("EP→پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("MODE=mlkit (forceِ 181)",
-     lambda: os.environ.get("MANGA_K3_MODE") == "mlkit"),
+    ("MODE=padandroid (forceِ 182)",
+     lambda: os.environ.get("MANGA_K3_MODE") == "padandroid"),
 ])
-ok("E4 مقدارهایِ نامعتبر → EPِ امن + فقط ML Kit (forceِ 181)")
+ok("E4 مقدارهایِ نامعتبر → EPِ امن + پدلِ رسمیِ اندروید (forceِ 182)")
 
 # E5 کلیدهایِ کهنهٔ سوییچهایِ 176/177 نباید زنده بمانند
 os.environ["MANGA_OCR_THREADS"] = "8"
@@ -279,8 +283,8 @@ _r = k3_report()
 for frag in ("40 کراپ", "20000ms", "ML Kit=20", "پدل=15", "رپید=5"):
     if frag not in _r:
         fail(f"گزارشِ سرعت باید {frag!r} داشته باشد: {_r}")
-# v1.14.181 — روشِ فعلی = mlkit (forceِ فقط-ML-Kit)
-if "روش=mlkit" not in _r:
+# v1.14.182 — روشِ فعلی = padandroid (forceِ پدلِ رسمی)
+if "روش=padandroid" not in _r:
     fail("گزارش باید روشِ فعلی را بگوید: " + _r)
 ok("گزارشِ سرعت: میانگین/پلهها/روش — فرمتِ درست")
 
@@ -427,18 +431,19 @@ if ns["_K3_STATS"]["st3"] != 0:
     fail("T7 پلهٔ ۳ نباید شمرده شود")
 ok("T7 paddle = فقط پدل (رپید هرگز)")
 
-# T8 — حالتِ ناشناخته → mlkit (پیشفرضِ امنِ 181 — بازندهها بیدار نمیشوند)
+# T8 — حالتِ ناشناخته → padandroid (پیشفرضِ امنِ 182؛ بدونِ پلِ پدل =
+# فالبکِ ML Kit — بازندههایِ ONNX بیدار نمیشوند)
 reset_ladder({"MANGA_K3_MODE": "weird"})
 ml, fb = FakeMLKit(WEAK), FakeBuild(MED_OK, SML_OK)
 lad = K3LadderOCR(ml, "en", fb)
-if lad._mode != "mlkit":
-    fail("T8 حالتِ ناشناخته باید mlkit شود")
+if lad._mode != "padandroid":
+    fail("T8 حالتِ ناشناخته باید padandroid شود")
 r = lad.ocr(_CROP, crop_mode=True)
 if not r or r[0][0][1][0] != "hm":
-    fail(f"T8 فالبکِ mlkit خراب: {r}")
+    fail(f"T8 فالبکِ padandroid خراب: {r}")
 if fb.made:
-    fail(f"T8 در فالبکِ mlkit نباید ONNX ساخته شود: made={fb.made}")
-ok("T8 MANGA_K3_MODEِ ناشناخته → mlkit (پیشفرضِ امنِ 181)")
+    fail(f"T8 در فالبکِ padandroid نباید ONNX ساخته شود: made={fb.made}")
+ok("T8 MANGA_K3_MODEِ ناشناخته → padandroid (پیشفرضِ امنِ 182)")
 
 # ۶) py_compile نهایی
 import py_compile  # noqa: E402

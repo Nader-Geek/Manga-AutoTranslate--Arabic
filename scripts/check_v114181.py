@@ -63,10 +63,10 @@ if not _m or not _vn or not _vc:
     fail("V: نسخه پیدا نشد")
 if _m.group(1) != _vn.group(1):
     fail("V: APP_VER(%s) != versionName(%s)" % (_m.group(1), _vn.group(1)))
-if _m.group(1) != "1.14.181":
-    fail("V: این چک مالِ 1.14.181 است (APP_VER=%s)" % _m.group(1))
-if _vc.group(1) != "186":
-    fail("V: versionCode باید 186 باشد (=%s)" % _vc.group(1))
+if _m.group(1) != "1.14.182":
+    fail("V: این چک به قراردادِ 1.14.182 بهروز شد (APP_VER=%s)" % _m.group(1))
+if _vc.group(1) != "187":
+    fail("V: versionCode باید 187 باشد (=%s)" % _vc.group(1))
 if 'os.environ.setdefault("MANGA_APP_VER", APP_VER)' not in src:
     fail("V: MANGA_APP_VER ست نمیشود")
 ok("V: نسخه %s / versionCode=%s" % (_m.group(1), _vc.group(1)))
@@ -85,20 +85,22 @@ def _func(name):
 _lab = ast.get_source_segment(src, _func("speed_lab_env")) or ""
 
 # ── ۱) forceِ mlkit + پاکسازی در speed_lab_env ───────────────────
-if _lab.count('os.environ["MANGA_K3_MODE"] = "mlkit"') != 1:
-    fail("L: forceِ mlkit باید دقیقاً یکبار باشد (پیدا: %d)"
-         % _lab.count('os.environ["MANGA_K3_MODE"] = "mlkit"'))
+if _lab.count('os.environ["MANGA_K3_MODE"] = "padandroid"') != 1:
+    fail("L: forceِ padandroid باید دقیقاً یکبار باشد (پیدا: %d)"
+         % _lab.count('os.environ["MANGA_K3_MODE"] = "padandroid"'))
 if "flutter" in _lab and 'os.environ["MANGA_K3_MODE"] = "flutter"' in _lab:
     fail("L: forceِ flutterِ 180 هنوز هست")
-_i_ov = _lab.index('os.environ["MANGA_K3_MODE"] = "mlkit"')
+if 'os.environ["MANGA_K3_MODE"] = "mlkit"' in _lab:
+    fail("L: forceِ mlkitِ 181 هنوز هست")
+_i_ov = _lab.index('os.environ["MANGA_K3_MODE"] = "padandroid"')
 _i_ms = _lab.index('_ms_l = ""')
 if not (_i_ov < _i_ms):
-    fail("L: forceِ mlkit باید قبل از _ms_l باشد")
+    fail("L: forceِ padandroid باید قبل از _ms_l باشد")
 if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env پاکسازی را صدا نمیزند")
-if "فقط ML Kit" not in _lab or "v1.14.181" not in _lab:
-    fail("L: پیامِ «فقط ML Kit / v1.14.181» در speed_lab_env نیست")
-ok("L: speed_lab_env = فقط ML Kit (برندهٔ ۱۷۹) + پاکسازی + EPِ ذخیرهشده")
+if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.182" not in _lab:
+    fail("L: پیامِ «پدلِ رسمیِ اندروید / v1.14.182» در speed_lab_env نیست")
+ok("L: speed_lab_env = پدلِ رسمیِ اندروید (قراردادِ 182) + پاکسازی + EPِ ذخیرهشده")
 
 # ── ۲) تابعِ پاکسازی ─────────────────────────────────────────────
 _pl = ast.get_source_segment(src, _func("_purge_loser_onnx_models")) or ""
@@ -132,8 +134,8 @@ if "def _ensure_rapidocr_models(mdir, files=None):" not in src:
 ok("PC: _RAPIDOCR_FILES/helperها بیت‌به‌بیت — موتورِ PC دستنخورده")
 
 # ── ۴) K3LadderOCR — پیشفرضِ mlkit + مسیرِ تمامصفحه ─────────────
-if 'self._mode = _m if _m in self._K3_MODES else "mlkit"' not in src:
-    fail("K: فالبکِ ناشناخته باید mlkit باشد")
+if 'self._mode = _m if _m in self._K3_MODES else "padandroid"' not in src:
+    fail("K: فالبکِ ناشناخته باید padandroid باشد")
 _k3_src = src[src.index("class K3LadderOCR:"):src.index(
     "\nclass ", src.index("class K3LadderOCR:") + 10)]
 _m0 = _k3_src.index("def ocr(self")
@@ -211,7 +213,8 @@ for n in tree.body:
     if isinstance(n, ast.Assign) and getattr(
             n.targets[0], "id", "") in ("_K3_MODE_FA", "_SPEED_LAB_EP",
                                         "_SPEED_LAB_LADDER", "_K3_STATS",
-                                        "_MLKIT_STATS", "_SPEED_TEST_FILE",
+                                        "_MLKIT_STATS", "_PAD_STATS",
+                                        "_SPEED_TEST_FILE",  # v1.14.182
                                         "_RAPIDOCR_MIRROR", "_RAPIDOCR_MS",
                                         "_RAPIDOCR_FILES",
                                         "_K3_PURGE_EXTRA",
@@ -224,31 +227,33 @@ exec(compile("\n\n".join(picks.values()), "lab", "exec"), g)
 
 td = tempfile.mkdtemp()
 os.environ["MANGA_FILES_DIR"] = td
+# نتیجهٔ تستِ گوشی (۱۷۹) + padandroidِ 182 (در ماشینِ تست = فالبکِ ML Kit)
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:
     json.dump({"app": "1.14.179", "ts": "2026-11-02 03:24", "per_mode": 60,
                "crops": 15, "ladder": "mlkit", "ep": "xnnpack",
                "ladder_ms": {"full": 20782.0, "fast": 12298.0,
                              "mlkit": 349.0, "rapid": 12017.0,
-                             "paddle": 21030.0, "flutter": 3855.0},
+                             "paddle": 21030.0, "flutter": 3855.0,
+                             "padandroid": 349.0},
                "ep_ms": {"cpu": 15420.0, "xnnpack": 15200.0,
                          "nnapi": 20994.0}, "nnapi_pending": False},
               f, ensure_ascii=False)
 ret = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "mlkit", os.environ.get(
+assert os.environ.get("MANGA_K3_MODE") == "padandroid", os.environ.get(
     "MANGA_K3_MODE")
 assert os.environ.get("MANGA_MOBILE_OCR_EP") == "xnnpack", os.environ.get(
     "MANGA_MOBILE_OCR_EP")
-assert "فقط ML Kit" in ret, ret
+assert "پدلِ رسمیِ اندروید" in ret, ret
 assert "349ms" in ret, ret
 assert "3855ms" not in ret, ret
 
-# برندهٔ کهنهٔ flutter در فایل هم مهم نیست — forceِ mlkit
+# برندهٔ کهنهٔ flutter در فایل هم مهم نیست — forceِ padandroid
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:
     json.dump({"ladder": "flutter", "ep": "cpu",
                "ladder_ms": {"flutter": 3855.0}}, f, ensure_ascii=False)
 os.environ.pop("MANGA_K3_MODE", None)
 ret1b = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "mlkit", "برندهٔ کهنهٔ flutter غلبه کرد"
+assert os.environ.get("MANGA_K3_MODE") == "padandroid", "برندهٔ کهنهٔ flutter غلبه کرد"
 assert os.environ.get("MANGA_MOBILE_OCR_EP") == "cpu"
 
 # شاخهٔ بدونِ نتیجهٔ ذخیرهشده
@@ -256,9 +261,9 @@ os.remove(os.path.join(td, "speed_test.json"))
 os.environ.pop("MANGA_K3_MODE", None)
 os.environ["MANGA_MOBILE_OCR_EP"] = "nnapi"
 ret2 = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "mlkit", "بدونِ فایل هم mlkit نیست"
+assert os.environ.get("MANGA_K3_MODE") == "padandroid", "بدونِ فایل هم padandroid نیست"
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, "ep باید auto/pop میشد"
-assert "فقط ML Kit" in ret2, ret2
+assert "پدلِ رسمیِ اندروید" in ret2, ret2
 print("LAB_OK", json.dumps({"with": ret[:50], "without": ret2[:40]},
                            ensure_ascii=False))
 '''
@@ -271,7 +276,7 @@ with tempfile.TemporaryDirectory() as td:
     if r.returncode != 0 or "LAB_OK" not in out:
         print(out[-3000:])
         fail("E2E-LAB: speed_lab_env شکست خورد")
-    ok("E2E-LAB: فقط ML Kit در هر سه سناریو + EPِ ذخیرهشده + msِ ۳۴۹")
+    ok("E2E-LAB: پدلِ رسمیِ اندروید در هر سه سناریو + EPِ ذخیرهشده + msِ ۳۴۹")
 
 # ── ۸) E2E-ب: پاکسازیِ واقعیِ مدلهایِ بازنده ─────────────────────
 E2E_PURGE = r'''
@@ -303,17 +308,19 @@ td = tempfile.mkdtemp()
 os.environ["MANGA_FILES_DIR"] = td
 mdir = os.path.join(td, "rapidocr_models")
 os.makedirs(mdir)
+# v1.14.182 — mediumِ رسمی (det/rec) موتورِ فعالِ استخراج است و میماند
 LOSERS = ["PP-OCRv6_det_small.onnx", "PP-OCRv6_det_small.int8.onnx",
-          "PP-OCRv6_rec_small.onnx", "PP-OCRv6_medium_det_onnx.onnx",
-          "PP-OCRv6_medium_rec_onnx.onnx", "PP-OCRv6_tiny_det.onnx",
+          "PP-OCRv6_rec_small.onnx", "PP-OCRv6_tiny_det.onnx",
           "PP-OCRv6_tiny_rec.onnx", "ppocr_keys_v6_tiny_utf8.txt",
           "PP-OCRv6_medium_rec_onnx.onnx.part"]
-for i, fn in enumerate(LOSERS):
+KEEP = ["keep_me.txt", "PP-OCRv6_medium_det_onnx.onnx",
+        "PP-OCRv6_medium_rec_onnx.onnx"]
+for fn in LOSERS:
     with open(os.path.join(mdir, fn), "wb") as f:
         f.write(b"x" * (200000 if not fn.endswith(".part") else 10))
-KEEP = "keep_me.txt"
-with open(os.path.join(mdir, KEEP), "wb") as f:
-    f.write(b"x" * 100)
+for fn in KEEP:
+    with open(os.path.join(mdir, fn), "wb") as f:
+        f.write(b"x" * (200000 if not fn.endswith(".part") else 10))
 
 # گیتِ خاموش (PC) → هیچ کاری نمیکند
 os.environ.pop("MANGA_PURGE_ONNX_MODELS", None)
@@ -324,10 +331,11 @@ assert os.path.isfile(os.path.join(mdir, LOSERS[0])), "PC: فایل حذف شد!
 # گیتِ اجباری (اندروید) → پاکسازیِ یکبار
 os.environ["MANGA_PURGE_ONNX_MODELS"] = "1"
 msg = purge()
-assert msg and "فقط ML Kit" in msg, msg
+assert msg and "پدلِ رسمیِ اندروید" in msg, msg
 for fn in LOSERS:
     assert not os.path.isfile(os.path.join(mdir, fn)), "باقی مانده: " + fn
-assert os.path.isfile(os.path.join(mdir, KEEP)), "فایلِ بیگناه حذف شد!"
+for fn in KEEP:
+    assert os.path.isfile(os.path.join(mdir, fn)), "باید بماند: " + fn
 assert os.path.isfile(os.path.join(mdir, g["_PURGE_MARKER"])), "مارکر نبود"
 
 # بارِ دوم → یکبارمصرف (no-op)
@@ -343,10 +351,10 @@ with tempfile.TemporaryDirectory() as td:
     if r.returncode != 0 or "PURGE_OK" not in out:
         print(out[-3000:])
         fail("E2E-PURGE: پاکسازی شکست خورد")
-    ok("E2E-PURGE: ۹ فایلِ بازنده/نیمهتمام پاک، بیگناه و مارکر ماندند، "
-       "PC و بارِ دوم no-op")
+    ok("E2E-PURGE: ۷ فایلِ بازنده/نیمهتمام پاک، mediumِ رسمی/بیگناه و "
+       "مارکر ماندند، PC و بارِ دوم no-op")
 
-# ── ۹) E2E-پ: نردبانِ mlkit — بدونِ env هم mlkit + بدونِ ONNX ────
+# ── ۹) E2E-پ: نردبانِ padandroid — بدونِ env هم پدلِ رسمی (فالبکِ ML Kit) ──
 E2E_K3 = r'''
 # -*- coding: utf-8 -*-
 import ast, io, os, sys, threading, time
@@ -400,7 +408,7 @@ def builder(small=False, tiny=False):
 
 
 lad = K3(FakeML(), "en", builder)
-assert lad._mode == "mlkit", lad._mode   # v1.14.181: پیشفرضِ جدید
+assert lad._mode == "padandroid", lad._mode   # v1.14.182: پیشفرضِ جدید
 
 img = np.full((200, 160, 3), 200, np.uint8)
 out = lad.ocr(img, crop_mode=True)
@@ -422,7 +430,7 @@ with tempfile.TemporaryDirectory() as td:
     if r.returncode != 0 or "K3_OK" not in out:
         print(out[-3000:])
         fail("E2E-K3: نردبانِ mlkit شکست خورد")
-    ok("E2E-K3: بدونِ env هم فقط ML Kit — کراپ و تمامصفحه، هیچ ONNX")
+    ok("E2E-K3: بدونِ env هم پدلِ رسمی (فالبکِ ML Kit) — کراپ و تمامصفحه، هیچ ONNX")
 
 # ── ۱۰) py_compile نهایی ─────────────────────────────────────────
 import py_compile  # noqa: E402

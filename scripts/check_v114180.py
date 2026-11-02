@@ -49,10 +49,10 @@ if not _m or not _vn or not _vc:
     fail("V: نسخه پیدا نشد")
 if _m.group(1) != _vn.group(1):
     fail("V: APP_VER(%s) != versionName(%s)" % (_m.group(1), _vn.group(1)))
-if _m.group(1) != "1.14.181":
-    fail("V: این چک مالِ قراردادِ 1.14.181 است (APP_VER=%s)" % _m.group(1))
-if _vc.group(1) != "186":
-    fail("V: versionCode باید 186 باشد (=%s)" % _vc.group(1))
+if _m.group(1) != "1.14.182":
+    fail("V: این چک مالِ قراردادِ 1.14.182 است (APP_VER=%s)" % _m.group(1))
+if _vc.group(1) != "187":
+    fail("V: versionCode باید 187 باشد (=%s)" % _vc.group(1))
 ok("V: نسخه %s / versionCode=%s" % (_m.group(1), _vc.group(1)))
 
 tree = ast.parse(src)
@@ -68,23 +68,25 @@ def _func(name):
 
 _lab = ast.get_source_segment(src, _func("speed_lab_env")) or ""
 
-# ── ۱) forceِ «فقط ML Kit» (برندهٔ تستِ ۱۷۹) + پاکسازیِ بازندهها ──
-if _lab.count('os.environ["MANGA_K3_MODE"] = "mlkit"') != 1:
-    fail("L: forceِ mlkit باید دقیقاً یکبار (بیقید و شرط) باشد "
+# ── ۱) forceِ «پدلِ رسمیِ اندروید» (قراردادِ 182) + پاکسازیِ بازندهها ──
+if _lab.count('os.environ["MANGA_K3_MODE"] = "padandroid"') != 1:
+    fail("L: forceِ padandroid باید دقیقاً یکبار (بیقید و شرط) باشد "
          "(پیدا شده: %d)" % _lab.count(
-             'os.environ["MANGA_K3_MODE"] = "mlkit"'))
+             'os.environ["MANGA_K3_MODE"] = "padandroid"'))
 if 'os.environ["MANGA_K3_MODE"] = "flutter"' in _lab:
     fail("L: forceِ flutterِ 180 هنوز در speed_lab_env است")
-_i_ov = _lab.index('os.environ["MANGA_K3_MODE"] = "mlkit"')
+if 'os.environ["MANGA_K3_MODE"] = "mlkit"' in _lab:
+    fail("L: forceِ mlkitِ 181 هنوز در speed_lab_env است")
+_i_ov = _lab.index('os.environ["MANGA_K3_MODE"] = "padandroid"')
 _i_ms = _lab.index('_ms_l = ""')
 if not (_i_ov < _i_ms):
-    fail("L: forceِ mlkit باید قبل از محاسبهٔ _ms_l باشد "
-         "(msِ ۳۴۹mlkit باید نمایش داده شود)")
+    fail("L: forceِ padandroid باید قبل از محاسبهٔ _ms_l باشد "
+         "(msِ ثبتشده باید نمایش داده شود)")
 if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env باید _purge_loser_onnx_models را صدا بزند")
-if "فقط ML Kit" not in _lab or "v1.14.181" not in _lab:
-    fail("L: پیامِ لاگِ «فقط ML Kit / v1.14.181» در speed_lab_env نیست")
-ok("L: speed_lab_env = فقط ML Kit در هر دو شاخه + پاکسازیِ مدلهایِ بازنده")
+if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.182" not in _lab:
+    fail("L: پیامِ لاگِ «پدلِ رسمیِ اندروید / v1.14.182» در speed_lab_env نیست")
+ok("L: speed_lab_env = پدلِ رسمیِ اندروید در هر دو شاخه + پاکسازیِ بازندهها")
 
 
 # ── ۲) فعلاً هیچ حذفی نباید باشد ─────────────────────────────────
@@ -180,13 +182,13 @@ for n in tree.body:
     if isinstance(n, ast.Assign) and getattr(
             n.targets[0], "id", "") in ("_K3_MODE_FA", "_SPEED_LAB_EP",
                                         "_SPEED_LAB_LADDER", "_K3_STATS",
-                                        "_MLKIT_STATS",
+                                        "_MLKIT_STATS", "_PAD_STATS",
                                         "_SPEED_TEST_FILE",
                                         "_RAPIDOCR_MIRROR",
                                         "_RAPIDOCR_MS",
                                         "_RAPIDOCR_FILES",
                                         "_K3_PURGE_EXTRA",
-                                        "_PURGE_MARKER"):  # v1.14.181
+                                        "_PURGE_MARKER"):  # v1.14.182
         picks[getattr(n.targets[0], "id", "")] = ast.get_source_segment(src, n)
 g = {"os": os, "json": json, "print": print, "time": __import__("time"),
      # v1.14.181 — گیتِ False = پاکسازی رویِ PC skip میشود
@@ -196,22 +198,23 @@ exec(compile("\n\n".join(picks.values()), "lab", "exec"), g)
 
 td = tempfile.mkdtemp()
 os.environ["MANGA_FILES_DIR"] = td
-# نتیجهٔ واقعیِ تستِ گوشیِ سازنده (لاگِ ۱.۱۴.۱۷۹)
+# نتیجهٔ تستِ گوشی (۱۷۹) + padandroidِ 182 (در ماشینِ تست = فالبکِ ML Kit)
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:
     json.dump({"app": "1.14.179", "ts": "2026-11-02 03:24", "per_mode": 60,
                "crops": 15, "ladder": "mlkit", "ep": "xnnpack",
                "ladder_ms": {"full": 20782.0, "fast": 12298.0,
                              "mlkit": 349.0, "rapid": 12017.0,
-                             "paddle": 21030.0, "flutter": 3855.0},
+                             "paddle": 21030.0, "flutter": 3855.0,
+                             "padandroid": 349.0},
                "ep_ms": {"cpu": 15420.0, "xnnpack": 15200.0,
                          "nnapi": 20994.0}, "nnapi_pending": False},
               f, ensure_ascii=False)
 ret = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "mlkit", os.environ.get(
+assert os.environ.get("MANGA_K3_MODE") == "padandroid", os.environ.get(
     "MANGA_K3_MODE")
 assert os.environ.get("MANGA_MOBILE_OCR_EP") == "xnnpack", os.environ.get(
     "MANGA_MOBILE_OCR_EP")
-assert "فقط ML Kit" in ret, ret
+assert "پدلِ رسمیِ اندروید" in ret, ret
 assert "349ms" in ret, ret   # msِ mlkitِ برنده
 assert "3855ms" not in ret, ret  # msِ flutterِ بازنده
 
@@ -220,9 +223,9 @@ os.remove(os.path.join(td, "speed_test.json"))
 os.environ.pop("MANGA_K3_MODE", None)
 os.environ["MANGA_MOBILE_OCR_EP"] = "nnapi"
 ret2 = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "mlkit", "بدونِ فایل هم mlkit نیست"
+assert os.environ.get("MANGA_K3_MODE") == "padandroid", "بدونِ فایل هم padandroid نیست"
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, "ep باید auto/pop میشد"
-assert "فقط ML Kit" in ret2, ret2
+assert "پدلِ رسمیِ اندروید" in ret2, ret2
 print("LAB_OK", json.dumps({"with": ret[:60], "without": ret2[:40]},
                            ensure_ascii=False))
 '''
@@ -235,8 +238,8 @@ with tempfile.TemporaryDirectory() as td:
     if r.returncode != 0 or "LAB_OK" not in out:
         print(out[-3000:])
         fail("E2E-LAB: speed_lab_env شکست خورد")
-    ok("E2E-LAB: نتیجهٔ ذخیرهشده (mlkit/xnnpack) ← فقط ML Kit + msِ ۳۴۹ "
-       "| بدونِ نتیجه هم فقط ML Kit")
+    ok("E2E-LAB: نتیجهٔ ذخیرهشده (xnnpack) ← پدلِ رسمیِ اندروید + msِ ۳۴۹ "
+       "| بدونِ نتیجه هم پدلِ رسمی")
 
 # ── ۶) E2E-ب: نردبانِ flutter — کراپ و تمامصفحه هر دو tiny ───────
 E2E_K3 = r'''
