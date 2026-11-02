@@ -79,9 +79,9 @@ try:
     if os.environ.get("MANGA_MOBILE_OCR_EP") is not None:
         fail("EPِ کهنه پاک نشد")
     if "SDKِ رسمیِ PaddleOCR اندروید" not in ret or \
-            "v1.14.184" not in ret:
-        fail("پیامِ خروجیِ 184 نیست: %r" % ret[:120])
-    ok("عملی: EP پاک + padandroid force + پیامِ 184")
+            ("v1.14.184" not in ret and "v1.14.185" not in ret):
+        fail("پیامِ خروجیِ 184/185 نیست: %r" % ret[:120])
+    ok("عملی: EP پاک + padandroid force + پیامِ 184/185")
 finally:
     os.environ.pop("MANGA_MOBILE_OCR_EP", None)
     os.environ.pop("MANGA_K3_MODE", None)

@@ -90,7 +90,8 @@ if not (_i_ov < _i_ms):
 if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env پاکسازی را صدا نمیزند")
 if "SDKِ رسمیِ PaddleOCR اندروید" not in _lab \
-        or "v1.14.184" not in _lab or "PP-OCRv6_small" not in _lab:
+        or ("v1.14.184" not in _lab and "v1.14.185" not in _lab) \
+        or "PP-OCRv6_small" not in _lab:
     fail("L: پیامِ «SDKِ رسمیِ PaddleOCR اندروید / v1.14.184» در "
          "speed_lab_env نیست")
 ok("L: speed_lab_env = SDKِ رسمیِ PaddleOCR اندروید "
@@ -264,7 +265,7 @@ assert os.environ.get("MANGA_K3_MODE") == "padandroid", os.environ.get(
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, os.environ.get(
     "MANGA_MOBILE_OCR_EP")
 assert "SDKِ رسمیِ PaddleOCR اندروید" in ret, ret
-assert "v1.14.184" in ret, ret
+assert ("v1.14.184" in ret or "v1.14.185" in ret), ret
 
 # برندهٔ کهنهٔ flutter/mlkit در فایل هم مهم نیست — forceِ padandroid
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.184"
+APP_VER = "1.14.185"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3524,7 +3524,7 @@ class PaddleAndroidOCR:
         except Exception as e:
             raise RuntimeError(
                 "پلِ PaddleOcrBridge در APKِ نصب‌شده نیست — APKِ جدید "
-                "(v1.14.184+) را نصب کن: " + str(e)[:90])
+                "(v1.14.185+) را نصب کن: " + str(e)[:90])
         self.lang = _mobile_lang(lang)
         self.debug = True
         # v1.14.184 — مدلها (PP-OCRv6_small det/rec + inference.yml) در
@@ -3884,11 +3884,11 @@ def speed_lab_env(p: dict) -> str:
 
         if _purge:
             return ("[⚡] روشِ استخراج: SDKِ رسمیِ PaddleOCR اندروید — "
-                    "PP-OCRv6_smallِ باندل (%s)%s | v1.14.184: %s"
+                    "PP-OCRv6_smallِ باندل (%s)%s | v1.14.185: %s"
                     % (_K3_MODE_FA.get(_lad, _lad), _ms_l, _purge))
         return ("[⚡] روشِ استخراج: SDKِ رسمیِ PaddleOCR اندروید — "
                 "PP-OCRv6_smallِ باندل (deploy/ppocr-android — "
-                "v1.14.184)%s"
+                "v1.14.185)%s"
                 % (_ms_l,))
     except Exception:
         return ""
@@ -12396,8 +12396,22 @@ class MangaTranslator:
                                 _dqc_thr = 30.0
                         except Exception:
                             pass
-                    if _fill_med < 115.0 \
-                            and _fill_med < _bg_med - _dqc_thr:
+                    # v1.14.185 — اندروید (MANGA_GRAYQC): بلوکِ خاکستریِ
+                    # LaMaِ xnnpack (پرِ ~۱۲۰-۱۸۰ رویِ حبابِ سفید/روشن)
+                    # ازQCِ قدیمی می‌گذشت چون شرطِ قدیمی فقط «پرِ تیره‌ترِ
+                    # 115» را میگرفت = «لکهٔ خاکستری» در خروجی (نمونه:
+                    # حبابِ جرقهٔ صفحهٔ ژاپنیِ v1.14.184). حالا هر پرِ
+                    # محسوسِ تیره‌تر از حلقهٔ روشن (≥۴۲ واحد) هم رد میشود
+                    # و پرِ تختِ نجاتِ حلقه جایگزینش میشود. PC بیت‌به‌بیت.
+                    _gray185 = False
+                    if _android_gate("MANGA_GRAYQC"):
+                        try:
+                            _gray185 = (_bg_med >= 185.0
+                                        and _fill_med < _bg_med - 42.0)
+                        except Exception:
+                            _gray185 = False
+                    if _gray185 or (_fill_med < 115.0
+                                    and _fill_med < _bg_med - _dqc_thr):
                         # v1.14.65 — لاگ شود؛ این ردِ خاموش = فال‌بکِ OpenCV
                         try:
                             print(f"    [!] LaMa group rejected: dark fill "
@@ -14991,6 +15005,19 @@ class MangaTranslator:
         # v1.14.70 — نواحیِ صفحه نگه داشته می‌شوند تا «کامپوزِ دو-عکسی»
         # بتواند نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ متن) را بسازد.
         self._page_regions = list(regions or [])
+        # v1.14.185 — اندروید: پروفایلرِ سبکِ مرحله‌هایِ پاکسازی — هر
+        # مرحله چند ثانیه میگیرد را در لاگ نشان میدهد تا کندیِ «پاکسازیِ
+        # کلی یک کم طول میکشه» دقیق پیدا شود. PC هیچ چیزی چاپ نمیکند.
+        _tc185 = time.time()
+
+        def _stage185(tag: str) -> None:
+            try:
+                if _on_android():
+                    print(f"  [⏱] پاکسازی | {tag} | "
+                          f"{time.time() - _tc185:.1f}s", flush=True)
+            except Exception:
+                pass
+
         mask = self._build_text_mask(image, regions)
         if not np.any(mask):
             return image.copy()
@@ -15044,6 +15071,7 @@ class MangaTranslator:
                           f"{time.time() - _t66:.2f}s)", flush=True)
         except Exception:
             pass
+        _stage185("ماسک+هاله")
 
         # v1.14.63 — ماسکِ کامپوزِ «خط‌به‌خط»: نسخهٔ خامِ ماسکِ متنِ همین
         # لحظه (بعدِ کارو/پروتکت، «قبلِ» کِیلِ پرکننده‌هایِ فوری و «قبلِ»
@@ -15180,6 +15208,7 @@ class MangaTranslator:
         except Exception:
             self._prot_bright = None
             self._prot_glow = None
+        _stage185("قفلها")
         try:
             _pv81p = os.environ.get("MANGA_PROBE", "")
             if _pv81p and "," in _pv81p:
@@ -15556,6 +15585,7 @@ class MangaTranslator:
                 print(f"  [*] {_n_inst} lines instantly filled")
         except Exception:
             pass
+        _stage185("پرکنندهٔ فوری")
         # v1.14.81 — قفلِ ساختارِ روشن/تابِ نور: پرکننده‌هایِ فوری حقِ
         # دست‌زدن به این پیکسل‌ها را ندارند — خطِ سفیدِ حباب و پرتوِ نور
         # باید زنده بمانند (خطایِ img2: «حباب به کل حذف زده»)
@@ -16109,6 +16139,7 @@ class MangaTranslator:
                         print(f"  [!] LaMa failed ({e}); using OpenCV fallback.")
             else:
                 print("  [!] LaMa unavailable → OpenCV for remaining clusters")
+        _stage185("LaMa/پرکننده‌ها")
 
         for cx0, cy0, cx1, cy1, crop_msk, result, method in crops:
             # v1.14.62 — اعتبارسنجیِ نتیجهٔ LaMa رویِ بلوک‌هایِ محفظهٔ تیره:
@@ -17110,6 +17141,7 @@ class MangaTranslator:
             import traceback as _tb
             print("  [!] Residue sweep error:")
             _tb.print_exc()
+        _stage185("جارویِ پسماند")
         if _sdd and _sd:
             try:
                 cv2.imwrite(os.path.join(_sd, "post_sweep.jpg"), cleaned)
@@ -17126,6 +17158,7 @@ class MangaTranslator:
             import traceback as _tb
             print("  [!] Bubble interior sweep error:")
             _tb.print_exc()
+        _stage185("جارویِ حباب")
 
         # v1.14.75 — «گارانتیِ کامپوزِ دوباره»: بعدازِ همهٔ سویپ‌ها/سویپ
         # نجات/پولیش، خروجیِ نهایی دوباره با _compose_two_image روی
@@ -19002,6 +19035,7 @@ class MangaTranslator:
                 except Exception:
                     pass
             pass
+        _stage185("پایانِ پاکسازی — مجموع")
 
     # v1.14.106 — جاروی بازماندهٔ تیره: لبه/نوارِ سیاهی که بعد از پاکسازی
     # همسایهٔ مستقیمِ نواحیِ پاکشده میماند (سایهٔ لوگو/بنرِ بیرونِ ماسکِ
@@ -22392,10 +22426,25 @@ class MangaTranslator:
             avg_conf = float(np.mean(confs)) if confs else 0.0
             return joined, polys, avg_conf, entries
 
+        # v1.14.185 — اندروید: امتیازدهیِ واریانت باید «متنِ درستِ هر
+        # اسکریپت» را بپذیرد؛ فرمولِ قدیمی فقط لاتین را می‌شمرد → رویِ
+        # صفحهٔ ژاپنی، واریانتِ آشغالِ لاتینِ با confِ تصادفیِ بالاتر
+        # خوانشِ درستِ CJK را می‌بَرد (نمونه: «描いて精神統一» ← «bI 2 2い»).
+        # PC بیت‌به‌بیت فرمولِ قدیمی.
+        _sc_cjk_185 = _on_android()
+
         def _score(txt: str, conf: float) -> float:
             if not txt:
                 return -1.0
             latin = sum(1 for c in txt if c.isascii() and c.isalpha())
+            if _sc_cjk_185:
+                _cjk185 = sum(
+                    1 for c in txt
+                    if (0x3040 <= ord(c) <= 0x30FF)
+                    or (0x3400 <= ord(c) <= 0x9FFF)
+                    or (0xAC00 <= ord(c) <= 0xD7AF))
+                return (max(latin, _cjk185) * 2.0 + conf * 3.0
+                        + min(len(txt), 24) * 0.15)
 
             return latin * 2.0 + conf * 3.0 + min(len(txt), 24) * 0.15
 
@@ -22658,16 +22707,100 @@ class MangaTranslator:
                     ]
                     if _kept:
                         merged = _kept
+            # v1.14.185 — اندروید: فیلترِ «خون‌جهٔ جهت‌به‌در» — متنِ چرخیدهٔ
+            # ۹۰°ِ کنارِ حباب (یا حبابِ مجاور) که داخلِ کراپِ این ناحیه
+            # می‌افتد، باکس‌هایی با «جهتِ برعکسِ اکثریت» میسازد و بعداً
+            # متنِ ناحیه را درهم میریزد (نمونهٔ img6 ناحیهٔ THEN I'LL PULL:
+            # تکه‌هایِ «re / real / action nere» از متنِ چرخیدهٔ لبهٔ صفحه).
+            # در ناحیهٔ غالبِ افقی (≥۵۵٪)، باکسِ خیلی‌بلندِ باریک؛ در ناحیهٔ
+            # غالبِ عمودی، باکسِ خیلی‌پهنِ کوتاه حذف میشود. آستانه‌ها
+            # محافظه‌کار (۱.۷× میانه + نسبتِ ۱.۶×) و فقط با ≥۳ باکس و بقایِ ≥۲ خط.
+            # PC بیت‌به‌بیت بدونِ این فیلتر.
+            if _on_android() and len(merged) >= 3:
+                try:
+                    _bbsF185 = [_bb_of(m[2]) for m in merged]
+                    _vF185 = [b for b in _bbsF185 if b is not None]
+                    if len(_vF185) >= 3:
+                        _medhF185 = float(np.median(
+                            [b[3] - b[1] for b in _vF185]))
+                        _medwF185 = float(np.median(
+                            [b[2] - b[0] for b in _vF185]))
+                        _tallF185 = sum(
+                            1 for b in _vF185
+                            if (b[3] - b[1]) > 1.4 * (b[2] - b[0]))
+                        _wideF185 = len(_vF185) - _tallF185
+                        _keepF185 = None
+                        if _tallF185 * 20 >= len(_vF185) * 11:
+                            _keepF185 = [
+                                m for m, b in zip(merged, _bbsF185)
+                                if b is None or not (
+                                    (b[2] - b[0]) > max(
+                                        1.7 * _medwF185, _medwF185 + 28.0)
+                                    and (b[2] - b[0]) > 1.6 * (b[3] - b[1]))
+                            ]
+                        elif _wideF185 * 20 >= len(_vF185) * 11:
+                            _keepF185 = [
+                                m for m, b in zip(merged, _bbsF185)
+                                if b is None or not (
+                                    (b[3] - b[1]) > max(
+                                        1.7 * _medhF185, _medhF185 + 28.0)
+                                    and (b[3] - b[1]) > 1.6 * (b[2] - b[0]))
+                            ]
+                        if (_keepF185 is not None and len(_keepF185) >= 2
+                                and len(_keepF185) < len(merged)):
+                            merged = _keepF185
+                except Exception:
+                    pass
             hts = []
             for m_item in merged:
                 mb = _bb_of(m_item[2])
                 if mb is not None:
                     hts.append(mb[3] - mb[1])
-            row_h = max(8.0, (float(np.median(hts)) if hts else 8.0) * 1.25)
-            merged.sort(key=lambda m_item: (
-                ((_bb_of(m_item[2])[1] if m_item[2] is not None else 0.0) // row_h),
-                (_bb_of(m_item[2])[0] if m_item[2] is not None else 0.0),
-            ))
+            if _on_android():
+                # v1.14.185 — اندروید: ترتیبِ درستِ خط‌ها/ستون‌ها.
+                # ریشهٔ «GO! FASTER. EVEN» / «THERE ATTRACTIONS, ARE NO»:
+                # row_hِ قدیمی = ۱.۲۵×بلندیِ خط از گامِ واقعیِ خط‌ها بلندتر
+                # بود → دو خطِ مجاور در یک سطلِ y//row_h می‌افتادند و
+                # تای‌بریکِ x ترتیبشان را عوض می‌کرد. حالا سطل = ۰.۷۵×میانه
+                # (کوچکتر از گامِ خط) → هیچ برخوردی. برایِ ستون‌هایِ عمودیِ
+                # ژاپنی/کره‌ای (اکثریتِ باکس‌ها بلند): ترتیبِ راست‌به‌چپِ
+                # واقعیِ منگا با x نزولی (rtl) — قدیمی x صعودی می‌خواند.
+                _bbsS185 = [_bb_of(m[2]) for m in merged]
+                _vS185 = [b for b in _bbsS185 if b is not None]
+                if _vS185:
+                    _medhS185 = float(np.median(
+                        [b[3] - b[1] for b in _vS185]))
+                    _tallS185 = sum(
+                        1 for b in _vS185
+                        if (b[3] - b[1]) > 1.4 * (b[2] - b[0]))
+                    _rtlS185 = (
+                        getattr(self, "reading_order", "rtl") == "rtl")
+                    if len(_vS185) >= 2 and _tallS185 * 2 >= len(_vS185):
+                        if _rtlS185:
+                            merged.sort(key=lambda m_item: (
+                                (-(_bb_of(m_item[2])[0])
+                                 if m_item[2] is not None else 0.0),
+                                (_bb_of(m_item[2])[1]
+                                 if m_item[2] is not None else 0.0)))
+                        else:
+                            merged.sort(key=lambda m_item: (
+                                (_bb_of(m_item[2])[0]
+                                 if m_item[2] is not None else 0.0),
+                                (_bb_of(m_item[2])[1]
+                                 if m_item[2] is not None else 0.0)))
+                    else:
+                        _rh185 = max(8.0, _medhS185 * 0.75)
+                        merged.sort(key=lambda m_item: (
+                            ((_bb_of(m_item[2])[1]
+                              if m_item[2] is not None else 0.0) // _rh185),
+                            (_bb_of(m_item[2])[0]
+                             if m_item[2] is not None else 0.0)))
+            else:
+                row_h = max(8.0, (float(np.median(hts)) if hts else 8.0) * 1.25)
+                merged.sort(key=lambda m_item: (
+                    ((_bb_of(m_item[2])[1] if m_item[2] is not None else 0.0) // row_h),
+                    (_bb_of(m_item[2])[0] if m_item[2] is not None else 0.0),
+                ))
             # v1.14.90 — ستون‌بندیِ خط‌ها: دو ستونِ کنارِ هم (متنِ حباب +
             # متنِ دست‌نویسِ کنارش) با مرتب‌سازیِ (y,x) در هم می‌پیچد؛
             # هر ستون متنِ خودش را می‌گیرد و ستون‌ها با \n جدا می‌شوند
