@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.185"
+APP_VER = "1.14.186"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3884,12 +3884,13 @@ def speed_lab_env(p: dict) -> str:
 
         if _purge:
             return ("[⚡] روشِ استخراج: SDKِ رسمیِ PaddleOCR اندروید — "
-                    "PP-OCRv6_smallِ باندل (%s)%s | v1.14.185: %s"
-                    % (_K3_MODE_FA.get(_lad, _lad), _ms_l, _purge))
+                    "PP-OCRv6_smallِ باندل (%s)%s | v%s: %s"
+                    % (_K3_MODE_FA.get(_lad, _lad), _ms_l,
+                       APP_VER, _purge))
         return ("[⚡] روشِ استخراج: SDKِ رسمیِ PaddleOCR اندروید — "
                 "PP-OCRv6_smallِ باندل (deploy/ppocr-android — "
-                "v1.14.185)%s"
-                % (_ms_l,))
+                "v%s)%s"
+                % (APP_VER, _ms_l))
     except Exception:
         return ""
 
@@ -12475,16 +12476,45 @@ class MangaTranslator:
                 _g140 = cv2.cvtColor(sub_bgr, cv2.COLOR_BGR2GRAY)
                 _rmed140 = float(np.median(_g140[_ring]))
                 _fmed140 = float(np.median(_g140[_fm]))
-                if abs(_fmed140 - _rmed140) > 22.0 or \
+                # v1.14.186 — اندروید (MANGA_SOFTQC): کلاسِ جدیدِ «لکهٔ
+                # شیری» — پرِ LaMa رویِ زمینهٔ بافت‌دار (کتِ بژِ صفحهٔ
+                # ژاپنیِ v1.14.184) که روشناییاش به حلقه نزدیک است
+                # (از QCِ تیره/دود رد میشود) ولی بافتِ داخلِ پر تقریباً
+                # صفر است در حالیکه حلقه بافتِ واقعی دارد = اسمیرِ
+                # نیمه‌شفافِ لباس/هنر. دروازهٔ ارزان: stdِ حلقه؛ بعد
+                # سنجشِ hf. PC بیت‌به‌بیت.
+                _soft186 = False
+                _rstd186 = 0.0
+                if _android_gate("MANGA_SOFTQC") \
+                        and abs(_fmed140 - _rmed140) <= 22.0 \
+                        and _rmed140 >= 140.0:
+                    try:
+                        _rstd186 = float(_g140[_ring].std())
+                        if _rstd186 >= 14.0:
+                            _med186 = cv2.medianBlur(_g140, 31)
+                            _hf186 = np.abs(
+                                _g140.astype(np.int16)
+                                - _med186.astype(np.int16))
+                            _hf_in = float(np.median(_hf186[_fm]))
+                            _hf_rg = float(np.median(_hf186[_ring]))
+                            _hf_sd = float(_hf186[_fm].std())
+                            _soft186 = (_hf_rg >= 7.0
+                                        and _hf_in < max(3.0,
+                                                         0.35 * _hf_rg)
+                                        and _hf_sd <= 3.0)
+                    except Exception:
+                        _soft186 = False
+                if _soft186 or abs(_fmed140 - _rmed140) > 22.0 or \
                         _rmed140 < 140.0:
-                    _med140 = cv2.medianBlur(_g140, 31)
-                    _hf140 = np.abs(
-                        _g140.astype(np.int16)
-                        - _med140.astype(np.int16))
-                    _hf_in = float(np.median(_hf140[_fm]))
-                    _hf_rg = float(np.median(_hf140[_ring]))
-                    if (_hf_in > 2.2 * _hf_rg + 4.0
-                            and _hf_in > 6.0) or \
+                    if not _soft186:
+                        _med140 = cv2.medianBlur(_g140, 31)
+                        _hf140 = np.abs(
+                            _g140.astype(np.int16)
+                            - _med140.astype(np.int16))
+                        _hf_in = float(np.median(_hf140[_fm]))
+                        _hf_rg = float(np.median(_hf140[_ring]))
+                    if _soft186 or (_hf_in > 2.2 * _hf_rg + 4.0
+                                    and _hf_in > 6.0) or \
                             abs(_fmed140 - _rmed140) > 22.0:
                         # v1.14.140b — پرِ «ردیفی» از حلقهٔ همان ردیف
                         # (بهجایِ پرِ تختِ کل): هر ردیفِ ماسک که نمونهٔ
@@ -12534,7 +12564,9 @@ class MangaTranslator:
                             sub_bgr[_fm] = np.clip(
                                 _fill140, 0, 255).astype(
                                     np.uint8)[_fm]
-                            print(f"    [✓] ضدِ دودِ زمینهٔ تیره: "
+                            print(f"    [✓] {'ضدِ لکهٔ شیری (SOFTQC)'
+                                        if _soft186 else
+                                        'ضدِ دودِ زمینهٔ تیره'}: "
                                   f"hf={_hf_in:.1f} vs "
                                   f"حلقه={_hf_rg:.1f} → پرِ ردیفیِ "
                                   f"حلقه ({int(_okI.size)}/"
@@ -15044,6 +15076,8 @@ class MangaTranslator:
                 image, regions, min_len=16, near_px=13)
         except Exception:
             self._page_wall_band = None
+        # v1.14.186 — پایانِ اعتبارِ کشِ MANGA_PROT_CACHE: هرگز کهنه نمیماند
+        self._spm_cache = None
         if _protect is not None:
             mask = cv2.bitwise_and(mask, cv2.bitwise_not(_protect))
             try:
@@ -18489,108 +18523,167 @@ class MangaTranslator:
         کم می‌شود."""
         try:
             h, w = image.shape[:2]
-            g = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             # ناحیهٔ موردِ توجه: حوالیِ ماسکِ متنِ خام (بدونِ protect)
             _raw_mask = getattr(self, "_page_raw_text_mask", None)
             if _raw_mask is None or _raw_mask.shape != (h, w) \
                     or not np.any(_raw_mask):
                 return None
-            _nk = 25 if int(near_px) >= 25 else (13 if int(near_px) >= 13 else 9)
-            near = cv2.dilate(_raw_mask, np.ones((_nk, _nk), np.uint8))
-            # v1.14.48b: تیرگیِ «نسبی» هم — دیوارِ محوِ JPEG (خاکستریِ ۱۲۰-۱۹۰
-            # روی زمینهٔ روشن) با آستانهٔ مطلقِ ۱۲۰ گم می‌شد و بخشی از دیوار
-            # باز هم لکه می‌شد. medianBlurِ ۳۱ زمینهٔ محلی است.
-            try:
-                _bg31 = cv2.medianBlur(g, 31)
-                dark_rel = ((_bg31.astype(np.int16) - g.astype(np.int16)) > 45)
-                dark = ((g < 120) | dark_rel).astype(np.uint8) * 255
-            except Exception:
-                dark = (g < 120).astype(np.uint8) * 255
-            dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE,
-                                    np.ones((3, 3), np.uint8))
-            # v1.14.106 — تیرهٔ کاملِ صفحه (قبل از برشِ باندِ ۲۵px) برای
-            # بازِ خطیِ سراسری؛ سرِ کادرِ پنل داخلِ باند است ولی بدنه‌اش
-            # بیرونِ باند — خط باید تا انتها محافظت شود نه فقط سرش.
-            dark_full = dark
-            dark = cv2.bitwise_and(dark, near)
-            n, lab, st, _ = cv2.connectedComponentsWithStats(dark, 8)
-            if n <= 1:
-                return None
-            # پالی‌هایِ OCR — گلیف‌ها اینجایند و نباید محافظت شوند
-            poly_all = np.zeros((h, w), dtype=np.uint8)
-            for r in (regions or []):
-                for p in (getattr(r, "ocr_polys", None) or []):
-                    try:
-                        pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
-                    except Exception:
-                        continue
-                    if pp.shape[0] >= 3:
-                        cv2.fillPoly(poly_all,
-                                     [np.rint(pp).astype(np.int32)], 255)
-            poly_all = cv2.dilate(poly_all, np.ones((9, 9), np.uint8))
-            out = np.zeros((h, w), dtype=np.uint8)
-            # v1.14.106 — بازِ خطیِ سراسری: کادرِ پنل/خطِ جدابندِ سرراست
-            # (اجرای ≥۶۰px، ضخامت ≤۱۰px، بیرونِ پالیهایِ OCR) سراسری
-            # محافظت میشود — نه فقط تکهٔ داخلِ باندِ متن. کیسِ ۱۰۱۸:
-            # ماسکِ لوگو/حباب قابِ چپِ پنل را در میان بریده بود و تکههای
-            # یتیم مثل «لبهٔ سیاه» دیده میشدند.
-            try:
-                _vl106 = cv2.morphologyEx(
-                    dark_full, cv2.MORPH_OPEN, np.ones((60, 1), np.uint8))
-                _hl106 = cv2.morphologyEx(
-                    dark_full, cv2.MORPH_OPEN, np.ones((1, 60), np.uint8))
-                if int(cv2.countNonZero(_vl106)) or \
-                        int(cv2.countNonZero(_hl106)):
-                    # v1.14.106b — ضخامتِ بدونِ پخش: erodeِ بدونِ dilate
-                    # تا هستهٔ توپر حذف شود ولی خطِ نازکِ چسبیده به آن زنده
-                    # بماند (dilateِ ±۷px قابِ ۵px کناری را هم میکشت —
-                    # کیسِ ۱۰۱۸: کلِ قابِ چپِ پنل)
-                    _vth = cv2.erode(_vl106, np.ones((1, 15), np.uint8))
-                    _hth = cv2.erode(_hl106, np.ones((15, 1), np.uint8))
-                    _ln = ((_vl106 | _hl106) & ~_vth & ~_hth
-                           & (poly_all == 0)).astype(np.uint8) * 255
-                    _ln = cv2.morphologyEx(_ln, cv2.MORPH_CLOSE,
-                                           np.ones((3, 3), np.uint8))
-                    _n2, _l2, _s2, _ = cv2.connectedComponentsWithStats(
-                        _ln, 8)
-                    for _i2 in range(1, _n2):
-                        _a2 = int(_s2[_i2, cv2.CC_STAT_AREA])
-                        if _a2 < 60:
-                            continue
-                        _bx2 = int(_s2[_i2, cv2.CC_STAT_LEFT])
-                        _by2 = int(_s2[_i2, cv2.CC_STAT_TOP])
-                        _bw2 = int(_s2[_i2, cv2.CC_STAT_WIDTH])
-                        _bh2 = int(_s2[_i2, cv2.CC_STAT_HEIGHT])
-                        _cp2 = (_l2[_by2:_by2 + _bh2,
-                                    _bx2:_bx2 + _bw2] == _i2)
-                        # v1.14.106b — در سطحِ پیکسل: فقط پیکسلهایِ نازک
-                        # (≤۱۰px) محافظت میشوند؛ لبِ ساختارِ توپر که به
-                        # خط چسبیده قربانیِ کلِ کامپوننت نمیشود
+            # v1.14.186 — اندروید (MANGA_PROT_CACHE): این تابع در هر صفحه
+            # «دو بار» صدا زده میشود (protect + wall_bandِ v1.14.73 با
+            # min_len/near_pxِ متفاوت) و بخشهایِ سنگینش (medianBlurِ ۳۱،
+            # ساختِ poly_all، بازِ خطیِ سراسری + distanceTransformها)
+            # از min_len/near_px مستقلاند → کشِ کوتاهِ بینِ همان دو
+            # فراخوانی (صرفهٔ ~۱-۴ ثانیه در هر صفحه). کلید = آدرسِ بافرِ
+            # تصویر + ماسکِ خام + تعدادِ ناحیه؛ و محلِ فراخوانی بعد از
+            # بارِ دوم آن را پاک میکند (self._spm_cache = None) تا کش
+            # هیچ‌وقت کهنه نشود. PC بدونِ کش — بیت‌به‌بیت.
+            _spc186 = None
+            _key186 = None
+            if _android_gate("MANGA_PROT_CACHE"):
+                try:
+                    _key186 = (
+                        image.__array_interface__["data"][0],
+                        image.shape,
+                        _raw_mask.__array_interface__["data"][0],
+                        len(regions or []))
+                except Exception:
+                    _key186 = None
+                _spc186 = getattr(self, "_spm_cache", None)
+            _ln = _vl106 = _hl106 = None
+            _hit186 = bool(_spc186 is not None and _key186 is not None
+                           and _spc186[0] == _key186
+                           and len(_spc186) == 7)
+            if _hit186:
+                dark_full, poly_all = _spc186[1], _spc186[2]
+                out = _spc186[3].copy()
+                _ln, _vl106, _hl106 = _spc186[4], _spc186[5], _spc186[6]
+                # بخشهایِ وابسته به near_px — ارزان — از نو
+                _nk = 25 if int(near_px) >= 25 \
+                    else (13 if int(near_px) >= 13 else 9)
+                near = cv2.dilate(_raw_mask,
+                                  np.ones((_nk, _nk), np.uint8))
+                dark = cv2.bitwise_and(dark_full, near)
+                n, lab, st, _ = cv2.connectedComponentsWithStats(dark, 8)
+                if n <= 1:
+                    return None
+            else:
+                g = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                _nk = 25 if int(near_px) >= 25 \
+                    else (13 if int(near_px) >= 13 else 9)
+                near = cv2.dilate(_raw_mask,
+                                  np.ones((_nk, _nk), np.uint8))
+                # v1.14.48b: تیرگیِ «نسبی» هم — دیوارِ محوِ JPEG (خاکستریِ ۱۲۰-۱۹۰
+                # روی زمینهٔ روشن) با آستانهٔ مطلقِ ۱۲۰ گم می‌شد و بخشی از دیوار
+                # باز هم لکه می‌شد. medianBlurِ ۳۱ زمینهٔ محلی است.
+                try:
+                    _bg31 = cv2.medianBlur(g, 31)
+                    dark_rel = ((_bg31.astype(np.int16)
+                                 - g.astype(np.int16)) > 45)
+                    dark = ((g < 120) | dark_rel).astype(np.uint8) * 255
+                except Exception:
+                    dark = (g < 120).astype(np.uint8) * 255
+                dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE,
+                                        np.ones((3, 3), np.uint8))
+                # v1.14.106 — تیرهٔ کاملِ صفحه (قبل از برشِ باندِ ۲۵px) برای
+                # بازِ خطیِ سراسری؛ سرِ کادرِ پنل داخلِ باند است ولی بدنه‌اش
+                # بیرونِ باند — خط باید تا انتها محافظت شود نه فقط سرش.
+                dark_full = dark
+                dark = cv2.bitwise_and(dark, near)
+                n, lab, st, _ = cv2.connectedComponentsWithStats(dark, 8)
+                if n <= 1:
+                    return None
+                # پالی‌هایِ OCR — گلیف‌ها اینجایند و نباید محافظت شوند
+                poly_all = np.zeros((h, w), dtype=np.uint8)
+                for r in (regions or []):
+                    for p in (getattr(r, "ocr_polys", None) or []):
                         try:
-                            # پدِ ۱px — کامپوننتِ توپر (خطِ کامل در باکسِ
-                            # خودش) هیچ پیکسلِ صفر ندارد → dt=FLT_MAX و
-                            # همه رد میشد (کیسِ قابِ ۱۰۱۸)
-                            _pd2 = np.zeros((_cp2.shape[0] + 2,
-                                             _cp2.shape[1] + 2), np.uint8)
-                            _pd2[1:-1, 1:-1] = _cp2.astype(np.uint8)
-                            _dt2 = cv2.distanceTransform(
-                                _pd2, cv2.DIST_L2, 3)[1:-1, 1:-1]
-                            _thin2 = _cp2 & ((_dt2 * 2.0) <= 10.0)
+                            pp = np.asarray(
+                                p, dtype=np.float32).reshape(-1, 2)
                         except Exception:
-                            _thin2 = _cp2
-                        if int(_thin2.sum()) < 40:
                             continue
-                        out[_by2:_by2 + _bh2,
-                            _bx2:_bx2 + _bw2][_thin2] = 255
-                if self.debug:
-                    _nl = int(cv2.countNonZero(out))
-                    if _nl:
-                        print(f"  [✓]قفلِ خطِ سراسری — {_nl}px", flush=True)
-            except Exception:
-                if self.debug:
-                    import traceback as _tb106
-                    print("  [!]قفلِ خط خطا:", flush=True)
-                    _tb106.print_exc()
+                        if pp.shape[0] >= 3:
+                            cv2.fillPoly(
+                                poly_all,
+                                [np.rint(pp).astype(np.int32)], 255)
+                poly_all = cv2.dilate(poly_all,
+                                      np.ones((9, 9), np.uint8))
+                out = np.zeros((h, w), dtype=np.uint8)
+                # v1.14.106 — بازِ خطیِ سراسری: کادرِ پنل/خطِ جدابندِ سرراست
+                # (اجرای ≥۶۰px، ضخامت ≤۱۰px، بیرونِ پالیهایِ OCR) سراسری
+                # محافظت میشود — نه فقط تکهٔ داخلِ باندِ متن. کیسِ ۱۰۱۸:
+                # ماسکِ لوگو/حباب قابِ چپِ پنل را در میان بریده بود و تکههای
+                # یتیم مثل «لبهٔ سیاه» دیده میشدند.
+                try:
+                    _vl106 = cv2.morphologyEx(
+                        dark_full, cv2.MORPH_OPEN,
+                        np.ones((60, 1), np.uint8))
+                    _hl106 = cv2.morphologyEx(
+                        dark_full, cv2.MORPH_OPEN,
+                        np.ones((1, 60), np.uint8))
+                    if int(cv2.countNonZero(_vl106)) or \
+                            int(cv2.countNonZero(_hl106)):
+                        # v1.14.106b — ضخامتِ بدونِ پخش: erodeِ بدونِ dilate
+                        # تا هستهٔ توپر حذف شود ولی خطِ نازکِ چسبیده به آن زنده
+                        # بماند (dilateِ ±۷px قابِ ۵px کناری را هم میکشت —
+                        # کیسِ ۱۰۱۸: کلِ قابِ چپِ پنل)
+                        _vth = cv2.erode(_vl106,
+                                         np.ones((1, 15), np.uint8))
+                        _hth = cv2.erode(_hl106,
+                                         np.ones((15, 1), np.uint8))
+                        _ln = ((_vl106 | _hl106) & ~_vth & ~_hth
+                               & (poly_all == 0)).astype(np.uint8) * 255
+                        _ln = cv2.morphologyEx(
+                            _ln, cv2.MORPH_CLOSE,
+                            np.ones((3, 3), np.uint8))
+                        _n2, _l2, _s2, _ = \
+                            cv2.connectedComponentsWithStats(_ln, 8)
+                        for _i2 in range(1, _n2):
+                            _a2 = int(_s2[_i2, cv2.CC_STAT_AREA])
+                            if _a2 < 60:
+                                continue
+                            _bx2 = int(_s2[_i2, cv2.CC_STAT_LEFT])
+                            _by2 = int(_s2[_i2, cv2.CC_STAT_TOP])
+                            _bw2 = int(_s2[_i2, cv2.CC_STAT_WIDTH])
+                            _bh2 = int(_s2[_i2, cv2.CC_STAT_HEIGHT])
+                            _cp2 = (_l2[_by2:_by2 + _bh2,
+                                        _bx2:_bx2 + _bw2] == _i2)
+                            # v1.14.106b — در سطحِ پیکسل: فقط پیکسلهایِ نازک
+                            # (≤۱۰px) محافظت میشوند؛ لبِ ساختارِ توپر که به
+                            # خط چسبیده قربانیِ کلِ کامپوننت نمیشود
+                            try:
+                                # پدِ ۱px — کامپوننتِ توپر (خطِ کامل در باکسِ
+                                # خودش) هیچ پیکسلِ صفر ندارد → dt=FLT_MAX و
+                                # همه رد میشد (کیسِ قابِ ۱۰۱۸)
+                                _pd2 = np.zeros(
+                                    (_cp2.shape[0] + 2,
+                                     _cp2.shape[1] + 2), np.uint8)
+                                _pd2[1:-1, 1:-1] = _cp2.astype(np.uint8)
+                                _dt2 = cv2.distanceTransform(
+                                    _pd2, cv2.DIST_L2, 3)[1:-1, 1:-1]
+                                _thin2 = _cp2 & ((_dt2 * 2.0) <= 10.0)
+                            except Exception:
+                                _thin2 = _cp2
+                            if int(_thin2.sum()) < 40:
+                                continue
+                            out[_by2:_by2 + _bh2,
+                                _bx2:_bx2 + _bw2][_thin2] = 255
+                    if self.debug:
+                        _nl = int(cv2.countNonZero(out))
+                        if _nl:
+                            print(f"  [✓]قفلِ خطِ سراسری — {_nl}px",
+                                  flush=True)
+                except Exception:
+                    if self.debug:
+                        import traceback as _tb106
+                        print("  [!]قفلِ خط خطا:", flush=True)
+                        _tb106.print_exc()
+                if _key186 is not None:
+                    try:
+                        self._spm_cache = (_key186, dark_full, poly_all,
+                                           out.copy(), _ln, _vl106,
+                                           _hl106)
+                    except Exception:
+                        pass
             try:
                 import os as _os106
                 _dp = _os106.environ.get("MANGA_DUMP_PROTECT")
