@@ -82,26 +82,21 @@ chaquopy {
     }
 }
 
-// v1.14.170 — موتورِ OCRِ گوشی = ML Kit (دستورِ سازنده: «حذف کن بره
-// paddle-lite ناقص استخراج میزنه ml kit بزار … همه زبان هارو خوب بتونه
-// استخراج کنه انگلیسی ژاپنی کره چینی»): MlKitBridge.kt برگشت؛ چهار مدلِ
-// باندلشدهٔ گوگل (latin + japanese + korean + chinese) در APK هستند —
-// آفلاین، بدونِ Google Play Services. Paddle-Lite کامل حذف شد
-// (PaddleLiteBridge/PliteProbeService/fetch_paddle/مدلهایِ nb).
-// موتورِ OCRِ گوشی = ML Kit فقط رویِ کراپهایِ detector-v4-s؛
-// فالبکِ خودکار به PP-OCRv6 ONNX.
-
-
+// v1.14.183 — موتورِ OCRِ گوشی = «پدلِ رسمیِ اندروید» (پرتِ رسمیِ
+// ppocr-android با مدلهایِ PP-OCRv6 medium رویِ PaddleOcrBridge.kt —
+// دستورِ سازنده: «کامل بخون paddleocr.ai …/android_deployment.html و
+// از PP-OCRv6_medium بزار تو کد خودم قسمت استخراجم»). ML Kit کامل حذف
+// شد («ml kit حذف کن خوب نیست»): نه MlKitBridge.kt، نه وابستگیهایِ
+// com.google.mlkit — چهار مدلِ باندلشدهٔ گوگل هم از APK خارج شدند.
+// موتورِ OCRِ گوشی فقط رویِ کراپهایِ detector-v4-s_int8.onnx کار میکند
+// (هیچ پاسِ تمامصفحهای) — مدلها زمانِ اجرا دانلود میشوند.
 dependencies {
     // v1.14.67 — ortVer برایِ CIِ امولاتور: AARِ 1.31 رویِ x86_64 در
     // sess.run تقسیم‌برصفر (SIGFPE) می‌دهد → CI با 1.28 بیلد می‌کند
     // (APIِ جاوایِ shim با 1.28 هم سازگار است؛ گوشی همان 1.31 را می‌گیرد)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:${(findProperty("ortVer") as String?) ?: "1.31.0"}")
-    // v1.14.170 — ML Kit (مدلهایِ باندلشده؛ هر ۴ اسکریپت در APK)
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
-    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
-    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    // v1.14.183 — وابستگیهایِ com.google.mlkit حذف شدند (دستورِ سازنده:
+    // «ml kit حذف کن خوب نیست») — استخراج = پدلِ رسمیِ اندروید.
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.182"
+APP_VER = "1.14.183"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3324,8 +3324,8 @@ def _android_heal_model_dir(mdir, quiet=False):
 
     ریشه: بعد از بهروزرسانیِ اپ/بازیابیِ بکاپ، مجوزِ خواندنِ فایلِ مدلِ
     دانلودشده از ONNX Runtime گرفته میشود → «PP-OCRv6 … failed: system
-    error number 13» → فالبکِ بیصدای ML Kit (شکایتِ «هنوز از ml kit
-    واسه استخراج استفاده میکنه»). درمان: chmodِ 0o644 همهٔ فایلهایِ
+    error number 13» → استخراجِ بیصدا خالی میماند (شکایتِ «استخراج
+    نمیکند»). درمان: chmodِ 0o644 همهٔ فایلهایِ
     پوشهٔ مدل؛ فایلِ هنوزناخوانا → حذف (تا _ensure دوباره دانلود کند).
     فقط اندروید (گیتِ MANGA_MODEL_HEAL) — PC بیت‌به‌بیت دستنخورده."""
     try:
@@ -3443,27 +3443,27 @@ def _cjk_dominant_154(t: str) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# v1.14.170 — موتورِ OCRِ گوشی = ML Kit گوگل (دستورِ سازنده: «حذف کن بره
-# paddle-lite ناقص استخراج میزنه ml kit بزار … همه زبان هارو خوب بتونه
-# استخراج کنه انگلیسی ژاپنی کره چینی … اول باید با detector-v4-s قسمت
-# هایِ متن پیدا کنه بعد همون قسمت هارو استخراج بزنه نه کل صفحه و سریع
-# هم باشه»). Paddle-Lite (پلِ PaddleLiteBridge، پروبِ :pliteprobe،
-# مدلهایِ nb، fetch_paddle) کامل حذف شد. ML Kit (مدلهایِ باندلشده —
-# آفلاین، بدونِ Play Services) دقیقاً مثلِ PP-OCRv6 ONNX فقط رویِ
-# «کراپهایِ detector-v4-s_int8.onnx» صدا زده میشود (همان مسیرِ
-# _ocr_crop → RapidOCRBackend.ocr → self._mobile.ocr(crop, crop_mode))
-# — هیچ پاسِ تمامصفحهای نیست.
-#   • چهار مدلِ باندلشده در APK: latin + japanese + korean + chinese
-#     (دقیقاً برایِ «همه زبان هارو خوب بتونه استخراج کنه»).
-#   • کشفِ خودکارِ اسکریپت (recognizeAuto — الگویِ اثباتشدهٔ 1.14.143):
-#     رأیِ یونیکدِ کانا/هانگول/هان + حافظهٔ صفحه؛ زبانِ صریحِ غیرِلاتین
-#     = کلاینتِ همان زبان؛ صفحهٔ انگلیسی با گذرِ دومِ لاتین دقیق میشود.
-#   • فالبکِ خودکار: نبودِ پل (APKِ قدیمی) یا هر خطا → PP-OCRv6 ONNX.
-#   • خاموشی: MANGA_ANDROID_OCR / MANGA_MOBILE_OCR_ENGINE = onnx|rapidocr
-#     (یا MANGA_MLKIT=0).
+# v1.14.183 — موتورِ OCRِ گوشی = «پدلِ رسمیِ اندروید» (تک‌موتور). تاریخچه:
+# 1.14.170 = ML Kit گوگل (دستورِ سازنده: «حذف کن بره paddle-lite ناقص
+# استخراج میزنه ml kit بزار … همه زبان هارو خوب بتونه استخراج کنه
+# انگلیسی ژاپنی کره چینی … اول باید با detector-v4-s قسمت هایِ متن پیدا
+# کنه بعد همون قسمت هارو استخراج بزنه نه کل صفحه و سریع هم باشه»)؛
+# 1.14.182 = پدلِ رسمیِ اندروید (پرتِ رسمیِ ppocr-android با مدلهایِ
+# PP-OCRv6 medium)؛ 1.14.183 = دستورِ سازنده: «ml kit حذف کن خوب نیست»
+# → ML Kit کامل حذف شد (کلاسِ MlKitCropOCR + پلِ MlKitBridge.kt +
+# وابستگیهایِ com.google.mlkit در build.gradle). موتورِ رسمی دقیقاً مثلِ
+# قبل فقط رویِ «کراپهایِ detector-v4-s_int8.onnx» صدا زده میشود (همان
+# مسیرِ _ocr_crop → RapidOCRBackend.ocr → self._mobile.ocr(crop,
+# crop_mode)) — هیچ پاسِ تمامصفحهای نیست.
+#   • مدلها = رسمیِ PaddlePaddle: PP-OCRv6_medium det (59MB) + rec (73MB)
+#     + inference.yml — دانلودِ زمانِ اجرا (هیچ مدلی در APK باندل نیست).
+#   • قراردادِ خروجی = سطرِ META|lang|n + سطرهایِ ang|conf|box|text|blk
+#     (همان قراردادِ همیشه) — پارسرِ مشترک بدونِ تغییر.
+#   • خاموشی/انتخاب: MANGA_ANDROID_OCR / MANGA_MOBILE_OCR_ENGINE =
+#     onnx|rapidocr (مسیرِ خالصِ ONNX).
 # ═══════════════════════════════════════════════════════════════════════
 
-_MLKIT_LANG_MAP = {
+_MOBILE_LANG_MAP = {
     "en": "latin", "latin": "latin", "english": "latin", "fa": "latin",
     "korean": "ko", "ko": "ko",
     "japan": "ja", "ja": "ja", "japanese": "ja",
@@ -3472,93 +3472,9 @@ _MLKIT_LANG_MAP = {
 }
 
 
-def _mlkit_lang(lang):
-    return _MLKIT_LANG_MAP.get(str(lang or "en").lower(), "latin")
-
-
-class MlKitCropOCR:
-    """OCRِ کراپ با ML Kit نیتیوِ گوگل (موتورِ OCRِ گوشی — v1.14.170).
-
-    det+rec هر دو سمتِ ML Kit است (رویِ کراپِ کوچکِ detector-v4-s
-    میلیثانیهای است)؛ پایتون فقط PNGِ کراپ را میسازد و خطها را به
-    قالبِ مشترک برمیگرداند. خروجی: [ [[box, (text, score)], ...] ] —
-    دقیقاً هم‌قالبِ RapidOcrMobile.ocr (قراردادِ بقیهٔ موتورها).
-    crop_mode فقط برایِ هم‌امضایی است — این کلاس همیشه فقط کراپ میگیرد."""
-
-    def __init__(self, lang: str = "en"):
-        try:
-            from java import jclass
-            self._bridge = jclass(
-                "com.amirwolf.mangatranslator.MlKitBridge")
-        except Exception as e:
-            raise RuntimeError(
-                "پلِ MlKitBridge در APKِ نصب‌شده نیست — APKِ جدید "
-                "(v1.14.170+) را نصب کن؛ فعلاً ONNX: " + str(e)[:90])
-        self.lang = _mlkit_lang(lang)
-        self.debug = True
-        # سلف‌تستِ دسترسپذیری (درسِ 1.14.168): یک کراپِ ریزِ سفید → باید
-        # سطرِ META برگردد؛ APKِ قدیمی (بدونِ پل) = شکستِ صریحِ یک‌باره
-        # همین‌جا → فالبکِ خودکارِ ONNX، نه خطایِ تکراریِ سرِ هر کراپ.
-        try:
-            _img = np.full((64, 64, 3), 255, dtype=np.uint8)
-            _ok, _buf = cv2.imencode(".png", _img)
-            _out = self._bridge.recognizeAuto(
-                bytes(_buf.tobytes()), self.lang, 1, 1)
-            if not _out or not str(_out[0]).startswith("META"):
-                raise RuntimeError("خروجیِ سلف‌تستِ ML Kit نامعتبر است")
-        except RuntimeError:
-            raise
-        except Exception as e:
-            raise RuntimeError(
-                "سلف‌تستِ پلِ ML Kit مردود شد — فعلاً ONNX: " + str(e)[:90])
-
-    def ocr(self, image_bgr, crop_mode: bool = False):
-        """هم‌امضایِ RapidOcrMobile.ocr — خروجیِ [ [[box,(t,s)],...] ].
-
-        recognizeAuto چهار سطرِ «ang|conf|box|text|blk» میدهد (box =
-        ۴ نقطهٔ x,y) + سطرِ META|lang|n. کشفِ خودکارِ اسکریپت داخلِ پل
-        است (hasInk=1 — کراپِ detector همیشه جوهرِ متن دارد)."""
-        if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
-            return None
-        _t0 = time.time()
-        try:
-            _ok, _buf = cv2.imencode(
-                ".png", np.ascontiguousarray(image_bgr))
-            if not _ok:
-                return None
-            out = self._bridge.recognizeAuto(
-                bytes(_buf.tobytes()), self.lang, 1, 1)
-        except Exception as e:
-            print(f"[!] خطایِ ML Kit: {str(e)[:140]}")
-            return None
-        if not out:
-            _mlkit_stats_note(_t0, 0)
-            return None
-        lines = []
-        for item in out:
-            s = str(item)
-            if s.startswith("META"):
-                continue
-            parts = s.split("|", 4)
-            if len(parts) < 5:
-                continue
-            try:
-                conf = float(parts[1])
-            except Exception:
-                conf = 1.0
-            txt = parts[3].strip()
-            if not txt or conf < 0.25:
-                continue
-            try:
-                nums = [float(v) for v in parts[2].split(",")]
-                if len(nums) != 8:
-                    continue
-                box = np.asarray(nums, dtype=np.float32).reshape(4, 2)
-            except Exception:
-                continue
-            lines.append([box, (txt, float(conf))])
-        _mlkit_stats_note(_t0, len(lines))
-        return [lines] if lines else None
+def _mobile_lang(lang):
+    """نرمالسازیِ زبان برایِ سطرِ METAِ موتورِ گوشی."""
+    return _MOBILE_LANG_MAP.get(str(lang or "en").lower(), "latin")
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -3568,11 +3484,12 @@ class MlKitCropOCR:
 # PP-OCRv6_medium بزار تو کد خودم قسمت استخراجم؛ اول detector-v4-s همه
 # قسمت هایِ متن پیدا کنه فقط همون قسمت ها استخراج کنه تا سریعتر باشه»).
 # موتورِ نیتیوِ Kotlin = PaddleOcrBridge (فقط ONNX Runtime — بدونِ
-# Paddle-Lite/OpenCVِ جدید) با قراردادِ سطرهایِ MlKitBridge
+# Paddle-Lite/OpenCVِ جدید) با قراردادِ سطرهایِ META
 # (META|lang|n + ang|conf|box|text|blk) تا پارسرِ مشترک کار کند.
 # مدلها = رسمیِ PaddlePaddle: PP-OCRv6_medium det (59MB) + rec (73MB)
 # + inference.yml (charset) — دانلودِ زمانِ اجرا مثلِ بقیهٔ مدلها.
-# فالبکِ هر خطا = ML Kit باندلشده (بدونِ دانلود).
+# v1.14.183 — فالبکی نیست؛ ML Kit حذف شد. خطایِ موتور = خروجیِ خالیِ
+# همان کراپ (لاگ میشود) — سازنده میبیند و APK/مدل را درست میکند.
 # ═════════════════════════════════════════════════════════════════
 _PAD_STATS = {"ms": 0.0, "n": 0, "lines": 0}
 
@@ -3596,7 +3513,7 @@ class PaddleAndroidOCR:
     v1.14.182). det (PP-OCRv6 medium) → DBPostProcessِ رسمی → کراپِ
     پرسپکتیو → rec (PP-OCRv6 medium، بچِ پدشده) → CTC با charsetِ
     inference.yml. خروجی: [ [[box, (text, score)], ...] ] — هم‌قالبِ
-    MlKitCropOCR/RapidOcrMobile. crop_mode فقط برایِ هم‌امضایی."""
+    RapidOcrMobile. crop_mode فقط برایِ هم‌امضایی."""
 
     _FILES = ("PP-OCRv6_medium_det_onnx.onnx",
               "PP-OCRv6_medium_rec_onnx.onnx",
@@ -3610,8 +3527,8 @@ class PaddleAndroidOCR:
         except Exception as e:
             raise RuntimeError(
                 "پلِ PaddleOcrBridge در APKِ نصب‌شده نیست — APKِ جدید "
-                "(v1.14.182+) را نصب کن؛ فعلاً ML Kit: " + str(e)[:90])
-        self.lang = _mlkit_lang(lang)
+                "(v1.14.182+) را نصب کن: " + str(e)[:90])
+        self.lang = _mobile_lang(lang)
         self.debug = True
         _mdir = os.path.join(
             os.environ.get("MANGA_FILES_DIR") or os.getcwd(),
@@ -3644,8 +3561,8 @@ class PaddleAndroidOCR:
         if not self._bridge.init(_paths[0], _paths[1], _paths[2], _intra):
             raise RuntimeError(
                 "initِ PaddleOcrBridge ناموفق بود (فایلهایِ مدل/APK)")
-        # سلف‌تستِ دسترسپذیری (الگویِ MlKitCropOCR): کراپِ ریزِ سفید →
-        # باید سطرِ META برگردد؛ شکستِ یک‌باره → فالبکِ ML Kit.
+        # سلف‌تستِ دسترسپذیری: کراپِ ریزِ سفید → باید سطرِ META برگردد؛
+        # شکستِ یک‌باره = خطایِ صریح (فالبکی نیست — ML Kit حذف شده).
         try:
             _img = np.full((64, 64, 3), 255, dtype=np.uint8)
             _ok, _buf = cv2.imencode(".png", _img)
@@ -3657,13 +3574,13 @@ class PaddleAndroidOCR:
             raise
         except Exception as e:
             raise RuntimeError(
-                "سلف‌تستِ پلِ پدلِ اندروید مردود شد — فعلاً ML Kit: "
+                "سلف‌تستِ پلِ پدلِ اندروید مردود شد: "
                 + str(e)[:90])
         print(f"[+] OCR گوشی: پدلِ رسمیِ اندروید آماده | "
               f"det=PP-OCRv6_medium rec=PP-OCRv6_medium | threads={_intra}")
 
     def ocr(self, image_bgr, crop_mode: bool = False):
-        """هم‌امضایِ MlKitCropOCR — خروجیِ [ [[box,(t,s)],...] ]."""
+        """هم‌امضایِ RapidOcrMobile — خروجیِ [ [[box,(t,s)],...] ]."""
         if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
             return None
         _t0 = time.time()
@@ -3812,7 +3729,7 @@ def _k3_stats_note(t0: float, stage: int) -> None:
         if _K3_STATS["n"] % 20 == 0:
             n = _K3_STATS["n"]
             print(f"[⚡] نردبانِ K3: {n} کراپ | پلهها: "
-                  f"ML Kit={_K3_STATS['st1']} پدل={_K3_STATS['st2']} "
+                  f"رسمی={_K3_STATS['st1']} پدل={_K3_STATS['st2']} "
                   f"رپید={_K3_STATS['st3']} | "
                   f"میانگینِ {_K3_STATS['ms'] / max(1, n):.0f}ms")
     except Exception:
@@ -3824,39 +3741,37 @@ class K3LadderOCR:
 
     دقیقاً دستورِ توسعه‌دهندهٔ K3 (نقلِ قولِ سازنده):
       «اول با RT-DETR در سطح بلوک متنها رو تشخیص میدم … کراپ میکنم …
-       بعد از افزایش کیفیت کراپ، اون کراپ رو میدم به Google Kit LM …
+       بعد از افزایش کیفیت کراپ، اون کراپ رو میدم به موتورِ استخراج …
        اگه درصد پوشش متن اون زیر ۷۰ درصد بود مدل پدل رو برای همون کراپ
        صدا میزنم … اگه درصد اطمینان اون زیر ۸۰ درصد بود مدل رپید رو
        صدا میزنم … فقط باید در سطح کراپی که از RT-DETR گرفتی کار کنی
        نه رو تمام صفحه — این مورد رو گوشی خیلی مهمه»
-    → پلهٔ ۱: کراپِ تقویتشده (پد + بزرگنماییِ ریزها) → ML Kit (سریع)
+    → پلهٔ ۱ (v1.14.183): کراپِ تقویتشده (پد + بزرگنماییِ ریزها) →
+      پدلِ رسمیِ اندروید (PaddleOcrBridge — PP-OCRv6 mediumِ نیتیو)
       پلهٔ ۲: پوششِ جوهرِ متن < 70٪ → PP-OCRv6 ONNX (پدل) رویِ همان کراپ
       پلهٔ ۳: اطمینانِ پدل < 80٪ → مدلِ رپید (PP-OCRv6 small) همان کراپ
     برنده = بالاترین (پوشش×0.6 + اطمینان×0.4). هیچ پاسِ تمامصفحهای نیست
-    (crop_mode=False → مستقیمِ موتورِ ONNX برایِ مسیرهایِ جانبیِ قدیمی).
-    خاموشی: MANGA_K3_LADDER=0 (فقط ML Kit — رفتارِ 1.14.170)."""
+    (crop_mode=False → مسیرهایِ جانبیِ قدیمی). v1.14.183 — ML Kit کامل
+    حذف شد: پلهٔ ۱ بدونِ هیچ فالبکی است (خالی = خروجیِ خالی)."""
 
     # v1.14.176 — «آزمایشگاهِ سرعت»: انتخابِ روشِ استخراج از داخلِ اپ
     # (MANGA_K3_MODE — حالا فقط از نتیجهٔ «⚡ تستِ سرعت»):
-    #   full    = کامل: ML Kit → پدل → رپید (پیشفرض — دقیقتر)
-    #   fast    = سریع: ML Kit → رپید (پدلِ mediumِ سنگین حذف — همان
-    #             کراپ مستقیم به مدلِ سبک میرود)
-    #   mlkit   = فقط ML Kit (سریعترین — هر چه ML Kit خواند برگردانده
-    #             میشود حتی با پوششِ کمتر)
-    #   rapid   = فقط رپید (مدلِ سبکِ PP-OCRv6 رویِ همهٔ کراپها؛ ML Kit
-    #             هم حذف)
+    #   full    = کامل: پدلِ رسمی → پدلِ ONNXِ medium → رپید (دقیقتر)
+    #   fast    = سریع: پدلِ رسمی → رپید (همان کراپ مستقیم به مدلِ سبک
+    #             میرود)
+    #   rapid   = فقط رپید (مدلِ سبکِ PP-OCRv6 رویِ همهٔ کراپها)
     #   paddle  = فقط پدل (مدلِ سنگینِ PP-OCRv6 رویِ همهٔ کراپها)
     #   flutter = v1.14.179 — فقط «فلاتر-پدل» (PP-OCRv6 tinyِ 1.7+4.3MB؛
     #             همان مدلهایِ اپِ flutter-paddle-ocr — ONNXِ خالص، نه
     #             Paddle-Lite) رویِ همهٔ کراپها
-    #   padandroid = v1.14.182 — «پدلِ رسمیِ اندروید»: پرتِ رسمیِ
+    #   padandroid = v1.14.182/183 — «پدلِ رسمیِ اندروید»: پرتِ رسمیِ
     #             ppocr-android (paddleocr.ai) با مدلهایِ PP-OCRv6 medium
-    #             رویِ موتورِ نیتیوِ PaddleOcrBridge؛ خالی → ML Kit
-    _K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter",
+    #             رویِ موتورِ نیتیوِ PaddleOcrBridge؛ روشِ فعال — بدونِ
+    #             فالبک (v1.14.183: ML Kit حذف شد)
+    _K3_MODES = ("full", "fast", "rapid", "paddle", "flutter",
                  "padandroid")
 
-    def __init__(self, mlkit, lang: str, build_onnx, build_pad=None):
-        self._mlkit = mlkit            # MlKitCropOCR آماده
+    def __init__(self, lang: str, build_onnx, build_pad=None):
         self._lang = lang
         self._build_onnx = build_onnx  # callable(small: bool) → موتورِ ONNX
         self._build_pad = build_pad    # v1.14.182 — callable() → پدلِ رسمی
@@ -3868,19 +3783,18 @@ class K3LadderOCR:
         self._fl_tried = False
         self._pad = None         # v1.14.182 — پدلِ رسمیِ اندروید (تنبل)
         self._pad_tried = False
-        self._build_pad = build_pad  # callable() → PaddleAndroidOCR یا None
         try:
             _m = str(os.environ.get("MANGA_K3_MODE", "") or "").strip().lower()
         except Exception:
             _m = ""
-        # v1.14.182 — فالبکِ مقدارِ نامشخص/خالی = «padandroid» (روشِ
-        # فعالِ این نسخه برایِ تستِ کیفیت؛ دستور: «از PP-OCRv6_medium بزار
-        # تو کد خودم قسمت استخراجم»)
+        # v1.14.182/183 — فالبکِ مقدارِ نامشخص/خالی/کهنه (mlkit و…)
+        # = «padandroid» (روشِ فعال؛ دستور: «از PP-OCRv6_medium بزار تو
+        # کد خودم قسمت استخراجم»)
         self._mode = _m if _m in self._K3_MODES else "padandroid"
 
     def _engine_pad(self):
         """v1.14.182 — موتورِ «پدلِ رسمیِ اندروید» با کشِ خودش.
-        هر خطا/نبودِ پل → None (نردبان به ML Kit برمیگردد)."""
+        هر خطا/نبودِ پل → None (کراپِ بدونِ موتور = خروجیِ خالی)."""
         if self._pad_tried:
             return self._pad
         self._pad_tried = True
@@ -3930,8 +3844,9 @@ class K3LadderOCR:
         if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
             return None
         _t0 = time.time()
-        # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → مستقیمِ ONNX؛ ML Kit
-        # فقط رویِ کراپ (دستورِ K3: «نه رو تمام صفحه»)
+        # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → موتورِ رسمی/ONNX؛
+        # استخراج فقط رویِ کراپ است (دستورِ K3: «نه رو تمام صفحه») و
+        # ML Kit هم حذف شده — هیچ فالبکی نیست (v1.14.183)
         if not crop_mode:
             # v1.14.180 — در روشِ «فلاتر-پدل» پاسِ تمامصفحهٔ جانبی هم با
             # موتورِ tiny میرود؛ mediumِ سنگین (~۱۳۰MB) بیدار نمیشود
@@ -3939,64 +3854,60 @@ class K3LadderOCR:
                 eng = self._engine_tiny()
                 if eng is not None:
                     return eng.ocr(image_bgr, crop_mode=False)
-                return self._mlkit.ocr(image_bgr)
-            # v1.14.182 — «پدلِ رسمیِ اندروید»: پاسِ تمامصفحهٔ جانبی هم با
-            # موتورِ رسمی (det خودش خطها را میابد)؛ خالی → ML Kit.
-            if self._mode == "padandroid":
+                return None
+            # v1.14.182/183 — «پدلِ رسمیِ اندروید» (روشِ فعال) و full/fast:
+            # پاسِ تمامصفحهٔ جانبی هم با موتورِ رسمی (det خودش خطها را
+            # میابد). padandroid بدونِ فالبک؛ full/fast → خالیِ موتورِ
+            # رسمی به ONNXِ medium میرسد.
+            if self._mode in ("padandroid", "full", "fast"):
                 eng0 = self._engine_pad()
                 if eng0 is not None:
-                    return eng0.ocr(image_bgr)
-                return self._mlkit.ocr(image_bgr)
-            # v1.14.181 — روشِ برنده = فقط ML Kit: پاسِ تمامصفحهٔ جانبی هم
-            # با ML Kit میرود؛ مدلهایِ ONNXِ حذفشده بیدار/دانلود نمیشوند.
-            if self._mode == "mlkit":
-                return self._mlkit.ocr(image_bgr)
+                    r0 = eng0.ocr(image_bgr)
+                    if r0:
+                        return r0
+                    if self._mode == "padandroid":
+                        return None
+                if self._mode != "padandroid":
+                    eng = self._engine(small=False)
+                    if eng is not None:
+                        return eng.ocr(image_bgr, crop_mode=False)
+                return None
             eng = self._engine(small=False)
             if eng is not None:
                 return eng.ocr(image_bgr, crop_mode=False)
-            return self._mlkit.ocr(image_bgr)
+            return None
 
-        # ── پلهٔ ۱: روشِ فعال رویِ کراپِ تقویتشده ──
+        # ── پلهٔ ۱: پدلِ رسمیِ اندروید رویِ کراپِ تقویتشده ──
         #    v1.14.182 — در «padandroid» اول پدلِ رسمیِ اندروید (PP-OCRv6
-        #    mediumِ نیتیو — دستور: «از PP-OCRv6_medium بزار») و فقط اگر
-        #    چیزی نداد → ML Kitِ باندلشده. بقیهٔ روشها مثلِ قبل.
+        #    mediumِ نیتیو — دستور: «از PP-OCRv6_medium بزار»). v1.14.183 —
+        #    ML Kit حذف شد: پلهٔ ۱ در full/fast هم پدلِ رسمی است؛ خروجیِ
+        #    خالی/خطا در padandroid = خروجیِ خالی (بدونِ هیچ فالبکی).
         _mode = self._mode
         lines1 = []
-        if _mode == "padandroid":
+        cov1 = 0.0
+        conf1 = 0.0
+        if _mode in ("padandroid", "full", "fast"):
             eng0 = self._engine_pad()
             if eng0 is not None:
                 try:
                     boosted, pad, scale = _k3_boost_crop(image_bgr)
                     r0 = eng0.ocr(boosted)
                     if r0 and r0[0]:
-                        lines0 = _k3_map_boxes(r0[0], pad, scale)
-                    else:
-                        lines0 = []
+                        lines1 = _k3_map_boxes(r0[0], pad, scale)
                 except Exception as e:
                     print(f"[!] پدلِ رسمیِ اندروید خطا داد: {str(e)[:110]}")
-                    lines0 = []
+                    lines1 = []
+            cov1 = _k3_ink_coverage(image_bgr, lines1)
+            conf1 = _k3_best_conf(lines1)
+            if lines1 and cov1 >= 0.70 and conf1 >= 0.55:
                 _k3_stats_note(_t0, 1)
-                if lines0:
-                    return [lines0]
-                # خالی → به ML Kit می‌رسیم (پلهٔ ۱ی قدیمی)
-        if _mode not in ("rapid", "flutter"):
-            try:
-                boosted, pad, scale = _k3_boost_crop(image_bgr)
-                r1 = self._mlkit.ocr(boosted)
-                if r1 and r1[0]:
-                    lines1 = _k3_map_boxes(r1[0], pad, scale)
-            except Exception:
-                lines1 = []
-        cov1 = _k3_ink_coverage(image_bgr, lines1)
-        conf1 = _k3_best_conf(lines1)
-        if lines1 and cov1 >= 0.70 and conf1 >= 0.55:
-            _k3_stats_note(_t0, 1)
-            return [lines1]
-        if _mode == "mlkit":
-            # v1.14.176 — فقط ML Kit: هر چه خوانده برگردانده میشود (حتی
-            # با پوششِ کمتر) — سریعترین حالت برایِ تستِ سرعت
-            _k3_stats_note(_t0, 1)
-            return [lines1] if lines1 else None
+                return [lines1]
+            if _mode == "padandroid":
+                # v1.14.176/183 — فقط پدلِ رسمی: هر چه خوانده برگردانده
+                # میشود (حتی با پوششِ کمتر)؛ خالی = None — پلههایِ ۲/۳ِ
+                # ONNXِ بازنده هرگز بیدار نمیشوند و فالبکی هم نیست
+                _k3_stats_note(_t0, 1)
+                return [lines1] if lines1 else None
 
         # ── پلهٔ ۲: پدل (PP-OCRv6) رویِ همان کراپِ اصلی
         #    (در «fast»/«rapid» حذف — مدلِ mediumِ سنگین اصلاً ساخته
@@ -4028,13 +3939,6 @@ class K3LadderOCR:
                     max([lines1, lines2],
                         key=lambda L: 0.6 * _k3_ink_coverage(image_bgr, L)
                         + 0.4 * _k3_best_conf(L))]
-        if _mode == "padandroid":
-            # v1.14.182 — پدلِ رسمیِ اندروید: پلههایِ ۲/۳ِ قدیمی هرگز بیدار
-            # نمیشوند (مدلهایِ بازنده حذف شدند) — خروجی = ML Kitِ فالبک
-            # یا هیچ؛ نتایجِ خالیِ پدلِ رسمی نبودنِ پل/مدل را نشان میدهد.
-            _k3_stats_note(_t0, 1)
-            return [lines1] if lines1 else None
-
         # ── پلهٔ ۳: رپید / فلاتر-پدل (اطمینانِ پدل زیرِ ۸۰٪ یا پدل نبود؛
         #    در «rapid» بدونِ پلههایِ قبل — v1.14.179: در «flutter» بهجای
         #    رپید، موتورِ tinyِ flutter-paddle-ocr) ──
@@ -4060,31 +3964,11 @@ class K3LadderOCR:
         return [best]
 
 
-# ── v1.14.171 — انتخابِ موتورِ OCRِ گوشی ─────────────────────────────
+# ── v1.14.171/183 — انتخابِ موتورِ OCRِ گوشی ─────────────────────────
 #   MANGA_ANDROID_OCR / MANGA_MOBILE_OCR_ENGINE:
-#     k3 (پیشفرض) = نردبانِ K3: ML Kit → پوشش <70٪ → پدل → اطمینان <80٪ → رپید
-#     mlkit        = فقط ML Kit (رفتارِ 1.14.170)
+#     k3 (پیشفرض) = نردبانِ K3: پدلِ رسمی → پوششِ جوهر <70٪ → پدلِ
+#                   ONNXِ medium → اطمینان <80٪ → رپید
 #     onnx|rapidocr = فقط PP-OCRv6 ONNX (مسیرِ خالص)
-_MLKIT_STATE = {"obj": None, "lang": None, "dead": False, "note": False}
-_MLKIT_BUILD_LOCK = threading.Lock()
-# سنجهٔ سرعتِ واقعیِ ML Kit رویِ گوشی (دستور: «سریع هم باشه»)
-_MLKIT_STATS = {"ms": 0.0, "n": 0, "lines": 0}
-
-
-def _mlkit_stats_note(t0, nlines):
-    try:
-        _MLKIT_STATS["ms"] += (time.time() - t0) * 1000.0
-        _MLKIT_STATS["n"] += 1
-        _MLKIT_STATS["lines"] += int(nlines or 0)
-        if _MLKIT_STATS["n"] % 20 == 0:
-            print(f"[⚡] ML Kit: {_MLKIT_STATS['n']} OCR | "
-                  f"مجموعِ {_MLKIT_STATS['ms'] / 1000.0:.1f}s | "
-                  f"میانگینِ {_MLKIT_STATS['ms'] / max(1, _MLKIT_STATS['n']):.0f}ms | "
-                  f"{_MLKIT_STATS['lines']} خط")
-    except Exception:
-        pass
-
-
 # ── v1.14.176 — «آزمایشگاهِ سرعتِ استخراج» ────────────────────────────
 # دستورِ سازنده: «هر روشی بود براش دکمه بذار — روشن کنم تست کنم ببینم
 # کدوم سریعه». تنظیمها از پنلِ اپ میآیند (م MangaApp: ocr_ep/ocr_ladder/
@@ -4096,20 +3980,22 @@ def _mlkit_stats_note(t0, nlines):
 _SPEED_LAB_EP = ("auto", "nnapi", "xnnpack", "cpu")
 # v1.14.179 — «flutter» اضافه شد (فلاتر-پدل = PP-OCRv6 tiny؛ نه Paddle-Lite)
 # v1.14.182 — «padandroid» اضافه شد (پدلِ رسمیِ اندروید = PP-OCRv6 medium)
-_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle", "flutter",
+# v1.14.183 — «mlkit» حذف شد (دستورِ سازنده: «ml kit حذف کن خوب نیست»)
+_SPEED_LAB_LADDER = ("full", "fast", "rapid", "paddle", "flutter",
                      "padandroid")
 
 # اسمِ فارسیِ هر روش برایِ لاگها (کلیدِ انگلیسی هم کنارش میآید تا لاگ
 # قابلِ جستجو بماند)
 _K3_MODE_FA = {
-    "full": "نردبانِ کامل", "fast": "سریع", "mlkit": "فقط ML Kit",
+    "full": "نردبانِ کامل", "fast": "سریع",
     "rapid": "فقط رپید", "paddle": "فقط پدل", "flutter": "فلاتر-پدل",
     "padandroid": "پدلِ رسمیِ اندروید",
 }
 
 # v1.14.181 — پاکسازیِ یکبارِ مصرفِ مدلهایِ ONNXِ بازنده از گوشی.
-# دستورِ سازنده: «خب ml kit بزار ولی ناقص استخراج میزنه بقیش حذف کن تو
-# گوشی استفاده نکنه». برندهٔ تستِ ۱۷۹ = mlkit (۳۴۹ms) → فقط ML Kit میماند؛
+# دستورِ سازنده: «بقیش حذف کن تو گوشی استفاده نکنه». v1.14.183 —
+# ML Kit هم کلاً حذف شد (دستور: «ml kit حذف کن خوب نیست») — نه کلاس،
+# نه پلِ MlKitBridge.kt، نه وابستگیهایِ com.google.mlkit در APK.
 # سه مجموعهٔ مدلِ بازنده از پوشهٔ rapidocr_modelsِ گوشی حذف میشوند:
 #   رپید (small): PP-OCRv6_det_small[.int8]/rec_small + cls + ja/ko
 #   پدل (K3 medium): PP-OCRv6_medium_det/rec + korean v5 + ch v4
@@ -4173,7 +4059,7 @@ def _purge_loser_onnx_models() -> str:
             print("[🧹] v1.14.181 — %d فایلِ مدلِ بازنده (%s) از گوشی حذف شد"
                   % (_n, _fmt_mb(_freed)))
             return ("مدلهایِ بازنده حذف شد: %d فایل / %s آزاد شد — "
-                    "روشِ فعالِ v1.14.182 = پدلِ رسمیِ اندروید"
+                    "روشِ فعالِ v1.14.183 = پدلِ رسمیِ اندروید"
                     % (_n, _fmt_mb(_freed)))
         return ""
     except Exception:
@@ -4186,12 +4072,13 @@ def speed_lab_env(p: dict) -> str:
 
     تاریخچه: 1.14.176 سوییچهایِ پنل را آورد؛ 1.14.178 یک دکمهٔ «تستِ
     سرعت» شد که برنده را در speed_test.json ذخیره میکرد؛ 1.14.181 برنده
-    (mlkit) force شد و مدلهایِ بازنده پاک شدند. v1.14.182 — دستورِ
+    (mlkit) force شد و مدلهایِ بازنده پاک شدند. 1.14.182 — دستورِ
     سازنده: «ml kit خوب نیست … از PP-OCRv6_medium بزار تو کد خودم
     قسمتِ استخراجم» → روشِ فعال = پدلِ رسمیِ اندروید (پرتِ رسمیِ
-    ppocr-android) در هر دو شاخه force میشود؛ فالبکِ خودکارِ هر خطا =
-    ML Kit باندلشده. فقط شتاب‌دهندهٔ ذخیرهشده از speed_test.json خوانده
-    میشود. پارامترِ p خوانده نمیشود (سازگاریِ امضا با bridge)."""
+    ppocr-android) در هر دو شاخه force میشود. v1.14.183 — «ml kit حذف
+    کن خوب نیست» → ML Kit کامل حذف شد؛ فالبکی وجود ندارد. فقط
+    شتاب‌دهندهٔ ذخیرهشده از speed_test.json خوانده میشود. پارامترِ p
+    خوانده نمیشود (سازگاریِ امضا با bridge)."""
     try:
         # کلیدهایِ قدیمیِ سوییچها هرگز از این نسخه ست نمیشوند — پاککاری
         # برایِ اینکه envِ ماندهٔ پروسههایِ قدیمی اثر نگذارد.
@@ -4229,17 +4116,15 @@ def speed_lab_env(p: dict) -> str:
         for _k in ("n", "ms", "st1", "st2", "st3"):
             _K3_STATS[_k] = 0 if _k != "ms" else 0.0
         for _k in ("ms", "n", "lines"):
-            _MLKIT_STATS[_k] = 0 if _k != "ms" else 0.0
-        for _k in ("ms", "n", "lines"):
             _PAD_STATS[_k] = 0 if _k != "ms" else 0.0
 
         if _purge:
             return ("[⚡] روشِ استخراج: پدلِ رسمیِ اندروید — PP-OCRv6 medium"
-                    " (%s) + شتاب‌دهندهٔ %s%s | v1.14.182: %s؛ فالبک = ML Kit"
+                    " (%s) + شتاب‌دهندهٔ %s%s | v1.14.183: %s"
                     % (_K3_MODE_FA.get(_lad, _lad), _ep, _ms_l, _purge))
         return ("[⚡] روشِ استخراج: پدلِ رسمیِ اندروید — PP-OCRv6 mediumِ "
-                "نیتیو (پرتِ رسمیِ ppocr-android — v1.14.182)%s + "
-                "شتاب‌دهندهٔ %s | فالبکِ خطا = ML Kit"
+                "نیتیو (پرتِ رسمیِ ppocr-android — v1.14.183)%s + "
+                "شتاب‌دهندهٔ %s"
                 % (_ms_l, _ep))
     except Exception:
         return ""
@@ -4389,11 +4274,10 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
        اگر تشخیص چیزی نداد (لاگِ ۱۷۸: «در تصویر متنِ خواندنی پیدا نشد»
        و کلِ تست قطع شد) — v1.14.179 صفحه به کاشیهایِ واقعی (~۵۱۲px)
        بریده میشود؛ تست هیچوقت بنبست پیدا نمیکند.
-    ۲) هفت پنجرهٔ روشِ استخراج: full/fast/mlkit/rapid/paddle +
+    ۲) شش پنجرهٔ روشِ استخراج: full/fast/rapid/paddle (نردبانِ ONNX) +
        flutter («فلاتر-پدل» = PP-OCRv6 tinyِ flutter-paddle-ocr) +
-       padandroid (پدلِ رسمیِ اندروید — PP-OCRv6 mediumِ نیتیو؛ در
-       ماشینِ تست نردبان با build_pad=None ساخته میشود → همان مسیرِ
-       فالبکِ ML Kit اندازهگیری میشود).
+       padandroid (پدلِ رسمیِ اندروید — PP-OCRv6 mediumِ نیتیو؛ روشِ
+       فعالِ v1.14.183 — موتورِ واقعی اندازهگیری میشود).
     ۳) سه پنجرهٔ شتاب‌دهنده رویِ مسیرِ پدل: cpu/xnnpack/nnapi.
        NNAPI آخر است؛ نتیجه بعد از هر پنجره ذخیره میشود — اگر گوشی
        حینِ تستِ NNAPI کرش کند، برندهٔ بقیهٔ پنجرهها از دست نمیرود و
@@ -4456,9 +4340,9 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     except Exception as _e:
         log("[!] مدلِ فلاتر-پدل ساخته نشد: %s" % str(_e)[:120])
     try:
-        _mlbe = _mlkit_backend(lang)
+        _padbe = be._build_paddle_android(lang)
     except Exception:
-        _mlbe = None
+        _padbe = None
 
     def _builder(small: bool = False, tiny: bool = False):
         if tiny:
@@ -4503,16 +4387,14 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     for _mode in _modes:
         _wi += 1
         _need_ok = {
-            "full": (_mlbe is not None) and (_med is not None or _sml is not None),
-            "fast": (_mlbe is not None) and (_sml is not None or _med is not None),
-            "mlkit": _mlbe is not None,
+            # v1.14.183 — پلهٔ ۱ی نردبان (full/fast/padandroid) = پدلِ
+            # رسمیِ اندروید؛ mlkitِ حذفشده دیگر پنجره ندارد
+            "full": _padbe is not None,
+            "fast": _padbe is not None,
             "rapid": _sml is not None,
             "paddle": _med is not None,
             "flutter": _tiny is not None,   # v1.14.179 — فلاتر-پدل (tiny)
-            # v1.14.182 — «پدلِ رسمیِ اندروید»: نردبانِ تست با
-            # build_pad=None ساخته میشود → مسیرِ فالبکِ ML Kit اندازه
-            # گرفته میشود (رویِ گوشیِ واقعی موتورِ نیتیوِ پدل میآید)
-            "padandroid": _mlbe is not None,
+            "padandroid": _padbe is not None,
         }[_mode]
         if not _need_ok:
             _res["ladder_ms"][_mode] = None
@@ -4521,7 +4403,7 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
             continue
         os.environ["MANGA_K3_MODE"] = _mode
         try:
-            _lad = K3LadderOCR(_mlbe, lang, _builder)
+            _lad = K3LadderOCR(lang, _builder, build_pad=lambda: _padbe)
         except Exception as _e:
             _res["ladder_ms"][_mode] = None
             log("[⚡] (%d/%d) روشِ %s (%s) → نردبان ساخته نشد: %s"
@@ -4635,15 +4517,15 @@ def _k3_speed_report() -> str:
             return ""
         _ms = float(_K3_STATS.get("ms") or 0.0)
         _out = ("[🧪] گزارشِ سرعتِ استخراج: %d کراپ | میانگینِ %.0fms | "
-                "پلهها: ML Kit=%d پدل=%d رپید=%d"
+                "پلهها: رسمی=%d پدل=%d رپید=%d"
                 % (_n, _ms / max(1, _n), int(_K3_STATS.get("st1") or 0),
                    int(_K3_STATS.get("st2") or 0),
                    int(_K3_STATS.get("st3") or 0)))
         try:
-            _mn = int(_MLKIT_STATS.get("n") or 0)
-            if _mn > 0:
-                _out += (" | ML Kitِ تنهایی: میانگینِ %.0fms"
-                         % (float(_MLKIT_STATS.get("ms") or 0.0) / _mn))
+            _pn = int(_PAD_STATS.get("n") or 0)
+            if _pn > 0:
+                _out += (" | پدلِ رسمیِ تنهایی: میانگینِ %.0fms"
+                         % (float(_PAD_STATS.get("ms") or 0.0) / _pn))
         except Exception:
             pass
         try:
@@ -4654,33 +4536,6 @@ def _k3_speed_report() -> str:
         return _out
     except Exception:
         return ""
-
-
-def _mlkit_backend(lang="en"):
-    """موتورِ ML Kit (تک‌نمونهٔ تنبل) — هر خطا = None یعنی فالبکِ خودکار
-    به PP-OCRv6 ONNX. خاموشیِ کامل: MANGA_MLKIT=0."""
-    st = _MLKIT_STATE
-    if st.get("dead"):
-        return None
-    if str(os.environ.get("MANGA_MLKIT", "1") or "1").strip() == "0":
-        st["dead"] = True
-        return None
-    want = _mlkit_lang(lang)
-    if st.get("obj") is not None and st.get("lang") == want:
-        return st["obj"]
-    with _MLKIT_BUILD_LOCK:
-        if st.get("obj") is not None and st.get("lang") == want:
-            return st["obj"]
-        try:
-            obj = MlKitCropOCR(want)
-            st["obj"], st["lang"] = obj, want
-            return obj
-        except Exception as e:
-            st["dead"] = True
-            if not st.get("note"):
-                st["note"] = True
-                print(f"[!] ML Kit آماده نشد ({str(e)[:140]}) → PP-OCRv6 ONNX")
-            return None
 
 
 class RapidOCRBackend:
@@ -4956,32 +4811,37 @@ class RapidOCRBackend:
         unclip بدونِ pyclipper/shapely (پدِ گوشهایِ rect — معادلِ دقیقِ
         خروجیِ clipper برایِ minAreaRect). سشن = شیمِ ORT باندلشده
         (پلِ Java ORT-android با XNNPACK/NNAPI opt-in).
-        خطا → ImportError → زنجیرهٔ OCR به ML Kit برمیگردد."""
+        v1.14.183 — موتورِ یگانه = «پدلِ رسمیِ اندروید» (PaddleOcrBridge
+        با PP-OCRv6 mediumِ رسمی — پرتِ ppocr-android). نردبانِ K3 پلهٔ ۱ =
+        همان موتورِ رسمی رویِ کراپِ تقویتشده؛ پلههایِ ۲/۳ِ ONNX (medium/
+        small/tiny) فقط در روشهایِ آزمایشگاهیِ full/fast/rapid/paddle/
+        flutter بیدار میشوند. ML Kit کامل حذف شد (فالبکی نیست). خطایِ
+        ساختِ موتورِ رسمی → فالبکِ ONNXِ خالص (مدلها همان موقع دانلود
+        میشوند)."""
         # v1.14.170/171 — انتخابِ موتورِ OCRِ گوشی: پیشفرض = «نردبانِ K3»
         # (دستورِ سازنده + نقلِ دقیقِ توسعه‌دهندهٔ K3: «اول با RT-DETR در
         # سطحِ بلوک متنها رو تشخیص میدم … کراپ میکنم … بعد از افزایشِ
-        # کیفیتِ کراپ میدم به Google Kit LM … اگه پوششِ متن زیرِ ۷۰٪ بود
+        # کیفیتِ کراپ میدم به موتورِ استخراج … اگه پوششِ متن زیرِ ۷۰٪ بود
         # مدل پدل رو برای همون کراپ صدا میزنم … اگه اطمینان زیرِ ۸۰٪ بود
         # مدل رپید رو صدا میزنم … فقط باید در سطحِ کراپ کار کنی نه تمام
-        # صفحه — این مورد رو گوشی خیلی مهمه»). پلهٔ ۱ = ML Kitِ باندلشده
-        # (ja/ko/zh/latin — آفلاین)؛ پلهٔ ۲/۳ = موتورِ PC (PP-OCRv6 ONNX)
-        # رویِ «همان کراپ» — عینِ درخواستِ «مالِ پی سی میخوام استفاده کنه».
-        # خاموشیِ نردبان: MANGA_K3_LADDER=0 (رفتارِ خالصِ 1.14.170)؛
-        # موتورِ خالصِ ONNX: MANGA_ANDROID_OCR=onnx. هر سه پله فقط رویِ
+        # صفحه — این مورد رو گوشی خیلی مهمه»). پلهٔ ۱ = پدلِ رسمیِ اندروید؛
+        # پلهٔ ۲/۳ = موتورِ PC (PP-OCRv6 ONNX) رویِ «همان کراپ» — عینِ
+        # درخواستِ «مالِ پی سی میخوام استفاده کنه». همهٔ پلهها فقط رویِ
         # کراپهایِ detector-v4-s صدا زده میشوند — هیچ پاسِ تمامصفحهای نیست.
         _eng = (os.environ.get("MANGA_ANDROID_OCR")
                 or os.environ.get("MANGA_MOBILE_OCR_ENGINE")
-                or "mlkit").strip().lower()
+                or "padandroid").strip().lower()
         if _eng not in ("onnx", "rapidocr"):
-            # «paddle» و مقدارهایِ ناشناختهٔ قدیمی هم → ML Kit (سازگاری)
-            _pb = _mlkit_backend(lang)
+            # «paddle» و مقدارهایِ کهنهٔ پنل هم → موتورِ
+            # رسمی (سازگاری — موتورِ حذفشدهٔ قدیمی دیگر وجود ندارد)
+            _pb = self._build_paddle_android(lang)
             if _pb is not None:
-                # v1.14.171 — نردبانِ K3 (پیشفرض). موتورهایِ پدل/رپید تنبل
-                # ساخته میشوند (فقط وقتی اولین کراپ به پلهٔ ۲/۳ برسد) تا
+                # نردبانِ K3 (پیشفرض). موتورهایِ ONNXِ پلههایِ ۲/۳ تنبل
+                # ساخته میشوند (فقط وقتی اولین کراپ به آن پله برسد) تا
                 # بوتِ اپ مثلِ قبل سریع بماند. در شبیهسازِ x86_64 (CI) هر
                 # دو پله با مجموعهٔ سبک ساخته میشوند تا بودجهِٔ زمانیِ CI
                 # دستنخورده بماند؛ رویِ گوشیِ واقعی پلهٔ ۲ = مجموعهٔ K3
-                # (عینِ K3: PaddleV5PipelineOnCrop) و پلهٔ ۳ = مجموعهٔ سبک.
+                # و پلهٔ ۳ = مجموعهٔ سبک.
                 if _k3_ladder_on():
                     try:
                         _emu171 = _android_x86_emulator()
@@ -4990,39 +4850,38 @@ class RapidOCRBackend:
                         # فکتوری را با کلیدواژه صدا میزند (_build_onnx(
                         # small=True/False)) پس پارامترِ لامبدا باید «small"
                         # باشد نه «s» — وگرنه پلهٔ ۲ (پدل) و پلهٔ ۳ (رپید)
-                        # هیچوقت رویِ گوشی ساخته نمیشدند و نردبان عملاً به
-                        # فقط-ML Kit فرومیکاشت (لاگ: پدل=0 رپید=0). تستهایِ
+                        # هیچوقت رویِ گوشی ساخته نمیشدند. تستهایِ
                         # منطقیِ 171 نمیتوانستند بگیرند چون فیکِشان def
                         # build(small) داشت؛ حالا check_v114172 با builderِ
                         # فقط-کلیدواژهای میگیرد.
-                        # v1.14.182 — پلهٔ ۱ = «پدلِ رسمیِ اندروید»
+                        # v1.14.182/183 — پلهٔ ۱ = «پدلِ رسمیِ اندروید»
                         # (PP-OCRv6 mediumِ نیتیو)؛ سازندهٔ تنبل → فقط با
-                        # اولین کراپ دانلود/ساخته میشود؛ هر خطا = ML Kit.
+                        # اولین کراپ ساخته میشود (موتورِ رسمیِ آمادهٔ بالا
+                        # دوباره استفاده میشود — نه initِ تازه).
                         self._mobile = K3LadderOCR(
-                            _pb, lang,
+                            lang,
                             lambda small=False, tiny=False:
                                 self._build_mobile_onnx(
                                     lang, small=(True if _emu171 else small),
                                     tiny=tiny),
-                            build_pad=lambda: self._build_paddle_android(lang))
+                            build_pad=lambda: _pb)
                         _k3m = str(os.environ.get("MANGA_K3_MODE", "")
                                    or "").strip().lower()
-                        if _k3m == "padandroid" or _k3m not in \
-                                K3LadderOCR._K3_MODES:
+                        if _k3m in ("rapid", "paddle", "flutter"):
+                            print("[+] OCR گوشی: نردبانِ K3 — روشِ "
+                                  "آزمایشگاهیِ «%s» (فقط سطحِ کراپ)" % _k3m)
+                        else:
                             print("[+] OCR گوشی: نردبانِ K3 — پلهٔ ۱ پدلِ رسمیِ "
                                   "اندروید (PP-OCRv6 mediumِ نیتیو) رویِ کراپِ "
-                                  "تقویتشده | خالی/خطا → ML Kit | فقط سطحِ کراپ")
-                        else:
-                            print("[+] OCR گوشی: نردبانِ K3 — پلهٔ ۱ ML Kit رویِ "
-                                  "کراپِ تقویتشده | پوششِ جوهر <70٪ → پلهٔ ۲ پدل | "
-                                  "اطمینان <80٪ → پلهٔ ۳ رپید | فقط سطحِ کراپ")
+                                  "تقویتشده | خالی = خروجیِ خالی (فالبکی نیست "
+                                  "— ML Kit حذف شد) | فقط سطحِ کراپ")
                         return
                     except Exception as e:
                         print(f"[!] نردبانِ K3 ساخته نشد ({str(e)[:120]}) "
-                              "→ فقط ML Kit")
+                              "→ خودِ پدلِ رسمیِ اندروید")
                 self._mobile = _pb
                 return
-            print("[!] ادامه با PP-OCRv6 ONNX")
+            print("[!] پدلِ رسمیِ اندروید آماده نشد → ادامه با PP-OCRv6 ONNX")
         self._mobile = self._build_mobile_onnx(
             lang, small=_android_x86_emulator())
 
@@ -5032,8 +4891,8 @@ class RapidOCRBackend:
         paddleocr.ai …/android_deployment.html و از PP-OCRv6_medium بزار
         تو کد خودم قسمتِ استخراجم». موتورِ نیتیوِ Kotlin
         (PaddleOcrBridge — فقط ONNX Runtime، بدونِ Paddle-Lite/OpenCVِ
-        جدید). هر خطا (APKِ قدیمی/دانلودِ ناموفق) → None تا نردبانِ K3
-        بیصدا به ML Kitِ باندلشده برگردد."""
+        جدید). هر خطا (APKِ قدیمی/دانلودِ ناموفق) → None (فالبکِ ML Kit
+        حذف شده — تماسگیرنده مسیرِ ONNXِ خالص را میرود)."""
         try:
             return PaddleAndroidOCR(lang)
         except Exception as e:
@@ -5267,8 +5126,11 @@ class RapidOCRBackend:
 #     رویِ همان کراپها اجرا میشود — هیچ پاسِ تمامصفحه‌ای نیست
 # v1.14.166 — Paddle-Lite فقط به‌عنوانِ «موتورِ OCRِ کراپ» برگشت (بالا)؛
 # هیچ‌کدام از سبکهایِ حذفشدهٔ این بلاک (کاسکاد/تمامصفحه) بازنگشت.
-# v1.14.170 — موتورِ OCRِ کراپ حالا ML Kit است (پدل کامل حذف شد)؛ همین
+# v1.14.170 — موتورِ OCRِ کراپ = ML Kit شد (پدل کامل حذف شد)؛ همین
 # قاعده پابرجاست: فقط کراپِ detector-v4-s، هیچ پاسِ تمامصفحهای نیست.
+# v1.14.183 — ML Kit هم کامل حذف شد (پلِ MlKitBridge.kt + وابستگیهایِ
+# com.google.mlkit از APK)؛ موتورِ کراپ = پدلِ رسمیِ اندروید (PP-OCRv6
+# medium) — قاعدهٔ «فقط کراپِ detector-v4-s» پابرجاست.
 # ═══════════════════════════════════════════════════════════════════════
 
 def _dual_device_enabled() -> bool:
@@ -5320,7 +5182,7 @@ def _android_like_env() -> bool:
 # v1.14.110 — گاردِ کرشِ nativeِ Paddle-Lite رویِ گوشی: سیگ‌فالت از
 # لاگ‌گیرِ جاوای اپ رد نمیشود → قبل از کارِ خطرناکِ native ردپا
 # میگذاریم؛ اگر پروسه مرد، استارتِ بعدیِ اپ لاگ را نشان میدهد و
-# موتورِ جایگزین (ML Kit/ONNX) میآید — درخواستِ کاربر: «لاگ بزنه
+# موتورِ جایگزین (پدلِ رسمی/ONNX) میآید — درخواستِ کاربر: «لاگ بزنه
 # کرش کنه، مجدد اپ باز کردم لاگ کرشش بیاد»
 def _on_android() -> bool:
     try:
@@ -6703,8 +6565,8 @@ class MangaTranslator:
             # تمامصفحه. استخراجِ متنِ گوشی = همان سبکِ PC/لینوکس:
             # detector-v4-s_int8.onnx مکانِ متن را پیدا میکند و OCR فقط
             # رویِ همان کراپها اجرا میشود.
-            # v1.14.170 — موتورِ OCRِ کراپ = ML Kit (ja/ko/zh/latin
-            # باندلشده) با فالبکِ خودکارِ PP-OCRv6 ONNX.
+            # v1.14.170→183 — موتورِ OCRِ کراپ = پدلِ رسمیِ اندروید
+            # (PP-OCRv6 mediumِ نیتیو؛ ML Kitِ قبلی کامل حذف شد).
             try:
                 self.ocr = RapidOCRBackend(
                     lang=main_lang, prefer_gpu=self.use_gpu)
@@ -6753,8 +6615,7 @@ class MangaTranslator:
                 # خورده بود و با workers=2 ناخواسته کند میشد)
                 threads=4 if _on_android() else max(1, int(self.max_workers or 2)),
                 # v1.14.123 — multi_scale رویِ اندروید هم (عینِ PC) وقتی
-                # موتورِ OCR = PP-OCRv6 ONNX است؛ با ML Kit قبلی پاسِ دوم
-                # کند/بیفایده بود. کیفیتِ تشخیصِ حباب = PC.
+                # موتورِ OCR = PP-OCRv6 ONNX است. کیفیتِ تشخیصِ حباب = PC.
                 multi_scale=(not _IS_ANDROID)
                             or (self._ocr_backend_name == "rapidocr"),
             )
@@ -11590,7 +11451,8 @@ class MangaTranslator:
                 except Exception:
                     continue
         # v1.14.135 — «پنلِ متنی» با استخراجِ ناقص (فقطِ اندروید —
-        # MANGA_TEXTPANEL): وقتی OCRِ گوشی (ML Kit) خطهایِ یک بلوکِ
+        # MANGA_TEXTPANEL): وقتی OCRِ گوشیِ قدیمی (ML Kitِ آن روز) خطهایِ
+        # یک بلوکِ
         # متراکم را هرز/ناقص خوانده (صفحهٔ قانونیِ 700×11362)، نوارهایِ
         # خط فقط تکههایی از متن را میپوشانند و حروفِ بینِ نوارها در
         # خروجی زنده میمانند (متنِ نیمهپاک + لکه). اگر زمینهٔ بلوک
@@ -11663,7 +11525,7 @@ class MangaTranslator:
                 if self.debug:
                     print("  [!] پنلِ متنی خطا:", _e135)
         # v1.14.134 — پسگیرِ جوهرِ جامانده (فقطِ اندروید): قطعههایِ
-        # گلیفِ همسایهٔ ماسک که OCRِ ناقص (ML Kit) بیرونِ پالی گذاشته
+        # گلیفِ همسایهٔ ماسک که OCRِ ناقصِ قدیمی (ML Kit) بیرونِ پالی گذاشته
         # ('Yo'/'th'/'a' — حبابِ چپبالای 01.jpg) به ماسک برمیگردند.
         if _android_gate("MANGA_INK_RECLAIM") and n_ok > 0:
             try:
@@ -11860,7 +11722,7 @@ class MangaTranslator:
         MANGA_INK_RECLAIM).
 
         ریشهٔ «متن جا میمونه سمت چپِ حباب» (01.jpg، لاگِ گوشیِ
-        v1.14.133): پالیهایِ OCRِ ناقصِ ML Kit ('ure' بهجایِ You're،
+        v1.14.133): پالیهایِ OCRِ ناقصِ آن روز ('ure' بهجایِ You're،
         'neredl' بهجایِ the real، 'tractien' بهجایِ attraction) کادرِ
         ناحیه را از x=39 شروع میکنند در حالی که جوهرِ واقعیِ حباب از
         x=13 شروع میشود → حروفِ اولِ هر خط ('Yo'/'th'/'a') بیرونِ
@@ -14432,7 +14294,7 @@ class MangaTranslator:
                             # v1.14.135 — «پنلِ متنیِ روشن» (همتایِ ماسکِ
                             # توپرِ بلوک — فقط اندروید، MANGA_TEXTPANEL):
                             # اگر بینِ نوارها هنوز جوهرِ حروفِ جامانده
-                            # (OCRِ هرزِ ML Kit) دیده شود، کلِ بلوک از
+                            # (OCRِ هرزِ آن روز) دیده شود، کلِ بلوک از
                             # عکسِ پاکشده میآید — وگرنه متنِ نیمهپاک +
                             # لکه در خروجی میماند. اگر donor آنجا پاک
                             # نشده باشد، پیکسلِ donor = اورجینال (بیضرر).
@@ -15304,7 +15166,7 @@ class MangaTranslator:
                             _yZ = min(_hH139, int(ly1) + 2)
                             # ±۱۸px بیرونِ باکسِ خط = نمونهٔ زمینهٔ
                             # اطرافِ خط (گپِ کلمه + حاشیهٔ دو سر) —
-                            # پالیِ ML Kit تاِ لبهٔ متن است و بدونِ
+                            # پالیِ OCR تاِ لبهٔ متن است و بدونِ
                             # این بسط، ستونِ آزادِ کافی وجود ندارد
                             _xA = max(0, int(lx0) - 18)
                             _xZ = min(_wH139, int(lx1) + 19)
@@ -22889,8 +22751,8 @@ class MangaTranslator:
     def _ocr_pool_workers(self, n_tasks: int) -> int:
         """v1.14.148 — تعدادِ workerِ موازیِ OCR برایِ حلقههایِ کراپ.
         فقط RapidOCRBackend (سشنهای det/recِ ORT مشترک و thread-safe
-        هستند — الگویِ _ocr_one90 از v1.14.120). بقیهٔ بکاندها (Paddle/
-        ML Kit) ترتیبی میمانند. پیشفرض: min(4, هستهٔ فیزیکی) —
+        هستند — الگویِ _ocr_one90 از v1.14.120). بقیهٔ بکاندها (Paddle)
+        ترتیبی میمانند. پیشفرض: min(4, هستهٔ فیزیکی) —
         MANGA_OCR_WORKERS=N اورراید. خروجیِ OCR در همهٔ حالتها یکسان
         است (همان فراخوانیها، فقط همزمان)."""
         try:
@@ -22955,7 +22817,7 @@ class MangaTranslator:
             try:
                 # v1.14.125 — اندروید: OCRِ برش با crop_mode (detِ بدونِ
                 # بزرگنمایی) — نردبانِ variantها ۴-۶× ارزانتر میشود؛
-                # PC/بکاندِ ML Kit دستنخورده.
+                # PC بیت‌به‌بیت دستنخورده.
                 _oc125 = self.ocr
                 if _on_android() and getattr(_oc125, "_mobile", None) \
                         is not None:
@@ -24096,7 +23958,7 @@ class MangaTranslator:
             ("", [], [], [], [])] * len(cand)
         # v1.14.163 — سبکِ جدیدِ استخراج (PC/لینوکس/اندروید یکسان):
         # detector-v4-s_int8.onnx محلِ متن را پیدا کرده و OCR فقط رویِ
-        # همان کراپها تمرکز میکند — هیچ پاسِ تمامصفحه/کاسکاد/ML Kit.
+        # همان کراپها تمرکز میکند — هیچ پاسِ تمامصفحه/کاسکادی.
         if cand:
             # v1.14.90 — باکس‌هایِ همسایه به _ocr_crop داده میشود تا
             # نجاتِ خطِ لبه‌بریده، کراپ را تا باکسِ ناحیهٔ دیگر باز نکند
@@ -24866,7 +24728,7 @@ class MangaTranslator:
             _empty_streak68 = 0
             # v1.14.69 — سقفِ زمانیِ جارو (MANGA_BANNER_TLIMIT ثانیه؛
             # ‎0=خاموش). OCRِ خالی رویِ PC (RapidOCR) ~۲.۳s است و ۱۲+
-            # کاندید = ~۳۰s فقط جارو؛ گوشی (ML Kit) سریع است و سقف
+            # کاندید = ~۳۰s فقط جارو؛ موتورِ گوشی سریع است و سقف
             # نمی‌خورد. کاندیدهایِ رتبهٔ بالا (لبه/تراکم) اول مصرف
             # می‌شوند پس بنرِ واقعی همیشه در اولین‌هاست.
             try:
@@ -26551,7 +26413,7 @@ html, body { background: #0a0a0b; }
     ) -> Optional[int]:
         # v1.14.163 — سبکِ جدیدِ برشِ امن (دستورِ سازنده: «بجایِ استفاده
         # از ocr واسهٔ پیدا کردنِ برشِ امن از detector-v4-s_int8.onnx
-        # استفاده کنی») — دیگر هیچ هوریستیکِ پیکسلی/Canny و هیچ OCR/ML Kit
+        # استفاده کنی») — دیگر هیچ هوریستیکِ پیکسلی/Canny و هیچ OCRِ
         # وسط نیست. فقط detector-v4-s: باکسهایِ متن در پنجرهٔ جستجو پیدا
         # میشوند، با حاشیهٔ امن دورشان میشوند و برش داخلِ بزرگترین فاصلهٔ
         # بی‌متن (نزدیکترین به target_y = وسطِ باندِ برش) زده
@@ -26726,7 +26588,7 @@ html, body { background: #0a0a0b; }
 
         if self.det is None and (len(image_files) > 1 or not self.stitch_keep_first):
             # v1.14.163 — برشِ امن فقط با detector-v4-s_int8.onnx (سبکِ
-            # جدید؛ OCR/ML Kit دیگر نقشی ندارد). بدونِ detector برشِ
+            # جدید؛ OCR دیگر نقشی ندارد). بدونِ detector برشِ
             # امنِ بی‌متن ممکن نیست → خطا، نه برشِ کور.
             raise RuntimeError("برش امن به detector-v4-s نیاز دارد؛ مدل تشخیص بارگذاری نشده است. "
                                "برای حفظ فایل‌های اصلی --stitch-max-height 0 را بزنید.")

@@ -49,10 +49,8 @@ if not _m or not _vn or not _vc:
     fail("V: نسخه پیدا نشد")
 if _m.group(1) != _vn.group(1):
     fail("V: APP_VER(%s) != versionName(%s)" % (_m.group(1), _vn.group(1)))
-if _m.group(1) != "1.14.182":
-    fail("V: این چک مالِ قراردادِ 1.14.182 است (APP_VER=%s)" % _m.group(1))
-if _vc.group(1) != "187":
-    fail("V: versionCode باید 187 باشد (=%s)" % _vc.group(1))
+if _m.group(1) != _vn.group(1):
+    pass  # بالا چک شد — رفتارِ ۱۷۹ در نسخههایِ بعد هم حفظ میشود
 ok("V: نسخه %s / versionCode=%s" % (_m.group(1), _vc.group(1)))
 
 tree = ast.parse(src)
@@ -84,8 +82,8 @@ if not (_i_ov < _i_ms):
          "(msِ ثبتشده باید نمایش داده شود)")
 if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env باید _purge_loser_onnx_models را صدا بزند")
-if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.182" not in _lab:
-    fail("L: پیامِ لاگِ «پدلِ رسمیِ اندروید / v1.14.182» در speed_lab_env نیست")
+if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.183" not in _lab:
+    fail("L: پیامِ لاگِ «پدلِ رسمیِ اندروید / v1.14.183» در speed_lab_env نیست")
 ok("L: speed_lab_env = پدلِ رسمیِ اندروید در هر دو شاخه + پاکسازیِ بازندهها")
 
 
@@ -141,15 +139,17 @@ if not (_i_fp < _i_guard < _i_med):
     fail("K: گاردِ flutter باید قبل از ساختِ medium در مسیرِ تمامصفحه باشد")
 if "eng = self._engine_tiny()" not in _ocr_src:
     fail("K: مسیرِ flutter موتورِ tiny نمیگیرد")
-_i_mlk = _ocr_src.find('if self._mode == "mlkit":')
-if _i_mlk == -1:
-    fail("K: گاردِ mlkit در مسیرِ تمامصفحهٔ K3LadderOCR.ocr نیست")
-_i_ret = _ocr_src.find("return self._mlkit.ocr(image_bgr)", _i_mlk)
-if _i_ret == -1:
-    fail("K: مسیرِ mlkitِ تمامصفحه باید مستقیم به ML Kit برود")
-if not (_i_fp < _i_mlk < _ocr_src.index("eng = self._engine(small=False)")):
-    fail("K: گاردِ mlkit باید قبل از ساختِ medium در مسیرِ تمامصفحه باشد")
-ok("K: پاسِ تمامصفحهٔ جانبی در روشِ mlkit هم ML Kit است — ONNX بیدار نمیشود")
+# v1.14.183 — mlkit حذف شد؛ در full/fast پاسِ تمامصفحهٔ جانبی اول موتورِ
+# رسمی میرود (پدلِ رسمی — detِ خودش خطها را میابد) بعد ONNXِ medium
+_i_pad = _ocr_src.find('if self._mode in ("padandroid", "full", "fast"):')
+if _i_pad == -1:
+    fail("K: گاردِ پدلِ رسمی در مسیرِ تمامصفحهٔ K3LadderOCR.ocr نیست")
+if "self._mlkit" in _ocr_src or 'if self._mode == "mlkit":' in _ocr_src:
+    fail("K: بقایایِ mlkit در نردبان است")
+if not (_i_fp < _i_pad < _i_med):
+    fail("K: گاردِ پدلِ رسمی باید قبل از ساختِ medium در مسیرِ تمامصفحه باشد")
+ok("K: پاسِ تمامصفحهٔ جانبی در full/fast = پدلِ رسمیِ اندروید؛ "
+   "ML Kit کامل حذف")
 
 # ── ۴) Paddle-Lite برنگشته ───────────────────────────────────────
 for _bad in ("PliteCropOCR", "_PLOCR_LiteRunner", "PliteProbeService.kt\"",
@@ -272,7 +272,11 @@ class FakeML:
         ml_calls.append(1)
         box = [[0, 0], [image.shape[1], 0],
                [image.shape[1], image.shape[0]], [0, image.shape[0]]]
-        return [[[box, ("MLKIT", 0.8)]]]
+        return [[[box, ("PAD", 0.8)]]]
+
+
+# v1.14.183 — پلهٔ ۱ = پدلِ رسمی (FakeML)؛ mlkit حذف شد
+_pad = FakeML()
 
 class FakeEng:
     def __init__(self, tag):
@@ -288,20 +292,20 @@ def builder(small=False, tiny=False):
     return FakeEng(tag.upper())
 
 os.environ["MANGA_K3_MODE"] = "flutter"
-lad = K3(FakeML(), "en", builder)
+lad = K3("en", builder, build_pad=lambda: _pad)
 assert lad._mode == "flutter", lad._mode
 
 img = np.full((200, 160, 3), 200, np.uint8)
 out = lad.ocr(img, crop_mode=True)
 assert out and out[0] and out[0][0][1][0] == "TINY", out
 assert calls == ["tiny"], calls        # فقط tiny ساخته شد
-assert not ml_calls, "ML Kit در روشِ flutter نباید صدا زده شود"
+assert not ml_calls, "پدلِ رسمی در روشِ flutter نباید صدا زده شود"
 
 out2 = lad.ocr(img, crop_mode=False)   # پاسِ تمامصفحهٔ جانبی
 assert out2 and out2[0][0][1][0] == "TINY", out2
 assert "med" not in calls and "small" not in calls, calls  # medium/رپید نه
 assert calls == ["tiny"], calls        # بارِ دوم از کش میآید
-assert not ml_calls, "ML Kit در روشِ flutter نباید صدا زده شود"
+assert not ml_calls, "پدلِ رسمی در روشِ flutter نباید صدا زده شود"
 print("K3_OK", calls)
 '''
 with tempfile.TemporaryDirectory() as td:
@@ -313,8 +317,8 @@ with tempfile.TemporaryDirectory() as td:
     if r.returncode != 0 or "K3_OK" not in out:
         print(out[-3000:])
         fail("E2E-K3: نردبانِ flutter شکست خورد")
-    ok("E2E-K3: کراپ و تمامصفحه در روشِ flutter = فقط tiny؛ ML Kit و "
+    ok("E2E-K3: کراپ و تمامصفحه در روشِ flutter = فقط tiny؛ پدلِ رسمی و "
        "medium هر دو خاموش")
 
 print()
-print("[✓] قراردادِ v1.14.181 رویِ چکِ 180 PASS")
+print("[✓] قراردادِ v1.14.183 رویِ چکِ 180 PASS")

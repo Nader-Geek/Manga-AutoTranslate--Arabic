@@ -63,10 +63,7 @@ if not _m or not _vn or not _vc:
     fail("V: نسخه پیدا نشد")
 if _m.group(1) != _vn.group(1):
     fail("V: APP_VER(%s) != versionName(%s)" % (_m.group(1), _vn.group(1)))
-if _m.group(1) != "1.14.182":
-    fail("V: این چک مالِ 1.14.182 است (APP_VER=%s)" % _m.group(1))
-if _vc.group(1) != "187":
-    fail("V: versionCode باید 187 باشد (=%s)" % _vc.group(1))
+# v1.14.183 — گیتِ نسخه باز شد (همان قاعدهٔ 179/180/181)
 ok("V: نسخه %s / versionCode=%s" % (_m.group(1), _vc.group(1)))
 
 tree = ast.parse(src)
@@ -92,8 +89,8 @@ if not (_i_ov < _i_ms):
     fail("L: forceِ padandroid باید قبل از _ms_l باشد")
 if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env پاکسازی را صدا نمیزند")
-if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.182" not in _lab:
-    fail("L: پیامِ «پدلِ رسمیِ اندروید / v1.14.182» در speed_lab_env نیست")
+if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.183" not in _lab:
+    fail("L: پیامِ «پدلِ رسمیِ اندروید / v1.14.183» در speed_lab_env نیست")
 ok("L: speed_lab_env = پدلِ رسمیِ اندروید (PP-OCRv6 medium) + پاکسازی + EP")
 
 # ── ۲) مدلها: mediumِ رسمی + yml — PC دستنخورده ──────────────────
@@ -132,8 +129,8 @@ ok("E: PaddleAndroidOCR — پل + دانلودِ مدلها + سلف‌تست +
 # ── ۴) K3LadderOCR — پیشفرض و پلهٔ ۱ ────────────────────────────
 if 'self._mode = _m if _m in self._K3_MODES else "padandroid"' not in src:
     fail("K: فالبکِ ناشناخته باید padandroid باشد")
-if '("full", "fast", "mlkit", "rapid", "paddle", "flutter",\n                 "padandroid")' not in src:
-    fail("K: padandroid در _K3_MODES نیست")
+if '("full", "fast", "rapid", "paddle", "flutter",\n                 "padandroid")' not in src:
+    fail("K: _K3_MODESِ 183 (بدونِ mlkit) نیست")
 if '"padandroid": "پدلِ رسمیِ اندروید"' not in src:
     fail("K: برچسبِ فارسیِ padandroid در _K3_MODE_FA نیست")
 if "def _engine_pad(" not in src:
@@ -148,16 +145,19 @@ _i_pa = _ocr_src.find('if self._mode == "padandroid":')
 _i_med = _ocr_src.index("eng = self._engine(small=False)")
 if _i_pa == -1 or not (_i_fp < _i_pa < _i_med):
     fail("K: گاردِ padandroidِ تمامصفحه باید قبل از ساختِ medium باشد")
-_i_step1 = _ocr_src.index('if _mode == "padandroid":', _i_fp)
+_i_step1 = _ocr_src.index('if _mode in ("padandroid", "full", "fast"):', _i_fp)
 _i_boost = _ocr_src.index("_k3_boost_crop(image_bgr)", _i_step1)
-_i_mlstep = _ocr_src.index('if _mode not in ("rapid", "flutter"):', _i_step1)
-if not (_i_step1 < _i_boost < _i_mlstep):
-    fail("K: پلهٔ ۱ِ پدلِ رسمی باید قبل از ML Kit رویِ کراپِ تقویتشده باشد")
-_i_guard = _ocr_src.find('if _mode == "padandroid":', _i_mlstep)
-if _i_guard == -1 or "return [lines1] if lines1 else None" not in _ocr_src:
-    fail("K: گاردِ ردِ پلههایِ ۲/۳ در padandroid نیست")
-ok("K: پلهٔ ۱ = پدلِ رسمی رویِ کراپِ تقویتشده؛ خالی → ML Kit؛ "
-   "پلههایِ ۲/۳ِ بازنده بیدار نمیشوند")
+# v1.14.183 — ML Kit حذف شد؛ خروجیِ خالیِ پدلِ رسمی در padandroid =
+# خروجیِ خالی (فالبکی نیست) و پلههایِ ۲/۳ِ بازنده بیدار نمیشوند
+if "self._mlkit" in _ocr_src or 'if _mode == "mlkit":' in _ocr_src:
+    fail("K: بقایایِ mlkit در نردبان است")
+_i_ret = _ocr_src.find("return [lines1] if lines1 else None", _i_step1)
+if _i_ret == -1:
+    fail("K: بازگشتِ خروجیِ خالیِ پلهٔ ۱ در padandroid نیست")
+if not (_i_step1 < _i_boost < _i_ret):
+    fail("K: پلهٔ ۱ِ پدلِ رسمی باید رویِ کراپِ تقویتشده و قبل از بازگشت باشد")
+ok("K: پلهٔ ۱ = پدلِ رسمی رویِ کراپِ تقویتشده؛ خالی = خروجیِ خالی "
+   "(فالبکی نیست — ML Kit حذف)؛ پلههایِ ۲/۳ِ بازنده بیدار نمیشوند")
 
 # ── ۵) PaddleOcrBridge.kt — پرتِ رسمی ────────────────────────────
 for _frag in ("object PaddleOcrBridge", "DET_THRESH = 0.3f",
@@ -242,7 +242,7 @@ for n in tree.body:
                                         "_PURGE_MARKER"):
         picks[getattr(n.targets[0], "id", "")] = ast.get_source_segment(src, n)
 g = {"os": os, "json": json, "print": print, "time": __import__("time"),
-     "APP_VER": "1.14.182",
+     "APP_VER": "1.14.183",
      "_android_gate": lambda name: False}   # PC: پاکسازی skip
 exec(compile("\n\n".join(picks.values()), "lab", "exec"), g)
 
@@ -263,7 +263,7 @@ assert os.environ.get("MANGA_K3_MODE") == "padandroid", os.environ.get(
 assert os.environ.get("MANGA_MOBILE_OCR_EP") == "xnnpack", os.environ.get(
     "MANGA_MOBILE_OCR_EP")
 assert "پدلِ رسمیِ اندروید" in ret, ret
-assert "v1.14.182" in ret, ret
+assert "v1.14.183" in ret, ret
 
 # برندهٔ کهنهٔ flutter/mlkit در فایل هم مهم نیست — forceِ padandroid
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:
@@ -295,7 +295,7 @@ with tempfile.TemporaryDirectory() as td:
         fail("E2E-LAB: speed_lab_env شکست خورد")
     ok("E2E-LAB: padandroid در هر سه سناریو + EPِ ذخیرهشده")
 
-# ── ۹) E2E-ب: نردبان — پلهٔ ۱ِ پدلِ رسمی، فالبکِ ML Kit ──────────
+# ── ۹) E2E-ب: نردبان — پلهٔ ۱ِ پدلِ رسمی، بدونِ فالبک (183) ──────
 E2E_K3 = r'''
 # -*- coding: utf-8 -*-
 import ast, io, os, sys, threading, time
@@ -358,41 +358,40 @@ def pad_factory(behavior):
 
 img = np.full((200, 160, 3), 200, np.uint8)
 
-# ۱) پیشفرضِ بدونِ env = padandroid؛ پدل جواب میدهد → بدونِ ML Kit/ONNX
-lad = K3(FakeML(), "en", builder, build_pad=pad_factory("ok"))
+# ۱) پیشفرضِ بدونِ env = padandroid؛ پدل جواب میدهد → بدونِ ONNX
+lad = K3("en", builder, build_pad=pad_factory("ok"))
 assert lad._mode == "padandroid", lad._mode
 out = lad.ocr(img, crop_mode=True)
 assert out and out[0] and out[0][0][1][0] == "PPV6", out
 assert pad_calls == [1], pad_calls
-assert not ml_calls, "پدلِ موفق نباید ML Kit را صدا بزند: %s" % ml_calls
 assert not calls, "در padandroid نباید ONNX ساخته شود: %s" % calls
 
-# ۲) پدلِ خالی → فالبکِ ML Kit
-lad2 = K3(FakeML(), "en", builder, build_pad=pad_factory("empty"))
+# ۲) پدلِ خالی → خروجیِ None (v1.14.183: فالبکِ ML Kit حذف شد)
+lad2 = K3("en", builder, build_pad=pad_factory("empty"))
 out2 = lad2.ocr(img, crop_mode=True)
-assert out2 and out2[0][0][1][0] == "MLKIT", out2
+assert out2 is None, out2
 assert not calls, calls
 
-# ۳) پدلِ خطاداده → فالبکِ ML Kit بدونِ کرش
-lad3 = K3(FakeML(), "en", builder, build_pad=pad_factory("fail"))
+# ۳) پدلِ خطاداده → None بدونِ کرش (فالبکی نیست)
+lad3 = K3("en", builder, build_pad=pad_factory("fail"))
 out3 = lad3.ocr(img, crop_mode=True)
-assert out3 and out3[0][0][1][0] == "MLKIT", out3
+assert out3 is None, out3
 assert not calls, calls
 
 # ۴) پاسِ تمامصفحهٔ جانبی در padandroid → مستقیمِ پدلِ رسمی
 pad_calls.clear()
-ml_calls.clear()   # فالبکهایِ سناریوهایِ ۲/۳ در همین لیستِ مشترکند
 out4 = lad.ocr(img, crop_mode=False)
 assert out4 and out4[0][0][1][0] == "PPV6", out4
-assert pad_calls == [1] and not ml_calls, (pad_calls, ml_calls)
+assert pad_calls == [1], pad_calls
 
-# ۵) روشِ صریحِ mlkit (env) → مثلِ 181 خالص — پدل صدا نمیشود
+# ۵) مقدارِ کهنهٔ mlkit (env) → فالبکِ ناشناخته = padandroid → پدلِ رسمی
 os.environ["MANGA_K3_MODE"] = "mlkit"
-pad_calls.clear()   # فراخوانیِ پدلِ سناریویِ ۴ در همین لیستِ مشترک است
-lad5 = K3(FakeML(), "en", builder, build_pad=pad_factory("ok"))
+pad_calls.clear()
+lad5 = K3("en", builder, build_pad=pad_factory("ok"))
+assert lad5._mode == "padandroid", lad5._mode
 out5 = lad5.ocr(img, crop_mode=True)
-assert out5 and out5[0][0][1][0] == "MLKIT", out5
-assert not pad_calls, "در mlkit نباید پدل صدا زده شود"
+assert out5 and out5[0][0][1][0] == "PPV6", out5
+assert pad_calls == [1], pad_calls
 print("K3_OK")
 '''
 with tempfile.TemporaryDirectory() as td:
@@ -404,7 +403,8 @@ with tempfile.TemporaryDirectory() as td:
     if r.returncode != 0 or "K3_OK" not in out:
         print(out[-3000:])
         fail("E2E-K3: نردبانِ padandroid شکست خورد")
-    ok("E2E-K3: پدلِ رسمی پلهٔ ۱ + فالبکِ ML Kit (خالی/خطا) + mlkitِ خالص")
+    ok("E2E-K3: پدلِ رسمی پلهٔ ۱ + خالی/خطا = None (بدونِ فالبکِ 183) + "
+       "mlkitِ کهنه → padandroid")
 
 # ── ۱۰) E2E-پ: پاکسازی — پیامِ جدیدِ 182 ─────────────────────────
 E2E_PURGE = r'''
@@ -424,7 +424,7 @@ for n in tree.body:
                                         "_K3_PURGE_EXTRA", "_PURGE_MARKER"):
         picks.append(ast.get_source_segment(src, n))
 g = {"os": os, "print": print, "time": __import__("time"),
-     "APP_VER": "1.14.182",
+     "APP_VER": "1.14.183",
      "_android_gate": lambda name: str(
          os.environ.get(name, "") or "").strip().lower() in (
          "1", "true", "yes", "on")}

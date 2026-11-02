@@ -22,9 +22,11 @@
 //   • فقط ONNX Runtime (واردِ gradle از قبل) — هیچ Paddle-Lite/native
 //     جدیدی نیست. sشنها thread-safe برایِ run — کارگرهایِ موازیِ OCR
 //     بدونِ قفل صدا میزنند (کلِ وضعیتِ مشترک = immutable).
-//   • پروتکلِ خروجی = همان MlKitBridge: سطرِ «META|lang|n» + سطرهایِ
-//     «ang|conf|box|text|blk» (box = ۴ گوشهٔ TL,TR,BR,BL) تا manga.py
-//     (PaddleAndroidOCR) بدونِ تغییرِ پارسر وصل شود.
+//   • پروتکلِ خروجی = سطرِ «META|lang|n» + سطرهایِ «ang|conf|box|text|blk»
+//     (box = ۴ گوشهٔ TL,TR,BR,BL) تا manga.py (PaddleAndroidOCR) بدونِ
+//     تغییرِ پارسر وصل شود.
+//   • v1.14.183 — ML Kit کامل حذف شد (دستورِ سازنده: «ml kit حذف کن
+//     خوب نیست») — پدلِ رسمیِ اندروید موتورِ یگانهٔ استخراجِ گوشی است.
 package com.amirwolf.mangatranslator
 
 import android.graphics.Bitmap
@@ -99,7 +101,7 @@ object PaddleOcrBridge {
                     setIntraOpNumThreads(numThreads.coerceIn(1, 8))
                     setInterOpNumThreads(1)
                     setOptimizationLevel(
-                        OrtSession.SessionOptions.OptimizationLevel.ALL_OPT)
+                        OrtSession.SessionOptions.OptLevel.ALL_OPT)
                 }
                 detSession = e.createSession(detPath, opts)
                 recSession = e.createSession(recPath, opts)
@@ -117,8 +119,8 @@ object PaddleOcrBridge {
     @JvmStatic
     fun ready(): Boolean = inited && detSession != null && recSession != null
 
-    /** خروجی = سطرهایِ «ang|conf|box|text|blk» (بدونِ META — هم‌قالبِ
-     *  MlKitBridge.recognize). باکس = ۴ گوشهٔ TL,TR,BR,BL مختصاتِ ورودی. */
+    /** خروجی = سطرهایِ «ang|conf|box|text|blk» (بدونِ META — قراردادِ
+     *  مشترکِ موتورهایِ گوشی). باکس = ۴ گوشهٔ TL,TR,BR,BL مختصاتِ ورودی. */
     @JvmStatic
     fun recognize(png: ByteArray): Array<String> {
         if (!ready()) return arrayOf()
@@ -142,7 +144,7 @@ object PaddleOcrBridge {
         }
     }
 
-    /** هم‌امضایِ MlKitBridge.recognizeAuto — سطرِ اولِ META|lang|n. */
+    /** هم‌امضایِ recognizeAutoِ قراردادِ META — سطرِ اولِ META|lang|n. */
     @JvmStatic
     fun recognizeAuto(png: ByteArray, lang: String,
                       auto: Int, hasInk: Int): Array<String> {
@@ -176,7 +178,7 @@ object PaddleOcrBridge {
             longArrayOf(1, 3, nh.toLong(), nw.toLong())).use { t ->
             detSession!!.run(mapOf(detInputName() to t)).use { r ->
                 val ot = r[0] as OnnxTensor
-                val sh = ot.shape
+                val sh = ot.info.shape
                 pH = sh[2].toInt(); pW = sh[3].toInt()
                 val fb = ot.floatBuffer
                 val buf = FloatArray(pH * pW)
@@ -808,7 +810,7 @@ object PaddleOcrBridge {
         ).use { t ->
             recSession!!.run(mapOf(recInputName() to t)).use { r ->
                 val ot = r[0] as OnnxTensor
-                val sh = ot.shape
+                val sh = ot.info.shape
                 val tSteps = sh[1].toInt()
                 val nCls = sh[2].toInt()
                 val fb = ot.floatBuffer

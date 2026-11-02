@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""چکِ رگرسیونِ v1.14.170 (بهروزِ 169) — بدونِ وابستگی (فایل/متن):
+"""چکِ رگرسیونِ v1.14.183 (بهروزِ 169) — بدونِ وابستگی (فایل/متن):
 
-زمینهٔ 169: «اپ نساخت» — بیلدِ APK از 1.14.167 به بعد شکست میخورد
-(FloatBuffer.array → FloatArray). حالا با حذفِ کاملِ Paddle-Lite:
+زمینهٔ 169: «اپ نساخت» — بیلدِ APK شکست میخورد
+(FloatBuffer.array → FloatArray). حالا با حذفِ کاملِ Paddle-Lite و
+(v1.14.183) حذفِ کاملِ ML Kit:
 ۱) هیچ فایلِ Kotlin/اسکریپتی از خانوادهٔ پدل نمیماند
    (PliteProbeService.kt / PaddleLiteBridge.kt / fetch_paddle.py) و
    الگویِ ممنوعِ «return fbv.array()» در کلِ ریپو نیست.
-۲) MlKitBridge.kt (پلِ بازگشته) با Tasks.await + BitmapFactory کار میکند.
-۳) نسخه: VERSION = 175/1.14.170 و APP_VER = "1.14.170".
+۲) MlKitBridge.kt حذف شده؛ پلِ رسمی = PaddleOcrBridge.kt (ONNXِ خالص).
+۳) نسخه: سازگاریِ APP_VER با VERSION.
 """
 import io
 import os
@@ -42,18 +43,22 @@ try:
 except Exception:
     pass
 
-# ۲) پلِ ML Kit
+# ۲) v1.14.183 — پلِ ML Kit حذف شده؛ پلِ رسمی = PaddleOcrBridge.kt
 kt = os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
                        "mangatranslator/MlKitBridge.kt")
-if not os.path.isfile(kt):
-    fail("MlKitBridge.kt نیست")
-k = io.open(kt, encoding="utf-8", errors="ignore").read()
-for s in ("Tasks.await", "BitmapFactory.decodeByteArray",
-          "InputImage.fromBitmap", "META|"):
+if os.path.exists(kt):
+    fail("MlKitBridge.kt هنوز هست (v1.14.183: باید حذف شده باشد)")
+kt2 = os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
+                        "mangatranslator/PaddleOcrBridge.kt")
+if not os.path.isfile(kt2):
+    fail("PaddleOcrBridge.kt نیست")
+k = io.open(kt2, encoding="utf-8", errors="ignore").read()
+for s in ("BitmapFactory.decodeByteArray", "OnnxTensor", "OrtSession",
+          "META|"):
     if s not in k:
-        fail(f"MlKitBridge.kt محتوایِ لازم را ندارد: {s!r}")
-if "com.google.mlkit.vision.text" not in k:
-    fail("MlKitBridge.kt به ML Kit وصل نیست")
+        fail(f"PaddleOcrBridge.kt محتوایِ لازم را ندارد: {s!r}")
+if "com.google.mlkit" in k:
+    fail("PaddleOcrBridge.kt به ML Kit وصل است!")
 
 # ۳) نسخه — سازگاریِ APP_VER با VERSION (مستقل از شماره — الگویِ 1.14.168)
 src = io.open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
@@ -65,6 +70,6 @@ if not _m or not _vn:
 if _m.group(1) != _vn.group(1):
     fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
 
-print("PASS — چکِ رگرسیونِ v1.14.170/169: خانوادهٔ Paddle-Lite کامل حذف "
-      "(بدونِ الگویِ FloatBuffer.array)؛ پلِ ML Kit با Tasks.await؛ "
-      "نسخهٔ 175/1.14.170")
+print("PASS — چکِ رگرسیونِ v1.14.183/169: خانوادهٔ Paddle-Lite و ML Kit کامل حذف "
+      "(بدونِ الگویِ FloatBuffer.array)؛ پلِ رسمی = PaddleOcrBridge.kt؛ "
+      "APP_VER↔versionName سازگار")

@@ -3,15 +3,15 @@
 """چکِ رگرسیونِ v1.14.171 — نردبانِ K3 + حفاظتِ حباب (فقطِ موبایل):
 
 دستورِ سازنده: «ml kit خوب نیست مال پی سی میخوام استفاده کنه … detector
-اول پیدا میکنه بعد همون قسمت استخراج کنه ولی تو گوشی کنده» + نقلِ
-توسعه‌دهندهٔ K3: «کراپ → افزایشِ کیفیت → ML Kit → پوششِ زیرِ ۷۰٪ → پدل →
-اطمینانِ زیرِ ۸۰٪ → رپید … فقط در سطحِ کراپ نه تمام صفحه» + «حبابِ متن
-خراب نشه … خوده k3 ببین چکار کرده» + «نباید استخراجِ پاکسازیِ پی‌سی
-لینوکس دست بزنی».
+اول پیدا میکنه بعد همون قسمت استخراج کنه ولی تو گوشی کنده» (v1.14.183:
+«ml kit حذف کن خوب نیست») + نقلِ توسعه‌دهندهٔ K3: «کراپ → افزایشِ
+کیفیت → موتورِ استخراج → پوششِ زیرِ ۷۰٪ → پدل → اطمینانِ زیرِ ۸۰٪ →
+رپید … فقط در سطحِ کراپ نه تمام صفحه» + «حبابِ متن خراب نشه … خوده k3
+ببین چکار کرده» + «نباید استخراجِ پاکسازیِ پی‌سی لینوکس دست بزنی».
 
-۱) manga.py: K3LadderOCR (پلهٔ ۱ ML Kit رویِ کراپِ تقویتشده / پلهٔ ۲ پدل
-   با پوششِ <70٪ / پلهٔ ۳ رپید با اطمینانِ <80٪ — فقط سطحِ کراپ) +
-   wiringِ پیشفرض در _init_mobile_engine با فالبکهایِ قدیمی دستنخورده +
+۱) manga.py: K3LadderOCR (پلهٔ ۱ پدلِ رسمیِ اندروید رویِ کراپِ تقویتشده /
+   پلهٔ ۲ پدلِ ONNX با پوششِ <70٪ / پلهٔ ۳ رپید با اطمینانِ <80٪ — فقط
+   سطحِ کراپ) + wiringِ پیشفرض در _init_mobile_engine +
    _build_mobile_onnx (مجموعهٔ K3 برایِ پدل / سبک برایِ رپید؛ شبیهساز =
    سبک برایِ هر دو).
 ۲) حفاظتِ حبابِ موبایل: _pad_dilate_wall_safe (دیلیشن + گیردهِ دوبارهٔ
@@ -20,7 +20,7 @@
 ۳) PC/لینوکس: _init_mobile_engine فقط زیرِ if _IS_ANDROID — هیچ مسیرِ
    PC از نردبان/گیرده عبور نمیکند.
 ۴) CI: img6.jpg + گیتِ کلمهٔ «attraction» در android-emulator.yml و
-   check_mlkit.py.
+   check_ocr_gate.py (نامِ جدیدِ 183).
 ۵) نسخه — APP_VER↔versionName (مستقل از شماره — الگویِ 1.14.170).
 ۶) تستِ منطقیِ نردبان با موتورهایِ فیک (پلهٔ ۱/۲/۳/تمامصفحه/مپِ باکس/هیچ).
 """
@@ -129,11 +129,11 @@ for s in ("cv2.dilate(rm, pad_k)", "self._limit_mask_to_bubble(image, rm, region
 ok(f"حفاظتِ دیوارِ حباب ({n_calls} جایِ ماسک + گیتِ اندروید)")
 
 # ۴) CI — img6 + گیتِ کلمه
-cm = io.open(os.path.join(ROOT, ".ci_scripts", "check_mlkit.py"),
+cm = io.open(os.path.join(ROOT, ".ci_scripts", "check_ocr_gate.py"),
              encoding="utf-8").read()
 for s in ("word = sys.argv[3]", "required word", "letters in flat"):
     if s not in cm:
-        fail(f"check_mlkit.py گیتِ کلمه ندارد: {s!r}")
+        fail(f"check_ocr_gate.py گیتِ کلمه ندارد: {s!r}")
 wf = io.open(os.path.join(ROOT, ".github", "workflows",
                           "android-emulator.yml"),
              encoding="utf-8").read()
@@ -148,8 +148,8 @@ ok("CI: img6.jpg + گیتِ «attraction» + ۸ تصویر")
 # ۵) تستِ منطقیِ نردبان با موتورهایِ فیک
 sys.path.insert(0, ROOT)
 os.environ.setdefault("MANGA_K3_LADDER", "1")
-# v1.14.181 — پیشفرضِ نردبان «mlkit» شد (دستورِ سازنده: فقط ML Kit)؛
-# این چکِ قدیمی، مسیرِ خاموشِ پلهٔ ۲/۳ را تست میکند → صریحاً full
+# v1.14.183 — پلهٔ ۱ = پدلِ رسمیِ اندروید (ML Kit حذف شد)؛ این چکِ
+# قدیمی، مسیرِ خاموشِ پلهٔ ۲/۳ را تست میکند → صریحاً full
 os.environ["MANGA_K3_MODE"] = "full"
 import manga  # noqa: E402
 
@@ -161,8 +161,8 @@ def _box_full():
                     dtype=np.float32)
 
 
-class FakeMlkit:
-    """هم‌قراردادِ MlKitCropOCR.ocr: [ [[box,(t,s)],...] ] یا None."""
+class FakePad:
+    """هم‌قراردادِ PaddleAndroidOCR.ocr: [ [[box,(t,s)],...] ] یا None."""
 
     def __init__(self, lines):
         self.lines = lines or []   # فهرستِ خطها ([[box,(t,s)],...])
@@ -197,27 +197,28 @@ class FakeEng:
 BUILT = {"med": 0, "sml": 0}
 
 
-def _mk_ladder(mlkit_lines, med, sml):
+def _mk_ladder(pad_lines, med, sml):
     BUILT["med"] = BUILT["sml"] = 0
 
     def build(small):
         BUILT["sml" if small else "med"] += 1
         return sml if small else med
 
-    return manga.K3LadderOCR(FakeMlkit(mlkit_lines), "en", build)
+    _pad = FakePad(pad_lines) if pad_lines is not None else None
+    return manga.K3LadderOCR("en", build, build_pad=lambda: _pad)
 
 
 img = np.full((H, W, 3), 245, dtype=np.uint8)
 
-# T1 — پلهٔ ۱: ML Kit با پوششِ کامل → بدونِ ساختِ موتورِ ONNX
-ml_line = [[_box_full(), ("HELLO WORLD", 0.95)]]
-lad1 = _mk_ladder(ml_line, None, None)
+# T1 — پلهٔ ۱: پدلِ رسمی با پوششِ کامل → بدونِ ساختِ موتورِ ONNX
+pad_line = [[_box_full(), ("HELLO WORLD", 0.95)]]
+lad1 = _mk_ladder(pad_line, None, None)
 out1 = lad1.ocr(img, crop_mode=True)
 assert out1 and out1[0] and abs(out1[0][0][1][1] - 0.95) < 1e-6, out1
 assert BUILT == {"med": 0, "sml": 0}, BUILT
-ok("T1 پلهٔ ۱: ML Kit پوششِ بالا → موتورِ ONNX ساخته نشد")
+ok("T1 پلهٔ ۱: پدلِ رسمی پوششِ بالا → موتورِ ONNX ساخته نشد")
 
-# T2 — پلهٔ ۲: ML Kit خالی → پدلِ اطمینانِ بالا → رپیدِ ساختهنشده
+# T2 — پلهٔ ۲: پدلِ رسمی خالی → پدلِ ONNXِ اطمینانِ بالا → رپیدِ ساختهنشده
 med2 = FakeEng([[_box_full(), ("FROM PADDLE", 0.9)]], 0.9)
 lad2 = _mk_ladder(None, med2, None)
 out2 = lad2.ocr(img, crop_mode=True)
@@ -235,16 +236,16 @@ assert out3 and out3[0][0][1][0] == "RAPID WINS", out3
 assert BUILT == {"med": 1, "sml": 1}, BUILT
 ok("T3 پلهٔ ۳: اطمینانِ <80٪ → رپید رویِ همان کراپ")
 
-# T4 — مسیرِ تمامصفحه (مسیرِ جانبیِ قدیمی): مستقیمِ موتورِ med، بدونِ ML Kit
+# T4 — مسیرِ تمامصفحه (مسیرِ جانبیِ قدیمی): خالیِ موتورِ رسمی → ONNXِ med
 med4 = FakeEng([[_box_full(), ("FULLPAGE", 0.9)]], 0.9)
 lad4 = _mk_ladder(None, med4, None)
 out4 = lad4.ocr(img, crop_mode=False)
 assert out4 and out4[0][0][1][0] == "FULLPAGE", out4
 assert med4.calls == [False], med4.calls
-ok("T4 تمامصفحه: مستقیمِ ONNX — ML Kit هرگز تمامصفحه نمیرود")
+ok("T4 تمامصفحه: خالیِ پدلِ رسمی → ONNXِ medium (بدونِ ML Kit)")
 
 # T5 — تقویتِ کراپ + مپِ برگشتِ باکسها به مختصاتِ اصلی
-class ShapeMlkit(FakeMlkit):
+class ShapePad(FakePad):
     def ocr(self, img_, crop_mode=False):
         self.got_shape = tuple(img_.shape[:2])
         bh, bw = img_.shape[:2]
@@ -252,9 +253,11 @@ class ShapeMlkit(FakeMlkit):
         return [[[b, ("EDGE", 0.9)]]]
 
 
-lad5 = manga.K3LadderOCR(ShapeMlkit(None), "en",
-                         lambda s: (_ for _ in ()).throw(AssertionError(
-                             "پلهٔ ۱ باید کافی باشد")))
+_pad5 = ShapePad(None)
+lad5 = manga.K3LadderOCR(
+    "en", lambda s: (_ for _ in ()).throw(AssertionError(
+        "پلهٔ ۱ باید کافی باشد")),
+    build_pad=lambda: _pad5)
 out5 = lad5.ocr(img, crop_mode=True)
 assert out5 and out5[0], out5
 b5 = np.asarray(out5[0][0][0], dtype=np.float32)

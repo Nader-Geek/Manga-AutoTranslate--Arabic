@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""v1.14.170 — گیتِ «استخراجِ چندزبانهٔ ML Kit» برایِ امولاتور.
+"""گیتِ «استخراجِ چندزبانهٔ موتورِ OCRِ گوشی» برایِ امولاتور.
 
-درخواستِ سازنده: «حذف کن بره paddle-lite ناقص استخراج میزنه ml kit بزار …
-همه زبان هارو خوب بتونه استخراج کنه انگلیسی ژاپنی کره چینی … اگ نمیتونی
-رو خودت اندروید اجرا کنی رو GitHub action تست کن».
+درخواستِ سازنده (1.14.170): «حذف کن بره paddle-lite ناقص استخراج میزنه
+… همه زبان هارو خوب بتونه استخراج کنه انگلیسی ژاپنی کره چینی … اگ
+نمیتونی رو خودت اندروید اجرا کنی رو GitHub action تست کن».
+v1.14.183 — موتورِ گوشی = پدلِ رسمیِ اندروید (PP-OCRv6 medium)؛ گیت
+موتور-آگنوستیک است و فقط متنِ استخراجشده را میسنجد (نامِ قدیمیِ
+check_mlkit.py هم به check_ocr_gate.py تغییر کرد).
 
 از لاگِ موتورِ همان صفحاتِ ci_imgs (up0822_en / up0904_en / lang_ja_bw /
 lang_ja_color / lang_ko / lang_zh / up0929_zh) ناحیههایِ استخراج را
@@ -17,7 +20,7 @@ lang_ja_color / lang_ko / lang_zh / up0929_zh) ناحیههایِ استخراج
 ناحیهها با همان قاعدهٔ check_extract.py خوانده میشوند (#NN … rect= سپس
 «متن: …»). خروجی: exit 0 = عبور؛ exit 1 = شکست.
 
-usage: check_mlkit.py LOG LANG [WORD]   (LANG = ja|ko|zh|en — پیشوند کافی است؛
+usage: check_ocr_gate.py LOG LANG [WORD]   (LANG = ja|ko|zh|en — پیشوند کافی است؛
 WORD اختیاری: رشتهٔ موردِ نیاز (بیت‌بزرگی نادیده) در متنِ یکی از ناحیهها —
 gیتِ محتواییِ صفحهٔ مشخص مثلِ img6 = «attraction»)
 """
@@ -63,7 +66,7 @@ def _counts(t: str):
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: check_mlkit.py LOG LANG [WORD]")
+        print("usage: check_ocr_gate.py LOG LANG [WORD]")
         return 1
     lang = sys.argv[2].strip().lower().split()[0]
     word = sys.argv[3].strip().lower() if len(sys.argv) > 3 else ""

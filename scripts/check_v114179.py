@@ -76,16 +76,19 @@ def _func(name):
 
 
 _k3_src = src[src.index("class K3LadderOCR:"):src.index("\nclass ", src.index("class K3LadderOCR:") + 10)]
-if '_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter",' \
+if '_K3_MODES = ("full", "fast", "rapid", "paddle", "flutter",' \
         not in _k3_src or '"padandroid")' not in _k3_src:
     fail("F: _K3_MODES شاملِ flutter/padandroid نیست")
 if "def _engine_tiny(self):" not in _k3_src:
     fail("F: K3LadderOCR._engine_tiny غایب است")
-if 'if _mode not in ("rapid", "flutter"):' not in _k3_src:
-    fail("F: پلهٔ ۱ (ML Kit) برایِ flutter حذف نشده")
+# v1.14.183 — پلهٔ ۱ = پدلِ رسمی برایِ full/fast/padandroid؛ mlkit حذف
+if 'if _mode in ("padandroid", "full", "fast"):' not in _k3_src:
+    fail("F: پلهٔ ۱ِ پدلِ رسمی برایِ full/fast/padandroid نیست")
+if 'if _mode == "mlkit":' in _k3_src or "self._mlkit" in _k3_src:
+    fail("F: بقایایِ mlkit در نردبان است")
 if 'eng3 = self._engine_tiny()' not in _k3_src:
     fail("F: پلهٔ ۳ در flutter موتورِ tiny نمیگیرد")
-ok("F: K3LadderOCR = ۷ روش + _engine_tiny")
+ok("F: K3LadderOCR = ۶ روش + _engine_tiny")
 
 _pairs = ast.get_source_segment(src, _func("_rapidocr_model_pair")) or ""
 if "tiny: bool = False" not in _pairs or 'PP-OCRv6_tiny_det.onnx' not in _pairs \
@@ -222,19 +225,19 @@ class FakeMT:
     def _imread_any(p):
         return cv2.imread(p)
 
+# v1.14.183 — پلهٔ ۱ = پدلِ رسمیِ اندروید (FakeML)؛ mlkit حذف شد
+_pad = FakeML()
 g = {"os": os, "time": time, "json": json, "np": np, "cv2": cv2,
      "threading": threading, "print": print, "APP_VER": "1.14.179-test",
      "_K3_STATS": {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0},
-     "_MLKIT_STATS": {"ms": 0.0, "n": 0, "lines": 0},
+     "_PAD_STATS": {"ms": 0.0, "n": 0, "lines": 0},
      "_k3_stats_note": lambda *a, **k: None,
      "_k3_boost_crop": lambda image, *a, **k: (image, None, 1.0),
      "_k3_map_boxes": lambda r, pad=None, scale=1.0: (r or []),
      "_k3_ink_coverage": lambda image, lines: 0.99,
      "_k3_best_conf": lambda lines: 0.9,
-     "_mlkit_backend": lambda lang: FakeML(),
-     "_mlkit_lang": lambda l: l,
      "MangaTranslator": FakeMT,
-     "MlKitCropOCR": FakeML, "RapidOCRBackend": object}
+     "RapidOCRBackend": object}
 exec(compile("\n\n".join(picks.values()), "manga_bits", "exec"), g)
 
 os.environ["MANGA_FILES_DIR"] = ST_DIR
@@ -244,12 +247,14 @@ cv2.imwrite(os.path.join(ST_DIR, "page.png"), img)
 class FakeBE:
     def __init__(self, lang="en"):
         self.lang = lang
-        self._mobile = g["K3LadderOCR"](FakeML(), lang,
-                                        lambda small=False, tiny=False:
-                                        FakeEng("e"))
+        self._mobile = g["K3LadderOCR"](
+            lang, lambda small=False, tiny=False: FakeEng("e"),
+            build_pad=lambda: _pad)
     def _build_mobile_onnx(self, lang, small=False, tiny=False):
         # فقط موتورِ سبک detِ تمامصفحهاش «هیچ» میدهد — عینِ لاگِ ۱۷۸
         return FakeEng("sml" if small else "e", 0.003, nodet=small)
+    def _build_paddle_android(self, lang):
+        return _pad
 
 lines = []
 res = g["speed_test_run"](
@@ -262,10 +267,10 @@ tile_line = [ln for ln in lines if "کاشیِ واقعی" in ln]
 assert tile_line, "فالبکِ کاشی در لاگ نیست: %s" % lines[:8]
 assert d.get("crops") == 4, d   # ۹۰۰×۱۲۰۰ → ۲×۲ کاشی
 modes = [k for k, v in d["ladder_ms"].items() if v]
-assert set(modes) == {"full", "fast", "mlkit", "rapid", "paddle",
+assert set(modes) == {"full", "fast", "rapid", "paddle",
                       "flutter", "padandroid"}, d["ladder_ms"]
 wlines = [ln for ln in lines if ln.startswith("[⚡] (") and "میانگینِ" in ln]
-assert len(wlines) == 10, wlines   # ۷ روش + ۳ شتاب‌دهنده — هیچ بنبستی
+assert len(wlines) == 9, wlines   # ۶ روش + ۳ شتاب‌دهنده — هیچ بنبستی
 win = [ln for ln in lines if ln.startswith("[⚡] برنده")]
 assert win, lines[-4:]
 print("E2E_OK", json.dumps({"crops": d["crops"], "ladder": d["ladder"],
@@ -284,7 +289,7 @@ with tempfile.TemporaryDirectory() as td:
         print(out[-3500:])
         fail("E2E: زیرپروسه شکست خورد")
     d = json.loads(out.split("E2E_OK", 1)[1].split("\n", 1)[0])
-    ok("E2E: بی‌det → %d کاشی → هر ۱۰ پنجره اندازهگیری شد + برنده=%s/%s"
+    ok("E2E: بی‌det → %d کاشی → هر ۹ پنجره اندازهگیری شد + برنده=%s/%s"
        % (d["crops"], d["ladder"], d["ep"]))
 
 # ── ۵) _speed_test_tiles مستقیم (شکلها + cap) ────────────────────

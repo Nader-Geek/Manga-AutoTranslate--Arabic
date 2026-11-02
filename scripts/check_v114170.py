@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""چکِ رگرسیونِ v1.14.170 — بدونِ وابستگی (فقط ast/فایل):
+"""چکِ رگرسیونِ v1.14.183 (بهروزِ 170) — بدونِ وابستگی (فقط ast/فایل):
 
-دستورِ سازنده: «حذف کن بره paddle-lite ناقص استخراج میزنه ml kit بزار
-همچن قسمت های ک متن هست استخراج بزنه و خوب چک کنه مال گوشی میگما و همه
-زبان هارو خوب بتونه استخراج کنه انگلیسی ژاپنی کره چینی … اول باید با
-detector-v4-s_int8.onnx قسمت های متن هست پیدا کنه بعد همون قسمت هارو
-استخراج بزنه نه کل صفحه و سریع هم باشه … اگ نمیتونی رو خودت اندروید
-اجرا کنی رو GitHub action تست کن».
+دستورِ سازنده (1.14.183): «ml kit حذف کن خوب نیست … از PP-OCRv6_medium
+بزار تو کد خودم قسمت استخراجم؛ اول detector-v4-s_int8.onnx همه قسمت
+هایِ متن پیدا کنه فقط همون قسمت ها استخراج کنه تا سریعتر باشه».
 
-۱) manga.py: MlKitCropOCR (پلِ recognizeAuto، کشفِ خودکارِ اسکریپت،
-   خروجیِ هم‌قالبِ [ [[box,(t,s)],...] ]) + حذفِ کاملِ خانوادهٔ plite.
+۱) manga.py: PaddleAndroidOCR (پلِ recognizeAuto، خروجیِ هم‌قالبِ
+   [ [[box,(t,s)],...] ]) + حذفِ کاملِ MlKitCropOCR و خانوادهٔ plite.
 ۲) detector-first دستنخورده: _extract_regions_from_bubbles + فقط
    کراپِ crop_mode=True + _parallel_budget.
-۳) اندروید: MlKitBridge.kt (۴ کلاینتِ باندلشده) + gradle + مانیفست +
-   ورک‌فلوها؛ PC (PaddleOCRWrapper/RapidOCR PC) دستنخورده.
-۴) CI: گامِ گیتِ چندزبانهٔ check_mlkit.py در android-emulator.yml.
-۵) نسخهٔ 175/1.14.170.
+۳) اندروید: PaddleOcrBridge.kt (ONNXِ خالص) — MlKitBridge.kt حذف؛
+   PC (PaddleOCRWrapper/RapidOCR PC) دستنخورده.
+۴) CI: گامِ گیتِ چندزبانهٔ check_ocr_gate.py در android-emulator.yml.
+۵) نسخه: سازگاریِ APP_VER با VERSION.
 """
 import ast
 import io
@@ -37,34 +34,45 @@ tree = ast.parse(src)
 cls = {n.name: n for n in tree.body if isinstance(n, ast.ClassDef)}
 fns = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
 
-# ۱) ML Kit — پل/کشفِ خودکار/قالبِ خروجی
-mk = cls.get("MlKitCropOCR")
-if mk is None:
-    fail("MlKitCropOCR نیست")
-mk_src = ast.get_source_segment(src, mk) or ""
+# ۱) v1.14.183 — پدلِ رسمیِ اندروید جایِ ML Kit
+pa = cls.get("PaddleAndroidOCR")
+if pa is None:
+    fail("PaddleAndroidOCR نیست")
+pa_src = ast.get_source_segment(src, pa) or ""
 for s in ("recognizeAuto", "bytes(_buf.tobytes())", "reshape(4, 2)"):
-    if s not in mk_src:
-        fail(f"MlKitCropOCR محتوایِ لازم را ندارد: {s!r}")
-if "_MLKIT_LANG_MAP" not in src:
-    fail("_MLKIT_LANG_MAP نیست")
+    if s not in pa_src:
+        fail(f"PaddleAndroidOCR محتوایِ لازم را ندارد: {s!r}")
+if "_MOBILE_LANG_MAP" not in src:
+    fail("_MOBILE_LANG_MAP نیست")
 for lg in ('"japan": "ja"', '"korean": "ko"', '"chinese": "zh"'):
     if lg not in src:
-        fail(f"نگاشتِ زبانِ ML Kit ناقص: {lg}")
-# پلِ قدیمیِ recognize هم باید در Kotlin باشد (مستقیمِ غیرِauto)
+        fail(f"نگاشتِ زبانِ موتورِ گوشی ناقص: {lg}")
+if "MlKitCropOCR" in cls or "class MlKitCropOCR" in src:
+    fail("MlKitCropOCR برگشته!")
+# پلِ رسمیِ Kotlin (ONNXِ خالص) — پلِ ML Kit حذف شده
 kt = io.open(os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
-                                "mangatranslator/MlKitBridge.kt"),
+                                "mangatranslator/PaddleOcrBridge.kt"),
              encoding="utf-8", errors="ignore").read()
-for s in ("fun recognize(", "fun recognizeAuto(", "voteOf", "rememberedLang"):
+for s in ("fun recognize(", "fun recognizeAuto(", "OrtSession"):
     if s not in kt:
-        fail(f"MlKitBridge.kt ناقص است: {s!r}")
+        fail(f"PaddleOcrBridge.kt ناقص است: {s!r}")
+import os as _os
+if _os.path.exists(os.path.join(
+        ROOT, "android/app/src/main/java/com/amirwolf/mangatranslator/"
+        "MlKitBridge.kt")):
+    fail("MlKitBridge.kt هنوز هست")
 
 # ۲) detector-first
 if "_extract_regions_from_bubbles" not in src:
     fail("_extract_regions_from_bubbles نیست")
 if "self._mobile.ocr(image_bgr, crop_mode=crop_mode)" not in src:
     fail("dispatchِ crop_mode عوض شده")
-if "_mlkit_backend" not in fns or "_parallel_budget" not in fns:
-    fail("توابعِ پایه (_mlkit_backend/_parallel_budget) نیستند")
+_bpa = None
+for _n0 in ast.walk(tree):
+    if isinstance(_n0, ast.FunctionDef) and _n0.name == "_build_paddle_android":
+        _bpa = ast.get_source_segment(src, _n0)
+if _bpa is None or "_parallel_budget" not in fns:
+    fail("توابعِ پایه (_build_paddle_android/_parallel_budget) نیستند")
 
 # ۳) PC دستنخورده — wrapperهایِ PC و فالبکِ ONNXِ موبایل سرِ جایش
 if "PaddleOCRWrapper" not in src:
@@ -74,13 +82,13 @@ if "RapidOcrMobile" not in src:
 if "from rapidocr_mobile import RapidOcrMobile" not in src:
     fail("importِ فالبکِ موبایل عوض شده")
 
-# ۴) CI — گیتِ چندزبانهٔ ML Kit
-if not os.path.isfile(os.path.join(ROOT, ".ci_scripts/check_mlkit.py")):
-    fail(".ci_scripts/check_mlkit.py نیست")
+# ۴) CI — گیتِ چندزبانه (نامِ جدیدِ 183)
+if not os.path.isfile(os.path.join(ROOT, ".ci_scripts/check_ocr_gate.py")):
+    fail(".ci_scripts/check_ocr_gate.py نیست")
 emu = io.open(os.path.join(ROOT, ".github/workflows/android-emulator.yml"),
               encoding="utf-8").read()
-if "check_mlkit.py" not in emu:
-    fail("گیتِ check_mlkit در android-emulator.yml نیست")
+if "check_ocr_gate.py" not in emu:
+    fail("گیتِ check_ocr_gate در android-emulator.yml نیست")
 if "fetch_paddle" in emu:
     fail("گامِ fetch_paddle هنوز در emulator workflow است")
 
@@ -93,6 +101,6 @@ if not _m or not _vn:
 if _m.group(1) != _vn.group(1):
     fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
 
-print("PASS — چکِ رگرسیونِ v1.14.170: OCRِ گوشی = ML Kit (ja/ko/zh/latin "
-      "باندلشده، کشفِ خودکارِ اسکریپت) فقط رویِ کراپهایِ detector-v4-s؛ "
-      "پدل کامل حذف؛ PC دستنخورده؛ گیتِ چندزبانهٔ CI سرِ جایش")
+print("PASS — چکِ رگرسیونِ v1.14.183/170: OCRِ گوشی = پدلِ رسمیِ اندروید "
+      "(PP-OCRv6 medium — ML Kit حذف) فقط رویِ کراپهایِ detector-v4-s؛ "
+      "پدلِ لایت هم حذف؛ PC دستنخورده؛ گیتِ چندزبانهٔ CI سرِ جایش")

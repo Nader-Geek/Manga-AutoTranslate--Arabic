@@ -202,30 +202,21 @@ class FakeMT:
     def _imread_any(p):
         return cv2.imread(p)
 
-class FakeMlKit:
-    """جایگزینِ MlKitCropOCR — _mlkit_backendِ واقعی (در قطعهٔ کلاس هست)
-    این را میسازد تا پنجرههایِ mlkit/full/fast هم واقعاً اجرا شوند."""
-    def __init__(self, lang="en"):
-        self.lang = lang
-    def ocr(self, image):
-        return [[[0, 0], [image.shape[1], 0],
-                 [image.shape[1], image.shape[0]], [0, image.shape[0]]],
-                ("m", 0.8)]
+# v1.14.183 — پلهٔ ۱/روشِ فعال = پدلِ رسمیِ اندروید (FakeML)؛ mlkit حذف
+_pad = FakeML()
 
 # اجزایِ فیک برایِ exec — قبل از اجرایِ قطعه‌ها
 g = {"os": os, "time": time, "json": json, "np": np, "cv2": cv2,
      "threading": threading, "print": print, "APP_VER": "1.14.178-test",
      "_K3_STATS": {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0},
-     "_MLKIT_STATS": {"ms": 0.0, "n": 0, "lines": 0},
+     "_PAD_STATS": {"ms": 0.0, "n": 0, "lines": 0},
      "_k3_stats_note": lambda *a, **k: None,
      "_k3_boost_crop": lambda image, *a, **k: (image, None, 1.0),
      "_k3_map_boxes": lambda r, pad=None, scale=1.0: (r or []),
      "_k3_ink_coverage": lambda image, lines: 0.99,
      "_k3_best_conf": lambda lines: 0.9,
-     "_mlkit_backend": lambda lang: FakeML(),
-     "_mlkit_lang": lambda l: l,
      "MangaTranslator": FakeMT,
-     "MlKitCropOCR": FakeMlKit, "RapidOCRBackend": object}
+     "RapidOCRBackend": object}
 exec(compile("\n\n".join(picks.values()), "manga_bits", "exec"), g)
 
 os.environ["MANGA_FILES_DIR"] = ST_DIR
@@ -241,13 +232,16 @@ class FakeBE:
     def __init__(self, lang="en"):
         self.lang = lang
         self._mobile = g["K3LadderOCR"](
-            FakeML(), lang,
+            lang,
             lambda small=False, tiny=False: FakeEng(
                 "fl" if tiny else ("sml" if small else "med"),
-                0.002 if tiny else (0.004 if small else 0.009)))
+                0.002 if tiny else (0.004 if small else 0.009)),
+            build_pad=lambda: _pad)
     def _build_mobile_onnx(self, lang, small=False, tiny=False):
         return FakeEng("fl" if tiny else ("sml" if small else "med"),
                        0.002 if tiny else (0.004 if small else 0.009))
+    def _build_paddle_android(self, lang):
+        return _pad
 
 lines = []
 res = g["speed_test_run"](
@@ -256,24 +250,24 @@ res = g["speed_test_run"](
 stf = os.path.join(ST_DIR, "speed_test.json")
 assert res and os.path.isfile(stf), "نتیجه/فایل نبود"
 d = json.load(io.open(stf, encoding="utf-8"))
-assert d.get("ladder") in ("full", "fast", "mlkit", "rapid", "paddle",
+assert d.get("ladder") in ("full", "fast", "rapid", "paddle",
                            "flutter", "padandroid"), d
 assert d.get("ep") in ("cpu", "xnnpack", "nnapi", "auto"), d
 assert d.get("crops") == 3, d
 assert not d.get("nnapi_pending"), d
 modes = [k for k, v in d["ladder_ms"].items() if v]
-assert set(modes) == {"full", "fast", "mlkit", "rapid", "paddle",
+assert set(modes) == {"full", "fast", "rapid", "paddle",
                       "flutter", "padandroid"}, d["ladder_ms"]
 eps = [k for k, v in d["ep_ms"].items() if v]
 assert {"cpu", "xnnpack"} <= set(eps) and "nnapi" in d["ep_ms"], d["ep_ms"]
 tbl = [ln for ln in lines if "جدولِ روشها" in ln]
 win = [ln for ln in lines if ln.startswith("[⚡] برنده")]
 assert tbl and win, lines[-4:]
-# ذخیرهٔ تدریجی: پنجرههایِ واقعی در لاگ با میانگین (v1.14.182: ۷ روش
-# اندازهگیری میشود؛ NNAPIِ معلق رد میشود → ۹ پنجرهٔ اندازهگیری + ۱ ردشدگی)
+# ذخیرهٔ تدریجی: پنجرههایِ واقعی در لاگ با میانگین (v1.14.183: ۶ روش
+# اندازهگیری میشود؛ NNAPIِ معلق رد میشود → ۸ پنجرهٔ اندازهگیری + ۱ ردشدگی)
 wlines = [ln for ln in lines
           if ln.startswith("[⚡] (") and "میانگینِ" in ln]
-assert len(wlines) == 9, wlines
+assert len(wlines) == 8, wlines
 skip_line = [ln for ln in lines if "رد شد" in ln and "NNAPI از دست رفت" in ln]
 assert len(skip_line) == 1, skip_line
 # speed_lab_envِ فایل‌محور
@@ -282,11 +276,10 @@ sle = ast.get_source_segment(src, next(
     if isinstance(n, ast.FunctionDef) and n.name == "speed_lab_env"))
 g2 = {"os": os, "json": json,
       "_K3_STATS": {"n": 5, "ms": 9.0, "st1": 1, "st2": 2, "st3": 3},
-      "_MLKIT_STATS": {"ms": 4.0, "n": 2, "lines": 7},
-      # v1.14.182 — speed_lab_env این سنجه را هم ریست میکند
+      # v1.14.182/183 — speed_lab_env این سنجه را ریست میکند
       "_PAD_STATS": {"ms": 0.0, "n": 0, "lines": 0},
       "_SPEED_LAB_EP": ("auto", "nnapi", "xnnpack", "cpu"),
-      "_SPEED_LAB_LADDER": ("full", "fast", "mlkit", "rapid", "paddle",
+      "_SPEED_LAB_LADDER": ("full", "fast", "rapid", "paddle",
                             "flutter", "padandroid"),
       "_K3_MODE_FA": g["_K3_MODE_FA"],
       "speed_test_load": g["speed_test_load"], "print": print,
@@ -306,10 +299,10 @@ exec(compile(sle, "sle", "exec"), g2)
 banner = g2["speed_lab_env"]({"ocr_ep": "nnapi"})  # کلیدهایِ کهنه باید بیاثر باشند
 # v1.14.182 — forceِ «پدلِ رسمیِ اندروید»: نیتِ اصلی
 # (فایل‌محور + کلیدهایِ کهنهٔ بیاثر) سرِ جایش است
-assert "پدلِ رسمیِ اندروید" in banner and "v1.14.182" in banner, banner
+assert "پدلِ رسمیِ اندروید" in banner and "v1.14.183" in banner, banner
 assert os.environ.get("MANGA_K3_MODE") == "padandroid"
 assert "MANGA_OCR_THREADS" not in os.environ, "کلیدِ کهنه پاک نشد"
-# بدونِ نتیجه → باز هم فقط ML Kit
+# بدونِ نتیجه → باز هم پدلِ رسمیِ اندروید (فالبکی نیست)
 os.remove(stf)
 banner2 = g2["speed_lab_env"]({})
 assert "پدلِ رسمیِ اندروید" in banner2 and \
@@ -335,7 +328,7 @@ with tempfile.TemporaryDirectory() as td:
         print(out[-3000:])
         fail("E2E: زیرپروسه شکست خورد")
     d = json.loads(out.split("E2E_OK", 1)[1].split("\n", 1)[0])
-    ok("E2E: تستِ سرعت واقعی ۱۰ پنجره (۷ روش + ۳ EP) + برنده=%s/%s "
+    ok("E2E: تستِ سرعت واقعی ۹ پنجره (۶ روش + ۳ EP) + برنده=%s/%s "
        "+ ردِ NNAPIِ معلق"
        % (d["ladder"], d["ep"]))
 

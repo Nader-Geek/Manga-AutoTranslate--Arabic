@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""چکِ رگرسیونِ v1.14.170 (بهروزِ 166) — بدونِ وابستگی (فقط ast/فایل):
+"""چکِ رگرسیونِ v1.14.183 (بهروزِ 166) — بدونِ وابستگی (فقط ast/فایل):
 
 ۱) هیچ def(self,…) تودرتویی در کلاسهایِ سطحِ بالایِ manga.py نیست
    (درسِ رگرسیونِ _ocr_implِ 1.14.163-164 — همان قاعدهٔ check_v114164.py).
-۲) موتورِ OCRِ گوشی = ML Kit (دستورِ سازندهٔ v1.14.170: «حذف کن بره
-   paddle-lite ناقص استخراج میزنه ml kit بزار») — Paddle-Lite کامل حذف:
+۲) موتورِ OCRِ گوشی = پدلِ رسمیِ اندروید (دستورِ سازندهٔ v1.14.183:
+   «ml kit حذف کن خوب نیست … از PP-OCRv6_medium بزار») — MlKitCropOCR/
+   _mlkit_backend/_MLKIT_STATS کامل حذف؛ Paddle-Lite هم همچنان حذف:
    PliteCropOCR/_PLOCR_LiteRunner/_plite_* هیچکدام در manga.py نیستند.
 ۳) برشِ امن: باندِ ۷۰۰۰–۸۰۰۰ + فالبکِ فقط-به-عقب — دستنخورده.
-۴) فایلهایِ اندروید: MlKitBridge.kt هست؛ PaddleLiteBridge.kt /
-   PliteProbeService.kt / fetch_paddle.py نیستند؛ سرویسِ :pliteprobe در
-   مانیفست نیست؛ گامِ fetch_paddle در ورک‌فلوها نیست.
+۴) فایلهایِ اندروید: MlKitBridge.kt و وابستگیهایِ com.google.mlkit هم
+   حذف شدند؛ PaddleLiteBridge.kt / PliteProbeService.kt / fetch_paddle.py
+   نیستند؛ سرویسِ :pliteprobe در مانیفست نیست؛ گامِ fetch_paddle در
+   ورک‌فلوها نیست.
 """
 import ast
 import io
@@ -47,16 +49,19 @@ for c in tree.body:
                     continue
                 fail(f"def(self) تودرتو: {c.name}.{m.name} > {ch.name}")
 
-# ۲) ML Kit جایگزینِ پدل شد
-mk = cls.get("MlKitCropOCR")
-if mk is None:
-    fail("MlKitCropOCR در سطحِ بالایِ manga.py نیست")
-_mk_m = {m.name for m in mk.body if isinstance(m, ast.FunctionDef)}
-if not {"ocr", "__init__"} <= _mk_m:
-    fail(f"متدهایِ MlKitCropOCR ناقص: {sorted(_mk_m)}")
-if not {"_mlkit_lang", "_mlkit_backend", "_mlkit_stats_note"} <= fns:
-    fail("توابعِ کمکیِ mlkit ناقصاند")
-for s in ("MlKitBridge", "recognizeAuto", "ja/ko/zh/latin"):
+# ۲) v1.14.183 — ML Kit حذف شد؛ موتورِ گوشی = پدلِ رسمیِ اندروید
+# («MlKitCropOCR» فقط به‌عنوانِ ارجاعِ تاریخی در کامنت مجاز است)
+if "MlKitCropOCR" in cls or "class MlKitCropOCR" in src:
+    fail("MlKitCropOCR هنوز در manga.py است")
+for s in ("_mlkit_lang", "_mlkit_backend", "_mlkit_stats_note",
+          "_MLKIT_STATE", "_MLKIT_BUILD_LOCK", "_MLKIT_STATS",
+          "_mlbe"):
+    if s in src:
+        fail(f"بقایایِ mlkit در manga.py: {s!r}")
+if "def _mobile_lang(lang):" not in src:
+    fail("_mobile_lang (جایِ _mlkit_lang) نیست")
+for s in ("PaddleAndroidOCR", "com.amirwolf.mangatranslator.PaddleOcrBridge",
+          "recognizeAuto"):
     if s not in src:
         fail(f"رشتهٔ لازم در manga.py نیست: {s!r}")
 for s in ("PliteCropOCR", "_PLOCR_LiteRunner", "_plite_backend",
@@ -73,13 +78,16 @@ if "_fb_hi = min(_band_lo, max_cut)" not in src:
 # ۴) اندروید — مانیفست/گرگل/ورک‌فلو
 kt = os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
                        "mangatranslator/MlKitBridge.kt")
-if not os.path.isfile(kt):
-    fail("MlKitBridge.kt نیست")
-kts = io.open(kt, encoding="utf-8", errors="ignore").read()
-for s in ("recognizeAuto", "JapaneseTextRecognizerOptions",
-          "KoreanTextRecognizerOptions", "ChineseTextRecognizerOptions"):
-    if s not in kts:
-        fail(f"MlKitBridge.kt محتوایِ لازم را ندارد: {s!r}")
+if os.path.exists(kt):
+    fail("MlKitBridge.kt هنوز هست (v1.14.183: باید حذف شده باشد)")
+kt2 = os.path.join(ROOT, "android/app/src/main/java/com/amirwolf/"
+                        "mangatranslator/PaddleOcrBridge.kt")
+if not os.path.isfile(kt2):
+    fail("PaddleOcrBridge.kt نیست")
+kt2s = io.open(kt2, encoding="utf-8", errors="ignore").read()
+for s in ("object PaddleOcrBridge", "recognizeAuto", "PP-OCRv6"):
+    if s not in kt2s:
+        fail(f"PaddleOcrBridge.kt محتوایِ لازم را ندارد: {s!r}")
 for rel in ("android/app/src/main/java/com/amirwolf/mangatranslator/"
             "PaddleLiteBridge.kt",
             "android/app/src/main/java/com/amirwolf/mangatranslator/"
@@ -97,10 +105,13 @@ if ".EpProbeService" not in man:
 
 g = io.open(os.path.join(ROOT, "android/app/build.gradle.kts"),
             encoding="utf-8").read()
-for s in ("text-recognition:16.0.1", "text-recognition-japanese:16.0.1",
-          "text-recognition-korean:16.0.1", "text-recognition-chinese:16.0.1"):
-    if s not in g:
-        fail(f"وابستگیِ ML Kit در gradle نیست: {s!r}")
+for s in ('implementation("com.google.mlkit', "text-recognition:16.0.1",
+          "text-recognition-japanese", "text-recognition-korean",
+          "text-recognition-chinese"):
+    if s in g:
+        fail(f"وابستگیِ ML Kit هنوز در gradle است: {s!r}")
+if "onnxruntime-android" not in g:
+    fail("onnxruntime-android از gradle حذف شده!")
 if "PaddlePredictor" in g:
     fail("PaddlePredictor.jar هنوز در gradle است")
 
@@ -110,6 +121,6 @@ for wf in (".github/workflows/build.yml",
     if "fetch_paddle" in w:
         fail(f"گامِ fetch_paddle هنوز در {wf} است")
 
-print("PASS — چکِ رگرسیونِ v1.14.170/166: موتورِ OCRِ گوشی = ML Kit "
-      "(پدل کامل حذف)؛ جارویِ AST تمیز؛ باندِ برشِ امنِ ۷۰۰۰–۸۰۰۰ "
-      "دستنخورده؛ فایلهایِ اندروید هماهنگ")
+print("PASS — چکِ رگرسیونِ v1.14.183/166: ML Kit کامل حذف، موتورِ گوشی = "
+      "پدلِ رسمیِ اندروید (PP-OCRv6 medium)؛ جارویِ AST تمیز؛ باندِ برشِ "
+      "امنِ ۷۰۰۰–۸۰۰۰ دستنخورده؛ فایلهایِ اندروید هماهنگ")

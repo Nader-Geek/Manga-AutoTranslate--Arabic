@@ -1722,7 +1722,8 @@ class MainActivity : AppCompatActivity() {
         map.put("api_base", firstNonEmpty(o, "manga_api_base", "api_base") ?: "")
         map.put("ocr_lang", firstNonEmpty(o, "manga_ocr_lang", "ocr_lang") ?: "en")
         // v1.14.163 — موتورِ استخراج: فقط rapidocr (سبکِ PC — detector-first)؛
-        // ML Kit حذف شد و انتخابِ قدیمیِ mlkit در پایتون به rapidocr میرود
+        // v1.14.183 — ML Kit کلاً حذف شد؛ انتخابِ قدیمیِ mlkit در پایتون
+        // به پدلِ رسمیِ اندروید (padandroid) میرود
         map.put("ocr_engine", firstNonEmpty(o, "ocr_engine")
             ?: prefs.getString("ocr_engine", null) ?: "")
         map.put("fmt", firstNonEmpty(o, "out_fmt", "fmt") ?: "PDF")

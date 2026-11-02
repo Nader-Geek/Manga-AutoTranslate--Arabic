@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""چکِ رگرسیونِ v1.14.170 (بهروزِ 167) — بدونِ وابستگی (فقط ast/فایل):
+"""چکِ رگرسیونِ v1.14.183 (بهروزِ 167) — بدونِ وابستگی (فقط ast/فایل):
 
 زمینهٔ 167: «هر بخش متن یک مقدار ram cpu gpu همزمان کار کنن… حداکثر
 توانش — همچنین پاکسازیش همینجور» — موازیِ OCRِ ناحیهها + پاکسازی.
 
 ۱) بودجهٔ موازی: _parallel_budget سطحِ بالا + استفاده برایِ "ocr" و
    "clean"؛ overrideِ MANGA_REGION_WORKERS؛ لاگِ «استخراجِ موازی».
-۲) موتورِ OCRِ گوشی = MlKitCropOCR (تک‌نمونهٔ تنبل با قفلِ ساخت؛ هیچ
-   قفلِ سراسریِ run — ML Kit خودش صفِ داخلی دارد) + فالبکِ dead→ONNX.
+۲) v1.14.183 — موتورِ OCRِ گوشی = PaddleAndroidOCR (پدلِ رسمی —
+   ML Kit حذف شد) بدونِ قفلِ سراسریِ run؛ فالبک = Noneِ
+   _build_paddle_android.
 ۳) موازیِ پاکسازی: clean_image = _fill_one_cluster + ThreadPoolExecutor.
 """
 import ast
@@ -41,27 +42,27 @@ if '_parallel_budget("clean")' not in src:
 if "استخراجِ موازی" not in src:
     fail("لاگِ «استخراجِ موازی» در حلقهٔ ناحیهها نیست")
 
-# ۲) موتورِ ML Kit — تک‌نمونه + بدونِ قفلِ سراسریِ run
-mk = cls.get("MlKitCropOCR")
-if mk is None:
-    fail("MlKitCropOCR نیست")
-mk_src = ast.get_source_segment(src, mk) or ""
+# ۲) v1.14.183 — پدلِ رسمیِ اندروید؛ بدونِ قفلِ سراسریِ run
+if "MlKitCropOCR" in cls or "class MlKitCropOCR" in src:
+    fail("MlKitCropOCR برگشته!")
 if "_MLKIT_RUN_LOCK" in src or "_PLITE_RUN_LOCK" in src:
     fail("قفلِ سراسریِ run هنوز هست (OCRِ موازیِ ناحیهها میشکند)")
-if "recognizeAuto" not in mk_src:
-    fail("MlKitCropOCR به پلِ recognizeAuto وصل نیست")
-if "ThreadPoolExecutor" not in mk_src and True:
-    pass  # همزمانیِ ML Kit داخلِ خودِ پل/Kotlin است — شرط نیست
-mb = fns.get("_mlkit_backend")
-if mb is None:
-    fail("_mlkit_backend نیست")
-mb_src = ast.get_source_segment(src, mb) or ""
-if 'dead"]=True' not in mb_src.replace(" ", ""):
-    fail("_mlkit_backend شکستِ ساخت را dead نمیکند")
-if "PP-OCRv6 ONNX" not in mb_src:
-    fail("پیامِ فالبکِ ONNX در _mlkit_backend نیست")
-if "MANGA_MLKIT" not in mb_src:
-    fail("خاموشیِ MANGA_MLKIT=0 در _mlkit_backend نیست")
+pa = cls.get("PaddleAndroidOCR")
+if pa is None:
+    fail("PaddleAndroidOCR نیست")
+pa_src = ast.get_source_segment(src, pa) or ""
+if "recognizeAuto" not in pa_src:
+    fail("PaddleAndroidOCR به پلِ recognizeAuto وصل نیست")
+bp_src = ""
+for n in ast.walk(tree):
+    if isinstance(n, ast.FunctionDef) and n.name == "_build_paddle_android":
+        bp_src = ast.get_source_segment(src, n) or ""
+if not bp_src:
+    fail("_build_paddle_android نیست")
+if "return None" not in bp_src:
+    fail("_build_paddle_android شکستِ ساخت را None نمیکند")
+if "PP-OCRv6" not in bp_src:
+    fail("پیامِ مدلِ رسمی در _build_paddle_android نیست")
 
 # ۳) موازیِ پاکسازی
 trans = cls.get("MangaTranslator")
@@ -90,6 +91,6 @@ if "self._mobile.ocr(image_bgr, crop_mode=crop_mode)" not in src:
 if "_oc125.ocr(crop_bgr, crop_mode=True)" not in src:
     fail("کراپِ detector با crop_mode=True به OCR نمیرود")
 
-print("PASS — چکِ رگرسیونِ v1.14.170/167: بودجهٔ موازیِ cpu+ram+gpu برای "
-      "OCRِ ناحیهها و خوشههایِ پاکسازی؛ موتورِ ML Kit تک‌نمونه/بدونِ قفلِ "
-      "سراسری + فالبکِ ONNX؛ detector-first (فقط کراپ) دستنخورده")
+print("PASS — چکِ رگرسیونِ v1.14.183/167: بودجهٔ موازیِ cpu+ram+gpu برای "
+      "OCRِ ناحیهها و خوشههایِ پاکسازی؛ موتورِ گوشی = پدلِ رسمیِ اندروید "
+      "(ML Kit حذف) بدونِ قفلِ سراسری؛ detector-first (فقط کراپ) دستنخورده")

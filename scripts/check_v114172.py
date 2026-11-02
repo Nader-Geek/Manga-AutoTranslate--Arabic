@@ -6,8 +6,8 @@
 لاگِ واقعیِ گوشی (v1.14.171): «[!] مدلِ پدل آماده نشد:
 RapidOCRBackend._init_mobile_engine.<locals>.<lambda>() got an unexpected
 keyword argument 'small'» + همین برایِ رپید → نردبانِ K3 عملاً فقط
-ML Kit بود (پلهها: ML Kit=20 پدل=0 رپید=0) و متنِ ضعیفِ ML Kit
-(«Youre attractien nere.») بدونِ پلهٔ ۲ برگشت.
+پلهٔ ۱ بود (پلهها: پله۱=20 پدل=0 رپید=0؛ در آن زمان ML Kit) و متنِ
+ضعیفِ پلهٔ ۱ («Youre attractien nere.») بدونِ پلهٔ ۲ برگشت.
 
 درخواستِ سازنده: «detector-v4-s_int8.onnx جدا نشون بده تو عکس ببینم
 detector نتونسته استخراج کنه یا ocr و ارور داد».
@@ -80,8 +80,8 @@ ok("لامبداِ wiring = lambda small (کلیدواژهایِ نردبان + 
 # ۲) تستِ عملی — builderِ فقط-کلیدواژهای (دقیقاً مثلِ صدای واقعیِ نردبان)
 sys.path.insert(0, ROOT)
 os.environ.setdefault("MANGA_K3_LADDER", "1")
-# v1.14.181 — پیشفرضِ نردبان «mlkit» شد (دستورِ سازنده: فقط ML Kit)؛
-# این چکِ قدیمی، مسیرِ خاموشِ پلهٔ ۲/۳ را تست میکند → صریحاً full
+# v1.14.183 — پلهٔ ۱ = پدلِ رسمیِ اندروید (ML Kit حذف شد)؛ این چکِ
+# قدیمی، مسیرِ خاموشِ پلهٔ ۲/۳ را تست میکند → صریحاً full
 os.environ["MANGA_K3_MODE"] = "full"
 import manga  # noqa: E402
 
@@ -94,7 +94,9 @@ def _box_full():
                     dtype=np.float32)
 
 
-class FakeMlkit:
+class FakePad:
+    """هم‌قراردادِ PaddleAndroidOCR (پلهٔ ۱ = پدلِ رسمی — v1.14.183)."""
+
     def __init__(self, lines):
         self.lines = lines or []
 
@@ -126,9 +128,10 @@ def build_kw(*, small):
     return sml if small else med
 
 
-# ۲-الف) پلهٔ ۲: ML Kit خالی → پدل باید با کلیدواژه ساخته شود
+# ۲-الف) پلهٔ ۲: پدلِ رسمی خالی → پدلِ ONNX باید با کلیدواژه ساخته شود
 BUILT["med"] = BUILT["sml"] = 0
-lad2 = manga.K3LadderOCR(FakeMlkit(None), "en", build_kw)
+_pad_none = FakePad(None)
+lad2 = manga.K3LadderOCR("en", build_kw, build_pad=lambda: _pad_none)
 out2 = lad2.ocr(img, crop_mode=True)
 assert out2 and out2[0][0][1][0] == "FROM PADDLE", out2
 assert BUILT == {"med": 1, "sml": 0}, BUILT
@@ -146,7 +149,7 @@ def build_kw2(*, small):
     return sml2 if small else med_weak
 
 
-lad3 = manga.K3LadderOCR(FakeMlkit(None), "en", build_kw2)
+lad3 = manga.K3LadderOCR("en", build_kw2, build_pad=lambda: _pad_none)
 out3 = lad3.ocr(img, crop_mode=True)
 assert out3 and out3[0][0][1][0] == "RAPID WINS", out3
 assert BUILT == {"med": 1, "sml": 1}, BUILT
@@ -154,7 +157,7 @@ ok("پلهٔ ۳: اطمینانِ <80٪ → رپید با کلیدواژهٔ sma
 
 # ۲-ج) فراخوانیِ مستقیمِ _engine با کلیدواژه (هر دو پله)
 BUILT["med"] = BUILT["sml"] = 0
-lad4 = manga.K3LadderOCR(FakeMlkit(None), "en", build_kw)
+lad4 = manga.K3LadderOCR("en", build_kw, build_pad=lambda: _pad_none)
 e_med = lad4._engine(small=False)
 e_sml = lad4._engine(small=True)
 assert e_med is med and e_sml is sml and BUILT == {"med": 1, "sml": 1}, BUILT

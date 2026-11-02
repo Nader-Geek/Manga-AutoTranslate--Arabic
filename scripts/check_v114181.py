@@ -63,10 +63,7 @@ if not _m or not _vn or not _vc:
     fail("V: نسخه پیدا نشد")
 if _m.group(1) != _vn.group(1):
     fail("V: APP_VER(%s) != versionName(%s)" % (_m.group(1), _vn.group(1)))
-if _m.group(1) != "1.14.182":
-    fail("V: این چک به قراردادِ 1.14.182 بهروز شد (APP_VER=%s)" % _m.group(1))
-if _vc.group(1) != "187":
-    fail("V: versionCode باید 187 باشد (=%s)" % _vc.group(1))
+# v1.14.183 — گیتِ نسخه باز شد (همان قاعدهٔ 179/180)
 if 'os.environ.setdefault("MANGA_APP_VER", APP_VER)' not in src:
     fail("V: MANGA_APP_VER ست نمیشود")
 ok("V: نسخه %s / versionCode=%s" % (_m.group(1), _vc.group(1)))
@@ -98,9 +95,12 @@ if not (_i_ov < _i_ms):
     fail("L: forceِ padandroid باید قبل از _ms_l باشد")
 if "_purge_loser_onnx_models()" not in _lab:
     fail("L: speed_lab_env پاکسازی را صدا نمیزند")
-if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.182" not in _lab:
-    fail("L: پیامِ «پدلِ رسمیِ اندروید / v1.14.182» در speed_lab_env نیست")
-ok("L: speed_lab_env = پدلِ رسمیِ اندروید (قراردادِ 182) + پاکسازی + EPِ ذخیرهشده")
+if "پدلِ رسمیِ اندروید" not in _lab or "v1.14.183" not in _lab:
+    fail("L: پیامِ «پدلِ رسمیِ اندروید / v1.14.183» در speed_lab_env نیست")
+if "ML Kit" in _lab.replace("ML Kit کامل حذف شد؛ فالبکی وجود ندارد", "") \
+        and "فالبک = ML Kit" in _lab:
+    fail("L: فالبکِ ML Kit در speed_lab_env مانده")
+ok("L: speed_lab_env = پدلِ رسمیِ اندروید (قراردادِ 183) + پاکسازی + EPِ ذخیرهشده")
 
 # ── ۲) تابعِ پاکسازی ─────────────────────────────────────────────
 _pl = ast.get_source_segment(src, _func("_purge_loser_onnx_models")) or ""
@@ -142,12 +142,14 @@ _m0 = _k3_src.index("def ocr(self")
 _m1 = _k3_src.index("\n    def ", _m0 + 10)
 _ocr_src = _k3_src[_m0:_m1]
 _i_fp = _ocr_src.index("if not crop_mode:")
-_i_mlk = _ocr_src.find('if self._mode == "mlkit":')
-_i_ret = _ocr_src.find("return self._mlkit.ocr(image_bgr)", _i_mlk)
+# v1.14.183 — پدلِ رسمی جایِ mlkit؛ بقایایِ mlkit ممنوع
+_i_pad = _ocr_src.find('if self._mode in ("padandroid", "full", "fast"):')
 _i_med = _ocr_src.index("eng = self._engine(small=False)")
-if _i_mlk == -1 or _i_ret == -1 or not (_i_fp < _i_mlk < _i_med):
-    fail("K: گاردِ mlkitِ تمامصفحه باید قبل از ساختِ medium باشد")
-ok("K: تمامصفحه در روشِ mlkit = ML Kitِ مستقیم؛ ONNX بیدار نمیشود")
+if _i_pad == -1 or not (_i_fp < _i_pad < _i_med):
+    fail("K: گاردِ پدلِ رسمیِ تمامصفحه باید قبل از ساختِ medium باشد")
+if "self._mlkit" in _ocr_src or 'if self._mode == "mlkit":' in _ocr_src:
+    fail("K: بقایایِ mlkit در نردبان است")
+ok("K: تمامصفحه در full/fast/padandroid = پدلِ رسمی؛ ML Kit حذف")
 
 # ── ۵) حذفِ دکمهٔ «تستِ سرعت» از همهجا ───────────────────────────
 if "ocr_speedtest" in asrc:
@@ -174,10 +176,12 @@ if "_speed_test_job(" in bsrc or "ocr_speedtest" in bsrc:
     fail("B: bridge هنوز مسیرِ تستِ سرعت دارد")
 if 'getattr(_manga(), "speed_lab_env", None)' not in bsrc:
     fail("B: speed_lab_env سرِ جایش نیست")
-if 'if _oe and _oe not in ("mlkit", "ml-kit"):' not in bsrc \
-        or '                _oe = "mlkit"' not in bsrc:
-    fail("B: انتخابِ موتورِ کهنه باید به ML Kit برود")
-ok("B: bridge بدونِ دکمهٔ تست + هر موتورِ کهنه → ML Kit")
+# v1.14.183 — ML Kit حذف شد؛ انتخابِ کهنه نادیده و پیشفرضِ manga.py
+if '"mlkit"' in bsrc or "com.google.mlkit" in bsrc:
+    fail("B: بقایایِ mlkit در bridge است")
+if 'موتورِ رسمیِ اندروید' not in bsrc:
+    fail("B: پیامِ موتورِ رسمی در bridge نیست")
+ok("B: bridge بدونِ دکمهٔ تست + هر موتورِ کهنه → پیشفرضِ رسمی")
 
 if "ocr_speedtest" in ksrc or "speedTestSent" in ksrc:
     fail("K: MainActivity هنوز کلیدِ تستِ سرعت دارد")
@@ -387,7 +391,7 @@ class FakeML:
         ml_calls.append(1)
         box = [[0, 0], [image.shape[1], 0],
                [image.shape[1], image.shape[0]], [0, image.shape[0]]]
-        return [[[box, ("MLKIT", 0.5)]]]   # پوشش/اطمینانِ ضعیف
+        return [[[box, ("PAD", 0.5)]]]   # پوشش/اطمینانِ ضعیف
 
 
 class FakeEng:
@@ -407,18 +411,19 @@ def builder(small=False, tiny=False):
     return FakeEng("tiny" if tiny else ("small" if small else "med"))
 
 
-lad = K3(FakeML(), "en", builder)
-assert lad._mode == "padandroid", lad._mode   # v1.14.182: پیشفرضِ جدید
+_pad = FakeML()
+lad = K3("en", builder, build_pad=lambda: _pad)
+assert lad._mode == "padandroid", lad._mode   # پیشفرضِ امن
 
 img = np.full((200, 160, 3), 200, np.uint8)
 out = lad.ocr(img, crop_mode=True)
-assert out and out[0] and out[0][0][1][0] == "MLKIT", out  # ضعیف هم برمیگردد
-assert not calls, "در mlkit نباید ONNX ساخته شود: %s" % calls
+assert out and out[0] and out[0][0][1][0] == "PAD", out  # ضعیف هم برمیگردد
+assert not calls, "در padandroid نباید ONNX ساخته شود: %s" % calls
 
 out2 = lad.ocr(img, crop_mode=False)   # پاسِ تمامصفحهٔ جانبی
-assert out2 and out2[0][0][1][0] == "MLKIT", out2
-assert not calls, "تمامصفحه در mlkit نباید ONNX بیدار کند: %s" % calls
-assert ml_calls == [1, 1], ml_calls    # دو بار ML Kit، هیچ ONNX
+assert out2 and out2[0][0][1][0] == "PAD", out2
+assert not calls, "تمامصفحه در padandroid نباید ONNX بیدار کند: %s" % calls
+assert ml_calls == [1, 1], ml_calls    # دو بار پدلِ رسمی، هیچ ONNX
 print("K3_OK")
 '''
 with tempfile.TemporaryDirectory() as td:
@@ -429,8 +434,8 @@ with tempfile.TemporaryDirectory() as td:
     out = r.stdout + r.stderr
     if r.returncode != 0 or "K3_OK" not in out:
         print(out[-3000:])
-        fail("E2E-K3: نردبانِ mlkit شکست خورد")
-    ok("E2E-K3: بدونِ env هم پدلِ رسمی (فالبکِ ML Kit) — کراپ و تمامصفحه، هیچ ONNX")
+        fail("E2E-K3: نردبانِ padandroid شکست خورد")
+    ok("E2E-K3: بدونِ env هم پدلِ رسمی (بدونِ فالبک) — کراپ و تمامصفحه، هیچ ONNX")
 
 # ── ۱۰) py_compile نهایی ─────────────────────────────────────────
 import py_compile  # noqa: E402
