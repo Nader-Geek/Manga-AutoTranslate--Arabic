@@ -30,6 +30,9 @@ android {
         // کتابخانه‌ها extract می‌شوند (فقط برایِ تستِ CI؛ پیش‌فرض false)
         jniLibs.useLegacyPackaging =
             ((findProperty("legacyJni") as String?) == "true")
+        // v1.14.184 — AARِ رسمیِ OpenCV libc++_shared.soِ خودش را دارد؛
+        // با chaquopy/ORT دوبله میشود → اولی انتخاب میشود
+        jniLibs.pickFirsts += "lib/*/libc++_shared.so"
     }
 
     compileOptions {

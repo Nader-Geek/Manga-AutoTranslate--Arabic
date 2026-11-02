@@ -123,8 +123,12 @@ _sdk_g = io.open(os.path.join(ROOT, "android", "ppocr-sdk", "build.gradle.kts"),
                  encoding="utf-8").read()
 if "onnxruntime-android" not in _sdk_g:
     fail("onnxruntime-android در :ppocr-sdk نیست")
-if "com.quickbirdstudios:opencv" not in _sdk_g:
-    fail("OpenCVِ رسمیِ ppocr-android در :ppocr-sdk نیست")
+# v1.14.184 — quickbirdstudios:4.5.3 سیمبلِ __lttf2 را ندارد (dlopen
+# میخورد) → AARِ رسمیِ opencv.org جایگزین شد
+if "org.opencv:opencv" not in _sdk_g:
+    fail("OpenCVِ رسمیِ opencv.org در :ppocr-sdk نیست")
+if "com.quickbirdstudios" in _sdk_g:
+    fail("quickbirdstudiosِ خراب برگشته")
 if "PaddlePredictor" in g:
     fail("PaddlePredictor.jar هنوز در gradle است")
 
