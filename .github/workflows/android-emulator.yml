@@ -227,6 +227,9 @@ jobs:
           adb logcat -d -b crash > /tmp/emulout/logcat_crash.txt 2>/dev/null || true
           sleep 10
           python3 .ci_scripts/tap_run.py || { adb shell screencap -p /sdcard/scr_fail.png || true; adb pull /sdcard/scr_fail.png /tmp/emulout/scr_fail.png || true; adb exec-out run-as com.amirwolf.mangatranslator cat files/manga.log > /tmp/emulout/manga.log || true; adb exec-out run-as com.amirwolf.mangatranslator ls -R files/work > /tmp/emulout/work_ls.txt || true; adb logcat -d -t 4000 > /tmp/emulout/logcat_fail.txt || true; adb logcat -d -b crash > /tmp/emulout/logcat_crash2.txt || true; cp /tmp/emulout/* emul-artifacts/ || true; exit 1; }
+          # v1.14.184 — لاگکتِ بعد از کار (ریشهٔ خطایِ پلِ OCR اگر باشد)
+          adb logcat -d -t 3000 > /tmp/emulout/logcat_after.txt 2>/dev/null || true
+          adb logcat -d -s PaddleOcrBridge:V OpenCVUtils:V > /tmp/emulout/logcat_bridge.txt 2>/dev/null || true
           python3 .ci_scripts/wait_done.py 60
           adb exec-out run-as com.amirwolf.mangatranslator cat files/manga.log > /tmp/emulout/manga_emulator.log || true
           adb shell "run-as com.amirwolf.mangatranslator ls -la files/work/out" | tee /tmp/emulout/out_ls.txt || true

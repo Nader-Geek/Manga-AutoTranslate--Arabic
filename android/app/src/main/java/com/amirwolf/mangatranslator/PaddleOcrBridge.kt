@@ -139,8 +139,11 @@ object PaddleOcrBridge {
             }
             out.toTypedArray()
         } catch (t: Throwable) {
+            // v1.14.184 — خطا → سطرِ تشخیصیِ ERR (پارسرِ manga.py آن را
+            // مثلِ خروجیِ خالی میبیند) تا سلف‌تست/لاگ، ریشه را نشان دهد
             Log.e(TAG, "recognize failed", t)
-            null
+            arrayOf("ERR|" + t.javaClass.simpleName + "|" +
+                    (t.message ?: "no message").replace("|", " "))
         }
     }
 

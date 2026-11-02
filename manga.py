@@ -3552,7 +3552,9 @@ class PaddleAndroidOCR:
             _out = self._bridge.recognizeAuto(
                 bytes(_buf.tobytes()), self.lang, 1, 1)
             if not _out or not str(_out[0]).startswith("META"):
-                raise RuntimeError("خروجیِ سلف‌تستِ پدلِ اندروید نامعتبر است")
+                raise RuntimeError(
+                    "خروجیِ سلف‌تستِ پدلِ اندروید نامعتبر است: "
+                    + str([str(x)[:80] for x in (_out or [])])[:200])
         except RuntimeError:
             raise
         except Exception as e:
