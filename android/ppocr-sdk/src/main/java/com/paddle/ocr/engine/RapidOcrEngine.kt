@@ -313,7 +313,8 @@ class RapidOcrEngine(
 
     private fun loadDict(context: Context, dictAsset: String): List<String> {
         val content = try {
-            context.assets.open(dictAsset).bufferedReader().use { it.readText() }
+            // v1.14.189 — assets یا filesDir (دانلودِ زمانِ اجرا)
+            com.paddle.ocr.util.ModelSource.text(context, dictAsset)
         } catch (t: Throwable) {
             throw OCRError.ConfigParseFailed(dictAsset, t)
         }

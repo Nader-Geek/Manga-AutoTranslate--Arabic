@@ -65,19 +65,19 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, val = ln.strip().partition("=")
         _v[k.strip()] = val.strip()
-    gate(_v.get("versionCode") == "193"
-         and _v.get("versionName") == "1.14.188",
-         "A: VERSION = 1.14.188 / versionCode=193 (مهاجرتِ 188)")
+    gate(_v.get("versionCode") == "194"
+         and _v.get("versionName") == "1.14.189",
+         "A: VERSION = 1.14.189 / versionCode=194 (مهاجرتِ 188)")
 except Exception as e:
     fail(f"A: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 193' in _gradle
-     and 'versionName = "1.14.188"' in _gradle,
-     "A: build.gradle.kts = 193 / 1.14.188 (مهاجرتِ 188)")
+gate('versionCode = 194' in _gradle
+     and 'versionName = "1.14.189"' in _gradle,
+     "A: build.gradle.kts = 194 / 1.14.189 (مهاجرتِ 188)")
 
 _manga = io.open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.188"' in _manga, "A: APP_VERِ manga.py = 1.14.188 (مهاجرتِ 188)")
+gate('APP_VER = "1.14.189"' in _manga, "A: APP_VERِ manga.py = 1.14.188 (مهاجرتِ 188)")
 
 # ── B. manga.py — مسیرِ اندروید ─────────────────────────────────────
 try:
@@ -107,7 +107,7 @@ for _frag in ('_K3_MODES = ("padandroid",)',
               'self._mode = "padandroid"',
               '_SPEED_LAB_LADDER = ("padandroid",)',
               '"padandroid": "رپیدِ رسمیِ اندروید"',
-              "PP-OCRv6ِ باندل (det=small + rec=MEDIUM — "):
+              "PP-OCRv6ِ دانلودی (det=small + rec=MEDIUM — "):
     if _frag not in _manga:
         fail(f"B: نردبان/پیامِ RapidOCR نیست: {_frag!r}")
 ok("B: نردبانِ تکپلهای padandroid + پیامِ «روشِ استخراج» = RapidOCRِ v4")

@@ -23,7 +23,8 @@ data class ModelConfig(
     companion object {
         fun parse(context: Context, assetPath: String): ModelConfig {
             val content = try {
-                context.assets.open(assetPath).bufferedReader().use { it.readText() }
+                // v1.14.189 — assets یا filesDir (دانلودِ زمانِ اجرا)
+                com.paddle.ocr.util.ModelSource.text(context, assetPath)
             } catch (t: Throwable) {
                 throw OCRError.ConfigParseFailed(assetPath, t)
             }

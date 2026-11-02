@@ -190,7 +190,8 @@ class ORTSessionManager(
 
     private fun readModelAsset(assetPath: String): ByteArray {
         return try {
-            context.assets.open(assetPath).use { it.readBytes() }
+            // v1.14.189 — assets یا filesDir (دانلودِ زمانِ اجرا)
+            com.paddle.ocr.util.ModelSource.bytes(context, assetPath)
         } catch (t: Throwable) {
             throw OCRError.ModelNotFound(assetPath, t)
         }

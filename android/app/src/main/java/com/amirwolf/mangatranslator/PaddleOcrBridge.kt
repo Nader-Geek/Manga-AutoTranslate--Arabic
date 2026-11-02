@@ -19,9 +19,12 @@
 //     پیشپردازش/پسپردازش (DB dilate 2×2، clsِ 192×48، recِ ارتفاعِ ۴۸ +
 //     CTCِ blank=۰) رویِ همان ORTِ 1.21.1. این پل فقط پلِ نازک است و
 //     هیچ ORT/پردازشی از خودش ندارد (قراردادِ v1.14.184 پابرجاست).
-//   • مدلها زمانِ بیلدِ CI از ModelScopeِ رسمیِ RapidAI/RapidOCR
-//     (v3.9.2) دانلود و در assetsِ APK باندل میشوند — هیچ دانلودِ
-//     زمانِ اجرایی در کار نیست و آفلاین هم کار میکند:
+//   • مدلها از v1.14.189 دیگر باندلِ APK نیستند (دستورِ سازنده: «onnx
+//     تو گوشی واسه استخراج با نصب نیاد … اپ بزار دانلود کنه اگ نبود»):
+//     اولین استفاده → OcrModelStore از ریلیزِ «models»ِ همین ریپو در
+//     filesDir/models/… دانلود میکند (به حسابِ زبانِ انتخابی — ja/ko
+//     فقط با خودشان) و ppocr-sdk با ModelSource از assets یا filesDir
+//     میخواند (باندلِ قدیمیِ v1.14.188 هم پابرجا کار میکند):
 //       models/det/inference.onnx      (PP-OCRv6_det_small 10MB)
 //       models/cls/inference.onnx      (ch_ppocr_mobile_v2.0_cls 0.6MB)
 //       models/rec/inference.onnx      (PP-OCRv6_MEDIUM 73MB)
@@ -101,13 +104,25 @@ object PaddleOcrBridge {
      * استخراجِ خالی میبیند و پیامِ خطا چاپ میشود.
      */
     @JvmStatic
-    fun init(numThreads: Int): Boolean = synchronized(lock) {
+    fun init(numThreads: Int): Boolean = init(numThreads, null)
+
+    /**
+     * v1.14.189 — نسخهٔ زبان‌آگاه: [primaryLang] = زبانِ انتخابیِ کاربر
+     * («به حساب زبان انتخاب شده همون مدل دانلود کنه») — قبل از ساختِ
+     * موتور، فقط مدلهایِ همان زبان (ستِ مشترک + واریانتِ ja/ko اگر
+     * انتخاب شده) اگر نبود دانلود میشوند؛ نه همه با هم.
+     */
+    @JvmStatic
+    fun init(numThreads: Int, primaryLang: String?): Boolean = synchronized(lock) {
         if (engine != null) return true
         val context = ctx ?: run {
             Log.e(TAG, "init: MtApp هنوز Context نداده است")
             return false
         }
         return try {
+            // v1.14.189 — مدلها دیگر باندل نیستند: اگر نبود، دانلودِ
+            // زمانِ اجرا (اولین اجرا؛ دفعاتِ بعد از کشِ filesDir)
+            OcrModelStore.ensure(context, OcrModelStore.pathsForLang(primaryLang))
             // یادداشتِ رسمیِ ppocr-android: OpenCVUtils.init(context)
             // قبل از ساختِ هر موتوری (کلاسهایِ Mat/OpenCV)
             OpenCVUtils.init(context)
@@ -163,6 +178,15 @@ object PaddleOcrBridge {
             // انتخابِ زبانِ rec — تعویضِ داغِ سشن فقط وقتی واریانت عوض شود
             val (variantKey, variant) = variantFor(lang)
             if (variantKey != currentVariant) {
+                // v1.14.189 — واریانتِ زبانِ جدید اگر نبود، همینجا دانلود
+                // میشود (اگ نبود) — نه همه با هم
+                try {
+                    ctx?.let { OcrModelStore.ensure(it, listOf(variant.first, variant.second)) }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "variant download failed: $variantKey", t)
+                    return@synchronized arrayOf("ERR|ModelDownload|" +
+                            (t.message ?: "no message").replace("|", " "))
+                }
                 runBlocking {
                     eng.setLanguageVariant(variant.first, variant.second)
                 }

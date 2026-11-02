@@ -57,23 +57,23 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, v = ln.strip().partition("=")
         _v[k.strip()] = v.strip()
-    gate(_v.get("versionCode") == "193"
-         and _v.get("versionName") == "1.14.188",
-         "D: VERSION = 1.14.188 / versionCode=193 (مهاجرتِ 188)")
+    gate(_v.get("versionCode") == "194"
+         and _v.get("versionName") == "1.14.189",
+         "D: VERSION = 1.14.189 / versionCode=194 (مهاجرتِ 188)")
 except Exception as e:
     fail(f"D: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 193' in _gradle
-     and 'versionName = "1.14.188"' in _gradle,
-     "D: build.gradle.kts = 193 / 1.14.188 (مهاجرتِ 188)")
+gate('versionCode = 194' in _gradle
+     and 'versionName = "1.14.189"' in _gradle,
+     "D: build.gradle.kts = 194 / 1.14.189 (مهاجرتِ 188)")
 
 _manga = open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.188"' in _manga,
+gate('APP_VER = "1.14.189"' in _manga,
      "D: APP_VERِ manga.py = 1.14.188 (مهاجرتِ 188)")
 # رشتهٔ «روشِ استخراج» دیگر نسخهٔ هاردکد ندارد (با پیشوندِ v)
 gate("v1.14.185)%s" not in _manga
-     and "باندل (det=small + rec=MEDIUM — " in _manga
+     and "دانلودی (det=small + rec=MEDIUM — " in _manga
      and '"v%s)%s"' in _manga
      and "% (APP_VER, _ms_l))" in _manga,
      "D: رشتهٔ روشِ استخراج از APP_VER میخواند (دیگر کهنه نمیشود)")

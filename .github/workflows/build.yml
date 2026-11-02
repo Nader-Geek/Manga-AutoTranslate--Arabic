@@ -8,6 +8,13 @@ name: Build Android APK
 # می‌دهد که بلافاصله با نامِ مقصد کپی می‌شود.
 on:
   workflow_dispatch:
+    inputs:
+      # v1.14.189 — پیشفرض: بدونِ مدل (دانلودِ زمانِ اجرا از ریلیزِ
+      # models). «true» فقط برایِ تستِ خاصِ باندل.
+      bundle_ocr_models:
+        description: "Bundle OCR models into APK (default: no — runtime download)"
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -47,11 +54,14 @@ jobs:
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 
-      # v1.14.188 — مدلهایِ RapidOCR (PP-OCRv6): detِ small (همان PC) +
-      # recِ MEDIUM (دستورِ صریحِ سازنده: «مدل v6_medium استفاده کن») از
-      # ریلیزِ modelsِ خودمان + cls/ja/ko از ModelScopeِ رسمی — باندل در
-      # assetsِ APK؛ هیچ دانلودِ زمانِ اجرایی نیست
+      # v1.14.189 — APK دیگر مدلِ OCR باندل نمیکند (دستورِ سازنده:
+      # «onnx تو گوشی واسه استخراج با نصب نیاد … اپ بزار دانلود کنه اگ
+      # نبود … به حساب زبان انتخاب شده همون مدل دانلود کنه») — اپ در
+      # اولین استفاده فقط مدلهایِ زبانِ انتخابی را از ریلیزِ models
+      # دانلود میکند (OcrModelStore). این مرحله فقط با ورودیِ
+      # bundle_ocr_models=true (تستِ خاص) اجرا میشود.
       - name: Fetch RapidOCR models (PP-OCRv6 — det small + rec MEDIUM)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle_ocr_models }}
         run: |
           base="https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2"
           rel="https://github.com/amirwolf512k/Manga-AutoTranslate/releases/download/models"

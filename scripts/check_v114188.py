@@ -61,19 +61,19 @@ try:
     for ln in open("VERSION", encoding="utf-8"):
         k, _, val = ln.strip().partition("=")
         _v[k.strip()] = val.strip()
-    gate(_v.get("versionCode") == "193"
-         and _v.get("versionName") == "1.14.188",
-         "A: VERSION = 1.14.188 / versionCode=193")
+    gate(_v.get("versionCode") == "194"
+         and _v.get("versionName") == "1.14.189",
+         "A: VERSION = 1.14.189 / versionCode=194")
 except Exception as e:
     fail(f"A: VERSION خوانده نشد: {e}")
 
 _gradle = open("android/app/build.gradle.kts", encoding="utf-8").read()
-gate('versionCode = 193' in _gradle
-     and 'versionName = "1.14.188"' in _gradle,
-     "A: build.gradle.kts = 193 / 1.14.188")
+gate('versionCode = 194' in _gradle
+     and 'versionName = "1.14.189"' in _gradle,
+     "A: build.gradle.kts = 194 / 1.14.189")
 
 _manga = io.open("manga.py", encoding="utf-8").read()
-gate('APP_VER = "1.14.188"' in _manga, "A: APP_VERِ manga.py = 1.14.188")
+gate('APP_VER = "1.14.189"' in _manga, "A: APP_VERِ manga.py = 1.14.188")
 
 # ── B. manga.py ─────────────────────────────────────────────────────
 try:
@@ -99,14 +99,14 @@ if _tree is not None:
         if isinstance(n, ast.ClassDef) and n.name == "PaddleAndroidOCR":
             _cls = ast.get_source_segment(_manga, n) or ""
 for _frag in ("det=PP-OCRv6_small", "rec=PP-OCRv6_medium/",
-              "RapidOcrAndroidOnnx", "باندلِ APK",
+              "RapidOcrAndroidOnnx", "دانلودی — v1.14.189",
               "com.amirwolf.mangatranslator.PaddleOcrBridge"):
     if _frag not in _cls:
         fail(f"B2: PaddleAndroidOCR فاقدِ {_frag!r}")
 if "PP-OCRv4_mobile" in _cls:
     fail("B2: PaddleAndroidOCR هنوز رشتهٔ v4_mobile دارد")
 ok("B2: PaddleAndroidOCR = detِ v6_small + recِ v6_medium باندل")
-for _frag in ("PP-OCRv6ِ باندل (det=small + rec=MEDIUM — ",
+for _frag in ("PP-OCRv6ِ دانلودی (det=small + rec=MEDIUM — ",
               '_K3_MODES = ("padandroid",)'):
     if _frag not in _manga:
         fail(f"B2: پیام/نردبانِ اندروید فاقدِ {_frag!r}")
@@ -119,7 +119,7 @@ gate(_manga.count("def _line_is_foreign188(") == 1
 gate(_manga.count("_line_is_foreign188(") >= 3
      and _manga.count("_latin_junk_line188(") >= 3,
      "B3: هر دو فیلتر در حلقهٔ واریانت‌ها + نجاتِ لبه صدا زده میشوند")
-gate("if len(_keep188) != len(entries):" in _manga
+gate("if _fix188 or len(_keep188) != len(entries):" in _manga
      and '" ".join(e[0] for e in entries).strip()' in _manga,
      "B3: حذفِ خط → بازسازیِ txt/polys/conf همان واریانت")
 
