@@ -53,8 +53,12 @@ if not _m or not _vn or not _vc:
     fail("V: نسخه پیدا نشد")
 if _m.group(1) != _vn.group(1):
     fail("V: APP_VER(%s) != versionName(%s)" % (_m.group(1), _vn.group(1)))
-if _m.group(1) != "1.14.179":
-    fail("V: این چک مالِ 1.14.179 است (APP_VER=%s)" % _m.group(1))
+# v1.14.180 — گیتِ نسخه باز شد: رفتارِ ۱۷۹ در ۱۸۰ دستنخورده ماند
+# (فقط روشِ فعالِ پیشفرض در speed_lab_env فلاتر-پدل شد — خارجِ scopeِ
+# این چک که speed_test_run/کاشیهاست)
+_vt = tuple(int(x) for x in _m.group(1).split("."))
+if _vt < (1, 14, 179):
+    fail("V: این چک برایِ 1.14.179+ است (APP_VER=%s)" % _m.group(1))
 ok("V: نسخه %s / versionCode=%s" % (_m.group(1), _vc.group(1)))
 
 # ── ۱) فلاتر-پدل = روشِ ششم ──────────────────────────────────────

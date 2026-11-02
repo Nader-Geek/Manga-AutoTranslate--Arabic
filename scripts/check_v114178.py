@@ -283,14 +283,17 @@ g2 = {"os": os, "json": json,
       "speed_test_load": g["speed_test_load"], "print": print}
 exec(compile(sle, "sle", "exec"), g2)
 banner = g2["speed_lab_env"]({"ocr_ep": "nnapi"})  # کلیدهایِ کهنه باید بیاثر باشند
-assert "برندهٔ" in banner and d["ladder"] in banner, banner
-assert os.environ.get("MANGA_K3_MODE") == \
-    ("" if d["ladder"] == "full" else d["ladder"])
+# v1.14.180 — forceِ «فلاتر-پدل» (تستِ کیفیتِ نایبقهرمان): برندهٔ
+# ذخیرهشده فعلاً کنار میرود؛ نیتِ اصلی (فایل‌محور + کلیدهایِ کهنهٔ
+# بیاثر) سرِ جایش است
+assert "فلاتر-پدل" in banner and "flutter" in banner, banner
+assert os.environ.get("MANGA_K3_MODE") == "flutter"
 assert "MANGA_OCR_THREADS" not in os.environ, "کلیدِ کهنه پاک نشد"
-# بدونِ نتیجه → پیشفرض + پاکسازی
+# بدونِ نتیجه → v1.14.180: باز هم فلاتر-پدل (تستِ کیفیت)
 os.remove(stf)
 banner2 = g2["speed_lab_env"]({})
-assert "پیشفرض" in banner2 and "MANGA_K3_MODE" not in os.environ, banner2
+assert "فلاتر-پدل" in banner2 and \
+    os.environ.get("MANGA_K3_MODE") == "flutter", banner2
 print("E2E_OK", json.dumps({"ladder": d["ladder"], "ep": d["ep"]},
                            ensure_ascii=False))
 '''

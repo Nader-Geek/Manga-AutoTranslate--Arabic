@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.179"
+APP_VER = "1.14.180"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3755,6 +3755,13 @@ class K3LadderOCR:
         # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → مستقیمِ ONNX؛ ML Kit
         # فقط رویِ کراپ (دستورِ K3: «نه رو تمام صفحه»)
         if not crop_mode:
+            # v1.14.180 — در روشِ «فلاتر-پدل» پاسِ تمامصفحهٔ جانبی هم با
+            # موتورِ tiny میرود؛ mediumِ سنگین (~۱۳۰MB) بیدار نمیشود
+            if self._mode == "flutter":
+                eng = self._engine_tiny()
+                if eng is not None:
+                    return eng.ocr(image_bgr, crop_mode=False)
+                return self._mlkit.ocr(image_bgr)
             eng = self._engine(small=False)
             if eng is not None:
                 return eng.ocr(image_bgr, crop_mode=False)
@@ -3893,7 +3900,10 @@ def speed_lab_env(p: dict) -> str:
     تست کنه». حالا پنل فقط یک دکمهٔ «تستِ سرعت» دارد؛ برندهٔ تست در
     speed_test.json ذخیره میشود و همین تابع آن را رویِ envهایِ موتور
     اعمال میکند. بدونِ نتیجه = پیشفرض (full | auto) — بیت‌به‌بیتِ
-    قبلِ 176. پارامترِ p دیگر خوانده نمیشود (سازگاریِ امضا با bridge)."""
+    قبلِ 176. پارامترِ p دیگر خوانده نمیشود (سازگاریِ امضا با bridge).
+    v1.14.180 — موقتاً: روشِ «فلاتر-پدل» (نایبقهرمانِ تستِ ۱۷۹) رویِ
+    همهٔ کارها فعال است (تستِ کیفیتِ سازنده)؛ برندهٔ ذخیرهشده فقط برای
+    شتاب‌دهنده خوانده میشود و بعدِ تأییدِ کیفیت به mlkit برمیگردیم."""
     try:
         # کلیدهایِ قدیمیِ سوییچها هرگز از این نسخه ست نمیشوند — پاککاری
         # برایِ اینکه envِ ماندهٔ پروسههایِ قدیمی اثر نگذارد.
@@ -3913,10 +3923,16 @@ def speed_lab_env(p: dict) -> str:
             _lad = str(_w.get("ladder") or "full").strip().lower()
             if _lad not in _SPEED_LAB_LADDER:
                 _lad = "full"
-            if _lad == "full":
-                os.environ.pop("MANGA_K3_MODE", None)
-            else:
-                os.environ["MANGA_K3_MODE"] = _lad
+            # v1.14.180 — دستورِ سازنده: «یک چیزی قبل حذف کنی تست میخوام
+            # کنم بجز نسخهٔ ml kit کدومش سریعتر بود؟ اونو فعال کن ببینم
+            # متن هارو درست در میاره» → برندهٔ ذخیرهشده (mlkit) موقتاً
+            # کنار میرود؛ نایبقهرمانِ تستِ ۱۷۹ = «فلاتر-پدل» (PP-OCRv6
+            # tiny؛ ۳۸۵۵ms/کراپ بعد از ML Kitِ ۳۴۹ms) رویِ همهٔ کارها
+            # فعال میشود تا کیفیتِ استخراجش دیده شود. حذفِ مدلهایِ
+            # بازنده مالِ بعدِ تأییدِ کیفیت است — فعلاً هیچ مدلی حذف
+            # نشده. شتاب‌دهندهٔ ذخیرهشده (xnnpack) میماند.
+            _lad = "flutter"
+            os.environ["MANGA_K3_MODE"] = "flutter"
             _ms_l = ""
             try:
                 _lm = _w.get("ladder_ms") or {}
@@ -3926,9 +3942,11 @@ def speed_lab_env(p: dict) -> str:
             except Exception:
                 _ms_l = ""
         else:
-            _ep, _lad = "auto", "full"
+            _ep, _lad = "auto", "flutter"
             os.environ.pop("MANGA_MOBILE_OCR_EP", None)
-            os.environ.pop("MANGA_K3_MODE", None)
+            # v1.14.180 — حتی بدونِ نتیجهٔ ذخیرهشده، تستِ کیفیتِ
+            # فلاتر-پدل فعال میماند
+            os.environ["MANGA_K3_MODE"] = "flutter"
 
         # سنجههایِ سرعت = مالِ «این اجرا» — بینِ کارها ریست
         for _k in ("n", "ms", "st1", "st2", "st3"):
@@ -3938,10 +3956,12 @@ def speed_lab_env(p: dict) -> str:
 
         if _w:
             return ("[⚡] تنظیمِ برندهٔ «تستِ سرعت»: روشِ %s (%s) + شتاب‌دهندهٔ %s%s"
-                    % (_K3_MODE_FA.get(_lad, _lad), _lad, _ep, _ms_l))
-        return ("[⚡] روشِ استخراج: پیشفرض (full | شتاب‌دهندهٔ auto) — "
-                "سریعترین حالت را «تستِ سرعت» خودش پیدا میکند: پنل ← "
-                "⚡ تستِ سرعت (هر حالت ۶۰ ثانیه)")
+                    % (_K3_MODE_FA.get(_lad, _lad), _lad, _ep, _ms_l)
+                    + " | v1.14.180 = تستِ کیفیتِ نایبقهرمان — مدلها هنوز "
+                      "حذف نشدهاند؛ بعدِ تأییدِ شما حذف میشوند")
+        return ("[⚡] روشِ استخراج: فلاتر-پدل (flutter؛ tiny) — تستِ کیفیتِ "
+                "نایبقهرمانِ «تستِ سرعت» (v1.14.180؛ مدلها هنوز حذف "
+                "نشدهاند)")
     except Exception:
         return ""
 

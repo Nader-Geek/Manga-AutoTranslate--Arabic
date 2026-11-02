@@ -83,7 +83,8 @@ for s in ('_K3_MODES = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           '_SPEED_LAB_EP = ("auto", "nnapi", "xnnpack", "cpu")',
           '_SPEED_LAB_LADDER = ("full", "fast", "mlkit", "rapid", "paddle", "flutter")',
           'os.environ["MANGA_K3_MODE"]',
-          'os.environ.pop("MANGA_K3_MODE", None)',
+          # v1.14.180 — forceِ «فلاتر-پدل» (تستِ کیفیت) جای popِ قدیمی را گرفت
+          'os.environ["MANGA_K3_MODE"] = "flutter"',
           '_SPEED_TEST_FILE = "speed_test.json"',
           'def speed_test_run(',
           'speed_test_load()'):
@@ -207,40 +208,46 @@ def sc_env(name, data, checks):
     return line
 
 
+# v1.14.180 — در این نسخه speed_lab_env «فلاتر-پدل» را رویِ همهٔ کارها
+# force میکند (تستِ کیفیتِ نایبقهرمان — دستورِ سازنده)؛ قراردادهایِ
+# EP/کلیدهایِ کهنه سرِ جایشان هستند.
 sc_env("E1 بدونِ نتیجه", None, [
     ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("نردبان پاک", lambda: "MANGA_K3_MODE" not in os.environ),
+    ("MODE=flutter", lambda: os.environ.get("MANGA_K3_MODE") == "flutter"),
     ("نخ پاک", lambda: "MANGA_OCR_THREADS" not in os.environ),
     ("سقف پاک", lambda: "MANGA_CROP_DET_CAP" not in os.environ),
     ("بزرگنمایی پاک", lambda: "MANGA_CROP_ENH_SCALE" not in os.environ),
 ])
 _l1 = speed_lab_env({})
-for frag in ("پیشفرض", "full", "auto", "تستِ سرعت"):
+for frag in ("فلاتر-پدل", "flutter", "تستِ کیفیتِ نایبقهرمان"):
     if frag not in _l1:
         fail(f"E1 خطِ لاگ باید {frag!r} داشته باشد: {_l1}")
-ok("E1 بدونِ نتیجه = پیشفرض (full|auto) + پاکسازیِ کلیدهایِ کهنه")
+ok("E1 بدونِ نتیجه = فلاتر-پدل (forceِ 180) + پاکسازیِ کلیدهایِ کهنه")
 
 sc_env("E2 برندهٔ fast+nnapi",
        {"ladder": "fast", "ep": "nnapi", "ladder_ms": {"fast": 123}},
        [("EP=nnapi", lambda: os.environ.get("MANGA_MOBILE_OCR_EP") == "nnapi"),
-        ("MODE=fast", lambda: os.environ.get("MANGA_K3_MODE") == "fast")])
+        ("MODE=flutter (forceِ 180)",
+         lambda: os.environ.get("MANGA_K3_MODE") == "flutter")])
 _l2 = speed_lab_env({})
-for frag in ("برندهٔ", "fast", "nnapi", "123ms"):
+for frag in ("برندهٔ", "فلاتر-پدل", "flutter", "nnapi"):
     if frag not in _l2:
         fail(f"E2 خطِ برنده باید {frag!r} داشته باشد: {_l2}")
-ok("E2 برندهٔ فایل → env + خطِ برنده")
+ok("E2 برندهٔ فایل → EP + روشِ فلاتر-پدل (forceِ 180)")
 
 sc_env("E3 برندهٔ full+auto", {"ladder": "full", "ep": "auto"}, [
     ("EP پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("نردبان پاک", lambda: "MANGA_K3_MODE" not in os.environ),
+    ("MODE=flutter (forceِ 180)",
+     lambda: os.environ.get("MANGA_K3_MODE") == "flutter"),
 ])
-ok("E3 full/auto = پاکسازیِ env (بیت‌به‌بیتِ پیشفرض)")
+ok("E3 full/auto = EP پاک + فلاتر-پدل (forceِ 180)")
 
 sc_env("E4 نامعتبر", {"ladder": "weird", "ep": "nope"}, [
     ("EP→پاک", lambda: "MANGA_MOBILE_OCR_EP" not in os.environ),
-    ("MODE→پاک", lambda: "MANGA_K3_MODE" not in os.environ),
+    ("MODE=flutter (forceِ 180)",
+     lambda: os.environ.get("MANGA_K3_MODE") == "flutter"),
 ])
-ok("E4 مقدارهایِ نامعتبر → فالبکِ امن (full|auto)")
+ok("E4 مقدارهایِ نامعتبر → EPِ امن + فلاتر-پدل (forceِ 180)")
 
 # E5 کلیدهایِ کهنهٔ سوییچهایِ 176/177 نباید زنده بمانند
 os.environ["MANGA_OCR_THREADS"] = "8"
@@ -272,7 +279,8 @@ _r = k3_report()
 for frag in ("40 کراپ", "20000ms", "ML Kit=20", "پدل=15", "رپید=5"):
     if frag not in _r:
         fail(f"گزارشِ سرعت باید {frag!r} داشته باشد: {_r}")
-if "روش=full" not in _r:
+# v1.14.180 — روشِ فعلی = فلاتر-پدل (forceِ تستِ کیفیتِ سازنده)
+if "روش=flutter" not in _r:
     fail("گزارش باید روشِ فعلی را بگوید: " + _r)
 ok("گزارشِ سرعت: میانگین/پلهها/روش — فرمتِ درست")
 
