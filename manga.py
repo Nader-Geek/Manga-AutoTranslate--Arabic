@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.200"
+APP_VER = "1.14.201"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -20266,6 +20266,36 @@ class MangaTranslator:
                           f"نشد — خروجیِ فعلی ماند", flush=True)
                 except Exception:
                     pass
+            # v1.14.201 — «ماندنِ خروجیِ فعلی» یعنی نصفه‌پاک‌شده بماند:
+            # تکهٔ جوهرِ نصفه‌محوشده رویِ هنر/حباب (لاگِ فصلِ ۱۱۰:
+            # crop@(466,4504) و crop@(205,6117) و crop@(405,508)) —
+            # قاعدهٔ قطعیِ کاربر: «هیچ لکه/لاجی نباید بماند». هر مرحلهٔ
+            # ترمیم رد شد → پیکسلِ اورجینالِ همان ناحیه برمیگردد
+            # (حباب/هنر سالمِ قبل از پاکسازی)؛ قفلِ نوارِ کامپوز در
+            # _blend برقرار است، بیرونِ نوار هرگز نوشته نمیشود.
+            try:
+                _a201 = cv2.GaussianBlur(m, (5, 5), 1.0)
+                _a201 = np.minimum(_a201, m)
+                _o201 = orig.astype(np.float32)
+                _d201 = out.astype(np.float32)
+                _a3 = (_a201.astype(np.float32) / 255.0)[..., None]
+                _b201 = _d201 * (1.0 - _a3) + _o201 * _a3
+                if limit is not None:
+                    _limB = limit[Y0:Y1, X0:X1]
+                    if _limB.shape == _b201.shape[:2]:
+                        _b201 = np.where((_limB > 0)[..., None],
+                                         _b201,
+                                         out.astype(np.float32))
+                cleaned[Y0:Y1, X0:X1] = _b201.astype(np.uint8)
+                if self.debug:
+                    try:
+                        print(f"  [↺201] بازگردانیِ اورجینال در "
+                              f"crop@({cx0},{cy0}) — ترمیمِ ناتمام به "
+                              f"جایِ لکه نماند", flush=True)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
         except Exception:
             return
 
@@ -22671,7 +22701,17 @@ class MangaTranslator:
                         _t2149 = " ".join(_txts149).strip()
                 except Exception:
                     pass
-            if _t2149:
+            # v1.14.201 — نجاتِ بی‌جا ممنوع: «۹۹»، «年»، «/»، «三弄» و
+            # امثالِ آن نویزِ OCR رویِ افکتِ صوتیِ کره‌ای/هنر است نه متنِ
+            # نجاتیده — اگر پذیرفته شود به مترجم میرود و ترجمهٔ آشغالِ
+            # فارسی رویِ همان ناحیه مینشیند (لاگِ فصلِ ۱۱۰: حباب با
+            # «تو کی هستی؟! جایزه‌ای؟ من!»). نجات فقط با حداقلِ ۲ حرفِ
+            # لاتین و برتریِ حرف بر نویز پذیرفته میشود؛ باقی ocr_empty
+            # میماند (متنِ اصلی سرِ جایش — پاک نشد به همان قاعدهٔ ۱۴۹).
+            _lt201 = sum(1 for _c201 in _t2149
+                         if _c201.isascii() and _c201.isalpha())
+            if _t2149 and _lt201 >= 2 and \
+                    _lt201 * 2 >= len(_t2149.replace(" ", "")):
                 _r149.source_text = _t2149
                 if _p2149:
                     _r149.ocr_polys = _p2149
@@ -22679,6 +22719,12 @@ class MangaTranslator:
                 _resc += 1
                 try:
                     print(f"    [+] نجاتِ OCR ناحیه {_r149.id}: {_t2149[:48]!r}")
+                except Exception:
+                    pass
+            elif _t2149 and self.debug:
+                try:
+                    print(f"    [🔍201] نجاتِ ناحیه {_r149.id} رد شد "
+                          f"(نویز، نه متن): {_t2149[:32]!r}")
                 except Exception:
                     pass
         if _resc:
@@ -28583,6 +28629,15 @@ html, body { background: #0a0a0b; }
             except Exception as e:
                 print(f"    [!] پاکسازیِ صفحهٔ {_p + 1} ناموفق: "
                       f"{str(e)[:120]}")
+                # v1.14.201 — با دیباگ، ردِ کاملِ خطا هم در لاگ می‌نشیند
+                # تا «operands could not be broadcast» مانندِ فصلِ ۱۱۰
+                # بدونِ حدس از لاگِ سازنده پیدا شود.
+                if getattr(self, "debug", False):
+                    try:
+                        import traceback as _tb201
+                        _tb201.print_exc()
+                    except Exception:
+                        pass
 
         def _clean_done_mark(_p: int) -> None:
             _ev = clean_done_ev.get(_p)
