@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.203"
+APP_VER = "1.14.204"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3356,6 +3356,74 @@ def _line_is_foreign188(bb, block_rects, own_area: float) -> bool:
         except Exception:
             continue
     return False
+
+
+def _clamp_lines_to_det204(res, box, block_rects=None, tol: float = 10.0):
+    """v1.14.204 — استخراج نباید از باکسِ detector بیرون بزند (دستورِ
+    سازنده: «وقتی detector متن در اورد نباید استخراج از اون بیشتر بگیره —
+    الان میشه دید کل سه حباب گرفته»). دو قاعدهٔ مالکیتِ خط:
+      ۱) مرکزِ خط داخلِ باکسِ detectorِ خودِ ناحیه نیست → مالِ این ناحیه
+         نیست (کراپِ گسترشیافتهٔ متنِ کج تا ۱۲۰px خطِ مجاور را میخواند؛
+         فیلترِ ۱۸۸ فقط «همسایهٔ کوچکتر» را حذف میکند — خطِ همسایهٔ
+         بزرگتر مثلِ تایتلِ کجِ کاغذ در ناحیهٔ حبابِ کوچک میماند →
+         گسترشِ angle مستطیل را منفجر میکند و mergeِ همپوشانی سه حباب
+         را یکجا میگیرد).
+      ۲) اگر مرکزِ خط داخلِ باکسِ «کوچکتری» از همسایهها هم هست، خط مالِ
+         همان است — دوباره‌پردازیِ deskewِ _ocr_crop از فیلترِ ۱۸۸ رد
+         میشود و ناحیهٔ بزرگ (تایتل) خطِ حبابهایِ کوچکِ داخلِ باکسش را
+         نگه میدارد → باز همان انفجارِ مستطیل. این قفل بعد ازِ خروجیِ
+         نهاییِ _ocr_crop اجرا میشود → همهٔ مسیرها پوشش داده میشوند.
+    خط/متن/زاویه/بلوکِ همترازِ خطِ حذفشده با هم میروند."""
+    try:
+        txt, polys, angs, texts, blks = res
+        if not polys or not box or len(box) < 4:
+            return res
+        if not (len(polys) == len(texts) == len(angs) == len(blks)):
+            return res  # ساختارِ غیرمنتظره — دستنخورده (فیلترِ ۱۸۸ پوشش میدهد)
+        bx1, by1, bx2, by2 = [float(v) for v in box[:4]]
+        own_area = max(1.0, (bx2 - bx1) * (by2 - by1))
+        _others = []
+        for _r in (block_rects or []):
+            try:
+                ox1, oy1, ox2, oy2 = [float(v) for v in _r[:4]]
+                if ox2 - ox1 > 1.0 and oy2 - oy1 > 1.0:
+                    _others.append((ox1, oy1, ox2, oy2,
+                                    (ox2 - ox1) * (oy2 - oy1)))
+            except Exception:
+                continue
+        keep = []
+        for p in polys:
+            try:
+                pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                cx = float(pp[:, 0].mean())
+                cy = float(pp[:, 1].mean())
+            except Exception:
+                keep.append(True)
+                continue
+            if not ((bx1 - tol) <= cx <= (bx2 + tol)
+                    and (by1 - tol) <= cy <= (by2 + tol)):
+                keep.append(False)  # قاعدهٔ ۱ — بیرونِ باکسِ خودِ ناحیه
+                continue
+            _stolen = False
+            for (ox1, oy1, ox2, oy2, oa) in _others:
+                if oa >= own_area:
+                    continue  # فقط همسایهٔ کوچکتر مالکیت را میگیرد
+                if ((ox1 - tol) <= cx <= (ox2 + tol)
+                        and (oy1 - tol) <= cy <= (oy2 + tol)):
+                    _stolen = True
+                    break
+            keep.append(not _stolen)  # قاعدهٔ ۲ — مالِ کوچکترین باکس
+        if all(keep):
+            return res
+        _txt = " ".join(str(texts[i] or "").strip()
+                        for i in range(len(polys)) if keep[i]).strip()
+        return (_txt,
+                [polys[i] for i in range(len(polys)) if keep[i]],
+                [angs[i] for i in range(len(angs)) if keep[i]],
+                [texts[i] for i in range(len(texts)) if keep[i]],
+                [blks[i] for i in range(len(blks)) if keep[i]])
+    except Exception:
+        return res
 
 
 def _latin_junk_line188(text) -> bool:
@@ -24148,6 +24216,25 @@ class MangaTranslator:
             ai = area(inner)
             return inter / float(ai) if ai > 0 else 0.0
 
+        # v1.14.204 — درِ باکسِ detector: mergeِ دو ناحیه فقط وقتی مجاز
+        # است که باکسهایِ detectorِ خودشان همپوشانی دارند — نه مستطیلِ
+        # گسترشیافتهٔ angle. دستورِ سازنده: «وقتی detector متن در اورد
+        # نباید استخراج از اون بیشتر بگیره — الان میشه دید کل سه حباب
+        # گرفته» — detector سه حباب/تایتلِ کج را جدا داده بود؛ ادغامِ
+        # مستطیلیِ همپوشانیِ گسترشیافته آنها را یکجا میگرفت.
+        def _det_box204(r):
+            try:
+                bs = getattr(r, "boxes", None) or []
+                if not bs:
+                    return None
+                p = np.asarray(bs[0], dtype=np.float32).reshape(-1, 2)
+                if p.size < 8:
+                    return None
+                return [float(p[:, 0].min()), float(p[:, 1].min()),
+                        float(p[:, 0].max()), float(p[:, 1].max())]
+            except Exception:
+                return None
+
 
         ordered = sorted(
             regions,
@@ -24163,6 +24250,7 @@ class MangaTranslator:
             cur = a
             used[i] = True
             ca = rect_xyxy(cur)
+            _cur_det204 = [d for d in [_det_box204(cur)] if d]
             changed = True
             while changed:
                 changed = False
@@ -24170,6 +24258,16 @@ class MangaTranslator:
                     if used[j]:
                         continue
                     cb = rect_xyxy(b)
+                    _db204 = _det_box204(b)
+                    if _cur_det204 and _db204:
+                        if not any(
+                                iou(cd, _db204) >= iou_thresh
+                                or contain_ratio(_db204, cd) >= contain_thresh
+                                or contain_ratio(cd, _db204) >= contain_thresh
+                                for cd in _cur_det204):
+                            # v1.14.204 — باکسِ detectorِ جدا = متنِ جدا؛
+                            # مستطیلِ گسترشیافته حقِ جذبِ همسایه را ندارد
+                            continue
                     ov = iou(ca, cb)
                     cont_ab = contain_ratio(cb, ca)
                     cont_ba = contain_ratio(ca, cb)
@@ -24220,6 +24318,8 @@ class MangaTranslator:
                         + list(getattr(b, "ocr_polys", None) or []),
                     )
                     ca = [nx0, ny0, nx1, ny1]
+                    if _db204 is not None:
+                        _cur_det204.append(_db204)
                     used[j] = True
                     n_merged += 1
                     changed = True
@@ -24714,6 +24814,18 @@ class MangaTranslator:
             else:
                 ocr_results = [_ocr_one90(k) for k in range(len(cand))]
 
+        # v1.14.204 — خطِ بیرونِ باکسِ detector مالِ این ناحیه نیست
+        # (توضیحِ کامل در helper) — هر ناحیه فقط متنِ داخلِ باکسِ خودش
+        # را میگیرد؛ دیگر تایتلِ کجِ مجاور داخلِ حبابِ کوچک نمیآید و
+        # ناحیهٔ بزرگ هم خطِ حبابهایِ کوچکِ داخلِ باکسش را برنمیدارد
+        # (مسیرِ deskewِ _ocr_crop از فیلترِ ۱۸۸ رد میشود — اینجا
+        # بعد ازِ خروجیِ نهایی پوشش داده میشود).
+        for _k204 in range(len(cand)):
+            _t204 = cand[_k204]
+            ocr_results[_k204] = _clamp_lines_to_det204(
+                ocr_results[_k204], (_t204[2], _t204[3], _t204[4], _t204[5]),
+                _all_rects90)
+
         if split_groups:
             for idxs, full_rect in split_groups:
                 try:
@@ -24726,12 +24838,16 @@ class MangaTranslator:
                 if any_text:
                     continue
                 full_txt, full_polys, full_angs, _full_lts, _full_blks = \
-                    self._ocr_crop(
-                        image, full_rect,
-                        block_rects=[(cand[j][2], cand[j][3], cand[j][4],
-                                      cand[j][5])
-                                     for j in range(len(cand))
-                                     if j not in idxs])
+                    _clamp_lines_to_det204(
+                        self._ocr_crop(
+                            image, full_rect,
+                            block_rects=[(cand[j][2], cand[j][3], cand[j][4],
+                                          cand[j][5])
+                                         for j in range(len(cand))
+                                         if j not in idxs]),
+                        full_rect,
+                        [(cand[j][2], cand[j][3], cand[j][4], cand[j][5])
+                         for j in range(len(cand)) if j not in idxs])  # v1.14.204
                 if not str(full_txt or "").strip():
                     continue
                 if self.debug:
@@ -24932,7 +25048,34 @@ class MangaTranslator:
             rx1, ry1, rw_, rh_ = x1, y1, bw, bh
             if line_polys and abs(ang_) >= 8.0:
                 try:
-                    pts = np.concatenate([np.asarray(p).reshape(-1, 2) for p in line_polys])
+                    # v1.14.204 — فقط خطهایی که بیشترشان داخلِ باکسِ detector
+                    # اند در گسترشِ مستطیل شرکت میکنند؛ خطِ ترکیبیِ عابر
+                    # (تکهٔ حبابِ مجاور چسبیده به تایتلِ کج) نباید مستطیلِ
+                    # ناحیه را تا رویِ حبابِ مجاور بکشد (همان «کلِ سه حباب
+                    # گرفته») — خودِ خط برایِ ترجمه/پاکسازی میماند.
+                    _rx_pts204 = []
+                    for _p204 in line_polys:
+                        try:
+                            _pp204 = np.asarray(_p204,
+                                                dtype=np.float32).reshape(-1, 2)
+                            _qx1 = float(_pp204[:, 0].min())
+                            _qy1 = float(_pp204[:, 1].min())
+                            _qx2 = float(_pp204[:, 0].max())
+                            _qy2 = float(_pp204[:, 1].max())
+                            _qa204 = max(1.0, (_qx2 - _qx1) * (_qy2 - _qy1))
+                            _ix204 = max(0.0, min(_qx2, float(x2))
+                                         - max(_qx1, float(x1)))
+                            _iy204 = max(0.0, min(_qy2, float(y2))
+                                         - max(_qy1, float(y1)))
+                            if (_ix204 * _iy204) / _qa204 >= 0.60:
+                                _rx_pts204.append(_pp204)
+                        except Exception:
+                            _rx_pts204.append(
+                                np.asarray(_p204).reshape(-1, 2))
+                    if not _rx_pts204:
+                        _rx_pts204 = [np.asarray(p).reshape(-1, 2)
+                                      for p in line_polys]
+                    pts = np.concatenate(_rx_pts204)
                     px1, py1 = int(pts[:, 0].min()), int(pts[:, 1].min())
                     px2, py2 = int(pts[:, 0].max()) + 1, int(pts[:, 1].max()) + 1
                     rx1, ry1 = min(rx1, px1), min(ry1, py1)
