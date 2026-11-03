@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.202"
+APP_VER = "1.14.203"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -26733,15 +26733,42 @@ class MangaTranslator:
         else:
             print(f"    [*] ترتیب HTML حفظ شد ({len(img_urls)} تصویر، بدون شماره ترتیبی).")
 
-        saved = []
-        for img_url in img_urls:
+        # v1.14.203 — دانلودِ موازیِ صفحات (~۸۹ثانیه → چندثانیه): علتِ کندی،
+        # دانلودِ پشتسرهم با هندشیکِ TLSِ جدا برایِ هر صفحه بود. حالا یک
+        # سشنِ مشترک (اتصالِ HTTPS نگه‌داشته‌شده) + ۶ کارگرِ همزمان
+        # (MANGA_DL_WORKERS). ترتیبِ ذخیره = دقیقاً ترتیبِ صفحات؛ فایلها در
+        # نخِ اصلی نوشته میشوند و دانلودِ ناموفق مثلِ قبل فقط رد میشود.
+        _sess = requests.Session()
+        try:
+            _ad = requests.adapters.HTTPAdapter(
+                pool_connections=8, pool_maxsize=8, max_retries=1)
+            _sess.mount("https://", _ad)
+            _sess.mount("http://", _ad)
+        except Exception:
+            pass
+
+        def _fetch_page(_u: str) -> Optional[bytes]:
             try:
-                r = requests.get(img_url, headers=headers, timeout=60)
-                r.raise_for_status()
+                _r = _sess.get(_u, headers=headers, timeout=60)
+                if _r.status_code != 200:
+                    print(f"    [!] رد شد ({_u[:90]}…): HTTP {_r.status_code}")
+                    return None
+                return _r.content
             except Exception as e:
-                print(f"    [!] رد شد ({img_url[:90]}…): {e}")
+                print(f"    [!] رد شد ({_u[:90]}…): {e}")
+                return None
+
+        _dl_workers = max(2, min(
+            8, len(img_urls),
+            int(os.environ.get("MANGA_DL_WORKERS") or 6)))
+        _dl_contents: List[Optional[bytes]] = []
+        with ThreadPoolExecutor(max_workers=_dl_workers) as _dex:
+            _dl_contents = list(_dex.map(_fetch_page, img_urls))
+        saved = []
+        for img_url, _content in zip(img_urls, _dl_contents):
+            if not _content:
                 continue
-            path = _save_bytes(r.content, len(saved) + 1, img_url)
+            path = _save_bytes(_content, len(saved) + 1, img_url)
             if path:
                 saved.append(path)
 
@@ -27300,8 +27327,12 @@ html, body { background: #0a0a0b; }
             return None
         try:
             ih, iw = strip.shape[:2]
-            clearance = max(40, int(round(iw * 0.05)))
-            edge_margin = max(50, int(round(iw * 0.06)))
+            # v1.14.203 — برشِ نزدیکِ متن مجاز است (دستورِ سازنده: «نزدیکِ
+            # متن ببرع اشکال نداره فقط نباید متن ببرع حبابو») — حاشیهٔ دورِ
+            # باکسها کوچک شد؛ مرزِ ممنوع همچنان خودِ باکسِ detector-v4-s
+            # است پس متن/حباب هرگز بریده نمیشود.
+            clearance = max(12, int(round(iw * 0.02)))
+            edge_margin = max(14, int(round(iw * 0.02)))
             y0 = max(int(min_y), int(target_y) - int(search_radius),
                      clearance + edge_margin)
             y1 = min(int(max_y), int(target_y) + int(search_radius),
@@ -27340,7 +27371,8 @@ html, body { background: #0a0a0b; }
             # نقطهٔ هدف (وسطِ باند) خودش بی‌متن است؟ → همیشه بهترین برش
             if y0 <= int(target_y) <= y1 and not _hit_text(int(target_y)):
                 return int(target_y)
-            pad = max(35, int(round(iw * 0.04)))
+            # v1.14.203 — حداقلِ فاصلهٔ برش تا متن کوچک شد (کرانِ نزدیکِ متن)
+            pad = max(14, int(round(iw * 0.015)))
             cands: List[int] = []
             if merged:
                 first_top = merged[0][0] - pad
@@ -27492,7 +27524,8 @@ html, body { background: #0a0a0b; }
                 tail, head = first[-context:], second[:context]
                 preview = np.vstack([tail, head])
                 seam_y = len(tail)
-                padding = max(40, int(round(seam_w * 0.05)))
+                # v1.14.203 — حاشیهٔ دورِ باکسها کوچک (برشِ نزدیکِ متن مجاز)
+                padding = max(14, int(round(seam_w * 0.02)))
                 try:
                     # v1.14.163 — مرزِ صفحهٔ اول هم فقط با detector-v4-s
                     protected = [
@@ -27698,81 +27731,91 @@ html, body { background: #0a0a0b; }
             strip = _stack_pages(current_pages)
             ih = int(strip.shape[0])
             protected = list(current_protected)
-            padding = max(40, int(round(target_w * 0.05)))
-            if ih >= work_h + min_strip:
+            # v1.14.203 — برشِ نزدیکِ متن مجاز است؛ حاشیهٔ دورِ باکسها کوچک شد
+            padding = max(14, int(round(target_w * 0.02)))
 
+            # v1.14.30: پرش از پنجره‌های خالی (کاغذ سفید) + تشخیص موازی +
+            # fast-mode (بدون پاس دوم multi_scale) — برش امن چند برابر سریع‌تر.
+            def _scan_window(_top: int, _limit: int) -> List[Tuple[int, int]]:
+                _bottom = min(_limit, _top + 1680)
+                # ── v1.14.31: خواندن از کش دوطرفه (اگر صفحه‌ها کش شدند) ──
+                try:
+                    if _page_spans and _pre_threads:
+                        _ih_now = int(strip.shape[0])
+                        _end_cur = _life[0] - _life[1]
+                        _out_c: List[Tuple[int, int]] = []
+                        _have_all = True
+                        for _j in range(len(_page_spans)):
+                            _pid, _y0 = _page_spans[_j]
+                            _seg_a = _y0 - _life[1]
+                            _y0n = _page_spans[_j + 1][1] \
+                                if _j + 1 < len(_page_spans) else _life[0]
+                            _seg_b = _y0n - _life[1]
+                            if _seg_b <= _top or _seg_a >= _bottom:
+                                continue
+                            if not _pre_wait(_pid):
+                                _have_all = False
+                                break
+                            with _pre_lock:
+                                _ent = _pre_boxes.get(_pid)
+                            if _ent is None or _ent[0] <= 0:
+                                _have_all = False
+                                break
+                            _pw, _bx, _blank = _ent
+                            if _blank:
+                                continue
+                            _sc = target_w / _pw
+                            _base = _seg_a
+                            for (_by1, _by2) in _bx:
+                                _sy1 = _base + int(_by1 * _sc)
+                                _sy2 = _base + int(_by2 * _sc)
+                                if _sy2 < _top or _sy1 > _bottom:
+                                    continue
+                                _out_c.append((_sy1, _sy2))
+                        if _have_all:
+                            return [(_sy1 - padding, _sy2 + padding)
+                                    for (_sy1, _sy2) in _out_c]
+                except Exception:
+                    pass
+                _win = strip[_top:_bottom]
+                try:
+                    _g = (cv2.cvtColor(_win, cv2.COLOR_BGR2GRAY)
+                          if _win.ndim == 3 else _win)
+                    if int(_g.min()) >= 205:
+                        return []  # پنجرهٔ کاملاً خالی — حباب/متنی ندارد
+                except Exception:
+                    pass
+                _out: List[Tuple[int, int]] = []
+                # v1.14.163 — پنجره‌هایِ اسکنِ برشِ امن فقط با detector-v4-s
+                try:
+                    for box in self.det.detect(_win, fast=True):
+                        _, y1, _, y2 = box["rect"]
+                        _out.append((_top + y1 - padding, _top + y2 + padding))
+                except Exception as exc:
+                    raise RuntimeError("تشخیص detector-v4-s برای برش امن ناموفق بود؛ "
+                                       "برش اجباری انجام نشد.") from exc
+                return _out
 
-                # v1.14.30: اسکن فقط تا دورنمای کاندیدهای برش (نه کل نوار) +
-                # پرش از پنجره‌های خالی (کاغذ سفید) + تشخیص موازی + fast-mode
-                # (بدون پاس دوم multi_scale) — برش امن چند برابر سریع‌تر.
-                _max_cut_probe = ih - max(min_strip, lookahead if not final else 0)
-                scan_limit = (ih if final
-                              else max(scan_from, min(ih, _max_cut_probe + 480)))
-                _win_starts = list(range(max(0, scan_from - 520), scan_limit, 1160))
-                if _win_starts and _win_starts[-1] + 1680 < scan_limit:
+            # v1.14.203 — اسکنِ «فقطِ باندِ برش» (دستورِ سازنده: «فقط ببین
+            # ۷۰۰۰ تا ۸۰۰۰ بخونه» + «برش امن ک دفعه اول انجام میده سریعتر
+            # باشه»): قبلاً قبلِ اولین برش کلِ نوار تا سقفِ کاندیدهایِ برش
+            # اسکن میشد (برایِ نوارِ ~۲۰هزارpx = ~۱۴ پنجرهٔ detector)؛ حالا
+            # فقط پنجرههایِ همان باندِ ۷۰۰۰–۸۰۰۰ (۱–۲ پنجره، بیشترشان از
+            # کشِ دوطرفه) — اولین برش چندبرابر سریعتر. باکسهایِ بیرونِ باند
+            # را خودِ _find_safe_cut_y_smart زنده پیدا میکند؛ امنیتِ برش
+            # دستنخورده میماند.
+            def _scan_band(_band_top: int, _band_bot: int) -> None:
+                nonlocal scan_from
+                _s_lo = max(0, _band_top - 520)
+                _s_hi = min(ih, _band_bot + 480)
+                if _s_hi <= scan_from or _s_hi - _s_lo < 100:
+                    return
+                _win_starts = list(range(max(scan_from - 520, _s_lo), _s_hi, 1160))
+                if not _win_starts:
+                    return
+                if _win_starts[-1] + 1680 < _s_hi:
                     _win_starts.append(max(_win_starts[-1] + 1160,
-                                           scan_limit - 1680))
-
-                def _scan_window(_top: int) -> List[Tuple[int, int]]:
-                    _bottom = min(scan_limit, _top + 1680)
-                    # ── v1.14.31: خواندن از کش دوطرفه (اگر صفحه‌ها کش شدند) ──
-                    try:
-                        if _page_spans and _pre_threads:
-                            _ih_now = int(strip.shape[0])
-                            _end_cur = _life[0] - _life[1]
-                            _out_c: List[Tuple[int, int]] = []
-                            _have_all = True
-                            for _j in range(len(_page_spans)):
-                                _pid, _y0 = _page_spans[_j]
-                                _seg_a = _y0 - _life[1]
-                                _y0n = _page_spans[_j + 1][1] \
-                                    if _j + 1 < len(_page_spans) else _life[0]
-                                _seg_b = _y0n - _life[1]
-                                if _seg_b <= _top or _seg_a >= _bottom:
-                                    continue
-                                if not _pre_wait(_pid):
-                                    _have_all = False
-                                    break
-                                with _pre_lock:
-                                    _ent = _pre_boxes.get(_pid)
-                                if _ent is None or _ent[0] <= 0:
-                                    _have_all = False
-                                    break
-                                _pw, _bx, _blank = _ent
-                                if _blank:
-                                    continue
-                                _sc = target_w / _pw
-                                _base = _seg_a
-                                for (_by1, _by2) in _bx:
-                                    _sy1 = _base + int(_by1 * _sc)
-                                    _sy2 = _base + int(_by2 * _sc)
-                                    if _sy2 < _top or _sy1 > _bottom:
-                                        continue
-                                    _out_c.append((_sy1, _sy2))
-                            if _have_all:
-                                return [(_sy1 - padding, _sy2 + padding)
-                                        for (_sy1, _sy2) in _out_c]
-                    except Exception:
-                        pass
-                    _win = strip[_top:_bottom]
-                    try:
-                        _g = (cv2.cvtColor(_win, cv2.COLOR_BGR2GRAY)
-                              if _win.ndim == 3 else _win)
-                        if int(_g.min()) >= 205:
-                            return []  # پنجرهٔ کاملاً خالی — حباب/متنی ندارد
-                    except Exception:
-                        pass
-                    _out: List[Tuple[int, int]] = []
-                    # v1.14.163 — پنجره‌هایِ اسکنِ برشِ امن فقط با detector-v4-s
-                    try:
-                        for box in self.det.detect(_win, fast=True):
-                            _, y1, _, y2 = box["rect"]
-                            _out.append((_top + y1 - padding, _top + y2 + padding))
-                    except Exception as exc:
-                        raise RuntimeError("تشخیص detector-v4-s برای برش امن ناموفق بود؛ "
-                                           "برش اجباری انجام نشد.") from exc
-                    return _out
-
+                                           _s_hi - 1680))
                 _scan_tw = 1
                 try:
                     if len(_win_starts) > 1:
@@ -27783,12 +27826,13 @@ html, body { background: #0a0a0b; }
                 _scan_tw = max(1, min(_scan_tw, len(_win_starts)))
                 if _scan_tw > 1:
                     with ThreadPoolExecutor(max_workers=_scan_tw) as _sex:
-                        for _res in _sex.map(_scan_window, _win_starts):
+                        for _res in _sex.map(
+                                lambda _t: _scan_window(_t, _s_hi), _win_starts):
                             protected.extend(_res)
                 else:
                     for _t in _win_starts:
-                        protected.extend(_scan_window(_t))
-                scan_from = scan_limit
+                        protected.extend(_scan_window(_t, _s_hi))
+                scan_from = max(scan_from, _s_hi)
 
             offset = 0
             while ih - offset >= work_h + min_strip:
@@ -27803,6 +27847,8 @@ html, body { background: #0a0a0b; }
                 _band_mid = (_band_lo + _band_hi) // 2
                 cut_y = None
                 if min(_band_hi, max_cut) >= _band_lo:
+                    # v1.14.203 — فقطِ پنجرههایِ همین باند اسکن میشود
+                    _scan_band(_band_lo, min(_band_hi, max_cut))
                     cut_y = self._find_safe_cut_y_smart(
                         strip, _band_mid, _band_lo, min(_band_hi, max_cut),
                         search_radius=max(250, (_band_hi - _band_lo) // 2),
@@ -27817,6 +27863,7 @@ html, body { background: #0a0a0b; }
                     _fb_hi = min(_band_lo, max_cut)
                     _fb_lo = offset + max(120, int(work_h) // 3)
                     if _fb_hi - _fb_lo >= 200:
+                        _scan_band(_fb_lo, _fb_hi)
                         cut_y = self._find_safe_cut_y_smart(
                             strip, _fb_hi, _fb_lo, _fb_hi,
                             search_radius=max(200, _fb_hi - _fb_lo),
