@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.192"
+APP_VER = "1.14.193"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3747,7 +3747,7 @@ class PaddleAndroidOCR:
         print(f"[+] OCR گوشی: RapidOCRِ اندروید آماده | "
               f"RapidOcrAndroidOnnx | det=PP-OCRv6_small "
               f"cls=v2.0_cls rec=PP-OCRv6_medium/{self.lang} "
-              f"(دانلودی — v1.14.192) | threads={_intra}")
+              f"(دانلودی — v1.14.193) | threads={_intra}")
 
     # v1.14.190 — آستانهٔ دوئلِ چندزبانه: زیرِ این اطمینان، تلاشِ ko هم
     # میشود (متنِ کره‌ای با recِ پیشفرضِ v6 چرت میزند — charsetِ v6
@@ -21798,8 +21798,11 @@ class MangaTranslator:
     def _force_translate_missing_1189(self, regions: List[TextRegion]) -> int:
         """برای هر حبابِ بدونِ ترجمه: اول درخواستِ تکآیتمیِ کوتاه (متنیِ ساده —
         مدلهایی که JSONشان خراب است متنی جواب میدهند)، بعد همان آیتم در حالتِ
-        JSON ساختاریافته؛ اگر باز هم خالی بود خودِ متنِ مبدأ مینشیند تا حبابِ
-        سفیدِ خالی تحویل داده نشود. تعدادِ نجاتهای واقعی برمیگردد."""
+        JSON ساختاریافته. v1.14.193 — دیگر متنِ مبدأ جایگزین نمیشود («عکسِ
+        انگلیسیش نشون نده تا وقتی همشو ترجمه کنه»): ناحیهٔ بیجواب بیترجمه
+        میماند تا دورِ بعدی (دورهای translate_regions یا سدِ نهاییِ
+        finish_page_phase) دوباره بپرسد؛ رندرِ آخرِ صفحه فقط «تصویریِ»
+        متنِ مبدأ را میگذارد (سدِ 192)، داده دستنخورده میماند."""
         missing = [r for r in regions
                    if not str(getattr(r, "translated_text", "") or "").strip()
                    and str(getattr(r, "source_text", "") or "").strip()]
@@ -21856,12 +21859,14 @@ class MangaTranslator:
                 except Exception as e:
                     print(f"    [!] نجاتِ JSONِ بالن[{r.id}]: {str(e)[:80]}")
             if not val:
-                # fallbackِ نهایی — حبابِ سفیدِ خالی ممنوع
-                val = src
-                print(f"    [!] بالن[{r.id}] مدل جواب نداد → متنِ مبدأ جایگزین شد.")
-            else:
-                fixed += 1
-                print(f"    ← نجاتِ 189[{r.id}]: {val[:60]}")
+                # v1.14.193 — فال‌بکِ «val = src» حذف شد؛ همان چیزی بود که
+                # انگلیسی را رویِ عکسِ نهایی مینشاند (ناحیه «ترجمهشده» حساب
+                # میشد و صفحه زودتر از موعد تمام میشد). ناحیه بیترجمه میماند
+                # تا سدِ نهاییِ finish_page_phase دوباره بپرسد.
+                print(f"    [!] بالن[{r.id}] مدل جواب نداد — بیترجمه میماند تا دورِ بعد دوباره پرسیده شود.")
+                continue
+            fixed += 1
+            print(f"    ← نجاتِ 189[{r.id}]: {val[:60]}")
             r.translated_text = val
         return fixed
 
@@ -25252,6 +25257,7 @@ class MangaTranslator:
     def finish_page_phase(self, image: np.ndarray, regions: List[TextRegion],
                           skip_translate: bool = False,
                           precleaned: Optional[np.ndarray] = None,
+                          final: bool = False,
                           ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         _raise_if_stop()
         if not regions:
@@ -25326,6 +25332,35 @@ class MangaTranslator:
             print(f"[*] ترجمه: {len(dialogue_regions)} حباب…")
             self.translate_regions(dialogue_regions)
 
+        # v1.14.193 — «Ai وقتی خالی برمیگردونه عکسِ انگلیسیش نشون نده تا
+        # وقتی همشو ترجمه کنه … نمایش زنده کنه کم کم بذاره تو نمایش انگار
+        # داره لود بشه» (PC/لینوکس/اندروید). صفحهٔ نهایی با حبابِ بیترجمه
+        # تمام نمیشود: تا وقتی حبابِ بامتنِ بیجواب مانده، دوباره و دوباره
+        # از مدل پرسیده میشود (هر دورِ translate_regions خودش ۳ دورِ بچ
+        # + نجاتِ تکآیتمی دارد). فقط پیش‌نمایشِ زنده (final=False) بدونِ
+        # این سد کار میکند تا حبابها «کمکم» همان لحظه که ترجمهشان میرسد
+        # رویِ نمایش بنشینند (حبابِ هنوز بیترجمه = خالیِ روشن = لودینگ).
+        if (final and not getattr(self, "clean_only", False)
+                and not getattr(self, "fake_translate", False)):
+            for _g_round in range(1, 4):
+                if stop_requested():
+                    break
+                _g_missing = [r for r in dialogue_regions
+                              if not (r.translated_text or "").strip()
+                              and (r.source_text or "").strip()
+                              and not getattr(r, "ocr_empty", False)]
+                if not _g_missing:
+                    break
+                print(f"[193] دورِ {_g_round}/۳: {_g_missing.__len__()} حباب هنوز ترجمه نشده — "
+                      "تا ترجمهٔ کامل صبر میشود، انگلیسی نشان داده نمیشود…")
+                try:
+                    self.translate_regions(_g_missing)
+                except (GeminiQuotaExhausted, JobCancelled):
+                    raise
+                except Exception as _g_err:
+                    print(f"    [193] دورِ {_g_round} خطا: {str(_g_err)[:80]}")
+                    time.sleep(0.6)
+
         translated_regions = [r for r in dialogue_regions if r.translated_text]
         # v1.14.192 — مشکل۱ سازنده: «ai ترجمش برنمیگردونه … بعضی متنها رو
         # خالی میده، ترجمه نشده رو عکس هم نمیزاره» (PC/لینوکس/اندروید).
@@ -25337,8 +25372,12 @@ class MangaTranslator:
         # ناحیه، تا دورِ بعدیِ ترجمهٔ واقعی (بافرِ چندصفحهای/پیشنمایش)
         # دستنخورده بماند. فقط وقتی متنِ اصلی از قبل پاک شده
         # (precleaned)؛ در مسیرِ تکصفحهای متنِ اصلی سرِ جایش است.
+        # v1.14.193 — فقط در رندرِ «نهایی» (final=True): پیش‌نمایشِ زنده
+        # دیگر متنِ مبدأ (انگلیسی) را رویِ حبابهایِ درانتظار نمینشاند —
+        # آنها خالیِ روشن میمانند (= لودینگ) تا ترجمهٔ واقعی کمکم بنشیند.
+        # قبل از این رندر، سدِ [193] بالا تا ۳ دورِ دیگر از مدل پرسیده است.
         _fb192: List[TextRegion] = []
-        if precleaned is not None:
+        if final and precleaned is not None:
             for _r192 in dialogue_regions:
                 if (_r192.translated_text or "").strip() \
                         or not (_r192.source_text or "").strip() \
@@ -25393,11 +25432,13 @@ class MangaTranslator:
                 _clean_regions = _clean_regions + _tf140t
         # v1.14.192 — فقط ناحیههایِ «بامتنِ مبدأ ولی بیترجمه» «ترجمه نشد"
         # حساب میشوند؛ ناحیهٔ بی‌متن (چرتِ فیلترشده) اصلاً ترجمه ندارد.
+        # v1.14.193 — فقط در رندرِ نهایی چاپ میشود؛ در پیش‌نمایشِ زنده
+        # حبابهایِ درانتظار طبیعیاند و نباید هر ۲ ثانیه هشدار بدهند.
         missing_n = sum(1 for r in dialogue_regions
                         if not r.translated_text
                         and not getattr(r, "ocr_empty", False)
                         and (r.source_text or "").strip())
-        if missing_n:
+        if missing_n and final:
             print(f"[!] {missing_n} حباب ترجمه نشد")
         if self.debug:
             if promo_regions:
@@ -25413,7 +25454,11 @@ class MangaTranslator:
         if self.debug and regions:
             page_debug = self._draw_debug_regions(image, regions)
 
-        if _clean_regions:
+        # v1.14.193 — «or _fb192»: وقتی «هیچ» حیابی ترجمه نشده (مدلِ کامل
+        # خالی)، _clean_regions خالی است و رندر کلاً رد میشد → صفحهٔ
+        # تمامسفیدِ حباب تحویل میگرفتی. با فال‌بکِ 192 باید رندر انجام
+        # شود تا لااقل متنِ مبدأ رویِ کپیها بنشیند (ضدِ حبابِ خالی).
+        if _clean_regions or _fb192:
             if precleaned is not None:
                 cleaned_image = precleaned
             else:
@@ -25461,7 +25506,7 @@ class MangaTranslator:
             pass
         _t_tone66 = time.time() - _t66
         _t66 = time.time()
-        final_image, _ = self.finish_page_phase(image, regions)
+        final_image, _ = self.finish_page_phase(image, regions, final=True)  # v1.14.193
         _t_fin66 = time.time() - _t66
         try:
             print(f"[TIME] extract={_t_ext66:.1f}s tone={_t_tone66:.1f}s "
@@ -27808,7 +27853,8 @@ html, body { background: #0a0a0b; }
                 return page_i, out_file, image, dbg
             _t_fin66 = time.time()  # v1.14.66 — زمان‌گیریِ پاکسازی+رندر
             try:
-                result, page_debug = self.finish_page_phase(image, regions)
+                result, page_debug = self.finish_page_phase(
+                    image, regions, final=True)  # v1.14.193 — مسیرِ نهایی
                 try:
                     print(f"[TIME] page#{page_i + 1} "
                           f"clean+render={time.time() - _t_fin66:.1f}s",
@@ -27878,8 +27924,8 @@ html, body { background: #0a0a0b; }
                     return
                 _t_fin66 = time.time()  # v1.14.66 — پاکسازی+رندر
                 result, page_debug = self.finish_page_phase(
-                    image, regions, skip_translate=True, precleaned=precleaned
-                )
+                    image, regions, skip_translate=True, precleaned=precleaned,
+                    final=True)  # v1.14.193 — رندرِ نهایی با سدِ «تا همشو ترجمه کنه»
                 try:
                     print(f"[TIME] page#{page_i + 1} "
                           f"clean+render={time.time() - _t_fin66:.1f}s",
