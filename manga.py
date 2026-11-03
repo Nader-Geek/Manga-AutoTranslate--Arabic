@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.190"
+APP_VER = "1.14.191"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3232,22 +3232,38 @@ _RAPIDOCR_FILES = {
 }
 
 
+def _pc_det_medium() -> bool:
+    """v1.14.191 — سوئیچِ نجاتِ detِ سنگینِ قبلی رویِ PC.
+
+    دستورِ سازنده: «نمیشه کاری کرد مثل گوشی پی سی لینوکس هم استخراجش
+    سریع باشه؟» → پیشفرضِ PC از v1.14.191 = عینِ ستِ گوشی (detِ
+    PP-OCRv6_small ۱۰MB). با MANGA_OCR_DET_MEDIUM=1 رفتارِ
+    v1.14.188..190 (detِ mediumِ ۵۹MB — K3) برگردد (کسانی که detِ
+    حداکثری میخواهند؛ CPUهایِ قوی).
+    """
+    _v = str(os.environ.get("MANGA_OCR_DET_MEDIUM", "") or "").strip().lower()
+    return _v in ("1", "true", "yes", "on")
+
+
 def _rapidocr_model_pair(lang: str, small: bool = False,
                          tiny: bool = False):
     """v1.14.152 — جفتِ (det, rec) بر اساسِ زبان.
 
-    پیشفرض = مجموعهٔ K3 (دقیقاً همان ۵ فایلِ پوشهٔ K3):
-      det = PP-OCRv6_medium_det_onnx.onnx (رسمیِ PaddlePaddle، 59.16MiB)
-      recِ en/سایر = PP-OCRv6_medium_rec_onnx.onnx (73.01MiB)
+    v1.14.191 — پیشفرضِ PC = عینِ ستِ گوشی (دستورِ سازنده: «مثل گوشی
+    پی سی لینوکس هم استخراجش سریع باشه»):
+      det = PP-OCRv6_det_small.onnx (۱۰MB — همان detِ گوشی؛ بنچمارکِ
+            کلاسِ PCِ قدیم/۲ هسته رویِ ۹ کراپِ lang_zh.jpg:
+            detِ medium ۲۹.۷s → detِ small ۱۸.۴s با همان متن — #01 حتی
+            تمیزتر: «6 DIALOGUE BUBBLES» کامل)
+      recِ en/zh/ja = PP-OCRv6_medium_rec_onnx.onnx (73.01MiB)
       recِ ko = PP-OCRv5_korean_rec.onnx (رسمی، 12.80MiB)
-      zh = جفتِ کاملِ ch_PP-OCRv4 (det 4.53MiB + rec 10.35MiB)
-      ja = japan_PP-OCRv4_rec_mobile قبلی (K3 برایِ ژاپنی encoder-decoder
-           جداگانه دارد — خارج از scopeِ این تغییر)
+    v1.14.191 — zh هم عینِ گوشی شد: جفتِ قدیمیِ ch_PP-OCRv4 (v1.14.152)
+    فاصلههایِ لاتین را میبلعید («ONESOURCEART-3PANELS») و پسِ ویرگول
+    تکراری میساخت («،自 自己»)؛ v6_medium مو به مو متنِ گوشی را میدهد.
+    MANGA_OCR_DET_MEDIUM=1 = detِ mediumِ قبلی (K3 — v1.14.188..190).
     small=True (فقط شبیهسازِ x86_64 در CI) = مجموعهٔ سبکِ قبلی تا
     بودجهٔ زمانی و گیتهایِ CI دستنخورده بمانند.
-    v1.14.179 — tiny=True = «فلاتر-پدل»: PP-OCRv6_tiny det (1.7MB) +
-    PP-OCRv6_tiny_rec (4.3MB؛ dictِ ۶۹۰۴یِ خودش) — سبکترین جفت؛
-    ja/ko با recِ موبایلِ خودشان میمانند (tiny فقط لاتین/CHS است).
+    tiny=True = «فلاتر-پدل» (v1.14.179 — بدونِ تغییر).
     """
     _low = str(lang).lower()
     if tiny:
@@ -3264,14 +3280,15 @@ def _rapidocr_model_pair(lang: str, small: bool = False,
         if _low in ("japan", "ja", "japanese"):
             return _det, "japan_PP-OCRv4_rec_mobile.onnx"
         return _det, "PP-OCRv6_rec_small.onnx"
-    if _low in ("ch", "zh", "chinese", "ch_sim", "chinese_cht"):
-        return "ch_PP-OCRv4_det_infer.onnx", "ch_PP-OCRv4_rec_infer.onnx"
-    _det = "PP-OCRv6_medium_det_onnx.onnx"
+    # v1.14.191 — detِ PC = عینِ گوشی (small ۱۰MB؛ نه mediumِ ۵۹MB)
+    _det = ("PP-OCRv6_medium_det_onnx.onnx" if _pc_det_medium()
+            else "PP-OCRv6_det_small.onnx")
     if _low in ("korean", "ko"):
         return _det, "PP-OCRv5_korean_rec.onnx"
     # v1.14.190 — ja هم از recِ mediumِ پیشفرض میخواند (بنچمارکِ صفحهٔ
     # تستِ سازنده: v6_medium ژاپنیِ مانگا را کاملتر از japan v4 میخواند —
     # عینِ تصمیمِ گوشی؛ recِ جداگانهیِ ja حذف شد)
+    # v1.14.191 — zh هم از همین rec (عینِ گوشی — جفتِ v4 حذف شد)
     return _det, "PP-OCRv6_medium_rec_onnx.onnx"
 
 
@@ -3729,7 +3746,7 @@ class PaddleAndroidOCR:
         print(f"[+] OCR گوشی: RapidOCRِ اندروید آماده | "
               f"RapidOcrAndroidOnnx | det=PP-OCRv6_small "
               f"cls=v2.0_cls rec=PP-OCRv6_medium/{self.lang} "
-              f"(دانلودی — v1.14.190) | threads={_intra}")
+              f"(دانلودی — v1.14.191) | threads={_intra}")
 
     # v1.14.190 — آستانهٔ دوئلِ چندزبانه: زیرِ این اطمینان، تلاشِ ko هم
     # میشود (متنِ کره‌ای با recِ پیشفرضِ v6 چرت میزند — charsetِ v6
@@ -4661,32 +4678,24 @@ class RapidOCRBackend:
                 # v1.14.66 — اندروید مثلِ قبل (رم)
                 _intra = 1 if _cpu_n <= 4 else 2
             else:
-                # v1.14.99 (SRV-H4) — wiringِ e32bccf بازگشت (سقفِ ۲..۴ رویِ
-                # PC): پیش‌فرضِ خودِ rapidocr (-1 = ORT auto = همهٔ هسته‌ها)
-                # همان رگرسیونِ extract را می‌دهد (SRV-H2) — پروبِ سرور:
-                # 27.5s → 20.4s رویِ 01.jpg با ۴ نخ. اوررایدِ صریح
-                # (MANGA_OCR_THREADS / MANGA_ORT_THREADS) مقدم است.
-                # v1.14.99-speed (SRV-L) — انحرافِ مستندشده: رویِ میزبانِ
-                # بزرگِ x86_64 (≥۸ هسته، همان هیوریستیکِ
-                # _ort_session_options) پیش‌فرضِ OCR هم ۸ می‌شود — برندهٔ
-                # سوییپِ SRV-K (t8: extract 14.9s) با envِ MANGA_ORT_THREADS=8
-                # به OCR هم اعمال می‌شد؛ بدونِ این، 01.jpg رویِ سرورِ تازه
-                # ~38.8s می‌داد (extract 21.2s با OCR@4) و گیتِ ≤34s
-                # رد می‌شد. میزبانِ کوچک/گوشی: همان ۲..۴.
-                try:
-                    import platform as _pfo
-                    if _pfo.machine().lower() in ("x86_64", "amd64") \
-                            and (_cpu_n or 4) >= 8:
-                        _intra = 8
-                    else:
-                        _intra = max(2, min(4, _cpu_n // 2))
-                except Exception:
-                    _intra = max(2, min(4, _cpu_n // 2))
+                # v1.14.191 — PC هم عینِ گوشی: ۲ نخ برایِ هر سشنِ OCR.
+                # چرا؟ از v1.14.163 به بعد OCR فقط رویِ کراپهایِ کوچکِ
+                # detector-v4-s اجرا میشود (نه پاسِ تمامصفحه) — هزینهٔ
+                # اصلی = rec (CRNN) که بالایِ ۲ نخ بهرهٔ کمی میگیرد؛
+                # موازیِ واقعی از workers میآید (ورکرِ بیشتر × نخِ کمتر).
+                # «۸ نخ» (SRV-L رویِ سرور) مالِ دورانِ پاسِ تمامصفحه بود؛
+                # رویِ کراپ فقط سربارِ context-switch شد — و با ورکرهایِ
+                # چندگانه، workers×8 = تشتتِ کامل (۸ هسته → ۵۶ نخ).
+                # MANGA_OCR_THREADS/MANGA_ORT_THREADS همچنان مقدمند.
+                _intra = 2
             _threads = {
                 "EngineConfig.onnxruntime.intra_op_num_threads": int(_intra),
                 "EngineConfig.onnxruntime.inter_op_num_threads": 1,
             }
             _intra_disp = _intra
+            # v1.14.191 — برایِ همترازیِ workers×threads≈هسته‌ها (MangaTranslator
+            # بعد از ساختِ موتور این را میخواند)
+            self.ocr_threads = int(_intra)
             if _rec_params is not None:
                 _p = dict(_rec_params)
                 _p.update(_base)
@@ -6357,6 +6366,26 @@ class MangaTranslator:
                     "  پیشنهاد: pip install paddleocr\n"
                     "  یا: pip install rapidocr  (یا rapidocr-onnxruntime)"
                 ) from e
+
+        # v1.14.191 — همترازیِ workers × threads ≈ هسته‌ها (همان اصلیِ
+        # LaMa در پاکسازی): با intra=2 رویِ PC، ورکرِ بیشتر از هسته÷۲ فقط
+        # تشتت است (۸ هسته × ۷ ورکر × ۸ نخِ قبل = ۵۶ نخ رویِ ۸ هسته؛
+        # بنچمارکِ کلاسِ PCِ قدیم: صفحهٔ lang_zh.jpg — detِ medium
+        # ۲۹.۷s → ستِ گوشی ۱۸.۴s). اندروید دستنخورده (پلِ خودش میچیند).
+        if self.ocr is not None and not _on_android():
+            _thr191 = int(getattr(self.ocr, "ocr_threads", 0) or 0)
+            if _thr191 > 0:
+                try:
+                    _cores191 = self._cpu_core_count() or (os.cpu_count() or 4)
+                except Exception:
+                    _cores191 = os.cpu_count() or 4
+                _want191 = max(2, min(int(self.max_workers or 2),
+                                      max(1, _cores191 // _thr191)))
+                if _want191 < int(self.max_workers or 2):
+                    print(f"[*] همترازیِ OCR: workers={self.max_workers} → "
+                          f"{_want191} ({_want191} ورکر × {_thr191} نخ ≈ "
+                          f"{_cores191} هسته — ضدِ تشتت)")
+                    self.max_workers = _want191
 
         print(f"[*] OCR: {self._ocr_backend_name} | workers={self.max_workers}")
 
