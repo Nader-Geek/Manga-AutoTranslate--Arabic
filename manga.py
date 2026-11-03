@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.196"
+APP_VER = "1.14.197"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -20833,7 +20833,9 @@ class MangaTranslator:
                 on_item(int(_m.group(1)), _tr)
 
     def _translate_with_openai(self, user_prompt: str, system_instruction: str,
-                               *, structured: bool = True) -> str:
+                               *, structured: bool = True,
+                               timeout: float = None,
+                               on_item=None) -> str:
         model = self._thread_model()
         client = self._thread_openai()
         mlow = model.lower()
@@ -20846,6 +20848,16 @@ class MangaTranslator:
                 'Put the requested array inside "translations", not at the root. '
                 'This overrides only the array-root format rule, not the item fields.'
             )
+        # v1.14.197 — درخواستِ کلِ فصل سقفِ زمانیِ متناسب میگیرد (سبکِ K3):
+        # هم در کلاینتِ HTTP هم در منتظرِ آینده — قبلاً سقفِ کوچکِ
+        # api_timeout (۱۰–۴۵ثانیه) هرگز برایِ فصلِ پر متن کفایت نمیکرد و
+        # همان پیامِ «تایم‌اوت» تا بی نهایت تکرار میشد.
+        _eff_t = float(timeout) if timeout and float(timeout) > 0 else 0.0
+        try:
+            _eff_t = max(_eff_t,
+                         float(getattr(self, "api_timeout", 45.0) or 45.0))
+        except Exception:
+            pass
         kwargs = dict(
             model=model,
             messages=[
@@ -20853,7 +20865,8 @@ class MangaTranslator:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.translation_temperature if structured else 0.2,
-            timeout=float(getattr(self, "api_timeout", 10.0) or 10.0),
+            timeout=(_eff_t if _eff_t > 0
+                     else float(getattr(self, "api_timeout", 10.0) or 10.0)),
         )
         if structured:
             kwargs["top_p"] = 0.9  # v1.14.189 — کپچر: topP 0.9
@@ -20871,8 +20884,58 @@ class MangaTranslator:
                 raise RuntimeError(f"پاسخ خالی از {self.provider} دریافت شد.")
             return text
 
+        # v1.14.197 — سبکِ K3: استریمِ SSE — تا قطعهها میرسند هیچ سقفِ
+        # «مرگِ بیصدا» وجود ندارد و هر آیتمِ کاملِ جریان همان لحظه روی
+        # ناحیه مینشیند (پیشنمایشِ زنده). اگر نقطهٔ پایانی stream را
+        # قبول نکرد، خودکار به مسیرِ عادی برمیگردیم.
+        if on_item is not None:
+            def _do_stream():
+                parts: list = []
+                skw = dict(kwargs)
+                skw["stream"] = True
+                stream = client.chat.completions.create(**skw)
+                for ev in stream:
+                    piece = ""
+                    try:
+                        ch = (getattr(ev, "choices", None) or [None])[0]
+                        if ch is not None:
+                            piece = getattr(getattr(ch, "delta", None),
+                                            "content", None) or ""
+                    except Exception:
+                        piece = ""
+                    if not piece:
+                        continue
+                    parts.append(piece)
+                    try:
+                        self._salvage_stream_items("".join(parts), on_item)
+                    except Exception:
+                        pass
+                text = "".join(parts)
+                if not text.strip():
+                    raise RuntimeError(
+                        f"پاسخ خالی از {self.provider} دریافت شد.")
+                return text
+
+            try:
+                return self._call_ai_with_timeout(
+                    _do_stream, label=f"{self.provider}/{model}",
+                    timeout=(_eff_t if _eff_t > 0 else None))
+            except Exception as _se:
+                _ss = str(_se).lower()
+                _stream_broken = (
+                    "stream" in _ss and ("support" in _ss or "invalid" in _ss
+                                         or "unrecognized" in _ss
+                                         or "not allowed" in _ss)
+                ) or "does not support" in _ss or "not supported" in _ss
+                # فقط وقتی «استریم اصلاً پذیرفته نشد» بلافاصله فالبک؛
+                # تایم‌اوت/خطایِ وسطِ جریان باید طبقِ AutoRetry بالا برود
+                if not _stream_broken:
+                    raise
+                print(f"    [!] استریم روی {model} ممکن نشد — مسیرِ عادی.")
+
         return self._call_ai_with_timeout(
-            _do, label=f"{self.provider}/{model}"
+            _do, label=f"{self.provider}/{model}",
+            timeout=(_eff_t if _eff_t > 0 else None)
         )
 
     # ── کلید کاستوم: فرمت‌های دیگر API ────────────────────────────────
@@ -21033,11 +21096,14 @@ class MangaTranslator:
 
     def _translate_via_provider(self, user_prompt: str,
                                 system_instruction: str,
-                                *, structured: bool = True) -> str:
+                                *, structured: bool = True,
+                                timeout: float = None,
+                                on_item=None) -> str:
         """روتر واحد — هر provider_type به موتور درست خودش می‌رود."""
         if self.provider_type == "gemini":
             return self._translate_with_gemini(
-                user_prompt, system_instruction, structured=structured)
+                user_prompt, system_instruction, structured=structured,
+                timeout=timeout, on_item=on_item)
         if self.provider_type == "openai-responses":
             return self._translate_with_openai_responses(
                 user_prompt, system_instruction, structured=structured)
@@ -21048,7 +21114,8 @@ class MangaTranslator:
             return self._translate_with_google_endpoint(
                 user_prompt, system_instruction, structured=structured)
         return self._translate_with_openai(
-            user_prompt, system_instruction, structured=structured)
+            user_prompt, system_instruction, structured=structured,
+            timeout=timeout, on_item=on_item)
 
 
     @staticmethod
@@ -21510,13 +21577,18 @@ class MangaTranslator:
                 # v1.14.196 — سبکِ K3: استریم + پارسرِ افزایشی در درخواستِ
                 # کلِ فصل؛ هر آیتمِ کاملِ جریان همان لحظه رویِ ناحیه مینشیند
                 # و پیشنمایشِ زنده (هر ۲ ثانیه) آن را نشان میدهد.
+                # v1.14.197 — استریم و سقفِ زمانیِ متناسب دیگر مخصوصِ Gemini
+                # نیست؛ مسیرِ custom/openai هم همان رفتارِ K3 را دارد
+                # (گزارشِ سازنده: «متن زیاد باشه تایم اوت میخوره» — سقفِ
+                # ۱۰–۴۵ثانیهٔ قبلی برایِ فصلِ کامل هرگز کفایت نمیکرد).
                 _on_item = None
                 _region_by_id = {r.id: r for r in work_regions}
                 _applied: set = set()
                 _n_stream = {"v": 0}
-                if (getattr(self, "chapter_one_request", False)
-                        and self.provider_type == "gemini"
-                        and len(work_regions) > 6):
+                _want_stream = (
+                    getattr(self, "chapter_one_request", False)
+                    and len(work_regions) > 6)
+                if _want_stream:
                     def _on_item(rid: int, tr: str) -> None:
                         if rid in _applied:
                             return
@@ -21531,11 +21603,19 @@ class MangaTranslator:
                                   f"{len(work_regions)} دیالوگ…", flush=True)
 
                 _tout = None
-                if _on_item is not None:
-                    # درخواستِ کلِ فصل جوابِ بلند میدهد — سقفِ زمانیِ متناسب
-                    _tout = max(
-                        float(getattr(self, "api_timeout", 45.0) or 45.0),
-                        30.0 + 1.5 * len(work_regions))
+                if _want_stream:
+                    # درخواستِ کلِ فصل جوابِ بلند میدهد — سقفِ زمانی با
+                    # «تعدادِ دیالوگ + حجمِ واقعیِ متن» بزرگ میشود (K3:
+                    # AutoRetry صبور؛ سقفِ مردهٔ کوچکِ قبلی ۳۰+۱.۵×تعداد بود
+                    # و برایِ ۱۰۰+ دیالوگِ پرحرف نمیکشید) — سقفِ ۳۰ دقیقه.
+                    _chars = sum(len(r.source_text or "") for r in work_regions)
+                    _tout = min(
+                        1800.0,
+                        max(
+                            float(getattr(self, "api_timeout", 45.0) or 45.0),
+                            60.0 + 1.5 * len(work_regions) + _chars / 40.0,
+                        ),
+                    )
 
                 with self._api_lock:
                     if self.provider_type == "gemini":
@@ -21543,7 +21623,9 @@ class MangaTranslator:
                             user_prompt, system_instruction,
                             timeout=_tout, on_item=_on_item)
                     else:
-                        text = self._translate_via_provider(user_prompt, system_instruction)
+                        text = self._translate_via_provider(
+                            user_prompt, system_instruction,
+                            timeout=_tout, on_item=_on_item)
 
 
                 self._parse_translation_response(text, work_regions)
@@ -21615,11 +21697,36 @@ class MangaTranslator:
                     print(f"    [!] {tag} روی {self.provider}/{self.model_name}")
                     self._recreate_api_client()
 
+                    # v1.14.197 — AutoRetry به سبکِ K3: مدلِ «کند ولی سالم»
+                    # قربانیِ cascade نمیشود (گزارشِ سازنده: همان مدل بارها
+                    # تایم‌اوت میخورد و ترجمه هیچوقت برنمیگشت). همان مدل تا
+                    # چند بار با انتظارِ واقعی (نمایی ۲/۴/۸/… ثانیه) دوباره
+                    # پرسیده میشود؛ K3 تا ۱۰ بار با انتظارِ قابلِ تنظیم.
+                    # آیتمهایی که از جریانِ قبلی نشستهاند از پرامپتِ بعدی
+                    # حذف میشوند تا هر تلاش سبکتر شود.
+                    _still = [r for r in work_regions
+                              if not (r.translated_text or "").strip()]
+                    if _still and len(_still) < len(work_regions):
+                        work_regions = _still
                     same_retries = int(getattr(self, "_same_model_timeout_retries", 0) or 0)
-                    if same_retries < 1:
+                    try:
+                        _k3_max = min(10, max(1, int(
+                            os.environ.get("MANGA_TIMEOUT_RETRIES", "3") or 3)))
+                    except Exception:
+                        _k3_max = 3
+                    try:
+                        _k3_wait = max(0.5, float(
+                            os.environ.get("MANGA_TIMEOUT_WAIT", "2.0") or 2.0))
+                    except Exception:
+                        _k3_wait = 2.0
+                    if same_retries < _k3_max:
                         self._same_model_timeout_retries = same_retries + 1
-                        print(f"    [*] صبر ۰.۵ثانیه و تلاش دوباره روی {self.model_name}...")
-                        time.sleep(0.5)
+                        _ws = min(_k3_wait * (2 ** same_retries), 30.0)
+                        print(f"    [*] AutoRetry K3 "
+                              f"{same_retries + 1}/{_k3_max} روی "
+                              f"{self.model_name} — صبر {_ws:.0f}ثانیه و "
+                              f"تلاش دوباره…")
+                        time.sleep(_ws)
                         continue
                     self._same_model_timeout_retries = 0
                     if self._switch_to_next_model(reason="timeout"):
@@ -28020,7 +28127,10 @@ html, body { background: #0a0a0b; }
             page_i, f, out_file = item
             _raise_if_stop()
             _t_ext66 = time.time()  # v1.14.66 — زمان‌گیریِ لود+استخراج
-            MangaTranslator._title_skip_enabled = (page_i == 0)
+            # v1.14.197 — فقط صفحهٔ ۰ پرچم را ست/پاک میکند؛ در استخراجِ
+            # دوطرفه کارگرِ دیگر نباید پرچمِ صفحهٔ ۰ را بینِ راه پاک کند.
+            if page_i == 0:
+                MangaTranslator._title_skip_enabled = True
             try:
                 image = MangaTranslator._imread_any(f)
                 if image is None:
@@ -28044,7 +28154,8 @@ html, body { background: #0a0a0b; }
                 print(f"    [!] خطا در استخراج {os.path.basename(f)}: {e}", file=sys.stderr)
                 return page_i, out_file, None, None, None
             finally:
-                MangaTranslator._title_skip_enabled = False
+                if page_i == 0:  # v1.14.197 — فقط مالکِ پرچم پاک کند
+                    MangaTranslator._title_skip_enabled = False
 
         def _finish_one(page_i, out_file, image, regions, dbg):
             if image is None:
@@ -28099,15 +28210,13 @@ html, body { background: #0a0a0b; }
             _raise_if_stop()
             if page_i in finished_pages:
                 return
-            # v1.14.161 — اگر پاکسازیِ بچِ همین صفحه هنوز در پسزمینه
-            # در جریان است، اول تمامشدنش صبر میشود تا دوبارِ پاکسازی
-            # (بچ + درونی) نشود؛ بعد entry تازه خوانده میشود.
-            _cfut = clean_futures.get(page_i)
-            if _cfut is not None:
-                try:
-                    _cfut.result(timeout=1800)
-                except Exception:
-                    pass
+            # v1.14.197 — اگر پاکسازیِ همین صفحه (فاز ۱ یا فاز ۲) هنوز در
+            # جریان است، اول تمامشدنش صبر میشود تا دوبارِ پاکسازی
+            # (پسزمینه + درونی) نشود؛ بعد entry تازه خوانده میشود.
+            try:
+                _wait_clean(page_i)
+            except Exception:
+                pass
             entry = extracted_map.get(page_i)
             if entry is None:
                 return
@@ -28159,12 +28268,10 @@ html, body { background: #0a0a0b; }
                     continue
                 if pending_by_page.get(page_i, 0) > 0:
                     continue
-                # v1.14.161 — پاکسازیٔ بچِ این صفحه هنوز در جریان است؟
-                # ردش کن — استخراجِ صفحههایِ بعدی نباید پشتِ پاکسازی
-                # بایستد؛ این صفحه در حلقهٔ انتظار (بعد از تمامشدنِ
-                # پاکسازیاش) تمام میشود.
-                _cfut = clean_futures.get(page_i)
-                if _cfut is not None and not _cfut.done():
+                # v1.14.197 — پاکسازیِ این صفحه هنوز در جریان است؟
+                # ردش کن — استخراج/ترجمهٔ صفحههایِ بعدی نباید پشتِ
+                # پاکسازی بایستد؛ این صفحه در حلقهٔ انتظار تمام میشود.
+                if not _clean_ready(page_i):
                     continue
                 _finish_page_now(page_i)
 
@@ -28219,6 +28326,10 @@ html, body { background: #0a0a0b; }
             if not force and len(dialogue_buffer) < min_batch:
                 return
             n = len(dialogue_buffer)
+            # v1.14.197 — استخراج دوطرفه ترتیبِ بافر را قاطی کرده؛ برای
+            # بافتِ رواییِ مدل، قبل از ارسال به ترتیبِ طبیعیِ صفحهها مرتب
+            # میشود (idها دستنخورده میمانند — نگاشتِ جواب به ناحیه سالم).
+            dialogue_buffer.sort(key=lambda r: page_of_region.get(r.id, 0))
             print(f"[*] ترجمهٔ بافر: {n} دیالوگ…")
             chunk = dialogue_buffer
             dialogue_buffer = []
@@ -28291,18 +28402,23 @@ html, body { background: #0a0a0b; }
         trans_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="translate")
 
-        # v1.14.161 — پاکسازی هم «بچِ ۱۵تایی» مثل ترجمه: خواستهٔ صریحِ
-        # کاربر — «نباید هر عکس استخراج تموم شد بره بپاکه؛ وقتی متنِ
-        # ۱۵ تا برسه بعدش بپاکه». استخراج بدونِ توقف جلو میرود و
-        # پاکسازیٔ صفحههایِ هر بسته، همان لحظهٔ شروعِ ترجمهٔ همان
-        # بسته، در پسزمینه انجام میشود (صفِ تک‌نمونه تا منابعِ
-        # PC/گوشی قفل نشود). قبلاً «پاکسازیٔ زودهنگام» درست بعد از
-        # استخراجِ تکتکِ صفحهها در خودِ حلقهٔ اصلی بود → هم استخراج
-        # کند شده بود هم پاکسازی صفحه‌به‌صفحه بود.
+        # v1.14.197 — پاکسازی دوفازی (خواستهٔ صریحِ سازنده: «پاکسازیش
+        # همزمان کار کنه از بالا به پایین؛ وقتی استخراج تموم شد پاکسازیش
+        # هم دوطرفه کار کنه»):
+        #   فاز ۱ (همزمان با استخراج) — یک کارگر؛ همیشه کمترینِ صفحۀِ
+        #     استخراج‌شدهٔ پاکسازینشده را برمیدارد = جاروی بالا→پایین.
+        #   فاز ۲ (فقط بعد از اتمامِ «کامل» استخراج) — باقیماندهٔ صف نصف
+        #     میشود: کارگرِ اول از بالای لیست پایین میرود، کارگرِ دوم از
+        #     پایین بالا میآید و وسط به هم میرسند.
         clean_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="clean")
-        clean_futures: Dict[int, "object"] = {}
+        clean_pool2 = None            # فقط فازِ دوطرفهٔ پس از استخراج
+        clean_all_futs: list = []     # آیندههایِ پاکسازی برایِ حلقهٔ انتظار
         clean_started: set = set()
+        clean_done_ev: Dict[int, threading.Event] = {}
+        pending_clean: set = set()    # صفِ فاز ۱
+        extraction_done = {"v": False}
+        _clean_cond = threading.Condition()
 
         # v1.14.196 — سدِ دستهٔ ۱۵تایی حذف شد (خواستهٔ کاربر: «کلا عوض شه —
         # مثلِ k3 بشه»): استخراج هرگز برای پاکسازی/ترجمه نمی‌ایستد؛
@@ -28333,53 +28449,113 @@ html, body { background: #0a0a0b; }
                 regs = regs + [r for r in regions if r.kind == "sfx"]
             return regs or None
 
+        def _clean_one_page(_p: int) -> None:
+            # v1.14.197 — بدنۀِ پاکسازِ «یک» صفحه؛ هم فاز ۱ هم فاز ۲ از
+            # همین استفاده میکنند (قبلاً jobِ چندصفحهایِ بستهبسته بود).
+            try:
+                if stop_requested():
+                    return
+                if _p in finished_pages:
+                    return
+                _of, im, _pc, regions, _dbg = extracted_map.get(
+                    _p, (None, None, None, None, None))
+                if im is None:
+                    return
+                regs = _clean_regions_for_page(_p)
+                if not regs:
+                    return
+                if _android_gate("MANGA_PHASE_PRINTS"):
+                    print(f"[*] پاکسازی متنِ صفحهٔ {_p + 1}…",
+                          flush=True)
+                _t0 = time.time()
+                _pcn = self.clean_image(im, regs)
+                if _p in finished_pages:
+                    return  # همزمان تمام شده بود — بیخیال
+                extracted_map[_p] = (_of, im, _pcn, regions, _dbg)
+                try:
+                    print(f"[TIME] page#{_p + 1} "
+                          f"clean={time.time() - _t0:.1f}s",
+                          flush=True)
+                except Exception:
+                    pass
+            except GeminiQuotaExhausted as e:
+                print(f"\n[!] {e}")
+                quota_flag["dead"] = True
+            except Exception as e:
+                print(f"    [!] پاکسازیِ صفحهٔ {_p + 1} ناموفق: "
+                      f"{str(e)[:120]}")
+
+        def _clean_done_mark(_p: int) -> None:
+            _ev = clean_done_ev.get(_p)
+            if _ev is not None:
+                _ev.set()
+
         def _clean_pages_bg(pages: List[int]) -> None:
-            pages = [p for p in dict.fromkeys(pages)
-                     if p not in finished_pages and p not in clean_started]
-            if not pages:
-                return
-            for _p in pages:
-                clean_started.add(_p)
+            # v1.14.197 — فقط «صف» میکند؛ اینکه کی و از کدام سمت پاکشود
+            # را فاز ۱ (بالا→پایین حینِ استخراج) یا فاز ۲ (دوطرفه بعد از
+            # استخراج) تصمیم میگیرد.
+            for _p in dict.fromkeys(pages):
+                with _clean_cond:
+                    if (_p in clean_started or _p in finished_pages
+                            or extraction_done["v"]):
+                        continue
+                    clean_started.add(_p)
+                    if _p not in clean_done_ev:
+                        clean_done_ev[_p] = threading.Event()
+                    pending_clean.add(_p)
+                    _clean_cond.notify_all()
 
-            def _job(_pages=list(pages)):
-                for _p in _pages:
-                    if stop_requested():
-                        break
+        def _clean_sched_job() -> None:
+            # فاز ۱ — جاروی بالا→پایین همزمان با استخراج: همیشه
+            # «کمترین» صفحۀِ آماده را برمیدارد. با فلیپشدنِ extraction_done
+            # (بعد از اتمامِ کاملِ استخراج) دیگر صفحهٔ نو برنمیدارد و
+            # باقیمانده را برایِ فازِ دوطرفه میگذارد.
+            while True:
+                if stop_requested() or quota_flag["dead"]:
+                    return
+                with _clean_cond:
+                    cand = None
+                    while True:
+                        cand = [p for p in pending_clean
+                                if p in extracted_map
+                                and p not in finished_pages]
+                        if cand:
+                            break
+                        if extraction_done["v"]:
+                            return  # ماندهها → فازِ دوطرفه
+                        _clean_cond.wait(timeout=0.5)
+                    pi = min(cand)  # بالا→پایین
+                    pending_clean.discard(pi)
+                _clean_one_page(pi)
+                _clean_done_mark(pi)
+
+        clean_all_futs.append(clean_pool.submit(_clean_sched_job))
+
+        def _wait_clean(page_i: int) -> None:
+            with _clean_cond:
+                _ev = clean_done_ev.get(page_i)
+            if _ev is not None:
+                _ev.wait(timeout=1800)
+
+        def _clean_ready(page_i: int) -> bool:
+            with _clean_cond:
+                _ev = clean_done_ev.get(page_i)
+            return _ev is None or _ev.is_set()
+
+        def _clean_seq_job(seq) -> None:
+            # فاز ۲ — یک سمتِ صف را یکسره میپاید (ورودی: ترتیبِ مرتبشده
+            # از همان سمت؛ پایین→بالا با reversed میآید).
+            for _p in seq:
+                if stop_requested() or quota_flag["dead"]:
+                    _clean_done_mark(_p)
+                    continue
+                with _clean_cond:
                     if _p in finished_pages:
+                        _clean_done_mark(_p)
                         continue
-                    _of, im, _pc, regions, _dbg = extracted_map.get(
-                        _p, (None, None, None, None, None))
-                    if im is None:
-                        continue
-                    regs = _clean_regions_for_page(_p)
-                    if not regs:
-                        continue
-                    try:
-                        if _android_gate("MANGA_PHASE_PRINTS"):
-                            print(f"[*] پاکسازی متنِ صفحهٔ {_p + 1}…",
-                                  flush=True)
-                        _t0 = time.time()
-                        _pcn = self.clean_image(im, regs)
-                        if _p in finished_pages:
-                            continue  # همزمان تمام شده بود — بیخیال
-                        extracted_map[_p] = (_of, im, _pcn, regions, _dbg)
-                        try:
-                            print(f"[TIME] page#{_p + 1} "
-                                  f"clean={time.time() - _t0:.1f}s",
-                                  flush=True)
-                        except Exception:
-                            pass
-                    except GeminiQuotaExhausted as e:
-                        print(f"\n[!] {e}")
-                        quota_flag["dead"] = True
-                        break
-                    except Exception as e:
-                        print(f"    [!] پاکسازیِ صفحهٔ {_p + 1} ناموفق: "
-                              f"{str(e)[:120]}")
-
-            _fut = clean_pool.submit(_job)
-            for _p in pages:
-                clean_futures[_p] = _fut
+                    pending_clean.discard(_p)
+                _clean_one_page(_p)
+                _clean_done_mark(_p)
 
         def _dispatch_chunk_clean(chunk: List[TextRegion]) -> None:
             _pgs = sorted({page_of_region.get(r.id) for r in chunk
@@ -28387,43 +28563,121 @@ html, body { background: #0a0a0b; }
             if _pgs:
                 _clean_pages_bg(_pgs)
 
-        quota_dead = False
-        for item in pending:
-            if quota_dead or quota_flag["dead"]:
-                break
-            if stop_requested():
-                print("[⏹] درخواست لغو کاربر — توقف پردازش صفحه‌ها…", flush=True)
-                trans_pool.shutdown(wait=False)
-                raise JobCancelled("لغو توسط کاربر")
-            try:
-                page_i, out_file, image, regions, dbg = _extract_one(item)
-            except GeminiQuotaExhausted as e:
-                print(f"\n[!] {e}")
-                break
-            extracted_map[page_i] = (out_file, image, None, regions, dbg)
-            if image is not None and regions:
+        # ── v1.14.197 — استخراج دوطرفه (خواستهٔ سازنده: «استخراج از عکس
+        # اول تا آخر بره و از آخر تا اول — دو طرفه») ───────────────────
+        # دو کارگر: یکی از عکسِ «اول» جلو میرود، یکی از عکسِ «آخر» عقب؛
+        # وسط به هم میرسند. هر صفحه بلافاصله بعد از استخراج، دیالوگهایش
+        # صف میشود و پاکسازیاش به فاز ۱ (بالا→پایین) سپرده میشود.
+        _ext_lock = threading.Lock()
+        _ext_fwd = {"v": 0}
+        _ext_bwd = {"v": len(pending) - 1}
+        _ext_quota = {"v": False}
+        _ext_err = {"exc": None}
+        _qd_lock = threading.Lock()
+
+        def _claim_ext(role: str):
+            with _ext_lock:
+                f, b = _ext_fwd["v"], _ext_bwd["v"]
+                if f > b:
+                    return None  # وسط به هم رسیدند
+                if role == "fwd":
+                    it = pending[f]
+                    _ext_fwd["v"] = f + 1
+                else:
+                    it = pending[b]
+                    _ext_bwd["v"] = b - 1
+                return it
+
+        def _ext_worker(role: str) -> None:
+            while True:
+                if stop_requested():
+                    return
+                if quota_flag["dead"] or _ext_quota["v"]:
+                    return
+                item = _claim_ext(role)
+                if item is None:
+                    return
                 try:
-                    # v1.14.149 — نجاتِ OCR قبل از صفِ ترجمه
-                    self._rescue_empty_ocr_1149(image, regions)
-                    _queue_dialogues(regions, page_i)
+                    page_i, out_file, image, regions, dbg = _extract_one(item)
                 except GeminiQuotaExhausted as e:
                     print(f"\n[!] {e}")
-                    quota_dead = True
-                    break
-                # v1.14.196 — «همزمان هم پاکسازیش انجام بده»: پاکسازیٔ همین
-                # صفحه بلافاصله در پسزمینه صف میشود؛ استخراجِ صفحهٔ بعدی
-                # بدونِ هیچ توقفی ادامه میدهد.
-                _clean_pages_bg([page_i])
-            _finish_ready_pages()
-            _preview_ready_pages()  # v1.14.160 — پیش‌نمایشِ حینِ استخراج
+                    _ext_quota["v"] = True
+                    return
+                except JobCancelled as e:
+                    _ext_err["exc"] = e
+                    return
+                except Exception as e:  # محافظت — کارگر هرگز نباید بمیرد
+                    print(f"    [!] خطای کارگرِ استخراج({role}): {e}",
+                          file=sys.stderr)
+                    continue
+                extracted_map[page_i] = (out_file, image, None, regions, dbg)
+                if image is not None and regions:
+                    try:
+                        # v1.14.149 — نجاتِ OCR قبل از صفِ ترجمه
+                        self._rescue_empty_ocr_1149(image, regions)
+                        with _qd_lock:
+                            _queue_dialogues(regions, page_i)
+                    except GeminiQuotaExhausted as e:
+                        print(f"\n[!] {e}")
+                        _ext_quota["v"] = True
+                        return
+                    # v1.14.196/197 — «همزمان هم پاکسازیش»: صفِ فاز ۱
+                    # (بالا→پایین)؛ استخراجِ دو سمت بدونِ توقف ادامه میدهد.
+                    _clean_pages_bg([page_i])
+                try:
+                    _finish_ready_pages()
+                    _preview_ready_pages()  # v1.14.160 — پیش‌نمایشِ حینِ استخراج
+                except JobCancelled as e:
+                    _ext_err["exc"] = e
+                    return
+                except Exception:
+                    pass
 
+        print(f"[*] استخراج دوطرفه: صفحهٔ ۱→{max(0, len(pending))} و "
+              f"صفحهٔ {max(0, len(pending))}→۱ همزمان (دیدار در وسط).")
+        _t_fwd = threading.Thread(target=_ext_worker, args=("fwd",),
+                                  daemon=True, name="extract-fwd")
+        _t_bwd = threading.Thread(target=_ext_worker, args=("bwd",),
+                                  daemon=True, name="extract-bwd")
+        _t_fwd.start()
+        _t_bwd.start()
+        _t_fwd.join()
+        _t_bwd.join()
+
+        # استخراج «کامل» تمام شد → پرچم برایِ فاز ۱ و شروعِ فازِ دوطرفه
+        extraction_done["v"] = True
+        with _clean_cond:
+            _clean_cond.notify_all()
+
+        if _ext_err["exc"] is not None:
+            trans_pool.shutdown(wait=False)
+            clean_pool.shutdown(wait=False)
+            raise _ext_err["exc"]
+
+        # ── فاز ۲: پاکسازی «دوطرفه» — فقط حالا که استخراج کامل شده ──
+        # باقیماندهٔ صف نصف میشود: یک کارگر از بالا پایین میرود، یکی از
+        # پایین بالا میآید؛ وسط به هم میرسند.
+        with _clean_cond:
+            _backlog = sorted(pending_clean)
+        if _backlog:
+            _mid = (len(_backlog) + 1) // 2
+            _top_seq, _bot_seq = _backlog[:_mid], _backlog[_mid:]
+            print(f"[*] پاکسازی دوطرفه: {len(_top_seq)} صفحه از بالا→پایین، "
+                  f"{len(_bot_seq)} صفحه از پایین→بالا…")
+            clean_all_futs.append(clean_pool.submit(
+                _clean_seq_job, list(_top_seq)))
+            clean_pool2 = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="clean2")
+            clean_all_futs.append(clean_pool2.submit(
+                _clean_seq_job, list(reversed(_bot_seq))))
 
         if stop_requested():
             trans_pool.shutdown(wait=False)
             raise JobCancelled("لغو توسط کاربر")
 
         # v1.14.196 — «بعد تموم شد متنهایِ استخراجشده بده به AI»: کلِ
-        # بافر (همهٔ دیالوگهایِ فصل) در «یک» درخواست.
+        # بافر (همهٔ دیالوگهایِ فصل) در «یک» درخواست (مرتبسازیِ روایی
+        # داخلِ _flush_translate_buffer انجام میشود).
         if dialogue_buffer and not getattr(self, "clean_only", False):
             _flush_translate_buffer(force=True)
         _t_trw67 = time.time()  # v1.14.67 — انتظارِ ترجمه
@@ -28439,7 +28693,9 @@ html, body { background: #0a0a0b; }
         _seen_f: dict = {}
         for _f in trans_futures:
             _seen_f[id(_f)] = _f
-        for _f in list(clean_futures.values()):
+        # v1.14.197 — آیندههایِ پاکسازی (فاز ۱ + فازِ دوطرفه) هم در همین
+        # انتظارِ مشترک؛ صفحهٔ آماده بلافاصله نهایی/پیش‌نمایش میگیرد.
+        for _f in list(clean_all_futs):
             _seen_f[id(_f)] = _f
         _futures = list(_seen_f.values())
         while _futures:
@@ -28476,6 +28732,11 @@ html, body { background: #0a0a0b; }
             pass
         try:
             clean_pool.shutdown(wait=True)
+        except Exception:
+            pass
+        try:
+            if clean_pool2 is not None:  # v1.14.197 — کارگرِ پایین→بالا
+                clean_pool2.shutdown(wait=True)
         except Exception:
             pass
 
