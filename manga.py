@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.198"
+APP_VER = "1.14.199"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -5802,31 +5802,49 @@ def _live_page_dump(out_file: str, key: Optional[str] = None,
     _live_dump(out_file, dbg=False, key=key, slot=slot)
 
 
-def _split_one_request_batches(items: List["TextRegion"],
-                               cap_n: int = 60, cap_c: int = 10000):
-    """v1.14.198 — درخواستِ «واحدِ» کلِ فصل با سقفِ درشت.
+def _one_request_caps():
+    """v1.14.199 — سقفهایِ بستهٔ ترجمهٔ واحد: پیشفرضِ ۳۰تا۳۰تا (دستورِ
+    سازنده: «حداقل ۳۰ تا ۳۰ تا جمع کنه ترجمه کنه») با MANGA_ONE_REQ_MAX/
+    MANGA_ONE_REQ_CHARS قابلِ تغییر."""
+    try:
+        n = max(10, int(os.environ.get("MANGA_ONE_REQ_MAX", "30") or 30))
+    except Exception:
+        n = 30
+    try:
+        c = max(2000, int(os.environ.get("MANGA_ONE_REQ_CHARS", "10000") or 10000))
+    except Exception:
+        c = 10000
+    return n, c
 
-    گزارشِ سازنده: «چرا مترجم یهو کتابی شد بخاطر حجم زیاد متن؟» —
-    فهرستِ چندصدتاییِ یکجا مدل را به ترجمهٔ کتابی/پیوسته و خلاصهسازی
-    میبرد (مدل فهرستِ بلند را مثلِ سند ترجمه میکند، نه دیالوگ). فصلِ
-    بزرگ به بستههایِ درشتِ صفحه‌به‌صفحه (پیشفرض ۶۰ دیالوگ یا ۱۰۰۰۰
-    نویسه — هرکدام زودتر) شکسته میشود؛ ترتیبِ ورودی (روایی/صفحهای)
-    دستنخورده میماند. فصلِ معمولی (تا سقف) همچنان دقیقاً «یک»
-    درخواست است — رفتارِ ۱۹۶ حفظ میشود؛ همچنان فقط بعد از اتمامِ
-    کاملِ استخراج، نه ۱۵تا۱۵تایِ میانهٔ کار."""
+
+def _split_one_request_batches(items: List["TextRegion"],
+                               cap_n: int = 30, cap_c: int = 10000):
+    """v1.14.198/199 — درخواستِ «واحدِ» کلِ فصل با بستههایِ ۳۰تایی.
+
+    گزارشِ سازنده: «چرا مترجم یهو کتابی شد بخاطر حجم زیاد متن؟» — فهرستِ
+    چندصدتاییِ یکجا مدل را به ترجمهٔ کتابی/پیوسته میبرد. دستورِ سازنده
+    (v1.14.199): «حداقل ۳۰ تا ۳۰ تا جمع کنه ترجمه کنه» — پس تقسیمِ
+    متوازن: تعدادِ بستهها طوری انتخاب میشود که «هیچ» بستهای زیرِ سقفِ
+    ۳۰ نیفتد (۱۳۰ دیالوگ → ۳۳/۳۳/۳۲/۳۲، نه ۳۰/۳۰/۳۰/۳۰/۱۰)؛ فصلِ
+    تا۳۰تایی همچنان دقیقاً «یک» درخواست است. سقفِ نویسه (۱۰۰۰۰) سدِ
+    دومِ محافظ است. ترتیبِ رواییِ ورودی دستنخورده میماند و شکستن فقط
+    بعد از اتمامِ کاملِ استخراج انجام میشود — نه ۱۵تا۱۵تایِ میانهٔ کار."""
+    total_n = len(items)
+    if not total_n:
+        return []
+    if total_n <= cap_n:
+        return [list(items)]
+    total_c = sum(len(getattr(r, "source_text", "") or "") for r in items)
+    n_groups = max(1, total_n // cap_n)          # هر بسته ≥ ۳۰ دیالوگ
+    if total_c > cap_c:                          # سدِ دوم: سقفِ نویسه
+        n_groups = max(n_groups, -(-total_c // cap_c))
+    base, rem = divmod(total_n, n_groups)
     groups: List[List[TextRegion]] = []
-    cur: List[TextRegion] = []
-    cur_c = 0
-    for r in items:
-        tl = len(getattr(r, "source_text", "") or "")
-        if cur and (len(cur) >= cap_n or cur_c + tl > cap_c):
-            groups.append(cur)
-            cur = []
-            cur_c = 0
-        cur.append(r)
-        cur_c += tl
-    if cur:
-        groups.append(cur)
+    start = 0
+    for gi in range(n_groups):
+        size = base + (1 if gi < rem else 0)
+        groups.append(list(items[start:start + size]))
+        start += size
     return groups
 
 
@@ -21432,16 +21450,12 @@ class MangaTranslator:
 
             # v1.14.196 — سبکِ K3: کلِ بچ یک درخواست — نه ۱۵تا۱۵تا.
             if getattr(self, "chapter_one_request", False):
-                # v1.14.198 — «مترجم یهو کتابی شد بخاطر حجم زیاد متن»:
-                # درخواستِ واحد میماند اما سقفِ درشت دارد — فصلِ بزرگ به
-                # بستههایِ درشتِ صفحه‌به‌صفحه شکسته میشود (۶۰ دیالوگ یا
-                # ۱۰۰۰۰ نویسه) تا مدل فهرستِ چندصدتایی را مثلِ سند با
-                # لحنِ کتابی ترجمه نکند. همچنان فقط بعد از اتمامِ کاملِ
-                # استخراج و به ترتیبِ روایی؛ نه ۱۵تا۱۵تایِ میانهٔ کار.
-                _cap_n = max(10, int(os.environ.get(
-                    "MANGA_ONE_REQ_MAX", "60") or 60))
-                _cap_c = max(2000, int(os.environ.get(
-                    "MANGA_ONE_REQ_CHARS", "10000") or 10000))
+                # v1.14.198/199 — «مترجم یهو کتابی شد بخاطر حجم زیاد متن»
+                # + «حداقل ۳۰ تا ۳۰ تا جمع کنه ترجمه کنه»: درخواستِ واحد
+                # با بستههایِ ۳۰تاییِ متوازن؛ خودِ فلاشِ پایانی هم
+                # بستهها را پشتسرهم به ترجمه میدهد — اینجا هم سدِ
+                # محافظ.
+                _cap_n, _cap_c = _one_request_caps()
                 return _split_one_request_batches(items, _cap_n, _cap_c)
 
             max_items = max(1, int(getattr(self, "bubbles_per_request", 6) or 6))
@@ -21472,8 +21486,13 @@ class MangaTranslator:
                 print(
                     f"    [*] دور {round_i}: {len(pending)} دیالوگ → {len(batches)} بسته"
                 )
+            # v1.14.199 — دستورِ سازنده: «۳۰ تا ۳۰ تا جمع کنه ترجمه کنه» —
+            # در حالتِ درخواستِ واحد، بستهها «پشتسرهم» میروند (نه موازی)
+            # تا ترتیبِ روایی و ترتیبِ نشستنِ ترجمهها رویِ صفحهها حفظ شود.
             workers = max(1, min(
                 int(getattr(self, "batch_workers", 3) or 1), len(batches)))
+            if getattr(self, "chapter_one_request", False):
+                workers = 1
             if workers > 1:
                 keys = list(self._api_keys)
                 jobs = [(bi, b) for bi, b in enumerate(batches, 1)]
@@ -28394,10 +28413,24 @@ html, body { background: #0a0a0b; }
             # بافتِ رواییِ مدل، قبل از ارسال به ترتیبِ طبیعیِ صفحهها مرتب
             # میشود (idها دستنخورده میمانند — نگاشتِ جواب به ناحیه سالم).
             dialogue_buffer.sort(key=lambda r: page_of_region.get(r.id, 0))
-            print(f"[*] ترجمهٔ بافر: {n} دیالوگ…")
-            chunk = dialogue_buffer
+            # v1.14.199 — دستورِ سازنده: «حداقل ۳۰ تا ۳۰ تا جمع کنه
+            # ترجمه کنه… جای اصلیشون بزاره بخونم»: بافر به بستههایِ
+            # ۳۰تاییِ متوازن شکسته و تک‌تک «پشتسرهم» به ترجمه میرود
+            # (trans_pool تک‌نمونه است — نه موازی)؛ با تمامِ هر بسته،
+            # ترجمههایِ همان بسته بلافاصله رویِ صفحاتِ خودشان مینشینند
+            # (accountingِ بچبهچ + پیشنمایشِ زنده) تا همزمان بخوانی.
+            _cap_n, _cap_c = _one_request_caps()
+            _groups = _split_one_request_batches(
+                dialogue_buffer, _cap_n, _cap_c)
             dialogue_buffer = []
-            _translate_chunk_bg(chunk)
+            if len(_groups) > 1:
+                _sizes = "+".join(str(len(g)) for g in _groups)
+                print(f"[*] ترجمهٔ {n} دیالوگ در {len(_groups)} بستهٔ "
+                      f"پشتسرهم ({_sizes}) — ۳۰تا۳۰تا، به ترتیبِ روایی…")
+            else:
+                print(f"[*] ترجمهٔ بافر: {n} دیالوگ…")
+            for _g in _groups:
+                _translate_chunk_bg(_g)
 
         def _queue_dialogues(regions: List[TextRegion], page_i: int) -> None:
             nonlocal global_id, dialogue_buffer
@@ -28428,12 +28461,14 @@ html, body { background: #0a0a0b; }
             # و «نمایش زنده» هم در clean_only صفحه‌به‌صفحه کار می‌کند.
             min_batch = 15
         else:
-            # v1.14.196 — سبکِ K3: «اول همه عکس هارو استخراج بزنه، بعد
-            # تموم شد متنهایِ استخراجشده بره به AI؛ پاکسازی هم همزمان»
+            # v1.14.196/199 — سبکِ K3، دقیقاً طبقِ دستورِ سازنده:
+            # «اول کامل استخراج کنه دو طرفه + پاکسازی یک طرفه؛
+            # استخراج تموم شد پاکسازی دو طرفه + ترجمه (۳۰تا۳۰تا)»
             print(
-                f"[*] سبکِ K3: اول استخراجِ همهٔ {len(pending)} صفحه — "
-                f"پاکسازیٔ هر صفحه همزمان در پسزمینه؛ بعد از استخراجِ "
-                f"همه، همهٔ متنها در «یک» درخواستِ ترجمه میروند."
+                f"[*] سبکِ K3: اول استخراجِ دوطرفهٔ همهٔ {len(pending)} صفحه "
+                f"+ پاکسازیٔ یکطرفهٔ بالا→پایین همزمان؛ بعد از اتمامِ "
+                f"کاملِ استخراج: پاکسازیٔ دوطرفه + ترجمهٔ ۳۰تا۳۰تایِ "
+                f"پشتسرهم (هیچ متنی زودتر از اتمامِ استخراج به مترجم نمیرود)."
             )
 
         quota_flag = {"dead": False}
