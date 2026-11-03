@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.194"
+APP_VER = "1.14.195"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1613,7 +1613,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .n.done{background:#2e7d4f}
 .dbtn{display:none;background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:7px 11px;font-size:.8rem;cursor:pointer;font-family:inherit;flex:none;min-height:36px}
 .dbtn.on{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}
-.c{max-width:min(100%,900px);margin:0 auto;width:100%}
+.c{max-width:min(100%,900px);margin:0 auto;width:100%;position:relative}
 .c img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;pointer-events:none;content-visibility:auto;contain-intrinsic-size:auto 1200px}
 .ph{width:100%;aspect-ratio:2/3;background:linear-gradient(100deg,#101012 40%,#17171a 50%,#101012 60%);background-size:200% 100%;animation:sh 1.6s infinite;border-radius:10px;margin:0 0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#5d5b55;font-size:.8rem}
 @keyframes sh{0%{background-position:120% 0}100%{background-position:-80% 0}}
@@ -1681,7 +1681,27 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     while (c.children.length < want) c.appendChild(mkPh());
     for (var i = 0; i < want; i++) {
       var el = c.children[i];
-      if (i < a && el.tagName !== 'IMG') c.replaceChild(mkImg(i), el);
+      // v1.14.195 — ضدِ چشمکِ اسلاتِ تازه: تصویر اول کامل دیکود میشود؛
+      // placeholderِ «در حال ترجمه…» تا آخرین لحظه سرِ جایش میماند و بعد
+      // عوض میشود — زمینهٔ تیرهٔ خالی هرگز دیده نمیشود.
+      if (i < a && el.tagName !== 'IMG' && !el.__pend) {
+        el.__pend = 1;
+        // IIFE: idx/imِ مخصوصِ همین اسلات — varِ بیرونی بینِ تکرارها مشترک است
+        (function(idx){
+          var im = document.createElement('img');
+          im.src = imgSrc(idx);
+          im.loading = 'eager';   // تصویرِ جدا از DOM: lazy هرگز نمیآید
+          im.decoding = 'async';
+          im.alt = 'صفحهٔ ' + (idx + 1);
+          var put = function(){
+            if (im.parentNode) return;
+            var cur = c.children[idx];
+            if (cur && cur.tagName !== 'IMG' && cur.__pend) c.replaceChild(im, cur);
+          };
+          if (im.decode) { im.decode().then(put, put); }
+          else { im.onload = put; im.onerror = put; }
+        })(i);
+      }
     }
     b.textContent = a + (total > 0 ? ' / ' + total : '');
     var fin = (total > 0 && a >= total);
@@ -1725,29 +1745,62 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   // v1.14.160 — progressive 15-by-15 refresh: the engine rewrites the same
   // slot file after every translated batch and logs 'slot mtime' into
   // mtimes.txt; here only the changed slot is re-fetched (no scroll jump).
-  // v1.14.194 — تعویضِ بیفلاش («کلِ صفحه رفرش میشه میره میاد انگار چراغِ خاموش روشن کردی»):
-  // تصویرِ نو اول بیرونِ دید کامل دیکود میشود (onload رویِ Imageِ موقت) و بعد src عوض
-  // میشود — از کشِ حافظه می‌نشیند؛ تصویرِ قبلی تا آخرین لحظه سرِ جایش ماند، صفحه
-  // هرگز خاموش-روشن نمیشود و اسکرول نمیپرد.
+  // v1.14.194 — گامِ اولِ تعویضِ بیفلاش: تصویرِ نو قبل از تعویضِ src کامل
+  // دیکود میشد. ولی جوابِ سرورِ داخلی در کشِ حافظهٔ مرورگر نمیماند —
+  // درخواستِ دومِ همان URL دوباره گرفته و دیکود میشد؛ ضمنِ آن چند صدم
+  // ثانیه، عنصرِ img فریمِ قبلی را میریزد و زمینهٔ سیاه نشان میداد
+  // («هر متنِ جدید صفحه سیاه میکنه انگار عکس کامل از اول لود میشه»).
+  // v1.14.195 — گامِ دوم: پوشانهٔ دوبل. تصویرِ نو در یک imgِ روییِ همجایِ
+  // اسلات (position:absolute رویِ همان مختصات) دیکود و «رویِ» تصویرِ قدیم
+  // می‌نشیند؛ پیکسلهایِ قدیم تا این لحظه هرگز دور نمیشوند. فقط بعدِ
+  // نقشدنِ پوشانه، srcِ اسلاتِ اصلی زیرِ پوشانه عوض میشود (نامرئی است) و
+  // بعد از دیکودِ کاملِ اسلاتِ اصلی، پوشانه برداشته میشود. در هیچ فریمی
+  // تصویرِ خالی/سیاه دیده نمیشود — نه چراغِ خاموش، نه پرشِ چیدمان.
+  // اگر بهروزرسانیِ بعدیِ همان اسلات وسطِ تعویض برسد، صف میشود.
   function hotSwap(el, url){
     try {
       if (!el || el.tagName !== 'IMG') return;
       if (el.getAttribute('src') === url) return;
-      var done = false, pre = null;
-      var apply = function(){
-        if (done) return;
-        done = true;
+      if (el.__swapBusy) { el.__swapNext = url; return; }
+      el.__swapBusy = 1;
+      var par = el.parentNode;
+      if (!par) { el.__swapBusy = 0; return; }
+      var ov = document.createElement('img');
+      ov.alt = ''; ov.draggable = false;
+      ov.style.cssText = 'position:absolute;z-index:6;pointer-events:none;user-select:none;-webkit-user-drag:none;margin:0;content-visibility:visible;';
+      var place = function(){
         try {
-          if (pre.naturalWidth > 1 && pre.naturalHeight > 1)
-            el.style.aspectRatio = pre.naturalWidth + '/' + pre.naturalHeight;
-        } catch (e2) {}
-        try { el.src = url; } catch (e3) {}
+          ov.style.left = el.offsetLeft + 'px';
+          ov.style.top = el.offsetTop + 'px';
+          ov.style.width = el.offsetWidth + 'px';
+          ov.style.height = el.offsetHeight + 'px';
+        } catch (e0) {}
       };
-      pre = new Image();
-      pre.onload = apply;
-      pre.onerror = function(){}; // تصویرِ قبلی سرِ جایش میماند
-      pre.src = url;
-      if (pre.complete && pre.naturalWidth > 0) apply(); // کشِ فوری
+      var cleanup = function(){
+        try { ov.remove(); } catch (e4) { try { par.removeChild(ov); } catch (e6) {} }
+        el.__swapBusy = 0;
+        var nx = el.__swapNext; el.__swapNext = null;
+        if (nx) hotSwap(el, nx);
+      };
+      var step2 = function(){
+        // پوشانه نقشید → srcِ واقعی زیرِ آن عوض میشود (هیچکس نمیبیند)
+        try { el.onerror = function(){ cleanup(); }; } catch (e5) {}
+        try { el.src = url; } catch (e3) { cleanup(); return; }
+        var fin = function(){ requestAnimationFrame(cleanup); };
+        if (el.decode) { el.decode().then(fin, fin); } else { setTimeout(fin, 90); }
+      };
+      var cover = function(){
+        try {
+          if (ov.naturalWidth > 1 && ov.naturalHeight > 1)
+            el.style.aspectRatio = ov.naturalWidth + '/' + ov.naturalHeight;
+        } catch (e2) {}
+        place();
+        par.appendChild(ov);
+        requestAnimationFrame(step2);
+      };
+      ov.src = url;
+      if (ov.decode) { ov.decode().then(cover, cover); }
+      else { ov.onload = cover; ov.onerror = cover; }
     } catch (err) {
       try { el.src = url; } catch (e2) {}
     }

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.194"
+APP_VER = "1.14.195"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -5706,7 +5706,8 @@ _LIVE_SLOT_BY_KEY: Dict[str, int] = {}
 _LIVE_SLOT_LOCK = threading.Lock()
 
 
-def _live_dump(src, dbg: bool = False, key: Optional[str] = None) -> None:
+def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
+               slot: Optional[int] = None) -> None:
     """یک صفحهٔ تازه‌تمام‌شده را برای «نمایش زنده» می‌نویسد.
 
     src یا مسیر فایل است یا آرایهٔ تصویر (مثل دیباگ). برای دیباگ پوشهٔ
@@ -5718,7 +5719,17 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None) -> None:
     همان «۱۵ تا ۱۵ تا ترجمه کنه بذاره رو عکس نشون بده» است: هر بستهٔ
     ترجمه همان صفحه را دوباره رندر و جای خودش زنده عوض میکند. برای هر
     به‌روزرسانی یک خط «اسلات زمان» در mtimes.txt نوشته میشود تا نمایشگرِ
-    وب فقط اسلاتِ عوضشده را دوباره لود کند (بدونِ پرش اسکرول)."""
+    وب فقط اسلاتِ عوضشده را دوباره لود کند (بدونِ پرش اسکرول).
+
+    v1.14.195 — slot: شمارهٔ اسلاتِ صریح. «دیباگ دو بار نشون میده — هم
+    دیباگِ قبلی هست هم دیباگِ تمومشده»: دیباگِ هر صفحه دوبار ذخیره میشد
+    (یکبار در _finish_page_now و یکبار در حلقهٔ ذخیرهٔ نهایی) و چون
+    شمارهٔ اسلاتِ دیباگ از رجیستریِ جدا میآمد، هر بار «فایلِ تازه»
+    میساخت → پوشهٔ live_debug دو فایل برایِ هر صفحه داشت و نمایشگرِ
+    دیباگ هر صفحه را دو بار نشان میداد. حالا دیباگِ صفحهٔ iام همیشه در
+    live_00(i+1).jpg همان پوشه مینشیند — ریزِ دوباره همان فایل را
+    بهروز میکند، هیچ فایلِ تکراری ساخته نمیشود و ترتیبِ فهرستِ دیباگ =
+    ترتیبِ واقعیِ صفحه‌ها."""
     d = (os.environ.get("MANGA_LIVE_DEBUG_DIR" if dbg else "MANGA_LIVE_DIR")
          or "").strip()
     if not d:
@@ -5734,9 +5745,8 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None) -> None:
             return
         os.makedirs(d, exist_ok=True)
         _sent = os.path.join(d, ".count")
-        slot = None
-        _slot_new = False
-        if key is not None and not dbg:
+        slot_new = False
+        if slot is None and key is not None:
             with _LIVE_SLOT_LOCK:
                 slot = _LIVE_SLOT_BY_KEY.get(key)
                 if slot is None:
@@ -5747,7 +5757,7 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None) -> None:
                         _n = 0
                     slot = _n + 1
                     _LIVE_SLOT_BY_KEY[key] = slot
-                    _slot_new = True
+                    slot_new = True
         try:
             with open(_sent, encoding="utf-8") as f:
                 n = int(f.read().strip() or "0")
@@ -5763,6 +5773,7 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None) -> None:
             slot = n
         out_name = os.path.join(d, f"live_{slot:04d}.jpg")
         cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
+        # شمارندهٔ پوشه نباید عقبتر از اسلاتهایِ تخصیصی بماند (رفتارِ سابق)
         with open(_sent, "w", encoding="utf-8") as f:
             f.write(str(max(n, slot)))
         # v1.14.160 — زمانِ هر اسلات برایِ به‌روزرسانیِ تدریجیِ نمایشگرِ وب
@@ -5771,7 +5782,7 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None) -> None:
                 f.write(f"{slot} {int(time.time() * 1000)}\n")
         except Exception:
             pass
-        if not dbg and (key is None or _slot_new):
+        if not dbg and (key is None or slot_new):
             print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
         # به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
     except Exception:
@@ -28009,7 +28020,10 @@ html, body { background: #0a0a0b; }
                     results_by_i[page_i] = (out_file, True, dbg_out)
                     _live_page_dump(out_file, key=out_file)  # v1.14.160 — اسلاتِ ثابتِ صفحه
                     if self.debug and dbg_out is not None:
-                        _live_dump(dbg_out, dbg=True)
+                        # v1.14.195 — اسلاتِ صریحِ صفحه: دیباگِ صفحهٔ iام همیشه
+                        # live_00(i+1).jpg — ریزِ دومِ پایانِ کار همان فایل را
+                        # بهروز میکند، نه فایلِ تازه («دیباگ دو بار نشون میده»)
+                        _live_dump(dbg_out, dbg=True, slot=page_i + 1)
                 except Exception as _werr:
                     print(f"  [!] ذخیرهٔ تصویر #{page_i + 1} ناموفق: {_werr}")
                     results_by_i[page_i] = (out_file, None, dbg_out)
@@ -28424,7 +28438,8 @@ html, body { background: #0a0a0b; }
             results_by_i[page_i] = (out_file, None, None)
             if self.debug and dbg is not None:
                 try:
-                    _live_dump(dbg, dbg=True)
+                    # v1.14.195 — همان اسلاتِ صفحه؛ قبلاً فایلِ دومیِ تکراری میساخت
+                    _live_dump(dbg, dbg=True, slot=page_i + 1)
                 except Exception:
                     pass
             if self.debug and dbg is not None:
