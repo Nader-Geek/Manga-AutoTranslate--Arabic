@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.197"
+APP_VER = "1.14.198"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -5789,8 +5789,45 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
         pass
 
 
-def _live_page_dump(out_file: str, key: Optional[str] = None) -> None:
-    _live_dump(out_file, dbg=False, key=key)
+def _live_page_dump(out_file: str, key: Optional[str] = None,
+                    slot: Optional[int] = None) -> None:
+    """v1.14.198 — slot: شمارهٔ صریحِ اسلات = شمارهٔ واقعیِ صفحه.
+
+    با استخراجِ دوطرفهٔ ۱۹۷ صفحهها بیترتیبِ شماره تمام میشوند و
+    پیشنمایشِ جریانی هم به ترتیبِ رسیدنِ آیتمها از مدل رندر میکند؛
+    اسلاتِ «ترتیبِ اتمام» عکسِ وسطِ فصل را جلوی صفحهٔ اول مینشاند
+    (گزارشِ سازنده: «یهو عکس وسط شده اولی عکس»). حالا همهٔ مسیرها
+    slot=page_i+1 میفرستند — ترتیبِ نمایشِ زنده = ترتیبِ واقعیِ صفحهها؛
+    هر صفحه در جایگاهِ خودش پر میشود، وسط فصل وسط میماند."""
+    _live_dump(out_file, dbg=False, key=key, slot=slot)
+
+
+def _split_one_request_batches(items: List["TextRegion"],
+                               cap_n: int = 60, cap_c: int = 10000):
+    """v1.14.198 — درخواستِ «واحدِ» کلِ فصل با سقفِ درشت.
+
+    گزارشِ سازنده: «چرا مترجم یهو کتابی شد بخاطر حجم زیاد متن؟» —
+    فهرستِ چندصدتاییِ یکجا مدل را به ترجمهٔ کتابی/پیوسته و خلاصهسازی
+    میبرد (مدل فهرستِ بلند را مثلِ سند ترجمه میکند، نه دیالوگ). فصلِ
+    بزرگ به بستههایِ درشتِ صفحه‌به‌صفحه (پیشفرض ۶۰ دیالوگ یا ۱۰۰۰۰
+    نویسه — هرکدام زودتر) شکسته میشود؛ ترتیبِ ورودی (روایی/صفحهای)
+    دستنخورده میماند. فصلِ معمولی (تا سقف) همچنان دقیقاً «یک»
+    درخواست است — رفتارِ ۱۹۶ حفظ میشود؛ همچنان فقط بعد از اتمامِ
+    کاملِ استخراج، نه ۱۵تا۱۵تایِ میانهٔ کار."""
+    groups: List[List[TextRegion]] = []
+    cur: List[TextRegion] = []
+    cur_c = 0
+    for r in items:
+        tl = len(getattr(r, "source_text", "") or "")
+        if cur and (len(cur) >= cap_n or cur_c + tl > cap_c):
+            groups.append(cur)
+            cur = []
+            cur_c = 0
+        cur.append(r)
+        cur_c += tl
+    if cur:
+        groups.append(cur)
+    return groups
 
 
 def _live_total_write(n: int) -> None:
@@ -21395,7 +21432,17 @@ class MangaTranslator:
 
             # v1.14.196 — سبکِ K3: کلِ بچ یک درخواست — نه ۱۵تا۱۵تا.
             if getattr(self, "chapter_one_request", False):
-                return [list(items)]
+                # v1.14.198 — «مترجم یهو کتابی شد بخاطر حجم زیاد متن»:
+                # درخواستِ واحد میماند اما سقفِ درشت دارد — فصلِ بزرگ به
+                # بستههایِ درشتِ صفحه‌به‌صفحه شکسته میشود (۶۰ دیالوگ یا
+                # ۱۰۰۰۰ نویسه) تا مدل فهرستِ چندصدتایی را مثلِ سند با
+                # لحنِ کتابی ترجمه نکند. همچنان فقط بعد از اتمامِ کاملِ
+                # استخراج و به ترتیبِ روایی؛ نه ۱۵تا۱۵تایِ میانهٔ کار.
+                _cap_n = max(10, int(os.environ.get(
+                    "MANGA_ONE_REQ_MAX", "60") or 60))
+                _cap_c = max(2000, int(os.environ.get(
+                    "MANGA_ONE_REQ_CHARS", "10000") or 10000))
+                return _split_one_request_batches(items, _cap_n, _cap_c)
 
             max_items = max(1, int(getattr(self, "bubbles_per_request", 6) or 6))
             max_chars = 2200
@@ -21531,6 +21578,16 @@ class MangaTranslator:
                 "آن‌ها یکدست نگه دار؛ جواب کوتاه (بله/نه/هوم) را همان‌قدر کوتاه بده. "
                 "style هر آیتم اگر بود (shout/thought/narrator/…) یعنی حباب فریاد، فکر یا "
                 "راوی است — فریاد کوتاه و ضربه‌ای، فکر درونی، راوی شفاهی و روایی.\n"
+                # v1.14.198 — «مترجم یهو کتابی شد بخاطر حجم زیاد متن»: در
+                # فهرستِ بلند، مدل گرایش مییابد حبابها را مثلِ متنِ کتاب
+                # پیوسته و تحتاللفظی برگرداند — صریح ممنوع میشود.
+                + ((
+                    "فهرستِ بلند است: اینها حبابهایِ دیالوگِ مانگا هستند، نه پاراگرافهایِ "
+                    "یک کتاب — هر آیتم جدا و کامل ترجمه شود؛ هیچ آیتمی با آیتمِ دیگر ادغام "
+                    "یا به روایتِ پیوستهٔ کتابی بازنویسی نشود؛ لحنِ محاورهایِ زنده بماند "
+                    "(نه کتابی، نه تحتاللفظی، نه خلاصهسازی)؛ طولِ هر ترجمه متناسبِ متنِ "
+                    "مبدأ است.\n"
+                   ) if len(work_regions) >= 25 else "")
                 + ((
                     "توجه ژاپنی: OCR ممکن است فوریگانا (کانای ریز تلفظ کنار کانجی) را "
                     "قاطی متن کرده باشد؛ فقط متن اصلی (کانجی + کانای درشت) معنا می‌دهد، "
@@ -28100,18 +28157,17 @@ html, body { background: #0a0a0b; }
             if resume and os.path.isfile(out_file):
                 processed_files.append(out_file)
                 skipped += 1
+                # v1.14.198 — اسلاتِ صریحِ صفحه: صفحهٔ resume هم در
+                # اسلاتِ خودش (page_i+1) مینشیند، نه ترتیبِ پیمایش
+                try:
+                    _live_page_dump(out_file, key=out_file, slot=page_i + 1)
+                except Exception:
+                    pass
                 continue
             pending.append((page_i, f, out_file))
 
         if skipped:
             print(f"[*] {skipped} صفحه از کش (resume).")
-            # صفحه‌های از‌قبل‌ساخته را هم زنده نشان بده تا اسلات‌ها خالی نمانند
-            # (v1.14.160 — با اسلاتِ ثابتِ خودشان، به ترتیبِ صفحه)
-            try:
-                for _rf in processed_files:
-                    _live_page_dump(_rf, key=_rf)
-            except Exception:
-                pass
 
         try:
             self.preload_lama_async()
@@ -28245,7 +28301,12 @@ html, body { background: #0a0a0b; }
                 try:
                     self._write_image(result, out_file)
                     results_by_i[page_i] = (out_file, True, dbg_out)
-                    _live_page_dump(out_file, key=out_file)  # v1.14.160 — اسلاتِ ثابتِ صفحه
+                    # v1.14.198 — ریشهٔ «یهو عکس وسط شده اولی عکس»: اسلاتِ
+                    # زنده قبلاً از «ترتیبِ اتمام» میآمد و در استخراجِ
+                    # دوطرفه/پیشنمایشِ جریانی، عکسِ وسطِ فصل در اسلاتِ اول
+                    # مینشست. حالا اسلاتِ صریح = شمارهٔ واقعیِ صفحه؛ هر
+                    # صفحه در جایگاهِ خودش پر میشود.
+                    _live_page_dump(out_file, key=out_file, slot=page_i + 1)
                     if self.debug and dbg_out is not None:
                         # v1.14.195 — اسلاتِ صریحِ صفحه: دیباگِ صفحهٔ iام همیشه
                         # live_00(i+1).jpg — ریزِ دومِ پایانِ کار همان فایل را
@@ -28313,7 +28374,10 @@ html, body { background: #0a0a0b; }
                     result, _pd = self.finish_page_phase(
                         image, regions, skip_translate=True, precleaned=precleaned)
                     self._write_image(result, out_file)
-                    _live_page_dump(out_file, key=out_file)
+                    # v1.14.198 — پیشنمایشِ جریانی به ترتیبِ رسیدنِ آیتمها
+                    # از مدل رندر میکند (نه ترتیبِ صفحه) — اسلاتِ صریح:
+                    # عکسِ وسطِ فصل وسطِ فهرستِ نمایش میماند، نه اولش.
+                    _live_page_dump(out_file, key=out_file, slot=page_i + 1)
                     _prev_counts[page_i] = n_tr
                     del result
                 except Exception as _perr:
@@ -28751,7 +28815,8 @@ html, body { background: #0a0a0b; }
                 processed_files.append(out_file)
             else:
                 self._write_image(result, out_file)
-                _live_page_dump(out_file, key=out_file)  # v1.14.160 — اسلاتِ ثابت
+                _live_page_dump(out_file, key=out_file,
+                                slot=page_i + 1)  # v1.14.198 — اسلاتِ صریحِ صفحه
                 processed_files.append(out_file)
             results_by_i[page_i] = (out_file, None, None)
             if self.debug and dbg is not None:
