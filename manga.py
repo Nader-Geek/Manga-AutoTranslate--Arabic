@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.193"
+APP_VER = "1.14.194"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3747,7 +3747,7 @@ class PaddleAndroidOCR:
         print(f"[+] OCR گوشی: RapidOCRِ اندروید آماده | "
               f"RapidOcrAndroidOnnx | det=PP-OCRv6_small "
               f"cls=v2.0_cls rec=PP-OCRv6_medium/{self.lang} "
-              f"(دانلودی — v1.14.193) | threads={_intra}")
+              f"(دانلودی — v1.14.194) | threads={_intra}")
 
     # v1.14.190 — آستانهٔ دوئلِ چندزبانه: زیرِ این اطمینان، تلاشِ ko هم
     # میشود (متنِ کره‌ای با recِ پیشفرضِ v6 چرت میزند — charsetِ v6
@@ -25478,7 +25478,78 @@ class MangaTranslator:
                         print(f"    {_txt[:150]}")
         else:
             final_image = precleaned.copy() if precleaned is not None else image.copy()
+        # v1.14.194 — «اون قسمتهایی که متن نداره خالیه — وقتی متن نباشه شکلِ
+        # لودینگ بیار جایِ متن؛ متنش ترجمه شد بذار سرجاش» (پیشنمایشِ زندهٔ
+        # کمکم). در مسیرِ بچ، متنِ همهٔ دیالوگها از قبل پاک شده (precleaned)؛
+        # حبابِ هنوز بیجواب = جایِ خالی. حالا بهجایِ خالی، نشانِ لودینگ
+        # (چرخِ چرخان) وسطِ حباب می‌نشیند؛ همین که ترجمهٔ واقعی برسد،
+        # رندرِ بعدیِ پیشنمایش متن را سرِ جایش میگذارد و نشانِ لودینگ از
+        # آن ناحیه حذف میشود. فقط پیشنمایش (final=False) — رندرِ نهایی
+        # یا متنِ مبدأ دارد (فالبکِ 192) یا سدِ 193 صفحه را کامل نگه میدارد.
+        if (not final and precleaned is not None
+                and not getattr(self, "clean_only", False)):
+            _wait_regions = [r for r in dialogue_regions
+                             if not (r.translated_text or "").strip()
+                             and not getattr(r, "ocr_empty", False)
+                             and (r.source_text or "").strip()]
+            if _wait_regions:
+                try:
+                    final_image = self._draw_loading_marks_1194(
+                        final_image, _wait_regions)
+                except Exception as _lg_err:
+                    if self.debug:
+                        try:
+                            print(f"    [194] نشانِ لودینگ: {str(_lg_err)[:80]}")
+                        except Exception:
+                            pass
         return final_image, page_debug
+
+    def _draw_loading_marks_1194(self, image: np.ndarray,
+                                 regions: List[TextRegion]) -> np.ndarray:
+        """v1.14.194 — نشانِ «در حال ترجمه…» وسطِ حبابهایِ درانتظار.
+        یک قوسِ خاکستریِ نازک (چرخِ لودینگ) + سه نقطهٔ کوچک زیرش؛
+        قوس با هر رندرِ پیشنمایش کمی میچرخد تا حسِ «لود شدن» بدهد.
+        خاکستریِ ملایم رویِ حبابِ روشن = لودینگِ محسوس ولی مزاحمِ صفحه
+        نمیشود؛ در رندرِ نهایی هرگز صدا زده نمیشود."""
+        img = image
+        if img is None or img.size == 0 or not regions:
+            return img
+        h, w = img.shape[:2]
+        # v1.14.194 — چرخشِ نرم: هر رندرِ پیشنمایش زاویهٔ شروعِ قوس جلو
+        # میرود؛ چون پیشنمایش هر ۲+ ثانیه با رسیدنِ ترجمهٔ تازه رندر
+        # میشود، چرخ بهتدریج «میچرخد».
+        _spin = int((time.time() * 90.0) % 360.0)
+        for r in regions:
+            try:
+                # v1.14.194 — rect = (x, y, عرض، ارتفاع) است (قراردادِ
+                # TextRegion؛ rect=(x0, y0, x1-x0, y1-y0) در محلِ ساخت) —
+                # نه گوشه‌ها؛ با گوشه فرضکردن، نشان وسطِ جایِ غلط می‌نشست.
+                _rx, _ry, _rw, _rh = r.rect
+                x0, y0 = max(0, int(_rx)), max(0, int(_ry))
+                x1 = min(w - 1, int(_rx + _rw) - 1)
+                y1 = min(h - 1, int(_ry + _rh) - 1)
+                bw, bh = x1 - x0, y1 - y0
+                if bw < 26 or bh < 26:
+                    continue  # حبابِ خیلی ریز — جای نشان ندارد
+                cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+                rad = int(min(bw, bh) * 0.17)
+                rad = max(8, min(rad, 44))
+                th = max(2, rad // 5)
+                col = (150, 150, 150)  # خاکستریِ ملایم (BGR)
+                # قوسِ ناتمام = چرخِ لودینگ؛ زاویهٔ شروع با زمان میچرخد
+                cv2.ellipse(img, (cx, cy), (rad, rad), _spin % 360,
+                            0, 250, col, th, cv2.LINE_AA)
+                # سه نقطهٔ «…» زیرِ چرخ — داخلِ حباب میماند (خارجِ ناحیه نمیرود)
+                _d = max(2, th - 1)
+                _dy = min(cy + rad + th * 3, y1 - _d - 1)
+                if _dy > cy:
+                    for _k in (-1, 0, 1):
+                        _px = cx + _k * (rad // 2 + _d * 2)
+                        if x0 + _d < _px < x1 - _d:
+                            cv2.circle(img, (_px, _dy), _d, col, -1, cv2.LINE_AA)
+            except Exception:
+                continue
+        return img
 
     def process_core(self, image: np.ndarray) -> np.ndarray:
         # v1.14.66 — زمان‌گیریِ مراحل (درخواستِ کاربر: از استخراج تا آخرِ

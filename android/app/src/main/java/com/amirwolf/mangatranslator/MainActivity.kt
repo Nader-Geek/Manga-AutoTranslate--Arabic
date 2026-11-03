@@ -616,8 +616,24 @@ class MainActivity : AppCompatActivity() {
                 !has64 && apkv7.isNotEmpty() -> apkv7
                 else -> apkUni.ifEmpty { apk64 }
             }
-            if (base.isEmpty()) return true
-            prefs.edit().putString("apk_url_" + remote, base).apply()
+            // v1.14.194 — ریشهٔ «تو اپ اپدیت جدید دکمه دانلودش نمیاد»: از
+            // v1.14.162 سطرهایِ apkArm64/apkArmv7a/apkUniversal از VERSION
+            // خوانده میشد ولی VERSION هرگز این سطرها را نداشت → base خالی
+            // میماند و اینجا بیصدا «آپدیتی نیست» برمیگشت؛ ردیفِ آپدیت با
+            // دکمهٔ دانلود هرگز نمیآمد (فیکسِ 192 هم چون شبکه نبود اثری
+            // نداشت — ۳ تلاش هم همیشه به همین خالی میرسید). حالا اگر
+            // VERSION سطرها را نداشت (فایلِ کش‌شدهٔ CDN/نسخهٔ قدیمی)،
+            // لینکِ ثابتِ ریلیزِ apk (همان لینکهایی که CI هر بیلد
+            // بهروزرسانی میکند) بر اساسِ ABI ساخته میشود — دیگر هرگز
+            // آپدیتِ پیدا شده بیصدا دور ریخته نمیشود.
+            val baseUrl = base.ifEmpty {
+                "https://github.com/amirwolf512k/Manga-AutoTranslate" +
+                        "/releases/download/apk/" +
+                        (if (has64) "MangaTranslator-arm64.apk"
+                         else "MangaTranslator-universal.apk")
+            }
+            if (baseUrl.isEmpty()) return true
+            prefs.edit().putString("apk_url_" + remote, baseUrl).apply()
             ui.post {
                 updVerName = rname
                 updVerCode = remote
@@ -749,7 +765,10 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     st.text = "🔄 آپدیتِ جدید v" + updVerName +
                             " — فایلِ نصبی دانلود شود؟"
-                    btn?.text = "نصب"
+                    // v1.14.194 — «دکمه دانلودش نمیاد»: دکمه فقط «نصب» بود؛
+                    // چون فایل هنوز دانلود نشده، برچسبِ درست همان «دانلود و
+                    // نصب» است — کاربر میداند با زدنش دانلود شروع میشود.
+                    btn?.text = "⬇ دانلود و نصب"
                 }
             }
         }

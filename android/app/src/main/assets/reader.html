@@ -419,6 +419,37 @@
   // v1.14.160 — پیشنمایشِ ۱۵تایی: موتور بعد از هر بستهِ ترجمه، همان اسلات را
   // دوباره رندر میکند و زمانش را در mtimes.txt مینویسد؛ اینجا فقط اسلاتِ
   // عوضشده دوباره لود میشود (بدون پرش اسکرول و بازسازی کل).
+  // v1.14.194 — تعویضِ بیفلاش («کلِ صفحه رفرش میشه میره میاد انگار چراغِ
+  // خاموش روشن کردی»): قبلاً srcِ اسلات مستقیم با ?r= عوض میشد → وسطِ
+  // گرفتن + دیکودِ تصویرِ بزرگ، عنصرِ img خالی/تیره میشد (چراغِ خاموش)
+  // و بعد تصویرِ نو میامد (روشن). حالا تصویرِ نو «اول» بیرونِ دید کامل
+  // دیکود میشود (onload رویِ Imageِ موقت) و «بعد» src عوض میشود —
+  // از کشِ حافظه می‌نشیند؛ تصویرِ قبلی تا آخرین لحظه سرِ جایش ماند،
+  // اسکرول نمیپرد و صفحه هرگز خاموش-روشن نمیشود.
+  const hotSwap = (el, url) => {
+    try {
+      if (!el || el.tagName !== 'IMG') return;
+      if (el.getAttribute('src') === url) return;
+      let done = false;
+      let pre = null;
+      const apply = () => {
+        if (done) return;
+        done = true;
+        try {
+          if (pre.naturalWidth > 1 && pre.naturalHeight > 1)
+            el.style.aspectRatio = pre.naturalWidth + '/' + pre.naturalHeight;
+        } catch (e2) {}
+        try { el.src = url; } catch (e3) {}
+      };
+      pre = new Image();
+      pre.onload = apply;
+      pre.onerror = () => {}; // تصویرِ قبلی سرِ جایش میماند
+      pre.src = url;
+      if (pre.complete && pre.naturalWidth > 0) apply(); // کشِ فوری
+    } catch (err) {
+      try { el.src = url; } catch (e2) {}
+    }
+  };
   const mgMtimes = {};
   let mgMtimesBusy = false;
   function pollMtimes() {
@@ -439,9 +470,12 @@
           mgMtimes[slot] = mt;
           const el = lgF.children[slot - 1];
           if (el && el.tagName === 'IMG') {
-            el.dataset.src = 'i/' + (slot - 1) + '?r=' + Date.now();
-            if (el.getAttribute('src') !== PH1)
-              el.setAttribute('src', el.dataset.src);
+            const nu = 'i/' + (slot - 1) + '?r=' + Date.now();
+            el.dataset.src = nu;
+            // v1.14.194 — src فقط وقتی عوض میشود که تصویرِ نو کامل دیکود
+            // شده باشد؛ اسلاتِ بیرونِ دید (src=PH1) فقط dataset.src تازه
+            // میگیرد و IntersectionObserver موقعِ نزدیکشدن خودش لود میکند.
+            if (el.getAttribute('src') !== PH1) hotSwap(el, nu);
           }
         }
       })

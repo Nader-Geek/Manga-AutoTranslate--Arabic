@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.193"
+APP_VER = "1.14.194"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1725,6 +1725,33 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   // v1.14.160 — progressive 15-by-15 refresh: the engine rewrites the same
   // slot file after every translated batch and logs 'slot mtime' into
   // mtimes.txt; here only the changed slot is re-fetched (no scroll jump).
+  // v1.14.194 — تعویضِ بیفلاش («کلِ صفحه رفرش میشه میره میاد انگار چراغِ خاموش روشن کردی»):
+  // تصویرِ نو اول بیرونِ دید کامل دیکود میشود (onload رویِ Imageِ موقت) و بعد src عوض
+  // میشود — از کشِ حافظه می‌نشیند؛ تصویرِ قبلی تا آخرین لحظه سرِ جایش ماند، صفحه
+  // هرگز خاموش-روشن نمیشود و اسکرول نمیپرد.
+  function hotSwap(el, url){
+    try {
+      if (!el || el.tagName !== 'IMG') return;
+      if (el.getAttribute('src') === url) return;
+      var done = false, pre = null;
+      var apply = function(){
+        if (done) return;
+        done = true;
+        try {
+          if (pre.naturalWidth > 1 && pre.naturalHeight > 1)
+            el.style.aspectRatio = pre.naturalWidth + '/' + pre.naturalHeight;
+        } catch (e2) {}
+        try { el.src = url; } catch (e3) {}
+      };
+      pre = new Image();
+      pre.onload = apply;
+      pre.onerror = function(){}; // تصویرِ قبلی سرِ جایش میماند
+      pre.src = url;
+      if (pre.complete && pre.naturalWidth > 0) apply(); // کشِ فوری
+    } catch (err) {
+      try { el.src = url; } catch (e2) {}
+    }
+  }
   var mtimeBusy = false;
   function pollMtimes(){
     if (mtimeBusy || arrived <= 0) return;
@@ -1744,7 +1771,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
           mtimes[slot] = mt;
           var el = c.children[slot - 1];
           if (el && el.tagName === 'IMG')
-            el.src = P + curDir() + 'live_' + pad(slot) + '.jpg?r=' + Date.now();
+            hotSwap(el, P + curDir() + 'live_' + pad(slot) + '.jpg?r=' + Date.now());
         }
       })
       .catch(function(){ mtimeBusy = false; });
