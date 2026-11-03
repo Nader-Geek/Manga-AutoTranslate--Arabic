@@ -137,6 +137,10 @@ class MainActivity : AppCompatActivity() {
             if (s.equals("null", true) || s.equals("undefined", true)) return null
             return s
         }
+        // v1.14.192 — JSONObject.NULL (defaultِ nullِ اسکیما) هرگز مقدار
+        // حساب نمیشود؛ toString()اش رشتهٔ «null» میسازد که بعداً در کادرِ
+        // فیلدهایِ خالی مینشست («قسمت لینک null نشون میده»).
+        if (dflt === org.json.JSONObject.NULL) return null
         return dflt
     }
 
@@ -227,6 +231,13 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().remove("pending_apk").apply()
                 launchInstall(f)
             }
+        }
+        // v1.14.192 — «اپدیت تو خوده اپ نمیاد»: وقتی کاربر برمیگردد و
+        // ردیفِ آپدیت نیست، اگر از آخرین چک بیش از ۳۰ دقیقه گذشته باشد
+        // یک بارِ دیگر چک میشود (اینترنت/VPN این وسط آماده شده است).
+        if (updRow == null &&
+            System.currentTimeMillis() - lastUpdCheckAt > 30 * 60_000L) {
+            Thread { checkAppUpdate() }.start()
         }
     }
 
@@ -392,7 +403,7 @@ class MainActivity : AppCompatActivity() {
 
         runBtn.setOnClickListener { onStartJob() }
 
-        Thread { checkAppUpdate() }.start()
+        Thread { checkAppUpdateWithRetry() }.start()
 
         Thread {
             try {
@@ -445,15 +456,15 @@ class MainActivity : AppCompatActivity() {
                         .append("/files/crash_log.txt\n\n")
                 }
                 ui.post {
-                    logBox.text = pre.toString() + if (healthReport.isNotBlank())
+                    setLog(pre.toString() + if (healthReport.isNotBlank())
                         healthReport + "\n\n—— وضعیت فایل‌ها —\n" + st
-                    else st
+                    else st)
                 }
                 ui.post { buildForm() }
             } catch (e: PyException) {
                 ui.post {
                     loadingRow.visibility = View.GONE
-                    logBox.text = "❌ خطای موتور:\n" + e.message
+                    setLog("❌ خطای موتور:\n" + e.message)
                     Toast.makeText(this, "خطای موتور پایتون", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Throwable) {
@@ -461,7 +472,7 @@ class MainActivity : AppCompatActivity() {
                     loadingRow.visibility = View.GONE
                     val sw = java.io.StringWriter()
                     e.printStackTrace(java.io.PrintWriter(sw))
-                    logBox.text = "❌ خطای غیرمنتظره در آماده‌سازی:\n" + sw.toString().take(2500)
+                    setLog("❌ خطای غیرمنتظره در آماده‌سازی:\n" + sw.toString().take(2500))
                     Toast.makeText(this, "خطای غیرمنتظره", Toast.LENGTH_LONG).show()
                 }
             }
@@ -574,7 +585,8 @@ class MainActivity : AppCompatActivity() {
         0
     }
 
-    private fun checkAppUpdate() {
+    private fun checkAppUpdate(): Boolean {
+        lastUpdCheckAt = System.currentTimeMillis()
         try {
             val vc = installedVersionCode()
             val verTxt = String(fetchMirror("VERSION")).trim()
@@ -594,7 +606,7 @@ class MainActivity : AppCompatActivity() {
                     "apkUniversal" -> apkUni = pp[1].trim()
                 }
             }
-            if (remote <= vc || remote <= 0) return
+            if (remote <= vc || remote <= 0) return true  // چکِ درست — آپدیتی نیست
             // v1.14.109 — گوشیِ ۳۲-بیتی (بدونِ arm64) APKِ armv7a را بگیرد
             // (سبک‌تر از universal)؛ ۶۴-بیتی مثلِ قبل arm64؛ بدونِ هر دو = universal
             val has64 = (Build.SUPPORTED_ABIS ?: arrayOf<String>())
@@ -604,7 +616,7 @@ class MainActivity : AppCompatActivity() {
                 !has64 && apkv7.isNotEmpty() -> apkv7
                 else -> apkUni.ifEmpty { apk64 }
             }
-            if (base.isEmpty()) return
+            if (base.isEmpty()) return true
             prefs.edit().putString("apk_url_" + remote, base).apply()
             ui.post {
                 updVerName = rname
@@ -620,8 +632,33 @@ class MainActivity : AppCompatActivity() {
                 cleanOldUpdateApks(remote)
                 showUpdateRow()
             }
+            return true
         } catch (_: Exception) {
+            // v1.14.192 — دیگر بی‌صدا نیست: false برمی‌گردد تا caller
+            // دوباره تلاش کند (ریشهٔ «اپدیت تو خوده اپ نمیاد» — چکِ لحظهٔ
+            // بازشدنِ اپ، معمولاً قبل از آمادهشدنِ اینترنت/VPN است)
+            return false
+        }
+    }
 
+    // v1.14.192 — «اپدیت جدید اپ دیگ تو خوده اپ نمیاد قدیم میومد»:
+    // چکِ اولِ بازشدن اپ اغلب بدونِ اینترنت میرود و تا ری‌استارتِ بعدی
+    // هیچ تلاشی نبود. حالا ۳ تلاشِ پشتسرهم (۰/۲۰/۶۰ ثانیه) + چکِ دوباره
+    // در onResume (سقفِ ۳۰ دقیقه) تا ردیفِ آپدیت مثلِ قدیم بیاید.
+    @Volatile
+    private var lastUpdCheckAt: Long = 0L
+
+    private fun checkAppUpdateWithRetry() {
+        var attempt = 0
+        while (attempt < 3) {
+            if (checkAppUpdate()) return
+            if (isFinishing || isDestroyed) return
+            attempt += 1
+            try {
+                Thread.sleep(if (attempt == 1) 20_000L else 40_000L)
+            } catch (_: InterruptedException) {
+                return
+            }
         }
     }
 
@@ -1175,7 +1212,7 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             loadingRow.visibility = View.GONE
-            logBox.text = "❌ ساخت فرم:\n" + (e.message ?: e.toString())
+            setLog("❌ ساخت فرم:\n" + (e.message ?: e.toString()))
         }
     }
 
@@ -1296,9 +1333,22 @@ class MainActivity : AppCompatActivity() {
                     setPadding(dp(12), dp(11), dp(12), dp(11))
                     if (lines < 2 && type == "password") inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
                     if (lines < 2 && type == "number") inputType = InputType.TYPE_CLASS_NUMBER
+                    // v1.14.192 — «قسمت لینک هردفعه وارد میشم null نشون میده
+                    // با این که لینک نزدم»: defaultِ nullِ اسکیما (JSON null)
+                    // از dflt?.toString() به رشتهٔ «null» تبدیل میشد و وقتی
+                    // prefs مقدارِ خالیِ "" داشت (نوشتهٔ خودِ TextWatcher در
+                    // اجرای قبل)، همان «null» در کادر مینشست (inp_path،
+                    // manga_api_base، …). حالا NULL/«null»/«undefined» = خالی.
+                    val dfltStr: String = when {
+                        dflt == null || dflt === org.json.JSONObject.NULL -> ""
+                        else -> {
+                            val s = dflt.toString()
+                            if (s.equals("null", true) || s.equals("undefined", true)) "" else s
+                        }
+                    }
                     val saved = savedOr(id, dflt)
                     if (saved is String) {
-                        setText(saved.ifBlank { dflt?.toString() ?: "" })
+                        setText(saved.ifBlank { dfltStr })
                     }
                     addTextChangedListener(object : android.text.TextWatcher {
                         override fun afterTextChanged(s: android.text.Editable?) {
@@ -1397,9 +1447,17 @@ class MainActivity : AppCompatActivity() {
                             }
                             runOnUiThread {
                                 testBtn.isEnabled = true
-                                val okTxt = res?.optString("text")?.takeIf { it.isNotBlank() }
+                                // v1.14.192 — ضدِ «null»: optString رویِ
+                                // valueِ صریحِ null رشتهٔ «null» میدهد؛
+                                // «null» = خالی حساب میشود (قسمتِ لینک/تست)
+                                val okTxt = res?.optString("text")?.takeIf {
+                                    it.isNotBlank() && !it.equals("null", true)
+                                }
+                                val errTxt = res?.optString("error")?.takeIf {
+                                    it.isNotBlank() && !it.equals("null", true)
+                                }
                                 val msg = okTxt
-                                    ?: ("خطا: " + (res?.optString("error")?.takeIf { it.isNotBlank() }
+                                    ?: ("خطا: " + (errTxt
                                         ?: (err ?: "خطا")))
                                 testLbl.text = msg
                                 testLbl.setTextColor(if (okTxt != null) TXT else Color.parseColor("#c62828"))
@@ -1798,14 +1856,21 @@ class MainActivity : AppCompatActivity() {
     private fun setLog(t: String) {
         logBox.text = t
         if (logFollow) {
-            logBox.post {
-                try {
-                    val l = logBox.layout ?: return@post
-                    val bottom = l.getLineBottom(l.lineCount - 1) - logBox.height + dp(8)
-                    logBox.scrollTo(0, bottom.coerceAtLeast(0))
-                } catch (e: Exception) {
-                }
-            }
+            // v1.14.192 — «وقتی لاگ میده باید خودش با لاگ بره پایین نه ثابت
+            // بمونه»: اسکرول در دو لحظه — بعد از post و یک بارِ دیگر بعدِ
+            // چیدمانِ نهایی (متنهایِ خیلی بلند در پاسِ اول هنوز کامل
+            // چیده نشدهاند و اسکرولِ اول کف نمیرسد).
+            logBox.post { scrollLogToBottom() }
+            logBox.postDelayed({ scrollLogToBottom() }, 90)
+        }
+    }
+
+    private fun scrollLogToBottom() {
+        try {
+            val l = logBox.layout ?: return
+            val bottom = l.getLineBottom(l.lineCount - 1) - logBox.height + dp(8)
+            logBox.scrollTo(0, bottom.coerceAtLeast(0))
+        } catch (e: Exception) {
         }
     }
 
@@ -1843,6 +1908,14 @@ class MainActivity : AppCompatActivity() {
             maybeAskBatteryExemption()
             jobRunning = true
             cancelPending = false
+            // v1.14.192 — هر اجرای تازه از «دنبالکردنِ لاگ» شروع میشود
+            // («تا وقتی خودم دست نزدم، خودش با لاگ بره پایین»)
+            logFollow = true
+            // v1.14.192 — «Downloads/manga/*log هروقت استارت میزنم پاک شه
+            // کامل» — جارویِ لاگهایِ Downloads در لحظهٔ استارتِ هر اجرا
+            // (نه فقط بازشدنِ اپ). بعد از پایانِ اجرا فقط دوتا ساخته
+            // میشوند: manga.log.txt و manga_old.log.txt.
+            Thread { deleteAllMangaLogsInDownloads() }.start()
 
             runBtn.isEnabled = true
             runBtn.text = "⏹  لغو ترجمه"
@@ -1879,18 +1952,20 @@ class MainActivity : AppCompatActivity() {
                             }
                             pollLoop()
                         } else {
-                            logBox.text = "❌ " + (r?.optString("error", "")?.ifBlank { null }
-                                ?: err ?: "خطا")
+                            setLog("❌ " + (r?.optString("error", "")?.takeIf {
+                                it.isNotBlank() && !it.equals("null", true)
+                            }
+                                ?: err ?: "خطا"))
                             finishJobUi()
                         }
                     } catch (e: Exception) {
-                        logBox.text = "❌ " + (e.message ?: e.toString())
+                        setLog("❌ " + (e.message ?: e.toString()))
                         finishJobUi()
                     }
                 }
             }.start()
         } catch (e: Exception) {
-            logBox.text = "❌ " + (e.message ?: e.toString())
+            setLog("❌ " + (e.message ?: e.toString()))
             finishJobUi()
         }
     }
@@ -1921,7 +1996,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val s = st
                     if (s == null) {
-                        logBox.text = "❌ poll: $err"
+                        setLog("❌ poll: $err")
                         rescueOutputs()
                         finishJobUi()
                         return@post
@@ -1969,7 +2044,7 @@ class MainActivity : AppCompatActivity() {
 
                     } else ui.postDelayed({ pollLoop() }, 800)
                 } catch (e: Exception) {
-                    logBox.text = "❌ poll: " + (e.message ?: e.toString())
+                    setLog("❌ poll: " + (e.message ?: e.toString()))
                     rescueOutputs()
                     finishJobUi()
                 }
@@ -2750,6 +2825,16 @@ class MainActivity : AppCompatActivity() {
                 val cur = upsertLogInDownloads("manga.log", logFile())
                 val old = upsertLogInDownloads("manga_old.log", logOldFile())
                 cleanupLogDuplicates()
+                // v1.14.192 — «فقط بعد تموم شدن دوتا لاگ بمونه»: بعضی
+                // رامها ردیفهایِ تازهٔ MediaStore را با تأخیر نمایه
+                // میکنند و پاسِ اول از دستشان میرود → ۲.۵ ثانیه بعد یک
+                // جارویِ تضمینیِ دیگر تا دقیقاً دوتا فایل بماند.
+                Thread {
+                    try { Thread.sleep(2500) } catch (_: Exception) {}
+                    synchronized(this@MainActivity) {
+                        cleanupLogDuplicates()
+                    }
+                }.start()
                 ui.post {
                     if (cur || old) {
                         if (manual) Toast.makeText(this,
@@ -2772,6 +2857,20 @@ class MainActivity : AppCompatActivity() {
     // Download/manga/ و Download/ به‌کلی پاک می‌شوند؛ لاگِ تازه بعد از
     // اجرا ساخته می‌شود. فایل‌هایِ خروجی (manga_*.pdf و…) لمس نمی‌شوند.
     private fun deleteAllMangaLogsOnStart() {
+        deleteAllMangaLogsInDownloads()
+        // لاگِ خصوصیِ اپ هم تازه شود (در اجرا از نو ساخته می‌شود) —
+        // فقط در «بازشدنِ اپ»؛ در «استارتِ اجرا» نه! (پایتون همان لحظه
+        // manga.log را میچرخاند → پاک کردنش یعنی لاگِ اجرا از بین میرود)
+        try { logFile().delete() } catch (_: Exception) {}
+        try { logOldFile().delete() } catch (_: Exception) {}
+    }
+
+    // v1.14.192 — خواستهٔ سازنده: «Downloads/manga/*log هروقت استارت
+    // میزنم پاک شه کامل فقط بعد تموم شدن دوتا لاگ بمونه». جارویِ
+    // خانوادهٔ لاگ فقط در Download/ و Download/manga/ — بدونِ دستزدن به
+    // لاگهایِ خصوصیِ اپ (چرخشِ manga.log/manga_old.log مالِ پایتون است
+    // و در لحظهٔ استارتِ اجرا انجام میشود) و بدونِ فایلهایِ خروجی.
+    private fun deleteAllMangaLogsInDownloads() {
         try {
             if (Build.VERSION.SDK_INT >= 29) {
                 val proj = arrayOf(MediaStore.MediaColumns._ID,
@@ -2805,9 +2904,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            // لاگِ خصوصیِ اپ هم تازه شود (در اجرا از نو ساخته می‌شود)
-            try { logFile().delete() } catch (_: Exception) {}
-            try { logOldFile().delete() } catch (_: Exception) {}
         } catch (_: Exception) {
         }
     }

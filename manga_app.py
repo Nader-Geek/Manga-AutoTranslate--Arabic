@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.191"
+APP_VER = "1.14.192"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -3205,6 +3205,46 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   syncSidHolder();
   setInterval(syncSidHolder, 1000);
   [200, 500, 1000, 2000, 4000].forEach((t) => setTimeout(syncSidHolder, t));
+
+  // v1.14.192 — خواستهٔ سازنده (PC/لینوکس = همین رابطِ وب): «وقتی لاگ میده
+  // باید خودش با لاگ بره پایین نه ثابت بمونه تا وقتی ک خودم دست نزدم
+  // بخوام برم بالا». Gradio فقط هنگامِ streaming اسکرول میکند و با
+  // بهروزرسانیِ poll رها میشود — اینجا دنبالکردنِ دستی: اگر کاربر
+  // نزدیکِ ته است (یا دستش را نزده) با هر تغییرِ متن به ته میرود؛
+  // بهمحضِ بالا بردنِ دست، دنبال کردن قطع و با برگشتن به ته وصل میشود.
+  try {{
+    const attachFollow = () => {{
+      const ta = findLogEl();
+      if (!ta || ta._mangaFollowBound) return;
+      ta._mangaFollowBound = true;
+      ta._mangaFollow = true;
+      ta._mangaLogLen = (ta.value || "").length;
+      const atBottom = () => {{
+        try {{ return ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 28; }}
+        catch (e) {{ return true; }}
+      }};
+      ta.addEventListener("scroll", () => {{ ta._mangaFollow = atBottom(); }}, {{passive: true}});
+      ta.addEventListener("wheel", () => {{ ta._mangaFollow = atBottom(); }}, {{passive: true}});
+      ta.addEventListener("touchmove", () => {{ ta._mangaFollow = false; }}, {{passive: true}});
+      ta.addEventListener("keydown", (ev) => {{
+        const k = ev.key || "";
+        if (k === "ArrowUp" || k === "PageUp" || k === "Home") ta._mangaFollow = false;
+        if (k === "ArrowDown" || k === "PageDown" || k === "End") ta._mangaFollow = true;
+      }});
+      setInterval(() => {{
+        const len = (ta.value || "").length;
+        if (len !== ta._mangaLogLen) {{
+          const reset = len < ta._mangaLogLen;
+          ta._mangaLogLen = len;
+          if (ta._mangaFollow || reset) {{
+            try {{ ta.scrollTop = ta.scrollHeight; }} catch (e) {{}}
+          }}
+        }}
+      }}, 300);
+    }};
+    attachFollow();
+    [1200, 4000].forEach((t) => setTimeout(attachFollow, t));
+  }} catch (e) {{}}
 
   return [];
 }}
