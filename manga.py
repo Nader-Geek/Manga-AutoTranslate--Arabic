@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.201"
+APP_VER = "1.14.202"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -7618,6 +7618,31 @@ class MangaTranslator:
         return False
 
     @staticmethod
+    def _strip_watermark_tokens(text: str) -> str:
+
+        t = text or ""
+        t = DOMAIN_RE.sub(" ", t)
+        for w in WATERMARK_PATTERNS:
+            if w and re.search(r"(?i)(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", t):
+                t = re.sub(r"(?i)(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", " ", t)
+        return re.sub(r"\s{2,}", " ", t).strip(" \t.,:;!?…")
+
+    @staticmethod
+    def _dialogue_despite_watermark(text: str) -> bool:
+
+        # v1.14.202 — واترمارکِ رویِ حباب: اگرِ بعدِ برداشتنِ دامنهها،
+        # باقیِ متن هنوز دیالوگِ واقعی باشد (≥۳ واژهٔ حرفدارِ مصوتدار و
+        # بدونِ نشانهٔ تبلیغِ باقی‌مانده) → promo نیست. فقطِ دامنه برداشته
+        # میشود تا عبارتِ تبلیغِ باقی‌مانده («DEAR READERS»، …) هنوز دیده
+        # شود و بنرِ واقعی promo بماند.
+        residue = DOMAIN_RE.sub(" ", text or "")
+        if not residue.strip() or MangaTranslator._is_watermark_text(residue):
+            return False
+        words = [w for w in re.findall(r"[A-Za-z]{2,}", residue)
+                 if any(c in "AEIOUaeiou" for c in w)]
+        return len(words) >= 3
+
+    @staticmethod
     def _classify_text(text: str) -> str:
 
         stripped = (text or "").strip()
@@ -7636,6 +7661,13 @@ class MangaTranslator:
                 if _w and _w in _low_probe:
                     _looks_promo = True
                     break
+        # v1.14.202 — واترمارکِ رویِ حباب: OCR واترمارک/دامنهٔ سایت را «داخلِ»
+        # متنِ حباب میخواند («IT'S EASY, LIKEMANGA.INK BECAUSE…» /
+        # «…DREAMS...LIKEMANGA.INK» — فصلِ ۱۱۰) و کلِ ناحیه promo میشد →
+        # ازش رد میشد (نه پاکسازی، نه ترجمه). اگرِ بعدِ برداشتنِ توکنها
+        # باقیِ متن هنوز دیالوگِ واقعی است → دیالوگ، نه promo.
+        if _looks_promo and MangaTranslator._dialogue_despite_watermark(stripped):
+            return "dialogue"
         if len(latin_core) >= 3 and not _looks_promo and re.fullmatch(r"[A-Za-z][A-Za-z\s.'\-]*[.!?…~]*", stripped.replace("...", ".").replace("…", ".")):
 
             if any(c in "AEIOUaeiou" for c in latin_core):
@@ -8285,6 +8317,12 @@ class MangaTranslator:
         _nz = [a for a in angles if abs(a) >= 3.0]
         avg_angle = float(np.median(_nz)) if _nz else 0.0
         region_kind = MangaTranslator._classify_text(text)
+        # v1.14.202 — واترمارکِ چسبیده به متنِ حباب («…LIKEMANGA.INK») به
+        # مترجم نرود؛ باقیِ متن باید همچنان دیالوگ بماند
+        if region_kind == "dialogue" and MangaTranslator._is_watermark_text(text):
+            _scrub = MangaTranslator._strip_watermark_tokens(text)
+            if _scrub and MangaTranslator._classify_text(_scrub) == "dialogue":
+                text = _scrub
 
         regions.append(
             TextRegion(
@@ -24825,7 +24863,13 @@ class MangaTranslator:
 
             if kind == "dialogue":
                 if MangaTranslator._is_watermark_text(text):
-                    kind = "promo"
+                    # v1.14.202 — واترمارکِ رویِ حباب: باقیِ متنِ واقعی =
+                    # دیالوگ میماند (واترمارک از متنِ ترجمه هم برداشته میشود)
+                    _scrub = MangaTranslator._strip_watermark_tokens(text)
+                    if _scrub and self._classify_text(_scrub) == "dialogue":
+                        text = _scrub
+                    else:
+                        kind = "promo"
 
 
             if kind == "junk":
