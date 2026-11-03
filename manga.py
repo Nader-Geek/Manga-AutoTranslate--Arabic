@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.204"
+APP_VER = "1.14.205"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -14145,6 +14145,29 @@ class MangaTranslator:
                     continue
                 sx0, sy0, sx1, sy1, kept = st
                 m[sy0:sy1, sx0:sx1][kept] = 255
+                # v1.14.205 — شبحِ لبهٔ حروف: ماسکِ پاکسازی هستهٔ تیره + هالهٔ
+                # ۱۴..۳۰ را میگیرد ولی پیکسلهایِ خیلی روشنِ لبهٔ حرف
+                # (≤۱۴ سطح از زمینه) را نه؛ کامپوزِ فقط-هسته آنها را از عکسِ
+                # اورجینال برمی‌گرداند = شبحِ خوانایِ «ALSO» در حبابِ
+                # «YOU SHOULD ALSO…» (img7 — گزارشِ سازنده: «متن also هم
+                # دیده میشه یا پاک نشده یا نگرفته؟»). پیکسلهایِ روشنِ چسبیده
+                # به هسته (≤۳px) از عکسِ پاک‌شده بیایند — پیکسلی که پاک
+                # نشده در هر دو عکس یکسان است پس خطری ندارد و زمینهٔ هنریِ
+                # پرقاومت (|Δ|>۱۴ — حصارِ پشتِ ARTICLEها) همچنان از
+                # اورجینال میماند.
+                try:
+                    _g205 = cv2.cvtColor(image[sy0:sy1, sx0:sx1],
+                                         cv2.COLOR_BGR2GRAY)
+                    _med205 = float(np.median(_g205))
+                    _lite205 = (np.abs(_g205.astype(np.float32) - _med205)
+                                <= 14.0)
+                    _kd205 = cv2.dilate(kept.astype(np.uint8),
+                                        np.ones((7, 7), np.uint8)) > 0
+                    _add205 = _kd205 & _lite205 & (~kept)
+                    if _add205.any():
+                        m[sy0:sy1, sx0:sx1][_add205] = 255
+                except Exception:
+                    pass
                 n += 1
             if n == 0:
                 # هیچ خطی نوار نشد → کلِ ناحیه به مسیرِ خام سپرده شود
@@ -24765,7 +24788,13 @@ class MangaTranslator:
 
         regions: List[TextRegion] = []
         h, w = image.shape[:2]
-        page_area = float(max(1, h * w))
+        # v1.14.205 — آستانهٔ نسبیِ «باکسِ خیلی کوچک» باید در مقیاسِ یک
+        # صفحه/تایل بماند نه کلِ نوار: ۰.۰۸٪ِ نوارِ ۷۰۰×۷۷۹۲ = ۴۳۶۴px²
+        # می‌شود و حبابِ کوچکِ واقعی («YEAH, YEAH~» با ۵۸×۶۱ — لاگِ
+        # v1.14.200: ۲۴ خام → ۲۳ OCR بدونِ هیچ «حذف شد») با لرزشِ ±چندpxِ
+        # باکس غیب می‌شد (گزارشِ سازنده: «متن yeah yeah استخراج نشده یا
+        # پاک نشده؟» + دیباگِ سبزِ D11 رویِ همان حباب).
+        page_area = float(max(1, min(h, RTDetrV2ONNXDetector.TILE_HEIGHT) * w))
         cand: List[Tuple[int, dict, int, int, int, int, int, int]] = []
         for i, b in enumerate(boxes):
             x1, y1, x2, y2 = b["rect"]
@@ -24773,9 +24802,13 @@ class MangaTranslator:
             x2, y2 = min(w, int(x2)), min(h, int(y2))
             bw, bh = x2 - x1, y2 - y1
             if bw < 16 or bh < 16:
+                if self.debug:
+                    print(f"    [*] باکسِ ریزِ detector حذف شد: ({x1},{y1},{bw}x{bh})")
                 continue
 
             if bw * bh < page_area * 0.0008 and max(bw, bh) < 60:
+                if self.debug:
+                    print(f"    [*] باکسِ خیلی کوچک حذف شد: ({x1},{y1},{bw}x{bh})")
                 continue
             cand.append((i, b, x1, y1, x2, y2, bw, bh))
         ocr_results: List[Tuple[str, List[np.ndarray], List[float]]] = [
