@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.197"
+APP_VER = "1.14.200"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1553,6 +1553,46 @@ def _dark_js_src() -> str:
       });
     }
   } catch (e) {}
+  // ---- دکمهٔ دانلودِ لاگِ کامل (v1.14.200) ----
+  // نمایشِ زنده فقط ۱۲۰ خطِ آخر را نشان میدهد؛ این دکمه فایلِ کاملِ لاگِ
+  // رویِ دیسک را میدهد — از اولِ کار تا همین لحظه، بی هیچ برش (خواستهٔ
+  // سازنده: «لاگ کامل بگیره ناقص نباشه» — برایِ گزارشِ باگ).
+  try {
+    const dlLogBtn = document.getElementById('manga_dl_log');
+    if (dlLogBtn && !dlLogBtn._bound) {
+      dlLogBtn._bound = true;
+      dlLogBtn.addEventListener('click', async () => {
+        const mark = (t) => {
+          const old = dlLogBtn.textContent;
+          dlLogBtn.textContent = t;
+          setTimeout(() => { dlLogBtn.textContent = old; }, 1600);
+        };
+        const tools = document.querySelector('.log-tools');
+        const sessdir = tools ? (tools.getAttribute('data-sessdir') || '') : '';
+        let sid = '';
+        try {
+          const el = document.querySelector('#manga_sid textarea')
+            || document.querySelector('[id*="manga_sid"] textarea');
+          sid = ((el && el.value) || '').toString().trim();
+          if (!sid) sid = (localStorage.getItem('manga_sid') || '').trim();
+        } catch (e) {}
+        if (!sessdir || !sid) { mark('✖ لاگی نیست'); return; }
+        const url = '/gradio_api/file=' +
+          encodeURIComponent(sessdir + '/' + sid + '.log').replace(/%2F/g, '/');
+        try {
+          const r = await fetch(url, { method: 'HEAD' });
+          if (!r.ok) { mark('✖ لاگی نیست'); return; }
+        } catch (e) {}
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'manga_log_' + sid.slice(0, 8) + '.txt';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        mark('✔ دانلود شد');
+      });
+    }
+  } catch (e) {}
   return [];
 }
 """
@@ -2470,6 +2510,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 job["proc"] = None
                 job["ts"] = time.time()
                 job["log"] = (job.get("log") or "") + "\n⏹ ترجمه متوقف شد توسط کاربر."
+                _append_job_logfile(sid, "⏹ ترجمه متوقف شد توسط کاربر.")
             try:
                 _persist_job_meta(sid)
             except Exception:
@@ -2519,6 +2560,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     return json.load(f)
             except Exception:
                 return {}
+
+        def _append_job_logfile(sid: str, text: str) -> None:
+            # v1.14.200 — لاگِ کاملِ رویِ دیسک (خواستهٔ سازنده: «لاگ کامل بگیره
+            # ناقص نباشه» برایِ گزارشِ باگ). بافرِ زندهٔ UI برایِ سبکماندن فقط
+            # ۱۲۰ خطِ آخر را نشان میدهد؛ این فایلِ کامل هرگز بریده نمیشود و
+            # دکمهٔ «دانلود لاگ» همین را کامل میدهد — از اولِ کار تا آخر.
+            if not sid or not text:
+                return
+            try:
+                os.makedirs(SESS_DIR, exist_ok=True)
+                with open(os.path.join(SESS_DIR, f"{sid}.log"), "a",
+                          encoding="utf-8") as f:
+                    f.write(text if text.endswith("\n") else text + "\n")
+            except Exception:
+                pass
 
 
         def _find_active_sid(preferred: str = "") -> str:
@@ -2737,7 +2793,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 extra = "\n⚠ تصاویر برای نمایشگر پیدا نشد — فقط دانلود فعال است."
             if debug_imgs or download_debug:
                 extra += f"\n🔍 دیباگ: {len(debug_imgs)} صفحه آماده نمایش/دانلود"
-            final_log = "\n".join(buf[-120:]) + f"\n\n✅ تمام شد ({dur_s}) — دکمه‌های نمایش و دانلود پایین فعال شدند" + extra
+            _done_line = (f"✅ تمام شد ({dur_s}) — دکمه‌های نمایش و دانلود پایین فعال شدند"
+                          + extra)
+            final_log = "\n".join(buf[-120:]) + _done_line
+            _append_job_logfile(sid, _done_line)
             with job["lock"]:
                 job["log"] = final_log
                 job["download_path"] = target
@@ -2760,6 +2819,17 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 buf = list(job.get("buf") or [])
                 n = 0
                 partial = b""
+                # v1.14.200 — فایلِ کاملِ لاگِ این نشست: هر خطِ stdoutِ پروسه
+                # همین‌جا رویِ دیسک مینشیند. نمایشِ زنده عمداً ۱۲۰ خطِ آخر را
+                # نشان میدهد (سبک برایِ مرورگر) ولی «دانلود لاگ» باید کامل
+                # باشد نه ناقص — پس جریان کامل، خطبهخط، مینشیند.
+                log_fh = None
+                try:
+                    os.makedirs(SESS_DIR, exist_ok=True)
+                    log_fh = open(os.path.join(SESS_DIR, f"{sid}.log"), "a",
+                                  encoding="utf-8")
+                except Exception:
+                    log_fh = None
                 try:
                     stream = proc.stdout
                     fd = None
@@ -2794,6 +2864,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                 line, partial = partial.split(b"\n", 1)
                                 text = line.decode("utf-8", "replace").rstrip("\r")
                                 buf.append(text)
+                                if log_fh is not None:
+                                    try:
+                                        log_fh.write(text + "\n")
+                                        log_fh.flush()
+                                    except Exception:
+                                        log_fh = None
                                 if len(buf) > 400:
                                     del buf[:-300]
                                 with job["lock"]:
@@ -2809,7 +2885,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         else:
                             time.sleep(0.05)
                     if partial.strip():
-                        buf.append(partial.decode("utf-8", "replace").rstrip("\r"))
+                        _tail_txt = partial.decode("utf-8", "replace").rstrip("\r")
+                        buf.append(_tail_txt)
+                        if log_fh is not None:
+                            try:
+                                log_fh.write(_tail_txt + "\n")
+                                log_fh.flush()
+                            except Exception:
+                                log_fh = None
                     try:
                         proc.wait(timeout=5)
                     except Exception:
@@ -2817,7 +2900,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 except Exception as e:
                     with job["lock"]:
                         job["log"] = (job.get("log") or "") + f"\n⚠ reader: {e}"
+                    _append_job_logfile(sid, f"⚠ reader: {e}")
                 finally:
+                    if log_fh is not None:
+                        try:
+                            log_fh.close()
+                        except Exception:
+                            pass
+                    log_fh = None
                     rc = None
                     try:
                         rc = proc.poll()
@@ -2842,6 +2932,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     elif rc not in (None, 0) and rc not in (-15, -9, 15, 9):
                         with job["lock"]:
                             job["log"] = (job.get("log") or "") + f"\n\n❌ خطا — کد خروج {rc}"
+                        _append_job_logfile(sid, f"❌ خطا — کد خروج {rc}")
                     _persist_job_meta(sid)
 
             threading.Thread(target=_reader, daemon=True, name=f"manga-job-{sid[:8]}").start()
@@ -2869,11 +2960,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
 
         with gr.Accordion("📡 لاگ زنده", open=True):
+            # v1.14.200 — «دانلود لاگ» کنارِ «کپی لاگ» (خواستهٔ سازنده برایِ PC/لینوکس):
+            # کپی، همان ۱۲۰ خطِ نمایشِ زنده را میدهد؛ دانلود، فایلِ کاملِ لاگِ
+            # رویِ دیسک را (از اولِ کار تا همین لحظه) — برایِ گزارشِ باگ. مسیرِ
+            # پوشهٔ نشستها در data-sessdir میآید تا JS همان را از روتِ /file بخواهد.
             gr.HTML(
-                """
+                f"""
 <div id="manga_status_chip"></div>
-<div class="log-tools">
+<div class="log-tools" data-sessdir="{SESS_DIR.replace('&', '&amp;').replace('"', '&quot;')}">
   <button type="button" class="log-tool-btn" id="manga_copy_log" title="کپی متن لاگ">📋 کپی لاگ</button>
+  <button type="button" class="log-tool-btn" id="manga_dl_log" title="دانلودِ فایلِ کاملِ لاگ — از اولِ کار تا همین لحظه">⬇ دانلود لاگ</button>
 </div>
 """
             )
@@ -3560,6 +3656,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 job["running"] = True
                 job["log"] = "▶ در حال شروع…"
                 job["ts"] = time.time()
+            # v1.14.200 — سطرِ اولِ لاگِ کامل: نسخه + زمانِ شروع — برایِ
+            # گزارشِ باگِ سازنده لازم است (فایلِ کامل از همینجا بسته میشود).
+            _append_job_logfile(
+                sid, f"═══ Manga-AutoTranslate v{APP_VER} — شروعِ کارِ جدید — "
+                     f"{time.strftime('%Y-%m-%d %H:%M:%S')} ═══")
 
             live_dir = os.path.join(user_out_dir, "live")
             shutil.rmtree(live_dir, ignore_errors=True)
@@ -3604,6 +3705,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 with job["lock"]:
                     job["running"] = False
                     job["log"] = f"❌ اجرا نشد: {e}"
+                _append_job_logfile(sid, f"❌ اجرا نشد: {e}")
                 return _pack("🚀  شروع ترجمه", job["log"])
 
             with job["lock"]:
