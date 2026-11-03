@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.195"
+APP_VER = "1.14.196"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -6121,6 +6121,11 @@ class MangaTranslator:
         self.bubbles_per_request = max(1, int(bubbles_per_request or 15))
 
         self.min_translate_batch = max(1, int(getattr(self, "min_translate_batch", 15) or 15))
+
+        # v1.14.196 — سبکِ K3: «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن» — کلِ
+        # متنهایِ استخراجشدهٔ فصل در «یک» درخواستِ ترجمه میروند (استریم +
+        # پارسرِ افزایشی)؛ ردیفِ ترجمهٔ ۱۵تاییِ میانهٔ کار دیگر نیست.
+        self.chapter_one_request = True
 
         self.erase_bubble_interior = False
         self.api_timeout = float(api_timeout) if api_timeout and api_timeout > 0 else 30.0
@@ -20608,9 +20613,11 @@ class MangaTranslator:
         except Exception as e:
             print(f"    [!] بازسازی کلاینت ناموفق: {e}")
 
-    def _call_ai_with_timeout(self, fn, *, label: str = "AI") -> str:
+    def _call_ai_with_timeout(self, fn, *, label: str = "AI",
+                              timeout: float = None) -> str:
 
-        timeout = float(getattr(self, "api_timeout", 45.0) or 45.0)
+        timeout = (float(timeout) if timeout
+                   else float(getattr(self, "api_timeout", 45.0) or 45.0))
         if timeout <= 0:
             return fn()
         ex = ThreadPoolExecutor(max_workers=1)
@@ -20699,7 +20706,9 @@ class MangaTranslator:
             return False, f"خطا: {msg}"
 
     def _translate_with_gemini(self, user_prompt: str, system_instruction: str,
-                               *, structured: bool = True) -> str:
+                               *, structured: bool = True,
+                               timeout: float = None,
+                               on_item=None) -> str:
         item_props = {
             "id": {"type": "INTEGER"},
             "translation": {"type": "STRING"},
@@ -20729,6 +20738,23 @@ class MangaTranslator:
         )
         if structured:
             config_args["top_p"] = 0.9  # v1.14.189 — کپچر: topP 0.9
+            # v1.14.196 — سبکِ K3: هر ۴ دستهٔ HARM = BLOCK_NONE تا یک حبابِ
+            # حساس کلِ جواب را نسوزاند (تلاشهایِ تکراری و وقت هدر نمیرود)؛
+            # مدلی که نپذیرد در مسیرِ خطا فلگ میشود و بدونِ آن ادامه میدهد.
+            if getattr(self, "_sbn_ok", True):
+                try:
+                    _sbn = []
+                    for _cat in ("HARM_CATEGORY_HARASSMENT",
+                                 "HARM_CATEGORY_HATE_SPEECH",
+                                 "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                 "HARM_CATEGORY_DANGEROUS_CONTENT"):
+                        _sbn.append(genai_types.SafetySetting(
+                            category=genai_types.HarmCategory[_cat],
+                            threshold=genai_types.HarmBlockThreshold.BLOCK_NONE,
+                        ))
+                    config_args["safety_settings"] = _sbn
+                except Exception:
+                    pass
             config_args["response_mime_type"] = "application/json"
             config_args["response_schema"] = {
                 "type": "ARRAY",
@@ -20746,17 +20772,65 @@ class MangaTranslator:
         self._pace_before_gemini_call()
 
         def _do():
-            response = client.models.generate_content(
-                model=model, contents=user_prompt, config=config,
-            )
-            text = response.text
+            # v1.14.196 — سبکِ K3: استریم + پارسرِ افزایشی — هر آیتمی که
+            # در جریان کامل شد همان لحظه رویِ ناحیه مینشیند (پیشنمایشِ
+            # زنده «X از Y»)؛ اگر استریم ممکن نشد، مسیرِ عادی.
+            if on_item is not None:
+                _parts: list = []
+                try:
+                    for _chunk in client.models.generate_content_stream(
+                            model=model, contents=user_prompt, config=config):
+                        _t = None
+                        try:
+                            _t = _chunk.text
+                        except Exception:
+                            _t = None
+                        if not _t:
+                            continue
+                        _parts.append(_t)
+                        try:
+                            self._salvage_stream_items(
+                                "".join(_parts), on_item)
+                        except Exception:
+                            pass
+                except Exception:
+                    if not _parts:
+                        response = client.models.generate_content(
+                            model=model, contents=user_prompt, config=config,
+                        )
+                        _t = getattr(response, "text", None)
+                        if _t:
+                            _parts.append(_t)
+                text = "".join(_parts)
+            else:
+                response = client.models.generate_content(
+                    model=model, contents=user_prompt, config=config,
+                )
+                text = response.text
             if not text or not text.strip():
                 raise RuntimeError("پاسخ خالی از Gemini دریافت شد.")
             return text
 
         return self._call_ai_with_timeout(
-            _do, label=f"Gemini/{model}"
+            _do, label=f"Gemini/{model}", timeout=timeout
         )
+
+    @staticmethod
+    def _salvage_stream_items(text: str, on_item) -> None:
+        """v1.14.196 — پارسرِ بخشندهٔ K3: در جریانِ ناقص، شیءهایِ «کاملِ»
+        {id, translation} را با جستجوی regex بیرون میکشد؛ آیتمِ نیمهکاره
+        دستنخورده میماند تا در پارسِ نهاییِ جوابِ کامل بنشیند."""
+        if not text or on_item is None:
+            return
+        for _m in re.finditer(
+                r'"id"\s*:\s*(\d+)\s*,\s*"translation"\s*:\s*'
+                r'"((?:\\.|[^"\\])*)"', text):
+            try:
+                _tr = json.loads('"' + _m.group(2) + '"')
+            except Exception:
+                continue
+            if _tr and str(_tr).strip():
+                on_item(int(_m.group(1)), _tr)
 
     def _translate_with_openai(self, user_prompt: str, system_instruction: str,
                                *, structured: bool = True) -> str:
@@ -21252,6 +21326,9 @@ class MangaTranslator:
 
         def _make_batches(items: List[TextRegion]):
 
+            # v1.14.196 — سبکِ K3: کلِ بچ یک درخواست — نه ۱۵تا۱۵تا.
+            if getattr(self, "chapter_one_request", False):
+                return [list(items)]
 
             max_items = max(1, int(getattr(self, "bubbles_per_request", 6) or 6))
             max_chars = 2200
@@ -21397,6 +21474,10 @@ class MangaTranslator:
                 # v1.14.189 — مشکل۳: مدل دیگر اجازهٔ رشتهٔ خالی ندارد
                 "translation رشته فارسی؛ هرگز رشتهٔ خالی برنگردان — حتی برای متنِ "
                 "ناخوانا بهترین حدسِ خودت را بنویس، نه توضیح خطا و نه رشتهٔ خالی.\n"
+                # v1.14.196 — ضدِ ردکردنِ K3: یک آیتمِ حساس کلِ جواب را نسوزاند
+                "اگر ترجمهٔ یک آیتم با سیاستهایِ محتوایی برخورد کرد، بهجای "
+                "ردکردنِ کلِ جواب در همان translation فقط [CENSORED] بنویس و "
+                "بقیهٔ آیتمها را کامل برگردان.\n"
                 "اگر source یک ورودی دو متنِ جدا دارد (دو جملهٔ مستقل، دو لیبل مثل "
                 "«AGE: 40» و «RACE: VAMPIRE»، یا پرسش و پاسخ)، در translation آنها را "
                 "با \\n جدا کن — هرگز دو متنِ جدا را با فاصله در یک خط ننویس.\n"
@@ -21426,9 +21507,41 @@ class MangaTranslator:
                     break
 
 
+                # v1.14.196 — سبکِ K3: استریم + پارسرِ افزایشی در درخواستِ
+                # کلِ فصل؛ هر آیتمِ کاملِ جریان همان لحظه رویِ ناحیه مینشیند
+                # و پیشنمایشِ زنده (هر ۲ ثانیه) آن را نشان میدهد.
+                _on_item = None
+                _region_by_id = {r.id: r for r in work_regions}
+                _applied: set = set()
+                _n_stream = {"v": 0}
+                if (getattr(self, "chapter_one_request", False)
+                        and self.provider_type == "gemini"
+                        and len(work_regions) > 6):
+                    def _on_item(rid: int, tr: str) -> None:
+                        if rid in _applied:
+                            return
+                        _reg = _region_by_id.get(rid)
+                        if _reg is None or (_reg.translated_text or "").strip():
+                            return
+                        _reg.translated_text = tr
+                        _applied.add(rid)
+                        _n_stream["v"] += 1
+                        if _n_stream["v"] % 5 == 0:
+                            print(f"    ← استریم: {len(_applied)}/"
+                                  f"{len(work_regions)} دیالوگ…", flush=True)
+
+                _tout = None
+                if _on_item is not None:
+                    # درخواستِ کلِ فصل جوابِ بلند میدهد — سقفِ زمانیِ متناسب
+                    _tout = max(
+                        float(getattr(self, "api_timeout", 45.0) or 45.0),
+                        30.0 + 1.5 * len(work_regions))
+
                 with self._api_lock:
                     if self.provider_type == "gemini":
-                        text = self._translate_with_gemini(user_prompt, system_instruction)
+                        text = self._translate_with_gemini(
+                            user_prompt, system_instruction,
+                            timeout=_tout, on_item=_on_item)
                     else:
                         text = self._translate_via_provider(user_prompt, system_instruction)
 
@@ -21473,6 +21586,11 @@ class MangaTranslator:
             except Exception as e:
                 last_err = e
                 err_str = str(e).lower()
+                # v1.14.196 — مدلی BLOCK_NONE را نمیپذیرد؟ دفعهٔ بعد بدونِ آن
+                _es = str(e)
+                if ("BLOCK_NONE" in _es or "safety_settings" in _es.lower()
+                        or ("blocked" in err_str and "safety" in err_str)):
+                    self._sbn_ok = False
 
 
                 is_timeout = (
@@ -28124,13 +28242,9 @@ html, body { background: #0a0a0b; }
                 queued += 1
             if queued:
                 pending_by_page[page_i] = pending_by_page.get(page_i, 0) + queued
-            while len(dialogue_buffer) >= min_batch:
-
-                cap = max(min_batch, int(getattr(self, "bubbles_per_request", 15) or 15))
-                chunk = dialogue_buffer[:cap]
-                dialogue_buffer = dialogue_buffer[cap:]
-                print(f"[*] ترجمهٔ بافر: {len(chunk)} دیالوگ…")
-                _translate_chunk_bg(chunk)
+            # v1.14.196 — «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن»: بافر دیگر
+            # میانهٔ کار خالی نمیشود؛ کلِ متنها بعد از استخراجِ همهٔ
+            # صفحهها در «یک» درخواست میروند (فلاشِ پایانیِ حلقه).
 
         if getattr(self, "clean_only", False):
             print("[*] Clean-only mode — API is not called.")
@@ -28139,11 +28253,12 @@ html, body { background: #0a0a0b; }
             # و «نمایش زنده» هم در clean_only صفحه‌به‌صفحه کار می‌کند.
             min_batch = 15
         else:
+            # v1.14.196 — سبکِ K3: «اول همه عکس هارو استخراج بزنه، بعد
+            # تموم شد متنهایِ استخراجشده بره به AI؛ پاکسازی هم همزمان»
             print(
-                f"[*] حالت بچ‌همگام: استخراج تا بافرِ {min_batch} دیالوگ جلو "
-                f"میرود؛ بعد استخراج می‌ایستد تا پاکسازیٔ صفحههایِ همان "
-                f"بسته تمام شود و دوباره ادامه میدهد — فقط ترجمه همزمان "
-                f"با پاکسازی کار میکند (MANGA_CLEAN_PAR=1 = موازیِ قبل)."
+                f"[*] سبکِ K3: اول استخراجِ همهٔ {len(pending)} صفحه — "
+                f"پاکسازیٔ هر صفحه همزمان در پسزمینه؛ بعد از استخراجِ "
+                f"همه، همهٔ متنها در «یک» درخواستِ ترجمه میروند."
             )
 
         quota_flag = {"dead": False}
@@ -28170,26 +28285,8 @@ html, body { background: #0a0a0b; }
                     _account_chunk(chunk)
 
             trans_futures.append(trans_pool.submit(_job))
-            # v1.14.161 — پاکسازیٔ بچ: صفحههایِ همین بستهٔ ترجمه، همزمان
-            # با شروعِ ترجمهاش در پسزمینه پاک میشوند (نه صفحه‌به‌صفحه
-            # بعد از هر استخراج).
-            try:
-                _dispatch_chunk_clean(chunk)
-            except Exception:
-                pass
-            # v1.14.165 — سدِ دسته: فیوچرهایِ پاکسازیِ همین بسته ثبت
-            # میشوند تا حلقهٔ استخراج درختی بعدی پشتِ آنها وایستد
-            # (فقط ترجمه همزمان با پاکسازی کار میکند).
-            try:
-                for _r165 in chunk:
-                    _p165 = page_of_region.get(_r165.id)
-                    if _p165 is None:
-                        continue
-                    _f165 = clean_futures.get(_p165)
-                    if _f165 is not None and not _f165.done():
-                        _batch_clean_futs.append(_f165)
-            except Exception:
-                pass
+            # v1.14.196 — پاکسازی دیگر وابستهٔ ترجمه نیست؛ از همان لحظهٔ
+            # استخراجِ هر صفحه در پسزمینه جریان دارد («همزمان هم پاکسازیش»).
 
         trans_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="translate")
@@ -28207,48 +28304,10 @@ html, body { background: #0a0a0b; }
         clean_futures: Dict[int, "object"] = {}
         clean_started: set = set()
 
-        # v1.14.165 — سدِ دسته (خواستهٔ کاربر: «وقتی ۱۵ تا متن استخراج کرد
-        # … استخراج ادامه نده تا پاکسازیش تموم شه؛ بعد تموم شد ادامه بده»):
-        # استخراج تا پرشدنِ بافرِ ۱۵تایی جلو میرود، بعد پشتِ پاکسازیِ همان
-        # بسته وایست می‌دارد؛ فقط ترجمه (شبکه‌ای، سبک) همزمان کار میکند.
-        # رفتارِ موازیِ قبل: MANGA_CLEAN_PAR=1.
-        _batch_clean_futs: list = []
-        try:
-            _clean_par = str(os.environ.get("MANGA_CLEAN_PAR", "0")).strip() == "1"
-        except Exception:
-            _clean_par = False
-
-        def _wait_batch_clean_barrier() -> None:
-            if _clean_par or not _batch_clean_futs:
-                return
-            import concurrent.futures as _cfb
-            _futs: list = []
-            for _f in _batch_clean_futs:
-                if _f is None or _f.done():
-                    continue
-                if all(id(_f) != id(_g) for _g in _futs):
-                    _futs.append(_f)
-            _batch_clean_futs.clear()
-            if not _futs:
-                return
-            print("[⚡] دستهٔ ۱۵تایی پر شد — استخراج متوقف تا پاکسازیِ "
-                  "همین بسته تمام شود…", flush=True)
-            _t0 = time.time()
-            _wait = list(_futs)
-            while _wait:
-                if stop_requested():
-                    break
-                _done, _wait = _cfb.wait(
-                    _wait, timeout=2.0, return_when=_cfb.FIRST_COMPLETED)
-                for _f in _done:
-                    try:
-                        _f.result()
-                    except Exception:
-                        pass
-                _finish_ready_pages()
-                _preview_ready_pages()
-            print(f"[✓] پاکسازیِ بسته تمام شد ({time.time() - _t0:.0f}s) "
-                  "→ ادامهٔ استخراج", flush=True)
+        # v1.14.196 — سدِ دستهٔ ۱۵تایی حذف شد (خواستهٔ کاربر: «کلا عوض شه —
+        # مثلِ k3 بشه»): استخراج هرگز برای پاکسازی/ترجمه نمی‌ایستد؛
+        # پاکسازیٔ هر صفحه بلافاصله بعد از استخراجش در پسزمینه (صفِ
+        # تک‌نمونه) جریان دارد و تا شروعِ ترجمه معمولاً تمام شده است.
 
         def _clean_regions_for_page(page_i: int) -> Optional[List[TextRegion]]:
             entry = extracted_map.get(page_i)
@@ -28351,24 +28410,22 @@ html, body { background: #0a0a0b; }
                     print(f"\n[!] {e}")
                     quota_dead = True
                     break
-                # v1.14.165 — سدِ دسته: اگر همین صفحه بافر را پر کرد،
-                # پاکسازیِ بسته صف شده → استخراجِ صفحهٔ بعدی صبر میکند.
-                _wait_batch_clean_barrier()
-
-                if dialogue_buffer and len(dialogue_buffer) < min_batch:
-                    print(
-                        f"    [*] بافر ترجمه: {len(dialogue_buffer)}/{min_batch} "
-                        f"— صبر تا صفحات بعدی..."
-                    )
+                # v1.14.196 — «همزمان هم پاکسازیش انجام بده»: پاکسازیٔ همین
+                # صفحه بلافاصله در پسزمینه صف میشود؛ استخراجِ صفحهٔ بعدی
+                # بدونِ هیچ توقفی ادامه میدهد.
+                _clean_pages_bg([page_i])
             _finish_ready_pages()
-            _preview_ready_pages()  # v1.14.160 — پیش‌نمایشِ ۱۵تایی حینِ استخراج
+            _preview_ready_pages()  # v1.14.160 — پیش‌نمایشِ حینِ استخراج
 
 
         if stop_requested():
             trans_pool.shutdown(wait=False)
             raise JobCancelled("لغو توسط کاربر")
 
-        _flush_translate_buffer(force=True)
+        # v1.14.196 — «بعد تموم شد متنهایِ استخراجشده بده به AI»: کلِ
+        # بافر (همهٔ دیالوگهایِ فصل) در «یک» درخواست.
+        if dialogue_buffer and not getattr(self, "clean_only", False):
+            _flush_translate_buffer(force=True)
         _t_trw67 = time.time()  # v1.14.67 — انتظارِ ترجمه
         # v1.14.160 — باگِ «تا کامل تموم نشه نشون نمیده»: قبلاً اینجا روی
         # «همهٔ» بسته‌های ترجمه بلوکه میشد و هیچ صفحه‌ای زنده رندر نمیشد.
