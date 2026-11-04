@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.211"
+APP_VER = "1.14.212"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -5036,6 +5036,16 @@ def _android_gate(env_name: str) -> bool:
     return bool(_on_android())
 
 
+def _gate_default_on(env_name: str) -> bool:
+    """v1.14.212 — گیتِ پیشفرضِ روشن رویِ «هر دو» پلتفرم (env=0 خاموش).
+    فلسفهٔ «PC بیت‌به‌بیت» با گزارشِ سازنده رویِ GitHub Actions (PC)
+    منسوخ شد: «همه عکس هارو تست کن مو به مو چک کن رد نکن … نه لگهٔ
+    سیاهی نه لگهٔ سفیدی یا هرنگی لگه بشه قبول نمیکنم» — کیفیتِ پاکسازی
+    رویِ PC هم باید همانِ اندروید باشد."""
+    return str(os.environ.get(env_name, "") or "").strip().lower() \
+        not in ("0", "false", "no", "off")
+
+
 class PaddleOCRWrapper:
 
 
@@ -9190,6 +9200,19 @@ class MangaTranslator:
                         continue
             except Exception:
                 pass
+            # v1.14.212 — روکشِ حاشیه‌نویسیِ ورودی (قابِ سبز + شستشویِ
+            # نیمه‌شفافِ up0822) هم در donor پاک میشود — بعد از جایگزینیِ
+            # بلوکهایِ متراکم میآید تا با np.where پاک نشود؛ دیوارها
+            # (protect) از قبل در نقشهٔ روکش حذف شدهاند.
+            try:
+                _anD212 = getattr(self, "_page_annotation_overlay", None)
+                if _anD212 is not None and _anD212.shape == out.shape:
+                    _addD212 = (_anD212 > 0) & (out == 0)
+                    if bool(_addD212.any()):
+                        out[_addD212] = 255
+                        _added += int(np.count_nonzero(_addD212))
+            except Exception:
+                pass
             # جعبه‌هایِ جستجو برایِ نجاتِ جوهرِ جا‌مانده (مثلِ قبل:
             # ناحیه ∩ داخلِ حباب) — فقط دامنهٔ «جستجو»، نه افزودنِ ماسک.
             _stored = getattr(self, "_page_bubble_boxes", None) or []
@@ -13045,7 +13068,10 @@ class MangaTranslator:
                         # شود؛ اعتبارسنجیِ عضویِ بعدی رویِ پرِ تختِ
                         # نجات‌یافته badf≈۰ می‌گیرد و دست نمی‌زند.
                         _rescued133 = False
-                        if _android_gate("MANGA_FILL_RESCUE"):
+                        # v1.14.212 — پیشفرضِ روشن رویِ PC هم: گروهِ ردشده
+                        # (پرِ تیره) بدونِ نجات، یا متنِ اورجینال جا میماند
+                        # یا فال‌بکِ Telea اسمیر میسازد (img6: 88 vs bg 226).
+                        if _gate_default_on("MANGA_FILL_RESCUE"):
                             try:
                                 # رنگِ نجات: اگر حلقه تختِ کامل است از کلِ
                                 # حلقه؛ وگرنه از پیکسلهایِ روشنِ حلقه (≥۵۵٪
@@ -15127,6 +15153,18 @@ class MangaTranslator:
                         continue
             except Exception:
                 pass
+            # v1.14.212 — روکشِ حاشیه‌نویسی (قاب/شستشویِ سبزِ up0822) هم
+            # در ماسکِ کامپوز میآید تا با نوارهایِ پاک‌شده به عکسِ دوم
+            # منتقل شود — وگرنه قابِ سبز در خروجیِ نهایی زنده میماند
+            # («هرنگی لگه بشه قبول نمیکنم»).
+            try:
+                _anW212 = getattr(self, "_page_annotation_overlay", None)
+                if _anW212 is not None and _anW212.shape == out.shape \
+                        and bool((_anW212 > 0).any()):
+                    out |= (_anW212 > 0)
+                    _sweep[(_anW212 > 0)] = 255
+            except Exception:
+                pass
             return (out.astype(np.uint8)) * 255
         except Exception:
             return mask
@@ -15730,10 +15768,19 @@ class MangaTranslator:
             # v1.14.206n — قابِ رنگی (نقشهٔ جدا) هم هرگز از donor
             # منتقل نمیشود — در ماسکِ فعال پر شده و در خروجی اورجینالش
             # میماند (حبابِ سبزِ up0822)
+            # v1.14.212 — استثنا: پیکسلهایِ «روکشِ حاشیه‌نویسی» خودشان
+            # رنگیاند و از قابِ رنگی جدا شدهاند (حلقهٔ خنثی + هالِ
+            # پالی) — آنها باید منتقل شوند تا لگهٔ رنگی در خروجی نماند.
             try:
                 _pcC = getattr(self, "_page_colored_protect", None)
                 if _pcC is not None and _pcC.shape == _cmp.shape:
-                    _cmp &= (_pcC == 0)
+                    _anC212 = getattr(self,
+                                      "_page_annotation_overlay", None)
+                    if _anC212 is not None \
+                            and _anC212.shape == _cmp.shape:
+                        _cmp &= ((_pcC == 0) | (_anC212 > 0))
+                    else:
+                        _cmp &= (_pcC == 0)
             except Exception:
                 pass
             try:
@@ -15769,6 +15816,24 @@ class MangaTranslator:
             self._compose_final_cmp = _cmp.copy()
             _out = np.ascontiguousarray(
                 np.where(_cmp[..., None], donor, original))
+            # v1.14.212 — روکشِ حاشیه‌نویسی: نواحیِ «سفیدِ تختِ واقعی»
+            # (جعبهٔ حاشیه‌نویسیِ سفید — گواهِ شکاف) با سفیدِ همان جعبه
+            # تخت پر میشوند؛ سبز/شستشو/قاب کاملاً محو میشود. LaMa رویِ
+            # ناحیهٔ شسته‌شده خودش شستشو را زمینه میپندارد و سبز میسازد.
+            # (MANGA_212_FLAT=0 خاموش — برایِ مقایسهٔ A/B)
+            try:
+                _anF212 = getattr(self, "_page_annotation_fill", None)
+                _anFl212 = getattr(self, "_page_annotation_flat", None)
+                if os.environ.get("MANGA_212_FLAT", "1") != "0" \
+                        and _anF212 is not None \
+                        and _anFl212 is not None \
+                        and _anF212.shape[:2] == _out.shape[:2] \
+                        and _anFl212.shape == _cmp.shape:
+                    _sel212 = (_anFl212 > 0) & _cmp
+                    if bool(_sel212.any()):
+                        _out[_sel212] = _anF212[_sel212]
+            except Exception:
+                pass
             # v1.14.139 — ضدِ «باندِ سفید» در کامپوز (فقط اندروید —
             # MANGA_STRIP_HARM): donorِ LaMa رویِ زمینهٔ گرادیانی/کرم
             # گاهی «روشنتر/سفیدتر» از زمینهٔ اطراف برمیگردد و کامپوزِ
@@ -15785,7 +15850,12 @@ class MangaTranslator:
             # چون هر ردیف هدفِ خودش را دارد حفظ میشود. گاردها: باندِ
             # غیرتخت (std>15) / ردیفِ بدونِ نمونهٔ آزاد / هدفِ ناهوار
             # (هنر) / دلتایِ ناچیز (<15) یا افراطی (>60) → دست نخوردن.
-            if _android_gate("MANGA_STRIP_HARM"):
+            # v1.14.212 — پیشفرضِ روشن رویِ PC هم (گیتِ _gate_default_on):
+            # درزها/دال‌هایِ تختِ LaMa رویِ گرادیانِ آسمانِ وبتونها
+            # (img4/4e2e77 — گزارشِ سازنده: «لگهٔ سیاه سفید») دیگر فقط
+            # اندروید نیست؛ همسازِ ردیفیِ خط، نوار را با زمینهٔ اورجینالِ
+            # همان ردیف تراز میکند (گاردها: std/هدفِ ناهوار/دلتا ۱۵-۶۰).
+            if _gate_default_on("MANGA_STRIP_HARM"):
                 try:
                     _hH139, _wH139 = _cmp.shape
                     _org32H = original.astype(np.float32)
@@ -19988,6 +20058,313 @@ class MangaTranslator:
             # کند (رنگِ قاب واردِ پرِ متن نشود) — دیوارِ تیره مثلِ قبل.
             self._page_colored_protect = _out_colj \
                 if int(np.count_nonzero(_out_colj)) else None
+            # v1.14.212 — نقشهٔ «روکشِ حاشیه‌نویسیِ ورودی» (up0822):
+            # اسکرینشاتهایی که از اپهایِ ترجمهٔ دیگر میآیند یک لایهٔ
+            # حاشیه‌نویسی «چسبیده به متن» دارند — قابِ ششضلعیِ سبزِ
+            # اشباع + شستشویِ نیمه‌شفافِ سبز رویِ کلِ بلوکِ متن. قانونِ
+            # 206j/n این قاب را از پاکسازی و کامپوز «محرمانه» میکند تا
+            # رنگش واردِ پر نشود → نتیجه: قابِ سبز + شستشو در خروجیِ
+            # نهایی زنده میماند = «هرنگی لگه بشه قبول نمیکنم».
+            # تشخیصِ ایمن (فقط حالتِ قطعی): حلقهٔ اطرافِ بلوکِ متن
+            # «تقریباً خنثیِ یکنواخت» باشد (سفید/خاکستریِ حباب —
+            # std≤۳۴ و S≤۳۰) و داخلِ هالِ پالیها پیکسلِ «رنگیِ»
+            # (S≥۲۴) بهاندازهٔ کافی باشد (≥۵٪ هال) → کلِ آن ناحیهٔ
+            # رنگی مثلِ خودِ متن پاک و منتقل میشود؛ LaMa با حلقهٔ
+            # سفیدِ دورش سفیدِ تمیز پر میکند. حبابِ رنگی (زردِ img6)
+            # و آسمانِ اشباعِ وبتون → حلقه S بالاست → رد (بی‌خطر).
+            try:
+                _anl212 = np.zeros((h, w), dtype=np.uint8)
+                _flat212m = np.zeros((h, w), dtype=np.uint8)
+                _fill212 = np.zeros((h, w, 3), dtype=np.uint8)
+                _hsv_an = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+                _gray_an = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                _nsat_an = 0
+                for _rg_an in (regions or []):
+                    try:
+                        if (getattr(_rg_an, "kind", "") or "") \
+                                in ("promo", "sfx"):
+                            continue
+                        _pls_an = []
+                        for _p_an in (getattr(_rg_an, "ocr_polys", None)
+                                      or []):
+                            try:
+                                _pp_an = np.asarray(
+                                    _p_an, dtype=np.float32).reshape(-1, 2)
+                            except Exception:
+                                continue
+                            if _pp_an.shape[0] >= 3:
+                                _pls_an.append(_pp_an)
+                        if not _pls_an:
+                            continue
+                        _rx, _ry, _rw2, _rh2 = \
+                            [int(v) for v in _rg_an.rect]
+                        # هالِ پالیهایِ این ناحیه + ۱۲px = قلمروِ روکش
+                        _hz = np.zeros((h, w), dtype=np.uint8)
+                        try:
+                            _hull_cv = cv2.convexHull(
+                                np.rint(np.concatenate(
+                                    _pls_an, axis=0)).astype(np.int32))
+                            cv2.fillPoly(_hz, [_hull_cv], 255)
+                        except Exception:
+                            _allp = np.concatenate(_pls_an, axis=0)
+                            _hz[max(0, int(_allp[:, 1].min())):
+                                int(_allp[:, 1].max()) + 1,
+                                max(0, int(_allp[:, 0].min())):
+                                int(_allp[:, 0].max()) + 1] = 255
+                        _hz_raw = _hz.copy()
+                        _hz = cv2.dilate(
+                            _hz, np.ones((25, 25), np.uint8))
+                        # v1.14.212d — «شکاف»: باندِ ۶..۲۷px دورِ متنِ خام =
+                        # درونِ روکش (بینِ متن و قاب). حبابِ سفیدِ واقعی:
+                        # شکاف = سفیدِ تخت. روکش رویِ هنر (پنلِ راستِ
+                        # up0822): شکاف = پوست/بافت — حلقهٔ بیرونی به
+                        # حاشیهٔ سفیدِ صفحه می‌رسد و غلط می‌شد.
+                        _gap212 = cv2.subtract(
+                            cv2.dilate(_hz_raw, np.ones((55, 55),
+                                                        np.uint8)),
+                            cv2.dilate(_hz_raw, np.ones((13, 13),
+                                                        np.uint8)))
+                        # حلقه = باندِ ~۳۰px دورِ هال (منهایِ خودِ هال)
+                        # — مستطیلِ ناحیه خودش میتواند هماندازهٔ روکش باشد
+                        # (تشخیصِ حباب، هگزاگونِ حاشیه‌نویسی را میبوسد)
+                        # پس حلقهٔ «rect+16 منهایِ هال» خالی میشد.
+                        _rz = cv2.subtract(
+                            cv2.dilate(_hz, np.ones((89, 89), np.uint8)),
+                            cv2.dilate(_hz, np.ones((31, 31), np.uint8)))
+                        # محدود به حوالیِ ناحیه (نه فراتر از ۶۰px بیرونِ
+                        # مستطیلِ ناحیه — دور از هنرِ بی‌ربط)
+                        _cl212 = np.zeros((h, w), dtype=np.uint8)
+                        _cl212[max(0, _ry - 60):min(h, _ry + _rh2 + 60),
+                               max(0, _rx - 60):
+                               min(w, _rx + _rw2 + 60)] = 255
+                        _rz = cv2.bitwise_and(_rz, _cl212)
+                        _n_rz = int(np.count_nonzero(_rz))
+                        if _n_rz < 400:
+                            continue
+                        # v1.14.212f — «شاهدِ سبز»: جوهرِ رنگیِ داخلِ هال اگر
+                        # عمدتاً سبزفام باشد (هیویِ ۳۵..۸۵ — رنگِ کلاسیکِ
+                        # هایلایتِ اپهایِ ترجمه)، خودش گواهِ روکش است و
+                        # گاردهایِ حلقه (که پنلِ شلوغ را رد میکنند — ناحیهٔ
+                        # «ONE CLEAN RIGHT HOOK» در up0822 با rstd=۹۰ از
+                        # فیلتر میافتاد) دور زده میشوند. متنِ واقعیِ کمیک
+                        # سبزِ خالص نیست؛ قابِ حاشیه‌نویسی هست.
+                        # نکتهٔ S≥۶۰: fringeیِ JPEG دورِ متنِ سفید-روی-
+                        # مشکی (lang_ko — S=۲۴..۶۰) شاهد نیست؛ فقط قلبِ
+                        # اشباعِ قاب.
+                        try:
+                            _cin212 = (_hz > 0) \
+                                & (_hsv_an[..., 1] >= 60) \
+                                & (_hsv_an[..., 2] >= 60)
+                            _chue212 = _hsv_an[..., 0][_cin212]
+                            _gproof212 = False
+                            if _chue212.size >= 200:
+                                _dH212 = np.abs(_chue212 - 60.0)
+                                _dH212 = np.minimum(_dH212,
+                                                    180.0 - _dH212)
+                                _gproof212 = float(
+                                    (_dH212 <= 25.0).mean()) >= 0.60
+                            else:
+                                _gproof212 = False
+                        except Exception:
+                            _gproof212 = False
+                        if not _gproof212:
+                            # v1.14.212b — حلقه فقط «روشنِ» خودش را نشانِ
+                            # زمینه میدهد: باندِ دورِ بلوک، دیوارِ تیرهٔ
+                            # حباب/هنر هم دارد (rstd تا ۱۰۰ رویِ up0822)؛
+                            # زمینهٔ واقعی = پیکسلهایِ «روشنِ کم‌اشباعِ»
+                            # حلقه (کاغذ/داخلِ حبابِ سفید).
+                            _rzpx = _rz > 0
+                            _rv_an = _hsv_an[..., 2][_rzpx]
+                            _rs_an = _hsv_an[..., 1][_rzpx]
+                            _br212 = (_rv_an >= 160.0) \
+                                & (_rs_an <= 35.0)
+                            _bfrac212 = float(_br212.mean()) \
+                                if _br212.size else 0.0
+                            if _bfrac212 < 0.35:
+                                continue
+                            _rgray = _gray_an[_rzpx][_br212] \
+                                if bool(_br212.any()) else None
+                            if _rgray is None \
+                                    or float(np.std(_rgray)) > 26.0:
+                                continue  # حتی روشنها هم ناهموار — هنر
+                            _rsv = _hsv_an[_rzpx][_br212]
+                            if float(np.median(_rsv[:, 1])) > 30.0:
+                                continue  # حلقهٔ رنگی (زرد/آسمان) — رد
+                        # v1.14.212d — «سفیدِ تختِ واقعی» از «شکافِ درونِ
+                        # روکش» سنجیده میشود (نه حلقهٔ بیرونی که تا
+                        # حاشیهٔ سفیدِ صفحه می‌رسد): شکافِ «تختِ سفیدِ
+                        # بی‌بافت» = حبابِ سفیدِ واقعی → پرِ تختِ سفید.
+                        # شکافِ هنری حتی وقتی شستشویِ سبز آن را کم‌اشباعِ
+                        # روشن کرده، «بافت» دارد (هاشور/اسکرین‌تون —
+                        # انرژیِ فرکانسِ بالا) → LaMa (پنلِ راستِ up0822).
+                        try:
+                            _gpx212 = _gap212 > 0
+                            _gv212 = _hsv_an[..., 2][_gpx212]
+                            _gs212 = _hsv_an[..., 1][_gpx212]
+                            _gb212 = (_gv212 >= 220.0) & (_gs212 <= 25.0)
+                            _gfrac212 = float(_gb212.mean()) \
+                                if _gb212.size else 0.0
+                            _hf212 = 99.0
+                            try:
+                                _med212 = cv2.medianBlur(
+                                    _gray_an, 5)
+                                _hf_in212 = np.abs(
+                                    _gray_an.astype(np.int16)
+                                    - _med212.astype(np.int16))
+                                _hf212 = float(np.median(
+                                    _hf_in212[_gpx212]))
+                            except Exception:
+                                pass
+                            _whiteflat212 = (
+                                _gfrac212 >= 0.45
+                                and bool(_gb212.any())
+                                and float(np.median(_gv212[_gb212]))
+                                >= 240.0
+                                and _hf212 <= 3.0)
+                        except Exception:
+                            _whiteflat212 = False
+                        if os.environ.get("MANGA_212DBG") == "2":
+                            try:
+                                _ovw = int(np.count_nonzero(
+                                    (_hz > 0)
+                                    & (_hsv_an[..., 1] >= 24)
+                                    & (_hsv_an[..., 2] >= 60)))
+                                print(f"    [212] rect=({_rx},{_ry},"
+                                      f"{_rw2}x{_rh2}) "
+                                      f"colpx={_ovw} "
+                                      f"gap={int((_gap212 > 0).sum())} "
+                                      f"gfrac={_gfrac212:.2f} "
+                                      f"gV={float(np.median(_gv212[_gb212])) if bool(_gb212.any()) else -1:.0f} "
+                                      f"ghf={_hf212:.1f} "
+                                      f"flat={_whiteflat212}",
+                                      flush=True)
+                            except Exception:
+                                pass
+                        # پیکسلهایِ رنگیِ داخلِ هال = روکشِ حاشیه‌نویسی
+                        _col_an = ((_hsv_an[..., 1] >= 24)
+                                   & (_hsv_an[..., 2] >= 60))
+                        _ov = ((_hz > 0) & _col_an)
+                        _n_ov = int(np.count_nonzero(_ov))
+                        # v1.14.212f — حضور = رنگِ فراوان (S≥۲۴ — شستشو)
+                        # + «قابِ سبزِ اشباع» (S≥۶۰، هیویِ سبزِ ۴۰..۸۰،
+                        # ≥۱۵۰px): fringeیِ JPEG (lang_ko — هیویِ آبیِ
+                        # ۱۰۰..۱۲۰) و متنِ آبی-خاکستری قابِ سبز ندارند.
+                        _n60_212 = 0
+                        try:
+                            _hue212 = _hsv_an[..., 0].astype(np.int32)
+                            _n60_212 = int(np.count_nonzero(
+                                (_hz > 0)
+                                & (_hsv_an[..., 1] >= 60)
+                                & (_hsv_an[..., 2] >= 60)
+                                & (_hue212 >= 40) & (_hue212 <= 80)))
+                        except Exception:
+                            _n60_212 = 0
+                        if _n_ov < max(400, int(0.03 * int(
+                                np.count_nonzero(_hz)))) \
+                                or _n60_212 < 150:
+                            continue
+                        # v1.14.212e — ناحیهٔ روکش = هالِ متن + ۲۵px
+                        # (داخلِ جعبه) ∪ کمانهایِ نازکِ رنگیِ قاب تا
+                        # ~۸۱px (محدود به مستطیلِ ناحیه + ۲۴px). جعبهٔ
+                        # حاشیه‌نویسی خودش «جعبهٔ سفید» است — پرِ تختِ
+                        # سفیدِ همانِ داخلِ جعبه (شکاف) درست است؛ هنرِ
+                        # پشتِ جعبه اساساً در اورجینال هم پنهان است.
+                        _ov = (_hz > 0)
+                        try:
+                            _clb212 = np.zeros((h, w), dtype=np.uint8)
+                            _clb212[max(0, _ry - 24):
+                                    min(h, _ry + _rh2 + 24),
+                                    max(0, _rx - 24):
+                                    min(w, _rx + _rw2 + 24)] = 255
+                            _hz_far2 = cv2.dilate(
+                                _hz, np.ones((163, 163), np.uint8))
+                            _far212 = ((_hz_far2 > 0) & _col_an
+                                       & (~(_hz > 0))
+                                       & (_clb212 > 0))
+                            if bool(_far212.any()):
+                                _nz212, _lbb212, _stb212, _ = \
+                                    cv2.connectedComponentsWithStats(
+                                        _far212.astype(np.uint8), 8)
+                                _thin212 = np.zeros_like(_far212)
+                                for _ci212 in range(1, _nz212):
+                                    _ar212 = int(_stb212[
+                                        _ci212, cv2.CC_STAT_AREA])
+                                    if _ar212 < 4 or _ar212 > 12000:
+                                        continue
+                                    _cm212 = (_lbb212 == _ci212)
+                                    try:
+                                        _dt212 = cv2.distanceTransform(
+                                            _cm212.astype(np.uint8),
+                                            cv2.DIST_L2, 3)
+                                        if float(_dt212.max()) * 2.0 > 14.0:
+                                            continue  # قطور = هنر
+                                    except Exception:
+                                        continue
+                                    _thin212 |= _cm212
+                                # حاشیهٔ آنتیآلیاسِ قاب (سبزِ کماشباعِ
+                                # S<۲۴ زیرِ آستانه میماند = ردِ کم‌رنگ)
+                                # → ۳px دیلیت دورِ هر کمان
+                                _thin212 = cv2.dilate(
+                                    _thin212.astype(np.uint8),
+                                    np.ones((7, 7), np.uint8)) > 0
+                                _ov = _ov | _thin212
+                        except Exception:
+                            pass
+                        # دیوار/ساختارِ تیره (protect) هرگز پاک نشود
+                        _ov = _ov & (out == 0)
+                        _n_ov = int(np.count_nonzero(_ov))
+                        if _n_ov < 400:
+                            continue
+                        _anl212[_ov] = 255
+                        # رنگِ پر = میانهٔ پیکسلهایِ «روشنِ» حلقه — فقط
+                        # برایِ نواحیِ «سفیدِ تختِ واقعی»؛ نواحیِ هنری از
+                        # donor (LaMa) می‌گیرند. LaMa رویِ ناحیهٔ شسته‌شده
+                        # خودش شستشو را زمینه میپندارد و سبز میسازد؛ پرِ
+                        # تختِ حلقه چون حلقه تخت است درست است (عینِ 133).
+                        if _whiteflat212:
+                            _flat212m[_ov] = 255
+                            # رنگِ پر = میانهٔ «سفیدِ شکاف» (داخلِ جعبه) —
+                            # جعبهٔ حاشیه‌نویسی خودش سفید است؛ حلقهٔ بیرونی
+                            # ممکن است هنر/خاکستری باشد (پنلِ راست = 224).
+                            try:
+                                _fc212 = np.median(
+                                    image[_gpx212][_gb212], axis=0)
+                                _fill212[_ov] = np.clip(
+                                    np.rint(_fc212), 0, 255).astype(
+                                        np.uint8)
+                            except Exception:
+                                pass
+                        _nsat_an += 1
+                    except Exception:
+                        continue
+                self._page_annotation_overlay = _anl212 \
+                    if int(np.count_nonzero(_anl212)) else None
+                self._page_annotation_flat = _flat212m \
+                    if int(np.count_nonzero(_anl212)) else None
+                self._page_annotation_fill = _fill212 \
+                    if int(np.count_nonzero(_anl212)) else None
+                try:
+                    _dp212 = os.environ.get("MANGA_DUMP_212", "")
+                    if _dp212:
+                        cv2.imwrite(_dp212 + "_overlay.png", _anl212)
+                        cv2.imwrite(_dp212 + "_flat.png", _flat212m)
+                        cv2.imwrite(_dp212 + "_fill.png", _fill212)
+                        print("[DUMP] 212 ->", _dp212, flush=True)
+                except Exception:
+                    pass
+                if _nsat_an and (self.debug
+                                 or os.environ.get("MANGA_212DBG")):
+                    try:
+                        print(f"  [*]روکشِ حاشیه‌نویسی: "
+                              f"{int(np.count_nonzero(_anl212))}px در "
+                              f"{_nsat_an} ناحیه — پاک میشود",
+                              flush=True)
+                    except Exception:
+                        pass
+            except Exception:
+                self._page_annotation_overlay = None
+                self._page_annotation_flat = None
+                self._page_annotation_fill = None
             # v1.14.65 — بنرِ تبلیغ هرگز protect نمی‌شود: سایه/لبهٔ تیرهٔ بنر
             # «ساختارِ نازکِ تیره» حساب می‌شد → از ماسکِ LaMa کم می‌شد →
             # بنفشِ بنر در ورودیِ مدل می‌ماند و خروجیِ «صورتی/بنفشِ خیالی»
