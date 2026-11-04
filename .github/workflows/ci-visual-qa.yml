@@ -1,0 +1,136 @@
+name: CI Visual QA (ci_imgs مو به مو)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['manga.py', 'scripts/ci_qa_check.py', '.github/workflows/ci-visual-qa.yml', 'ci_imgs/**']
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    name: ${{ matrix.bucket }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - bucket: "prio-img6-232264684"
+            files: "img6=ci_imgs/img6.jpg img232264684=ci_imgs/232264684-5a7bcf8e-707b-4925-86b0-4212382f1680.png"
+            full: "img6 img232264684"
+          - bucket: "prio-img4-4e2e77"
+            files: "img4=ci_imgs/img4.jpg img4e2e77=ci_imgs/4e2e77.webp"
+            full: "img4 img4e2e77"
+          - bucket: "webtoons-1"
+            files: "img2=ci_imgs/img2.webp img3=ci_imgs/img3.webp"
+            full: ""
+          - bucket: "webtoons-2"
+            files: "img5=ci_imgs/img5.webp img7=ci_imgs/img7.jpg"
+            full: "img7"
+          - bucket: "pages-misc"
+            files: "lang_ja_bw=ci_imgs/lang_ja_bw.jpg lang_ja_color=ci_imgs/lang_ja_color.jpg lang_ko=ci_imgs/lang_ko.jpg lang_zh=ci_imgs/lang_zh.jpg up0822=ci_imgs/up0822_en.jpg"
+            full: ""
+          - bucket: "pages-uploads"
+            files: "up0904=ci_imgs/up0904_en.jpg up0929=ci_imgs/up0929_zh.jpg img20261018=ci_imgs/IMG_20261018_140944_899.jpg img20260929=ci_imgs/IMG_20260929_025420_921.jpg"
+            full: "img20261018"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6
+          python -m pip install --upgrade pip
+          pip install -q opencv-python-headless numpy pillow onnxruntime \
+            rapidocr-onnxruntime arabic-reshaper python-bidi huggingface_hub
+
+      - name: Run clean-only + dumps (عینِ تنظیماتِ وب)
+        env:
+          FILES: ${{ matrix.files }}
+          FULL: ${{ matrix.full }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p /tmp/mt/clean /tmp/mt/full /tmp/mt/dumps
+          : > /tmp/mt/manifest.tsv
+          for pair in $FILES; do
+            name="${pair%%=*}"; f="${pair#*=}"
+            echo "=== clean: $f ==="
+            MANGA_DUMP_DONOR="/tmp/mt/dumps/${name}_donor.png" \
+            MANGA_DUMP_CMP2="/tmp/mt/dumps/${name}_cmp2.png" \
+            timeout 2400 python3 -u manga.py \
+              -i "$f" \
+              -o "/tmp/mt/clean/${name}_clean.jpg" \
+              --font fonts/Vazirmatn-Bold.ttf \
+              --provider gemini --api-key dummy \
+              --workers 2 --bubbles-per-request 15 --api-timeout 120 \
+              --quality 90 --batch-workers 3 --max-retries 2 \
+              --request-delay 0.0 --temperature 0.15 \
+              --reading-order rtl --active-tones normal \
+              --clean-method lama-manga --clean-only \
+              --prompt-mode auto --no-brief --img-format jpg \
+              >> /tmp/mt/clean.log 2>&1
+            echo "$name exit=$?"
+            if [ -f "/tmp/mt/clean/${name}_clean.jpg" ]; then
+              printf '%s\t%s\n' "$name" "$f" >> /tmp/mt/manifest.tsv
+            fi
+          done
+          for name in $FULL; do
+            for pair in $FILES; do
+              pn="${pair%%=*}"; pf="${pair#*=}"
+              if [ "$pn" = "$name" ]; then
+                echo "=== full(fake): $pf ==="
+                timeout 2400 python3 -u manga.py \
+                  -i "$pf" \
+                  -o "/tmp/mt/full/${name}_fa.jpg" \
+                  --font fonts/Vazirmatn-Bold.ttf \
+                  --provider gemini --api-key dummy \
+                  --workers 2 --bubbles-per-request 15 --api-timeout 120 \
+                  --quality 90 --batch-workers 3 --max-retries 2 \
+                  --request-delay 0.0 --temperature 0.15 \
+                  --reading-order rtl --active-tones normal \
+                  --clean-method lama-manga \
+                  --fake-translate \
+                  --prompt-mode auto --no-brief --img-format jpg \
+                  >> /tmp/mt/full.log 2>&1
+                echo "$name full exit=$?"
+              fi
+            done
+          done
+          echo "--- آخرِ لاگِ clean ---"; tail -n 25 /tmp/mt/clean.log || true
+          echo "--- آخرِ لاگِ full ---"; tail -n 10 /tmp/mt/full.log || true
+          ls -la /tmp/mt/clean /tmp/mt/dumps /tmp/mt/full 2>/dev/null || true
+          cat /tmp/mt/manifest.tsv
+
+      - name: QA مو به مو (قرارداد + ماسک + OCR)
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          python3 scripts/ci_qa_check.py \
+            /tmp/mt/manifest.tsv /tmp/mt/clean /tmp/mt/dumps /tmp/mt/qa \
+            > /tmp/mt/qa_stdout.txt 2>&1 || true
+          cat /tmp/mt/qa_stdout.txt || true
+          cat /tmp/mt/qa/qa_report.txt || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ciqa-${{ matrix.bucket }}
+          path: |
+            /tmp/mt/clean/**
+            /tmp/mt/full/**
+            /tmp/mt/dumps/**
+            /tmp/mt/qa/**
+            /tmp/mt/manifest.tsv
+            /tmp/mt/clean.log
+            /tmp/mt/full.log
+          if-no-files-found: warn
+          retention-days: 10
