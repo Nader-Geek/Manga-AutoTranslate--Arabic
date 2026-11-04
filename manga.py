@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.210"
+APP_VER = "1.14.211"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -28408,7 +28408,14 @@ html, body { background: #0a0a0b; }
             except Exception as exc:
                 raise RuntimeError("تشخیص متن در مرز دو تصویر ناموفق بود؛ "
                                    "برای جلوگیری از OCR متن نصفه، پردازش متوقف شد.") from exc
-            crossing = any(box["rect"][1] <= seam - 2 and box["rect"][3] >= seam + 2
+            # v1.14.211 — عبورِ واقعی = جعبه‌ای که در «هر دو طرفِ» مرز
+            # تودهٔ قابل‌توجه دارد (≥۸px هر طرف). تلورانسِ قدیمیِ ±۲ هر
+            # جعبهٔ لبه‌چسب (متنِ بالایِ صفحهٔ بعد که مستطیلش چند px
+            # بالاتر از لبهٔ خودِ تصویر تشخیص میشود) را «متنِ ردشونده»
+            # میپنداشت → دو فایلِ کاملاً نامرتبط به هم میچسبیدند و
+            # دومی بی‌دلیل به عرضِ اولی ریسایز میشد (نمونهٔ واقعی:
+            # img2+img4 در تستِ وبِ سازنده — مرزشان کاملاً غیرمرتبط بود).
+            crossing = any(box["rect"][1] <= seam - 8 and box["rect"][3] >= seam + 8
                            for box in boxes)
             if crossing:
                 image = self._normalize_page_width(image, target_w=group[0].shape[1])

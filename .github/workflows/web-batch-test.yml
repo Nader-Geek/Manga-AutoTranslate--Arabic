@@ -95,6 +95,59 @@ jobs:
           if-no-files-found: warn
           retention-days: 10
 
+  single-refs:
+    name: مرجعِ حالتِ تکی (هر ۴ فایل جدا — «تکی اوکیه»)
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6
+          python -m pip install --upgrade pip
+          pip install -q opencv-python-headless numpy pillow onnxruntime \
+            rapidocr-onnxruntime arabic-reshaper python-bidi huggingface_hub
+
+      - name: تک‌تک (عینِ تستِ دستیِ سازنده)
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p /tmp/mt/out_single
+          set +e
+          for pair in "img2:ci_imgs/img2.webp" "img4:ci_imgs/img4.jpg" "img7:ci_imgs/img7.jpg" "IMG:ci_imgs/IMG_20261018_140944_899.jpg"; do
+            name="${pair%%:*}"; f="${pair#*:}"
+            echo "=== single: $f ==="
+            timeout 900 python3 -u manga.py \
+              -i "$f" \
+              -o "/tmp/mt/out_single/${name}_fa.jpg" \
+              --font fonts/Vazirmatn-Bold.ttf \
+              --provider gemini --api-key dummy \
+              --fake-translate \
+              --clean-method lama-manga --img-format jpg --debug \
+              >> /tmp/mt/single.log 2>&1
+            echo "exit=$?"
+          done
+          tail -n 15 /tmp/mt/single.log || true
+          ls -la /tmp/mt/out_single
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: webbatch-single-refs
+          path: |
+            /tmp/mt/out_single/**
+            /tmp/mt/single.log
+          if-no-files-found: warn
+          retention-days: 10
+
   clean-residual:
     name: پاکسازیِ خالص + سنجشِ متنِ جامانده (OCR)
     runs-on: ubuntu-latest
