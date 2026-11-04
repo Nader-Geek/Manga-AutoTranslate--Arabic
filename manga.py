@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.208"
+APP_VER = "1.14.209"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -14874,15 +14874,22 @@ class MangaTranslator:
                             # فقط نوارهایِ خط از donor می‌آیند.
                             _stdb = float(np.std(_bgo[_outb]))
                             if _medb < 140.0 and _stdb <= 36.0:
-                                out[_by0:_by1, _bx0:_bx1] = True
-                                _sweep[_by0:_by1, _bx0:_bx1] = True
+                                # v1.14.209 — قانونِ دو-عکسیِ سازنده: «کلِ
+                                # حباب انتقال میدی حباب خراب میکنی» → حتی
+                                # رویِ باندِ تیرهٔ یکدست فقط نوارهایِ خط از
+                                # donor میآیند (بالا: out |= strips/failed)؛
+                                # بینِ خطها = پیکسلِ اورجینالِ باند (جوهرش
+                                # داخلِ نوارها پاک شده). خرابیِ احتمالیِ
+                                # عکسِ اول (لگه/لکهٔ LaMa) دیگر هرگز با
+                                # کلِ بلوک به عکسِ دوم نمیرسد.
                                 if self.debug:
                                     try:
                                         print(f"  [*]بلوکِ "
                                               f"باندِ تیره (med={_medb:.0f}"
                                               f" std={_stdb:.0f})"
-                                              f" → کلِ بلوک از donor "
-                                              f"({_bx1-_bx0}x{_by1-_by0})")
+                                              f" → فقطِ نوارِ خط از donor "
+                                              f"(کلِ بلوکِ {_bx1-_bx0}x{_by1-_by0}"
+                                              f" ممنوع — قانونِ دو-عکسی)")
                                     except Exception:
                                         pass
                             # v1.14.135 — «پنلِ متنیِ روشن» (همتایِ ماسکِ
@@ -14967,14 +14974,18 @@ class MangaTranslator:
                                         MangaTranslator._system_box_interior(
                                             image, _key104, _seeds104)
                                     if _intr104 is not None:
-                                        out |= _intr104
-                                        _sweep |= _intr104
+                                        # v1.14.209 — قانونِ دو-عکسیِ سازنده:
+                                        # اینتریورِ کاملِ باکسِ سیستم هم دیگر
+                                        # یکجا منتقل نمیشود — فقط نوارهایِ
+                                        # خط (sys_split). بینِ خطها = اورجینال؛
+                                        # خرابیِ عکسِ اول به عکسِ دوم نمیرسد.
                                         if self.debug:
                                             try:
                                                 print(f"  [*]بالنِ سیستم → "
-                                                      f"انتقالِ یکجایِ "
-                                                      f"اینتریور "
-                                                      f"({int(_intr104.sum())}px)")
+                                                      f"فقطِ نوارِ خط "
+                                                      f"(اینتریورِ "
+                                                      f"{int(_intr104.sum())}px "
+                                                      f"یکجا ممنوع)")
                                             except Exception:
                                                 pass
                 except Exception:
@@ -26720,18 +26731,21 @@ class MangaTranslator:
                                   f"متنِ مبدأ: {(_c192.translated_text or '')[:60]}")
                         except Exception:
                             pass
-        # v1.14.149 — ناحیههایِ بدونِ متن (حتی بعد از نجاتِ OCR)
-        # دیگر «فقط پاکسازی» نمیشوند: پاکسازیِ بی‌متن رویِ زمینهٔ
-        # تیره = «حبابِ سیاه» (باگِ v1.14.148 رویِ 012_p1). متنِ
-        # اصلی دیده میماند و لاگ مکانش را میگوید.
-        _ocr_empty_regions = []
+        # v1.14.209 — بازگشتِ «فقط پاکسازی» برایِ ناحیههایِ بی‌متن (دستورِ
+        # سازنده: «متن قبلی میمونه نمیپاکه»). v1.14.149 اینها را از
+        # پاکسازی بیرون کشیده بود (ترسِ حبابِ سیاه رویِ زمینهٔ تیره از
+        # ۰۱۲_p1) — ولی هر ناحیهٔ ocr_empty از گیتِ «زمینهٔ روشن + جوهرِ
+        # تیره» (گیتِ جوهرِ متنی در ساختِ ناحیه) گذشته و ماسکِ پاکسازی هم
+        # فقط جوهرِ متن را برمیدارد نه مستطیلِ توپر → حبابِ سیاه رخ
+        # نمیدهد؛ «متنِ قبلی میمونه» بدتر از هر لکهٔ احتمالی بود.
         _oe149 = [r for r in dialogue_regions
                   if not r.translated_text
                   and getattr(r, "ocr_empty", False)]
+        _ocr_empty_regions = _oe149
         if _oe149:
             for _r in _oe149:
                 try:
-                    print(f"  [!] ناحیهٔ {_r.id} بدونِ متنِ OCR ماند → پاک نشد (rect={tuple(int(v) for v in _r.rect)}) — متنِ اصلی ماند")
+                    print(f"  [!] ناحیهٔ {_r.id} بدونِ متنِ OCR → فقط پاکسازی (rect={tuple(int(v) for v in _r.rect)}) — متنِ قبلی نمیماند")
                 except Exception:
                     pass
         # v1.14.95 — قانونِ نهاییِ کاربر: «متنِ تبلیغِ سایت حسابش نکن —
@@ -29593,11 +29607,15 @@ html, body { background: #0a0a0b; }
             # فیلترِ 188 چرت حساب شد) پاک نمیشود: پاکسازیش یعنی یک حبابِ
             # خالیِ بی‌متن رویِ خروجی (گزارشِ سازنده: «خالی میده»). اصلِ
             # 149: پاکسازی فقط وقتی که چیزی بهجایش مینشیند.
+            # v1.14.209 — استثنایِ سازنده: «متن قبلی میمونه نمیپاکه» —
+            # ناحیهٔ ocr_empty (زمینهٔ روشن + جوهرِ متنی، حتی بعد از ردِ
+            # نجاتِ 201 مثلِ '85') همیشه پاک میشود؛ وگرنه در بچ، متنِ
+            # قبلی سرِ جایش میماند درحالیکه حالتِ تکی تمیز پاک میکرد.
             regs = [r for r in regions
                     if r.kind == "dialogue"
-                    and not getattr(r, "ocr_empty", False)
-                    and ((r.source_text or "").strip()
-                         or (r.translated_text or "").strip())]
+                    and (((r.source_text or "").strip()
+                          or (r.translated_text or "").strip())
+                         or getattr(r, "ocr_empty", False))]
             # همان قواعدِ پاکسازیٔ درونیِ finish_page_phase — تا رفتار
             # عوض نشود فقط جایِ اجرا عقب برده شده:
             if _android_gate("MANGA_CLEAN_TEXTFREE"):
