@@ -22,7 +22,19 @@ os.makedirs(OUT, exist_ok=True)
 
 IMAGES = ['img2.webp', 'img3.webp', 'img4.jpg', 'img5.webp', 'img6.jpg',
           'img7.jpg', 'lang_ja_bw.jpg', 'lang_ja_color.jpg', 'lang_ko.jpg',
-          'lang_zh.jpg', 'up0822_en.jpg', 'up0904_en.jpg', 'up0929_zh.jpg']
+          'lang_zh.jpg', 'up0822_en.jpg', 'up0904_en.jpg', 'up0929_zh.jpg',
+          'IMG_20261018_140944_899.jpg',
+          '/home/z/my-project/upload/1793755746410.jpg',
+          '/home/z/my-project/upload/1793755663517.jpg']
+
+
+def _img_path(name):
+    if os.path.isabs(name):
+        return name
+    p = os.path.join('ci_imgs', name)
+    if os.path.isfile(p):
+        return p
+    return os.path.join('/home/z/my-project/upload', name)
 
 
 def make_tr(method):
@@ -154,12 +166,12 @@ def main():
     tr_ex = make_tr(methods[0])
     report = {}
     for name in only:
-        path = os.path.join('ci_imgs', name)
+        path = _img_path(name)
         img = cv2.imread(path)
         if img is None:
             print(f'[SKIP] {name} خوانده نشد')
             continue
-        tag = os.path.splitext(name)[0]
+        tag = os.path.splitext(os.path.basename(name))[0]
         cache = os.path.join(OUT, f'extract_{tag}.pkl')
         t0 = time.time()
         if os.path.isfile(cache):

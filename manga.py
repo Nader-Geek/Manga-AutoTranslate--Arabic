@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.206"
+APP_VER = "1.14.207"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -10367,6 +10367,9 @@ class MangaTranslator:
         med_w = float(np.median(_ws))
         _lsm_dbg = bool(os.environ.get("MANGA_LSM_DBG"))
         # متنِ افقی — نه عمودی/هنر: خطِ معقول + بلوکِ پهن‌تر از ارتفاعِ خط
+        # (v1.14.207: کفِ ۸px موقتاً ۵ شد ولی رویِ متنِ ریزِ ۷pxِ رویِ هنرِ
+        # شلوغ (up0929) نوارِ تنگ‌تر از فال‌بکِ block-rect∪ink نتیجهٔ
+        # بدتری داد → برگشت به ۸؛ متنِ ریز از فال‌بکِ پهن‌تر پاک میشود)
         if med_h < 8.0 or med_h > 0.45 * max(8.0, rh):
             if _lsm_dbg:
                 print(f"      [📐dbg] رد: med_h={med_h:.1f} rh={rh:.1f}",
@@ -10458,11 +10461,34 @@ class MangaTranslator:
             if _fb > _fd:
                 core = _bright
                 if _fb > 0.55 and 0.015 <= _fd <= 0.45:
-                    core = _dark | (_bright
-                                    & (cv2.dilate(
-                                        _dark.astype(np.uint8) * 255,
-                                        np.ones((5, 5), np.uint8)) > 0))
-                    _sw204 = True
+                    # v1.14.207g — سوئیچِ 206c فقط وقتی معتبر است که قطبِ
+                    # اقلیت «متن» باشد. متنِ سفید رویِ بنرِ سیاه (CHAPTER
+                    # PAGE — img1018): اکثریتِ روشن = حروفِ سفید + حاشیهٔ
+                    # سفیدِ صفحه در پدِ نوار؛ اقلیتِ تیره = خودِ بنر (یک
+                    # تودهٔ عظیمِ پیوسته = زمینه) → سوئیچ، «زمینه» را
+                    # جوهر میگرفت و حروفِ سفید هرگز ماسک نمیشدند. پس اگر
+                    # قطبِ اقلیت یک تودهٔ عظیمِ سراسریِ پهنایِ نوار است،
+                    # سوئیچ نکن (اقلیت = زمینه، اکثریت = جوهرِ واقعی).
+                    _minc207g = _dark
+                    _swg_ok = True
+                    try:
+                        _nsg, _lsg, _ssg, _ = cv2.connectedComponentsWithStats(
+                            _minc207g.astype(np.uint8), 8)
+                        for _iig in range(1, _nsg):
+                            if int(_ssg[_iig, cv2.CC_STAT_WIDTH]) \
+                                    >= 0.9 * (sx1 - sx0) \
+                                    and int(_ssg[_iig, cv2.CC_STAT_AREA]) \
+                                    >= 0.25 * float(max(1, _minc207g.sum())):
+                                _swg_ok = False
+                                break
+                    except Exception:
+                        pass
+                    if _swg_ok:
+                        core = _dark | (_bright
+                                        & (cv2.dilate(
+                                            _dark.astype(np.uint8) * 255,
+                                            np.ones((5, 5), np.uint8)) > 0))
+                        _sw204 = True
                 if not _sw204 and _fd > 0.004:
                     # سایه/دورخطِ تیرهٔ چسبیده به حروفِ روشن هم جوهر است
                     _nc = cv2.dilate(core.astype(np.uint8) * 255,
@@ -10471,11 +10497,27 @@ class MangaTranslator:
             else:
                 core = _dark
                 if _fd > 0.55 and 0.015 <= _fb <= 0.45:
-                    core = _bright | (_dark
-                                      & (cv2.dilate(
-                                          _bright.astype(np.uint8) * 255,
-                                          np.ones((5, 5), np.uint8)) > 0))
-                    _sw204 = True
+                    # v1.14.207g — قرینهٔ همان گیت برایِ قطبِ اقلیتِ روشن
+                    _minc207g = _bright
+                    _swg_ok = True
+                    try:
+                        _nsg, _lsg, _ssg, _ = cv2.connectedComponentsWithStats(
+                            _minc207g.astype(np.uint8), 8)
+                        for _iig in range(1, _nsg):
+                            if int(_ssg[_iig, cv2.CC_STAT_WIDTH]) \
+                                    >= 0.9 * (sx1 - sx0) \
+                                    and int(_ssg[_iig, cv2.CC_STAT_AREA]) \
+                                    >= 0.25 * float(max(1, _minc207g.sum())):
+                                _swg_ok = False
+                                break
+                    except Exception:
+                        pass
+                    if _swg_ok:
+                        core = _bright | (_dark
+                                          & (cv2.dilate(
+                                              _bright.astype(np.uint8) * 255,
+                                              np.ones((5, 5), np.uint8)) > 0))
+                        _sw204 = True
                 if not _sw204:
                     # v1.14.75 — متنِ تیره با دورخطِ روشن (حروفِ قهوه‌ایِ
                     # 01.jpg با دورخطِ سفید روی حبابِ زرد): بدنهٔ روشنِ
@@ -10521,8 +10563,14 @@ class MangaTranslator:
             # block-rect∪ink → حفرهٔ بزرگ → پرِ تیرهٔ LaMa رویِ گوشی. روی
             # زمینهٔ روشنِ یکدست آستانه سخاوتمندانه‌تر (0.55) — بلوکِ تیره
             # (med پایین) همچنان با همان 0.42 رد می‌شود.
+            # v1.14.207 — آستانهٔ سخاوتمندانهٔ زمینهٔ روشن دیگر «فقطِ اندروید»
+            # نیست (دستور: «هم گوشی هم پی سی لینوکس باید هردو چک کنی») —
+            # فونتِ درشتِ کمیک («This is great, Butler-kun!!» — img6) رویِ
+            # PC نوارش رد میشد → نصفِ حروف جا میماند. MANGA_LSM_POLY_RESCUE=0
+            # رویِ هر دو پلتفرم رفتارِ قدیمیِ سختگیرانه را برمیگرداند.
             _thr_core = 0.42
-            if med >= 170.0 and _android_gate("MANGA_LSM_POLY_RESCUE"):
+            if med >= 170.0 and str(os.environ.get(
+                    "MANGA_LSM_POLY_RESCUE", "")).strip().lower() != "0":
                 _thr_core = 0.65
             if float(core.mean()) > _thr_core:
                 if dbg:
@@ -10606,6 +10654,22 @@ class MangaTranslator:
                         _cm = (lal == ci)
                         _onp = float(np.count_nonzero(_cm & (_pm > 0)))
                         if _onp < 0.35 * float(max(1, ca)):
+                            # v1.14.207 — مثلِ 206b: حروفِ چاقِ بههمپیوستهٔ
+                            # فونتِ کمیک («This is great, Butler-kun!!» —
+                            # img6) به لبهٔ بالا/پایینِ نوار میرسند و
+                            # «ساختار» خوانده میشوند → کلِ کامپوننت (= یک
+                            # کلمهٔ کامل) از نوارِ کامپوز حذف = کلمه در
+                            # عکسِ دوم برمیگشت. حالا فقط پیکسلهایِ بیرونِ
+                            # پالی حذف میشوند؛ حروفِ داخلِ پالی میمانند
+                            # (پیکسلِ بیرونِ پالی در donor دستنخورده است
+                            # پس برگشتِ آن بیخطر است).
+                            if _onp > 0:
+                                kept |= (_cm & (_pm > 0))
+                                if dbg:
+                                    print(f"      [📐dbg] ساختارِ لبه‌ای "
+                                          f"ترکیبی — فقطِ حروفِ درپالی "
+                                          f"({_onp:.0f}/{ca})", flush=True)
+                                continue
                             if dbg:
                                 print(f"      [📐dbg] حذفِ ساختارِ لبه‌ای "
                                       f"ca={ca} chg={chg}", flush=True)
@@ -10640,9 +10704,14 @@ class MangaTranslator:
                                       f"({_onp:.0f}/{ca})", flush=True)
                             continue
                 kept |= (lal == ci)
+            # v1.14.207 — مثلِ thr_core: آستانهٔ 0.80ِ زمینهٔ روشن دیگر فقطِ
+            # اندروید نیست؛ فونتِ درشتِ کمیک (kept≈۰٫۶۴ — img6) رویِ PC
+            # «نوارِ اشباع» رد میشد → نصفِ حروف جا میماند.
             if float(kept.mean()) > (0.80 if (
                     med >= 170.0
-                    and _android_gate("MANGA_LSM_POLY_RESCUE")) else 0.60):
+                    and str(os.environ.get("MANGA_LSM_POLY_RESCUE",
+                                           "")).strip().lower() != "0")
+                    else 0.60):
                 if dbg:
                     print(f"      [📐dbg] رد: نوارِ اشباع "
                           f"kept={float(kept.mean()):.2f}", flush=True)
@@ -12909,8 +12978,19 @@ class MangaTranslator:
                 _g = cv2.cvtColor(sub_bgr, cv2.COLOR_BGR2GRAY)
                 _bg_px = _g[_ring]
                 _bright = _bg_px[_bg_px >= 160.0]
+                # v1.14.207d — QCِ «پرِ تیره» فقط وقتی معتبر است که حلقهٔ
+                # کلاستر «واقعاً» روشن باشد. بنرِ سیاهِ «CHAPTER 1 PAGE 1»
+                # (img1018) داخلِ کلاسترِ بالایِ صفحه بود؛ حلقهٔ ۳۱pxِ
+                # کلاستر عمدتاً سفیدِ صفحه است → bg_med=۲۵۵ → پرِ «سیاهِ
+                # درستِ» LaMa رویِ بنر رد میشد و جایگزینِ سفید = «لگهٔ
+                # سفیدِ» بزرگ رویِ بنر. حالا اگر ≥۱۰٪ حلقه تیرهِ واقعی
+                # باشد (زمینهٔ مختلط)، این QCِ کورِ سطحِ کلاستر پرش را رد
+                # نمیکند؛ اعتبارسنجیِ محلیِ هر عضو (گاردِ ضدتوهم) خودش
+                # درست قضاوت میکند.
+                _darkqc207 = float((_bg_px < 110.0).mean())
                 if (_bright.size >= max(50, int(0.02 * _bg_px.size))
-                        and _bright.size >= 0.55 * _bg_px.size):
+                        and _bright.size >= 0.55 * _bg_px.size
+                        and _darkqc207 < 0.10):
                     _bg_med = float(np.median(_bright))
                     _fill_med = float(np.median(_g[_fm]))
                     # v1.14.133 — اندروید: رویِ حلقهٔ تختِ روشن (حبابِ زرد)،
@@ -13328,6 +13408,135 @@ class MangaTranslator:
                 rg = _gcr[ring]
                 if rg.size < 80:
                     continue
+                # v1.14.207j — درِ «متنِ پاکنشده» (مستقل از قطب): گاردهای
+                # قبلی فقط «پرِ تیره‌تر از حلقهٔ روشن» را خطرناک میدانستند؛
+                # متنِ روشن رویِ زمینهٔ تیره (بنرِ CHAPTER PAGE — img1018
+                # در کلاسترِ بزرگ) پرِ «روشنِ خودِ متن» میگرفت و بدونِ
+                # چک میماند = «متنِ قبلی جا میماند». سنجه: از جوهرِ
+                # اصلیِ عضو (پیکسلهایِ دورِ >۶۰ از میانهٔ حلقه) چه
+                # نسبتی همچنان دستنخورده مانده؟ ≥۳۵٪ → عضو رد و با
+                # «قطبِ غالبِ حلقهٔ هر کامپوننت» پر میشود.
+                try:
+                    _medJ = float(np.median(rg))
+                    _sicJ = sub_img[oy:oy + dm.shape[0],
+                                    ox:ox + dm.shape[1]]
+                    # v1.14.207m — _ppc در این نقطه از حلقه هنوز ساخته
+                    # نشده (در بلوکِ ردِ پایینتر ساخته میشود) → نامِ
+                    # تعریفنشده = استثنایِ خاموش = گیتِ بیاثر. اینجا
+                    # نسخهٔ محلیِ خودش را میسازد.
+                    _ppcJ = None
+                    try:
+                        _pp49J = getattr(self, "_page_protect", None)
+                        if _pp49J is not None:
+                            _ptJ = _pp49J[cy0:cy1, cx0:cx1]
+                            if _ptJ.shape[:2] == _sicJ.shape[:2]:
+                                _ppcJ = _ptJ
+                    except Exception:
+                        _ppcJ = None
+                    _gJ = cv2.cvtColor(_sicJ, cv2.COLOR_BGR2GRAY)
+                    _inkJ = mm & (np.abs(_gJ.astype(np.float32)
+                                         - _medJ) > 60.0)
+                    if int(_inkJ.sum()) >= 60:
+                        _outJ = _g_out[oy:oy + dm.shape[0],
+                                       ox:ox + dm.shape[1]]
+                        _sameJ = (np.abs(_outJ.astype(np.float32)
+                                         - _gJ.astype(np.float32))
+                                  <= 30.0)
+                        _sfJ = float(_sameJ[_inkJ].mean())
+                        if _dbg:
+                            print(f"      [🛡dbg] ink-kept gate "
+                                  f"same={_sfJ:.2f} "
+                                  f"ink={int(_inkJ.sum())}", flush=True)
+                        if _sfJ >= 0.35:
+                            # v1.14.207k — فقط «جوهرِ جامانده» پر شود نه
+                            # کلِ عضو: پرِ تختِ سراسری، بازسازیِ سالمِ
+                            # LaMa را هم نابود میکرد (r0/r7 — bN جهش).
+                            # ماسکِ جراحی = (جوهر ∩ دستنخورده) + ۵px،
+                            # محدود به mm؛ رنگ = قطبِ غالبِ حلقهٔ هر
+                            # کامپوننتِ باقیمانده.
+                            # v1.14.207l — «روشنشدههایِ بيجا»: پیکسلِ
+                            # «زمینه»ای که LaMa روشنش کرده (لکهٔ سفیدِ
+                            # رویِ بنرِ سیاه — r9) نه جوهر است نه
+                            # دستنخورده؛ پرچمش = اصلِ تیرهٔ همرنگِ
+                            # حلقه + خروجیِ ≥۴۵ روشنتر و ≥۱۷۰.
+                            _outJf = _outJ.astype(np.float32)
+                            _gJf = _gJ.astype(np.float32)
+                            _brightJ = (mm & (~_inkJ)
+                                        & ((_outJf - _gJf) > 45.0)
+                                        & (_outJf >= 170.0))
+                            _resJ = (_inkJ & _sameJ) | _brightJ
+                            _resJ = cv2.dilate(
+                                _resJ.astype(np.uint8),
+                                np.ones((11, 11), np.uint8)) > 0
+                            _resJ = _resJ & mm
+                            if _ppcJ is not None:
+                                _resJ = _resJ & (_ppcJ == 0)
+                            _rcJ = sub_bgr[oy:oy + dm.shape[0],
+                                           ox:ox + dm.shape[1]]
+                            try:
+                                _unmJ = ~mm
+                                _rcJ[_unmJ] = _sicJ[_unmJ]
+                            except Exception:
+                                _rcJ[:] = _sicJ
+                            try:
+                                # v1.14.207n — رنگِ قطبِ «سطحِ عضو» بهعنوانِ
+                                # پشتیبان: برایِ تودههایِ بزرگِ باقیمانده،
+                                # حلقهٔ ۱۳px داخلِ خودِ ماسک گیر میکند
+                                # (ring<۲۰ → skip) و لکه پر نمیشد. حلقهٔ
+                                # عضو (rg) قطبِ درست را دارد → همان رنگ.
+                                _poleColM = None
+                                try:
+                                    if float((rg < 110.0).mean()) >= 0.5:
+                                        _selM = ring & (_gJ < 110.0)
+                                    else:
+                                        _selM = ring & (_gJ >= 110.0)
+                                    if int(_selM.sum()) < 8:
+                                        _selM = ring
+                                    _poleColM = np.median(
+                                        _sicJ[_selM].astype(np.float32),
+                                        axis=0).astype(np.uint8)
+                                except Exception:
+                                    _poleColM = None
+                                _nJ2, _labJ2 = cv2.connectedComponents(
+                                    _resJ.astype(np.uint8), 8)
+                                for _iJ2 in range(1, _nJ2):
+                                    _cmJ2 = (_labJ2 == _iJ2)
+                                    _ringJ2 = (cv2.dilate(
+                                        _cmJ2.astype(np.uint8),
+                                        np.ones((13, 13), np.uint8)) > 0) \
+                                        & (~mm)
+                                    _rgJ2 = _gJ[_ringJ2]
+                                    if _rgJ2.size < 20:
+                                        if _poleColM is not None \
+                                                and _cmJ2.any():
+                                            _rcJ[_cmJ2] = _poleColM
+                                        continue
+                                    if float((_rgJ2 < 110.0).mean()) >= 0.5:
+                                        _selJ2 = _ringJ2 & (_gJ < 110.0)
+                                    else:
+                                        _selJ2 = _ringJ2 & (_gJ >= 110.0)
+                                    if int(_selJ2.sum()) < 8:
+                                        _selJ2 = _ringJ2
+                                    _colJ2 = np.median(
+                                        _sicJ[_selJ2].astype(np.float32),
+                                        axis=0).astype(np.uint8)
+                                    if _cmJ2.any():
+                                        _rcJ[_cmJ2] = _colJ2
+                            except Exception:
+                                pass
+                            _n_rej += 1
+                            try:
+                                print(f"    [🛡] ink-kept reject → "
+                                      f"residual pole fill "
+                                      f"(same={_sfJ:.2f})", flush=True)
+                            except Exception:
+                                pass
+                            continue
+                except Exception:
+                    if _dbg:
+                        import traceback as _tbJ
+                        _tbJ.print_exc()
+                    pass
                 _rb = rg >= 170.0
                 _rbm = float(_rb.mean())
                 # v1.14.51: عضوِ فال‌بک‌تأییدشده (اینتریورِ سفیدِ چسبیده به
@@ -13335,6 +13544,73 @@ class MangaTranslator:
                 # هنرِ تیره (OH BOY روی نیمکت) حلقهٔ تیره دارد ولی داخلش
                 # سفید است؛ bg_med از پیکسل‌هایِ روشنِ حلقه هنوز درست درمی‌آید.
                 if _fb_comp is None and _rbm < 0.50:
+                    # v1.14.207f — تصویرِ آینهٔ همین گارد: حلقهٔ «تیره»
+                    # (متنِ روشن رویِ بنر/پنلِ سیاه — «CHAPTER 1 PAGE 1»
+                    # در img1018). گاردِ قدیمی اینجا «اعتبارسنجی نه» میکرد
+                    # و پرِ سفیدِ توهمیِ LaMa (یا متنِ پاکنشدهٔ روشن)
+                    # بدونِ چک میماند. حالا: اگر حلقه عمدتاً تیره است و
+                    # پرِ داخلِ ماسک همچنان «روشن» (≥۳۵٪ ≥۱۷۰)، عضو رد
+                    # میشود و ماسکِ عضو با «قطبِ غالبِ حلقهٔ هر کامپوننت»
+                    # پر میشود — بنر سیاهِ خالص، حبابِ رویِ پنلِ تیره
+                    # رنگِ پنل.
+                    try:
+                        _dkr207f = float((rg < 110.0).mean())
+                        _fg207f = _g_out[oy:oy + dm.shape[0],
+                                         ox:ox + dm.shape[1]][mm]
+                        _brt207f = (float((_fg207f >= 170.0).mean())
+                                    if _fg207f.size else 0.0)
+                        if _dbg:
+                            print(f"      [🛡dbg] dark-ring mirror "
+                                  f"dark={_dkr207f:.2f} "
+                                  f"fillbright={_brt207f:.2f}", flush=True)
+                        if _dkr207f >= 0.50 and _brt207f >= 0.35:
+                            _sicF = sub_img[oy:oy + dm.shape[0],
+                                            ox:ox + dm.shape[1]]
+                            _rcF = sub_bgr[oy:oy + dm.shape[0],
+                                           ox:ox + dm.shape[1]]
+                            try:
+                                _unmF = ~mm
+                                _rcF[_unmF] = _sicF[_unmF]
+                            except Exception:
+                                _rcF[:] = _sicF
+                            try:
+                                _nF, _labF = cv2.connectedComponents(
+                                    mm.astype(np.uint8), 8)
+                                _gF = cv2.cvtColor(
+                                    _sicF, cv2.COLOR_BGR2GRAY)
+                                for _iF in range(1, _nF):
+                                    _cmF = (_labF == _iF)
+                                    _ringF = (cv2.dilate(
+                                        _cmF.astype(np.uint8),
+                                        np.ones((13, 13), np.uint8)) > 0) \
+                                        & (~mm)
+                                    _rgF = _gF[_ringF]
+                                    if _rgF.size < 20:
+                                        continue
+                                    if float((_rgF < 110.0).mean()) >= 0.5:
+                                        _selF = _ringF & (_gF < 110.0)
+                                    else:
+                                        _selF = _ringF & (_gF >= 110.0)
+                                    if int(_selF.sum()) < 8:
+                                        _selF = _ringF
+                                    _colF = np.median(
+                                        _sicF[_selF].astype(np.float32),
+                                        axis=0).astype(np.uint8)
+                                    _tgtF = _cmF if _ppc is None \
+                                        else (_cmF & (_ppc == 0))
+                                    if _tgtF.any():
+                                        _rcF[_tgtF] = _colF
+                            except Exception:
+                                pass
+                            _n_rej += 1
+                            try:
+                                print(f"    [🛡] dark-ring mirror → "
+                                      f"local pole fill (bright fill "
+                                      f"on dark ring)", flush=True)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
                     if _dbg:
                         print(f"      [🛡dbg] ring bright frac {_rbm:.2f} "
                               f"< 0.50 → no validate", flush=True)
@@ -13437,8 +13713,124 @@ class MangaTranslator:
                     _rc[_unm] = _sic[_unm]
                 except Exception:
                     _rc[:] = _sic
-                if _pnt.any():
-                    _rc[_pnt] = _fill_col
+                if True:
+                    # v1.14.207e — پسگیریِ «متنِ جامانده در پسگیریِ گارد»:
+                    # _pnt فقط «اینتریور/کامپوننتِ روشن ∪ جوهرِ تیره» را پر
+                    # میکرد؛ متنِ «روشن» رویِ زمینهٔ تیره (بنرِ سیاهِ
+                    # CHAPTER PAGE — img1018) نه در کامپوننتِ روشن بود نه
+                    # جوهرِ تیره → بعدِ ردِ LaMa به اصلِ خودش برمیگشت =
+                    # متنِ سفیدِ کامل رویِ بنر. حالا هر پیکسلِ ماسک که
+                    # «جوهرمانند» است (تفاوتِ >۴۲ با زمینهٔ محلیِ تخمینیِ
+                    # 207b) هم پر میشود؛ پیکسلِ همرنگِ زمینه (دیوار/بافت)
+                    # مثلِ قبل به اصل برمیگردد.
+                    _fill207 = None
+                    try:
+                        _kn207 = (~mm).astype(np.float32)
+                        _sicf207 = _sic.astype(np.float32) * _kn207[..., None]
+                        _den207 = cv2.boxFilter(_kn207, -1, (25, 25))
+                        _num207 = cv2.boxFilter(_sicf207, -1, (25, 25))
+                        _loc207 = (_num207
+                                   / np.maximum(_den207, 1e-3)[..., None])
+                        # v1.14.207b — میانگینِ ساده رویِ زمینهٔ «دوقطبی»
+                        # (بنرِ سیاه + حروفِ سفیدِ کنارِ ماسک — img1018)
+                        # رنگِ خاکستریِ ناخالص میدهد. پس پرِ محلی =
+                        # «قطبِ غالبِ محلی» (همان منطقِ دو-قطبیِ 206d):
+                        # در هر پنجره بینِ قطبِ تیره و روشنِ پیکسلهایِ
+                        # معلوم، قطبی که تراکمش بیشتر است برنده میشود —
+                        # رویِ بنرِ سیاه سیاهِ خالص، رویِ حبابِ سفید سفید،
+                        # رویِ حبابِ ماتِ رنگی رنگِ مات.
+                        try:
+                            _g207b = cv2.cvtColor(
+                                _sic, cv2.COLOR_BGR2GRAY).astype(np.float32)
+                            _drk207 = ((_g207b < 110.0)
+                                       & (_kn207 > 0)).astype(np.float32)
+                            _brt207 = ((_g207b >= 110.0)
+                                       & (_kn207 > 0)).astype(np.float32)
+                            _denD = cv2.boxFilter(_drk207, -1, (25, 25))
+                            _denB = cv2.boxFilter(_brt207, -1, (25, 25))
+                            _locD = (cv2.boxFilter(
+                                _sic.astype(np.float32) * _drk207[..., None],
+                                -1, (25, 25))
+                                / np.maximum(_denD, 1e-3)[..., None])
+                            _locB = (cv2.boxFilter(
+                                _sic.astype(np.float32) * _brt207[..., None],
+                                -1, (25, 25))
+                                / np.maximum(_denB, 1e-3)[..., None])
+                            _poleD = (_denD >= _denB)[..., None]
+                            _locP = np.where(_poleD, _locD, _locB)
+                            _valP = np.maximum(_denD, _denB)
+                            _loc207 = np.where(
+                                (_valP >= 0.03)[..., None], _locP, _loc207)
+                        except Exception:
+                            pass
+                        _fill207 = np.where(
+                            (_den207 >= 0.03)[..., None],
+                            _loc207.astype(np.uint8),
+                            np.broadcast_to(np.asarray(
+                                _fill_col, dtype=np.uint8), _loc207.shape))
+                        try:
+                            # v1.14.207i — پسگیریِ «متنِ جامانده» به روشِ
+                            # کامپوننت‌محور: تخمینِ پیکسلیِ 207b کنارِ
+                            # حروفِ سفیدِ بنر توسطِ لبههایِ روشنِ بیرونِ
+                            # ماسک آلوده میشد (|g-bg|<42 → پر نشد → متن
+                            # برمیگشت). برای هر کامپوننتِ «ماسکِ بدونِ
+                            # _pnt»: رنگ = قطبِ غالبِ حلقهٔ ۱۳px دورِ
+                            # کامپوننت (پایدار، بدونِ لبههایِ حروف)؛ اگر
+                            # خودِ کامپوننت با آن رنگ فاصلهٔ معنیدار
+                            # داشته = جوهر است → پر.
+                            _gSic207i = cv2.cvtColor(
+                                _sic, cv2.COLOR_BGR2GRAY)
+                            _res207i = mm & (~_pnt)
+                            if _ppc is not None:
+                                _res207i = _res207i & (_ppc == 0)
+                            _cc207i = []
+                            if _res207i.any():
+                                _nCi, _labCi = cv2.connectedComponents(
+                                    _res207i.astype(np.uint8), 8)
+                                for _ic in range(1, _nCi):
+                                    _cmC = (_labCi == _ic)
+                                    _ringC = (cv2.dilate(
+                                        _cmC.astype(np.uint8),
+                                        np.ones((13, 13), np.uint8)) > 0) \
+                                        & (~mm)
+                                    _rgC = _gSic207i[_ringC]
+                                    if _rgC.size < 20:
+                                        continue
+                                    if float((_rgC < 110.0).mean()) >= 0.5:
+                                        _selC = _ringC & (_gSic207i < 110.0)
+                                    else:
+                                        _selC = _ringC & (_gSic207i >= 110.0)
+                                    if int(_selC.sum()) < 8:
+                                        _selC = _ringC
+                                    _colC = np.median(
+                                        _sic[_selC].astype(np.float32),
+                                        axis=0)
+                                    _dC = np.abs(
+                                        _gSic207i[_cmC].astype(np.float32)
+                                        - (0.299 * _colC[2]
+                                           + 0.587 * _colC[1]
+                                           + 0.114 * _colC[0]))
+                                    if float(_dC.mean()) > 42.0:
+                                        _pnt = _pnt | _cmC
+                                        _cc207i.append(
+                                            (_cmC, _colC.astype(np.uint8)))
+                        except Exception:
+                            _cc207i = []
+                    except Exception:
+                        _fill207 = None
+                        _cc207i = []
+                    if _pnt.any():
+                        if _fill207 is not None:
+                            _rc[_pnt] = _fill207[_pnt]
+                        else:
+                            _rc[_pnt] = _fill_col
+                        # v1.14.207i — رنگِ قطبِ حلقهٔ هر کامپوننتِ
+                        # «جوهرِ شناساییشده» رویِ پرِ عمومی مینشیند
+                        try:
+                            for _cmC, _colC in (_cc207i or []):
+                                _rc[_cmC] = _colC
+                        except Exception:
+                            pass
                 _n_rej += 1
                 try:
                     _dumpd2 = os.environ.get("MANGA_GUARD_DUMP")
@@ -19525,6 +19917,23 @@ class MangaTranslator:
                     _bhj = int(_scj[_ij, cv2.CC_STAT_HEIGHT])
                     _cpj = (_lcj[_byj:_byj + _bhj,
                                  _bxj:_bxj + _bwj] == _ij)
+                    # v1.14.207 — «قابِ رنگی» نباید خودِ حروفِ رنگی را
+                    # ببلعد: متنِ بنفشِ اشباعِ درشتِ img6 (S≥۷۰ و «نازکِ»
+                    # ≤۱۴px!) ۱۲هزارpx حرف را داخلِ map برد → کامپوزِ
+                    # دو-عکسی آن حرفها را از خروجی حذف کرد = «متنِ قبلی
+                    # جا میماند». کامپوننتِ بزرگِ «عمدتاً داخلِ پالیِ
+                    # OCR» = حرف است نه قاب (قابِ حباب عمدتاً بیرونِ
+                    # پالیست) → رد. تکههایِ ریزِ تقاطعِ قاب/حرف
+                    # (۲×۸px — v1.14.206q) بدونِ گیت میمانند.
+                    if _aj >= 24:
+                        try:
+                            _onpj = float(np.count_nonzero(
+                                _cpj & (_polyrawj[_byj:_byj + _bhj,
+                                                  _bxj:_bxj + _bwj] > 0)))
+                            if _onpj >= 0.60 * float(_aj):
+                                continue
+                        except Exception:
+                            pass
                     try:
                         _dtj = cv2.distanceTransform(
                             _cpj.astype(np.uint8), cv2.DIST_L2, 3)
@@ -20175,8 +20584,15 @@ class MangaTranslator:
             # «پرِ کثیفِ سفید» فقط وقتی معنا دارد که اطراف روشن باشد؛ پنلِ
             # تیرهٔ 012p1 (p90=۱۳۶) تریگرِ کاذب نمی‌سازد؛ نوارِ خاکستریِ
             # واقعیِ GPU (۱۰۱۸) گپِ ۳۹ با حلقهٔ ۲۵۵ دارد
+            # v1.14.207h — p90ِ حلقه برایِ «متنِ سفید رویِ بنرِ سیاه»
+            # (هدرِ CHAPTER PAGE — img1018) کافی نیست: حلقه = بنرِ سیاه +
+            # نوارِ سفیدِ صفحه در ۳۱px → rp90=۲۵۵ و پرِ «سیاهِ درستِ» LaMa
+            # «تیرگی» پرچم میخورد → LaMa×۱۷/×۳۳ → بازگردانیِ اورجینال =
+            # کلِ متنِ بنر برمیگشت. حالا حلقه باید «عمدتاً» روشن باشد
+            # (≥۵۰٪ ≥۱۷۰) نه فقط صدکِ ۹۰.
             bad_gray = (mask_spread <= 22.0) and (neutr <= 14.0) and \
-                (gap_dark >= 30.0) and (rp90 >= 190.0)
+                (gap_dark >= 30.0) and (rp90 >= 190.0) and \
+                (float((g[ring] >= 170.0).mean()) >= 0.50)
             # v1.14.106 — دودِ متنِ بازمانده (ghost imprint): پرِ LaMa گاهی
             # امضایِ کمرنگِ متنِ قبلی (۱۹۵–۲۵۰، اختلافِ فقط ۵–۲۵ از سفید)
             # را نگه میدارد؛ «جوهرِ» hf≥۲۶ آن را نمیبیند و رویِ صفحهِ گوشی
