@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.205"
+APP_VER = "1.14.206"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3359,7 +3359,7 @@ def _line_is_foreign188(bb, block_rects, own_area: float) -> bool:
 
 
 def _clamp_lines_to_det204(res, box, block_rects=None, tol: float = 10.0):
-    """v1.14.204 — استخراج نباید از باکسِ detector بیرون بزند (دستورِ
+    """v1.14.206 — استخراج نباید از باکسِ detector بیرون بزند (دستورِ
     سازنده: «وقتی detector متن در اورد نباید استخراج از اون بیشتر بگیره —
     الان میشه دید کل سه حباب گرفته»). دو قاعدهٔ مالکیتِ خط:
       ۱) مرکزِ خط داخلِ باکسِ detectorِ خودِ ناحیه نیست → مالِ این ناحیه
@@ -9039,7 +9039,15 @@ class MangaTranslator:
             out = cv2.dilate(mask, _pad)
             _protect = getattr(self, "_page_protect", None)
             if _protect is not None and _protect.shape == out.shape:
-                out = cv2.bitwise_and(out, cv2.bitwise_not(_protect))
+                # v1.14.206n — فقط «قابِ رنگیِ» 206j از donor آزاد میشود
+                # (رنگِ قاب نباید واردِ پرِ متن شود — لکهٔ سبزِ up0822)؛
+                # دیوارِ تیره مثلِ قبل در donor دستنخورده میماند تا پرِ
+                # LaMa سیاهیِ دیوار را داخلِ نوار نکشد (img6).
+                _colj2 = getattr(self, "_page_colored_protect", None)
+                if _colj2 is not None and _colj2.shape == out.shape:
+                    out = cv2.bitwise_and(out, cv2.bitwise_not(_colj2))
+                else:
+                    out = cv2.bitwise_and(out, cv2.bitwise_not(_protect))
             if not np.any(out):
                 out = mask.copy()
             _added = int(np.count_nonzero(out)) - _base_n
@@ -10439,51 +10447,72 @@ class MangaTranslator:
             _bright = (g > med + 30.0)
             _fd = float(_dark.mean())
             _fb = float(_bright.mean())
+            # v1.14.206c — پنلِ نیمهشفافِ روشنِ پشتِ متن (سبکِ webtoon —
+            # PARAGRAPHهایِ img4 رویِ حصار): پنجرهٔ نوار هم پنل دارد هم
+            # هنرِ اطراف → اکثریتِ روشن «خودِ پنل» است نه متن؛ متنِ واقعی
+            # اقلیتِ تیره است. جوهرِ متن همیشه تراکمِ کم دارد (≤~۵۰٪
+            # نوار) → اگر قطبِ انتخابیِ اکثریت از ۰٫۵۵ بیشتر شد، قطبِ
+            # اقلیت جوهرِ واقعی است (تا نوارِ سالمِ متن رد نشود و به
+            # failedِ چاق نیفتد).
+            _sw204 = False
             if _fb > _fd:
                 core = _bright
-                if _fd > 0.004:
+                if _fb > 0.55 and 0.015 <= _fd <= 0.45:
+                    core = _dark | (_bright
+                                    & (cv2.dilate(
+                                        _dark.astype(np.uint8) * 255,
+                                        np.ones((5, 5), np.uint8)) > 0))
+                    _sw204 = True
+                if not _sw204 and _fd > 0.004:
                     # سایه/دورخطِ تیرهٔ چسبیده به حروفِ روشن هم جوهر است
                     _nc = cv2.dilate(core.astype(np.uint8) * 255,
                                      np.ones((7, 7), np.uint8)) > 0
                     core = core | (_dark & _nc)
             else:
                 core = _dark
-                # v1.14.75 — متنِ تیره با دورخطِ روشن (حروفِ قهوه‌ایِ
-                # 01.jpg با دورخطِ سفید روی حبابِ زرد): بدنهٔ روشنِ
-                # دورخطِ چسبیده به حروف هم جوهر است؛ وگرنه فقط خطِ
-                # تیره پاک می‌شود و شبحِ سفیدِ دورخطِ حروف می‌ماند
-                # (متریکِ VLM: متنِ خوانا ماند!).
-                if _fb > 0.004:
-                    # v1.14.75c — دورخطِ روشنِ متنِ تیره (حبابِ سفیدِ کلاسیک
-                    # «This is great, Butler-kun!!» در 01.jpg): دیلیتِ ۷
-                    # بدنهٔ سفیدِ دورِ حروفِ تیره را کامل نمی‌گیرد (شبقِ
-                    # سفید در خروجی). هم‌چنین پیکسل‌هایِ روشنِ تنگِ جدا که
-                    # به قطعهٔ حروفِ تیره نزدیک‌اند (فاصلهٔ ≤۱۱px) هم جزو
-                    # نوار — فاصلهٔ بینِ خط‌ها معمولاً ≥۱۴px است.
-                    _nb = cv2.dilate(core.astype(np.uint8) * 255,
-                                     np.ones((5, 5), np.uint8)) > 0
-                    _brw = cv2.dilate(_bright.astype(np.uint8) * 255,
-                                      np.ones((3, 3), np.uint8))
-                    _nz2b, _lab2b, _st2b, _ = cv2.connectedComponentsWithStats(
-                        _brw, connectivity=8)
-                    for _ci2b in range(1, _nz2b):
-                        _a2b = int(_st2b[_ci2b, cv2.CC_STAT_AREA])
-                        _cw2b = int(_st2b[_ci2b, cv2.CC_STAT_WIDTH])
-                        _ch2b = int(_st2b[_ci2b, cv2.CC_STAT_HEIGHT])
-                        if _a2b <= 4 or max(_cw2b, _ch2b) > 3.0 * max(8.0, lh):
-                            continue
-                        _m2b = (_lab2b == _ci2b)
-                        if bool((_m2b & _nb).any()):
-                            core = core | _bright
-                            break
-                        _near2b = cv2.dilate(core.astype(np.uint8) * 255,
-                                             np.ones((11, 11), np.uint8)) > 0
-                        if bool((_m2b & _near2b).any()):
-                            core |= _m2b
-                if _fb > 0.004:
-                    _nc = cv2.dilate(core.astype(np.uint8) * 255,
-                                     np.ones((7, 7), np.uint8)) > 0
-                    core = core | (_dark & _nc)
+                if _fd > 0.55 and 0.015 <= _fb <= 0.45:
+                    core = _bright | (_dark
+                                      & (cv2.dilate(
+                                          _bright.astype(np.uint8) * 255,
+                                          np.ones((5, 5), np.uint8)) > 0))
+                    _sw204 = True
+                if not _sw204:
+                    # v1.14.75 — متنِ تیره با دورخطِ روشن (حروفِ قهوه‌ایِ
+                    # 01.jpg با دورخطِ سفید روی حبابِ زرد): بدنهٔ روشنِ
+                    # دورخطِ چسبیده به حروف هم جوهر است؛ وگرنه فقط خطِ
+                    # تیره پاک می‌شود و شبحِ سفیدِ دورخطِ حروف می‌ماند
+                    # (متریکِ VLM: متنِ خوانا ماند!).
+                    if _fb > 0.004:
+                        # v1.14.75c — دورخطِ روشنِ متنِ تیره (حبابِ سفیدِ کلاسیک
+                        # «This is great, Butler-kun!!» در 01.jpg): دیلیتِ ۷
+                        # بدنهٔ سفیدِ دورِ حروفِ تیره را کامل نمی‌گیرد (شبقِ
+                        # سفید در خروجی). هم‌چنین پیکسل‌هایِ روشنِ تنگِ جدا که
+                        # به قطعهٔ حروفِ تیره نزدیک‌اند (فاصلهٔ ≤۱۱px) هم جزو
+                        # نوار — فاصلهٔ بینِ خط‌ها معمولاً ≥۱۴px است.
+                        _nb = cv2.dilate(core.astype(np.uint8) * 255,
+                                         np.ones((5, 5), np.uint8)) > 0
+                        _brw = cv2.dilate(_bright.astype(np.uint8) * 255,
+                                          np.ones((3, 3), np.uint8))
+                        _nz2b, _lab2b, _st2b, _ = cv2.connectedComponentsWithStats(
+                            _brw, connectivity=8)
+                        for _ci2b in range(1, _nz2b):
+                            _a2b = int(_st2b[_ci2b, cv2.CC_STAT_AREA])
+                            _cw2b = int(_st2b[_ci2b, cv2.CC_STAT_WIDTH])
+                            _ch2b = int(_st2b[_ci2b, cv2.CC_STAT_HEIGHT])
+                            if _a2b <= 4 or max(_cw2b, _ch2b) > 3.0 * max(8.0, lh):
+                                continue
+                            _m2b = (_lab2b == _ci2b)
+                            if bool((_m2b & _nb).any()):
+                                core = core | _bright
+                                break
+                            _near2b = cv2.dilate(core.astype(np.uint8) * 255,
+                                                 np.ones((11, 11), np.uint8)) > 0
+                            if bool((_m2b & _near2b).any()):
+                                core |= _m2b
+                    if _fb > 0.004:
+                        _nc = cv2.dilate(core.astype(np.uint8) * 255,
+                                         np.ones((7, 7), np.uint8)) > 0
+                        core = core | (_dark & _nc)
             # نوارِ خط عمدتاً زمینه است؛ اگر بیشترِ نوار «جوهر» باشد یعنی
             # هنر/بلوکِ تیره است — نه خطِ متن → فال‌بک
             # v1.14.133 — متنِ ضخیمِ دورخط‌دار (حبابِ زردِ 01.jpg): بدنهٔ
@@ -10580,6 +10609,35 @@ class MangaTranslator:
                             if dbg:
                                 print(f"      [📐dbg] حذفِ ساختارِ لبه‌ای "
                                       f"ca={ca} chg={chg}", flush=True)
+                            continue
+                # v1.14.206 — همان گاردِ v1.14.64 برایِ لبهٔ چپ/راستِ نوار:
+                # قابِ رنگیِ حباب (حبابِ شش‌ضلعیِ سبزِ up0822) از انتهایِ
+                # خطِ متن رد میشود، «جوهرِ تیرهٔ» نوار خوانده می‌شد → داخلِ
+                # نوارِ کامپوز میرفت و قابِ رنگی تکه‌تکه به خروجی می‌رفت.
+                # کامپوننتی که به لبهٔ چپ/راستِ نوار بچسبد، عریض (پهنایِ
+                # عبور از نوار) و عمدتاً بیرونِ پالیهایِ OCR باشد = قاب است
+                # → از نوار بیرون کشیده میشود؛ حروف (داخلِ پالی) میمانند.
+                if sx0 > 0 and sx1 < w:
+                    _cl = int(sts[ci, cv2.CC_STAT_LEFT])
+                    if (_cl <= 0 or _cl + cwd >= (sx1 - sx0)) \
+                            and cwd >= max(4.0, 0.22 * lh):
+                        _cm = (lal == ci)
+                        _onp = float(np.count_nonzero(_cm & (_pm > 0)))
+                        if _onp < 0.35 * float(max(1, ca)):
+                            if dbg:
+                                print(f"      [📐dbg] حذفِ قابِ لبه‌ای "
+                                      f"ca={ca} cwd={cwd}", flush=True)
+                            continue
+                        # v1.14.206b — حروفِ چسبیده به میله/قاب (متنِ سفیدِ
+                        # img4 رویِ حصار): کلِ کامپوننت حذف نشود — فقط
+                        # پیکسلهایِ بیرونِ پالی (میله/قاب)؛ حروفِ داخلِ
+                        # پالی میمانند وگرنه متن جا میماند.
+                        if _onp < float(max(1, ca)):
+                            kept |= (_cm & (_pm > 0))
+                            if dbg:
+                                print(f"      [📐dbg] قابِ لبه‌ای ترکیبی — "
+                                      f"فقطِ حروفِ درپالی "
+                                      f"({_onp:.0f}/{ca})", flush=True)
                             continue
                 kept |= (lal == ci)
             if float(kept.mean()) > (0.80 if (
@@ -11494,10 +11552,14 @@ class MangaTranslator:
             except Exception as _e135:
                 if self.debug:
                     print("  [!] پنلِ متنی خطا:", _e135)
-        # v1.14.134 — پسگیرِ جوهرِ جامانده (فقطِ اندروید): قطعههایِ
-        # گلیفِ همسایهٔ ماسک که OCRِ ناقصِ قدیمی (ML Kit) بیرونِ پالی گذاشته
+        # v1.14.134 — پسگیرِ جوهرِ جامانده: قطعههایِ
+        # گلیفِ همسایهٔ ماسک که OCRِ ناقص بیرونِ پالی گذاشته
         # ('Yo'/'th'/'a' — حبابِ چپبالای 01.jpg) به ماسک برمیگردند.
-        if _android_gate("MANGA_INK_RECLAIM") and n_ok > 0:
+        # v1.14.206 — رویِ PC هم فعال شد (دستورِ سازنده: «هم گوشی هم
+        # پی سی لینوکس باید هردو عکس هاشون چک کنی») — با env=0
+        # قابلِ خاموشکردن است.
+        if (os.environ.get("MANGA_INK_RECLAIM", "1") != "0") \
+                and n_ok > 0:
             try:
                 _add134 = self._stray_ink_reclaim(image, m, regions)
                 if _add134 is not None and np.any(_add134):
@@ -14137,9 +14199,87 @@ class MangaTranslator:
                             _by1 = float(_pa[:, 1].max())
                             if (_bx1 >= lx0 - 2 and _bx0 <= lx1 + 2
                                     and _by1 >= ly0 - 2 and _by0 <= ly1 + 2):
-                                cv2.fillPoly(
-                                    failed,
-                                    [np.rint(_pa).astype(np.int32)], 255)
+                                # v1.14.206 — به‌جایِ پرِ کاملِ پالی (که برای
+                                # «خطِ» چاقِ چندسطری = کلِ بلوک میشود و
+                                # کامپوزِ کلِ بلوک = لکهٔ خاکستریِ Telea روی
+                                # هنرِ بافت‌مند — PARAGRAPHهایِ img4 رویِ
+                                # حصار)، فقط «جوهرِ واقعیِ داخلِ پالی» پر
+                                # میشود: قطبِ غالب (تیره/روشن) + دورخطِ
+                                # چسبیده؛ خطِ بلندِ نازک (میلهٔ حصار/قاب)
+                                # و قطعهٔ عظیم (هنر) حذف.
+                                _fx0 = max(0, int(_bx0) - 4)
+                                _fy0 = max(0, int(_by0) - 4)
+                                _fx1 = min(w, int(_bx1) + 5)
+                                _fy1 = min(h, int(_by1) + 5)
+                                if _fx1 - _fx0 < 8 or _fy1 - _fy0 < 8:
+                                    cv2.fillPoly(
+                                        failed,
+                                        [np.rint(_pa).astype(np.int32)], 255)
+                                    continue
+                                _fg = cv2.cvtColor(
+                                    image[_fy0:_fy1, _fx0:_fx1],
+                                    cv2.COLOR_BGR2GRAY)
+                                _fp = np.zeros(_fg.shape, np.uint8)
+                                _qf = (np.rint(_pa).astype(np.int32)
+                                       - np.array([_fx0, _fy0]))
+                                cv2.fillPoly(_fp, [_qf], 255)
+                                # v1.14.206i — دورخطِ ضخیمِ متن از پالیِ
+                                # تنگِ OCR بیرون میزند (تکههایِ سیاهِ
+                                # img3) → اجازهٔ نوشتن تا ۱۰px بیرونِ
+                                # پالی؛ خودِ تستِ جوهر (|g-med|>45)
+                                # هنر را بیرون نگه میدارد
+                                _fp = cv2.dilate(
+                                    _fp, np.ones((21, 21), np.uint8))
+                                _fmed = float(np.median(_fg))
+                                # v1.14.206d — جوهر = هر دو قطبِ دور از
+                                # میانه (متنِ تیره یا روشن + دورخطش) —
+                                # انتخابِ تک‌قطبی رویِ هنرِ شلوغ (پنل +
+                                # حصار پشتِ متن) قطبِ غلط برمی‌دارد.
+                                # حفرهٔ داخلِ حروفِ دورخط‌دار هم جوهر است
+                                # وگرنه بدنهٔ متن جا میماند. میلهٔ حصار/
+                                # قاب = رانِ مستقیمِ بلند (open با ۴۱) —
+                                # حروف کوتاهترند و میمانند.
+                                _fink = ((_fg < _fmed - 45.0)
+                                         | (_fg > _fmed + 45.0))
+                                try:
+                                    # v1.14.206e — اولِ میله (رانِ مستقیمِ
+                                    # بلند با openِ ۴۱)، بعدِ حفره — وگرنه
+                                    # جیبهایِ پنلِ بینِ میلهها «حفره» پر
+                                    # میشوند، جوهر تودهٔ یکپارچه میشود و
+                                    # openِ ۴۱ همه را میبلعد (got=0).
+                                    # v1.14.206f — میله = رانِ بلندِ «نازک»
+                                    # ( openِ ۷×۷ را سروشتنند ) — رانِ بلندِ
+                                    # «تیره» = کلمهٔ بولدِ فشردهٔ متن است و
+                                    # نباید حذف شود (GUARDIANS/TEACHERSِ r4)
+                                    _thick7 = cv2.morphologyEx(
+                                        _fu8, cv2.MORPH_OPEN,
+                                        np.ones((7, 7), np.uint8))
+                                    _bars = cv2.morphologyEx(
+                                        _fu8, cv2.MORPH_OPEN,
+                                        np.ones((1, 41), np.uint8))
+                                    _bars |= cv2.morphologyEx(
+                                        _fu8, cv2.MORPH_OPEN,
+                                        np.ones((41, 1), np.uint8))
+                                    _bars &= ~_thick7
+                                    _fink = (_fu8 & ~_bars) > 0
+                                    _fink = _fink | self._fill_holes_mask(
+                                        _fink)
+                                    _fu8b = _fink.astype(np.uint8) * 255
+                                    _thick7b = cv2.morphologyEx(
+                                        _fu8b, cv2.MORPH_OPEN,
+                                        np.ones((7, 7), np.uint8))
+                                    _bars2 = cv2.morphologyEx(
+                                        _fu8b, cv2.MORPH_OPEN,
+                                        np.ones((1, 41), np.uint8))
+                                    _bars2 |= cv2.morphologyEx(
+                                        _fu8b, cv2.MORPH_OPEN,
+                                        np.ones((41, 1), np.uint8))
+                                    _bars2 &= ~_thick7b
+                                    _fink = (_fu8b & ~_bars2) > 0
+                                except Exception:
+                                    pass
+                                failed[_fy0:_fy1, _fx0:_fx1][
+                                    _fink & (_fp > 0)] = 255
                     except Exception:
                         pass
                     continue
@@ -14190,11 +14330,13 @@ class MangaTranslator:
             failed = (failed & _pm).astype(np.uint8) * 255
             if not m.any() and not failed.any():
                 return None, np.zeros((h, w), dtype=np.uint8)
-            # v1.14.134 — پسگیرِ جوهرِ جامانده در کامپوز (فقطِ اندروید):
+            # v1.14.134 — پسگیرِ جوهرِ جامانده در کامپوز:
             # قطعههایِ گلیفِ بیرونِ پالی ('Yo'/'th'/'a' — 01.jpg) باید در
             # نوارِ انتقال هم بیایند وگرنه «فقط-نوار» آنها را از عکسِ
-            # اصلی زنده نگه میدارد. همگام با ماسکِ پاکسازی (همان گیت).
-            if _android_gate("MANGA_INK_RECLAIM"):
+            # اصلی زنده نگه میدارد. همگام با ماسکِ پاکسازی.
+            # v1.14.206 — رویِ PC هم فعال شد (هر دو پلتفرم باید خوب پاک
+            # کند؛ env=0 خاموش میکند).
+            if os.environ.get("MANGA_INK_RECLAIM", "1") != "0":
                 try:
                     _base134 = cv2.bitwise_or(m, failed)
                     _add134 = self._stray_ink_reclaim(image, _base134,
@@ -14205,6 +14347,24 @@ class MangaTranslator:
                         m = cv2.bitwise_or(m, _add134)
                 except Exception:
                     pass
+            # v1.14.206m — ساختارِ محافظتشده (دیوار/قابِ رنگی) هرگز از
+            # نوارِ کامپوز منتقل نمیشود — حتی تکههایِ داخلِ پالی+۷ —
+            # تا پرِ LaMa که رنگِ قاب را به داخلِ متن کشیده (لکهٔ سبزِ
+            # حبابِ ۳ در up0822) جایِ قابِ اصلی را نگیرد؛ قاب همیشه
+            # پیکسلِ عکسِ دوم است.
+            # v1.14.206m — «قابِ رنگی» هرگز از نوارِ کامپوز منتقل نمیشود
+            # — حتی تکههایِ داخلِ پالی+۷. قاب در ماسکِ فعال میماند (LaMa
+            # آن را با زمینهٔ حباب پر میکند — نه اینکه رنگش را به متن
+            # بکشد: لکهٔ سبزِ up0822) و در خروجی، پیکسلِ قاب همیشه از
+            # عکسِ دوم میآید.
+            try:
+                _ppm = getattr(self, "_page_colored_protect", None)
+                if _ppm is not None and _ppm.shape == m.shape:
+                    m = cv2.bitwise_and(m, cv2.bitwise_not(_ppm))
+                    failed = cv2.bitwise_and(failed,
+                                             cv2.bitwise_not(_ppm))
+            except Exception:
+                pass
             return m, failed
         except Exception:
             return None, np.zeros((1, 1), dtype=np.uint8)
@@ -14620,7 +14780,9 @@ class MangaTranslator:
                 # «تیره» نگیرد و پولیشِ نوارهایِ چسبیده به دیوار هم فعال شود
                 try:
                     for _pmN in (getattr(self, "_page_protect", None),
-                                 getattr(self, "_page_wall_band", None)):
+                                 getattr(self, "_page_wall_band", None),
+                                 getattr(self, "_page_colored_protect",
+                                         None)):
                         if _pmN is not None and _pmN.shape == out.shape[:2]:
                             ring &= (_pmN[y0:y1, x0:x1] == 0)
                 except Exception:
@@ -14630,34 +14792,6 @@ class MangaTranslator:
                 else:
                     _ring_n = int(np.count_nonzero(ring))
                 rg = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
-                # v1.14.82 — گیتِ بافتِ خروجی: اگر «نتیجهٔ» کامپوز روی این
-                # مؤلفه بافت‌مند است (هنرِ حفظ‌شده — مثلِ کارتِ img2 با
-                # قابِ سفید و خطوطِ داخل)، پولیش (فلت/لکه‌گیری) ممنوع —
-                # وگرنه فازِ «لکه» هر پیکسلِ روشن‌تر از زمینه (قابِ سفید،
-                # هایلایتِ هنر) را با رنگِ حلقه پر می‌کند («کل حباب با
-                # رنگ پر شد — لاما روش استفاده نشد»). سنجه روی خروجی
-                # سنجیده می‌شود نه اورجینال (اورجینال خودِ متن را دارد).
-                # کالیبراسیون img2: هنر std=66/lap=9.3 ؛ پنلِ تخت std≤4.
-                try:
-                    _vT82 = rg[subm].astype(np.float32)
-                    if _vT82.size >= 200:
-                        _lapT82 = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
-                        if (float(np.std(_vT82)) > 12.0
-                                or float(np.mean(_lapT82[subm])) > 2.5):
-                            if _pdbg:
-                                print(f"  [dbg-polish] SKIP-textured "
-                                      f"comp x={x} y={y} {w}x{h} "
-                                      f"std={float(np.std(_vT82)):.1f} "
-                                      f"lap={float(np.mean(_lapT82[subm])):.2f}",
-                                      flush=True)
-                            continue
-                except Exception:
-                    pass
-                rmed = rstd = None
-                if _ring_n >= 40:
-                    rv = rg[ring]
-                    rmed = float(np.median(rv))
-                    rstd = float(np.std(rv))
                 # v1.14.73 — گیت‌های فلتنِ «کلِ نوار»:
                 # v1.14.75e — آمارِ حلقه از «عکسِ اورجینال» گرفته شود نه
                 # خروجی — پرِ LaMa (در خروجی) حلقه را آلوده می‌کند و
@@ -14668,8 +14802,50 @@ class MangaTranslator:
                     if _rv_o.size >= 40:
                         rmed = float(np.median(_rv_o))
                         rstd = float(np.std(_rv_o))
+                    else:
+                        rmed = rstd = None
                 except Exception:
-                    pass
+                    rmed = rstd = None
+                # v1.14.82 — گیتِ بافتِ خروجی: اگر «نتیجهٔ» کامپوز روی این
+                # مؤلفه بافت‌مند است (هنرِ حفظ‌شده — مثلِ کارتِ img2 با
+                # قابِ سفید و خطوطِ داخل)، پولیش (فلت/لکه‌گیری) ممنوع —
+                # وگرنه فازِ «لکه» هر پیکسلِ روشن‌تر از زمینه (قابِ سفید،
+                # هایلایتِ هنر) را با رنگِ حلقه پر می‌کند («کل حباب با
+                # رنگ پر شد — لاما روش استفاده نشد»). سنجه روی خروجی
+                # سنجیده می‌شود نه اورجینال (اورجینال خودِ متن را دارد).
+                # کالیبراسیون img2: هنر std=66/lap=9.3 ؛ پنلِ تخت std≤4.
+                # v1.14.206o — این گیت فقط وقتی معنا دارد که حلقه هم
+                # «غیریکنواخت» است (نوارِ وسطِ هنر). اگر حلقهٔ اورجینال
+                # تخت باشد (حبابِ سفید/رنگیِ تخت)، بافتِ خروجی = خودِ
+                # لکهٔ پرِ LaMa است (لکهٔ سبزِ قابِ رنگی در up0822 —
+                # پرِ LaMa رنگِ قاب را داخلِ متن کشیده) و باید فلت شود؛
+                # پس فقط ترکیبِ «بافت‌مند + حلقهٔ بافت‌مند» رد میشود.
+                if rstd is not None and rstd > 12.0:
+                    try:
+                        _vT82 = rg[subm].astype(np.float32)
+                        if _vT82.size >= 200:
+                            _lapT82 = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
+                            if (float(np.std(_vT82)) > 12.0
+                                    or float(np.mean(_lapT82[subm])) > 2.5):
+                                if _pdbg:
+                                    print(f"  [dbg-polish] SKIP-textured "
+                                          f"comp x={x} y={y} {w}x{h} "
+                                          f"std={float(np.std(_vT82)):.1f} "
+                                          f"lap={float(np.mean(_lapT82[subm])):.2f}",
+                                          flush=True)
+                                continue
+                    except Exception:
+                        pass
+                elif rstd is None:
+                    try:
+                        _vT82 = rg[subm].astype(np.float32)
+                        if _vT82.size >= 200:
+                            _lapT82 = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
+                            if (float(np.std(_vT82)) > 12.0
+                                    or float(np.mean(_lapT82[subm])) > 2.5):
+                                continue
+                    except Exception:
+                        pass
                 #  الف) حلقهٔ اورجینال یکنواخت — حبابِ سفید/رنگیِ تخت که
                 #     حلقه‌اش داخلِ حباب است.
                 #     v1.14.75 — یکنواختیِ «اکثریتِ» حلقه (≥۷۵٪ در ±۱۲ از
@@ -15138,6 +15314,15 @@ class MangaTranslator:
                     _cmp &= (_wbC == 0)
             except Exception:
                 pass
+            # v1.14.206n — قابِ رنگی (نقشهٔ جدا) هم هرگز از donor
+            # منتقل نمیشود — در ماسکِ فعال پر شده و در خروجی اورجینالش
+            # میماند (حبابِ سبزِ up0822)
+            try:
+                _pcC = getattr(self, "_page_colored_protect", None)
+                if _pcC is not None and _pcC.shape == _cmp.shape:
+                    _cmp &= (_pcC == 0)
+            except Exception:
+                pass
             try:
                 _dc2 = os.environ.get("MANGA_DUMP_CMP2", "")
                 if _dc2:
@@ -15571,17 +15756,14 @@ class MangaTranslator:
             self._page_wall_band = None
         # v1.14.186 — پایانِ اعتبارِ کشِ MANGA_PROT_CACHE: هرگز کهنه نمیماند
         self._spm_cache = None
-        if _protect is not None:
-            mask = cv2.bitwise_and(mask, cv2.bitwise_not(_protect))
-            try:
-                _dp = os.environ.get("MANGA_DUMP_POSTPROTECT")
-                if _dp:
-                    cv2.imwrite(_dp, mask)
-                    print(f"  [*] post-protect mask dumped → {_dp}")
-            except Exception:
-                pass
-            if not np.any(mask):
-                return image.copy()
+        # v1.14.206n — protect دیگر از ماسکِ «فعال» کم نمیشود: عکسِ اول
+        # (donor) طبقِ سبکِ خودِ سازنده حقِ «بیشتر پاک کردن» دارد
+        # («اشکال نداره حباب خراب شه یا بیشتر پاک شه») — چون کامپوزِ
+        # دو-عکسی (206m) و پولیشِ حلقه، ساختار را هرگز از عکسِ دوم
+        # منتقل نمیکنند و پولیش هم protect را از نمونهٔ حلقه بیرون
+        # میگذارد. قبلاً حذفِ protect از ماسک، پرِ LaMa را وادار میکرد
+        # دورِ قابِ رنگی بچرخد و رنگِ قاب را داخلِ متن میکشید (لکهٔ
+        # سبزِ حبابهایِ ۳/۴ در up0822).
 
         # v1.14.66 — هالهٔ گلوِ اشباعِ دورِ متن (لکهٔ قرمزِ کارتِ عنوان)
         # قبل از اسنپ‌شاتِ کامپوز و همهٔ مسیرهایِ پاکسازی به ماسک می‌چسبد
@@ -18869,6 +19051,51 @@ class MangaTranslator:
                 out[m > 0] = up[m > 0]
         except Exception:
             pass
+        # v1.14.206g — ترمیمِ «تکهٔ سیاهِ تازه»: Telea از مرزِ ماسک رنگ
+        # میکشد و اگر دورِ ماسک تیره باشد (دورخطِ سیاهِ متنِ دورخط‌دار
+        # img3 / جوهرِ چسبیده به ماسک)، داخلِ پرشده لکهٔ سیاه میسازد.
+        # تکههایِ تیرهٔ تازهٔ داخلِ ماسک (خروجی <70 جایی که حاشیهٔ
+        # اورجینالِ اطراف روشن >110 بوده) پیدا، گشاد ۹px و یک Telea
+        # کوچکِ دیگر — مرزِ این بار هنرِ اطراف است نه خودِ دورخط.
+        try:
+            _go = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            _gc = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
+            # بیشینهٔ محلی بهجایِ میانگین — کنارِ دورخطِ سیاهِ خودِ متن،
+            # میانگینِ ۲۱×۲۱ زیرِ ۱۱۰ میافتد و تکه پیدا نمیشد
+            _ring = cv2.dilate(_go, np.ones((31, 31), np.uint8))
+            _dkn = ((_gc < 70) & (_ring > 110) & (m > 0))
+            _dkn = cv2.morphologyEx(
+                _dkn.astype(np.uint8), cv2.MORPH_OPEN,
+                np.ones((3, 3), np.uint8))
+            if int(cv2.countNonZero(_dkn)) >= 40:
+                # v1.14.206h — تله‌آیِ دوم هم از همان دورِ تیره رنگ میکشد؛
+                # هر تکه با «میانهٔ رنگِ حلقهٔ روشنِ اطرافش» پر میشود
+                # (پچِ تختِ همرنگِ هنر با لبهٔ فدر) — تیرهٔ باقیمانده
+                # نمیماند و لکهٔ سیاه جایش لکهٔ همرنگِ زمینه میشود.
+                _nzg, _lbg, _stg, _ = cv2.connectedComponentsWithStats(
+                    _dkn.astype(np.uint8), 8)
+                for _ig in range(1, _nzg):
+                    if int(_stg[_ig, cv2.CC_STAT_AREA]) < 40:
+                        continue
+                    _cg = (_lbg == _ig)
+                    _cgd = cv2.dilate(_cg.astype(np.uint8),
+                                      np.ones((15, 15), np.uint8)) > 0
+                    _ring = (cv2.dilate(_cg.astype(np.uint8),
+                                        np.ones((31, 31), np.uint8)) > 0)
+                    _ring &= ~_cgd & (_gc > 90)
+                    if int(np.count_nonzero(_ring)) < 30:
+                        continue
+                    _med = np.median(out[_ring], axis=0)
+                    _msk = (_cg.astype(np.uint8)) * 255
+                    _msk_f = cv2.GaussianBlur(
+                        _msk, (7, 7), 2).astype(np.float32) / 255.0
+                    _patch = out.copy()
+                    _patch[_cg] = _med
+                    out = (_patch * _msk_f[..., None]
+                           + out * (1.0 - _msk_f[..., None])).astype(np.uint8)
+                    _gc = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
+        except Exception:
+            pass
         return out
 
     @staticmethod
@@ -19216,6 +19443,108 @@ class MangaTranslator:
                 if _thick > 14.0:
                     continue
                 out[by:by + bh_, bx:bx + bw_][comp] = 255
+            # v1.14.206j — «قابِ رنگیِ» حباب: خطِ نازکِ بلندِ «اشباعِ
+            # رنگی» (حبابِ ششضلعیِ سبزِ up0822) تیرهِ خالص نیست و از
+            # معیارِ dark جا میماند → داخلِ ماسکِ متن میفتد، donor
+            # پاکش میکند و قاب تکهتکه به خروجی میرود. همان شرطهایِ
+            # بلندی/نازکی/بیرونِ پالی رویِ کانالِ اشباع اعمال میشود؛
+            # متنِ رنگیِ خودِ ناحیه داخلِ پالیهاست و محافظت نمیشود و
+            # هالهٔ پهنِ گلو (v1.14.66) هم «نازک» نیست و رد میشود.
+            _out_colj = np.zeros((h, w), dtype=np.uint8)
+            try:
+                _hsvj = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+                # v1.14.206r — رسایِ ۶۰px: کمانهایِ قابِ دورِ متن (بالای
+                # حبابِ ششضلعی) از باندِ ۲۵px بیروناند و بدونِ آنها قاب
+                # خطچین میماند. بازپسگیریِ «اورجینال» در بدترین حالت
+                # یعنی اصلِ آنجا دستنخورده میماند — امن.
+                _nearj = cv2.dilate(_raw_mask,
+                                    np.ones((121, 121), np.uint8))
+                # S≥70: لبههایِ ضدآلیاسِ حرفِ رنگی-روی-زمینه (S=45..70)
+                # نباید واردِ map شوند وگرنه بازپسگیری، متنِ رنگی را
+                # برمیگرداند («l»یِ Alright در img6) — تقاطعهایِ قاب با
+                # حرف فدای متنِ تمیز میشوند.
+                _colj = (((_hsvj[..., 1] >= 70)
+                          & (_hsvj[..., 2] >= 60))
+                         & _nearj).astype(np.uint8) * 255
+                # v1.14.206s — گسترشِ درامتدادِ خط: تکههایِ تقاطعِ قاب با
+                # حرف (S=45..70 — سبزِ تیرهشده رویِ جوهر) فقط اگر به
+                # خطِ تأییدشدهٔ قاب چسبیده باشند واردِ map میشوند؛ لبهٔ
+                # حرفِ دور از قاب («l»یِ Alright در img6) وسطِ حباب است
+                # و به قاب نمیرسد → متن پاک میماند.
+                try:
+                    # فقط همرنگِ خطِ قاب (فاصلهٔ هیوئیِ سیرشارکی ≤۲۵) —
+                    # لبهٔ حرفِ قهوهایِ دور از قاب (img6) وصل نمیشود
+                    _mhj = _hsvj[..., 0][_colj > 0]
+                    if _mhj.size >= 30:
+                        _medh = float(np.median(_mhj))
+                        _dh = np.abs(_hsvj[..., 0].astype(np.float32)
+                                     - _medh)
+                        _dh = np.minimum(_dh, 180.0 - _dh)
+                        _extj = ((cv2.dilate(
+                            _colj, np.ones((15, 15), np.uint8)) > 0)
+                            & (_hsvj[..., 1] >= 45)
+                            & (_hsvj[..., 2] >= 45)
+                            & (_dh <= 25.0)
+                            & (_nearj > 0))
+                        _colj = ((_colj > 0)
+                                 | _extj).astype(np.uint8) * 255
+                except Exception:
+                    pass
+                _ncj, _lcj, _scj, _ = cv2.connectedComponentsWithStats(
+                    _colj, 8)
+                # پالیِ «خام» — قابِ رنگی فقط لبهٔ پالی را میبُرد؛
+                # با poly_allِ گشادِ ۹ همهٔ تکهها on_poly میشدند
+                _polyrawj = np.zeros((h, w), dtype=np.uint8)
+                for _rj in (regions or []):
+                    for _pj in (getattr(_rj, "ocr_polys", None) or []):
+                        try:
+                            _ppj = np.asarray(
+                                _pj, dtype=np.float32).reshape(-1, 2)
+                        except Exception:
+                            continue
+                        if _ppj.shape[0] >= 3:
+                            cv2.fillPoly(
+                                _polyrawj,
+                                [np.rint(_ppj).astype(np.int32)], 255)
+                # v1.14.206l — قابِ حبابهایِ کوچک هم تکههایِ ریز دارد
+                # (حبابِ «HE'S KNOWN…» در up0822: ~۸۷px در کلِ قاب) →
+                # آستانه = همترازِ wall_band (۱۶px)
+                # v1.14.206q — تکههایِ قابِ رنگی خیلی ریزند (۲×۸px —
+                # JPEG + تقاطع با حرف它们 را میشکند) → گیتِ طول/مساحت/
+                # پالی حذف شد؛ فقط «نازکِ اشباعِ نزدیکِ متن» (dt≤۱۴)
+                # کافی است — رنگِ تختِ پهن (هالهٔ گلو/زمینه) «نازک»
+                # نیست و رد میشود؛ متنِ رنگیِ نازک هم restored میشود
+                # ولی متنِ رنگیِ نازک در دیالوگ نادر است.
+                for _ij in range(1, _ncj):
+                    _aj = int(_scj[_ij, cv2.CC_STAT_AREA])
+                    if _aj < 3:
+                        continue
+                    _bxj = int(_scj[_ij, cv2.CC_STAT_LEFT])
+                    _byj = int(_scj[_ij, cv2.CC_STAT_TOP])
+                    _bwj = int(_scj[_ij, cv2.CC_STAT_WIDTH])
+                    _bhj = int(_scj[_ij, cv2.CC_STAT_HEIGHT])
+                    _cpj = (_lcj[_byj:_byj + _bhj,
+                                 _bxj:_bxj + _bwj] == _ij)
+                    try:
+                        _dtj = cv2.distanceTransform(
+                            _cpj.astype(np.uint8), cv2.DIST_L2, 3)
+                        if float(_dtj.max()) * 2.0 > 14.0:
+                            continue
+                    except Exception:
+                        pass
+                    # فقط نقشهٔ «قابِ رنگی» — protectِ تیره دستنخورده
+                    _out_colj[_byj:_byj + _bhj,
+                              _bxj:_bxj + _bwj][_cpj] = 255
+            except Exception:
+                if self.debug or os.environ.get('MANGA_204DBG'):
+                    import traceback as _tb206j
+                    print("  [!]قفلِ قابِ رنگی خطا:", flush=True)
+                    _tb206j.print_exc()
+            # v1.14.206n — نقشهٔ «فقطِ قابِ رنگی» جدا نگه داشته میشود تا
+            # _expand_donor_text_strips فقط قابِ رنگی را در donor آزاد
+            # کند (رنگِ قاب واردِ پرِ متن نشود) — دیوارِ تیره مثلِ قبل.
+            self._page_colored_protect = _out_colj \
+                if int(np.count_nonzero(_out_colj)) else None
             # v1.14.65 — بنرِ تبلیغ هرگز protect نمی‌شود: سایه/لبهٔ تیرهٔ بنر
             # «ساختارِ نازکِ تیره» حساب می‌شد → از ماسکِ LaMa کم می‌شد →
             # بنفشِ بنر در ورودیِ مدل می‌ماند و خروجیِ «صورتی/بنفشِ خیالی»
@@ -24239,7 +24568,7 @@ class MangaTranslator:
             ai = area(inner)
             return inter / float(ai) if ai > 0 else 0.0
 
-        # v1.14.204 — درِ باکسِ detector: mergeِ دو ناحیه فقط وقتی مجاز
+        # v1.14.206 — درِ باکسِ detector: mergeِ دو ناحیه فقط وقتی مجاز
         # است که باکسهایِ detectorِ خودشان همپوشانی دارند — نه مستطیلِ
         # گسترشیافتهٔ angle. دستورِ سازنده: «وقتی detector متن در اورد
         # نباید استخراج از اون بیشتر بگیره — الان میشه دید کل سه حباب
@@ -24288,7 +24617,7 @@ class MangaTranslator:
                                 or contain_ratio(_db204, cd) >= contain_thresh
                                 or contain_ratio(cd, _db204) >= contain_thresh
                                 for cd in _cur_det204):
-                            # v1.14.204 — باکسِ detectorِ جدا = متنِ جدا؛
+                            # v1.14.206 — باکسِ detectorِ جدا = متنِ جدا؛
                             # مستطیلِ گسترشیافته حقِ جذبِ همسایه را ندارد
                             continue
                     ov = iou(ca, cb)
@@ -24847,7 +25176,7 @@ class MangaTranslator:
             else:
                 ocr_results = [_ocr_one90(k) for k in range(len(cand))]
 
-        # v1.14.204 — خطِ بیرونِ باکسِ detector مالِ این ناحیه نیست
+        # v1.14.206 — خطِ بیرونِ باکسِ detector مالِ این ناحیه نیست
         # (توضیحِ کامل در helper) — هر ناحیه فقط متنِ داخلِ باکسِ خودش
         # را میگیرد؛ دیگر تایتلِ کجِ مجاور داخلِ حبابِ کوچک نمیآید و
         # ناحیهٔ بزرگ هم خطِ حبابهایِ کوچکِ داخلِ باکسش را برنمیدارد
@@ -24880,7 +25209,7 @@ class MangaTranslator:
                                          if j not in idxs]),
                         full_rect,
                         [(cand[j][2], cand[j][3], cand[j][4], cand[j][5])
-                         for j in range(len(cand)) if j not in idxs])  # v1.14.204
+                         for j in range(len(cand)) if j not in idxs])  # v1.14.206
                 if not str(full_txt or "").strip():
                     continue
                 if self.debug:
@@ -25081,7 +25410,7 @@ class MangaTranslator:
             rx1, ry1, rw_, rh_ = x1, y1, bw, bh
             if line_polys and abs(ang_) >= 8.0:
                 try:
-                    # v1.14.204 — فقط خطهایی که بیشترشان داخلِ باکسِ detector
+                    # v1.14.206 — فقط خطهایی که بیشترشان داخلِ باکسِ detector
                     # اند در گسترشِ مستطیل شرکت میکنند؛ خطِ ترکیبیِ عابر
                     # (تکهٔ حبابِ مجاور چسبیده به تایتلِ کج) نباید مستطیلِ
                     # ناحیه را تا رویِ حبابِ مجاور بکشد (همان «کلِ سه حباب
