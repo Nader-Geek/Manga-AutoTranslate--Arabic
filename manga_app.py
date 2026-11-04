@@ -3489,6 +3489,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             up_files = [u for u in up_files if u and os.path.isfile(u)]
             src = (inp_path_v or "").strip()
             multi_base = ""
+            _batch_no_stitch = False  # v1.14.210 — بچِ چند-فایلی: هر فایل عینِ حالتِ تکی
             if up_files:
                 if len(up_files) == 1:
                     src = up_files[0]
@@ -3506,7 +3507,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         except Exception:
                             shutil.copyfile(bf, os.path.join(
                                 batch_dir, f"file_{bi:03d}" + ext_b.replace(".", "_")))
-                    src = batch_dir
+                    # v1.14.210 — ریشهٔ «تکی اوکیه، دستِ جمعی خراب»: پوشهٔ بچ مسیرِ
+                    # چسباندن/برشِ ۸۰۰۰px میرفت (نرمالِ عرضِ گروهی + استیچ +
+                    # برش از وسطِ محتوا) — یعنی مسیری کاملاً متفاوت از حالتِ تکی.
+                    # حالا فایلها «کاما-جدا» به موتور داده میشوند (=
+                    # صفحاتِ مستقل، عینِ حالتِ تکی) و --stitch-max-height 0
+                    # چسباندن/برش را خاموش میکند؛ فقط متنِ ردشده از مرزِ دو فایل
+                    # (برشِ خوردهٔ کاربر) با ترمیمِ مرز وصل میشود، هیچ برشی از وسطِ
+                    # متن زده نمیشود.
+                    _bf_sorted = sorted(os.listdir(batch_dir))
+                    src = ",".join(
+                        os.path.join(batch_dir, _bn) for _bn in _bf_sorted)
+                    _batch_no_stitch = True
                     _mb = smart_output_base(up_files[0]) or "batch"
                     multi_base = re.sub(r'[\\/:*?"<>|]+', "_", _mb)[:60] \
                         + f"_{len(up_files)}files"
@@ -3549,7 +3561,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             _prev_src = ""
             with job["lock"]:
                 _prev_src = str(job.get("src") or "")
-            if _prev_src and _prev_src != str(src):
+            # v1.14.210 — ریشهٔ «کلا نمیپاکه رد میشه»: بچِ دوباره در همان جلسه
+            # srcِ یکسانی داشت (input_batch) → پوشهٔ خروجی پاک نمیشد →
+            # کشِ resume سرِ جایه ماند → همهٔ صفحه‌ها «از کش» رد میشدند و
+            # خروجیِ قدیمی (باگ‌دار) برمیگشت. حالا هر اجرایِ آپلودی
+            # پوشهٔ خروجی را از نو پاک میکند = هر تست واقعاً از صفر
+            # اجرا میشود.
+            if up_files or (_prev_src and _prev_src != str(src)):
                 try:
                     for _n in os.listdir(user_out_dir):
                         _p = os.path.join(user_out_dir, _n)
@@ -3609,6 +3627,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             if _cm_v not in ("lama-manga", "lama-big", "opencv"):
                 _cm_v = "lama-manga"
             cmd += ["--clean-method", _cm_v]
+            if _batch_no_stitch:
+                # v1.14.210 — بچِ آپلودی: چسباندن/برشِ ۸۰۰۰px خاموش — هر فایل
+                # مثلِ حالتِ تکی پردازش میشود
+                cmd += ["--stitch-max-height", "0"]
             if not two_pass_v:
                 cmd += ["--no-two-pass-ocr"]
             if fake_test_v:

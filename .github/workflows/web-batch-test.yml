@@ -1,0 +1,157 @@
+name: Web Batch Test (بازسازیِ دقیقِ حالتِ وب)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['manga.py', 'manga_app.py', '.github/workflows/web-batch-test.yml', 'scripts/webbatch_check.py']
+
+permissions:
+  contents: read
+
+jobs:
+  old-vs-new:
+    name: مسیرِ قدیم (پوشه) در برابر مسیرِ جدید (کاما + بدونِ برش)
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6
+          python -m pip install --upgrade pip
+          pip install -q opencv-python-headless numpy pillow onnxruntime \
+            rapidocr-onnxruntime arabic-reshaper python-bidi huggingface_hub
+
+      - name: Build input_batch (عینِ کاری که manga_app.py با آپلودِ چندتایی می‌کند)
+        run: |
+          mkdir -p /tmp/mt/input_batch
+          cp ci_imgs/img2.webp                      /tmp/mt/input_batch/file_001.webp
+          cp ci_imgs/img4.jpg                       /tmp/mt/input_batch/file_002.jpg
+          cp ci_imgs/img7.jpg                       /tmp/mt/input_batch/file_003.jpg
+          cp ci_imgs/IMG_20261018_140944_899.jpg    /tmp/mt/input_batch/file_004.jpg
+          ls -la /tmp/mt/input_batch
+
+      - name: OLD path (پوشه — رفتارِ نسخه‌های قبل از ۱.۲۱۰)
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          timeout 1800 python3 -u manga.py \
+            -i /tmp/mt/input_batch \
+            -o /tmp/mt/out_old \
+            --font fonts/Vazirmatn-Bold.ttf \
+            --provider gemini --api-key dummy \
+            --fake-translate \
+            --clean-method lama-manga --img-format jpg --debug \
+            > /tmp/mt/old.log 2>&1 || true
+          echo "--- آخرِ لاگِ قدیم ---"
+          tail -n 20 /tmp/mt/old.log || true
+
+      - name: NEW path (کاما-جدا + بدونِ برش — مسیرِ ۱.۲۱۰)
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          SRC=$(ls /tmp/mt/input_batch/file_* | sort | paste -sd, -)
+          echo "SRC=$SRC"
+          timeout 1800 python3 -u manga.py \
+            -i "$SRC" \
+            -o /tmp/mt/out_new \
+            --font fonts/Vazirmatn-Bold.ttf \
+            --provider gemini --api-key dummy \
+            --fake-translate \
+            --clean-method lama-manga --img-format jpg --debug \
+            --stitch-max-height 0 \
+            > /tmp/mt/new.log 2>&1 || true
+          echo "--- آخرِ لاگِ جدید ---"
+          tail -n 20 /tmp/mt/new.log || true
+
+      - name: خلاصهٔ مقایسه
+        run: |
+          echo "== خروجیِ قدیم =="; ls -la /tmp/mt/out_old 2>/dev/null || true
+          echo "== خروجیِ جدید =="; ls -la /tmp/mt/out_new 2>/dev/null || true
+          echo "== برش/استریپ در قدیم =="
+          ls /tmp/mt/out_old.cache/stitched 2>/dev/null || echo "(بدونِ استریپ)"
+          echo "== برش/استریپ در جدید =="
+          ls /tmp/mt/out_new.cache/stitched 2>/dev/null || echo "(بدونِ استریپ)"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: webbatch-old-vs-new
+          path: |
+            /tmp/mt/out_old/**
+            /tmp/mt/out_new/**
+            /tmp/mt/out_old.cache/stitched/**
+            /tmp/mt/out_new.cache/stitched/**
+            /tmp/mt/old.log
+            /tmp/mt/new.log
+          if-no-files-found: warn
+          retention-days: 10
+
+  clean-residual:
+    name: پاکسازیِ خالص + سنجشِ متنِ جامانده (OCR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6
+          python -m pip install --upgrade pip
+          pip install -q opencv-python-headless numpy pillow onnxruntime \
+            rapidocr-onnxruntime arabic-reshaper python-bidi huggingface_hub
+
+      - name: NEW path — clean-only (بدونِ رندرِ متن تا متنِ جامانده قابلِ سنجش باشد)
+        run: |
+          mkdir -p /tmp/mt/input_batch
+          cp ci_imgs/img2.webp                      /tmp/mt/input_batch/file_001.webp
+          cp ci_imgs/img4.jpg                       /tmp/mt/input_batch/file_002.jpg
+          cp ci_imgs/img7.jpg                       /tmp/mt/input_batch/file_003.jpg
+          cp ci_imgs/IMG_20261018_140944_899.jpg    /tmp/mt/input_batch/file_004.jpg
+          cd "$GITHUB_WORKSPACE"
+          SRC=$(ls /tmp/mt/input_batch/file_* | sort | paste -sd, -)
+          timeout 1800 python3 -u manga.py \
+            -i "$SRC" \
+            -o /tmp/mt/out_clean \
+            --font fonts/Vazir-Code.ttf \
+            --provider gemini --api-key dummy \
+            --clean-only \
+            --clean-method lama-manga --img-format jpg --debug \
+            --stitch-max-height 0 \
+            > /tmp/mt/clean.log 2>&1 || true
+          tail -n 15 /tmp/mt/clean.log || true
+
+      - name: سنجشِ متنِ جامانده با OCR
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          python3 scripts/webbatch_check.py \
+            /tmp/mt/out_clean /tmp/mt/input_batch \
+            > /tmp/mt/residual_report.txt 2>&1 || true
+          cat /tmp/mt/residual_report.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: webbatch-clean-residual
+          path: |
+            /tmp/mt/out_clean/**
+            /tmp/mt/clean.log
+            /tmp/mt/residual_report.txt
+          if-no-files-found: warn
+          retention-days: 10

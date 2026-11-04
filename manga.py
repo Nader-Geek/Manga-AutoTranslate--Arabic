@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.209"
+APP_VER = "1.14.210"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -6304,6 +6304,16 @@ class MangaTranslator:
         self._lama_preload_started = False
         self._title_skip_patterns: List[str] = []
         MangaTranslator._title_skip_patterns = []
+        # v1.14.210 — قفلِ سریالِ پاکسازیِ صفحه: پاکسازیِ دو صفحهٔ بچ در
+        # دو کارگرِ فازِ دوم همزمان میشد و وضعیتِ صفحه‌محورِ مشترک
+        # (self._page_regions / _compose_text_mask / _page_protect /
+        # _donor_boxes / _lama_force_rect_boxes …) بینِ دو صفحه قاطی
+        # میشد → کامپوزِ صفحهٔ A با نواحی/ماسکِ صفحهٔ B ساخته میشد =
+        # «متنِ قبلی میمونه» + «کلِ حباب انتقال پیدا میکنه / حباب خراب»
+        # فقط در بچ (در حالتِ تکی هرگز همزمانی نیست). حالا بدنهٔ
+        # پاکسازیِ هر صفحه زیرِ این قفلِ کلاسی اجرا میشود.
+        if not hasattr(MangaTranslator, "_page_clean_lock"):
+            MangaTranslator._page_clean_lock = threading.Lock()
         self.client = None
         self.openai_client = None
 
@@ -16115,6 +16125,19 @@ class MangaTranslator:
             return mask
 
     def clean_image(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
+        # v1.14.210 — پوستهٔ قفل‌دار: بدنهٔ اصلی در _clean_image_page زیرِ
+        # قفلِ سریالِ کلاس اجرا میشود تا پاکسازیِ همزمانِ دو صفحهٔ بچ
+        # (کارگرهایِ فازِ دوم) وضعیتِ صفحه‌محور را قاطی نکند (راغزارشِ
+        # سازنده: «دست جمعی متن قبلی میمونه / کلِ حباب انتقال میده حباب
+        # خراب میکنه — تکی اوکیه»). حالتِ تکی تغییری نمی‌بیند (یک صفحه =
+        # یک قفلِ بی‌رقیب).
+        _lk = getattr(MangaTranslator, "_page_clean_lock", None)
+        if _lk is None:
+            return self._clean_image_page(image, regions)
+        with _lk:
+            return self._clean_image_page(image, regions)
+
+    def _clean_image_page(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
         # v1.14.70 — نواحیِ صفحه نگه داشته می‌شوند تا «کامپوزِ دو-عکسی»
         # بتواند نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ متن) را بسازد.
         self._page_regions = list(regions or [])
@@ -29166,7 +29189,20 @@ html, body { background: #0a0a0b; }
                 # به یک عرضِ هدفِ مشترک می‌رسند تا چسباندن/برشِ امنِ ~8000px
                 # بشود؛ صفحه‌ای که عرضش با بقیه فرقِ فاحش دارد (کاورِ عریض…)
                 # در خوشهٔ خودش می‌ماند و له نمیشود.
-                wmap = self._cluster_widths(widths, abs_tol=180, rel_tol=0.18)
+                # v1.14.210 — استثنا: صفحاتِ مستقلِ بدونِ چسباندن (بچِ وب:
+                # کاما-جدا + stitch 0) عرضِ بومیِ خودشان را نگه میدارند —
+                # عینِ حالتِ تکی («تک تک تست کنی کامل پاک میکنه»). خوشهٔ
+                # عرض فقط برای مسیرِ چسباندن/برشِ امن لازم است؛ اینجا هیچ
+                # برشی زده نمیشود پس به هم رساندنِ عرضها هدفی ندارد و فقط
+                # متن را بلرر/ریسکیل میکرد (مثلاً 690→800) و نتیجهٔ بچ را با
+                # حالتِ تکی متفاوت میکرد.
+                _indep_keep_w = (
+                    getattr(self, "_independent_pages", False)
+                    and int(getattr(self, "stitch_max_height", 0) or 0) <= 0)
+                if _indep_keep_w:
+                    wmap = {i: widths[i] for i in range(len(valid_files))}
+                else:
+                    wmap = self._cluster_widths(widths, abs_tol=180, rel_tol=0.18)
                 cap = self.max_output_width if self.max_output_width and self.max_output_width > 0 else 0
                 if cap:
                     for i in list(wmap.keys()):
