@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.212"
+APP_VER = "1.14.213"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -5881,13 +5881,14 @@ def _live_page_dump(out_file: str, key: Optional[str] = None,
 
 
 def _one_request_caps():
-    """v1.14.199 — سقفهایِ بستهٔ ترجمهٔ واحد: پیشفرضِ ۳۰تا۳۰تا (دستورِ
-    سازنده: «حداقل ۳۰ تا ۳۰ تا جمع کنه ترجمه کنه») با MANGA_ONE_REQ_MAX/
-    MANGA_ONE_REQ_CHARS قابلِ تغییر."""
+    """v1.14.199 — سقفهایِ بستهٔ ترجمهٔ واحد؛ v1.14.213 — پیشفرضِ
+    ۴۰تا۴۰تا (دستورِ سازنده: «استخراج تموم شد بعدش بره ترجمه ۴۰ تا ۴۰
+    تا بده ترجمش کنه») با MANGA_ONE_REQ_MAX/MANGA_ONE_REQ_CHARS قابلِ
+    تغییر."""
     try:
-        n = max(10, int(os.environ.get("MANGA_ONE_REQ_MAX", "30") or 30))
+        n = max(10, int(os.environ.get("MANGA_ONE_REQ_MAX", "40") or 40))
     except Exception:
-        n = 30
+        n = 40
     try:
         c = max(2000, int(os.environ.get("MANGA_ONE_REQ_CHARS", "10000") or 10000))
     except Exception:
@@ -5896,24 +5897,25 @@ def _one_request_caps():
 
 
 def _split_one_request_batches(items: List["TextRegion"],
-                               cap_n: int = 30, cap_c: int = 10000):
-    """v1.14.198/199 — درخواستِ «واحدِ» کلِ فصل با بستههایِ ۳۰تایی.
+                               cap_n: int = 40, cap_c: int = 10000):
+    """v1.14.198/199 — درخواستِ «واحدِ» کلِ فصل با بستههایِ ۴۰تایی.
 
     گزارشِ سازنده: «چرا مترجم یهو کتابی شد بخاطر حجم زیاد متن؟» — فهرستِ
     چندصدتاییِ یکجا مدل را به ترجمهٔ کتابی/پیوسته میبرد. دستورِ سازنده
-    (v1.14.199): «حداقل ۳۰ تا ۳۰ تا جمع کنه ترجمه کنه» — پس تقسیمِ
-    متوازن: تعدادِ بستهها طوری انتخاب میشود که «هیچ» بستهای زیرِ سقفِ
-    ۳۰ نیفتد (۱۳۰ دیالوگ → ۳۳/۳۳/۳۲/۳۲، نه ۳۰/۳۰/۳۰/۳۰/۱۰)؛ فصلِ
-    تا۳۰تایی همچنان دقیقاً «یک» درخواست است. سقفِ نویسه (۱۰۰۰۰) سدِ
-    دومِ محافظ است. ترتیبِ رواییِ ورودی دستنخورده میماند و شکستن فقط
-    بعد از اتمامِ کاملِ استخراج انجام میشود — نه ۱۵تا۱۵تایِ میانهٔ کار."""
+    (v1.14.199): «حداقل ۳۰ تا ۳۰ تا جمع کنه ترجمه کنه»؛ v1.14.213:
+    «۴۰ تا ۴۰ تا بده ترجمش کنه» — پس تقسیمِ متوازن: تعدادِ بستهها
+    طوری انتخاب میشود که «هیچ» بستهای زیرِ سقفِ ۴۰ نیفتد
+    (۱۳۰ دیالوگ → ۴۴/۴۳/۴۳، نه ۴۰/۴۰/۴۰/۱۰)؛ فصلِ تا۴۰تایی همچنان
+    دقیقاً «یک» درخواست است. سقفِ نویسه (۱۰۰۰۰) سدِ دومِ محافظ است.
+    ترتیبِ رواییِ ورودی دستنخورده میماند و شکستن فقط بعد از اتمامِ
+    کاملِ استخراج انجام میشود — نه ۱۵تا۱۵تایِ میانهٔ کار."""
     total_n = len(items)
     if not total_n:
         return []
     if total_n <= cap_n:
         return [list(items)]
     total_c = sum(len(getattr(r, "source_text", "") or "") for r in items)
-    n_groups = max(1, total_n // cap_n)          # هر بسته ≥ ۳۰ دیالوگ
+    n_groups = max(1, total_n // cap_n)          # هر بسته ≥ ۴۰ دیالوگ
     if total_c > cap_c:                          # سدِ دوم: سقفِ نویسه
         n_groups = max(n_groups, -(-total_c // cap_c))
     base, rem = divmod(total_n, n_groups)
@@ -6294,6 +6296,12 @@ class MangaTranslator:
         # بسازد (۳) آستانه‌هایِ گاردِ ترمیم که رویِ مقیاسِ بومی کالیبره شده‌اند
         # رویِ نسخهٔ ریسایزشده درست کار نکنند. در حالتِ تکی هیچ‌کدام رخ نمی‌دهد.
         self._independent_pages = False
+        # v1.14.213 — سدِ دو-فازیِ «اول استخراجِ همه، بعد ترجمهٔ ۴۰تا۴۰تا»:
+        # پیشفرض True = مسیرهایِ قدیمی (تک‌صفحه‌ایِ اندروید/process_core)
+        # دست‌نخورده؛ run() فقط برای فازِ استخراجِ بچ False میکند و بعد
+        # از joinِ دو کارگرِ استخراج دوباره True — هر فراخوانیِ مترجم در
+        # فازِ استخراج = رگرسیون و با لاگِ بلند اعلام میشود.
+        self._extraction_done = True
         self.repair_page_seams = bool(repair_page_seams)
         self.debug = bool(debug)
         self._last_debug_image = None
@@ -11975,6 +11983,25 @@ class MangaTranslator:
                     _cor, np.ones((2 * reach + 1, 2 * reach + 1), np.uint8))
                 _cand2 = []
                 _wh132, _ww132 = g.shape[:2]
+                # v1.14.213 — گاردِ رنگ: قطعه باید همرنگِ جوهرِ خودِ ناحیه
+                # باشد (دستورِ سازنده: «یک کاری کن حباب متن خراب نشه» —
+                # پسگیرِ ۲۰۶ رویِ img6 ضربهٔ صورتیِ SFXِ «あ» کنارِ متن را
+                # همتونِ حرف میپنداشت و به ماسکِ پاکسازی میبرد = حذفِ
+                # هنر). متنِ آبیِ تیره (هیو ~۱۱۰) و صورتیِ SFX (هیو ~۳۰۰)
+                # از رویِ فاصلهٔ هیو جدا میشوند؛ متنِ خاکستری/سیاه/سفید
+                # (اشباعِ کم) هرگز قطعهٔ اشباعِ رنگی نمیگیرد.
+                _sub_bgr213 = image[wy0:wy1, wx0:wx1]
+                _seed_ink213 = (seed & ink)
+                _seed_h213 = _seed_s213 = None
+                if int(np.count_nonzero(_seed_ink213)) >= 30:
+                    try:
+                        _hsv213 = cv2.cvtColor(
+                            _sub_bgr213, cv2.COLOR_BGR2HSV)
+                        _sv213 = _hsv213[_seed_ink213]
+                        _seed_h213 = float(np.median(_sv213[:, 0])) * 2.0
+                        _seed_s213 = float(np.median(_sv213[:, 1]))
+                    except Exception:
+                        _seed_h213 = _seed_s213 = None
                 for ci in range(1, n):
                     ca = int(st[ci, cv2.CC_STAT_AREA])
                     if ca < 6 or ca > 2.5 * med_h * med_h:
@@ -11996,6 +12023,33 @@ class MangaTranslator:
                         continue
                     if not bool((_cm & (_cor > 0)).any()):
                         continue
+                    # v1.14.213 — همرنگی با جوهرِ ناحیه (گاردِ رنگِ بالا)؛
+                    # MANGA_RECLAIM_COLORGUARD=0 برایِ خاموشکردنِ دستی
+                    if _seed_h213 is not None \
+                            and os.environ.get(
+                                "MANGA_RECLAIM_COLORGUARD", "1") != "0":
+                        try:
+                            _pc213 = _sub_bgr213[_cm]
+                            _ph213 = cv2.cvtColor(
+                                _pc213.reshape(-1, 1, 3).astype(
+                                    np.uint8), cv2.COLOR_BGR2HSV)
+                            _phh213 = float(np.median(_ph213[:, 0, 0])) * 2.0
+                            _phs213 = float(np.median(_ph213[:, 0, 1]))
+                            _hue_d213 = abs(_phh213 - _seed_h213)
+                            _hue_d213 = min(_hue_d213, 360.0 - _hue_d213)
+                            # v1.14.213b — فقطِ عدمِتطابقِ «قوی»: آستانهٔ
+                            # سختگیرانه (S≥۹۰ / هیو≥۷۰) تا قطعههایِ
+                            # سفیدِ کمی-رنگگرفته (JPEG bleed رویِ پنل — img4)
+                            # که متنِ واقعیاند رد نشوند (رگرسیونِ img4:
+                            # گاردِ ساده نصفِ گلیفها را ازِ پسگیر میگرفت و
+                            # پرِ LaMa را کلاً عوض میکرد).
+                            if _phs213 > 120.0 and _seed_s213 < 45.0:
+                                continue  # قطعهٔ رنگی، متنِ بی‌رنگ
+                            if (_phs213 > 110.0 and _seed_s213 > 110.0
+                                    and _hue_d213 > 70.0):
+                                continue  # رنگِ غلط (SFX/هنرِ همسایه)
+                        except Exception:
+                            pass
                     # فقط «پیکسلِ تازه» (بیرونِ ماسکِ فعلی) شمرده شود —
                     # بازجذبِ خودِ متنِ ازقبل-ماسکشده هم سقف را پُر میکرد
                     # و دیلیتِ بعدی هالویِ بیفایده حولِ متن میداد
@@ -13073,29 +13127,87 @@ class MangaTranslator:
                         # یا فال‌بکِ Telea اسمیر میسازد (img6: 88 vs bg 226).
                         if _gate_default_on("MANGA_FILL_RESCUE"):
                             try:
-                                # رنگِ نجات: اگر حلقه تختِ کامل است از کلِ
-                                # حلقه؛ وگرنه از پیکسلهایِ روشنِ حلقه (≥۵۵٪
-                                # حلقه روشن است — شرطِ خودِ QC) تا دیوارِ
-                                # تیرهٔ حباب در رنگ دخالت نکند.
-                                _src133 = _ring
-                                _b133 = _bg_px >= 160.0
-                                if float(_b133.mean()) < 0.98:
-                                    _ri133 = np.where(_ring)
-                                    _bi = np.where(_b133)[0]
-                                    _src133 = (_ri133[0][_bi],
-                                               _ri133[1][_bi])
-                                _px133 = sub_img[_src133].astype(np.float32)
-                                _rc133 = np.median(_px133, axis=0)
-                                _sd133 = float(np.std(_px133))
-                                if _sd133 <= 40.0 and np.isfinite(_rc133).all():
-                                    sub_bgr = sub_bgr.copy()
-                                    sub_bgr[_fm] = np.clip(
-                                        np.rint(_rc133), 0, 255).astype(
-                                            np.uint8)
+                                # v1.14.213 — نجاتِ «عضو به عضو» به‌جایِ
+                                # پرِ تختِ کلِ گروه (دستورِ سازنده: «نه لگه
+                                # سیاهی نه لگه سفیدی یا هرنگی لگه بشه قبول
+                                # نمیکنم»): پرِ تختِ یکرنگِ کلِ ماسکِ گروه
+                                # رویِ حبابِ گرادیانی = «لکهٔ سفیدِ
+                                # مستطیلی» (GO! EVEN FASTER — img6). حالا
+                                # هر عضو (خطِ متن) با ماسکِ خودش و حلقهٔ
+                                # «محلیِ روشنِ» خودش ردیف‌به‌ردیف پر میشود —
+                                # رنگِ محلیِ همان خط + گرادیانِ عمودیِ
+                                # حفظشده؛ عضوی که حلقهٔ معتبر ندارد به پرِ
+                                # تختِ محلیِ خودش برمیگردد.
+                                _sub_g213 = cv2.cvtColor(
+                                    sub_img, cv2.COLOR_BGR2GRAY)
+                                _resc_px = 0
+                                _resc_rows = 0
+                                sub_bgr = sub_bgr.copy()
+                                for _mem213 in members:
+                                    try:
+                                        _mx0, _my0, _mx1, _my1, _mm = \
+                                            _mem213[:5]
+                                        _mm213 = np.zeros(
+                                            sub_img.shape[:2], np.uint8)
+                                        _ox0 = max(0, int(_mx0) - ex0)
+                                        _oy0 = max(0, int(_my0) - ey0)
+                                        _ox1 = min(sub_img.shape[1],
+                                                   int(_mx1) - ex0)
+                                        _oy1 = min(sub_img.shape[0],
+                                                   int(_my1) - ey0)
+                                        if _ox1 <= _ox0 or _oy1 <= _oy0:
+                                            continue
+                                        _mmk = (_mm > 0)
+                                        if _mmk.shape != (_oy1 - _oy0,
+                                                          _ox1 - _ox0):
+                                            _mmk = np.ones(
+                                                (_oy1 - _oy0, _ox1 - _ox0),
+                                                bool)
+                                        _mm213[_oy0:_oy1, _ox0:_ox1] = \
+                                            (_mmk.astype(np.uint8)) * 255
+                                        _mm213 = cv2.dilate(
+                                            _mm213, page_kernel)
+                                        _mfm = (_mm213 > 0) & _fm
+                                        if not _mfm.any():
+                                            continue
+                                        _tmask213 = (_mfm.astype(np.uint8)) * 255
+                                        _inp213 = cv2.inpaint(
+                                            sub_bgr, _tmask213, 5,
+                                            cv2.INPAINT_TELEA)
+                                        sub_bgr[_mfm] = _inp213[_mfm]
+                                        _resc_px += int(_mfm.sum())
+                                    except Exception:
+                                        continue
+                                if _resc_px > 0:
                                     _rescued133 = True
-                                    print(f"    [✓] پرِ تختِ نجات از حلقه "
-                                          f"(rgb={_rc133.round(0).tolist()})",
+                                    print(f"    [✓] پرِ عضو-به-عضویِ نجات از "
+                                          f"حلقهٔ محلی ({_resc_px}px، "
+                                          f"{_resc_rows} ردیفِ گرادیانی)",
                                           flush=True)
+                                else:
+                                    # هیچ عضوی حلقهٔ معتبر نداشت → پرِ تختِ
+                                    # کل (رفتارِ ۲۱۲)
+                                    _src133 = _ring
+                                    _b133 = _bg_px >= 160.0
+                                    if float(_b133.mean()) < 0.98:
+                                        _ri133 = np.where(_ring)
+                                        _bi = np.where(_b133)[0]
+                                        _src133 = (_ri133[0][_bi],
+                                                   _ri133[1][_bi])
+                                    _px133 = sub_img[_src133].astype(
+                                        np.float32)
+                                    _rc133 = np.median(_px133, axis=0)
+                                    _sd133 = float(np.std(_px133))
+                                    if _sd133 <= 40.0 and np.isfinite(
+                                            _rc133).all():
+                                        sub_bgr[_fm] = np.clip(
+                                            np.rint(_rc133), 0, 255).astype(
+                                                np.uint8)
+                                        _rescued133 = True
+                                        print(f"    [✓] پرِ تختِ نجات از حلقه "
+                                              f"(rgb="
+                                              f"{_rc133.round(0).tolist()})",
+                                              flush=True)
                             except Exception:
                                 _rescued133 = False
                         if not _rescued133:
@@ -15168,6 +15280,159 @@ class MangaTranslator:
             return (out.astype(np.uint8)) * 255
         except Exception:
             return mask
+
+    def _strip_ghost_polish(self, image: np.ndarray, cleaned: np.ndarray,
+                            mask: np.ndarray) -> Tuple[np.ndarray, int]:
+        """v1.14.213 — پولیشِ شبحِ نوارهایِ کامپوز.
+
+        گزارشِ سازنده: «فقط مشکل لگه سیاه سفید داره یا لگه متن قبلی
+        دیده میشه … نه لگه سیاهی نه لگه سفیدی یا هرنگی لگه بشه قبول
+        نمیکنم». ریشه (img6 — حبابِ دوگانهٔ بالا-وسط): لبهٔ ماسکِ LaMa
+        از وسطِ جوهر میگذرد → donor خطِ ۱-۸px نصفهپاک نگه میدارد
+        (تیرگیِ میانه ~۳۵-۵۳) → کامپوزِ دو-عکسی همان نوار را از donor
+        میآورد → خطوطِ محوِ «متن قبلی». سویپِ بقایا فقط تیرگیِ ۴۵+ و
+        «دقیقاً تغییرنکرده» را میبیند؛ همساز/پولیشِ نوار هم رویِ حلقهٔ
+        چندخطی گیت میخورد.
+
+        اینجا: فقط داخلِ نوارهایِ کامپوز، اجزایِ «نازک» (جانِ خط — با
+        openِ خطی ۷ زنده و با فرسایشِ ۵×۵ میمیرد؛ blobهایِ هنر مثل
+        سرِ چیبی زنده میمانند و رد میشوند)، نزدیکِ جوهرِ متنِ اصلی،
+        با حلقهٔ زمینهٔ تخت (std≤۳۰) → پرِ پیازی از پیکسلهایِ تمیزِ
+        اطراف (هر منبعِ جوهرمانند — کنتراستِ >۱۲ — از چشمه حذف میشود).
+        بیرونِ نوارها هیچ پیکسل عوض نمیشود (قراردادِ دو-عکسی)."""
+        try:
+            if mask is None or cleaned is None or image is None:
+                return cleaned, 0
+            h, w = cleaned.shape[:2]
+            if mask.shape != (h, w):
+                return cleaned, 0
+            m = (mask > 0)
+            if not m.any():
+                return cleaned, 0
+            g = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
+            go = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            bg = cv2.medianBlur(g, 41).astype(np.int16)
+            # v1.14.213b — فقطِ شبحِ «محو» (کنتراستِ ۲۲..۶۰): خطِ تیرهٔ
+            # واقعی (هنر/دست/مو — کنتراستِ ۸۰+) هرگز پر نمیشود (img4:
+            # ضربههایِ دست رویِ میز داخلِ نوار، پاک نشود).
+            _d213 = (bg - g.astype(np.int16))
+            _b213 = (g.astype(np.int16) - bg)
+            dark = (_d213 > 22) & (_d213 < 60)
+            bright = (_b213 > 22) & (_b213 < 60)
+            cand = (dark | bright) & m
+            if not cand.any():
+                return cleaned, 0
+            bgo = cv2.medianBlur(go, 41).astype(np.int16)
+            oink = ((bgo - go.astype(np.int16)) > 20) | \
+                ((go.astype(np.int16) - bgo) > 20)
+            oink_near = cv2.dilate(
+                oink.astype(np.uint8), np.ones((25, 25), np.uint8)) > 0
+            # نازک: با openِ خطی زنده، با فرسایشِ ۵×۵ مرده (blobِ ضخیم
+            # = هنر/گلیفِ محافظتشده → رد)
+            k_lh = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 1))
+            k_lv = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 7))
+            u = cand.astype(np.uint8)
+            thin = cv2.morphologyEx(u, cv2.MORPH_OPEN, k_lh) | \
+                cv2.morphologyEx(u, cv2.MORPH_OPEN, k_lv)
+            thick_core = cv2.erode(u, np.ones((5, 5), np.uint8)) > 0
+            thin = ((thin > 0) & ~thick_core).astype(np.uint8)
+            if not np.any(thin):
+                return cleaned, 0
+            # v1.14.213c — «باندِ لبهٔ نوار»: شبحِ LaMa پدِّ تراسِ لبهٔ
+            # ماسک است و همیشه به لبهٔ نوارِ کامپوز چسبیده؛ ضربهٔ هنر
+            # (دست/مو داخلِ نوار — img4) وسطِ نوار است و رد میشود.
+            _core213 = cv2.erode(m.astype(np.uint8),
+                                 np.ones((13, 13), np.uint8)) > 0
+            _edge213 = m & ~_core213
+            # نقشههایِ حفاظت: دیوار/قاب/روکش هرگز پر نمیشوند
+            _prot213 = None
+            try:
+                for _pmN in (getattr(self, "_page_protect", None),
+                             getattr(self, "_page_wall_band", None),
+                             getattr(self, "_page_colored_protect", None)):
+                    if _pmN is not None and _pmN.shape == (h, w):
+                        _prot213 = (_pmN > 0) if _prot213 is None \
+                            else (_prot213 | (_pmN > 0))
+            except Exception:
+                _prot213 = None
+            n, lab, st, _ = cv2.connectedComponentsWithStats(thin, 8)
+            fills = np.zeros((h, w), bool)
+            for i in range(1, n):
+                a = int(st[i, cv2.CC_STAT_AREA])
+                cw = int(st[i, cv2.CC_STAT_WIDTH])
+                ch = int(st[i, cv2.CC_STAT_HEIGHT])
+                if a < 6 or a > 1600 or max(cw, ch) > 220:
+                    continue
+                comp = (lab == i)
+                if _prot213 is not None and bool((comp & _prot213).any()):
+                    continue  # دیوار/قاب → رد
+                if not (comp & oink_near).any():
+                    continue  # دور از متنِ اصلی → هنر است نه شبح
+                _eb213 = cv2.dilate(comp.astype(np.uint8),
+                                    np.ones((9, 9), np.uint8)) > 0
+                if not bool((_eb213 & _edge213).any()):
+                    continue  # وسطِ نوار = محتوای واقعی، نه تراسِ لبه
+                ring = cv2.dilate(comp.astype(np.uint8),
+                                  np.ones((15, 15), np.uint8)) > 0
+                ring &= ~cand
+                ring &= ~thick_core
+                if int(ring.sum()) < 40:
+                    continue
+                rv = g[ring].astype(np.float32)
+                if float(np.std(rv)) > 30.0:
+                    continue  # زمینهٔ بافت‌مند → بافتِ LaMa میماند
+                fills |= comp
+            if not fills.any():
+                return cleaned, 0
+            # اهدافِ پر + هاله؛ چشمهها = پیکسلهایِ تمیز (جوهرِ محو هم
+            # چشمه نیست وگرنه سیاهی میکشد)
+            tgt = cv2.dilate(fills.astype(np.uint8),
+                             np.ones((5, 5), np.uint8)) > 0
+            tgt &= (m | fills)
+            tgt |= (cand & cv2.dilate(fills.astype(np.uint8),
+                                      np.ones((9, 9), np.uint8)) > 0)
+            if _prot213 is not None:
+                tgt &= ~_prot213
+            faint = (np.abs(bg - g.astype(np.int16)) > 12)
+            near_m = cv2.dilate(m.astype(np.uint8),
+                                np.ones((5, 5), np.uint8)) > 0
+            src_ok = ~(faint & near_m)
+            out = cleaned.copy()
+            n2, lab2, st2, _ = cv2.connectedComponentsWithStats(
+                tgt.astype(np.uint8), 8)
+            for i in range(1, n2):
+                x = int(st2[i, cv2.CC_STAT_LEFT])
+                y = int(st2[i, cv2.CC_STAT_TOP])
+                cw = int(st2[i, cv2.CC_STAT_WIDTH])
+                ch = int(st2[i, cv2.CC_STAT_HEIGHT])
+                pad = 26
+                x0, y0 = max(0, x - pad), max(0, y - pad)
+                x1 = min(w, x + cw + pad)
+                y1 = min(h, y + ch + pad)
+                sub_t = tgt[y0:y1, x0:x1]
+                sub_src = src_ok[y0:y1, x0:x1]
+                sub_v = out[y0:y1, x0:x1].astype(np.float32)
+                sub_k = (sub_src & ~sub_t).astype(np.float32)
+                unk = sub_t.copy()
+                _it = 0
+                while bool(unk.any()) and _it < 400:
+                    _it += 1
+                    wsum = cv2.boxFilter(sub_k, -1, (3, 3),
+                                         normalize=False)
+                    hit = (wsum > 0.05) & unk
+                    if not bool(hit.any()):
+                        break
+                    num = cv2.boxFilter(sub_v * sub_k[:, :, None], -1,
+                                        (3, 3), normalize=False)
+                    _ws = wsum[hit][:, None]
+                    _ws[_ws == 0] = 1.0
+                    sub_v[hit] = np.clip(num[hit] / _ws, 0.0, 255.0)
+                    sub_k[hit] = 1.0
+                    unk &= ~hit
+                out[y0:y1, x0:x1] = sub_v.astype(np.uint8)
+            return out, int(fills.sum())
+        except Exception:
+            return cleaned, 0
 
     def _compose_polish(self, image: np.ndarray, composed: np.ndarray,
                          mask: np.ndarray) -> np.ndarray:
@@ -18427,6 +18692,24 @@ class MangaTranslator:
         if _cmp2 is not None:
             try:
                 cleaned = self._compose_polish(image, cleaned, _cmp2)
+            except Exception:
+                pass
+        # v1.14.213 — پولیشِ شبحِ نوار (دستورِ سازنده: «نه لگه سیاهی نه
+        # لگه سفیدی یا هرنگی لگه بشه قبول نمیکنم»): بقایایِ نازکِ جوهر
+        # که LaMa لبهٔ ماسکشان را نصفه گذاشته (خطوطِ ۱-۸px داخلِ نوار —
+        # تیرگیِ ~۳۵ که سویپِ ۴۵+ و همسطحیِ پولیش نمی‌بینندش) با پرِ
+        # پیازی از زمینهٔ تمیزِ اطراف پاک میشوند؛ فقط نوارهایِ کامپوز،
+        # فقط اجزایِ نازکِ نزدیکِ جوهرِ متنِ اصلی و فقط حلقهٔ تخت — دیوار/
+        # هنر/حبابهایِ بافت‌دار هرگز دست نمیخورند. MANGA_GHOST_POLISH=0
+        # برایِ خاموشکردنِ دستی.
+        if _cmp2 is not None \
+                and os.environ.get("MANGA_GHOST_POLISH", "1") != "0":
+            try:
+                cleaned, _n_gp213 = self._strip_ghost_polish(
+                    image, cleaned, _cmp2)
+                if _n_gp213 and self.debug:
+                    print(f"  [*] پولیشِ شبحِ نوار: {_n_gp213} پیکسل "
+                          f"پاک شد")
             except Exception:
                 pass
         if _sdd and _sd:
@@ -22705,6 +22988,16 @@ class MangaTranslator:
             print("    [*] Clean-only mode — no API request.")
             return
 
+        # v1.14.213 — قفلِ دو-فازی: اگر در فازِ استخراجِ بچ کسی مترجم را
+        # صدا زده باشد یعنی رگرسیونِ «ترجمهٔ وسطِ استخراج» برگشته — لاگِ
+        # بلند برای ردیابی (رفتار عوض نمیشود؛ سدِ اصلی در run است و این
+        # فقط زنگِ خطر است تا در لاگِ سازنده دیده شود).
+        if not getattr(self, "_extraction_done", True) \
+                and not getattr(self, "fake_translate", False):
+            print("[!!] رگرسیونِ دو-فازی: مترجم در وسطِ فازِ استخراج صدا "
+                  "زده شد — گزارشِ باگ (باید بعد از «استخراجِ همهٔ صفحهها "
+                  "کامل شد» بیاید).", file=sys.stderr)
+
         _n_empty = sum(1 for _r in regions
                        if not (_r.source_text or "").strip())
         if _n_empty:
@@ -25536,6 +25829,74 @@ class MangaTranslator:
         return MangaTranslator._ink_slant_measure(crop_bgr)[0]
 
     @staticmethod
+    def _ink_slant_support(crop_bgr, angle_deg: float) -> Optional[float]:
+        """v1.14.213 — آیا زاویهٔ «ادعاشده» جوهرِ این کراپ را واقعاً رویِ
+        هم میاندازد؟ نسبتِ شکستِ ردیفها در زاویهٔ ادعایی بر افقی:
+        score(angle)/score(0). ≥~۱٫۱۰ یعنی خطِ واقعاً کج است (وتو نکن)؛
+        ~۱٫۰ یعنی کجیِ کاذبِ پالی/فونتِ استایل‌دار (وتو کن).
+
+        ریشه (img3): وتویِ «جوهر مسطح» زاویهٔ واقعیِ ‎-۶٫۷°/-۱۳٫۲° را
+        صفر میکرد — سنجشِ قبلی «بهترینِ خودش» را با افقی مقایسه میکرد و
+        برایِ خطهایِ کوتاهِ کج، بهترینِ سنجش (~۴°) فقط ۱٫۱× بهتر ازِ
+        افقی بود و رأیِ «مسطح» میداد؛ حالا خودِ زاویهٔ ادعایی آزموده
+        میشود (دستورِ سازنده: «بعد چرخش همچین بعضی متن ها درست
+        نمیچرخه»)."""
+        try:
+            if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
+                return None
+            h_c, w_c = crop_bgr.shape[:2]
+            if w_c < 40 or h_c < 14:
+                return None
+            g = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+            med = float(np.median(g))
+            _dark = (g < max(60.0, med - 45.0))
+            _bright = (g > min(195.0, max(med + 45.0, 150.0)))
+            _fd = float(_dark.mean())
+            _fb = float(_bright.mean())
+            _cands = []
+            if 0.010 <= _fd <= 0.45:
+                _cands.append(_dark)
+            if 0.010 <= _fb <= 0.45:
+                _cands.append(_bright)
+            if not _cands:
+                if 0.45 < _fd <= 0.60:
+                    _cands.append(_dark)
+                elif 0.010 <= _fb <= 0.60:
+                    _cands.append(_bright)
+                else:
+                    return None
+            _cands.sort(key=lambda _b: float(_b.mean()))
+
+            def _sup(ink: np.ndarray) -> Optional[float]:
+                try:
+                    ys_, xs_ = np.nonzero(ink)
+                    if len(ys_) < 60:
+                        return None
+                    ys_f = ys_.astype(np.float64)
+                    xs_f = xs_.astype(np.float64)
+
+                    def _score(theta_deg: float) -> float:
+                        t = float(np.tan(np.radians(theta_deg)))
+                        rows = ys_f - t * xs_f
+                        idx = (rows - rows.min()).astype(np.int32)
+                        hist = np.bincount(idx)
+                        hf = hist.astype(np.float64)
+                        return float(np.dot(hf, hf))
+
+                    s0 = max(1.0, _score(0.0))
+                    sa = _score(float(angle_deg))
+                    return sa / s0
+                except Exception:
+                    return None
+
+            for _ink_b in _cands:
+                _r213 = _sup(_ink_b)
+                if _r213 is not None:
+                    return _r213
+            return None
+        except Exception:
+            return None
+
     def _ink_slant_measure(crop_bgr) -> Tuple[float, bool]:
         """v1.14.79 — (زاویه، قابل‌اتکا) + قطب‌آگاهیِ تیره/روشن.
 
@@ -26444,6 +26805,19 @@ class MangaTranslator:
                     # v1.14.79 — جوهر می‌گوید «مسطح» ولی زاویهٔ پالی‌ها
                     # کجِ ±۶..۴۵° است (حروفِ استایل‌دارِ تیترها زاویهٔ
                     # کاذب می‌سازند؛ BLUE MOON -15° در حالی‌که واقعی ~0°)
+                    # v1.14.213 — اما اول خودِ زاویهٔ ادعایی آزموده میشود:
+                    # اگر ردیفهایِ جوهر را واقعاً رویِ هم میاندازد (≥۱٫۱۰×)
+                    # کجی واقعی است و وتو نمیشود (img3: ‎-۶٫۷°/-۱۳٫۲°
+                    # واقعی بودند و به‌غلط صفر میشدند — «بعد چرخش همچین
+                    # بعضی متن ها درست نمیچرخه»).
+                    _sup213 = MangaTranslator._ink_slant_support(
+                        image[y1:y2, x1:x2], ang)
+                    if _sup213 is not None and _sup213 >= 1.10:
+                        if os.environ.get("MANGA_DBG_VERIFY"):
+                            print(f"    [dbg-verify] {r.id} ang={ang:+.1f}° "
+                                  f"تأییدِ جوهر (پشتیبانی={_sup213:.2f}) — "
+                                  f"وتو نشد")
+                        continue
                     print(f"    [!] حذف کجیِ کاذب [{r.id}]: {ang:+.1f}° → 0.0° "
                           f"(جوهرِ واقعیِ خط مسطح است)")
                     r.angle = 0.0
@@ -27074,8 +27448,12 @@ class MangaTranslator:
         # + نجاتِ تکآیتمی دارد). فقط پیش‌نمایشِ زنده (final=False) بدونِ
         # این سد کار میکند تا حبابها «کمکم» همان لحظه که ترجمهشان میرسد
         # رویِ نمایش بنشینند (حبابِ هنوز بیترجمه = خالیِ روشن = لودینگ).
+        # v1.14.213 — سدِ دو-فازی: در فازِ استخراجِ بچ هیچ دورِ ترجمه‌ای
+        # زده نمیشود (دستور: «استخراج تموم شد بعدش بره ترجمه»)؛
+        # پسگیریِ خالیها بعد از اتمامِ کل، در run با بستههایِ ۳۰تایی است.
         if (final and not getattr(self, "clean_only", False)
-                and not getattr(self, "fake_translate", False)):
+                and not getattr(self, "fake_translate", False)
+                and getattr(self, "_extraction_done", True)):
             for _g_round in range(1, 4):
                 if stop_requested():
                     break
@@ -29290,6 +29668,11 @@ html, body { background: #0a0a0b; }
         self._chapter_brief = ""
         self._brief_corpus = []
         self._brief_attempted = False
+        # v1.14.213 — قفلِ دو-فازی (دستورِ سازنده: «همه متن هارو جمع کنه
+        # استخراج تموم شد بعدش بره ترجمه ۴۰ تا ۴۰ تا»): در طولِ فازِ
+        # استخراجِ بچ هیچ فراخوانیِ مترجمی مجاز نیست؛ بعد از joinِ دو
+        # کارگرِ استخراج دوباره True میشود (خطِ لاگِ مرز در همان جا).
+        self._extraction_done = False
         self._independent_pages = False  # v1.14.106 — ریست در هر ران (run بازگشتی هم دارد)
         _t_run67 = time.time()  # v1.14.67 — کلِ زمانِ ران
         # v1.14.70 — سرعت: ساختِ سشنِ LaMa (۲۰۰MB) از همان اولِ کار شروع
@@ -29663,7 +30046,11 @@ html, body { background: #0a0a0b; }
 
 
         pending = []
+        # v1.14.213 — نقشهٔ «شمارهٔ صفحه → فایلِ ورودی» برای رندرِ دوبارهٔ
+        # صفحههایِ پسگیریِ خالیها (متنِ خالیِ AI که بعداً پر شده).
+        _src_of_page: Dict[int, str] = {}
         for page_i, f in enumerate(image_files):
+            _src_of_page[page_i] = f
             out_file = os.path.join(out_dir, os.path.splitext(os.path.basename(f))[0] + page_ext)
             if resume and os.path.isfile(out_file):
                 processed_files.append(out_file)
@@ -29906,11 +30293,12 @@ html, body { background: #0a0a0b; }
             # میشود (idها دستنخورده میمانند — نگاشتِ جواب به ناحیه سالم).
             dialogue_buffer.sort(key=lambda r: page_of_region.get(r.id, 0))
             # v1.14.199 — دستورِ سازنده: «حداقل ۳۰ تا ۳۰ تا جمع کنه
-            # ترجمه کنه… جای اصلیشون بزاره بخونم»: بافر به بستههایِ
-            # ۳۰تاییِ متوازن شکسته و تک‌تک «پشتسرهم» به ترجمه میرود
-            # (trans_pool تک‌نمونه است — نه موازی)؛ با تمامِ هر بسته،
-            # ترجمههایِ همان بسته بلافاصله رویِ صفحاتِ خودشان مینشینند
-            # (accountingِ بچبهچ + پیشنمایشِ زنده) تا همزمان بخوانی.
+            # ترجمه کنه… جای اصلیشون بزاره بخونم»؛ v1.14.213: «۴۰ تا ۴۰
+            # تا بده ترجمش کنه»: بافر به بستههایِ ۴۰تاییِ متوازن شکسته و
+            # تک‌تک «پشتسرهم» به ترجمه میرود (trans_pool تک‌نمونه است —
+            # نه موازی)؛ با تمامِ هر بسته، ترجمههایِ همان بسته بلافاصله
+            # رویِ صفحاتِ خودشان مینشینند (accountingِ بچبهچ +
+            # پیشنمایشِ زنده) تا همزمان بخوانی.
             _cap_n, _cap_c = _one_request_caps()
             _groups = _split_one_request_batches(
                 dialogue_buffer, _cap_n, _cap_c)
@@ -29918,7 +30306,7 @@ html, body { background: #0a0a0b; }
             if len(_groups) > 1:
                 _sizes = "+".join(str(len(g)) for g in _groups)
                 print(f"[*] ترجمهٔ {n} دیالوگ در {len(_groups)} بستهٔ "
-                      f"پشتسرهم ({_sizes}) — ۳۰تا۳۰تا، به ترتیبِ روایی…")
+                      f"پشتسرهم ({_sizes}) — {_cap_n}تا{_cap_n}تا، به ترتیبِ روایی…")
             else:
                 print(f"[*] ترجمهٔ بافر: {n} دیالوگ…")
             for _g in _groups:
@@ -29955,11 +30343,13 @@ html, body { background: #0a0a0b; }
         else:
             # v1.14.196/199 — سبکِ K3، دقیقاً طبقِ دستورِ سازنده:
             # «اول کامل استخراج کنه دو طرفه + پاکسازی یک طرفه؛
-            # استخراج تموم شد پاکسازی دو طرفه + ترجمه (۳۰تا۳۰تا)»
+            # استخراج تموم شد پاکسازی دو طرفه + ترجمه»؛ v1.14.213 —
+            # بستههایِ ترجمه ۴۰تا۴۰تا (دستور: «استخراج تموم شد بعدش
+            # بره ترجمه ۴۰ تا ۴۰ تا بده ترجمش کنه»).
             print(
                 f"[*] سبکِ K3: اول استخراجِ دوطرفهٔ همهٔ {len(pending)} صفحه "
                 f"+ پاکسازیٔ یکطرفهٔ بالا→پایین همزمان؛ بعد از اتمامِ "
-                f"کاملِ استخراج: پاکسازیٔ دوطرفه + ترجمهٔ ۳۰تا۳۰تایِ "
+                f"کاملِ استخراج: پاکسازیٔ دوطرفه + ترجمهٔ ۴۰تا۴۰تایِ "
                 f"پشتسرهم (هیچ متنی زودتر از اتمامِ استخراج به مترجم نمیرود)."
             )
 
@@ -30282,6 +30672,19 @@ html, body { background: #0a0a0b; }
         # v1.14.196 — «بعد تموم شد متنهایِ استخراجشده بده به AI»: کلِ
         # بافر (همهٔ دیالوگهایِ فصل) در «یک» درخواست (مرتبسازیِ روایی
         # داخلِ _flush_translate_buffer انجام میشود).
+        # v1.14.213 — سدِ صریحِ دو-فازی (دستورِ سازنده: «همه متن هارو جمع
+        # کنه استخراج تموم شد بعدش بره ترجمه ۴۰ تا ۴۰ تا»): این خطِ لاگ
+        # لحظهٔ مرز است — قبل از آن هیچ درخواستِ ترجمه‌ای به مدل نرفته
+        # است (قفلِ self._extraction_done در finish_page_phase/translate_regions).
+        self._extraction_done = True
+        _n_dlg_total = int(len(dialogue_buffer))
+        _cap_n213, _cap_c213 = _one_request_caps()
+        if not getattr(self, "clean_only", False):
+            print(
+                f"[✓] استخراجِ همهٔ {len(pending)} صفحه کامل شد — "
+                f"{_n_dlg_total} دیالوگ جمع شد؛ حالا ترجمهٔ "
+                f"{_cap_n213}تا{_cap_n213}تا شروع میشود…"
+            )
         if dialogue_buffer and not getattr(self, "clean_only", False):
             _flush_translate_buffer(force=True)
         _t_trw67 = time.time()  # v1.14.67 — انتظارِ ترجمه
@@ -30327,6 +30730,130 @@ html, body { background: #0a0a0b; }
         if stop_requested():
             trans_pool.shutdown(wait=False)
             raise JobCancelled("لغو توسط کاربر")
+
+        # ── v1.14.213 — پسگیریِ خالیهایِ AI (دستورِ سازنده: «بعد بعضی وقتا
+        # ai متن خالی برمیگرونه اگ متنی خالی برگشت به لیست جدید اضافه کنه
+        # 30 تا شد مجدد بره ترجمه باید درست برگرونه بزاره سرجاش ست کنه به
+        # عکس هاشون») ── بعد از اتمامِ همهٔ بستههایِ ترجمه، هر حبابِ
+        # «بامتنِ مبدأ ولی بیترجمه» از «همهٔ» صفحهها یکجا جمع میشود و در
+        # بستههایِ ۳۰تایی (MANGA_EMPTY_RETRY_MAX) دوباره ترجمه میشود؛
+        # صفحههایِ گرفتار (چه نهایی‌شده با متنِ مبدأِ ۱۹۲، چه در صف)
+        # بعدش با ترجمهٔ تازه دوباره رندر میشوند تا جوابِ درست «سرجاش»
+        # بنشیند. حداکثر ۳ دورِ پسگیری؛ اگر مدل باز هم خالی داد، متنِ
+        # مبدأ (قانونِ ۱۹۲) سرِ جایش میماند.
+        def _collect_empty_dialogues() -> List[TextRegion]:
+            _out: List[TextRegion] = []
+            for _p in sorted(extracted_map.keys()):
+                _entry = extracted_map.get(_p)
+                if _entry is None:
+                    continue
+                _of, _im, _pc, _regs, _dbg = _entry
+                for _r in (_regs or []):
+                    if getattr(_r, "kind", "") != "dialogue":
+                        continue
+                    if not (_r.source_text or "").strip():
+                        continue
+                    if getattr(_r, "ocr_empty", False):
+                        continue
+                    if (_r.translated_text or "").strip():
+                        continue
+                    _out.append(_r)
+            return _out
+
+        def _rerender_page_after_empty(page_i: int) -> None:
+            """رندرِ دوبارهٔ صفحهٔ نهایی‌شده بعد از پرشدنِ خالیها — از
+            فایلِ ورودیِ اصلی (تصویر/precleaned در extracted_map آزاد
+            شده)؛ فقط همین یک صفحه دوباره پاکسازی+رندر میشود."""
+            try:
+                _raise_if_stop()
+            except Exception:
+                return
+            _entry = extracted_map.get(page_i)
+            if _entry is None:
+                return
+            _of, _im, _pc, _regs, _dbg = _entry
+            if not _regs:
+                return
+            _f213 = _src_of_page.get(page_i)
+            if not _f213 or not os.path.isfile(_f213):
+                return
+            _img213 = MangaTranslator._imread_any(_f213)
+            if _img213 is None:
+                return
+            try:
+                _res213, _pd213 = self.finish_page_phase(
+                    _img213, _regs, skip_translate=True,
+                    precleaned=None, final=True)
+                self._write_image(_res213, _of)
+                try:
+                    _live_page_dump(_of, key=_of, slot=page_i + 1)
+                except Exception:
+                    pass
+                del _res213
+                print(f"  [✓] صفحهٔ {page_i + 1} با ترجمهٔ پسگیری‌شده دوباره "
+                      f"رندر شد")
+            except GeminiQuotaExhausted:
+                raise
+            except Exception as _e213:
+                print(f"    [!] رندرِ دوبارهٔ صفحهٔ {page_i + 1} ناموفق: "
+                      f"{str(_e213)[:90]}")
+
+        if (not getattr(self, "clean_only", False)
+                and not getattr(self, "fake_translate", False)):
+            _er_cap = 30
+            try:
+                _er_cap = max(10, int(os.environ.get(
+                    "MANGA_EMPTY_RETRY_MAX", "30") or 30))
+            except Exception:
+                _er_cap = 30
+            # شناسههایِ خالیها «قبل از» پسگیری — بعدش فقط صفحههایی که
+            # واقعاً ترجمهٔ تازه گرفتند دوباره رندر میشوند.
+            _empty_ids_before: Dict[int, int] = {}
+            for _r213 in _collect_empty_dialogues():
+                _pg213 = page_of_region.get(getattr(_r213, "id", -1), -1)
+                if _pg213 is not None and _pg213 >= 0:
+                    _empty_ids_before[getattr(_r213, "id", -1)] = int(_pg213)
+            for _er_round in range(1, 4):
+                if stop_requested() or quota_flag["dead"]:
+                    break
+                _empties = _collect_empty_dialogues()
+                if not _empties:
+                    break
+                print(f"[*] پسگیریِ خالیهایِ AI: {_empties.__len__()} حباب "
+                      f"بیترجمه در لیستِ دوبارهترجمه — "
+                      f"{_er_cap}تا{_er_cap}تا (دورِ {_er_round}/۳)…")
+                _empties.sort(key=lambda _r: page_of_region.get(
+                    getattr(_r, "id", -1), 0))
+                for _i0 in range(0, len(_empties), _er_cap):
+                    _chunk = _empties[_i0:_i0 + _er_cap]
+                    try:
+                        self.translate_regions(_chunk)
+                    except (GeminiQuotaExhausted, JobCancelled):
+                        raise
+                    except Exception as _e213:
+                        print(f"    [!] دوبارهترجمهٔ خالیها ناموفق: "
+                              f"{str(_e213)[:90]}")
+                _still = _collect_empty_dialogues()
+                if len(_still) >= len(_empties):
+                    # هیچ پیشرفتی نیست — مدل برای اینها جواب نمیدهد؛
+                    # بیشتر اصرار نکن (متنِ مبدأ طبقِ قانونِ ۱۹۲ میماند).
+                    print(f"[!] دوبارهترجمه پیشرفت نکرد ({len(_still)} حباب "
+                          f"همچنان خالی) — قانونِ ۱۹۲: متنِ مبدأ میماند")
+                    break
+            # صفحههایِ نهایی‌شده‌ای که در این پسگیری ترجمهٔ تازه گرفتند
+            # باید دوباره رندر شوند («بزاره سرجاش ست کنه به عکس هاشون»)؛
+            # صفحههایِ در صف، در جارویِ پایانی با ترجمهٔ تازه رندر میشوند.
+            _refilled_pages = sorted({
+                _pg213 for _rid213, _pg213 in _empty_ids_before.items()
+                if _pg213 in finished_pages
+                and any((_r213b.translated_text or "").strip()
+                        for _p213b in (_pg213,)
+                        for _r213b in ((extracted_map.get(_p213b)
+                                        or (None,) * 5)[3] or [])
+                        if getattr(_r213b, "id", None) == _rid213)})
+            for _p213 in _refilled_pages:
+                _rerender_page_after_empty(int(_p213))
+
         _finish_ready_pages()
         for page_i in sorted(extracted_map.keys()):
             _finish_page_now(page_i)
@@ -30574,12 +31101,21 @@ html, body { background: #0a0a0b; }
                     _a_ink, _a_ok = MangaTranslator._ink_slant_measure(
                         original_image[_vy0:_vy1, _vx0:_vx1])
                     if _a_ok and abs(_a_ink) < 6.0:
-                        # v1.14.79 — وتویِ جوهرِ مسطح: پالی‌هایِ حروفِ
-                        # استایل‌دار کجیِ کاذب می‌دهند؛ جوهرِ واقعیِ خط
-                        # مسطح است → رندر افقی (نه کجِ برعکس)
-                        print(f"    [!] حذف کجیِ کاذب در رندر [{region.id}]: "
-                              f"{angle:+.1f}° → 0.0° (جوهرِ مسطح)")
-                        angle = 0.0
+                        # v1.14.79 — وتویِ جوهرِ مسطح؛ v1.14.213 — اول خودِ
+                        # زاویهٔ ادعایی آزموده می‌شود: اگر ردیفهایِ جوهر را
+                        # واقعاً رویِ هم می‌اندازد (≥۱٫۱۰×) کجیِ واقعی است و
+                        # وتو نمی‌شود (img3: ‎-۶٫۷°/-۱۳٫۲° به‌غلط صفر می‌شدند
+                        # — «بعد چرخش همچین بعضی متن ها درست نمیچرخه»).
+                        _sup213r = MangaTranslator._ink_slant_support(
+                            original_image[_vy0:_vy1, _vx0:_vx1], angle)
+                        if _sup213r is not None and _sup213r >= 1.10:
+                            pass  # کجیِ واقعی — رندر با همان زاویه
+                        else:
+                            # پالی‌هایِ حروفِ استایل‌دار کجیِ کاذب می‌دهند؛
+                            # جوهرِ واقعیِ خط مسطح است → رندر افقی
+                            print(f"    [!] حذف کجیِ کاذب در رندر [{region.id}]: "
+                                  f"{angle:+.1f}° → 0.0° (جوهرِ مسطح)")
+                            angle = 0.0
                     elif (abs(_a_ink) >= 6.0 and abs(_a_ink) <= 45.0
                             and (_a_ink > 0.0) != (angle > 0.0)):
                         # v1.14.80 — همان عاقل‌نگه‌داشتِ مقدارِ verify:
