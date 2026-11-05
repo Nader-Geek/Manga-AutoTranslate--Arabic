@@ -359,7 +359,12 @@ def manifest():
     for sec in mf.get("sections", []):
         for f in sec.get("fields", []):
             if f.get("choices_from") == "PROVIDERS" or f.get("id") == "provider":
-                f["choices"] = [[p, p] for p in provs]
+                # v1.14.220 — «auto» اولِ منو (همان ترتیبِ وب: auto|gemini|
+                # مدلهایِ کاربر|custom — مدلهایِ کاربر را MainActivity از
+                # حافظهٔ دستگاه به گزینهها اضافه میکند)
+                _pc = ["auto"] + [str(x) for x in provs
+                                  if str(x).lower() not in ("auto",)]
+                f["choices"] = [[p, p] for p in _pc]
                 f.pop("choices_from", None)
             if f.get("id") in ("manga_api_base", "api_base"):
                 f["visible_if"] = {"field": "provider", "equals": "custom"}
@@ -497,6 +502,72 @@ def _prompt_params(p):
         pass
     return _pm, (_body or None)
 
+
+
+def _resolve_auto_or_named(p, keys, log):
+    """v1.14.220 — resolveِ «auto» و «مدلِ نامیِ کاربر» قبل از ساختِ
+    MangaTranslator (مثلِ وب؛ manga.py دستنخورده میماند).
+    ورودی: p (پارامترهایِ job — شاملِ custom_models از MainActivity)،
+    keys (لیستِ کلیدها)، log (تابعِ لاگِ زنده).
+    خروجی: keysِ (احتمالاً) بهروزشده؛ p هم درجا بهروز میشود (provider/
+    api_base/keys/model همیشه providerِ واقعیِ gemini/custom میشوند)."""
+    try:
+        _cm = p.get("custom_models")
+        if isinstance(_cm, str):
+            _cm = json.loads(_cm) if _cm.strip().startswith("[") else []
+        _cm = [m for m in (_cm or [])
+               if isinstance(m, dict) and str(m.get("name") or "").strip()]
+        _prov0 = str(p.get("provider") or "").strip()
+        _keys0 = str(p.get("keys") or "")
+        _mdl0 = str(p.get("model") or "")
+        if _prov0 and _prov0 not in ("auto", "gemini", "custom"):
+            # مدلِ نامیِ کاربر — اگر در لیست نبود/لیست خالی بود → gemini
+            # (providerِ «ناموجود» هرگز به موتور نمیرود)
+            _named = getattr(manga_app, "resolve_ai_named", None)
+            _r = _named(_cm, _prov0, _keys0, _mdl0) if (_named and _cm) else None
+            if _r:
+                _np, _nb, _nk, _nm = _r
+                p["provider"] = _np
+                if _nb:
+                    p["api_base"] = _nb
+                if _nk:
+                    p["keys"] = _nk
+                if _nm:
+                    p["model"] = _nm
+                keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
+                log("🤖 مدلِ «%s» → provider=%s%s"
+                    % (_prov0, _np, (" — %s" % _nb) if _nb else ""))
+            else:
+                log("[!] مدلِ «%s» در لیستِ مدلها نبود → gemini" % _prov0)
+                p["provider"] = "gemini"
+        elif _prov0 == "auto":
+            _auto = getattr(manga_app, "resolve_ai_auto", None)
+            if _auto:
+                _r = _auto(_cm, _keys0, _mdl0,
+                           probe=getattr(_manga(), "test_api_keys", None))
+                _np, _nb, _nk, _nm, _lines = _r
+                for _ln in (_lines or []):
+                    log(_ln)
+                if _np:
+                    p["provider"] = _np
+                    if _nb:
+                        p["api_base"] = _nb
+                    if _nk:
+                        p["keys"] = _nk
+                    if _nm:
+                        p["model"] = _nm
+                    keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
+                else:
+                    log("[!] auto مدلِ در دسترسی پیدا نکرد → gemini")
+                    p["provider"] = "gemini"
+            else:
+                log("[!] resolveِ auto در دسترس نیست → gemini")
+                p["provider"] = "gemini"
+    except Exception as _re:
+        log("[!] resolveِ AI ناموفق: %s" % str(_re)[:120])
+        if str(p.get("provider") or "") == "auto":
+            p["provider"] = "gemini"
+    return keys
 
 
 def start_job(params_json, files_dir):
@@ -925,6 +996,12 @@ def _run(job):
         # استخراج = فقط SDKِ رسمیِ PaddleOCR — speed_lab_env پایینتر
         # اعمالش میکند.
         keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
+        # ── v1.14.220 — resolveِ «auto» و «مدلِ نامیِ کاربر» (مثلِ وب) ──
+        # لیستِ مدلهایِ سفارشی از MainActivity (custom_models) میآید؛
+        # سنجشِ دسترسی = همان probeِ موتور (manga.test_api_keys)؛
+        # manga.py هیچ تغییری نمیکند — خروجیِ resolve همیشه providerِ
+        # واقعیِ gemini/custom است.
+        keys = _resolve_auto_or_named(p, keys, lambda m: _log(job, str(m)))
         if not keys and not (bool(p.get("fake")) or bool(p.get("clean_only"))):
             _log(job, "[!] حداقل یک کلید API لازم است — کلید بده یا "
                       "«حالت تست» / «حالت پاکسازی» را در تنظیمات پیشرفته فعال کن.")

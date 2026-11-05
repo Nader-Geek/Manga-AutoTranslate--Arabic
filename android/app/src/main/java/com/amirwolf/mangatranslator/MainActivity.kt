@@ -89,6 +89,61 @@ class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("manga_settings", MODE_PRIVATE) }
     private var wakeLock: android.os.PowerManager.WakeLock? = null
 
+    // ══ v1.14.220 — مدلهایِ سفارشیِ کاربر (همان ساختارِ وب: name/api_base/
+    // api_key/model) — در حافظهٔ دستگاه میمانند، در منویِ انتخابِ AI میآیند،
+    // داخلِ بکاپ ذخیره میشوند و با Import برمیگردند ══
+    private var providerBtn: Button? = null
+    private var providerFieldId: String = "provider"
+    private var cmChipsBox: LinearLayout? = null
+    private var backupStatusView: TextView? = null
+    private var manifestAppVer: String = ""
+    // v1.14.220 — نقشهٔ نام↔مقدارِ هر select برایِ «Import» (applySetting)
+    private val selectMaps = HashMap<String, List<Pair<String, String>>>()
+
+    private fun cmLoad(): MutableList<JSONObject> {
+        val out = mutableListOf<JSONObject>()
+        try {
+            val s = prefs.getString("manga_custom_models", null)
+            if (!s.isNullOrBlank()) {
+                val arr = org.json.JSONArray(s)
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val nm = o.optString("name").trim()
+                    if (nm.isEmpty()) continue
+                    out.add(JSONObject().apply {
+                        put("name", nm)
+                        put("api_base", o.optString("api_base").trim())
+                        put("api_key", o.optString("api_key").trim())
+                        put("model", o.optString("model").trim())
+                    })
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return out
+    }
+
+    private fun cmSave(list: List<JSONObject>) {
+        try {
+            val arr = org.json.JSONArray()
+            for (m in list) arr.put(m)
+            prefs.edit().putString("manga_custom_models", arr.toString()).apply()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun cmJson(): String {
+        val arr = org.json.JSONArray()
+        for (m in cmLoad()) arr.put(m)
+        return arr.toString()
+    }
+
+    private fun installedVersionName(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+    } catch (_: Exception) {
+        ""
+    }
+
     private fun dp(v: Int): Int =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
@@ -1173,6 +1228,7 @@ class MainActivity : AppCompatActivity() {
         loadingRow.visibility = View.GONE
         try {
             val mf = JSONObject(bridge.callAttr("manifest").toString())
+            manifestAppVer = mf.optString("app_ver", "")
             val sections = mf.getJSONArray("sections")
             var step = 0
             for (s in 0 until sections.length()) {
@@ -1224,9 +1280,17 @@ class MainActivity : AppCompatActivity() {
                 arrow.text = if (openDefault) "▾" else "▸"
 
                 val fields = sec.getJSONArray("fields")
-                for (i in 0 until fields.length()) addField(contentBox, fields.getJSONObject(i))
-                // اگر «مدل» در این بخش نبود، دکمهٔ تست همین‌جا اضافه می‌شود
-                flushPendingTest(contentBox)
+                // v1.14.220 — بخشِ «بکاپ و بازیابی» بومیِ اندروید ساخته میشود:
+                // دکمهٔ بکاپ با ذخیرهٔ خودکار + دکمهٔ Importِ هماندازهٔ خودش —
+                // دو باکسِ بزرگِ آپلودِ manifest (manga_import_file و
+                // manga_backup_out) دیگر رندر نمیشوند
+                if (title.contains("بکاپ") || title.contains("پشتیبان")) {
+                    addBackupSection(contentBox)
+                } else {
+                    for (i in 0 until fields.length()) addField(contentBox, fields.getJSONObject(i))
+                    // اگر «مدل» در این بخش نبود، دکمهٔ تست همین‌جا اضافه می‌شود
+                    flushPendingTest(contentBox)
+                }
                 formBox.addView(card, lp)
             }
         } catch (e: Exception) {
@@ -1297,6 +1361,464 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             android.util.Log.e("MangaApp", "clearOldCaches", e)
         }
+    }
+
+    // ══ v1.14.220 — منویِ انتخابِ AI بومیِ اندروید: auto | gemini |
+    // مدلهایِ من (بهترتیبِ افزودن) | custom + لیستِ فشردهٔ چیپیِ «نام ✖»
+    // (ضربدرِ حذف دقیقاً کنارِ خودِ اسم — دستورِ سازنده) + دکمهٔ
+    // «+ افزودن به لیست مدل‌ها» — مستقل از انتخابِ custom ══
+    private fun providerItems(): List<Pair<String, String>> {
+        val out = ArrayList<Pair<String, String>>()
+        out.add("auto" to "auto")
+        out.add("gemini" to "gemini")
+        for (m in cmLoad()) {
+            val nm = m.optString("name").trim()
+            if (nm.isNotEmpty() && out.none { it.second == nm }) out.add(nm to nm)
+        }
+        out.add("custom" to "custom")
+        return out
+    }
+
+    private fun refreshProviderBtn() {
+        val btn = providerBtn ?: return
+        val id = providerFieldId
+        val items = providerItems()
+        var cur = (values[id] ?: prefs.getString(id, null))?.toString()?.trim() ?: ""
+        if (cur.isEmpty() || items.none { it.second == cur }) cur = "auto"
+        values[id] = cur
+        prefs.edit().putString(id, cur).apply()
+        val nm = items.firstOrNull { it.second == cur }?.first ?: "auto"
+        btn.text = "$nm  ▾"
+    }
+
+    private fun addProviderField(row: LinearLayout, lbl: String, info: String, id: String) {
+        providerFieldId = id
+        if (lbl.isNotEmpty()) row.addView(label(lbl))
+        val btn = Button(this).apply {
+            setTextColor(TXT); textSize = 14f
+            background = rounded(CARD2, 10, 1)
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(11), dp(12), dp(11))
+            stateListAnimator = null
+        }
+        providerBtn = btn
+        btn.setOnClickListener {
+            val items = providerItems()
+            AlertDialog.Builder(this)
+                .setTitle(lbl)
+                .setItems(items.map { it.first }.toTypedArray()) { _, w ->
+                    saveVal(id, items[w].second)
+                    refreshProviderBtn()
+                }.show()
+        }
+        row.addView(btn)
+        if (info.isNotEmpty()) row.addView(TextView(this).apply {
+            text = info; setTextColor(MUT); textSize = 11f
+            setPadding(dp(2), dp(3), dp(2), dp(4))
+        })
+        refreshProviderBtn()
+        fieldViews[id] = btn
+
+        // ── لیستِ مدلهایِ من: هر مدل = «نام ✖» — ضربدرِ چسبیده به اسم ──
+        row.addView(label("مدل‌های من (حذف = ✖ِ کنارِ اسم)"))
+        val chips = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        cmChipsBox = chips
+        row.addView(chips)
+        renderCmChips()
+
+        // ── دکمهٔ افزودن (بدونِ فیلدِ «نام مدل جدید» — مثلِ وب) ──
+        val addBtn = Button(this).apply {
+            text = "+ افزودن به لیست مدل‌ها"
+            setTextColor(Color.WHITE); textSize = 13.5f
+            typeface = Typeface.DEFAULT_BOLD
+            background = rounded(Color.parseColor("#101014"), 14, 1,
+                Color.parseColor("#3a3a45"))
+            setPadding(dp(12), dp(11), dp(12), dp(11))
+            stateListAnimator = null
+        }
+        addBtn.setOnClickListener { onAddModel() }
+        row.addView(addBtn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        row.addView(TextView(this).apply {
+            text = ("«+ افزودن» مدلِ فعلیِ صفحه (دامنه/کلید/مدل) را با یک نام در "
+                    + "«لیست مدل‌ها» بالا ثبت میکند؛ در حافظهٔ دستگاه میماند، در "
+                    + "منوی انتخابِ AI میآید و در بکاپ هم ذخیره میشود.")
+            setTextColor(MUT); textSize = 11f
+            setPadding(dp(2), dp(3), dp(2), dp(4))
+        })
+    }
+
+    private fun renderCmChips() {
+        val box = cmChipsBox ?: return
+        box.removeAllViews()
+        val list = cmLoad()
+        if (list.isEmpty()) {
+            box.addView(TextView(this).apply {
+                text = "هنوز مدلی در لیست نیست — فیلدها را پر کن و «+ افزودن» را بزن."
+                setTextColor(MUT); textSize = 11.5f
+                setPadding(dp(2), dp(2), dp(2), dp(4))
+            })
+            return
+        }
+        for ((i, m) in list.withIndex()) {
+            val nm = m.optString("name")
+            val chip = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = rounded(Color.parseColor("#14141a"), 999, 1, LINE)
+                setPadding(dp(12), dp(5), dp(5), dp(5))
+            }
+            chip.addView(TextView(this).apply {
+                text = "${i + 1}. "
+                setTextColor(MUT); textSize = 13f
+            })
+            chip.addView(TextView(this).apply {
+                text = nm
+                setTextColor(TXT); textSize = 13.5f; typeface = Typeface.DEFAULT_BOLD
+            })
+            val xBtn = Button(this).apply {
+                text = "✖"
+                setTextColor(Color.parseColor("#ff7b7b")); textSize = 12f
+                background = rounded(Color.TRANSPARENT, 999, 1,
+                    Color.parseColor("#66ff5a5a"))
+                setPadding(dp(9), dp(1), dp(9), dp(1))
+                stateListAnimator = null
+                minWidth = 0
+                minimumWidth = 0
+                setOnClickListener {
+                    val newList = cmLoad().filter { it.optString("name") != nm }
+                    cmSave(newList)
+                    val pid = providerFieldId
+                    val cur = (values[pid] ?: prefs.getString(pid, null))?.toString() ?: ""
+                    if (cur == nm) {
+                        saveVal(pid, "auto")
+                        refreshProviderBtn()
+                    }
+                    renderCmChips()
+                    Toast.makeText(this@MainActivity,
+                        "مدلِ «$nm» از لیست و منو حذف شد", Toast.LENGTH_SHORT).show()
+                }
+            }
+            chip.addView(xBtn, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
+            box.addView(chip, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+        }
+    }
+
+    private fun fieldText(vararg ids: String): String {
+        for (fid in ids) {
+            val v = fieldViews[fid]
+            if (v is EditText && v.text.isNotBlank()) return v.text.toString().trim()
+        }
+        for (fid in ids) {
+            val s = prefs.getString(fid, null)
+            if (!s.isNullOrBlank() && !s.equals("null", true) && !s.equals("undefined", true)) {
+                return s.trim()
+            }
+        }
+        return ""
+    }
+
+    private fun onAddModel() {
+        val base = fieldText("manga_api_base", "api_base")
+        val key = fieldText("manga_api_keys", "api_keys", "keys")
+        val mdl = fieldText("manga_model", "model")
+        if (mdl.isBlank() && base.isBlank()) {
+            Toast.makeText(this,
+                "اول «مدل» (و برای custom «دامنهٔ API») را پر کن، بعد «+ افزودن» را بزن",
+                Toast.LENGTH_LONG).show()
+            return
+        }
+        val input = EditText(this).apply {
+            setText(if (mdl.isNotBlank()) mdl else "")
+            setTextColor(TXT)
+            setHintTextColor(MUT)
+            hint = "نامِ مدل (مثلاً Kk)"
+            textSize = 14f
+            background = rounded(CARD2, 10, 1)
+            setPadding(dp(12), dp(11), dp(12), dp(11))
+        }
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(0))
+            addView(TextView(this@MainActivity).apply {
+                text = "نامِ این مدل در لیست (خالی بگذاری = نامِ خودِ مدل):"
+                setTextColor(MUT); textSize = 12f
+                setPadding(dp(4), 0, dp(4), dp(6))
+            })
+            addView(input)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("افزودن به لیست مدل‌ها")
+            .setView(wrap)
+            .setPositiveButton("افزودن") { _, _ ->
+                var nm = input.text.toString().trim()
+                if (nm.isEmpty()) nm = mdl
+                if (nm.isEmpty()) {
+                    Toast.makeText(this, "نامِ مدل خالی ماند — نام بده یا «مدل» را پر کن",
+                        Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                val list = cmLoad()
+                list.removeAll { it.optString("name") == nm }
+                list.add(JSONObject().apply {
+                    put("name", nm)
+                    put("api_base", base)
+                    put("api_key", key)
+                    put("model", mdl)
+                })
+                cmSave(list)
+                refreshProviderBtn()
+                renderCmChips()
+                Toast.makeText(this, "✔ مدلِ «$nm» به لیست اضافه شد",
+                    Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("بی‌خیال", null)
+            .show()
+    }
+
+    // ══ v1.14.220 — بخشِ بومیِ «بکاپ و بازیابی» — جایِ دو باکسِ بزرگِ آپلود:
+    // گرفتنِ بکاپ = یک کلیک، ذخیرهٔ خودکارِ JSON در Download/manga
+    // Import = دکمهٔ هماندازهٔ خودِ بکاپ (بدونِ باکسِ بزرگ) ══
+    private fun backupKeys(): List<String> = listOf(
+        "provider", "api_base", "api_keys", "model", "ocr_lang", "out_fmt",
+        "quality", "workers", "bubbles", "timeout", "batchw", "maxre",
+        "reqdelay", "temp", "readord", "clean_method", "two_pass",
+        "fake_test", "clean_only", "web_debug", "prompt_mode",
+        "prompt_body", "glossary_text", "story_brief")
+
+    // v1.14.220 — همارزِ شناسهها (کلیدِ بکاپِ وب ↔ فیلدِ اندروید):
+    // prompt_body در وب از کامپوننتِ prompt_preview_body میآید
+    private fun settingIds(k: String): List<String> = when (k) {
+        "prompt_body" -> listOf("prompt_preview_body", "manga_prompt_body", "prompt_body")
+        else -> listOf(k, "manga_$k")
+    }
+
+    private fun readSetting(k: String): Any? {
+        for (kid in settingIds(k)) {
+            val view = fieldViews[kid]
+            when (view) {
+                is EditText -> return view.text.toString()
+                is SwitchCompat -> return view.isChecked
+                is com.google.android.material.slider.Slider ->
+                    return if (view.stepSize % 1.0 != 0.0) view.value.toDouble()
+                    else view.value.toInt()
+            }
+        }
+        for (kid in settingIds(k)) {
+            (values[kid])?.let { return it.toString() }
+        }
+        for (kid in settingIds(k)) {
+            prefs.getString(kid, null)?.let { if (!it.equals("null", true)) return it }
+        }
+        return ""
+    }
+
+    private fun setBackupStatus(t: String, err: Boolean = false) {
+        val st = backupStatusView ?: return
+        st.text = t
+        st.setTextColor(if (err) Color.parseColor("#ff6b6b") else TXT)
+        st.visibility = View.VISIBLE
+    }
+
+    private fun doBackup() {
+        Thread {
+            var cacheFile: File? = null
+            try {
+                val settings = JSONObject()
+                for (k in backupKeys()) {
+                    val v = readSetting(k)
+                    when (v) {
+                        null -> settings.put(k, "")
+                        is Boolean -> settings.put(k, v)
+                        is Number -> settings.put(k, v)
+                        else -> settings.put(k, v.toString())
+                    }
+                }
+                val arr = org.json.JSONArray()
+                for (m in cmLoad()) arr.put(m)
+                val payload = JSONObject()
+                payload.put("_type", "manga_autotranslate_backup")
+                payload.put("app_ver", manifestAppVer.ifBlank { installedVersionName() })
+                payload.put("exported_at",
+                    java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+                        .format(java.util.Date()))
+                payload.put("custom_models", arr)
+                payload.put("settings", settings)
+                val f = File(cacheDir, "manga_backup_${stampNow()}.json")
+                cacheFile = f
+                f.writeText(payload.toString(2))
+                val ok = saveAnyToDownloads(f.absolutePath, null, f.name)
+                ui.post {
+                    if (ok) {
+                        setBackupStatus("✅ بکاپ ذخیره شد: Download/manga/${f.name} "
+                                + "(${arr.length()} مدل + ${settings.length()} تنظیم)")
+                        Toast.makeText(this,
+                            "✔ بکاپ ذخیره شد: Download/manga/${f.name}",
+                            Toast.LENGTH_LONG).show()
+                    } else {
+                        setBackupStatus("❌ ذخیرهٔ بکاپ ناموفق بود", true)
+                        Toast.makeText(this, "❌ ذخیرهٔ بکاپ ناموفق بود",
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                ui.post { setBackupStatus("❌ پشتیبان ناموفق: ${e.message}", true) }
+            } finally {
+                try { cacheFile?.delete() } catch (_: Exception) {}
+            }
+        }.start()
+    }
+
+    private fun applySetting(k: String, v: Any?) {
+        if (v == null || v === JSONObject.NULL) return
+        val s = v.toString()
+        var view: View? = null
+        for (kid in settingIds(k)) {
+            view = fieldViews[kid]
+            if (view != null) break
+        }
+        when (view) {
+            is EditText -> view.setText(s)
+            is SwitchCompat -> {
+                view.isChecked = (v is Boolean && v) || s.equals("true", true) || s == "1"
+            }
+            is com.google.android.material.slider.Slider -> {
+                val fv = s.toDoubleOrNull() ?: return
+                view.value = fv.coerceIn(view.valueFrom, view.valueTo)
+            }
+            is Button -> {
+                values[k] = s
+                prefs.edit().putString(k, s).apply()
+                val items = selectMaps[k]
+                val nm = items?.firstOrNull { it.second == s }?.first ?: s
+                view.text = "$nm  ▾"
+            }
+            is ViewGroup -> {
+                values[k] = s
+                prefs.edit().putString(k, s).apply()
+                fun walk(vg: ViewGroup) {
+                    for (i in 0 until vg.childCount) {
+                        val c = vg.getChildAt(i)
+                        if (c is RadioButton) c.isChecked = (c.text.toString() == s)
+                        else if (c is ViewGroup) walk(c)
+                    }
+                }
+                walk(view)
+            }
+            else -> {
+                values[k] = s
+                prefs.edit().putString(k, s).apply()
+            }
+        }
+    }
+
+    private fun doImport(path: String) {
+        try {
+            val payload = JSONObject(File(path).readText())
+            if (payload.optString("_type") != "manga_autotranslate_backup") {
+                setBackupStatus("❌ این فایلِ پشتیبانِ این اپ نیست.", true)
+                Toast.makeText(this, "❌ این فایلِ پشتیبانِ این اپ نیست",
+                    Toast.LENGTH_LONG).show()
+                return
+            }
+            val st = payload.optJSONObject("settings") ?: JSONObject()
+            var n = 0
+            for (k in backupKeys()) {
+                if (st.has(k) && !st.isNull(k)) {
+                    applySetting(k, st.get(k))
+                    n++
+                }
+            }
+            val arr = payload.optJSONArray("custom_models")
+            val list = mutableListOf<JSONObject>()
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val nm = o.optString("name").trim()
+                    if (nm.isEmpty()) continue
+                    list.add(JSONObject().apply {
+                        put("name", nm)
+                        put("api_base", o.optString("api_base").trim())
+                        put("api_key", o.optString("api_key").trim())
+                        put("model", o.optString("model").trim())
+                    })
+                }
+            }
+            cmSave(list)
+            refreshProviderBtn()
+            renderCmChips()
+            setBackupStatus("✅ بازیابیِ کامل شد: ${list.size} مدل + $n تنظیم (از فایلِ بکاپ).")
+            Toast.makeText(this,
+                "✅ بازیابی کامل شد: ${list.size} مدل + $n تنظیم", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            setBackupStatus("❌ بازیابی ناموفق: ${e.message}", true)
+            Toast.makeText(this, "❌ بازیابی ناموفق: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun addBackupSection(box: LinearLayout) {
+        box.addView(TextView(this).apply {
+            text = ("«گرفتن بکاپ» همه‌چیز (لیستِ مدلها + تمامِ تنظیمات) را با یکِ "
+                    + "کلیک در Download/manga ذخیره میکند — بدونِ کلیکِ دوم. "
+                    + "«Import» دکمهای هماندازهٔ خودش است (بدونِ باکسِ بزرگ) — فایلِ "
+                    + "بکاپ را انتخاب کن تا همه‌چیز کامل برگردد.")
+            setTextColor(MUT); textSize = 11.5f
+            setPadding(dp(2), dp(2), dp(2), dp(6))
+        })
+        val backupBtn = Button(this).apply {
+            text = "⬇️  گرفتن بکاپ (ذخیرهٔ خودکار JSON)"
+            setTextColor(Color.WHITE); textSize = 13.5f; typeface = Typeface.DEFAULT_BOLD
+            background = gradBtn()
+            setPadding(0, dp(11), 0, dp(11))
+            stateListAnimator = null
+        }
+        backupBtn.setOnClickListener {
+            if (!canWritePublic()) {
+                requestPermissions(arrayOf(
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE), REQ_STORAGE)
+                Toast.makeText(this, "اول اجازهٔ حافظه را بده، بعد دوباره بزن",
+                    Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            doBackup()
+        }
+        box.addView(backupBtn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+        val importBtn = Button(this).apply {
+            text = "⬆️  Import — بازیابی از فایلِ بکاپ"
+            setTextColor(TXT); textSize = 13.5f; typeface = Typeface.DEFAULT_BOLD
+            background = rounded(Color.parseColor("#101014"), 14, 1,
+                Color.parseColor("#3a3a45"))
+            setPadding(0, dp(11), 0, dp(11))
+            stateListAnimator = null
+        }
+        importBtn.setOnClickListener {
+            pickerField = "__import_backup__"
+            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                    "application/json", "text/plain", "application/octet-stream"))
+            }
+            startActivityForResult(
+                Intent.createChooser(intent, "انتخاب فایلِ بکاپ (JSON)"), REQ_IMPORT)
+        }
+        box.addView(importBtn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+        val st = TextView(this).apply {
+            setTextColor(MUT); textSize = 12f
+            setPadding(dp(2), dp(6), dp(2), dp(2))
+            visibility = View.GONE
+        }
+        backupStatusView = st
+        box.addView(st)
     }
 
     private fun addField(card: LinearLayout, f: JSONObject) {
@@ -1452,15 +1974,80 @@ class MainActivity : AppCompatActivity() {
                             try {
                                 val p = JSONObject()
                                 val prov = settingVal("provider", "manga_provider")
-                                    .ifBlank { "gemini" }
+                                    .ifBlank { "auto" }
                                 val keyVal = settingVal("manga_api_keys", "api_keys", "keys")
                                 val baseVal = settingVal("manga_api_base", "api_base")
                                 val modelVal = settingVal("manga_model", "model")
-                                p.put("keys", keyVal)
-                                p.put("provider", prov)
-                                p.put("api_base", baseVal)
-                                p.put("model", modelVal)
-                                res = JSONObject(bridge.callAttr("test_keys", p.toString()).toString())
+                                // v1.14.220 — مثلِ وب: «auto» = تستِ همهٔ مدلها
+                                // (اولینِ سالم)؛ «مدلِ نامی» = تستِ همان مدل از
+                                // لیستِ مدلها؛ gemini/custom = مثلِ قبل
+                                if (prov == "auto" || (prov != "gemini" && prov != "custom")) {
+                                    val cm = cmLoad()
+                                    // [label, provider, base, key, model]
+                                    val cands = mutableListOf<Array<String>>()
+                                    if (prov == "auto") {
+                                        cands.add(arrayOf("gemini", "gemini", "", keyVal, modelVal))
+                                        for (m in cm) {
+                                            cands.add(arrayOf(
+                                                m.optString("name").ifBlank { "مدل" },
+                                                if (m.optString("api_base").isBlank()) "gemini" else "custom",
+                                                m.optString("api_base"),
+                                                m.optString("api_key").ifBlank { keyVal },
+                                                m.optString("model").ifBlank { modelVal }))
+                                        }
+                                    } else {
+                                        val hit = cm.firstOrNull {
+                                            it.optString("name") == prov
+                                        }
+                                        if (hit != null) {
+                                            cands.add(arrayOf(prov,
+                                                if (hit.optString("api_base").isBlank()) "gemini" else "custom",
+                                                hit.optString("api_base"),
+                                                hit.optString("api_key").ifBlank { keyVal },
+                                                hit.optString("model").ifBlank { modelVal }))
+                                        } else {
+                                            cands.add(arrayOf(prov, "gemini", baseVal, keyVal, modelVal))
+                                        }
+                                    }
+                                    val lines = mutableListOf<String>()
+                                    var hitIdx = -1
+                                    for ((idx, c) in cands.withIndex()) {
+                                        try {
+                                            val q = JSONObject()
+                                            q.put("keys", c[3])
+                                            q.put("provider", c[1])
+                                            q.put("api_base", c[2])
+                                            q.put("model", c[4])
+                                            val r = JSONObject(bridge.callAttr(
+                                                "test_keys", q.toString()).toString())
+                                            val txt = r.optString("text")
+                                                .takeIf { it.isNotBlank() && !it.equals("null", true) }
+                                            if (txt != null && txt.contains("✔")) {
+                                                lines.add("✔ ${c[0]}: در دسترس است")
+                                                hitIdx = idx
+                                                break
+                                            }
+                                            val er = r.optString("error")
+                                                .takeIf { it.isNotBlank() && !it.equals("null", true) }
+                                            lines.add("✘ ${c[0]}: " +
+                                                    (er?.take(80) ?: (txt?.take(80) ?: "در دسترس نیست")))
+                                        } catch (e: Exception) {
+                                            lines.add("✘ ${c[0]}: ${e.message?.take(80) ?: "خطا"}")
+                                        }
+                                    }
+                                    if (hitIdx >= 0) {
+                                        lines.add("→ «${cands[hitIdx][0]}» استفاده میشود")
+                                    } else if (prov == "auto") {
+                                        lines.add("❌ هیچ‌کدام از مدلها در دسترس نبود")
+                                    }
+                                    res = JSONObject().put("text", lines.joinToString("\n"))
+                                } else {
+                                    p.put("keys", keyVal)
+                                    p.put("provider", prov)
+                                    p.put("api_base", baseVal)
+                                    p.put("model", modelVal)
+                                    res = JSONObject(bridge.callAttr("test_keys", p.toString()).toString())
+                                }
                             } catch (e: Exception) {
                                 err = e.message ?: e.toString()
                             }
@@ -1496,6 +2083,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             "select" -> {
+                // v1.14.220 — منویِ انتخابِ AI (provider) بهجایِ دراپ‌داونِ
+                // ثابتِ manifest، بومی ساخته میشود: auto | gemini | مدلهایِ
+                // من | custom + چیپهایِ «نام ✖» + دکمهٔ افزودن
+                if (id == "provider" || id == "manga_provider") {
+                    addProviderField(row, lbl, info, id)
+                    return
+                }
                                 val items = ArrayList<Pair<String, String>>()
                 f.optJSONArray("choices")?.let { ch ->
                     for (i in 0 until ch.length()) {
@@ -1529,6 +2123,8 @@ class MainActivity : AppCompatActivity() {
                 row.addView(btn)
                 infoView()?.let { row.addView(it) }
                 fieldViews[id] = btn
+                // v1.14.220 — نقشهٔ نام↔مقدار برایِ «Import» (applySetting)
+                selectMaps[id] = items
             }
             "radio" -> {
                                 val choices = f.optJSONArray("choices")!!
@@ -1794,6 +2390,9 @@ class MainActivity : AppCompatActivity() {
             ?: pickedFiles["inp_upload"] ?: "")
         map.put("file", pickedFiles["inp_upload"] ?: "")
         map.put("provider", firstNonEmpty(o, "provider") ?: "gemini")
+        // v1.14.220 — مدلهایِ سفارشی برایِ resolveِ «auto» و «مدلِ نامی»
+        // سمتِ پایتون (bridge) — مثلِ وب؛ manga.py دستنخورده میماند
+        map.put("custom_models", cmJson())
         map.put("keys", firstNonEmpty(o, "manga_api_keys", "api_keys", "keys") ?: "")
         map.put("model", firstNonEmpty(o, "manga_model", "model") ?: "")
         map.put("api_base", firstNonEmpty(o, "manga_api_base", "api_base") ?: "")
@@ -3187,6 +3786,26 @@ class MainActivity : AppCompatActivity() {
 
 override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        // v1.14.220 — Importِ بکاپ از دکمهٔ «Import» (بدونِ باکسِ آپلود)
+        if (requestCode == REQ_IMPORT && resultCode == Activity.RESULT_OK &&
+            data != null && data.data != null) {
+            val uri = data.data!!
+            val dst = File(cacheDir, "import_" + System.currentTimeMillis() + ".json")
+            try {
+                contentResolver.openInputStream(uri)?.use { i ->
+                    dst.outputStream().use { o -> i.copyTo(o) }
+                }
+            } catch (_: Exception) {
+            }
+            if (dst.isFile && dst.length() > 0) {
+                doImport(dst.absolutePath)
+                try { dst.delete() } catch (_: Exception) {}
+            } else {
+                setBackupStatus("❌ خواندنِ فایلِ بکاپ ناموفق بود.", true)
+                Toast.makeText(this, "❌ خواندنِ فایل ناموفق بود", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
         if (requestCode == REQ_FILE && resultCode == Activity.RESULT_OK && data != null) {
 
             val uris = mutableListOf<Uri>()
@@ -3262,5 +3881,6 @@ override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) 
     companion object {
         const val REQ_FILE = 1001
         const val REQ_STORAGE = 1002
+        const val REQ_IMPORT = 1003
     }
 }

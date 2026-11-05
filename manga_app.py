@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.219"
+APP_VER = "1.14.220"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -373,29 +373,26 @@ def _attr_json(s: str) -> str:
 
 
 def _render_models_html(models: list) -> str:
-    """فهرستِ شماره‌دارِ مدلهایِ ذخیرهشده (برای جابه‌جایی/حذف/بارگذاری).
-    v1.14.218 — کنارِ هر مدلِ کاربر یک ضربدرِ ✖ِ حذف هست."""
+    """v1.14.220 — لیستِ فشردهٔ چیپی: هر مدل = «۱. نام ✖» — ضربدرِ حذف
+    دقیقاً کنارِ خودِ اسم (دستورِ سازنده: «نمیشد کنار خوده اسم مدل ضربدر
+    اورد؟ حتما باید پایین بزاری») و همین لیست درست زیرِ منویِ انتخابِ AI
+    می‌نشیند تا با اسکرول سرِ کارِ کاربر نرود؛ جدولِ بلندِ ۶ستونیِ ۲۱۷/۲۱۸
+    کلاً حذف شد."""
     if not models:
-        return ("<div class='hint'>مدل سفارشیِ ذخیره‌شده‌ای نیست — دامنه/کلید/"
-                "نامِ مدل را در فیلدهای بالا پر کنید و ➕ «+ افزودن به لیست "
-                "مدل‌ها» را بزنید.</div>")
-    rows = []
+        return ("<div class='hint cm-chips-empty'>هنوز مدلی در «لیست مدل‌ها» "
+                "نیست — دامنه/کلید/مدل را پر کن و «+ افزودن به لیست مدل‌ها» "
+                "را بزن.</div>")
+    chips = []
     for i, m in enumerate(models, 1):
-        _k = (m.get("api_key") or "")
-        _kh = ("✓ " + _k[:3] + "…" + _k[-3:]) if len(_k) > 8 else ("✓" if _k else "—")
         _nm = str(m.get("name") or "")
-        rows.append(
-            f"<tr><td>{i}</td><td><b>{_nm[:40]}</b></td>"
-            f"<td>{str(m.get('model') or '—')[:40]}</td>"
-            f"<td dir='ltr'>{str(m.get('api_base') or '—')[:60]}</td>"
-            f"<td>{_kh}</td>"
-            f"<td class='cm-xcell'><button type='button' class='cm-x' "
+        chips.append(
+            f"<span class='cm-chip'><span class='cm-chip-n'>{i}. "
+            f"<b>{_nm[:40]}</b></span>"
+            f"<button type='button' class='cm-x' "
             f"data-name='{_attr_json(_nm)}' "
-            f"title='حذفِ {_nm[:30]} از لیست و منویِ AI'>✖</button></td></tr>")
-    return (
-        "<table class='cm-table'><thead><tr><th>#</th><th>نام</th>"
-        "<th>مدل</th><th>دامنهٔ API</th><th>کلید</th><th></th></tr></thead><tbody>"
-        + "".join(rows) + "</tbody></table>")
+            f"title='حذفِ {_nm[:30]} از لیست و منویِ AI'>✖</button></span>")
+    return ("<div class='cm-chips'><span class='cm-chips-t'>مدل‌های من:</span>"
+            + "".join(chips) + "</div>")
 
 
 def _cm_choices(models: list) -> list:
@@ -1317,18 +1314,22 @@ body, .gradio-container, footer, .gradio-container .prose {
 }
 .hint { color: var(--ink-dim) !important; font-size: .83rem; margin-top: 8px; }
 
-/* v1.14.217 — جدولِ مدلهایِ سفارشی */
-.cm-table{width:100%;border-collapse:collapse;margin:6px 0 2px;font-size:.82rem}
-.cm-table th{color:var(--ink-dim);font-weight:600;text-align:right;
-  padding:4px 8px;border-bottom:1px solid var(--ink-line)}
-.cm-table td{padding:5px 8px;border-bottom:1px solid var(--ink-line);
-  color:var(--ink-text)}
-.cm-table td:first-child{color:var(--ink-dim);width:26px}
-/* v1.14.218 — ضربدرِ حذفِ کنارِ هر مدلِ کاربر */
-.cm-table td.cm-xcell{width:34px;text-align:center}
+/* v1.14.220 — لیستِ فشردهٔ چیپیِ مدلها (دستورِ سازنده: «کنار خوده اسم
+   مدل ضربدر» — ضربدرِ حذف دقیقاً چسبیده به خودِ اسم، زیرِ منویِ انتخابِ
+   AI، نه جدولِ بلندی که پایینِ صفحه باشد و با اسکرول جابهجا شود) */
+.cm-chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;
+  margin:2px 0 4px;padding:0}
+.cm-chips-t{color:var(--ink-dim) !important;font-size:.82rem;flex:none}
+.cm-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;
+  background:rgba(255,255,255,.045);border:1px solid var(--ink-line);
+  border-radius:999px;padding:3px 4px 3px 5px}
+.cm-chip-n{color:var(--ink-text) !important;font-size:.9rem;
+  padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:46vw}
+.cm-chip-n b{color:#fff;font-weight:700}
 .cm-x{background:transparent;border:1px solid rgba(255,90,90,.4);
-  border-radius:8px;color:#ff7b7b;cursor:pointer;font-size:.9rem;
-  line-height:1;padding:4px 9px;transition:all .15s ease}
+  border-radius:999px;color:#ff7b7b;cursor:pointer;font-size:.85rem;
+  line-height:1;padding:4px 8px;transition:all .15s ease;flex:none}
 .cm-x:hover{background:rgba(255,70,70,.18);color:#ff4d4d;transform:scale(1.08)}
 .cm-x:active{transform:scale(.94)}
 /* v1.14.219 — کانالهایِ پنهانِ مرورگر↔سرور: gradio 6 کامپوننتهایِ
@@ -2475,6 +2476,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 info=("«auto» خودش بینِ Gemini و مدل‌هایِ شما اولینِ در دسترس را "
                       "انتخاب میکند (خطا/عدمِ دسترسی → بعدی). مدلِ مشخص = فقط و "
                       "فقط همان استفاده میشود. «custom» = فیلدهایِ همین صفحه."))
+            # v1.14.220 — دستورِ سازنده: «نمیشد کنار خوده اسم مدل ضربدر اورد؟
+            # حتما باید پایین بزاری بعد صفحه بالا پایین کنم دکمه ها بالا پایین
+            # میشن» → لیستِ مدلها همین‌جا، درست زیرِ منویِ انتخابِ AI رندر
+            # میشود (هر مدل = «نام ✖» — ضربدرِ چسبیده به خودِ اسم) و برایِ
+            # همهٔ providerها دیده میشود (۲۱۹ اشتباهاً فقط رویِ custom
+            # نشانش میداد؛ «مشکل اول افزودن مدل فقط وقتی بیاد رفتم رو کاستوم»)
+            models_list_html = gr.HTML(
+                _render_models_html(_init_models),
+                elem_id="manga_cm_list")
             api_base = gr.Textbox(label="دامنهٔ API سفارشی (فقط برای provider «custom»)",
                                   value=str(cfg.get("api_base", "") or ""),
                                   placeholder="https://opencode.ai/inference/openai/v1/chat/completions",
@@ -2493,6 +2503,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                    value="",
                                    placeholder="gemini-3.8-flash", scale=2,
                                    elem_id="manga_model")
+            # ── v1.14.217/218/220 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
+            # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
+            # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند.
+            # v1.14.220 — دکمهٔ افزودن همیشه دیده میشود و مستقل از انتخابِ
+            # custom است؛ درست بعد از فیلدها می‌نشیند ──
+            add_model_btn = gr.Button(
+                "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
+                elem_id="manga_cm_add")
+            gr.Markdown("<div class='hint'>«+ افزودن» مدلِ فعلیِ همین صفحه "
+                        "(دامنه/کلید/مدل) را با یک نام در «لیست مدل‌ها» بالا ثبت "
+                        "میکند؛ مدل در حافظهٔ مرورگر/دستگاه می‌ماند، در منویِ "
+                        "انتخابِ AI می‌آید و در بکاپ هم ذخیره میشود. حذفِ مدل = "
+                        "ضربدرِ ✖ِ کنارِ خودش. کلید از aistudio.google.com "
+                        "(Gemini) یا سرویسِ دلخواهِ خودتان بگیرید؛ تنظیمات وب "
+                        "فقط در مرورگر ذخیره میشود.</div>")
             test_key_btn = gr.Button(
                 "تست کلیدها / لینک",
                 scale=1, elem_id="manga_test_key")
@@ -2500,32 +2525,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 label="", value="", interactive=False, show_label=False,
                 elem_id="manga_test_key_out", visible=False,
                 placeholder="وضعیت هر کلید — سالم ✔ / خراب ✘ (بعد از ۶۰ ثانیه خودکار پاک می‌شود)")
-            gr.Markdown("<div class='hint'>کلید از aistudio.google.com (Gemini) یا "
-                        "سرویسِ دلخواهِ خودتان (custom) بگیرید. "
-                        "تنظیمات وب فقط در مرورگر ذخیره می‌شود.</div>")
-            # ── v1.14.217/218 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
-            # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
-            # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند ──
             custom_models_state = gr.State(_init_models)
-            # v1.14.219 — دستورِ سازنده: «افزودن مدل فقط وقتی بیاد رفتم رو
-            # کاستوم» — کلِ بخشِ مدیرِ مدلها (راهنما + دکمهٔ افزودن + لیست با
-            # ضربدرِ ✖ِ کنارِ هر مدل) فقط وقتی دیده میشود که منویِ انتخابِ AI
-            # رویِ «custom» باشد؛ و دراپ‌داونِ «انتخاب مدل» با دکمههایِ
-            # ⬆/⬇/🗑 (از 217) کلاً حذف شد — حذفِ مدل فقط با ✖ِ کنارِ خودِ مدل
-            # در همین لیست است.
-            with gr.Group(visible=False) as cm_manager_group:
-                gr.Markdown("**مدلهایِ من** — فیلدهای بالا (دامنه/کلید/مدل) را پر کنید و "
-                            "«+ افزودن به لیست مدل‌ها» را بزنید؛ مدل در همین لیست "
-                            "می‌ماند (حافظهٔ مرورگر/دستگاه)، در منویِ انتخابِ AI می‌آید "
-                            "و در فایلِ بکاپ هم ذخیره میشود. حذفِ هر مدل = ضربدرِ ✖ِ "
-                            "کنارِ خودش در همین لیست:")
-                with gr.Row():
-                    add_model_btn = gr.Button(
-                        "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
-                        elem_id="manga_cm_add")
-                models_list_html = gr.HTML(
-                    _render_models_html(custom_models_state.value),
-                    elem_id="manga_cm_list")
             cm_json_box = gr.Textbox(
                 value=json.dumps(custom_models_state.value, ensure_ascii=False),
                 visible=False, elem_id="manga_cm_json", container=False)
@@ -2683,18 +2683,22 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             gr.Markdown("<div class='hint'>دکمهٔ «⬇️ گرفتن بکاپ» = با یکِ کلیک، "
                         "فایلِ JSONِ «همه‌چیز» همین‌جا خودکار دانلود میشود: لیستِ "
                         "مدلهایِ شما (نام + دامنه + کلید API + شناسهٔ مدل) و تمامِ "
-                        "تنظیمات. آپلودرِ «⬆️ Import» = همان فایل را انتخاب کنید تا "
-                        "همه‌چیز کامل برگردد. دکمه میگیرد (دانلودِ خودکار)، "
-                        "آپلودر برمی‌گرداند.</div>")
+                        "تنظیمات. دکمهٔ «⬆️ Import» = یک دکمهٔ کوچکِ مثلِ خودِ "
+                        "بکاپ (بدونِ باکسِ بزرگِ آپلود) — کلیک کن، فایلِ بکاپ را "
+                        "انتخاب کن، همه‌چیز کامل برمیگردد. دکمه میگیرد (دانلودِ "
+                        "خودکار)، دکمه برمیگرداند.</div>")
             with gr.Row():
                 backup_btn = gr.Button("⬇️ گرفتن بکاپ (دانلود JSON)",
                                        variant="primary", scale=1,
                                        elem_id="manga_backup_btn")
-                import_file = gr.File(
-                    label="⬆️ Import — بازیابیِ کامل از فایلِ بکاپ (JSON)",
+                # v1.14.220 — دستورِ سازنده: «نمیشد دکمه import مثل همون
+                # backup باشه بزرگ نباشه» → بهجایِ باکسِ بزرگِ drag&drop،
+                # UploadButtonِ هم‌اندازهٔ دکمهٔ بکاپ: کلیک = پنجرهٔ انتخابِ
+                # فایل (اندروید/PC/لینوکس/وب همه همان مرورگرند)
+                import_file = gr.UploadButton(
+                    "⬆️ Import — بازیابی از بکاپ",
                     file_count="single", type="filepath",
-                    file_types=[".json"], scale=2,
-                    elem_classes=["compact-upload"],
+                    file_types=[".json"], variant="secondary", scale=1,
                     elem_id="manga_import_file")
             backup_out = gr.File(label="فایلِ پشتیبان — اگر دانلودِ خودکار شروع "
                                        "نشد، از همین‌جا دانلودش کنید",
@@ -4127,11 +4131,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             )
 
         try:
-            # v1.14.219 — دامنهٔ API و کلِ مدیرِ مدلها فقط رویِ «custom»
+            # v1.14.220 — فقط «دامنهٔ API» رویِ custom ظاهر میشود؛ لیستِ
+            # مدلها و دکمهٔ افزودن دیگر وابسته به custom نیستند (۲۱۹ اشتباهاً
+            # کلِ مدیرِ مدلها را فقط رویِ custom نشان میداد)
             provider.change(
-                lambda p: (gr.update(visible=str(p or "").strip() == "custom"),
-                           gr.update(visible=str(p or "").strip() == "custom")),
-                inputs=[provider], outputs=[api_base, cm_manager_group],
+                lambda p: gr.update(visible=str(p or "").strip() == "custom"),
+                inputs=[provider], outputs=[api_base],
                 api_name="toggle_custom_base",
             )
         except Exception:
@@ -4210,8 +4215,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         # v1.14.218 — جاوااسکریپتِ دکمهٔ «+ افزودن به لیست مدل‌ها»: نام را با
         # پنجرهٔ prompt میپرسد (خالی = نامِ خودِ مدل)، در localStorage مینویسد
         # و از کانالِ manga_cm_add_box به سرور میدهد تا لیست + منویِ AI شود.
+        # v1.14.220 — دکمه مستقل از custom شد: provider از ورودیِ رویداد
+        # میآید؛ «دامنهٔ API» فقط وقتی provider=custom است در مدل ثبت
+        # میشود (چون در بقیهٔ حالتها فیلدش از DOM پنهان است).
         _cm_add_js = """
-() => {
+(prov) => {
   try {
     const gv = (id) => {
       try {
@@ -4221,16 +4229,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         return String((el.value || "")).trim();
       } catch (e) { return ""; }
     };
-    const base = gv("manga_api_base");
+    const onCustom = String(prov || "").trim() === "custom";
+    const base = onCustom ? gv("manga_api_base") : "";
     const key = gv("manga_api_keys");
     const mdl = gv("manga_model");
-    if (!base || !mdl) {
-      try { alert("اول «دامنهٔ API» و «مدل» را پر کنید، بعد «+ افزودن به لیست مدل‌ها» را بزنید."); } catch (e) {}
+    if (!base && !mdl && !key) {
+      try { alert("اول «مدل» و «کلیدهای API» را پر کنید، بعد «+ افزودن به لیست مدل‌ها» را بزنید."); } catch (e) {}
       return [];
     }
     let nm = "";
     try { nm = String(window.prompt("نامِ این مدل در لیست (خالی = نامِ خودِ مدل):", mdl) || "").trim(); } catch (e) { nm = ""; }
     if (!nm) nm = mdl;
+    if (!nm) {
+      try { alert("نامِ مدل خالی ماند — اول فیلدِ «مدل» را پر کن یا یک نام بنویس."); } catch (e) {}
+      return [];
+    }
     let list = [];
     try { list = JSON.parse(localStorage.getItem("manga_custom_models") || "[]") || []; } catch (e) { list = []; }
     if (!Array.isArray(list)) list = [];
@@ -4257,7 +4270,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
         try:
             add_model_btn.click(
-                fn=None, inputs=None, outputs=None, js=_cm_add_js)
+                fn=None, inputs=[provider], outputs=None, js=_cm_add_js)
         except Exception:
             pass
         try:
@@ -4440,7 +4453,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   return [];
 }""",
             )
-            import_file.change(
+            # v1.14.220 — UploadButton رویدادِ upload دارد (بعد از انتخابِ
+            # فایل) — همان هندلرِ قبلیِ _do_import
+            import_file.upload(
                 _do_import,
                 inputs=[import_file, custom_models_state, provider],
                 outputs=[c for _, c in _BACKUP_FIELDS]

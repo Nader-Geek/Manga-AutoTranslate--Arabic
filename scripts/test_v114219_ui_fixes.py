@@ -59,14 +59,26 @@ gate("A2: VERSION versionName=1.14.219", "versionName=1.14.219" in ver)
 gate("A3: VERSION versionCode=223", "versionCode=223" in ver)
 
 print("== B) مشکل ۱ — مدیرِ مدلها فقط رویِ custom ==")
-gate("B1: گروهِ مخفیِ مدیرِ مدلها",
-     'gr.Group(visible=False) as cm_manager_group' in src)
-gate("B2: provider.change مدیرِ مدلها را toggle میکند",
-     re.search(r"provider\.change\(\s*\n\s*lambda p: \(gr\.update\([^\n]*\),\s*\n\s*gr\.update\([^\n]*\)\),\s*\n\s*inputs=\[provider\], outputs=\[api_base, cm_manager_group\]",
-               src) is not None)
-gate("B3: دکمهٔ افزودن و لیست داخلِ همان گروه‌اند (ترتیبِ سورس)",
-     src.index("as cm_manager_group") < src.index('elem_id="manga_cm_add"')
-     < src.index('elem_id="manga_cm_list"') < src.index("manga_cm_restore"))
+# v1.14.220 — ساختارِ مدیرِ مدلها عمداً عوض شد (چیپهایِ «نام ✖» زیرِ منوی
+# AI بهجایِ گروهِ toggleشده) → گیتهایِ B/Cِ ساختاری ممکن است قرمزِ عمدی
+# باشند؛ ولی نباید CRASH کنند — با گاردِ امن اجرا میشوند.
+
+
+def safe_gate(name, fn):
+    try:
+        gate(name, bool(fn()))
+    except Exception as e:
+        gate(name, False, f"گیتِ قدیمی دیگر قابلِ ارزیابی نیست ({type(e).__name__}) — قرمزِ عمدیِ ۲۲۰")
+
+
+safe_gate("B1: گروهِ مخفیِ مدیرِ مدلها",
+          lambda: 'gr.Group(visible=False) as cm_manager_group' in src)
+safe_gate("B2: provider.change مدیرِ مدلها را toggle میکند",
+          lambda: re.search(r"provider\.change\(\s*\n\s*lambda p: \(gr\.update\([^\n]*\),\s*\n\s*gr\.update\([^\n]*\)\),\s*\n\s*inputs=\[provider\], outputs=\[api_base, cm_manager_group\]",
+                            src) is not None)
+safe_gate("B3: دکمهٔ افزودن و لیست داخلِ همان گروه‌اند (ترتیبِ سورس)",
+          lambda: src.index("as cm_manager_group") < src.index('elem_id="manga_cm_add"')
+          < src.index('elem_id="manga_cm_list"') < src.index("manga_cm_restore"))
 gate("B4: دامنهٔ API هم فقط رویِ custom (رفتارِ قبلی حفظ)",
      'gr.update(visible=str(p or "").strip() == "custom")' in src)
 
