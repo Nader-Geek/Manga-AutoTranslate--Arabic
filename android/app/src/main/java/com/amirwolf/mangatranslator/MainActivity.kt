@@ -94,7 +94,9 @@ class MainActivity : AppCompatActivity() {
     // داخلِ بکاپ ذخیره میشوند و با Import برمیگردند ══
     private var providerBtn: Button? = null
     private var providerFieldId: String = "provider"
-    private var cmChipsBox: LinearLayout? = null
+    // v1.14.221 — ✖ِ حذفِ کنارِ منو + دکمهٔ افزودن (بهجایِ لیستِ چیپیِ پایین)
+    private var cmDelBtn: Button? = null
+    private var cmAddBtn: Button? = null
     private var backupStatusView: TextView? = null
     private var manifestAppVer: String = ""
     // v1.14.220 — نقشهٔ نام↔مقدارِ هر select برایِ «Import» (applySetting)
@@ -1293,6 +1295,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 formBox.addView(card, lp)
             }
+            // v1.14.221 — قفلِ نهاییِ فیلدها رویِ auto بعد از ساختهشدنِ
+            // همهٔ فیلدها (کلیدها/مدل دیرتر از منو ساخته میشوند)
+            refreshProviderBtn()
         } catch (e: Exception) {
             loadingRow.visibility = View.GONE
             setLog("❌ ساخت فرم:\n" + (e.message ?: e.toString()))
@@ -1369,9 +1374,12 @@ class MainActivity : AppCompatActivity() {
     // «+ افزودن به لیست مدل‌ها» — مستقل از انتخابِ custom ══
     private fun providerItems(): List<Pair<String, String>> {
         val out = ArrayList<Pair<String, String>>()
-        out.add("auto" to "auto")
+        // v1.14.221 — «auto» فقط وقتی مدلی در لیست باشد (دستورِ سازنده:
+        // «وقتی مدلی تو کاستوم اضافه نکرده باشم دکمه auto نیاد تو لیست مدلا»)
+        val models = cmLoad()
+        if (models.isNotEmpty()) out.add("auto" to "auto")
         out.add("gemini" to "gemini")
-        for (m in cmLoad()) {
+        for (m in models) {
             val nm = m.optString("name").trim()
             if (nm.isNotEmpty() && out.none { it.second == nm }) out.add(nm to nm)
         }
@@ -1384,16 +1392,28 @@ class MainActivity : AppCompatActivity() {
         val id = providerFieldId
         val items = providerItems()
         var cur = (values[id] ?: prefs.getString(id, null))?.toString()?.trim() ?: ""
-        if (cur.isEmpty() || items.none { it.second == cur }) cur = "auto"
+        if (cur.isEmpty() || items.none { it.second == cur }) {
+            // v1.14.221 — بدونِ مدل، «gemini» (auto اصلاً در منو نیست)
+            cur = if (cmLoad().isNotEmpty()) "auto" else "gemini"
+        }
         values[id] = cur
         prefs.edit().putString(id, cur).apply()
-        val nm = items.firstOrNull { it.second == cur }?.first ?: "auto"
+        val nm = items.firstOrNull { it.second == cur }?.first ?: cur
         btn.text = "$nm  ▾"
+        refreshCmDelBtn()
+        applyProviderGate()
     }
 
     private fun addProviderField(row: LinearLayout, lbl: String, info: String, id: String) {
         providerFieldId = id
         if (lbl.isNotEmpty()) row.addView(label(lbl))
+        // v1.14.221 — منو + ✖ِ حذف در یک ردیف: ضربدرِ چسبیده به خودِ منو
+        // (دستورِ سازنده: «هرمدلی ک خودم ساختم انتخاب کنم کنارش ضربدر بیاد
+        // نه پایینش کلی ضربدر نشون بده»)
+        val prow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         val btn = Button(this).apply {
             setTextColor(TXT); textSize = 14f
             background = rounded(CARD2, 10, 1)
@@ -1411,20 +1431,42 @@ class MainActivity : AppCompatActivity() {
                     refreshProviderBtn()
                 }.show()
         }
-        row.addView(btn)
+        prow.addView(btn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val del = Button(this).apply {
+            text = "✖"
+            setTextColor(Color.parseColor("#ff7b7b")); textSize = 13f
+            background = rounded(Color.TRANSPARENT, 999, 1,
+                Color.parseColor("#66ff5a5a"))
+            setPadding(dp(10), dp(2), dp(10), dp(2))
+            stateListAnimator = null
+            minWidth = 0
+            minimumWidth = 0
+        }
+        del.setOnClickListener {
+            val cur = (values[id] ?: prefs.getString(id, null))?.toString()?.trim() ?: ""
+            if (cur.isEmpty()) return@setOnClickListener
+            val newList = cmLoad().filter { it.optString("name") != cur }
+            cmSave(newList)
+            saveVal(id, if (newList.isNotEmpty()) "auto" else "gemini")
+            refreshProviderBtn()
+            Toast.makeText(this@MainActivity,
+                "مدلِ «$cur» از لیست و منو حذف شد", Toast.LENGTH_SHORT).show()
+        }
+        cmDelBtn = del
+        prow.addView(del, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
+        row.addView(prow, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT))
         if (info.isNotEmpty()) row.addView(TextView(this).apply {
             text = info; setTextColor(MUT); textSize = 11f
             setPadding(dp(2), dp(3), dp(2), dp(4))
         })
         refreshProviderBtn()
         fieldViews[id] = btn
-
-        // ── لیستِ مدلهایِ من: هر مدل = «نام ✖» — ضربدرِ چسبیده به اسم ──
-        row.addView(label("مدل‌های من (حذف = ✖ِ کنارِ اسم)"))
-        val chips = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        cmChipsBox = chips
-        row.addView(chips)
-        renderCmChips()
 
         // ── دکمهٔ افزودن (بدونِ فیلدِ «نام مدل جدید» — مثلِ وب) ──
         val addBtn = Button(this).apply {
@@ -1437,75 +1479,47 @@ class MainActivity : AppCompatActivity() {
             stateListAnimator = null
         }
         addBtn.setOnClickListener { onAddModel() }
+        cmAddBtn = addBtn
         row.addView(addBtn, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
         row.addView(TextView(this).apply {
             text = ("«+ افزودن» مدلِ فعلیِ صفحه (دامنه/کلید/مدل) را با یک نام در "
-                    + "«لیست مدل‌ها» بالا ثبت میکند؛ در حافظهٔ دستگاه میماند، در "
-                    + "منوی انتخابِ AI میآید و در بکاپ هم ذخیره میشود.")
+                    + "«لیست مدل‌ها» ثبت میکند؛ در حافظهٔ دستگاه میماند، در "
+                    + "منوی انتخابِ AI میآید و در بکاپ هم ذخیره میشود. حذفِ "
+                    + "مدل = انتخابش در منو و زدنِ ✖ِ کنارِ منو. رویِ «auto» "
+                    + "فیلدها قفل میشوند — خودش بینِ مدلها انتخاب میکند.")
             setTextColor(MUT); textSize = 11f
             setPadding(dp(2), dp(3), dp(2), dp(4))
         })
     }
 
-    private fun renderCmChips() {
-        val box = cmChipsBox ?: return
-        box.removeAllViews()
-        val list = cmLoad()
-        if (list.isEmpty()) {
-            box.addView(TextView(this).apply {
-                text = "هنوز مدلی در لیست نیست — فیلدها را پر کن و «+ افزودن» را بزن."
-                setTextColor(MUT); textSize = 11.5f
-                setPadding(dp(2), dp(2), dp(2), dp(4))
-            })
-            return
+    private fun refreshCmDelBtn() {
+        val btn = cmDelBtn ?: return
+        val cur = (values[providerFieldId]
+            ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
+        val mine = cmLoad().any { it.optString("name") == cur }
+        btn.visibility = if (mine) View.VISIBLE else View.GONE
+    }
+
+    // v1.14.221 — رویِ «auto» هیچ فیلدی برایِ واردکردن نمیماند (دستورِ
+    // سازنده: «وقتی رو auto بزارن اونجا نشه مدلی چیزی وارد کرد»)
+    private fun applyProviderGate() {
+        val cur = (values[providerFieldId]
+            ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
+        val onAuto = cur == "auto"
+        val al = if (onAuto) 0.45f else 1f
+        for (id in arrayOf("manga_api_base", "api_base", "manga_api_keys",
+                           "api_keys", "manga_model", "model")) {
+            val v = fieldViews[id]
+            if (v is EditText) {
+                v.isEnabled = !onAuto
+                v.alpha = al
+            }
         }
-        for ((i, m) in list.withIndex()) {
-            val nm = m.optString("name")
-            val chip = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                background = rounded(Color.parseColor("#14141a"), 999, 1, LINE)
-                setPadding(dp(12), dp(5), dp(5), dp(5))
-            }
-            chip.addView(TextView(this).apply {
-                text = "${i + 1}. "
-                setTextColor(MUT); textSize = 13f
-            })
-            chip.addView(TextView(this).apply {
-                text = nm
-                setTextColor(TXT); textSize = 13.5f; typeface = Typeface.DEFAULT_BOLD
-            })
-            val xBtn = Button(this).apply {
-                text = "✖"
-                setTextColor(Color.parseColor("#ff7b7b")); textSize = 12f
-                background = rounded(Color.TRANSPARENT, 999, 1,
-                    Color.parseColor("#66ff5a5a"))
-                setPadding(dp(9), dp(1), dp(9), dp(1))
-                stateListAnimator = null
-                minWidth = 0
-                minimumWidth = 0
-                setOnClickListener {
-                    val newList = cmLoad().filter { it.optString("name") != nm }
-                    cmSave(newList)
-                    val pid = providerFieldId
-                    val cur = (values[pid] ?: prefs.getString(pid, null))?.toString() ?: ""
-                    if (cur == nm) {
-                        saveVal(pid, "auto")
-                        refreshProviderBtn()
-                    }
-                    renderCmChips()
-                    Toast.makeText(this@MainActivity,
-                        "مدلِ «$nm» از لیست و منو حذف شد", Toast.LENGTH_SHORT).show()
-                }
-            }
-            chip.addView(xBtn, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
-            box.addView(chip, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+        cmAddBtn?.let {
+            it.isEnabled = !onAuto
+            it.alpha = al
         }
     }
 
@@ -1573,7 +1587,6 @@ class MainActivity : AppCompatActivity() {
                 })
                 cmSave(list)
                 refreshProviderBtn()
-                renderCmChips()
                 Toast.makeText(this, "✔ مدلِ «$nm» به لیست اضافه شد",
                     Toast.LENGTH_SHORT).show()
             }
@@ -1689,7 +1702,7 @@ class MainActivity : AppCompatActivity() {
             }
             is com.google.android.material.slider.Slider -> {
                 val fv = s.toDoubleOrNull() ?: return
-                view.value = fv.coerceIn(view.valueFrom, view.valueTo)
+                view.value = fv.toFloat().coerceIn(view.valueFrom, view.valueTo)
             }
             is Button -> {
                 values[k] = s
@@ -1697,6 +1710,9 @@ class MainActivity : AppCompatActivity() {
                 val items = selectMaps[k]
                 val nm = items?.firstOrNull { it.second == s }?.first ?: s
                 view.text = "$nm  ▾"
+                // v1.14.221 — providerِ بازیابیشده = همگامسازیِ ✖ِ کنارِ منو
+                // + قفلِ فیلدها رویِ auto
+                if (k == providerFieldId) refreshProviderBtn()
             }
             is ViewGroup -> {
                 values[k] = s
@@ -1751,7 +1767,6 @@ class MainActivity : AppCompatActivity() {
             }
             cmSave(list)
             refreshProviderBtn()
-            renderCmChips()
             setBackupStatus("✅ بازیابیِ کامل شد: ${list.size} مدل + $n تنظیم (از فایلِ بکاپ).")
             Toast.makeText(this,
                 "✅ بازیابی کامل شد: ${list.size} مدل + $n تنظیم", Toast.LENGTH_LONG).show()

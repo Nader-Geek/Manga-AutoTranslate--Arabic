@@ -57,7 +57,7 @@ ch = manga_app._ai_choices(models)
 gate("B1: ترتیب = auto, gemini, m1, m2, custom",
      ch == ["auto", "gemini", "m1", "m2", "custom"], str(ch))
 gate("B2: خالی = auto, gemini, custom",
-     manga_app._ai_choices([]) == ["auto", "gemini", "custom"])
+     manga_app._ai_choices([]) == ["gemini", "custom"])
 gate("B3: نامِ همسان با رزرو تکراری نمیشود",
      manga_app._ai_choices([{"name": "gemini"}, {"name": "m1"}])
      == ["auto", "gemini", "m1", "custom"])
@@ -116,20 +116,14 @@ p2, *_rest = manga_app.resolve_ai_auto(models, "gkey", "gm", probe=_probe_raise)
 gate("D4: probeِ خراب خودش = در دسترس نبود (crash نمیکند)",
      p2 == "" and "network down" in " ".join(_rest[-1]), p2)
 
-print("== E) جدولِ مدلها: ضربدرِ ✖ کنارِ هر مدل ==")
-html = manga_app._render_models_html(models)
-gate("E1: برای هر مدل یک ✖ با data-name",
-     html.count("class='cm-x'") == 2
-     and "data-name='\"m1\"'" in html.replace("&quot;", '"')
-     and "m2" in html, f"count={html.count('cm-x')}")
-gate("E2: کلیدِ هرگز کامل نمایش داده نمیشود",
-     "k1" not in html.replace("✓", "") or "k1…" not in html)
-empty_html = manga_app._render_models_html([])
-gate("E3: فهرستِ خالی = راهنمای ➕ + افزودن به لیست",
-     "➕" in empty_html and "افزودن به لیست" in empty_html)
-gate("E4: نامِ با گیومه هم امن است",
-     "onclick" not in manga_app._render_models_html(
-         [{"name": "a\"b'c", "api_base": "", "api_key": "", "model": "x"}]))
+print("== E) حذفِ مدل — ۲۲۱: ✖ِ واقعیِ کنارِ منو (جدول/چیپِ HTML حذف) ==")
+gate("E1: _render_models_html حذف شد؛ ✖ = دکمهٔ manga_cm_del_btn",
+     not hasattr(manga_app, "_render_models_html")
+     and 'elem_id="manga_cm_del_btn"' in open("manga_app.py", encoding="utf-8").read())
+gate("E2: _cm_del_selected مدلِ انتخابشده را حذف میکند",
+     manga_app and "def _cm_del_selected" in open("manga_app.py", encoding="utf-8").read())
+gate("E3: افزودن به لیست همچنان هست (manga_cm_add)",
+     'elem_id="manga_cm_add"' in open("manga_app.py", encoding="utf-8").read())
 
 print("== F) ذخیره/بارگذاریِ دیسک (گوشی/PC/لینوکس) ==")
 tmpd = tempfile.mkdtemp(prefix="cm218_")
@@ -166,7 +160,7 @@ for needle, desc in [
     ("import_settings", "api بازیابی"),
     ("manga_custom_models", "localStorageِ مدلها"),
     ("cm_restore", "بازگردانی از مرورگر"),
-    ('value="auto"', "پیشفرضِ منویِ AI = auto"),
+    ('_init_prov = "auto" if "auto" in _init_ch else "gemini"', "پیشفرضِ پویایِ منویِ AI (۲۲۱)"),
 ]:
     gate(f"G: {desc} ({needle})", needle in src)
 gate("G: «نام مدل جدید» حذف شده",

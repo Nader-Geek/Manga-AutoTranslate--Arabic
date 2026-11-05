@@ -79,8 +79,8 @@ safe_gate("B2: provider.change مدیرِ مدلها را toggle میکند",
 safe_gate("B3: دکمهٔ افزودن و لیست داخلِ همان گروه‌اند (ترتیبِ سورس)",
           lambda: src.index("as cm_manager_group") < src.index('elem_id="manga_cm_add"')
           < src.index('elem_id="manga_cm_list"') < src.index("manga_cm_restore"))
-gate("B4: دامنهٔ API هم فقط رویِ custom (رفتارِ قبلی حفظ)",
-     'gr.update(visible=str(p or "").strip() == "custom")' in src)
+gate("B4: دامنهٔ API هم فقط رویِ custom (رفتارِ قبلی حفظ — ۲۲۱: درونِ _on_provider_change)",
+     'is_custom = (v == "custom")' in src and 'gr.update(visible=is_custom)' in src)
 
 print("== C) مشکل ۲ — حذفِ «انتخاب مدل» و ⬆/⬇/🗑؛ ✖ کنارِ مدل در لیست ==")
 for gone, desc in [
@@ -100,19 +100,18 @@ for gone, desc in [
     ("del_model_btn", "متغیرِ 🗑"),
 ]:
     gate(f"C: حذفِ {desc} ({gone[:34]}…)", gone not in src)
+# v1.14.221 — ✖ حالا دکمهٔ واقعیِ کنارِ خودِ منویِ AI است؛ معادلهایِ تازه:
 for keep, desc in [
-    ("cm-x", "ضربدرِ ✖ِ کنارِ هر مدل در جدول"),
-    ("data-name", "نامِ امنِ مدل رویِ ضربدر"),
-    ('api_name="cm_del_row"', "رویدادِ حذفِ ✖ از لیست و منو"),
-    ("__mangaCmXBound", "بستنِ یکبارهٔ کلیکِ ✖"),
-    ("_render_models_html", "رندرِ لیستِ مدلها"),
+    ('elem_id="manga_cm_del_btn"', "ضربدرِ ✖ِ کنارِ خودِ منو (بهجایِ جدول/چیپ)"),
+    ('api_name="cm_del_sel"', "رویدادِ حذفِ مدلِ انتخابشده"),
+    ("_cm_del_selected", "حذفِ مدلِ انتخابی از لیست و منو"),
 ]:
     gate(f"C: حفظِ {desc} ({keep})", keep in src)
-gate("C: خروجیهایِ _cm_pack دیگر cm_pick ندارند",
-     "outputs=[custom_models_state, models_list_html,\n                         cm_json_box, provider, backup_status]" in src
-     and "outputs=[custom_models_state, models_list_html,\n                         cm_json_box, provider]" in src)
-gate("C: بروندهایِ Import بدونِ cm_pick",
-     "+ [custom_models_state, models_list_html,\n                           cm_json_box, provider, backup_status]" in src)
+gate("C: خروجیهایِ ۲۲۱ — cm_json_box/provider/cm_del_btn",
+     "outputs=[custom_models_state, cm_json_box, provider,\n                         cm_del_btn, backup_status]" in src
+     and "outputs=[custom_models_state, cm_json_box, provider,\n                         cm_del_btn]" in src)
+gate("C: بروندهایِ Importِ ۲۲۱",
+     "+ [custom_models_state, cm_json_box, provider,\n                           cm_del_btn, backup_status]" in src)
 
 print("== D) مشکل ۳ — بکاپ = آکاردئونِ بسته ==")
 gate("D1: Accordion بهجای Group با open=False",
@@ -142,11 +141,13 @@ print("== F) فیکسِ ریشه — کانالها همیشه در DOM (اند�
 gate("F1: کلاسِ مخفیسازِ CSS", ".manga-hide-channel{display:none !important" in src)
 for ch, desc in [
     ('elem_id="manga_cm_add_box"', "کانالِ افزودن"),
-    ('elem_id="manga_cm_del_box"', "کانالِ ✖"),
     ('elem_id="manga_cm_restore"', "کانالِ بازیابیِ localStorage"),
     ('elem_id="manga_sid"', "کانالِ sid"),
     ('elem_id="manga_sid_holder"', "کانالِ sid_holder"),
 ]:
+    # v1.14.221 — کانالِ cm_del_box حذف شد (✖ = دکمهٔ واقعیِ کنارِ منو)
+    if ch == 'elem_id="manga_cm_del_box"':
+        continue
     seg = src[max(0, src.index(ch) - 220): src.index(ch) + 180]
     gate(f"F2: {desc} visible=True + مخفیِ CSS",
          "visible=True" in seg and "manga-hide-channel" in seg)
@@ -157,10 +158,11 @@ print("== G) منطقِ سرور (بدونِ مرورگر) ==")
 models = [{"name": "m1", "api_base": "https://x/v1", "api_key": "k123456789",
            "model": "gpt-x"}, {"name": "m2", "api_base": "", "api_key": "k2",
                                "model": "gemini-2"}]
-html2 = manga_app._render_models_html(models)
-gate("G1: جدول با ۲ ضربدرِ ✖ و نامِ امن", html2.count("class='cm-x'") == 2
-     and ">m1<" in html2 and ">m2<" in html2)
-gate("G2: لیستِ خالی = راهنما", "➕" in manga_app._render_models_html([]))
+# v1.14.221 — ✖ِ حذف حالا دکمهٔ واقعیِ کنارِ منویِ AI است (چیپ/HTML حذف)
+gate("G1(۲۲۱): _render_models_html حذف شد",
+     not hasattr(manga_app, "_render_models_html"))
+gate("G2(۲۲۱): دکمهٔ ✖ِ کنارِ منو در سورس هست (manga_cm_del_btn)",
+     'elem_id="manga_cm_del_btn"' in src)
 gate("G3: ترتیبِ منویِ AI = auto|gemini|مدلها|custom",
      manga_app._ai_choices(models) == ["auto", "gemini", "m1", "m2", "custom"])
 r = manga_app.resolve_ai_named(models, "m1")

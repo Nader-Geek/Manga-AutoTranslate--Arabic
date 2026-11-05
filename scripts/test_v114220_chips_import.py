@@ -47,11 +47,12 @@ page = src.decode("utf-8", "ignore")
 chk("APP_VER = 1.14.220 در صفحه", "1.14.220" in page)
 
 print("== ۲) ساختارِ جدیدِ UI در HTMLِ رندرشده ==")
-chk("چیپها: کلاس cm-chips در CSS", ".cm-chips{" in page)
-chk("چیپ: کلاس cm-chip + نامِ بولد (cm-chip-n)", "cm-chip-n" in page)
-chk("ضربدرِ ✖ با data-name (رویدادِ حذف)", "cm-x" in page and "data-name" in page)
+# v1.14.221 — ساختار عوض شد: ✖ِ حذف چسبیده به خودِ منویِ AI (بدونِ چیپ)
+chk("ضربدرِ ✖ِ کنارِ منو (manga_cm_del_btn)", "manga_cm_del_btn" in page)
+chk("چیپهایِ ۲۲۰ کلاً حذف شدند", ".cm-chips{" not in page and "cm-chip-n" not in page)
 chk("جدولِ قدیمیِ cm-table کلاً حذف شد", "cm-table" not in page)
-chk("لیستِ مدلها elem_id=manga_cm_list (زیرِ منوی AI)", "manga_cm_list" in page)
+chk("لیستِ جداگانهٔ مدلها حذف شد (manga_cm_list) — ✖ فقط کنارِ منو",
+    "manga_cm_list" not in page)
 chk("منوی انتخاب AI (منوی انتخاب AI)", "منوی انتخاب AI" in page)
 chk("دکمهٔ افزودن به لیست مدلها", "افزودن به لیست مدل\u200cها" in page or "افزودن به لیست مدل‌ها" in page)
 chk("آکاردئونِ بستهٔ بکاپ", "بکاپ و بازیابی" in page)
@@ -73,7 +74,8 @@ try:
                     continue
     # named routes در gradio 6 داخلِ config نیستند → از endpointها چک میکنیم
     chk("کانالِ cm_add (manga_cm_add_box) در config", "manga_cm_add_box" in deps)
-    chk("کانالِ حذفِ ✖ (manga_cm_del_box) در config", "manga_cm_del_box" in deps)
+    chk("کانالِ قدیمیِ حذف (manga_cm_del_box) حذف شد — ✖ حالا خودِ دکمه است",
+        "manga_cm_del_box" not in deps)
     chk("کانالِ بازیابیِ localStorage (manga_cm_restore) در config", "manga_cm_restore" in deps)
     chk("دامنهٔ API (manga_api_base) در config", "manga_api_base" in deps)
 except Exception as e:
@@ -110,12 +112,14 @@ try:
                                           "api_key": "k12345678", "model": "m-1"},
                                          ensure_ascii=False), [], "auto"])
     outs = json.dumps(out, ensure_ascii=False)
-    chk("cm_add مدل را ثبت کرد (چیپِ رندرشده برگشت)",
-        "تستA" in outs and "cm-chip" in outs, outs[:200])
-    out = call_api("cm_del_row", ["تستA", [], "auto"])
-    outs = json.dumps(out, ensure_ascii=False)
-    chk("cm_del_row حذف کرد (تستA دیگر در چیپها نیست)",
-        "تستA" not in outs and "cm-chip" in outs, outs[:200])
+    chk("cm_add مدل را ثبت کرد (JSONِ مرورگر برگشت)",
+        "تستA" in outs, outs[:200])
+    try:
+        out = call_api("cm_del_row", ["تستA", [], "auto"])
+        ok_del = False
+    except Exception:
+        ok_del = True
+    chk("cm_del_row حذف شد — جایگزین: cm_del_sel (✖ِ کنارِ منو)", ok_del)
 except Exception as e:
     chk("APIهایِ مدلها", False, str(e)[:200])
 
@@ -129,11 +133,10 @@ r = ma.resolve_ai_named([{"name": "مدلِ من", "api_base": "https://b/v1",
                           "api_key": "k", "model": "m"}], "مدلِ من", "pk", "pm")
 chk("resolveِ مدلِ نامی → custom با فیلدهایِ خودش",
     r and r[0] == "custom" and r[1] == "https://b/v1" and r[2] == "k" and r[3] == "m", r)
-html = ma._render_models_html([{"name": "الف", "model": "m", "api_base": "b", "api_key": "x"}])
-chk("چیپِ رندرشده شاملِ نام + ✖ کنارِ هم است",
-    "cm-chip" in html and "cm-x" in html and "الف" in html and "✖" in html, html[:150])
-chk("در چیپ، ضربدر بعد از نام میآید (کنارِ هم)",
-    html.find("الف") < html.find("cm-x"))
+chk("_render_models_html در ۲۲۱ حذف شد (✖ = دکمهٔ کنارِ منو، نه HTML)",
+    not hasattr(ma, "_render_models_html"))
+chk("_ai_choices بدونِ مدل: gemini|custom (بدونِ auto — دستورِ ۲۲۱)",
+    ma._ai_choices([]) == ["gemini", "custom"], ma._ai_choices([]))
 
 proc.kill()
 proc.wait(timeout=10)

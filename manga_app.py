@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.220"
+APP_VER = "1.14.221"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -366,33 +366,14 @@ def save_custom_models(models: list) -> bool:
         return False
 
 
-def _attr_json(s: str) -> str:
-    """v1.14.218 — نامِ مدل برایِ attribute امنِ HTML (JSON + escape)."""
-    import html as _html
-    return _html.escape(json.dumps(str(s or "")), quote=True)
-
-
-def _render_models_html(models: list) -> str:
-    """v1.14.220 — لیستِ فشردهٔ چیپی: هر مدل = «۱. نام ✖» — ضربدرِ حذف
-    دقیقاً کنارِ خودِ اسم (دستورِ سازنده: «نمیشد کنار خوده اسم مدل ضربدر
-    اورد؟ حتما باید پایین بزاری») و همین لیست درست زیرِ منویِ انتخابِ AI
-    می‌نشیند تا با اسکرول سرِ کارِ کاربر نرود؛ جدولِ بلندِ ۶ستونیِ ۲۱۷/۲۱۸
-    کلاً حذف شد."""
-    if not models:
-        return ("<div class='hint cm-chips-empty'>هنوز مدلی در «لیست مدل‌ها» "
-                "نیست — دامنه/کلید/مدل را پر کن و «+ افزودن به لیست مدل‌ها» "
-                "را بزن.</div>")
-    chips = []
-    for i, m in enumerate(models, 1):
-        _nm = str(m.get("name") or "")
-        chips.append(
-            f"<span class='cm-chip'><span class='cm-chip-n'>{i}. "
-            f"<b>{_nm[:40]}</b></span>"
-            f"<button type='button' class='cm-x' "
-            f"data-name='{_attr_json(_nm)}' "
-            f"title='حذفِ {_nm[:30]} از لیست و منویِ AI'>✖</button></span>")
-    return ("<div class='cm-chips'><span class='cm-chips-t'>مدل‌های من:</span>"
-            + "".join(chips) + "</div>")
+def _cm_names(models: list) -> list:
+    """v1.14.221 — فقطِ نامهایِ معتبرِ لیستِ مدلها (بدونِ تکرار/خالی)."""
+    out = []
+    for m in (models or []):
+        nm = str(m.get("name") or "").strip()
+        if nm and nm not in out:
+            out.append(nm)
+    return out
 
 
 def _cm_choices(models: list) -> list:
@@ -406,12 +387,14 @@ def _cm_choices(models: list) -> list:
 def _ai_choices(models: list) -> list:
     """گزینههایِ منویِ انتخابِ AI به ترتیبِ خواستهٔ سازنده:
     اول «auto»، دوم «gemini»، بعد مدلهایِ اضافهشدهٔ کاربر به ترتیبِ
-    افزودن، و آخری «custom». نامِ تکراری/همسان با کلماتِ رزرو نیاید."""
-    out = ["auto", "gemini"]
-    for m in (models or []):
-        nm = str(m.get("name") or "").strip()
-        if nm and nm not in out:
-            out.append(nm)
+    افزودن، و آخری «custom».
+    v1.14.221 — دستورِ سازنده: «وقتی مدلی تو کاستوم اضافه نکرده باشم
+    دکمه auto نیاد تو لیست مدلا» → «auto» فقط وقتی در لیست حداقل یک
+    مدلِ ذخیرهشده باشد در منو میآید؛ بدونِ مدل: gemini | custom."""
+    names = [n for n in _cm_names(models)
+             if n not in ("auto", "gemini", "custom")]
+    out = (["auto"] if names else []) + ["gemini"]
+    out.extend(names)
     out.append("custom")
     return out
 
@@ -1314,24 +1297,17 @@ body, .gradio-container, footer, .gradio-container .prose {
 }
 .hint { color: var(--ink-dim) !important; font-size: .83rem; margin-top: 8px; }
 
-/* v1.14.220 — لیستِ فشردهٔ چیپیِ مدلها (دستورِ سازنده: «کنار خوده اسم
-   مدل ضربدر» — ضربدرِ حذف دقیقاً چسبیده به خودِ اسم، زیرِ منویِ انتخابِ
-   AI، نه جدولِ بلندی که پایینِ صفحه باشد و با اسکرول جابهجا شود) */
-.cm-chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;
-  margin:2px 0 4px;padding:0}
-.cm-chips-t{color:var(--ink-dim) !important;font-size:.82rem;flex:none}
-.cm-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;
-  background:rgba(255,255,255,.045);border:1px solid var(--ink-line);
-  border-radius:999px;padding:3px 4px 3px 5px}
-.cm-chip-n{color:var(--ink-text) !important;font-size:.9rem;
-  padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:46vw}
-.cm-chip-n b{color:#fff;font-weight:700}
-.cm-x{background:transparent;border:1px solid rgba(255,90,90,.4);
-  border-radius:999px;color:#ff7b7b;cursor:pointer;font-size:.85rem;
-  line-height:1;padding:4px 8px;transition:all .15s ease;flex:none}
-.cm-x:hover{background:rgba(255,70,70,.18);color:#ff4d4d;transform:scale(1.08)}
-.cm-x:active{transform:scale(.94)}
+/* v1.14.221 — ضربدرِ ✖ِ حذف، چسبیده به خودِ منویِ انتخابِ AI: مدلِ
+   خودت را در منو انتخاب کن، ✖ِ کنارِ منو میآید و با یک کلیک از لیست و
+   منو پاک میشود (دستورِ سازنده: «هرمدلی ک خودم ساختم انتخاب کنم کنارش
+   ضربدر بیاد نه پایینش کلی ضربدر نشون بده») */
+#manga_cm_del_btn{max-width:56px !important;min-width:44px !important;
+  width:44px !important;flex:none !important;align-self:center !important;
+  background:transparent !important;border:1px solid rgba(255,90,90,.4) !important;
+  border-radius:999px !important;color:#ff7b7b !important;font-size:1.05rem !important;
+  padding:6px 0 !important;transition:all .15s ease}
+#manga_cm_del_btn:hover{background:rgba(255,70,70,.18) !important;color:#ff4d4d !important}
+#manga_cm_del_btn:active{transform:scale(.94)}
 /* v1.14.219 — کانالهایِ پنهانِ مرورگر↔سرور: gradio 6 کامپوننتهایِ
    visible=False را اصلاً در DOM نمیگذارد و همهٔ JSهایی که با setVal
    به سرور خبر میدهند (افزودنِ مدل، ضربدرِ ✖، بازیابیِ localStorage،
@@ -1340,7 +1316,6 @@ body, .gradio-container, footer, .gradio-container .prose {
 .manga-hide-channel{display:none !important;visibility:hidden !important;
   height:0 !important;min-height:0 !important;margin:0 !important;
   padding:0 !important;border:0 !important;overflow:hidden !important}
-.manga-hide-channel + *{display:none !important}
 
 .livehint { color: var(--ink-dim) !important; font-size: .8rem; margin-top: 8px; text-align: center; }
 
@@ -2470,21 +2445,27 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # ترتیب خواستهٔ کاربر: ارائه‌دهنده → لینک (custom) → کلید → مدل → تست
             # v1.14.218 — منویِ انتخابِ AI: auto | gemini | مدلهایِ من | custom
             _init_models = list(load_custom_models())
-            provider = gr.Dropdown(
-                _ai_choices(_init_models), value="auto",
-                label="منوی انتخاب AI", scale=1,
-                info=("«auto» خودش بینِ Gemini و مدل‌هایِ شما اولینِ در دسترس را "
-                      "انتخاب میکند (خطا/عدمِ دسترسی → بعدی). مدلِ مشخص = فقط و "
-                      "فقط همان استفاده میشود. «custom» = فیلدهایِ همین صفحه."))
-            # v1.14.220 — دستورِ سازنده: «نمیشد کنار خوده اسم مدل ضربدر اورد؟
-            # حتما باید پایین بزاری بعد صفحه بالا پایین کنم دکمه ها بالا پایین
-            # میشن» → لیستِ مدلها همین‌جا، درست زیرِ منویِ انتخابِ AI رندر
-            # میشود (هر مدل = «نام ✖» — ضربدرِ چسبیده به خودِ اسم) و برایِ
-            # همهٔ providerها دیده میشود (۲۱۹ اشتباهاً فقط رویِ custom
-            # نشانش میداد؛ «مشکل اول افزودن مدل فقط وقتی بیاد رفتم رو کاستوم»)
-            models_list_html = gr.HTML(
-                _render_models_html(_init_models),
-                elem_id="manga_cm_list")
+            # v1.14.221 — «auto» فقط وقتی در لیست مدلها مدلی باشد در منو
+            # میآید (دستورِ سازنده: «وقتی مدلی تو کاستوم اضافه نکرده باشم
+            # دکمه auto نیاد تو لیست مدلا»)؛ بدونِ مدل: gemini | custom.
+            _init_ch = _ai_choices(_init_models)
+            _init_prov = "auto" if "auto" in _init_ch else "gemini"
+            # v1.14.221 — ضربدرِ ✖ِ حذف، چسبیده به خودِ منو (نه لیستی پایینِ
+            # صفحه): فقط وقتی مدلِ کاربر در منو انتخاب شده باشد دیده میشود
+            # و همان مدلِ انتخابی را از لیست و منو پاک میکند.
+            with gr.Row(elem_id="manga_provider_row"):
+                provider = gr.Dropdown(
+                    _init_ch, value=_init_prov,
+                    label="منوی انتخاب AI", scale=6,
+                    info=("«auto» (فقط با مدلِ اضافهشده) خودش بینِ Gemini و "
+                          "مدل‌هایِ شما اولینِ در دسترس را انتخاب میکند "
+                          "(خطا/عدمِ دسترسی → بعدی). مدلِ مشخص = فقط و فقط "
+                          "همان. «custom» = فیلدهایِ همین صفحه. حذفِ مدلِ "
+                          "خودت = انتخابش در منو + ✖ِ کنارِ منو."))
+                cm_del_btn = gr.Button(
+                    "✖", variant="secondary", scale=0,
+                    elem_id="manga_cm_del_btn",
+                    visible=(_init_prov in _cm_names(_init_models)))
             api_base = gr.Textbox(label="دامنهٔ API سفارشی (فقط برای provider «custom»)",
                                   value=str(cfg.get("api_base", "") or ""),
                                   placeholder="https://opencode.ai/inference/openai/v1/chat/completions",
@@ -2492,7 +2473,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                   elem_id="manga_api_base",
                                   visible=False,
                                   scale=3)
-            with gr.Row():
+            # v1.14.221 — رویِ «auto» کلِ ردیفِ ورود قفل/پنهان میشود (دستورِ
+            # سازنده: «وقتی رو auto بزارن اونجا نشه مدلی چیزی وارد کرد»)
+            with gr.Row() as api_row:
                 api_keys = gr.Textbox(label="کلیدهای API شما (با کاما = چرخش خودکار)",
                                       value="",
                                       type="password", scale=3,
@@ -2506,18 +2489,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # ── v1.14.217/218/220 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
             # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
             # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند.
-            # v1.14.220 — دکمهٔ افزودن همیشه دیده میشود و مستقل از انتخابِ
-            # custom است؛ درست بعد از فیلدها می‌نشیند ──
+            # v1.14.221 — حذفِ مدل فقط با ✖ِ کنارِ خودِ منو ──
             add_model_btn = gr.Button(
                 "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
                 elem_id="manga_cm_add")
-            gr.Markdown("<div class='hint'>«+ افزودن» مدلِ فعلیِ همین صفحه "
-                        "(دامنه/کلید/مدل) را با یک نام در «لیست مدل‌ها» بالا ثبت "
-                        "میکند؛ مدل در حافظهٔ مرورگر/دستگاه می‌ماند، در منویِ "
-                        "انتخابِ AI می‌آید و در بکاپ هم ذخیره میشود. حذفِ مدل = "
-                        "ضربدرِ ✖ِ کنارِ خودش. کلید از aistudio.google.com "
-                        "(Gemini) یا سرویسِ دلخواهِ خودتان بگیرید؛ تنظیمات وب "
-                        "فقط در مرورگر ذخیره میشود.</div>")
+            cm_hint_md = gr.Markdown("<div class='hint'>«+ افزودن» مدلِ فعلیِ همین صفحه "
+                        "(دامنه/کلید/مدل) را با یک نام در «لیست مدل‌ها» ثبت "
+                        "میکند؛ مدل در حافظهٔ مرورگر/دستگاه میماند، در منویِ "
+                        "انتخابِ AI میآید و در بکاپ هم ذخیره میشود. حذفِ مدل = "
+                        "انتخابش در منو و زدنِ ✖ِ کنارِ منو. رویِ «auto» فیلدها "
+                        "قفل میشوند — خودش بینِ مدلها انتخاب میکند. کلید از "
+                        "aistudio.google.com (Gemini) یا سرویسِ دلخواهِ خودتان "
+                        "بگیرید؛ تنظیمات وب فقط در مرورگر ذخیره میشود.</div>")
             test_key_btn = gr.Button(
                 "تست کلیدها / لینک",
                 scale=1, elem_id="manga_test_key")
@@ -2535,13 +2518,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             cm_restore_box = gr.Textbox(
                 value="", visible=True, elem_id="manga_cm_restore",
                 elem_classes=["manga-hide-channel"], container=False)
-            # v1.14.218 — کانالِ افزودن/حذفِ مدل از سمتِ مرورگر
-            # (دکمهٔ «+ افزودن به لیست مدل‌ها» و ضربدرِ ✖ِ هر ردیف)
+            # v1.14.218 — کانالِ افزودنِ مدل از سمتِ مرورگر
+            # (دکمهٔ «+ افزودن به لیست مدل‌ها»)
             cm_add_box = gr.Textbox(
                 value="", visible=True, elem_id="manga_cm_add_box",
-                elem_classes=["manga-hide-channel"], container=False)
-            cm_del_box = gr.Textbox(
-                value="", visible=True, elem_id="manga_cm_del_box",
                 elem_classes=["manga-hide-channel"], container=False)
             ocr_lang = gr.Dropdown(
                 choices=[
@@ -3510,36 +3490,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     return root.querySelector("input, textarea, select") || root;
   }};
 
-  // v1.14.218 — ضربدرِ ✖ِ حذفِ مدل: یک بار برایِ کلِ صفحه بسته میشود؛
-  // کلیک = حذف از localStorage + کانالِ سرور (manga_cm_del_box) برایِ
-  // بهروزرسانیِ لیست و منویِ AI
-  try {{
-    if (!window.__mangaCmXBound) {{
-      window.__mangaCmXBound = true;
-      document.addEventListener("click", (ev) => {{
-        try {{
-          const b = ev.target && ev.target.closest
-            ? ev.target.closest("button.cm-x") : null;
-          if (!b) return;
-          ev.preventDefault();
-          ev.stopPropagation();
-          let nm = b.getAttribute("data-name") || "";
-          try {{ nm = JSON.parse(nm); }} catch (e) {{}}
-          nm = String(nm || "").trim();
-          if (!nm) return;
-          let list = [];
-          try {{ list = JSON.parse(localStorage.getItem("manga_custom_models") || "[]") || []; }} catch (e) {{ list = []; }}
-          if (!Array.isArray(list)) list = [];
-          list = list.filter((m) => m && m.name !== nm);
-          try {{ localStorage.setItem("manga_custom_models", JSON.stringify(list)); }} catch (e) {{}}
-          const box = document.getElementById("manga_cm_del_box");
-          const el = box ? (box.querySelector("textarea") || box.querySelector("input") || box) : null;
-          if (el) setVal(el, nm);
-        }} catch (e) {{}}
-      }}, true);
-    }}
-  }} catch (e) {{}}
-
   const apply = () => {{
     try {{
       let job = {{}};
@@ -4130,13 +4080,27 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 dbg_row=gr.update(visible=False),
             )
 
+        def _on_provider_change(p, models):
+            """v1.14.221 — رفتارِ منو: رویِ «auto» هیچ فیلدی برایِ واردکردن
+            نمیماند (دستورِ سازنده: «وقتی رو auto بزارن اونجا نشه مدلی
+            چیزی وارد کرد»)؛ «دامنهٔ API» فقط رویِ custom؛ و ✖ِ حذف فقط
+            کنارِ مدلِ کاربرِ انتخابشده دیده میشود."""
+            v = str(p or "").strip()
+            on_auto = (v == "auto")
+            is_custom = (v == "custom")
+            mine = v in _cm_names(models)
+            return (gr.update(visible=is_custom),
+                    gr.update(visible=not on_auto),
+                    gr.update(visible=not on_auto),
+                    gr.update(visible=not on_auto),
+                    gr.update(visible=mine))
+
         try:
-            # v1.14.220 — فقط «دامنهٔ API» رویِ custom ظاهر میشود؛ لیستِ
-            # مدلها و دکمهٔ افزودن دیگر وابسته به custom نیستند (۲۱۹ اشتباهاً
-            # کلِ مدیرِ مدلها را فقط رویِ custom نشان میداد)
             provider.change(
-                lambda p: gr.update(visible=str(p or "").strip() == "custom"),
-                inputs=[provider], outputs=[api_base],
+                _on_provider_change,
+                inputs=[provider, custom_models_state],
+                outputs=[api_base, api_row, add_model_btn, cm_hint_md,
+                         cm_del_btn],
                 api_name="toggle_custom_base",
             )
         except Exception:
@@ -4146,15 +4110,19 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         # v1.14.219 — دراپ‌داونِ «انتخاب مدل» و دکمههایِ ⬆/⬇/🗑 حذف شدند؛
         # _cm_pack دیگر خروجیِ cm_pick ندارد (۴تایی است).
         def _cm_pack(models, prov_cur=None):
+            """v1.14.221 — (مدلها، JSONِ مرورگر، منویِ AI، ✖ِ کنارِ منو).
+            مقدارِ نهاییِ منو = انتخابِ فعلی اگر هنوز معتبر است؛ وگرنه
+            «auto» اگر مدلی داریم وگرنه «gemini»."""
             models = list(models or [])
             save_custom_models(models)
             _ch = _ai_choices(models)
             _cur = str(prov_cur if prov_cur is not None else "").strip()
+            _val = _cur if _cur in _ch else ("auto" if "auto" in _ch
+                                             else "gemini")
             return (models,
-                    _render_models_html(models),
                     json.dumps(models, ensure_ascii=False),
-                    gr.update(choices=_ch,
-                              value=_cur if _cur in _ch else "auto"))
+                    gr.update(choices=_ch, value=_val),
+                    gr.update(visible=_val in _cm_names(models)))
 
         def _cm_add_box(raw, models, prov_cur):
             """v1.14.218 — دکمهٔ «+ افزودن به لیست مدل‌ها»: مرورگر مدلِ فعلی
@@ -4182,12 +4150,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                        else " (در مرورگرِ شما)"),
                               visible=True))
 
-        def _cm_del_name(name_v, models, prov_cur):
-            """v1.14.218 — ضربدرِ ✖ِ کنارِ هر مدل: حذف از لیست و از منویِ AI."""
-            nm = str(name_v or "").strip()
+        def _cm_del_selected(prov, models):
+            """v1.14.221 — ضربدرِ ✖ِ کنارِ منویِ انتخابِ AI: مدلِ «انتخابشده»
+            را از لیست و منو پاک میکند (localStorage مرورگر با changeِ
+            cm_json_box همگام میماند)."""
+            nm = str(prov or "").strip()
             models = [m for m in (models or [])
-                      if str(m.get("name") or "") != nm] if nm else list(models or [])
-            return _cm_pack(models, prov_cur)
+                      if str(m.get("name") or "") != nm] if nm \
+                else list(models or [])
+            return _cm_pack(models, None)
 
         def _cm_restore(raw, models, prov_cur):
             """v1.14.217 — بازگردانیِ مدلها از localStorage مرورگر (وب) —
@@ -4277,18 +4248,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             cm_add_box.change(
                 _cm_add_box,
                 inputs=[cm_add_box, custom_models_state, provider],
-                outputs=[custom_models_state, models_list_html,
-                         cm_json_box, provider, backup_status],
+                outputs=[custom_models_state, cm_json_box, provider,
+                         cm_del_btn, backup_status],
                 api_name="cm_add")
         except Exception:
             pass
         try:
-            cm_del_box.change(
-                _cm_del_name,
-                inputs=[cm_del_box, custom_models_state, provider],
-                outputs=[custom_models_state, models_list_html,
-                         cm_json_box, provider],
-                api_name="cm_del_row")
+            cm_del_btn.click(
+                _cm_del_selected,
+                inputs=[provider, custom_models_state],
+                outputs=[custom_models_state, cm_json_box, provider,
+                         cm_del_btn],
+                api_name="cm_del_sel")
         except Exception:
             pass
         try:
@@ -4306,8 +4277,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             cm_restore_box.change(
                 _cm_restore,
                 inputs=[cm_restore_box, custom_models_state, provider],
-                outputs=[custom_models_state, models_list_html,
-                         cm_json_box, provider],
+                outputs=[custom_models_state, cm_json_box, provider,
+                         cm_del_btn],
                 api_name="cm_restore")
         except Exception:
             pass
@@ -4408,11 +4379,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 _imp = str(st.get("provider") or "").strip()
                 _old = str(prov_cur or "").strip()
                 _newv = _imp if _imp in _ch else (
-                    _old if _old in _ch else "auto")
+                    _old if _old in _ch
+                    else ("auto" if "auto" in _ch else "gemini"))
                 return (*ups, merged,
-                        _render_models_html(merged),
                         json.dumps(merged, ensure_ascii=False),
                         gr.update(choices=_ch, value=_newv),
+                        gr.update(visible=_newv in _cm_names(merged)),
                         gr.update(value=f"✅ بازیابیِ کامل شد: {len(merged)} مدل + "
                                         f"{len(st)} تنظیم (از فایلِ بکاپ).",
                                   visible=True))
@@ -4459,8 +4431,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 _do_import,
                 inputs=[import_file, custom_models_state, provider],
                 outputs=[c for _, c in _BACKUP_FIELDS]
-                        + [custom_models_state, models_list_html,
-                           cm_json_box, provider, backup_status],
+                        + [custom_models_state, cm_json_box, provider,
+                           cm_del_btn, backup_status],
                 api_name="import_settings")
         except Exception:
             pass

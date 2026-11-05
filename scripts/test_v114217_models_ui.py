@@ -73,17 +73,15 @@ gate("B3: وب (GITHUB_ACTIONS) → ذخیرهٔ فایلی رد",
 os.environ.pop("GITHUB_ACTIONS")
 manga_app.CUSTOM_MODELS_PATH = old_path
 
-print("== C) رندر و choices ==")
-html = manga_app._render_models_html(models)
-gate("C1: جدول با نامِ مدلها",
-     "m1" in html and "m2" in html and "cm-table" in html)
-gate("C2: کلید هرگز کامل نمایش داده نمیشود",
-     "k1" not in html.replace("✓", "") or "k1…" not in html,
-     "key masked")
+print("== C) choices — ۲۲۱: رندرِ HTMLِ مدلها حذف شد (✖ِ کنارِ منو) ==")
+gate("C1: _render_models_html حذف شد",
+     not hasattr(manga_app, "_render_models_html"))
+gate("C2: _cm_names نامهایِ تمیز برمیگرداند",
+     manga_app._cm_names(models) == ["m1", "m2"])
 ch = manga_app._cm_choices(models)
 gate("C3: choices = نامها به‌ترتیب", ch == ["m1", "m2"], str(ch))
-empty_html = manga_app._render_models_html([])
-gate("C4: فهرستِ خالی = راهنمای ➕", "➕" in empty_html)
+gate("C4: دکمهٔ افزودن همچنان هست (manga_cm_add)",
+     'elem_id="manga_cm_add"' in open("manga_app.py", encoding="utf-8").read())
 
 print("== D) رویدادها در اپِ واقعی ==")
 # بوتِ واقعی قبلاً انجام شده؛ اینجا ساختارِ سورس را میسنجم

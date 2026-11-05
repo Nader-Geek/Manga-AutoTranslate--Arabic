@@ -90,7 +90,11 @@ chk("منویِ provider: auto اول است",
     prov and prov.get("choices") and prov["choices"][0][0] == "auto", prov)
 chk("منویِ provider: ترتیبِ auto|gemini|custom (مدلها را MainActivity میگذارد)",
     prov and [c[0] for c in prov["choices"]] == ["auto", "gemini", "custom"], prov)
-chk("پیشفرضِ provider = auto", prov and prov.get("default") == "auto", prov)
+# v1.14.221 — پیشفرضِ provider پویا شد (مدل داشته باشی = auto، نباشد =
+# gemini)؛ در MainActivity هم refreshProviderBtn همین را نرمال میکند.
+chk("پیشفرضِ provider پویاست (None/«auto»/«gemini») و نرمالسازی با MainActivity",
+    prov and prov.get("default") in (None, "auto", "gemini"),
+    (prov or {}).get("default"))
 chk("api_base فقط رویِ custom دیده شود",
     any(f.get("id") in ("manga_api_base", "api_base")
         and f.get("visible_if", {}).get("equals") == "custom"
