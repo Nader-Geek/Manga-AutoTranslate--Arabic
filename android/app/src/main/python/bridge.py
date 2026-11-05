@@ -1044,6 +1044,12 @@ def _run(job):
                 tr.run(str(p.get("src")), job["out_file_path"], resume=False)
         finally:
             _detach_log_handlers(handlers)
+            # v1.14.215 — خطا/لغو وسطِ کار: صفحه‌هایِ در انتظارِ گیتِ ترتیبِ
+            # نمایشِ زنده به‌ترتیب آزاد شوند تا نمایش ناقص نماند.
+            try:
+                _manga()._live_seq_flush()
+            except Exception:
+                pass
             os.environ.pop("MANGA_LIVE_DIR", None)
             # v1.14.176 — گزارشِ سرعتِ «این اجرا» (آزمایشگاهِ سرعت): میانگینِ
             # کراپ + سهمِ پلهها → سازنده بینِ حالتهایِ پنل مقایسه میکند

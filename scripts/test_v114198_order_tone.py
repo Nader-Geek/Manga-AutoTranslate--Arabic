@@ -81,31 +81,41 @@ def _img(color):
     return a
 
 
+# v1.14.215 — گیتِ ترتیب: اسلاتِ ۲۰ تا نوبتش (۱..۱۹) قفل است؛ بعد از
+# فلاشِ پایانِ کار آزاد میشود ولی «همیشه» در live_0020 مینشیند.
+manga._live_seq_reset()
 manga._live_dump(_img((20, 20, 20)), key="p20", slot=20)   # آخرِ فصل اول میرسد
+gate(not os.path.isfile(os.path.join(tmp, "live_0020.jpg")),
+     "v1.14.215: صفحهٔ ۲۰ تا نوبتش قفل است (نمایش فقط از بالا به پایین)")
 manga._live_dump(_img((255, 0, 0)), key="p1", slot=1)      # صفحهٔ ۱ دوم
 manga._live_dump(_img((0, 255, 0)), key="p2", slot=2)      # صفحهٔ ۲ سوم
 gate(os.path.isfile(os.path.join(tmp, "live_0001.jpg")),
      "صفحهٔ ۱ در live_0001.jpg (نه اسلاتِ دومِ اتمام)")
 gate(os.path.isfile(os.path.join(tmp, "live_0002.jpg")), "صفحهٔ ۲ در live_0002.jpg")
+gate(not os.path.isfile(os.path.join(tmp, "live_0020.jpg")),
+     "صفحهٔ ۲۰ هنوز در انتظارِ نوبت (۳..۱۹ نیامده‌اند)")
+manga._live_seq_flush()  # پایانِ ران
 gate(os.path.isfile(os.path.join(tmp, "live_0020.jpg")),
-     "صفحهٔ ۲۰ در live_0020.jpg — عکسِ وسط/آخر وسطِ فهرست میماند")
+     "بعد از فلاش: صفحهٔ ۲۰ در live_0020.jpg — عکسِ وسط/آخر وسطِ فهرست میماند")
 import cv2  # noqa: E402
 _px1 = cv2.imread(os.path.join(tmp, "live_0001.jpg"))[16, 16].tolist()
 _px20 = cv2.imread(os.path.join(tmp, "live_0020.jpg"))[16, 16].tolist()
 gate(all(abs(a - b) <= 3 for a, b in zip(_px1, (255, 0, 0))),
      f"محتوایِ live_0001 = صفحهٔ ۱ ({_px1})")  # jpegِ گرانقدر ±۳
 gate(_px20 == [20, 20, 20], f"محتوایِ live_0020 = صفحهٔ ۲۰ ({_px20})")
-with io.open(os.path.join(tmp, ".count"), encoding="utf-8") as f:
-    gate(f.read().strip() == "20", "شمارندهٔ پوشه = بیشترین اسلات (۲۰)")
-_mtimes = io.open(os.path.join(tmp, "mtimes.txt"), encoding="utf-8").read().split()
-gate(len(_mtimes) == 6, "mtimes.txt برایِ هر اسلات یک سطر (بهروزرسانیِ تدریجیِ نمایشگر)")
+with io.open(os.path.join(tmp, "mtimes.txt"), encoding="utf-8") as f:
+    _mt = f.read().split()
+gate(len(_mt) == 6, "mtimes.txt برایِ هر اسلات یک سطر (بهروزرسانیِ تدریجیِ نمایشگر)")
+gate([int(_mt[i]) for i in (0, 2, 4)] == [1, 2, 20],
+     "v1.14.215: ترتیبِ ظهورِ اسلاتها در mtimes = ۱،۲،۲۰ (فقط از بالا به پایین)")
 
 # passthroughِ _live_page_dump
 tmp2 = tempfile.mkdtemp(prefix="live198b_")
 os.environ["MANGA_LIVE_DIR"] = tmp2
 manga._live_page_dump(_img((0, 0, 255)), key="p7", slot=7)
+manga._live_seq_flush()
 gate(os.path.isfile(os.path.join(tmp2, "live_0007.jpg")),
-     "_live_page_dump(slot=…) به _live_dump میرسد")
+     "_live_page_dump(slot=…) به _live_dump میرسد (بعد از فلاشِ گیتِ ترتیب)")
 
 print("── ۲. «کتابی»: سقفِ درشتِ درخواستِ واحد ──")
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.214"
+APP_VER = "1.14.215"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -5832,6 +5832,109 @@ def uncensor_swears(text: str) -> str:
 _LIVE_SLOT_BY_KEY: Dict[str, int] = {}
 _LIVE_SLOT_LOCK = threading.Lock()
 
+# v1.14.215 — گیتِ ترتیبِ نمایشِ زنده (دستورِ سازنده: «نمایش زنده از
+# پایین به بالا هم لود میکنه باید از بالا به پایین فقط بره»): با
+# استخراج/پاکسازیِ دوطرفه صفحه‌ها بی‌ترتیب تمام میشوند (۱،۲،۷،۳،۴،۶،۵)
+# و نمایشگرِ زنده صفحهٔ آخر را «قبل» از وسطِ فصل نشان میداد. حالا
+# اسلاتِ صریحِ هر صفحه تا وقتی «همهٔ صفحه‌هایِ قبلش» آزاد نشده‌اند در
+# بافر می‌ماند و فقط به‌ترتیبِ ۱،۲،۳,… رها می‌شود — پیشرفتِ نمایش فقط
+# از بالا به پایین. به‌روزرسانیِ صفحهٔ قبلاً-آزادشده بی‌تأخیر رد میشود.
+_LIVE_SEQ_LOCK = threading.Lock()
+_LIVE_SEQ_STATE: Dict[str, dict] = {}
+
+
+def _live_seq_state(d: str) -> dict:
+    """وضعیتِ گیتِ ترتیب برای یک پوشهٔ live. اولین دسترسی: اسلات‌هایِ
+    موجود روی دیسک (رانِ قبلی/resume) از قبل آزاد حساب میشوند."""
+    st = _LIVE_SEQ_STATE.get(d)
+    if st is None:
+        _next = 1
+        try:
+            while os.path.isfile(os.path.join(d, f"live_{_next:04d}.jpg")):
+                _next += 1
+        except Exception:
+            pass
+        st = {"next": _next, "pending": {}}
+        _LIVE_SEQ_STATE[d] = st
+    return st
+
+
+def _live_seq_reset() -> None:
+    """شروعِ رانِ جدید: گیت برای پوشه‌هایِ liveِ همین نشست ریست میشود
+    (اسلات‌هایِ روی دیسک دوباره اسکن میشوند — resume خودکار درست است)."""
+    try:
+        with _LIVE_SEQ_LOCK:
+            _LIVE_SEQ_STATE.clear()
+    except Exception:
+        pass
+
+
+def _live_seq_flush() -> None:
+    """پایانِ کار/لغو: هرچه در بافر مانده به‌ترتیبِ شمارهٔ اسلات آزاد
+    میشود تا هیچ صفحه‌ای برای همیشه قفل نشود (صفحهٔ خراب/لغوشده).
+    بعدِ فلاش، به‌روزرسانی‌هایِ بعدی بی‌تأخیر مینشینند."""
+    try:
+        with _LIVE_SEQ_LOCK:
+            for d, st in list(_LIVE_SEQ_STATE.items()):
+                if not st["pending"]:
+                    continue
+                _mx = st["next"]
+                for _slot in sorted(st["pending"].keys()):
+                    _pl = st["pending"].pop(_slot)
+                    _img = _live_payload_load(_pl)
+                    if _img is not None:
+                        _write_live_now(_img, d, _slot, _pl.get("key"),
+                                        bool(_pl.get("slot_new")),
+                                        bool(_pl.get("dbg")))
+                    _mx = max(_mx, _slot + 1)
+                st["pending"] = {}
+                st["next"] = _mx
+    except Exception:
+        pass
+
+
+def _live_payload_load(pl: dict):
+    """بارگذاریِ تصویرِ نگه‌داشته‌شده در بافرِ گیت (مسیر یا بایت‌هایِ JPG)."""
+    try:
+        if pl.get("kind") == "path":
+            return cv2.imread(pl["data"])
+        _buf = pl.get("data")
+        if _buf is not None:
+            return cv2.imdecode(_buf, cv2.IMREAD_COLOR)
+    except Exception:
+        pass
+    return None
+
+
+def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
+                    dbg: bool) -> None:
+    """نوشتنِ یک اسلاتِ live روی دیسک (قبلاً بدنهٔ دومِ _live_dump بود)."""
+    _sent = os.path.join(d, ".count")
+    try:
+        with open(_sent, encoding="utf-8") as f:
+            n = int(f.read().strip() or "0")
+    except Exception:
+        n = 0
+    h, w = img.shape[:2]
+    tw = 900
+    if w > tw:
+        img = cv2.resize(img, (tw, max(1, round(h * tw / w))),
+                         interpolation=cv2.INTER_AREA)
+    out_name = os.path.join(d, f"live_{slot:04d}.jpg")
+    cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
+    # شمارندهٔ پوشه نباید عقبتر از اسلاتهایِ تخصیصی بماند (رفتارِ سابق)
+    with open(_sent, "w", encoding="utf-8") as f:
+        f.write(str(max(n, slot)))
+    # v1.14.160 — زمانِ هر اسلات برایِ به‌روزرسانیِ تدریجیِ نمایشگرِ وب
+    try:
+        with open(os.path.join(d, "mtimes.txt"), "a", encoding="utf-8") as f:
+            f.write(f"{slot} {int(time.time() * 1000)}\n")
+    except Exception:
+        pass
+    if not dbg and (key is None or slot_new):
+        print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
+    # به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
+
 
 def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
                slot: Optional[int] = None) -> None:
@@ -5871,47 +5974,61 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
         if img is None:
             return
         os.makedirs(d, exist_ok=True)
-        _sent = os.path.join(d, ".count")
         slot_new = False
         if slot is None and key is not None:
             with _LIVE_SLOT_LOCK:
                 slot = _LIVE_SLOT_BY_KEY.get(key)
                 if slot is None:
                     try:
-                        with open(_sent, encoding="utf-8") as f:
+                        with open(os.path.join(d, ".count"), encoding="utf-8") as f:
                             _n = int(f.read().strip() or "0")
                     except Exception:
                         _n = 0
                     slot = _n + 1
                     _LIVE_SLOT_BY_KEY[key] = slot
                     slot_new = True
-        try:
-            with open(_sent, encoding="utf-8") as f:
-                n = int(f.read().strip() or "0")
-        except Exception:
-            n = 0
-        h, w = img.shape[:2]
-        tw = 900
-        if w > tw:
-            img = cv2.resize(img, (tw, max(1, round(h * tw / w))),
-                             interpolation=cv2.INTER_AREA)
         if slot is None:
+            try:
+                with open(os.path.join(d, ".count"), encoding="utf-8") as f:
+                    n = int(f.read().strip() or "0")
+            except Exception:
+                n = 0
             n += 1
             slot = n
-        out_name = os.path.join(d, f"live_{slot:04d}.jpg")
-        cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
-        # شمارندهٔ پوشه نباید عقبتر از اسلاتهایِ تخصیصی بماند (رفتارِ سابق)
-        with open(_sent, "w", encoding="utf-8") as f:
-            f.write(str(max(n, slot)))
-        # v1.14.160 — زمانِ هر اسلات برایِ به‌روزرسانیِ تدریجیِ نمایشگرِ وب
-        try:
-            with open(os.path.join(d, "mtimes.txt"), "a", encoding="utf-8") as f:
-                f.write(f"{slot} {int(time.time() * 1000)}\n")
-        except Exception:
-            pass
-        if not dbg and (key is None or slot_new):
-            print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
-        # به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
+            slot_new = True
+        # v1.14.215 — گیتِ ترتیبِ «فقط از بالا به پایین»: اسلاتِ صریح تا
+        # نوبتش در بافر میماند؛ اسلاتِ قبلاً-آزادشده بی‌تأخیر به‌روز میشود.
+        st = _live_seq_state(d)
+        with _LIVE_SEQ_LOCK:
+            if int(slot) < int(st["next"]):
+                _write_live_now(img, d, int(slot), key, slot_new, dbg)
+            else:
+                _slot = int(slot)
+                if isinstance(src, str):
+                    _pl = {"kind": "path", "data": src, "key": key,
+                           "slot_new": slot_new, "dbg": dbg}
+                else:
+                    try:
+                        _ok, _buf = cv2.imencode(
+                            ".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 86])
+                        _pl = ({"kind": "bytes", "data": _buf, "key": key,
+                                "slot_new": slot_new, "dbg": dbg}
+                               if _ok else None)
+                    except Exception:
+                        _pl = None
+                if _pl is not None:
+                    # نسخهٔ تازه‌ترِ همان اسلات، نسخهٔ نگه‌داشته را عوض میکند
+                    st["pending"][_slot] = _pl
+                # زنجیرهٔ آماده‌ها را تا پایین آزاد کن
+                while st["next"] in st["pending"]:
+                    _pl2 = st["pending"].pop(st["next"])
+                    _img2 = _live_payload_load(_pl2)
+                    if _img2 is not None:
+                        _write_live_now(_img2, d, st["next"],
+                                        _pl2.get("key"),
+                                        bool(_pl2.get("slot_new")),
+                                        bool(_pl2.get("dbg")))
+                    st["next"] += 1
     except Exception:
         pass
 
@@ -5980,7 +6097,10 @@ def _split_one_request_batches(items: List["TextRegion"],
 def _live_total_write(n: int) -> None:
     """تعداد کل صفحه‌ها را در پوشهٔ live می‌نویسد تا نمایشگر زنده از اول
     برای همه اسلات «در حال ترجمه» بگذارد — اسلات‌ها سر جایشان پر می‌شوند
-    و اسکرولِ کاربر هیچ‌وقت نمی‌پرد (v1.14.29)."""
+    و اسکرولِ کاربر هیچ‌وقت نمی‌پرد (v1.14.29). v1.14.215 — شروعِ هر ران
+    گیتِ ترتیبِ نمایش هم ریست میشود (اسلات‌هایِ رانِ قبلی از دیسک
+    خوانده میشوند — resume درست کار میکند)."""
+    _live_seq_reset()
     for var in ("MANGA_LIVE_DIR", "MANGA_LIVE_DEBUG_DIR"):
         d = (os.environ.get(var) or "").strip()
         if not d:
@@ -31021,6 +31141,13 @@ html, body { background: #0a0a0b; }
                   f"total={time.time() - _t_run67:.1f}s", flush=True)
         except Exception:
             pass
+        # v1.14.215 — پایانِ موفقِ ران: هرچه از گیتِ ترتیبِ نمایش مانده
+        # (صفحهٔ لغوشده/بی‌نتیجه) به‌ترتیب آزاد شود — نمایشِ زنده هیچ‌وقت
+        # ناقص نمیماند.
+        try:
+            _live_seq_flush()
+        except Exception:
+            pass
 
     def _render_one_region(self, pil_img, draw, image, original_image, region) -> None:
         x, y, w, h = region.rect
@@ -31718,12 +31845,20 @@ def main():
             print("[*] برای این لحن‌ها فونت جدا تخصیص نیافته → از دستور ترجمه حذف شدند: "
                   + ", ".join(dropped))
 
-    translator.run(
-        args.input,
-        output_path,
-        resume=not args.no_resume,
-        clean_old=not args.keep_old,
-    )
+    try:
+        translator.run(
+            args.input,
+            output_path,
+            resume=not args.no_resume,
+            clean_old=not args.keep_old,
+        )
+    finally:
+        # v1.14.215 — خطا/لغو وسطِ کار هم نباید صفحه‌هایِ نمایشِ زنده را
+        # برای همیشه در گیتِ ترتیب قفل نگه دارد.
+        try:
+            _live_seq_flush()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
