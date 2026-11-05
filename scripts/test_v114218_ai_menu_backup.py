@@ -175,8 +175,9 @@ gate("G: بکاپ شاملِ مدلها + تنظیمات",
      '"custom_models": models' in src and '"settings": settings' in src)
 gate("G: app_ver از APP_VER (نه هاردکد)",
      '"app_ver": APP_VER' in src and '"app_ver": "1.14.217"' not in src)
-gate("G: اتصالِ cm_pick → فیلدها (از 217 حفظ)",
-     "outputs=[provider, api_base, api_keys, model]" in src)
+gate("G: اتصالِ cm_pick → فیلدها (از 217 حفظ؛ در 219 با خودِ دراپ‌داون حذف شد)",
+     "outputs=[provider, api_base, api_keys, model]" not in src
+     and "cm_pick" not in src.replace("cm_pick ندارد", ""))
 gate("G: بایدهایِ run_translation شاملِ لیستِ مدلها",
      re.search(r"glossary_text, story_brief, api_base,\s*\n\s*custom_models_state", src)
      is not None)

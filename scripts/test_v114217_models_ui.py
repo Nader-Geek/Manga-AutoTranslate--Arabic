@@ -89,10 +89,6 @@ print("== D) رویدادها در اپِ واقعی ==")
 # بوتِ واقعی قبلاً انجام شده؛ اینجا ساختارِ سورس را میسنجم
 for needle, desc in [
     ("manga_cm_add", "دکمهٔ ➕"),
-    ("manga_cm_pick", "دراپ‌داونِ انتخاب"),
-    ("manga_cm_up", "⬆ جابه‌جایی"),
-    ("manga_cm_down", "⬇ جابه‌جایی"),
-    ("manga_cm_del", "🗑 حذف"),
     ("manga_backup_btn", "دکمهٔ پشتیبان"),
     ("manga_import_file", "آپلودِ بازیابی"),
     ("manga_custom_models", "localStorageِ مدلها"),
@@ -101,9 +97,18 @@ for needle, desc in [
     ("import_settings", "api بازیابی"),
 ]:
     gate(f"D: {desc} ({needle})", needle in src)
+# v1.14.219 — دراپ‌داونِ «انتخاب مدل» و ⬆/⬇/🗑 با دستورِ سازنده کلاً حذف
+# شد؛ حذفِ مدل فقط با ضربدرِ ✖ِ کنارِ خودِ مدل در لیست است.
+for gone, desc in [
+    ("manga_cm_pick", "دراپ‌داونِ انتخاب"),
+    ("manga_cm_up", "⬆ جابه‌جایی"),
+    ("manga_cm_down", "⬇ جابه‌جایی"),
+    ("manga_cm_del\"", "🗑 حذفِ جداگانه"),
+]:
+    gate(f"D2 (۲۱۹): حذفِ {desc} ({gone})", gone not in src)
 
-gate("D: اتصالِ cm_pick → فیلدها",
-     "outputs=[provider, api_base, api_keys, model]" in src)
+gate("D3 (۲۱۹): حذفِ مدل فقط با ✖ِ کنارِ ردیف (cm_del_row)",
+     "cm-x" in src and 'api_name="cm_del_row"' in src)
 gate("D: پشتیبان شاملِ مدلها + تنظیمات",
      '"custom_models": models' in src and '"settings": settings' in src)
 

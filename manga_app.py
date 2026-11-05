@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.218"
+APP_VER = "1.14.219"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -399,6 +399,8 @@ def _render_models_html(models: list) -> str:
 
 
 def _cm_choices(models: list) -> list:
+    """v1.14.219 — (قبلاً برایِ دراپ‌داونِ «انتخاب مدل» بود که حذف شد؛ برای
+    سازگاریِ تستهایِ قدیمی نگه داشته میشود.)"""
     return [str(m.get("name") or "").strip() for m in models
             if str(m.get("name") or "").strip()]
 
@@ -1329,6 +1331,15 @@ body, .gradio-container, footer, .gradio-container .prose {
   line-height:1;padding:4px 9px;transition:all .15s ease}
 .cm-x:hover{background:rgba(255,70,70,.18);color:#ff4d4d;transform:scale(1.08)}
 .cm-x:active{transform:scale(.94)}
+/* v1.14.219 — کانالهایِ پنهانِ مرورگر↔سرور: gradio 6 کامپوننتهایِ
+   visible=False را اصلاً در DOM نمیگذارد و همهٔ JSهایی که با setVal
+   به سرور خبر میدهند (افزودنِ مدل، ضربدرِ ✖، بازیابیِ localStorage،
+   sid) کور میشوند؛ پس این کانالها visible=True ولی با CSS مخفی
+   میشوند تا در DOM بمانند — اندروید/PC/لینوکس/وب همه همان مرورگرند */
+.manga-hide-channel{display:none !important;visibility:hidden !important;
+  height:0 !important;min-height:0 !important;margin:0 !important;
+  padding:0 !important;border:0 !important;overflow:hidden !important}
+.manga-hide-channel + *{display:none !important}
 
 .livehint { color: var(--ink-dim) !important; font-size: .8rem; margin-top: 8px; text-align: center; }
 
@@ -2496,40 +2507,42 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
             # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند ──
             custom_models_state = gr.State(_init_models)
-            gr.Markdown("**مدلهایِ من** — فیلدهای بالا (دامنه/کلید/مدل) را پر کنید و "
-                        "«+ افزودن به لیست مدل‌ها» را بزنید؛ مدل در همین لیست "
-                        "می‌ماند (حافظهٔ مرورگر/دستگاه)، در منویِ انتخابِ AI می‌آید "
-                        "و در فایلِ بکاپ هم ذخیره میشود:")
-            with gr.Row():
-                add_model_btn = gr.Button(
-                    "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
-                    elem_id="manga_cm_add")
-            models_list_html = gr.HTML(
-                _render_models_html(custom_models_state.value),
-                elem_id="manga_cm_list")
-            with gr.Row():
-                cm_pick = gr.Dropdown(
-                    choices=_cm_choices(custom_models_state.value),
-                    value=None, scale=3,
-                    label="انتخاب مدل (خودش در فیلدهای بالا بارگذاری می‌شود)",
-                    elem_id="manga_cm_pick")
-                mv_up_btn = gr.Button("⬆ بالا", scale=1, elem_id="manga_cm_up")
-                mv_down_btn = gr.Button("⬇ پایین", scale=1, elem_id="manga_cm_down")
-                del_model_btn = gr.Button("🗑 حذف", scale=1, elem_id="manga_cm_del")
+            # v1.14.219 — دستورِ سازنده: «افزودن مدل فقط وقتی بیاد رفتم رو
+            # کاستوم» — کلِ بخشِ مدیرِ مدلها (راهنما + دکمهٔ افزودن + لیست با
+            # ضربدرِ ✖ِ کنارِ هر مدل) فقط وقتی دیده میشود که منویِ انتخابِ AI
+            # رویِ «custom» باشد؛ و دراپ‌داونِ «انتخاب مدل» با دکمههایِ
+            # ⬆/⬇/🗑 (از 217) کلاً حذف شد — حذفِ مدل فقط با ✖ِ کنارِ خودِ مدل
+            # در همین لیست است.
+            with gr.Group(visible=False) as cm_manager_group:
+                gr.Markdown("**مدلهایِ من** — فیلدهای بالا (دامنه/کلید/مدل) را پر کنید و "
+                            "«+ افزودن به لیست مدل‌ها» را بزنید؛ مدل در همین لیست "
+                            "می‌ماند (حافظهٔ مرورگر/دستگاه)، در منویِ انتخابِ AI می‌آید "
+                            "و در فایلِ بکاپ هم ذخیره میشود. حذفِ هر مدل = ضربدرِ ✖ِ "
+                            "کنارِ خودش در همین لیست:")
+                with gr.Row():
+                    add_model_btn = gr.Button(
+                        "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
+                        elem_id="manga_cm_add")
+                models_list_html = gr.HTML(
+                    _render_models_html(custom_models_state.value),
+                    elem_id="manga_cm_list")
             cm_json_box = gr.Textbox(
                 value=json.dumps(custom_models_state.value, ensure_ascii=False),
                 visible=False, elem_id="manga_cm_json", container=False)
+            # v1.14.219 — کانالهایِ مرورگر↔سرور باید در DOM بمانند (gradio 6
+            # کامپوننتِ visible=False را از DOM حذف میکند) → visible=True +
+            # کلاسِ مخفیِ CSS؛ در وب هم اندروید هم PC همین مرورگر است.
             cm_restore_box = gr.Textbox(
-                value="", visible=False, elem_id="manga_cm_restore",
-                container=False)
+                value="", visible=True, elem_id="manga_cm_restore",
+                elem_classes=["manga-hide-channel"], container=False)
             # v1.14.218 — کانالِ افزودن/حذفِ مدل از سمتِ مرورگر
             # (دکمهٔ «+ افزودن به لیست مدل‌ها» و ضربدرِ ✖ِ هر ردیف)
             cm_add_box = gr.Textbox(
-                value="", visible=False, elem_id="manga_cm_add_box",
-                container=False)
+                value="", visible=True, elem_id="manga_cm_add_box",
+                elem_classes=["manga-hide-channel"], container=False)
             cm_del_box = gr.Textbox(
-                value="", visible=False, elem_id="manga_cm_del_box",
-                container=False)
+                value="", visible=True, elem_id="manga_cm_del_box",
+                elem_classes=["manga-hide-channel"], container=False)
             ocr_lang = gr.Dropdown(
                 choices=[
                     ("انگلیسی", "en"),
@@ -2661,14 +2674,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
         # ── v1.14.217/218 — بکاپ و بازیابی: «گرفتنِ بکاپ» فایلِ JSONِ همهٔ
         # چیزها را میدهد؛ «Import» همان فایل را کامل برمیگرداند ──
-        with gr.Group(elem_classes=["stepcard"]):
-            gr.HTML('<div class="steptitle"><span class="stepnum">💾</span> '
-                    'بکاپ و بازیابی — مدلها + تنظیمات</div>')
-            gr.Markdown("<div class='hint'>دکمهٔ «⬇️ گرفتن بکاپ» = یک فایلِ JSON "
-                        "بهتان میدهد که «همه‌چیز» داخلش است: لیستِ مدلهایِ شما "
-                        "(نام + دامنه + کلید API + شناسهٔ مدل) و تمامِ تنظیمات. "
-                        "آپلودرِ «⬆️ Import» = همان فایل را انتخاب کنید تا همه‌چیز "
-                        "کامل برگردد. دکمه میگیرد، آپلودر برمی‌گرداند.</div>")
+        # v1.14.219 — دستورِ سازنده: «تنظیمات بکاپ همینجوری باز نباشه وقتی
+        # زدم باز شه» → آکاردئونِ بسته؛ و «بکاپ زدم خودکار دانلود کنه نه این ک
+        # مجدد برم دکمه دانلود بزنم» → با یک کلیک، فایل خودکار دانلود میشود
+        # (JS رویِ changeِ فایلِ خروجی — URLِ سرو شده + orig_name).
+        with gr.Accordion("💾 بکاپ و بازیابی — مدلها + تنظیمات", open=False,
+                          elem_classes=["stepcard"]):
+            gr.Markdown("<div class='hint'>دکمهٔ «⬇️ گرفتن بکاپ» = با یکِ کلیک، "
+                        "فایلِ JSONِ «همه‌چیز» همین‌جا خودکار دانلود میشود: لیستِ "
+                        "مدلهایِ شما (نام + دامنه + کلید API + شناسهٔ مدل) و تمامِ "
+                        "تنظیمات. آپلودرِ «⬆️ Import» = همان فایل را انتخاب کنید تا "
+                        "همه‌چیز کامل برگردد. دکمه میگیرد (دانلودِ خودکار)، "
+                        "آپلودر برمی‌گرداند.</div>")
             with gr.Row():
                 backup_btn = gr.Button("⬇️ گرفتن بکاپ (دانلود JSON)",
                                        variant="primary", scale=1,
@@ -2679,7 +2696,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     file_types=[".json"], scale=2,
                     elem_classes=["compact-upload"],
                     elem_id="manga_import_file")
-            backup_out = gr.File(label="فایلِ پشتیبان آماده است — دانلود کنید",
+            backup_out = gr.File(label="فایلِ پشتیبان — اگر دانلودِ خودکار شروع "
+                                       "نشد، از همین‌جا دانلودش کنید",
                                  visible=False, elem_id="manga_backup_out")
             backup_status = gr.Textbox(
                 label="", show_label=False, interactive=False, visible=False,
@@ -3207,9 +3225,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             threading.Thread(target=_heartbeat, daemon=True, name=f"manga-hb-{sid[:8]}").start()
 
         session_id = gr.State("")
-        sid_box = gr.Textbox(value="", visible=False, elem_id="manga_sid", label="sid")
+        sid_box = gr.Textbox(value="", visible=True, elem_id="manga_sid", label="sid",
+                             elem_classes=["manga-hide-channel"])
         
-        sid_holder = gr.Textbox(value="", visible=False, elem_id="manga_sid_holder", label="sid_holder")
+        sid_holder = gr.Textbox(value="", visible=True, elem_id="manga_sid_holder",
+                                label="sid_holder", elem_classes=["manga-hide-channel"])
 
         run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
 
@@ -4107,58 +4127,29 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             )
 
         try:
+            # v1.14.219 — دامنهٔ API و کلِ مدیرِ مدلها فقط رویِ «custom»
             provider.change(
-                lambda p: gr.update(visible=str(p or "").strip() == "custom"),
-                inputs=[provider], outputs=[api_base],
+                lambda p: (gr.update(visible=str(p or "").strip() == "custom"),
+                           gr.update(visible=str(p or "").strip() == "custom")),
+                inputs=[provider], outputs=[api_base, cm_manager_group],
                 api_name="toggle_custom_base",
             )
         except Exception:
             pass
 
-        # ── v1.14.217/218 — رویدادهایِ مدیرِ مدلهایِ سفارشی ──
+        # ── v1.14.217/218/219 — رویدادهایِ مدیرِ مدلهایِ سفارشی ──
+        # v1.14.219 — دراپ‌داونِ «انتخاب مدل» و دکمههایِ ⬆/⬇/🗑 حذف شدند؛
+        # _cm_pack دیگر خروجیِ cm_pick ندارد (۴تایی است).
         def _cm_pack(models, prov_cur=None):
             models = list(models or [])
             save_custom_models(models)
             _ch = _ai_choices(models)
             _cur = str(prov_cur if prov_cur is not None else "").strip()
-            return (models, gr.update(choices=_cm_choices(models), value=None),
+            return (models,
                     _render_models_html(models),
                     json.dumps(models, ensure_ascii=False),
                     gr.update(choices=_ch,
                               value=_cur if _cur in _ch else "auto"))
-
-        def _cm_load(pick_v, models):
-            pick = str(pick_v or "").strip()
-            if not pick:
-                return (gr.update(), gr.update(), gr.update(), gr.update())
-            for m in (models or []):
-                if str(m.get("name") or "") == pick:
-                    prov = "custom" if (m.get("api_base") or "").strip() else "gemini"
-                    return (gr.update(value=prov),
-                            gr.update(value=str(m.get("api_base") or "")),
-                            gr.update(value=str(m.get("api_key") or "")),
-                            gr.update(value=str(m.get("model") or "")))
-            return (gr.update(), gr.update(), gr.update(), gr.update())
-
-        def _cm_move(pick_v, models, prov_cur, delta):
-            pick = str(pick_v or "").strip()
-            models = list(models or [])
-            if pick and len(models) > 1:
-                try:
-                    i = next(idx for idx, m in enumerate(models)
-                             if str(m.get("name") or "") == pick)
-                    j = i + delta
-                    if 0 <= j < len(models):
-                        models[i], models[j] = models[j], models[i]
-                except StopIteration:
-                    pass
-            return _cm_pack(models, prov_cur)
-
-        def _cm_del(pick_v, models, prov_cur):
-            pick = str(pick_v or "").strip()
-            models = [m for m in (models or [])
-                      if str(m.get("name") or "") != pick] if pick else list(models or [])
-            return _cm_pack(models, prov_cur)
 
         def _cm_add_box(raw, models, prov_cur):
             """v1.14.218 — دکمهٔ «+ افزودن به لیست مدل‌ها»: مرورگر مدلِ فعلی
@@ -4273,45 +4264,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             cm_add_box.change(
                 _cm_add_box,
                 inputs=[cm_add_box, custom_models_state, provider],
-                outputs=[custom_models_state, cm_pick, models_list_html,
+                outputs=[custom_models_state, models_list_html,
                          cm_json_box, provider, backup_status],
                 api_name="cm_add")
-        except Exception:
-            pass
-        try:
-            cm_pick.change(
-                _cm_load,
-                inputs=[cm_pick, custom_models_state],
-                outputs=[provider, api_base, api_keys, model],
-                api_name="cm_load")
-        except Exception:
-            pass
-        try:
-            mv_up_btn.click(
-                lambda p, ms, pv: _cm_move(p, ms, pv, -1),
-                inputs=[cm_pick, custom_models_state, provider],
-                outputs=[custom_models_state, cm_pick, models_list_html,
-                         cm_json_box, provider],
-                api_name="cm_up")
-            mv_down_btn.click(
-                lambda p, ms, pv: _cm_move(p, ms, pv, +1),
-                inputs=[cm_pick, custom_models_state, provider],
-                outputs=[custom_models_state, cm_pick, models_list_html,
-                         cm_json_box, provider],
-                api_name="cm_down")
-            del_model_btn.click(
-                _cm_del,
-                inputs=[cm_pick, custom_models_state, provider],
-                outputs=[custom_models_state, cm_pick, models_list_html,
-                         cm_json_box, provider],
-                api_name="cm_del")
         except Exception:
             pass
         try:
             cm_del_box.change(
                 _cm_del_name,
                 inputs=[cm_del_box, custom_models_state, provider],
-                outputs=[custom_models_state, cm_pick, models_list_html,
+                outputs=[custom_models_state, models_list_html,
                          cm_json_box, provider],
                 api_name="cm_del_row")
         except Exception:
@@ -4331,7 +4293,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             cm_restore_box.change(
                 _cm_restore,
                 inputs=[cm_restore_box, custom_models_state, provider],
-                outputs=[custom_models_state, cm_pick, models_list_html,
+                outputs=[custom_models_state, models_list_html,
                          cm_json_box, provider],
                 api_name="cm_restore")
         except Exception:
@@ -4374,10 +4336,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 path = os.path.join(WORK_DIR, f"manga_backup_{ts}.json")
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
+                # v1.14.219 — دانلودِ خودکار: فایلِ خروجی در backup_out ست
+                # میشود و JSِ رویِ changeِ آن بلافاصله دانلودش میکند
                 return (gr.update(value=path, visible=True),
-                        gr.update(value=f"✅ پشتیبان ساخته شد: "
-                                        f"{len(models)} مدل + "
-                                        f"{len(settings)} تنظیم — دانلودش کنید.",
+                        gr.update(value=f"✅ پشتیبان ساخته شد و دانلودِ خودکارش "
+                                        f"شروع شد: {len(models)} مدل + "
+                                        f"{len(settings)} تنظیم."
+                                        f"\n(اگر مرورگرتان دانلود را بلاک کرد، "
+                                        f"از کارتِ «فایلِ پشتیبان» همین‌جا "
+                                        f"دستیش کنید.)",
                                   visible=True))
             except Exception as e:
                 return (gr.update(),
@@ -4397,7 +4364,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     path = file_info.get("name") or ""
                 if not path or not os.path.isfile(path):
                     return (*ups, gr.update(), gr.update(), gr.update(),
-                            gr.update(), gr.update(),
+                            gr.update(),
                             gr.update(value="❌ فایل پشتیبان انتخاب نشده.",
                                       visible=True))
                 with open(path, encoding="utf-8") as f:
@@ -4405,7 +4372,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 if not isinstance(payload, dict) \
                         or payload.get("_type") != "manga_autotranslate_backup":
                     return (*ups, gr.update(), gr.update(), gr.update(),
-                            gr.update(), gr.update(),
+                            gr.update(),
                             gr.update(value="❌ این فایلِ پشتیبانِ این اپ نیست.",
                                       visible=True))
                 st = payload.get("settings") or {}
@@ -4430,7 +4397,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 _newv = _imp if _imp in _ch else (
                     _old if _old in _ch else "auto")
                 return (*ups, merged,
-                        gr.update(choices=_cm_choices(merged), value=None),
                         _render_models_html(merged),
                         json.dumps(merged, ensure_ascii=False),
                         gr.update(choices=_ch, value=_newv),
@@ -4439,7 +4405,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                   visible=True))
             except Exception as e:
                 return (*ups, gr.update(), gr.update(), gr.update(),
-                        gr.update(), gr.update(),
+                        gr.update(),
                         gr.update(value=f"❌ بازیابی ناموفق: {e}", visible=True))
 
         try:
@@ -4447,11 +4413,38 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             backup_btn.click(
                 _do_backup, inputs=_backup_inputs,
                 outputs=[backup_out, backup_status], api_name="backup_settings")
+            # v1.14.219 — دستورِ سازنده: «بکاپ زدم خودکار دانلود کنه نه این ک
+            # مجدد برم دکمه دانلود بزنم» — به محضِ آمادهشدنِ فایل (changeِ
+            # backup_out) مرورگر همان را با a[download] دانلود میکند؛ رویِ
+            # اندروید/PC/لینوکس/وب یکجاست (همه مرورگرِ webview/کروم):
+            backup_out.change(
+                fn=None, inputs=[backup_out], outputs=[],
+                js="""(v) => {
+  try {
+    let url = null, name = "manga_backup.json";
+    if (v && typeof v === "object") {
+      url = v.url || null;
+      name = v.orig_name || name;
+    } else if (typeof v === "string" && v) {
+      url = v;
+    }
+    if (url) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name || "manga_backup.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  } catch (e) {}
+  return [];
+}""",
+            )
             import_file.change(
                 _do_import,
                 inputs=[import_file, custom_models_state, provider],
                 outputs=[c for _, c in _BACKUP_FIELDS]
-                        + [custom_models_state, cm_pick, models_list_html,
+                        + [custom_models_state, models_list_html,
                            cm_json_box, provider, backup_status],
                 api_name="import_settings")
         except Exception:
