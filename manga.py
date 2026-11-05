@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.213"
+APP_VER = "1.14.214"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3110,17 +3110,66 @@ class RTDetrV2ONNXDetector:
                         for (_cs, _ce, ys, ye) in tiles]
 
         all_boxes: List[dict] = []
+        # v1.14.214 — جعبههایِ «ردشدهٔ لبهٔ کاشی» جدا جمع میشوند تا در
+        # پایان، اگر هیچ کاشیِ دیگری همان ناحیه را نپوشانده باشد، نجات
+        # بیابند (ریشهٔ «یک متن نمیبینه رد میشه»: پاراگرافِ «1. AUTHORITY
+        # TO IMMEDIATELY SEPARATE…» در img4 فقط در کاشیِ [0,2200] دیده
+        # میشد (conf=0.65) ولی مرکزش ۱۶px بعد از قلمروِ ادعای آن کاشی
+        # (core_end+0.35×overlap) میفتاد و کاشیِ صاحبِ ناحیه هم چیزی
+        # تشخیص نمیداد → متن کلاً حذف میشد؛ حالتِ تکی (عکسِ برنده-نقطه)
+        # همان متن را پیدا میکرد و کاربر میگفت «تکی بدم همشو پیدا
+        # میکنه»).
+        _edge_rejects: List[dict] = []
         for (core_start, core_end, ys, ye), tile_boxes in zip(tiles, _results):
             for b in tile_boxes:
                 x1, y1, x2, y2 = b["rect"]
                 cy = ys + (y1 + y2) / 2.0
                 margin = overlap * 0.35
+                nb = dict(b)
+                nb["rect"] = [x1, y1 + ys, x2, y2 + ys]
                 if (core_start - margin) <= cy < (core_end + margin):
-                    nb = dict(b)
-                    nb["rect"] = [x1, y1 + ys, x2, y2 + ys]
                     all_boxes.append(nb)
+                else:
+                    _edge_rejects.append(nb)
 
         merged = self._nms(all_boxes, max(0.40, self.iou_thresh))
+        # v1.14.214 — نجاتِ جعبهٔ لبهٔ کاشی: جعبهٔ ردشده فقط وقتی زنده
+        # میماند که «هیچ» جعبهٔ نگه‌داشته‌شدهای مرکزش را نپوشاند و
+        # همپوشانیِ IoU≥۰.۲ هم با او نداشته باشد؛ یعنی بدونِ این نجات
+        # آن ناحیه کلاً بی‌جعبه میماند. جعبههایِ تکراریِ عادی از همین
+        # پوشش رد میشوند (NMSِ پایانی هم دوباره ضدِ تکرار است).
+        if _edge_rejects:
+            _rescued = 0
+            for _rb in _edge_rejects:
+                _rx1, _ry1, _rx2, _ry2 = [float(v) for v in _rb["rect"]]
+                _rw = max(1.0, _rx2 - _rx1)
+                _rh = max(1.0, _ry2 - _ry1)
+                _rarea = _rw * _rh
+                _rcx = (_rx1 + _rx2) / 2.0
+                _rcy = (_ry1 + _ry2) / 2.0
+                _covered = False
+                for _kb in merged:
+                    _kx1, _ky1, _kx2, _ky2 = [float(v) for v in _kb["rect"]]
+                    if (_ky1 - 8.0) <= _rcy <= (_ky2 + 8.0) \
+                            and (_kx1 - 8.0) <= _rcx <= (_kx2 + 8.0):
+                        _covered = True
+                        break
+                    _ix1 = max(_rx1, _kx1)
+                    _iy1 = max(_ry1, _ky1)
+                    _ix2 = min(_rx2, _kx2)
+                    _iy2 = min(_ry2, _ky2)
+                    if _ix2 > _ix1 and _iy2 > _iy1:
+                        _inter = float((_ix2 - _ix1) * (_iy2 - _iy1))
+                        _karea = float(max(1, _kx2 - _kx1)
+                                       * max(1, _ky2 - _ky1))
+                        if _inter / max(1.0, _rarea + _karea - _inter) >= 0.20:
+                            _covered = True
+                            break
+                if not _covered:
+                    merged.append(_rb)
+                    _rescued += 1
+            if _rescued:
+                merged = self._nms(merged, max(0.40, self.iou_thresh))
         return MangaTranslator._drop_contained_boxes(merged, contain_thresh=0.65)
 
 
