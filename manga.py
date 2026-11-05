@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.215"
+APP_VER = "1.14.216"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -12377,48 +12377,141 @@ class MangaTranslator:
                         ys = np.clip(np.rint(rs[:, 1]), 0, h - 1).astype(np.int32)
                         return image[ys, xs].astype(np.float32)
 
+                    def _sample_xy(scale):
+                        rs = c + (ring_pts - c) * scale
+                        xs = np.clip(np.rint(rs[:, 0]), 0, w - 1).astype(np.int32)
+                        ys = np.clip(np.rint(rs[:, 1]), 0, h - 1).astype(np.int32)
+                        return xs, ys, image[ys, xs].astype(np.float32)
+
                     fill_col = None
                     fill_exp = 1.0
-                    r1 = _sample(1.025)
+                    fill_plane = None  # v1.14.216 — پرِ صفحهٔ گرادیانی
+                    _xs1, _ys1, r1 = _sample_xy(1.025)
                     if r1.shape[0] >= 12:
                         avg1 = r1.mean(axis=0)
                         dev1 = np.sqrt(((r1 - avg1[None, :]) ** 2).sum(axis=1))
                         if float((dev1 <= 15.0).mean()) >= 0.99:
                             fill_col = avg1
                             fill_exp = 1.05
+                            # v1.14.216 — پرِ صفحه (plane) بهجایِ رنگِ تخت
+                            # رویِ گرادیانِ آرام (دستورِ سازنده: «انگار رو هم
+                            # پیاده شده مثل کوه دیده میشه»): حلقهٔ تنگِ ۲.۵٪
+                            # رویِ گرادیانِ آرام «یکدست» از آب میآید (dev≤۱۵)
+                            # ولی هر خط رنگِ محلیِ خودش را میگیرد → خطوطِ
+                            # چسبیده با رنگهایِ ناهمسان = پلههایِ روی-هم. اگر
+                            # حلقه به صفحهٔ (x,y) خوب بچسبد و نوسانِ رنگیِ
+                            # داخلِ پالی معنادار باشد (≥۸)، پالی با همان
+                            # صفحه پر میشود — گرادیان پیوسته، بدونِ پله.
+                            try:
+                                if (float(_ys1.max() - _ys1.min()) >= 20
+                                        and r1.shape[0] >= 24):
+                                    _A = np.stack([
+                                        np.ones(r1.shape[0], np.float32),
+                                        _xs1.astype(np.float32),
+                                        _ys1.astype(np.float32)], axis=1)
+                                    _coefs, *_ = np.linalg.lstsq(
+                                        _A, r1, rcond=None)
+                                    _pred = _A @ _coefs
+                                    _resid = np.sqrt(((_pred - r1) ** 2)
+                                                     .sum(axis=1))
+                                    if float(np.mean(_resid)) <= 12.0:
+                                        _bx = float(np.abs(_coefs[1]).max())
+                                        _by = float(np.abs(_coefs[2]).max())
+                                        _pw_ = float(pp[:, 0].max()
+                                                     - pp[:, 0].min())
+                                        _ph_ = float(pp[:, 1].max()
+                                                     - pp[:, 1].min())
+                                        if (_bx * _pw_ + _by * _ph_) >= 8.0:
+                                            fill_plane = _coefs
+                            except Exception:
+                                fill_plane = None
                     if fill_col is None:
                         if self._clean_level() != "fast":
-                            continue
-                        r2 = _sample(1.10)
-                        if r2.shape[0] >= 16:
-                            avg2 = r2.mean(axis=0)
-                            dev2 = np.sqrt(((r2 - avg2[None, :]) ** 2).sum(axis=1))
-                            _close = dev2 <= 35.0
-                            if float(_close.mean()) >= 0.75:
-                                _cls_px = r2[_close]
-                                _xs2 = np.clip(np.rint(
-                                    (c + (ring_pts - c) * 1.10)[:, 0]),
-                                    0, w - 1).astype(np.int32)
-                                _ys2 = np.clip(np.rint(
-                                    (c + (ring_pts - c) * 1.10)[:, 1]),
-                                    0, h - 1).astype(np.int32)
-                                _g2 = _grad_full[_ys2, _xs2].astype(np.float32)[_close]
-                                if _g2.size >= 16:
-                                    if float(np.median(_g2)) > 22.0:
+                            # v1.14.216 — پرِ صفحهٔ گرادیانی برایِ حلقهٔ
+                            # «نایکنوخت ولی صاف»: پنجرههایِ UIِ وبتون
+                            # (کارتِ آبیِ [CLEAR OBJECTIVE]…) گرادیانِ آرامِ
+                            # رنگی دارند — حلقهٔ تنگ یکدست نیست (ردِ dev≤۱۵)
+                            # و خوشه به TELEA/LaMa میافتد: TELEA پخشِ
+                            # ناهمسان میسازد و LaMa-manga (مدلِ سیاهوسفیدِ
+                            # مانگا) رویِ گرادیانِ اشباع لکهٔ خاکستریِ
+                            # خیشامی میسازد («کوه»/گِل). اگر حلقهٔ پهن‌تر
+                            # (۱.۱×) به «صفحهٔ» (x,y) با خطایِ کم بچسبد
+                            # (resid≤۱۰) همان صفحه پالی را پر میکند —
+                            # بازسازیِ دقیقِ گرادیان، بدونِ لکه.
+                            try:
+                                _xs2g, _ys2g, r2g = _sample_xy(1.10)
+                                if (r2g.shape[0] >= 40
+                                        and float(_ys2g.max()
+                                                 - _ys2g.min()) >= 40):
+                                    _Ag = np.stack([
+                                        np.ones(r2g.shape[0], np.float32),
+                                        _xs2g.astype(np.float32),
+                                        _ys2g.astype(np.float32)], axis=1)
+                                    _cg, *_ = np.linalg.lstsq(
+                                        _Ag, r2g, rcond=None)
+                                    _pg = _Ag @ _cg
+                                    _rg = np.sqrt(((_pg - r2g) ** 2)
+                                                  .sum(axis=1))
+                                    if float(np.mean(_rg)) <= 10.0:
+                                        _bxg = float(np.abs(_cg[1]).max())
+                                        _byg = float(np.abs(_cg[2]).max())
+                                        _pwg = float(pp[:, 0].max()
+                                                     - pp[:, 0].min())
+                                        _phg = float(pp[:, 1].max()
+                                                     - pp[:, 1].min())
+                                        if (_bxg * _pwg + _byg * _phg) >= 6.0:
+                                            fill_plane = _cg
+                                            fill_col = r2g.mean(axis=0)
+                                            fill_exp = 1.05
+                            except Exception:
+                                fill_plane = None
+                        if fill_col is None:
+                            r2 = _sample(1.10)
+                            if r2.shape[0] >= 16:
+                                avg2 = r2.mean(axis=0)
+                                dev2 = np.sqrt(((r2 - avg2[None, :]) ** 2).sum(axis=1))
+                                _close = dev2 <= 35.0
+                                if float(_close.mean()) >= 0.75:
+                                    _cls_px = r2[_close]
+                                    _xs2 = np.clip(np.rint(
+                                        (c + (ring_pts - c) * 1.10)[:, 0]),
+                                        0, w - 1).astype(np.int32)
+                                    _ys2 = np.clip(np.rint(
+                                        (c + (ring_pts - c) * 1.10)[:, 1]),
+                                        0, h - 1).astype(np.int32)
+                                    _g2 = _grad_full[_ys2, _xs2].astype(np.float32)[_close]
+                                    if _g2.size >= 16:
+                                        if float(np.median(_g2)) > 22.0:
+                                            continue
+                                    _s2 = _hsv[..., 1][_ys2, _xs2].astype(np.float32)[_close]
+                                    if float(np.median(_s2)) > 60.0:
                                         continue
-                                _s2 = _hsv[..., 1][_ys2, _xs2].astype(np.float32)[_close]
-                                if float(np.median(_s2)) > 60.0:
-                                    continue
-                                if float(_s2.std()) > 30.0:
-                                    continue
-                                fill_col = _cls_px.mean(axis=0)
-                                fill_exp = 1.10
+                                    if float(_s2.std()) > 30.0:
+                                        continue
+                                    fill_col = _cls_px.mean(axis=0)
+                                    fill_exp = 1.10
                     if fill_col is None:
                         continue
                     fill_col = tuple(int(min(255, max(0, round(v))))
                                      for v in fill_col)
                     fill_pts = np.rint(
                         c + (pp - c) * fill_exp).astype(np.int32)
+                    if fill_plane is not None:
+                        try:
+                            _pm = np.zeros(cleaned.shape[:2], np.uint8)
+                            cv2.fillPoly(_pm, [fill_pts], 255)
+                            _fy, _fx = np.nonzero(_pm)
+                            if _fx.size:
+                                for _ch in range(3):
+                                    _vals = (fill_plane[0, _ch]
+                                             + fill_plane[1, _ch] * _fx
+                                             + fill_plane[2, _ch] * _fy)
+                                    cleaned[_fy, _fx, _ch] = np.clip(
+                                        np.rint(_vals), 0, 255).astype(np.uint8)
+                                n_fill += 1
+                                continue
+                        except Exception:
+                            pass
                     cv2.fillPoly(cleaned, [fill_pts], fill_col)
                     n_fill += 1
                 except Exception:
@@ -12686,6 +12779,27 @@ class MangaTranslator:
             grad = cv2.magnitude(gx, gy)[ring]
             if float(np.median(grad)) > 24.0:
                 return None
+            # v1.14.216 — گاردِ گرادیان (دستورِ سازنده: «تو جایِ متنِ
+            # پاکشده انگار رو هم پیاده شده مثل کوه دیده میشه»): TELEA روی
+            # زمینهٔ «گرادیانیِ رنگی» (کارت/پنجرهٔ آبیِ وبتون) از هر طرف
+            # با رنگِ متفاوت پخش میکند → لکهٔ همگام‌نشده + دایلِ ماسک تا
+            # ۲۵px رویِ خطِ بعدی = پلههایِ روی-هم‌افتاده («کوه»). حلقه اگر
+            # پهنایِ رنگیِ قابلِ دیدن دارد (p90-p10 ≥ ۱۶ در یک کانال —
+            # نوارِ متنِ پنجرهٔ [CLEAR OBJECTIVE] با گرادیانِ ~۲۰ واحدی
+            # همین‌جا از آستانهٔ اولیهٔ ۲۸ رد میشد و نوارِ ۵۰-واحدیِ
+            # روشن میساخت) یعنی گرادیان است، نه رنگِ تخت → رد میشود تا
+            # خوشه به LaMa برود. MANGA_COLOR_TELEA=1 برایِ برگشتِ دستی.
+            if os.environ.get("MANGA_COLOR_TELEA", "0") != "1":
+                try:
+                    _rp = crop_img[ring].astype(np.int16)
+                    if _rp.shape[0] >= 120:
+                        _spread = float(np.max(
+                            np.percentile(_rp, 90, axis=0)
+                            - np.percentile(_rp, 10, axis=0)))
+                        if _spread >= 16.0:
+                            return None
+                except Exception:
+                    pass
             try:
                 _thick = float(cv2.distanceTransform(
                     m.astype(np.uint8), cv2.DIST_L2, 3).max())
@@ -17563,7 +17677,13 @@ class MangaTranslator:
                     if os.environ.get("MANGA_LAMA_GROUP", "1") != "0" and len(pending) > 1:
                         _gap = 24
                         if _long >= 2.5 * _short:
-                            _gap = int(max(32, min(144, round(_short * 0.16))))
+                            # v1.14.216 — زنجیرهٔ پنجرههایِ متن (وبتونِ
+                            # UI): خطوطِ ۶۰-۹۰px فاصله با gap=۱۴۴ به چند
+                            # پچِ جدا میشوند و درزِ پچها = پلهٔ رنگیِ
+                            # «کوه»؛ فاصلهٔ گروهیِ نوارِ بلند تا ۲۲۰px
+                            # بالا رفت تا زنجیرهٔ کاملِ پنجره در «یک» پچ
+                            # با LaMa ساخته شود (گرادیانِ پیوسته).
+                            _gap = int(max(32, min(220, round(_short * 0.24))))
                         elif _on_android():
                             _gap = int(max(24, min(96, round(_short * 0.04))))
                         try:
@@ -26886,6 +27006,243 @@ class MangaTranslator:
         regions = self._merge_overlapping_regions(regions, iou_thresh=0.35, contain_thresh=0.65)
         if self.debug:
             print(f"    [*] RT-DETR: {n0} خام → {before} OCR → {len(regions)} نهایی")
+        # v1.14.216 — نجاتِ «خطِ یتیم»: خطی که detector اصلاً نبینیده
+        # (نمونهٔ واقعی: «OUTER GOD WITHIN 7 YEARS.]» زیرِ پنجرهٔ
+        # [CLEAR OBJECTIVE…]) — بدونِ این نجات نه ترجمه میشد نه پاکسازی.
+        try:
+            regions = self._rescue_orphan_lines(image, regions)
+        except Exception:
+            pass
+        return regions
+
+    def _rescue_orphan_lines(self, image: np.ndarray,
+                             regions: List["TextRegion"]) -> List["TextRegion"]:
+        """v1.14.216 — نجاتِ خطِ یتیمِ همسایهٔ ناحیهٔ متن.
+
+        ریشه (لاگِ واقعیِ strip_001ِ بچِ img4+4e2e77): پنجرهٔ سیستمِ
+        «[CLEAR OBJECTIVE: SLAY THE / OUTER GOD WITHIN 7 YEARS.]» دو خط
+        داشت؛ detector فقط باکسِ خطِ اول را داد (پایینِ آن، نزدیکِ لبهٔ
+        نوار) → خطِ دوم نه استخراج شد (متنش به خطِ اولِ کج‌وکوله چسبید)،
+        نه پاکسازی (بیرونِ هر ماسکی بود) → حروفِ سفیدِ کامل در خروجی
+        ماند («لگهٔ متنِ قبلی»). اینجا برایِ هر ناحیهٔ متنی، نوارِ
+        بالای/پایینِ مستطیلش (به پهنایِ همان ناحیه) برایِ «جوهرِ
+        خط‌مانندِ بی‌صاحب» اسکن میشود؛ اگر OCR رویِ آن متنِ لاتینِ
+        معتبر خواند → ناحیهٔ جدید ساخته میشود (ترجمه + پاکسازی).
+        MANGA_ORPHAN_RESCUE=0 برایِ خاموشیِ دستی."""
+        if os.environ.get("MANGA_ORPHAN_RESCUE", "1") == "0":
+            return regions
+        try:
+            h_img, w_img = image.shape[:2]
+        except Exception:
+            return regions
+        if self.ocr is None:
+            return regions
+        parents = [r for r in regions
+                   if (getattr(r, "source_text", "") or "").strip()
+                   and getattr(r, "kind", "") == "dialogue"]
+        if not parents:
+            return regions
+        try:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        except Exception:
+            return regions
+        # باکسهای اشغالشده (با حاشیه) — خطِ یتیم باید بیرونِ همه باشد
+        covered = []
+        for r in regions:
+            try:
+                rx, ry, rw_, rh_ = [int(v) for v in r.rect]
+                covered.append((rx - 12, ry - 12, rx + rw_ + 12, ry + rh_ + 12))
+            except Exception:
+                continue
+        _next_id = 900000
+        try:
+            _next_id = 900000 + max(
+                (int(getattr(r, "id", 0) or 0) for r in regions), default=0)
+        except Exception:
+            pass
+        rescued: List[TextRegion] = []
+        _seen_bands: List[Tuple[int, int, int, int]] = []
+        for r in parents:
+            try:
+                x, y, rw_, rh_ = [int(v) for v in r.rect]
+            except Exception:
+                continue
+            # بلندیِ خط از پالیهای خودِ ناحیه (مستطیلِ چندخطی نه)
+            _lhs = []
+            for _p in (getattr(r, "ocr_polys", None) or []):
+                try:
+                    _pp = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                    _lhs.append(float(_pp[:, 1].max() - _pp[:, 1].min()))
+                except Exception:
+                    continue
+            lh = float(np.median(_lhs)) if _lhs else float(rh_)
+            lh = float(np.clip(lh, 12.0, 140.0))
+            # v1.14.216 — شروعِ نوار چسبیده به لبهٔ ناحیه: خطِ ادامه‌دار
+            # ممکن است فقط ۲۰-۳۰px بیرونِ مستطیل باشد (پنجرهٔ [CLEAR
+            # OBJECTIVE…]: خطِ دوم تا ۳۳۴۴ و مستطیل تا ۳۳۱۸) — شیارِ بزرگ
+            # (⅓ خط) از رویش میپرید. ۱۲٪ خط + ۴px کافی است؛ ردِ «پوشیده»
+            # با محتوای ≥۷۰٪ داخلِ باکس انجام میشود نه هر همپوشانی.
+            gap = max(4, int(round(lh * 0.12)))
+            reach = int(round(lh * 2.2))
+            for _b0, _b1 in ((y + rh_ + gap, y + rh_ + gap + reach),
+                             (y - gap - reach, y - gap)):
+                _b0 = max(0, int(_b0))
+                _b1 = min(h_img, int(_b1))
+                if _b1 - _b0 < int(lh * 0.6):
+                    continue
+                _x0 = max(0, x - int(rw_ * 0.25))
+                _x1 = min(w_img, x + rw_ + int(rw_ * 0.25))
+                if _x1 - _x0 < 40:
+                    continue
+                band = gray[_b0:_b1, _x0:_x1]
+                if band.size == 0:
+                    continue
+                med = float(np.median(band))
+                if med >= 128.0:
+                    ink = (band < med - 60.0)
+                else:
+                    ink = (band > med + 60.0)
+                _dens = float(ink.mean())
+                if _dens < 0.004 or _dens > 0.55:
+                    continue
+                # v1.14.216 — تفکیکِ «ردیفهایِ خط‌مانند»: نوارِ جستجو
+                # کلِ پنجره/لبه‌ها را دارد؛ bboxِ خامِ جوهر کلِ نوار را
+                # میگیرد و OCR رویِ هنر میافتد. ردیفها به اجراهایِ
+                # پیوستهٔ جوهرِدار شکسته میشوند؛ هر اجرا = یک خطِ
+                # کاندید (بلندیِ ۸..۲.۵×خط، نه خطِ نازکِ کادر/لبهٔ
+                # تمام-عرض، نه میلهٔ توپُر).
+                _rows = ink.sum(axis=1).astype(np.float32)
+                _row_thr = max(12.0, 0.08 * (_x1 - _x0))
+                _runs: List[Tuple[int, int]] = []
+                _in_run = False
+                _rs = 0
+                for _i in range(len(_rows)):
+                    if _rows[_i] >= _row_thr:
+                        if not _in_run:
+                            _rs = _i
+                            _in_run = True
+                    else:
+                        if _in_run:
+                            _runs.append((_rs, _i))
+                            _in_run = False
+                if _in_run:
+                    _runs.append((_rs, len(_rows)))
+                for (_r0, _r1) in _runs:
+                    _rhh = _r1 - _r0
+                    if _rhh < 8 or _rhh > max(30, int(lh * 2.5)):
+                        continue
+                    # v1.14.216 — پسکشِ هیسترزیسی: آستانهٔ هستهٔ خط فقط
+                    # تنهٔ پرپیکسلِ حروف را میگیرد؛ دُم/سرِ نازکِ خط
+                    # (نصفِ پایینیِ حروفِ رویِ نوارِ تیرهٔ پایینِ پنجره)
+                    # زیرِ آستانه ماند و برشِ OCR نصفه میشد («P»/«T»).
+                    # مرزهای اجرا تا جایی که ردیف هنوز ~۳۰٪ آستانه را
+                    # دارد کشیده میشوند (سقف: نصفِ بلندیِ خط هر طرف).
+                    _soft_thr = _row_thr * 0.30
+                    _ext_max = max(4, int(lh * 0.5))
+                    _e0 = 0
+                    while (_r0 - _e0 - 1 >= 0 and _e0 < _ext_max
+                           and _rows[_r0 - _e0 - 1] >= _soft_thr):
+                        _e0 += 1
+                    _e1 = 0
+                    while (_r1 + _e1 < len(_rows) and _e1 < _ext_max
+                           and _rows[_r1 + _e1] >= _soft_thr):
+                        _e1 += 1
+                    _r0 -= _e0
+                    _r1 += _e1
+                    _rhh = _r1 - _r0
+                    if _rhh > max(30, int(lh * 2.8)):
+                        continue
+                    _sub = ink[_r0:_r1, :]
+                    if float(_sub.mean()) > 0.55:
+                        continue
+                    try:
+                        _ys, _xs = np.nonzero(_sub)
+                    except Exception:
+                        continue
+                    _ix0, _ix1 = int(_xs.min()), int(_xs.max())
+                    if (_ix1 - _ix0) < 30:
+                        continue
+                    gx0 = max(0, _x0 + _ix0)
+                    gy0 = max(0, _b0 + _r0 - 3)
+                    gx1 = min(w_img, _x0 + _ix1 + 1)
+                    gy1 = min(h_img, _b0 + _r1 + 3)
+                    if gx1 - gx0 < 30 or gy1 - gy0 < 8:
+                        continue
+                    # v1.14.216 — گاردِ «لایهٔ خطِ همسایه»: لبهٔ بالایی/
+                    # پایینیِ خطِ «موجودِ» بعدی که مستطیلش دیرتر شروع
+                    # میشود، در نوارِ جستجو به‌صورتِ لایهٔ نازک ظاهر میشود
+                    # (لاگِ واقعی: «YAA»/«WAND»/«¿Thur» رویِ strip_007) —
+                    # خطِ واقعیِ بی‌صاحب بلندیِ کاملِ خط را دارد (≥۴۵٪
+                    # بلندیِ خطِ والد) و حروفِ کافی (≥۶ حرفِ لاتین). تنها
+                    # استثنا: اجرایِ چسبیده به «لبهٔ» نوار (بریدهٔ مرز) —
+                    # دُمِ خطی که به ناحیهٔ والد ادامه دارد (نمونهٔ واقعی:
+                    # دُمِ ۲۰pxیِ «OUTER GOD WITHIN 7 YEARS.]» در بندِ
+                    # ۳۳۲۹-۳۳۴۶) به‌طورِ طبیعی کوتاه است؛ برایش فقط
+                    # حداقلِ ۱۲px کافی است (فیلترِ حروف جلویِ لایههایِ
+                    # ناخواسته را میگیرد).
+                    _clipped_edge = (_r0 <= 0 or _r1 >= len(_rows))
+                    if not _clipped_edge \
+                            and (gy1 - gy0) < max(12, int(round(lh * 0.45))):
+                        continue
+                    if (gy1 - gy0) < 12:
+                        continue
+                    _ga = float(max(1, (gx1 - gx0) * (gy1 - gy0)))
+                    if any(not (gx1 < c[0] or gx0 > c[2]
+                                or gy1 < c[1] or gy0 > c[3])
+                           and (min(gx1, c[2]) - max(gx0, c[0]))
+                               * (min(gy1, c[3]) - max(gy0, c[1]))
+                               >= 0.70 * _ga
+                           for c in covered):
+                        continue  # تقریباً کامل داخلِ ناحیهٔ موجود
+                    if any(not (gx1 < s[0] or gx0 > s[2]
+                                or gy1 < s[1] or gy0 > s[3])
+                           and (min(gx1, s[2]) - max(gx0, s[0]))
+                               * (min(gy1, s[3]) - max(gy0, s[1]))
+                               >= 0.70 * _ga
+                           for s in _seen_bands):
+                        continue
+                    _seen_bands.append((gx0, gy0, gx1, gy1))
+                    try:
+                        _oc = self._ocr_crop(
+                            image, (max(0, gx0 - 6), max(0, gy0 - 6),
+                                    min(w_img, gx1 + 6), min(h_img, gy1 + 6)))
+                        _txt = (_oc[0] or "").strip()
+                        _polys = list(_oc[1] or []) if len(_oc) > 1 else []
+                    except Exception:
+                        _txt, _polys = "", []
+                    _lt = sum(1 for _c in _txt
+                              if _c.isascii() and _c.isalpha())
+                    if not _txt or _lt < 6 \
+                            or _lt * 2 < len(_txt.replace(" ", "")):
+                        continue
+                    _boxes = []
+                    for _p in _polys:
+                        try:
+                            _pp = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                            _boxes.append(_pp.astype(np.int32))
+                        except Exception:
+                            continue
+                    nr = TextRegion(
+                        id=_next_id, boxes=_boxes or [np.array(
+                            [[gx0, gy0], [gx1, gy0], [gx1, gy1], [gx0, gy1]],
+                            dtype=np.int32)],
+                        source_text=_txt,
+                        rect=(gx0, gy0, gx1 - gx0, gy1 - gy0),
+                        kind="dialogue",
+                        bubble_style=str(getattr(r, "bubble_style", "normal")
+                                         or "normal"),
+                        det_class=str(getattr(r, "det_class", "") or ""),
+                        ocr_polys=_polys)
+                    _next_id += 1
+                    rescued.append(nr)
+                    covered.append((gx0 - 12, gy0 - 12, gx1 + 12, gy1 + 12))
+                    if self.debug:
+                        print(f"    [+] نجاتِ خطِ یتیم زیر/بالای "
+                              f"({x},{y},{x + rw_},{y + rh_}): {_txt[:56]!r}")
+        if rescued:
+            regions = list(regions) + rescued
+            print(f"    [+] {len(rescued)} خطِ یتیم (همسایهٔ نواحیِ متن) "
+                  f"نجات یافت → ترجمه و پاکسازی میشوند")
         return regions
 
     def _verify_angle_signs(self, image: np.ndarray,
