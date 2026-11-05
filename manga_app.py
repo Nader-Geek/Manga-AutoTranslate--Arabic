@@ -31,8 +31,11 @@ KEY_ENV_ORDER = ("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY",
                  "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "GROQ_API_KEY",
                  "XAI_API_KEY", "TOGETHER_API_KEY", "OPENROUTER_API_KEY", "API_KEY")
 PROVIDER_ALIASES = {"chatgpt": "openai", "grok": "xai"}
-PROVIDERS = ["gemini", "openai", "deepseek", "groq",
-             "xai", "together", "openrouter", "ollama", "custom"]
+# v1.14.217 — دستورِ سازنده: «همه مدلای ک تو کد الکی اضافه شده حذف کن بجز
+# Gemini و گزینه کاستوم بمونه» — فهرستِ ارائه‌دهندگانِ رابط فقط همین دو
+# میماند؛ موتور (manga.py) همچنان همه را میشناسد (CLI/سازگاریِ configهای
+# قدیمی) و مدلهایِ دلخواه با «custom» اجرا میشوند.
+PROVIDERS = ["gemini", "custom"]
 
 DEFAULT_GEMINI_KEYS = []#",".join(["123:])
 
@@ -304,6 +307,89 @@ def save_config(cfg: dict) -> None:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+
+
+# ── v1.14.217 — مدیرِ مدلهایِ سفارشی ─────────────────────────────
+# دستورهای سازنده: «یک گزینه دکمه هم اضافه کن + یعنی اضافه کردن مدل اون
+# مدل مثلا چند مدل ai اضافه میکنن … همون مدل ai ها جا به جا بشه» +
+# «تو گوشی پی سی لینوکس مدل هاشو تو حافظه سیو کنه بجز وب ولی وب اجرا
+# کنن» + «یک گزینه import و backup اخر صفحه اضافه کن چیزای ک وارد کردن
+# بکاپ بگیره از مدل بگیرع تا تنظیماتشون».
+CUSTOM_MODELS_PATH = os.path.join(WORK_DIR, "manga_models.json")
+
+
+def _web_host() -> bool:
+    """v1.14.217 — وبِ عمومی (GitHub Actions/سرور): ذخیرهٔ فایلی نمیکینیم؛
+    مدلها فقط در مرورگرِ خودِ کاربر (localStorage) و حافظهٔ نشست میمانند
+    ولی کاملاً اجرا میشوند. PC/لینوکس/گوشی → فایل روی دیسک (ماندگار)."""
+    return (os.environ.get("GITHUB_ACTIONS", "").strip() not in ("", "false")
+            or os.environ.get("MANGA_WEB", "").strip() == "1"
+            or os.environ.get("RAILWAY_STATIC_URL", "").strip() != "")
+
+
+def load_custom_models() -> list:
+    """مدلهایِ سفارشی از فایلِ دیسک (اجرایِ محلی) — در وب فایل نیست.
+    ساختار: [{"name","api_base","api_key","model"}, …] به‌ترتیبِ کاربر."""
+    try:
+        with open(CUSTOM_MODELS_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            out = []
+            for it in data:
+                if not isinstance(it, dict):
+                    continue
+                name = str(it.get("name") or "").strip()
+                if not name:
+                    continue
+                out.append({
+                    "name": name,
+                    "api_base": str(it.get("api_base") or "").strip(),
+                    "api_key": str(it.get("api_key") or "").strip(),
+                    "model": str(it.get("model") or "").strip(),
+                })
+            return out
+    except Exception:
+        pass
+    return []
+
+
+def save_custom_models(models: list) -> bool:
+    """ذخیره روی دیسک — فقط در اجرایِ محلی (گوشی/PC/لینوکس). در وب رد
+    میشود (حافظهٔ نشست + localStorage مرورگر خودش نگه میدارد)."""
+    if _web_host():
+        return False
+    try:
+        with open(CUSTOM_MODELS_PATH, "w", encoding="utf-8") as f:
+            json.dump(models, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def _render_models_html(models: list) -> str:
+    """فهرستِ شماره‌دارِ مدلهایِ ذخیرهشده (برای جابه‌جایی/حذف/بارگذاری)."""
+    if not models:
+        return ("<div class='hint'>مدل سفارشیِ ذخیره‌شده‌ای نیست — دامنه/کلید/"
+                "نامِ مدل را در فیلدهای بالا پر کنید، یک نام برایش بنویسید و "
+                "➕ بزنید.</div>")
+    rows = []
+    for i, m in enumerate(models, 1):
+        _k = (m.get("api_key") or "")
+        _kh = ("✓ " + _k[:3] + "…" + _k[-3:]) if len(_k) > 8 else ("✓" if _k else "—")
+        rows.append(
+            f"<tr><td>{i}</td><td><b>{str(m.get('name') or '')[:40]}</b></td>"
+            f"<td>{str(m.get('model') or '—')[:40]}</td>"
+            f"<td dir='ltr'>{str(m.get('api_base') or '—')[:60]}</td>"
+            f"<td>{_kh}</td></tr>")
+    return (
+        "<table class='cm-table'><thead><tr><th>#</th><th>نام</th>"
+        "<th>مدل</th><th>دامنهٔ API</th><th>کلید</th></tr></thead><tbody>"
+        + "".join(rows) + "</tbody></table>")
+
+
+def _cm_choices(models: list) -> list:
+    return [str(m.get("name") or "").strip() for m in models
+            if str(m.get("name") or "").strip()]
 
 
 def find_font() -> str:
@@ -820,15 +906,10 @@ def run_cli_interactive():
     ext = {"1": ".pdf", "2": ".zip", "3": ".html", "4": "", "5": ".psd"}.get(f, ".pdf")
 
     print("\nارائه‌دهندهٔ AI را انتخاب کنید:")
+    # v1.14.217 — فقط Gemini و custom (دستورِ سازنده: «همه مدلای ک تو کد
+    # الکی اضافه شده حذف کن بجز Gemini و گزینه کاستوم بمونه»)
     prov_menu = [
         ("gemini", "Google Gemini - رایگان با سهمیه"),
-        ("openai", "ChatGPT / GPT"),
-        ("deepseek", "DeepSeek"),
-        ("groq", "Groq - سریع و رایگان"),
-        ("xai", "xAI / Grok"),
-        ("openrouter", "OpenRouter"),
-        ("ollama", "لوکال - بدون کلید"),
-        ("together", "Together AI"),
         ("custom", "سرویس دلخواه — ۴ فرمت: OpenAI / Responses / Anthropic / Google (دامنه + توکن + مدل)"),
     ]
     for i, (pid, desc) in enumerate(prov_menu, 1):
@@ -1145,6 +1226,14 @@ body, .gradio-container, footer, .gradio-container .prose {
   box-shadow: 0 4px 12px rgba(224,53,42,.35), inset 0 0 0 1.5px rgba(255,255,255,.2);
 }
 .hint { color: var(--ink-dim) !important; font-size: .83rem; margin-top: 8px; }
+
+/* v1.14.217 — جدولِ مدلهایِ سفارشی */
+.cm-table{width:100%;border-collapse:collapse;margin:6px 0 2px;font-size:.82rem}
+.cm-table th{color:var(--ink-dim);font-weight:600;text-align:right;
+  padding:4px 8px;border-bottom:1px solid var(--ink-line)}
+.cm-table td{padding:5px 8px;border-bottom:1px solid var(--ink-line);
+  color:var(--ink-text)}
+.cm-table td:first-child{color:var(--ink-dim);width:26px}
 
 .livehint { color: var(--ink-dim) !important; font-size: .8rem; margin-top: 8px; text-align: center; }
 
@@ -2300,8 +2389,41 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 elem_id="manga_test_key_out", visible=False,
                 placeholder="وضعیت هر کلید — سالم ✔ / خراب ✘ (بعد از ۶۰ ثانیه خودکار پاک می‌شود)")
             gr.Markdown("<div class='hint'>کلید از aistudio.google.com (Gemini) یا "
-                        "platform.openai.com (ChatGPT) یا console.groq.com بگیرید. "
+                        "سرویسِ دلخواهِ خودتان (custom) بگیرید. "
                         "تنظیمات وب فقط در مرورگر ذخیره می‌شود.</div>")
+            # ── v1.14.217 — مدیرِ مدلهایِ سفارشی (دستورِ سازنده: «یک گزینه
+            # دکمه هم اضافه کن + یعنی اضافه کردن مدل … چند مدل ai اضافه
+            # میکنن … همون مدل ai ها جا به جا بشه») ──
+            gr.Markdown("**مدلهایِ من** — فیلدهای بالا (دامنه/کلید/مدل) را پر کنید، "
+                        "یک نام بنویسید و ➕ بزنید؛ بعد از اینجا با یک کلیک "
+                        "بارگذاری میشوند و جابه‌جا هم میشوند:")
+            custom_models_state = gr.State(list(load_custom_models()))
+            with gr.Row():
+                cm_name = gr.Textbox(
+                    label="نام مدل جدید", scale=2,
+                    placeholder="مثلاً: deepseek-flash",
+                    elem_id="manga_cm_name")
+                add_model_btn = gr.Button(
+                    "➕ افزودن این مدل", variant="secondary", scale=1,
+                    elem_id="manga_cm_add")
+            models_list_html = gr.HTML(
+                _render_models_html(custom_models_state.value),
+                elem_id="manga_cm_list")
+            with gr.Row():
+                cm_pick = gr.Dropdown(
+                    choices=_cm_choices(custom_models_state.value),
+                    value=None, scale=3,
+                    label="انتخاب مدل (خودش در فیلدهای بالا بارگذاری می‌شود)",
+                    elem_id="manga_cm_pick")
+                mv_up_btn = gr.Button("⬆ بالا", scale=1, elem_id="manga_cm_up")
+                mv_down_btn = gr.Button("⬇ پایین", scale=1, elem_id="manga_cm_down")
+                del_model_btn = gr.Button("🗑 حذف", scale=1, elem_id="manga_cm_del")
+            cm_json_box = gr.Textbox(
+                value=json.dumps(custom_models_state.value, ensure_ascii=False),
+                visible=False, elem_id="manga_cm_json", container=False)
+            cm_restore_box = gr.Textbox(
+                value="", visible=False, elem_id="manga_cm_restore",
+                container=False)
             ocr_lang = gr.Dropdown(
                 choices=[
                     ("انگلیسی", "en"),
@@ -2430,6 +2552,33 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             story_brief = gr.Checkbox(
                 label="بریف داستان قبل از ترجمه (AI یک‌بار فصل را می‌خواند تا لحن شخصیت‌ها حفظ شود)",
                 value=bool(cfg.get("story_brief", True)))
+
+        # ── v1.14.217 — پشتیبان‌گیری/بازیابی (دستورِ سازنده: «یک گزینه
+        # import و backup اخر صفحه اضافه کن چیزای ک وارد کردن بکاپ بگیره
+        # از مدل بگیرع تا تنظیماتشون») ──
+        with gr.Group(elem_classes=["stepcard"]):
+            gr.HTML('<div class="steptitle"><span class="stepnum">💾</span> '
+                    'پشتیبان‌گیری و بازیابی — مدلها + تنظیمات</div>')
+            gr.Markdown("<div class='hint'>فایلِ پشتیبان «همهٔ چیزهایِ واردشدهٔ همین "
+                        "صفحه» را دارد: مدلهایِ سفارشی (نام/دامنه/کلید/مدل) و "
+                        "تمامِ تنظیمات. رویِ گوشی/PC/لینوکس مدلها در حافظهٔ دستگاه "
+                        "هم ذخیره میشوند؛ در وب فقط مرورگرِ خودتان — ولی همه‌جا "
+                        "اجرا میشوند.</div>")
+            with gr.Row():
+                backup_btn = gr.Button("⬇️ گرفتن پشتیبان (فایل JSON)",
+                                       variant="secondary", scale=1,
+                                       elem_id="manga_backup_btn")
+                import_file = gr.File(
+                    label="بازیابی از فایل پشتیبان (JSON)",
+                    file_count="single", type="filepath",
+                    file_types=[".json"], scale=2,
+                    elem_classes=["compact-upload"],
+                    elem_id="manga_import_file")
+            backup_out = gr.File(label="فایلِ پشتیبان آماده است — دانلود کنید",
+                                 visible=False, elem_id="manga_backup_out")
+            backup_status = gr.Textbox(
+                label="", show_label=False, interactive=False, visible=False,
+                elem_id="manga_backup_status")
 
         # v1.14.176–180 — «آزمایشگاهِ سرعتِ استخراج» و دکمهٔ «تستِ سرعت».
         # v1.14.181 — دستورِ سازنده: «خب ml kit بزار… بقیش حذف کن تو گوشی
@@ -3315,6 +3464,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
           }}
         }}
       }}
+
+      // v1.14.217 — مدلهایِ سفارشیِ مرورگر → پایتون (ادغام با دیسک)
+      try {{
+        const cmRaw = (localStorage.getItem("manga_custom_models") || "").trim();
+        if (cmRaw && cmRaw.charAt(0) === "[") {{
+          const cmEl = byId("manga_cm_restore");
+          if (cmEl && (cmEl.value || "") !== cmRaw) setVal(cmEl, cmRaw);
+        }}
+      }} catch (e) {{}}
     }} catch (e) {{ console.warn("manga restore", e); }}
   }};
 
@@ -3757,6 +3915,267 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
 
+        # ── v1.14.217 — رویدادهایِ مدیرِ مدلهایِ سفارشی ──
+        def _cm_pack(models):
+            models = list(models or [])
+            save_custom_models(models)
+            return (models, gr.update(choices=_cm_choices(models), value=None),
+                    _render_models_html(models),
+                    json.dumps(models, ensure_ascii=False))
+
+        def _cm_add(name_v, base_v, keys_v, model_v, models):
+            name = str(name_v or "").strip()
+            base = str(base_v or "").strip()
+            mdl = str(model_v or "").strip()
+            keys = str(keys_v or "").strip()
+            if not name:
+                return (*_cm_pack(models),
+                        gr.update(value="❌ اول یک «نام» برای مدل بنویسید.",
+                                  visible=True))
+            if not base or not mdl:
+                return (*_cm_pack(models),
+                        gr.update(value="❌ برایِ custom هم «دامنهٔ API» هم «نامِ مدل» لازم است — فیلدهای بالا را پر کنید.",
+                                  visible=True))
+            entry = {"name": name, "api_base": base,
+                     "api_key": keys, "model": mdl}
+            models = [m for m in (models or []) if m.get("name") != name]
+            models.append(entry)
+            return (*_cm_pack(models),
+                    gr.update(value=f"✅ مدلِ «{name}» ذخیره شد"
+                                    + (" (روی دیسک)" if not _web_host()
+                                       else " (در مرورگرِ شما)"),
+                                    visible=True))
+
+        def _cm_load(pick_v, models):
+            pick = str(pick_v or "").strip()
+            if not pick:
+                return (gr.update(), gr.update(), gr.update(), gr.update())
+            for m in (models or []):
+                if str(m.get("name") or "") == pick:
+                    prov = "custom" if (m.get("api_base") or "").strip() else "gemini"
+                    return (gr.update(value=prov),
+                            gr.update(value=str(m.get("api_base") or "")),
+                            gr.update(value=str(m.get("api_key") or "")),
+                            gr.update(value=str(m.get("model") or "")))
+            return (gr.update(), gr.update(), gr.update(), gr.update())
+
+        def _cm_move(pick_v, models, delta):
+            pick = str(pick_v or "").strip()
+            models = list(models or [])
+            if pick and len(models) > 1:
+                try:
+                    i = next(idx for idx, m in enumerate(models)
+                             if str(m.get("name") or "") == pick)
+                    j = i + delta
+                    if 0 <= j < len(models):
+                        models[i], models[j] = models[j], models[i]
+                except StopIteration:
+                    pass
+            return _cm_pack(models)
+
+        def _cm_del(pick_v, models):
+            pick = str(pick_v or "").strip()
+            models = [m for m in (models or [])
+                      if str(m.get("name") or "") != pick] if pick else list(models or [])
+            return _cm_pack(models)
+
+        def _cm_restore(raw, models):
+            """v1.14.217 — بازگردانیِ مدلها از localStorage مرورگر (وب) —
+            فقط وقتی چیزِ بیشتری از دیسک دارد ادغام میشود."""
+            try:
+                data = json.loads(raw) if raw else []
+            except Exception:
+                data = []
+            if not isinstance(data, list) or not data:
+                return _cm_pack(models)
+            merged = list(models or [])
+            for it in data:
+                if not isinstance(it, dict):
+                    continue
+                name = str(it.get("name") or "").strip()
+                if not name or any(str(m.get("name") or "") == name
+                                   for m in merged):
+                    continue
+                merged.append({"name": name,
+                               "api_base": str(it.get("api_base") or ""),
+                               "api_key": str(it.get("api_key") or ""),
+                               "model": str(it.get("model") or "")})
+            return _cm_pack(merged)
+
+        try:
+            add_model_btn.click(
+                _cm_add,
+                inputs=[cm_name, api_base, api_keys, model, custom_models_state],
+                outputs=[custom_models_state, cm_pick, models_list_html,
+                         cm_json_box, backup_status],
+                api_name="cm_add")
+        except Exception:
+            pass
+        try:
+            cm_pick.change(
+                _cm_load,
+                inputs=[cm_pick, custom_models_state],
+                outputs=[provider, api_base, api_keys, model],
+                api_name="cm_load")
+        except Exception:
+            pass
+        try:
+            mv_up_btn.click(
+                lambda p, ms: _cm_move(p, ms, -1),
+                inputs=[cm_pick, custom_models_state],
+                outputs=[custom_models_state, cm_pick, models_list_html,
+                         cm_json_box],
+                api_name="cm_up")
+            mv_down_btn.click(
+                lambda p, ms: _cm_move(p, ms, +1),
+                inputs=[cm_pick, custom_models_state],
+                outputs=[custom_models_state, cm_pick, models_list_html,
+                         cm_json_box],
+                api_name="cm_down")
+            del_model_btn.click(
+                _cm_del,
+                inputs=[cm_pick, custom_models_state],
+                outputs=[custom_models_state, cm_pick, models_list_html,
+                         cm_json_box],
+                api_name="cm_del")
+        except Exception:
+            pass
+        try:
+            # مرورگرِ وب: هر تغییرِ فهرست → localStorage
+            cm_json_box.change(
+                fn=None, inputs=[cm_json_box], outputs=[],
+                js="""(js) => {
+  try {
+    if (js && js.trim().charAt(0) === '[')
+      localStorage.setItem('manga_custom_models', js);
+  } catch (e) {}
+  return [];
+}""")
+            # بارگذاریِ صفحه: مدلهایِ مرورگر → پایتون (ادغام با دیسک)
+            cm_restore_box.change(
+                _cm_restore,
+                inputs=[cm_restore_box, custom_models_state],
+                outputs=[custom_models_state, cm_pick, models_list_html,
+                         cm_json_box],
+                api_name="cm_restore")
+        except Exception:
+            pass
+
+        # ── v1.14.217 — پشتیبان‌گیری/بازیابی: «چیزای ک وارد کردن بکاپ
+        # بگیره از مدل بگیرع تا تنظیماتشون» ──
+        _BACKUP_FIELDS = [
+            ("provider", provider), ("api_base", api_base),
+            ("api_keys", api_keys), ("model", model),
+            ("ocr_lang", ocr_lang), ("out_fmt", out_fmt),
+            ("quality", quality), ("workers", workers),
+            ("bubbles", bubbles), ("timeout", timeout),
+            ("batchw", batchw), ("maxre", maxre),
+            ("reqdelay", reqdelay), ("temp", temp), ("readord", readord),
+            ("clean_method", clean_method), ("two_pass", two_pass),
+            ("fake_test", fake_test), ("clean_only", clean_only),
+            ("web_debug", web_debug), ("prompt_mode", prompt_mode),
+            ("prompt_body", prompt_preview_body),
+            ("glossary_text", glossary_text), ("story_brief", story_brief),
+        ]
+
+        def _do_backup(*args):
+            try:
+                import datetime as _dt
+                n = len(_BACKUP_FIELDS)
+                settings = {k: (v if isinstance(v, (int, float, bool))
+                                else str(v or ""))
+                            for (k, _), v in zip(_BACKUP_FIELDS, args[:n])}
+                models = list(args[n] or [])
+                payload = {
+                    "_type": "manga_autotranslate_backup",
+                    "app_ver": "1.14.217",
+                    "exported_at": _dt.datetime.now().isoformat(timespec="seconds"),
+                    "custom_models": models,
+                    "settings": settings,
+                }
+                ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+                path = os.path.join(WORK_DIR, f"manga_backup_{ts}.json")
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, ensure_ascii=False, indent=2)
+                return (gr.update(value=path, visible=True),
+                        gr.update(value=f"✅ پشتیبان ساخته شد: "
+                                        f"{len(models)} مدل + "
+                                        f"{len(settings)} تنظیم — دانلودش کنید.",
+                                  visible=True))
+            except Exception as e:
+                return (gr.update(),
+                        gr.update(value=f"❌ پشتیبان ناموفق: {e}", visible=True))
+
+        def _do_import(file_info, models_cur):
+            import datetime as _dt
+            n = len(_BACKUP_FIELDS)
+            ups = [gr.update()] * n
+            try:
+                path = (file_info or "").strip() if isinstance(file_info, str) \
+                    else (file_info.get("name") if isinstance(file_info, dict) else "")
+                # gr.File با type=filepath مسیرِ موقت را میدهد
+                if isinstance(file_info, str):
+                    path = file_info
+                elif isinstance(file_info, dict):
+                    path = file_info.get("name") or ""
+                if not path or not os.path.isfile(path):
+                    return (*ups, gr.update(), gr.update(), gr.update(),
+                            gr.update(),
+                            gr.update(value="❌ فایل پشتیبان انتخاب نشده.",
+                                      visible=True))
+                with open(path, encoding="utf-8") as f:
+                    payload = json.load(f)
+                if not isinstance(payload, dict) \
+                        or payload.get("_type") != "manga_autotranslate_backup":
+                    return (*ups, gr.update(), gr.update(), gr.update(),
+                            gr.update(),
+                            gr.update(value="❌ این فایلِ پشتیبانِ این اپ نیست.",
+                                      visible=True))
+                st = payload.get("settings") or {}
+                for i, (k, _comp) in enumerate(_BACKUP_FIELDS):
+                    if k in st and st[k] is not None:
+                        ups[i] = gr.update(value=st[k])
+                models = []
+                for it in (payload.get("custom_models") or []):
+                    if isinstance(it, dict) and str(it.get("name") or "").strip():
+                        models.append({
+                            "name": str(it.get("name") or "").strip(),
+                            "api_base": str(it.get("api_base") or "").strip(),
+                            "api_key": str(it.get("api_key") or "").strip(),
+                            "model": str(it.get("model") or "").strip(),
+                        })
+                merged = list(models_cur or [])
+                for m in models:
+                    if not any(str(x.get("name") or "") == m["name"]
+                               for x in merged):
+                        merged.append(m)
+                save_custom_models(merged)
+                return (*ups, merged,
+                        gr.update(choices=_cm_choices(merged), value=None),
+                        _render_models_html(merged),
+                        json.dumps(merged, ensure_ascii=False),
+                        gr.update(value=f"✅ بازیابی شد: {len(merged)} مدل + "
+                                        f"{len(st)} تنظیم.",
+                                  visible=True))
+            except Exception as e:
+                return (*ups, gr.update(), gr.update(), gr.update(),
+                        gr.update(),
+                        gr.update(value=f"❌ بازیابی ناموفق: {e}", visible=True))
+
+        try:
+            _backup_inputs = [c for _, c in _BACKUP_FIELDS] + [custom_models_state]
+            backup_btn.click(
+                _do_backup, inputs=_backup_inputs,
+                outputs=[backup_out, backup_status], api_name="backup_settings")
+            import_file.change(
+                _do_import,
+                inputs=[import_file, custom_models_state],
+                outputs=[c for _, c in _BACKUP_FIELDS]
+                        + [custom_models_state, cm_pick, models_list_html,
+                           cm_json_box, backup_status],
+                api_name="import_settings")
+        except Exception:
+            pass
 
         def _prompt_preview_update(mode_v, prov_v, mdl_v):
             # v1.14.147: بدونِ تیتر — فقط متنِ کادرِ پرامپت رفرش میشود
