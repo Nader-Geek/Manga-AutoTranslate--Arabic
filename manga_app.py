@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.223"
+APP_VER = "1.14.224"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1332,6 +1332,18 @@ body, .gradio-container, footer, .gradio-container .prose {
   box-shadow: 0 4px 12px rgba(224,53,42,.35), inset 0 0 0 1.5px rgba(255,255,255,.2);
 }
 .hint { color: var(--ink-dim) !important; font-size: .83rem; margin-top: 8px; }
+/* v1.14.224 — دستورِ سازنده: «تو وب لینوکس پی سی لینک مدل بزرگ باشه صفحه
+   بزرگ تر میشه اینو درست کن بعد قسمت میگن لینک بلند باشه کش میده» — لینکِ
+   بلند (https://api.cloudflare.com/client/v4/accounts/…/chat/completions)
+   و اسمِ بلندِ مدل در خطِ مشخصاتِ زیرِ منو شکسته میشوند و دیگر صفحه را
+   پهن/بزرگ نمیکند — overflow-wrap:anywhere به همهٔ فرزندان میرسد و
+   min-content را هم کوچک میکند تا ستون بتواند جمع شود */
+.hint, .hint *, #manga_cm_info, #manga_cm_info * {
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  max-width: 100% !important;
+}
+#manga_cm_info code, .hint code { white-space: normal !important; }
 
 /* v1.14.221 — ضربدرِ ✖ِ حذف، چسبیده به خودِ منویِ انتخابِ AI: مدلِ
    خودت را در منو انتخاب کن، ✖ِ کنارِ منو میآید و با یک کلیک از لیست و
@@ -3840,15 +3852,23 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     attachEye();
     [300, 800, 1500, 3000, 5000].forEach((t) => setTimeout(attachEye, t));
     if (!window.__mangaEyeObs) {{
-      window.__mangaEyeObs = new MutationObserver(() => attachEye());
-      const startEyeObs = () => {{
-        try {{
-          const r = document.getElementById("manga_api_keys") || document.body;
-          window.__mangaEyeObs.observe(r, {{ childList: true, subtree: true }});
-        }} catch (e) {{}}
-      }};
-      startEyeObs();
-      setTimeout(startEyeObs, 1000);
+      // v1.14.224 — ریشهٔ «وقتی دکمه ویرایش میزنم شکل نمایش کلید نمیاد
+      // تو Gemini میاد ولی تو کاستوم خودم نمیاد»: gradio وقتی ردیفِ کلید
+      // پنهان/آشکار میشود (انتخابِ مدلِ ذخیرهشده → ✎ ویرایش) فیلد را از
+      // DOM میبرد و دوباره میسازد؛ آبسرورِ چسبیدهبه خودِ فیلد با فیلدِ
+      // قدیمی میمیرد و چشم دیگر برنمیگردد (چشمِ Gemini در بارِ اول کار
+      // میکرد چون هنوز زنده بود) — حالا همیشه به خودِ body وصل میشود که
+      // هرگز از DOM نمیافتد؛ هر ساختِ دوبارهٔ فیلد چشم را برمیگرداند
+      let pend = false;
+      window.__mangaEyeObs = new MutationObserver(() => {{
+        if (pend) return;
+        pend = true;
+        requestAnimationFrame(() => {{ pend = false; attachEye(); }});
+      }});
+      try {{
+        window.__mangaEyeObs.observe(document.body,
+          {{ childList: true, subtree: true }});
+      }} catch (e) {{}}
     }}
   }} catch (e) {{}}
 
