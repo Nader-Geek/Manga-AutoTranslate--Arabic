@@ -156,6 +156,25 @@ DEFAULT_SYSTEM_INSTRUCTION = (
     + DEFAULT_SYSTEM_INSTRUCTION_SUFFIX.lstrip()
 )
 
+# ── Target language: "ar" (Arabic, default) or "fa" (Persian, original behaviour) ──
+# Controlled by --target-lang / --ar-dialect or env MANGA_TARGET_LANG / MANGA_AR_DIALECT.
+import os as _os
+import sys as _sys
+
+TARGET_LANG = (_os.environ.get("MANGA_TARGET_LANG", "ar") or "ar").strip().lower()
+if TARGET_LANG not in ("ar", "fa"):
+    TARGET_LANG = "ar"
+AR_DIALECT = (_os.environ.get("MANGA_AR_DIALECT", "msa") or "msa").strip().lower()
+if AR_DIALECT not in ("msa", "egyptian"):
+    AR_DIALECT = "msa"
+
+try:
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    import arabic_prompts as _AR
+except Exception:  # file missing: fall back to Persian-only behaviour
+    _AR = None
+    TARGET_LANG = "fa"
+
 import os
 import sys
 import subprocess
@@ -1822,7 +1841,8 @@ PROVIDER_PRESETS = {
     "ollama": {
         "type": "openai",
         "base_url": "http://localhost:11434/v1",
-        "default_model": "llama3.2",
+        # Qwen2.5 follows JSON + Arabic well at 7B; for better quality try qwen2.5:14b
+        "default_model": "qwen2.5:7b-instruct",
         "env_key": "OLLAMA_API_KEY",
     },
     "custom": {
@@ -5224,9 +5244,25 @@ class MangaTranslator:
 
     def _get_system_instruction(self) -> str:
         custom = (getattr(self, "custom_instruction", "") or "").strip()
-        body = custom if custom else DEFAULT_SYSTEM_INSTRUCTION_STYLE.strip()
         allowed = self._allowed_tones()
         fallback_tone = "normal" if "normal" in allowed else (allowed[0] if allowed else "")
+        if TARGET_LANG == "ar" and _AR is not None:
+            if custom:
+                body = custom
+            elif getattr(self, "provider", "") == "ollama":
+                body = _AR.ARABIC_STYLE_LITE.strip()  # compact: fits small local contexts
+            else:
+                body = _AR.ARABIC_STYLE_MSA.strip()
+            if not custom and AR_DIALECT == "egyptian":
+                body += _AR.ARABIC_DIALECT_EGYPTIAN
+            if allowed:
+                tone_rule = _AR.TONE_RULE_AR_TEMPLATE.format(
+                    allowed=", ".join(allowed), fallback=fallback_tone)
+            else:
+                tone_rule = "لا ترسل tone.\n"
+            suffix = _AR.ARABIC_SUFFIX.replace("{TONE_RULE}", tone_rule).strip()
+            return (body.rstrip() + "\n\n" + suffix).strip()
+        body = custom if custom else DEFAULT_SYSTEM_INSTRUCTION_STYLE.strip()
         if allowed:
             tone_rule = (
                 "tone الزامی و فقط یکی از: " + ", ".join(allowed)
@@ -5415,6 +5451,8 @@ class MangaTranslator:
     def _call_ai_with_timeout(self, fn, *, label: str = "AI") -> str:
         
         timeout = float(getattr(self, "api_timeout", 45.0) or 45.0)
+        if getattr(self, "provider", "") == "ollama" and timeout > 0:
+            timeout = max(timeout, 300.0)  # local models can be slow, esp. on CPU
         if timeout <= 0:
             return fn()
         ex = ThreadPoolExecutor(max_workers=1)
@@ -5510,9 +5548,10 @@ class MangaTranslator:
         model = self._thread_model()
         client = self._thread_openai()
         mlow = model.lower()
-        json_object = structured and any(
+        is_local = self.provider == "ollama"
+        json_object = structured and (is_local or any(
             x in mlow for x in ("gpt-4", "gpt-3.5", "gpt-5", "o1", "o3", "o4")
-        )
+        ))
         if json_object:
             system_instruction += (
                 '\nTransport format: return a JSON object {"translations":[...]}. '
@@ -5528,6 +5567,9 @@ class MangaTranslator:
             temperature=self.translation_temperature if structured else 0.2,
             timeout=float(getattr(self, "api_timeout", 10.0) or 10.0),
         )
+        if is_local:
+            # local inference (esp. CPU) is slow: give each request at least 5 minutes
+            kwargs["timeout"] = max(kwargs["timeout"], 300.0)
 
         if json_object:
             kwargs["response_format"] = {"type": "json_object"}
@@ -6320,11 +6362,16 @@ class MangaTranslator:
     def _fa_probe_text() -> str:
         if MangaTranslator._FA_PROBE_CACHE is not None:
             return MangaTranslator._FA_PROBE_CACHE
-        letters = "ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیآأإئءؤئةی"
+        if TARGET_LANG == "ar" and _AR is not None:
+            letters = _AR.ARABIC_PROBE_LETTERS
+            digits = " 0123456789 "
+        else:
+            letters = "ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیآأإئءؤئةی"
+            digits = " ۰۱۲۳۴۵۶۷۸۹ 0123456789 "
         parts: List[str] = []
         for _L in letters:
             parts += [_L, _L + _L, "ب" + _L + "ب", "ب" + _L, _L + "ب"]
-        sample = " ".join(parts) + " ۰۱۲۳۴۵۶۷۸۹ 0123456789 .,!?…:;()«»-"
+        sample = " ".join(parts) + digits + ".,!?…:;()«»-"
         try:
             shaped = get_display(arabic_reshaper.reshape(sample))
         except Exception:
@@ -9851,6 +9898,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="ارائه‌دهنده AI: gemini | openai | deepseek | groq | xai | together | openrouter | ollama "
              "(نام‌های قدیمی chatgpt و grok هم پذیرفته می‌شوند: همان openai و xai)"
     )
+    p.add_argument("--target-lang", default=None, choices=["ar", "fa"],
+                   help="لغة الترجمة / target language: ar = العربية (الافتراضي) | fa = فارسی")
+    p.add_argument("--ar-dialect", default=None, choices=["msa", "egyptian"],
+                   help="لهجة الحوار العربي: msa = فصحى مبسّطة (الافتراضي) | egyptian = عامية مصرية")
     p.add_argument("--api-key", action="append", default=None,
                    help="کلید API. چندبار یا با کاما. env متناظر هم خوانده می‌شود")
     p.add_argument("--api-base", default=None,
@@ -9968,6 +10019,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main():
     args = build_arg_parser().parse_args()
 
+    if getattr(args, "target_lang", None):
+        globals()["TARGET_LANG"] = args.target_lang
+        os.environ["MANGA_TARGET_LANG"] = args.target_lang
+    if getattr(args, "ar_dialect", None):
+        globals()["AR_DIALECT"] = args.ar_dialect
+        os.environ["MANGA_AR_DIALECT"] = args.ar_dialect
+    if globals().get("TARGET_LANG") == "ar" and globals().get("_AR") is None:
+        print("[!] arabic_prompts.py not found next to manga.py — falling back to Persian.",
+              file=sys.stderr)
+        globals()["TARGET_LANG"] = "fa"
+
     provider = (args.provider or "gemini").lower().strip()
     if provider not in PROVIDER_PRESETS:
         print(f"خطا: provider ناشناخته «{provider}»", file=sys.stderr)
@@ -9985,6 +10047,8 @@ def main():
             keys.extend(k.strip() for k in env_val.replace(";", ",").split(",") if k.strip())
 
     for fallback_env in ("GEMINI_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "API_KEY"):
+        if provider == "ollama":  # local model: never send cloud keys to localhost
+            break
         if fallback_env != env_name:
             v = os.environ.get(fallback_env, "")
             if v:

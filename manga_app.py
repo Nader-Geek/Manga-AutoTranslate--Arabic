@@ -489,11 +489,20 @@ def system_info() -> str:
 
 
 
+# Target language (ar default). manga.py subprocesses inherit these env vars.
+os.environ.setdefault("MANGA_TARGET_LANG", "ar")
+os.environ.setdefault("MANGA_AR_DIALECT", "msa")
+
+
+def _lang_suffix() -> str:
+    return "fa" if os.environ.get("MANGA_TARGET_LANG", "ar").lower() == "fa" else "ar"
+
+
 def smart_output_base(input_path: str) -> str:
     
     raw = (input_path or "").strip()
     if not raw:
-        return "chapter_fa"
+        return "chapter_" + _lang_suffix()
     
     if "," in raw:
         raw = raw.split(",")[0].strip()
@@ -557,8 +566,9 @@ def smart_output_base(input_path: str) -> str:
         base = os.path.splitext(os.path.basename(path_only))[0] or "output"
         base = re.sub(r"\*+", "", base)
         base = re.sub(r"[^\w\-.]+", "-", base).strip("-._") or "output"
-    if not base.lower().endswith("_fa"):
-        base = base + "_fa"
+    _sfx = "_" + _lang_suffix()
+    if not base.lower().endswith(_sfx):
+        base = base + _sfx
     return base
 
 
