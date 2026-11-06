@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.222"
+APP_VER = "1.14.223"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1339,9 +1339,18 @@ body, .gradio-container, footer, .gradio-container .prose {
    ضربدر بیاد نه پایینش کلی ضربدر نشون بده»)
    v1.14.222 — دستورِ سازنده: «دکمه ضربدرش بزرگه هم اندازه دکمش کن» →
    ✖ دیگر دکمهٔ درشتِ ۴۴px نیست؛ دقیقاً هماندازهٔ خودِ کنترلِ منو (۳۰px)
-   و همترازِ آن ساخته میشود */
+   و همترازِ آن ساخته میشود
+   v1.14.223 — دستورِ سازنده: «دکمه ضربدرش به بالا کش اومده به اندازهٔ
+   دکمه باشه» — ریشه پیدا شد: خودِ ✖ ۳۰×۳۰ است ولی gradio دورِ هر ردیف
+   یک قابِ .styler با پسزمینهٔ خاکستریِ آبی (var(--block-border-color))
+   میکشد؛ فاصلهٔ خالیِ کنارِ منو همان پسزمینه میشود و شبیهِ اینکه ✖ به
+   بالا کشیده شده. قاب شفاف میشود تا فقط خودِ دکمهٔ ✖ دیده شود (وبِ
+   PC/لینوکس/گوشی همه همین مرورگر است). */
+div.styler{background:transparent !important;border:none !important;
+  box-shadow:none !important}
 #manga_cm_del_btn{max-width:30px !important;min-width:30px !important;
   width:30px !important;height:30px !important;min-height:30px !important;
+  max-height:30px !important;
   flex:none !important;align-self:flex-end !important;
   background:transparent !important;border:1px solid rgba(255,90,90,.4) !important;
   border-radius:999px !important;color:#ff7b7b !important;font-size:.8rem !important;
@@ -1349,6 +1358,22 @@ body, .gradio-container, footer, .gradio-container .prose {
   transition:all .15s ease}
 #manga_cm_del_btn:hover{background:rgba(255,70,70,.18) !important;color:#ff4d4d !important}
 #manga_cm_del_btn:active{transform:scale(.94)}
+/* v1.14.223 — دستورِ سازنده: «کلید ک وارد میکنن بشه هاید کرد پیشفرض
+   هاید باشه زدن روش دیده بشه» — فیلدِ کلید از سمتِ سرور type="password"
+   است (پیشفرضِ مخفی) و دکمهٔ 👁 داخلِ فیلد آن را نشان/مخفی میکند */
+#manga_api_keys .wrap, #manga_api_keys .input-container{position:relative !important}
+#manga_api_keys input{padding-inline-start:44px !important}
+.manga-eye{position:absolute !important;top:50% !important;
+  inset-inline-start:6px !important;transform:translateY(-50%) !important;
+  width:32px !important;min-width:32px !important;max-width:32px !important;
+  height:32px !important;min-height:32px !important;max-height:32px !important;
+  border-radius:9px !important;background:rgba(255,255,255,.04) !important;
+  border:1px solid rgba(255,255,255,.14) !important;color:#b9b6ad !important;
+  font-size:1rem !important;line-height:1 !important;padding:0 !important;
+  cursor:pointer !important;z-index:6;transition:all .15s ease;
+  box-shadow:none !important;margin:0 !important;flex:none !important}
+.manga-eye.on{color:#ffd28a !important;border-color:rgba(255,210,138,.45) !important}
+.manga-eye:active{transform:translateY(-50%) scale(.93)}
 /* v1.14.219 — کانالهایِ پنهانِ مرورگر↔سرور: gradio 6 کامپوننتهایِ
    visible=False را اصلاً در DOM نمیگذارد و همهٔ JSهایی که با setVal
    به سرور خبر میدهند (افزودنِ مدل، ضربدرِ ✖، بازیابیِ localStorage،
@@ -2553,14 +2578,29 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             add_model_btn = gr.Button(
                 "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
                 elem_id="manga_cm_add", visible=False)
+            # v1.14.223 — دستورِ سازنده: «کسی کاستوم سیو کرد و چیزی ک سیو زده
+            # بود بتونن ویرایش کنن ... اگ مدل خودشون رفتن اونجا سیو بیاد ...
+            # با قابلیت ویرایش ویرایش زدن گزینه سیو بیاد» →
+            # «✎ ویرایش» فقط رویِ مدلِ ذخیرهشدهٔ خودِ کاربر میآید؛ با زدنش
+            # مقادیرِ ذخیرهشده (لینک/کلید/مدل) در فیلدها میآید و «افزودن» جای
+            # خودش را به «💾 ذخیرهٔ ویرایش» میدهد (بجایِ گزینهٔ افزودن، ذخیره).
+            cm_edit_btn = gr.Button(
+                "✎ ویرایش این مدل", variant="secondary", scale=1,
+                elem_id="manga_cm_edit", visible=False)
+            cm_save_btn = gr.Button(
+                "💾 ذخیرهٔ ویرایش", variant="primary", scale=1,
+                elem_id="manga_cm_save", visible=False)
             cm_hint_md = gr.Markdown("<div class='hint'>«+ افزودن» مدلِ فعلیِ همین صفحه "
                         "(دامنه/کلید/مدل) را با یک نام در «لیست مدل‌ها» ثبت "
                         "میکند؛ مدل در حافظهٔ مرورگر/دستگاه میماند، در منویِ "
                         "انتخابِ AI میآید و در بکاپ هم ذخیره میشود. حذفِ مدل = "
-                        "انتخابش در منو و زدنِ ✖ِ کنارِ منو. رویِ «auto» فیلدها "
+                        "انتخابش در منو و زدنِ ✖ِ کنارِ منو. ویرایشِ مدلِ "
+                        "ذخیرهشده = انتخابش در منو، «✎ ویرایش» و بعد «💾 "
+                        "ذخیرهٔ ویرایش». رویِ «auto» فیلدها "
                         "قفل میشوند — خودش بینِ مدلها انتخاب میکند. کلید از "
                         "aistudio.google.com (Gemini) یا سرویسِ دلخواهِ خودتان "
-                        "بگیرید؛ تنظیمات وب فقط در مرورگر ذخیره میشود.</div>",
+                        "بگیرید؛ کلید در فیلد مخفی است — با 👁 دیده میشود؛ "
+                        "تنظیمات وب فقط در مرورگر ذخیره میشود.</div>",
                         visible=False)
             test_key_btn = gr.Button(
                 "تست کلیدها / لینک",
@@ -3764,6 +3804,54 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     [1200, 4000].forEach((t) => setTimeout(attachFollow, t));
   }} catch (e) {{}}
 
+  // v1.14.223 — دستورِ سازنده: «کلید ک وارد میکنن بشه هاید کرد پیشفرض
+  // هاید باشه زدن روش دیده بشه» — فیلدِ کلید از سمتِ سرور type="password"
+  // است (پیشفرضِ مخفی) و دکمهٔ 👁 داخلِ فیلد آن را نشان/مخفی میکند
+  // (gradio 6 دکمهٔ خودکارِ چشم ندارد؛ وبِ PC/لینوکس/گوشی همه همین است)
+  try {{
+    const attachEye = () => {{
+      const kb = document.getElementById("manga_api_keys");
+      if (!kb) return;
+      const inp = kb.querySelector("input");
+      if (!inp || inp.dataset.mangaEyeBound) return;
+      inp.dataset.mangaEyeBound = "1";
+      const host = inp.closest(".input-container")
+        || inp.closest(".wrap") || inp.parentElement;
+      if (!host) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "manga-eye";
+      btn.setAttribute("aria-label", "نمایش / مخفی کردن کلید");
+      btn.title = "نمایش / مخفی کردن کلید";
+      const paint = () => {{
+        inp.type = window.__mangaKeysShown ? "text" : "password";
+        btn.textContent = window.__mangaKeysShown ? "🙈" : "👁";
+        btn.classList.toggle("on", !!window.__mangaKeysShown);
+      }};
+      btn.addEventListener("click", (ev) => {{
+        ev.preventDefault();
+        ev.stopPropagation();
+        window.__mangaKeysShown = !window.__mangaKeysShown;
+        paint();
+      }});
+      host.appendChild(btn);
+      paint();
+    }};
+    attachEye();
+    [300, 800, 1500, 3000, 5000].forEach((t) => setTimeout(attachEye, t));
+    if (!window.__mangaEyeObs) {{
+      window.__mangaEyeObs = new MutationObserver(() => attachEye());
+      const startEyeObs = () => {{
+        try {{
+          const r = document.getElementById("manga_api_keys") || document.body;
+          window.__mangaEyeObs.observe(r, {{ childList: true, subtree: true }});
+        }} catch (e) {{}}
+      }};
+      startEyeObs();
+      setTimeout(startEyeObs, 1000);
+    }}
+  }} catch (e) {{}}
+
   return [];
 }}
 """
@@ -4165,7 +4253,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             (۳) بانکِ حافظه: هر provider (gemini/custom) مقادیرِ فیلدهایِ
             خودش را دارد — رفتن به Gemini دیگر مقادیرِ کاستوم را نشان
             نمیدهد («میرم Gemini مال کاستوم ک سیو زدم نشون میده»)؛ مقادیرِ
-            providerِ جدید همیشه از بانک میآید (بانکِ خالی = فیلدهایِ خالی)."""
+            providerِ جدید همیشه از بانک میآید (بانکِ خالی = فیلدهایِ خالی).
+            v1.14.223 — «✎ ویرایش» فقط رویِ مدلِ ذخیرهشدهٔ خودِ کاربر میآید
+            و هر تغییرِ منو حالتِ ویرایش را لغو میکند («💾 ذخیرهٔ ویرایش»
+            پنهان میشود)."""
             bank = dict(bank or {})
             v = str(p or "").strip()
             on_auto = (v == "auto")
@@ -4201,7 +4292,65 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=is_custom),
                     gr.update(visible=mine, value=info),
                     gr.update(visible=mine),
-                    bank)
+                    bank,
+                    gr.update(visible=mine),    # cm_edit_btn (v1.14.223)
+                    gr.update(visible=False))   # cm_save_btn — خروج از ویرایش
+
+        # ── v1.14.223 — ویرایشِ مدلِ ذخیرهشده ─────────────────────
+        def _cm_edit_start(prov, models):
+            """دستورِ سازنده: «چیزی ک سیو زده بود بتونن ویرایش کنن ... با
+            قابلیت ویرایش ویرایش زدن گزینه سیو بیاد» — با «✎ ویرایش»
+            مقادیرِ ذخیرهشدهٔ مدلِ انتخابشده (لینک/کلید/مدل) در فیلدها
+            بارگذاری میشود، «افزودن» پنهان و «💾 ذخیرهٔ ویرایش» میآید."""
+            nm = str(prov or "").strip()
+            m = next((x for x in (models or [])
+                      if str(x.get("name") or "").strip() == nm), None)
+            if not m:
+                return (gr.update(),) * 8
+            return (gr.update(visible=True,
+                              value=str(m.get("api_base") or "")),
+                    gr.update(visible=True),
+                    gr.update(visible=True,
+                              value=str(m.get("api_key") or "")),
+                    gr.update(visible=True,
+                              value=str(m.get("model") or "")),
+                    gr.update(visible=False),   # «+ افزودن» پنهان
+                    gr.update(visible=False),   # «✎ ویرایش» پنهان
+                    gr.update(visible=True),    # «💾 ذخیرهٔ ویرایش»
+                    gr.update(visible=False))   # راهنما
+
+        def _cm_save_edits(prov, models, base, key, mdl):
+            """«💾 ذخیرهٔ ویرایش»: همان مدلِ انتخابشده با مقادیرِ جدیدِ
+            فیلدها بهروزرسانی میشود (نام عوض نمیشود)؛ بعد برگشت به حالتِ
+            نمایش (فیلدها پاک/پنهان، مشخصاتِ زیرِ منو تازه میشود)."""
+            nm = str(prov or "").strip()
+            new_models = [dict(x) for x in (models or [])]
+            idx = next((i for i, x in enumerate(new_models)
+                        if str(x.get("name") or "").strip() == nm), -1)
+            if idx < 0 or not nm:
+                return (gr.update(),) * 14
+            entry = {"name": nm,
+                     "api_base": str(base or "").strip(),
+                     "api_key": str(key or "").strip(),
+                     "model": str(mdl or "").strip()}
+            new_models[idx] = entry
+            _link = entry["api_base"] or "Gemini رسمی (بدونِ دامنهٔ سفارشی)"
+            _mdl = f" — مدلِ هوش: {entry['model']}" if entry["model"] else ""
+            msg = (f"✅ ویرایشِ «{nm}» ذخیره شد — لینک: {_link}{_mdl}"
+                   + (" (روی دیسک)" if not _web_host()
+                      else " (در مرورگرِ شما)"))
+            return (*_cm_pack(new_models, nm),
+                    gr.update(visible=True,
+                              value=_cm_info_html(new_models, nm)),
+                    gr.update(visible=False),            # ذخیرهٔ ویرایش
+                    gr.update(visible=True),             # ✎ ویرایش
+                    gr.update(visible=False, value=""),  # دامنهٔ API
+                    gr.update(visible=False),            # ردیفِ کلید/مدل
+                    gr.update(visible=False, value=""),  # کلید
+                    gr.update(visible=False, value=""),  # مدل
+                    gr.update(visible=False),            # افزودن
+                    gr.update(visible=False),            # راهنما
+                    gr.update(value=msg, visible=True))
 
         try:
             provider.change(
@@ -4210,7 +4359,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         api_base, api_keys, model],
                 outputs=[api_base, api_row, api_keys, model,
                          add_model_btn, cm_hint_md, cm_info_md,
-                         cm_del_btn, fields_bank],
+                         cm_del_btn, fields_bank,
+                         cm_edit_btn, cm_save_btn],
                 api_name="toggle_custom_base",
             )
         except Exception:
@@ -4375,6 +4525,29 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 outputs=[custom_models_state, cm_json_box, provider,
                          cm_del_btn],
                 api_name="cm_del_sel")
+        except Exception:
+            pass
+        # ── v1.14.223 — ویرایشِ مدلِ ذخیرهشده ──
+        try:
+            cm_edit_btn.click(
+                _cm_edit_start,
+                inputs=[provider, custom_models_state],
+                outputs=[api_base, api_row, api_keys, model,
+                         add_model_btn, cm_edit_btn, cm_save_btn,
+                         cm_hint_md],
+                api_name="cm_edit", show_progress="hidden")
+        except Exception:
+            pass
+        try:
+            cm_save_btn.click(
+                _cm_save_edits,
+                inputs=[provider, custom_models_state, api_base, api_keys,
+                        model],
+                outputs=[custom_models_state, cm_json_box, provider,
+                         cm_del_btn, cm_info_md, cm_save_btn, cm_edit_btn,
+                         api_base, api_row, api_keys, model,
+                         add_model_btn, cm_hint_md, backup_status],
+                api_name="cm_save_edits", show_progress="hidden")
         except Exception:
             pass
         try:

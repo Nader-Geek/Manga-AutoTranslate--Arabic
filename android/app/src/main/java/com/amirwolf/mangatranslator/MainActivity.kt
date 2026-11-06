@@ -99,6 +99,13 @@ class MainActivity : AppCompatActivity() {
     // مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدل/کلیدِ ماسکشده)
     private var cmDelBtn: Button? = null
     private var cmAddBtn: Button? = null
+    // v1.14.223 — ویرایشِ مدلِ ذخیرهشده: «✎ ویرایش» فقط رویِ مدلِ خودِ
+    // کاربر میآید؛ با زدنش فیلدها با مقادیرِ ذخیرهشده پر میشوند و «افزودن»
+    // جای خودش را به «💾 ذخیرهٔ ویرایش» میدهد (دستورِ سازنده: «چیزی ک سیو
+    // زده بود بتونن ویرایش کنن بجای گزینه افزودن ذخیره بیاد»)
+    private var cmEditBtn: Button? = null
+    private var cmSaveBtn: Button? = null
+    private var cmEditing: Boolean = false
     private var cmHintTv: TextView? = null
     private var cmInfoTv: TextView? = null
     private var backupStatusView: TextView? = null
@@ -1398,6 +1405,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshProviderBtn() {
         val btn = providerBtn ?: return
+        // v1.14.223 — هر تغییرِ منو/نوسازی، حالتِ ویرایش را لغو میکند
+        // («ویرایش زدن گزینه سیو بیاد» — خارج از ویرایش، «ذخیرهٔ ویرایش» پنهان است)
+        cmEditing = false
         val id = providerFieldId
         val items = providerItems()
         var cur = (values[id] ?: prefs.getString(id, null))?.toString()?.trim() ?: ""
@@ -1508,11 +1518,44 @@ class MainActivity : AppCompatActivity() {
         row.addView(addBtn, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        // ── v1.14.223 — ویرایشِ مدلِ ذخیرهشده (فقط رویِ مدلِ خودِ کاربر) ──
+        val editBtn = Button(this).apply {
+            text = "✎ ویرایش این مدل"
+            setTextColor(Color.WHITE); textSize = 13.5f
+            typeface = Typeface.DEFAULT_BOLD
+            background = rounded(Color.parseColor("#101014"), 14, 1,
+                Color.parseColor("#3a3a45"))
+            setPadding(dp(12), dp(11), dp(12), dp(11))
+            stateListAnimator = null
+            visibility = View.GONE
+        }
+        editBtn.setOnClickListener { onEditModel() }
+        cmEditBtn = editBtn
+        row.addView(editBtn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        val saveBtn = Button(this).apply {
+            text = "💾 ذخیرهٔ ویرایش"
+            setTextColor(Color.WHITE); textSize = 13.5f
+            typeface = Typeface.DEFAULT_BOLD
+            background = rounded(Color.parseColor("#b3261e"), 14, 0)
+            setPadding(dp(12), dp(11), dp(12), dp(11))
+            stateListAnimator = null
+            visibility = View.GONE
+        }
+        saveBtn.setOnClickListener { onSaveModelEdits() }
+        cmSaveBtn = saveBtn
+        row.addView(saveBtn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
         val hintTv = TextView(this).apply {
             text = ("«+ افزودن» مدلِ فعلیِ صفحه (دامنه/کلید/مدل) را با یک نام در "
                     + "«لیست مدل‌ها» ثبت میکند؛ در حافظهٔ دستگاه میماند، در "
                     + "منوی انتخابِ AI میآید و در بکاپ هم ذخیره میشود. حذفِ "
-                    + "مدل = انتخابش در منو و زدنِ ✖ِ کنارِ منو. رویِ «auto» "
+                    + "مدل = انتخابش در منو و زدنِ ✖ِ کنارِ منو. ویرایشِ مدلِ "
+                    + "ذخیرهشده = انتخابش در منو، «✎ ویرایش» و بعد «💾 ذخیرهٔ "
+                    + "ویرایش». کلید در فیلد مخفی است — با 👁 دیده میشود. رویِ "
+                    + "«auto» "
                     + "فیلدها قفل میشوند — خودش بینِ مدلها انتخاب میکند.")
             setTextColor(MUT); textSize = 11f
             setPadding(dp(2), dp(3), dp(2), dp(4))
@@ -1536,17 +1579,20 @@ class MainActivity : AppCompatActivity() {
     // فقط رویِ custom؛ رویِ مدلِ نامی فیلدها پنهان میشوند و مشخصاتِ ذخیره
     // شده (لینک/کلید/مدل) فقطخواندنی نشان داده میشود؛ رویِ auto هم ردیفِ
     // کلید/مدل کلاً پنهان میشود
+    // v1.14.223 — حالتِ ویرایش (✎ ویرایش): رویِ مدلِ نامی فیلدها با
+    // مقادیرِ ذخیرهشده دیده میشوند و «💾 ذخیرهٔ ویرایش» میآید
     private fun applyProviderGate() {
         val cur = (values[providerFieldId]
             ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
         val onAuto = cur == "auto"
         val isCustom = cur == "custom"
         val mine = cmLoad().any { it.optString("name") == cur }
+        val editing = cmEditing && mine
         for (id in arrayOf("manga_api_base", "api_base")) {
             val v = fieldViews[id]
             if (v is EditText) {
                 (v.parent as? View)?.visibility =
-                    if (isCustom) View.VISIBLE else View.GONE
+                    if (isCustom || editing) View.VISIBLE else View.GONE
                 v.isEnabled = !onAuto
                 v.alpha = 1f
             }
@@ -1555,14 +1601,63 @@ class MainActivity : AppCompatActivity() {
             val v = fieldViews[id]
             if (v is EditText) {
                 (v.parent as? View)?.visibility =
-                    if (onAuto || mine) View.GONE else View.VISIBLE
+                    if (onAuto || (mine && !editing)) View.GONE else View.VISIBLE
                 v.isEnabled = !onAuto
                 v.alpha = 1f
             }
         }
         cmAddBtn?.visibility = if (isCustom) View.VISIBLE else View.GONE
+        cmEditBtn?.visibility = if (mine && !cmEditing) View.VISIBLE else View.GONE
+        cmSaveBtn?.visibility = if (editing) View.VISIBLE else View.GONE
         cmHintTv?.visibility = if (isCustom) View.VISIBLE else View.GONE
         refreshCmInfo(cur, mine)
+    }
+
+    // ══ v1.14.223 — ویرایشِ مدلِ ذخیرهشده ══
+    // «✎ ویرایش»: مقادیرِ ذخیرهشدهٔ مدلِ انتخابشده (لینک/کلید/مدل) در
+    // فیلدها بارگذاری میشود تا قابلِ تغییر باشند
+    private fun onEditModel() {
+        val cur = (values[providerFieldId]
+            ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
+        val m = cmLoad().firstOrNull { it.optString("name") == cur } ?: return
+        cmEditing = true
+        setFieldFor(arrayOf("manga_api_base", "api_base"), m.optString("api_base"))
+        setFieldFor(arrayOf("manga_api_keys", "api_keys"), m.optString("api_key"))
+        setFieldFor(arrayOf("manga_model", "model"), m.optString("model"))
+        applyProviderGate()
+        Toast.makeText(this,
+            "ویرایشِ «$cur» — بعد از تغییرها «💾 ذخیرهٔ ویرایش» را بزن",
+            Toast.LENGTH_SHORT).show()
+    }
+
+    // «💾 ذخیرهٔ ویرایش»: همان مدل با مقادیرِ جدید بهروزرسانی میشود (نام
+    // عوض نمیشود)؛ بعد فیلدها پاک/پنهان و مشخصاتِ زیرِ منو تازه میشود
+    private fun onSaveModelEdits() {
+        val cur = (values[providerFieldId]
+            ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
+        if (cur.isEmpty()) return
+        val list = cmLoad()
+        val idx = list.indexOfFirst { it.optString("name") == cur }
+        if (idx < 0) return
+        val base = fieldText("manga_api_base", "api_base")
+        val key = fieldText("manga_api_keys", "api_keys", "keys")
+        val mdl = fieldText("manga_model", "model")
+        list[idx] = JSONObject().apply {
+            put("name", cur)
+            put("api_base", base)
+            put("api_key", key)
+            put("model", mdl)
+        }
+        cmSave(list)
+        cmEditing = false
+        setFieldFor(arrayOf("manga_api_base", "api_base"), "")
+        setFieldFor(arrayOf("manga_api_keys", "api_keys"), "")
+        setFieldFor(arrayOf("manga_model", "model"), "")
+        refreshProviderBtn()
+        val linkTxt = if (base.isNotBlank()) " — لینک: $base"
+                      else " — لینک: Gemini رسمی"
+        Toast.makeText(this, "✅ ویرایشِ «$cur» ذخیره شد$linkTxt",
+            Toast.LENGTH_LONG).show()
     }
 
     private fun fieldText(vararg ids: String): String {
@@ -1987,6 +2082,11 @@ class MainActivity : AppCompatActivity() {
         when (type) {
             "text", "password", "number" -> {
                                 val lines = f.optInt("lines", 1)
+                // v1.14.223 — فیلدِ محرمانه (کلید): مانیفستِ password:true
+                // میدهد (extract_ui.py) — پیشفرضِ ماسک + دکمهٔ 👁 برایِ
+                // نمایش/مخفی (دستورِ سازنده: «کلید ک وارد میکنن بشه هاید
+                // کرد پیشفرض هاید باشه زدن روش دیده بشه»)
+                val isSecret = f.optBoolean("password") || type == "password"
                 val et = EditText(this).apply {
                     if (lines > 1) {
                         setSingleLine(false)
@@ -2004,7 +2104,7 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(TXT); setHintTextColor(MUT); textSize = 14f
                     background = rounded(CARD2, 10, 1)
                     setPadding(dp(12), dp(11), dp(12), dp(11))
-                    if (lines < 2 && type == "password") inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    if (lines < 2 && (type == "password" || isSecret)) inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
                     if (lines < 2 && type == "number") inputType = InputType.TYPE_CLASS_NUMBER
                     // v1.14.192 — «قسمت لینک هردفعه وارد میشم null نشون میده
                     // با این که لینک نزدم»: defaultِ nullِ اسکیما (JSON null)
@@ -2062,7 +2162,43 @@ class MainActivity : AppCompatActivity() {
                             .add { applyValIf(false) }
                     }
                 }
-                row.addView(et)
+                // v1.14.223 — ردیفِ افقیِ «فیلد + 👁» برایِ فیلدِ محرمانه:
+                // پیشفرضِ ماسک است (متنِ واقعی در EditText سالم میماند —
+                // transformation فقط نمایش را عوض میکند)؛ با زدنِ 👁 دیده
+                // میشود و با زدنِ دوباره مخفی
+                if (isSecret && lines < 2) {
+                    et.transformationMethod =
+                        android.text.method.PasswordTransformationMethod.getInstance()
+                    val keyRow = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                    keyRow.addView(et, LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    val eyeBtn = Button(this).apply {
+                        text = "👁"
+                        setTextColor(Color.parseColor("#b9b6ad")); textSize = 14f
+                        background = rounded(Color.parseColor("#1c1c22"), 10, 1,
+                            Color.parseColor("#33333c"))
+                        setPadding(dp(10), dp(6), dp(10), dp(6))
+                        stateListAnimator = null
+                        minWidth = 0; minimumWidth = 0
+                    }
+                    eyeBtn.setOnClickListener {
+                        val hidden = et.transformationMethod != null
+                        et.transformationMethod =
+                            if (hidden) null
+                            else android.text.method.PasswordTransformationMethod.getInstance()
+                        eyeBtn.text = if (hidden) "🙈" else "👁"
+                        try { et.setSelection(et.text.length) } catch (e: Exception) {}
+                    }
+                    keyRow.addView(eyeBtn, LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
+                    row.addView(keyRow)
+                } else {
+                    row.addView(et)
+                }
                 infoView()?.let { row.addView(it) }
                 fieldViews[id] = et
                 if (id.lowercase().contains("key")) {
