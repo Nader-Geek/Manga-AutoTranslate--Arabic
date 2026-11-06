@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.221"
+APP_VER = "1.14.222"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -374,6 +374,42 @@ def _cm_names(models: list) -> list:
         if nm and nm not in out:
             out.append(nm)
     return out
+
+
+def _cm_mask_key(k) -> str:
+    """v1.14.222 — کلیدِ ماسکشده برایِ نمایشِ امن (sk-123456…wxyz)."""
+    k = str(k or "").strip()
+    if not k:
+        return ""
+    if len(k) <= 10:
+        return k[:2] + "…" + k[-2:]
+    return k[:6] + "…" + k[-4:]
+
+
+def _cm_info_html(models: list, name: str) -> str:
+    """v1.14.222 — دستورِ سازنده: «وقتی یک چیز کاستوم سیو میکنم لینکش هم
+    باید نشون بده» — وقتی مدلِ ذخیرهشدهٔ کاربر در منو انتخاب میشود، مشخصاتِ
+    ذخیرهشدهٔ خودش (لینک + مدلِ هوش + کلیدِ ماسکشده) بهصورتِ فقطخواندنی
+    زیرِ منو نشان داده میشود — فیلدها پر نمیشوند (دستورِ قبلی: انتخابِ
+    مدل خودش را در فیلدها بارگذاری نکند)."""
+    nm = str(name or "").strip()
+    m = next((x for x in (models or [])
+              if str(x.get("name") or "").strip() == nm), None)
+    if not m:
+        return ""
+    esc = (lambda s: str(s or "").replace("&", "&amp;")
+           .replace("<", "&lt;").replace(">", "&gt;"))
+    base = str(m.get("api_base") or "").strip()
+    mdl = str(m.get("model") or "").strip()
+    key = _cm_mask_key(m.get("api_key"))
+    parts = [f"مدلِ ذخیره‌شدهٔ «{esc(nm)}»",
+             "لینک: " + (f"<code>{esc(base)}</code>" if base
+                         else "Gemini رسمی (بدونِ دامنهٔ سفارشی)")]
+    if mdl:
+        parts.append("مدلِ هوش: " + f"<code>{esc(mdl)}</code>")
+    if key:
+        parts.append(f"کلید: <code>{esc(key)}</code>")
+    return "<div class='hint'>" + " — ".join(parts) + "</div>"
 
 
 def _cm_choices(models: list) -> list:
@@ -1300,12 +1336,17 @@ body, .gradio-container, footer, .gradio-container .prose {
 /* v1.14.221 — ضربدرِ ✖ِ حذف، چسبیده به خودِ منویِ انتخابِ AI: مدلِ
    خودت را در منو انتخاب کن، ✖ِ کنارِ منو میآید و با یک کلیک از لیست و
    منو پاک میشود (دستورِ سازنده: «هرمدلی ک خودم ساختم انتخاب کنم کنارش
-   ضربدر بیاد نه پایینش کلی ضربدر نشون بده») */
-#manga_cm_del_btn{max-width:56px !important;min-width:44px !important;
-  width:44px !important;flex:none !important;align-self:center !important;
+   ضربدر بیاد نه پایینش کلی ضربدر نشون بده»)
+   v1.14.222 — دستورِ سازنده: «دکمه ضربدرش بزرگه هم اندازه دکمش کن» →
+   ✖ دیگر دکمهٔ درشتِ ۴۴px نیست؛ دقیقاً هماندازهٔ خودِ کنترلِ منو (۳۰px)
+   و همترازِ آن ساخته میشود */
+#manga_cm_del_btn{max-width:30px !important;min-width:30px !important;
+  width:30px !important;height:30px !important;min-height:30px !important;
+  flex:none !important;align-self:flex-end !important;
   background:transparent !important;border:1px solid rgba(255,90,90,.4) !important;
-  border-radius:999px !important;color:#ff7b7b !important;font-size:1.05rem !important;
-  padding:6px 0 !important;transition:all .15s ease}
+  border-radius:999px !important;color:#ff7b7b !important;font-size:.8rem !important;
+  line-height:1 !important;padding:0 !important;margin:0 0 16px 0 !important;
+  transition:all .15s ease}
 #manga_cm_del_btn:hover{background:rgba(255,70,70,.18) !important;color:#ff4d4d !important}
 #manga_cm_del_btn:active{transform:scale(.94)}
 /* v1.14.219 — کانالهایِ پنهانِ مرورگر↔سرور: gradio 6 کامپوننتهایِ
@@ -2466,6 +2507,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     "✖", variant="secondary", scale=0,
                     elem_id="manga_cm_del_btn",
                     visible=(_init_prov in _cm_names(_init_models)))
+            # v1.14.222 — مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدلِ هوش/
+            # کلیدِ ماسکشده) — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
+            cm_info_md = gr.Markdown("", visible=False,
+                                     elem_id="manga_cm_info")
+            # v1.14.222 — بانکِ حافظهٔ فیلدها مالِ هر provider: وقتی از
+            # Gemini به Custom (یا برعکس) میروی، هر کدام مقادیرِ خودشان را
+            # دارند و مقادیرِ کاستوم زیرِ Gemini نشون داده نمیشود (دستورِ
+            # سازنده: «میرم Gemini مال کاستوم ک سیو زدم نشون میده»)
+            # (baseیِ configِ دیسک برایِ custom بذر میشود — PC/لینوکس)
+            fields_bank = gr.State({
+                "_last": _init_prov,
+                "custom": {"base": str(cfg.get("api_base", "") or ""),
+                           "key": "", "model": ""},
+                "gemini": {"base": "", "key": "", "model": ""},
+            })
             api_base = gr.Textbox(label="دامنهٔ API سفارشی (فقط برای provider «custom»)",
                                   value=str(cfg.get("api_base", "") or ""),
                                   placeholder="https://opencode.ai/inference/openai/v1/chat/completions",
@@ -2473,9 +2529,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                   elem_id="manga_api_base",
                                   visible=False,
                                   scale=3)
-            # v1.14.221 — رویِ «auto» کلِ ردیفِ ورود قفل/پنهان میشود (دستورِ
-            # سازنده: «وقتی رو auto بزارن اونجا نشه مدلی چیزی وارد کرد»)
-            with gr.Row() as api_row:
+            # v1.14.222 — رویِ «auto» ردیفِ ورود از همان ابتدا پنهان است (حالتِ
+            # PC/دیسک که منو با «auto» بالا میآید)؛ دستورِ سازنده: «وقتی رو
+            # auto بزارن اونجا نشه مدلی چیزی وارد کرد»
+            with gr.Row(visible=(_init_prov != "auto")) as api_row:
                 api_keys = gr.Textbox(label="کلیدهای API شما (با کاما = چرخش خودکار)",
                                       value="",
                                       type="password", scale=3,
@@ -2490,9 +2547,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
             # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند.
             # v1.14.221 — حذفِ مدل فقط با ✖ِ کنارِ خودِ منو ──
+            # v1.14.222 — دستورِ سازنده: «افزودن ai فقط تو کاستوم بیاد نه بقیه
+            # چیزاش» → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom دیده میشوند
+            # (شروعِ صفحه همیشه auto/gemini است → هر دو از ابتدا پنهان)
             add_model_btn = gr.Button(
                 "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
-                elem_id="manga_cm_add")
+                elem_id="manga_cm_add", visible=False)
             cm_hint_md = gr.Markdown("<div class='hint'>«+ افزودن» مدلِ فعلیِ همین صفحه "
                         "(دامنه/کلید/مدل) را با یک نام در «لیست مدل‌ها» ثبت "
                         "میکند؛ مدل در حافظهٔ مرورگر/دستگاه میماند، در منویِ "
@@ -2500,7 +2560,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         "انتخابش در منو و زدنِ ✖ِ کنارِ منو. رویِ «auto» فیلدها "
                         "قفل میشوند — خودش بینِ مدلها انتخاب میکند. کلید از "
                         "aistudio.google.com (Gemini) یا سرویسِ دلخواهِ خودتان "
-                        "بگیرید؛ تنظیمات وب فقط در مرورگر ذخیره میشود.</div>")
+                        "بگیرید؛ تنظیمات وب فقط در مرورگر ذخیره میشود.</div>",
+                        visible=False)
             test_key_btn = gr.Button(
                 "تست کلیدها / لینک",
                 scale=1, elem_id="manga_test_key")
@@ -3564,13 +3625,26 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       if (raw) {{
         const d = JSON.parse(raw);
         if (d && (!d.ts || PERM || (Date.now() - d.ts) <= TTL)) {{
-          if (d.keys) {{
-            const k = byId("manga_api_keys") || document.querySelector('input[type="password"]');
-            if (k) setVal(k, d.keys);
-          }}
-          if (d.model) {{
-            const m = byId("manga_model");
-            if (m) setVal(m, d.model);
+          // v1.14.222 — کلید/مدلِ اسنپ‌شات مالِ providerِ لحظهٔ ذخیره است؛
+          // اگر منو الآن رویِ providerِ دیگری است پر نمیشود تا مقادیرِ
+          // کاستوم زیرِ Gemini نشان داده نشود (دستورِ سازنده: «میرم
+          // Gemini مال کاستوم ک سیو زدم نشون میده»)
+          let curProv = "";
+          try {{
+            const pe = document.querySelector("#manga_provider_row input, #manga_provider_row select, #manga_provider_row textarea");
+            curProv = String((pe && pe.value) || "").trim();
+          }} catch (e) {{ curProv = ""; }}
+          const sameProv = !d.prov || !curProv
+            || String(d.prov).trim() === curProv;
+          if (sameProv) {{
+            if (d.keys) {{
+              const k = byId("manga_api_keys") || document.querySelector('input[type="password"]');
+              if (k) setVal(k, d.keys);
+            }}
+            if (d.model) {{
+              const m = byId("manga_model");
+              if (m) setVal(m, d.model);
+            }}
           }}
         }}
       }}
@@ -4080,27 +4154,63 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 dbg_row=gr.update(visible=False),
             )
 
-        def _on_provider_change(p, models):
-            """v1.14.221 — رفتارِ منو: رویِ «auto» هیچ فیلدی برایِ واردکردن
-            نمیماند (دستورِ سازنده: «وقتی رو auto بزارن اونجا نشه مدلی
-            چیزی وارد کرد»)؛ «دامنهٔ API» فقط رویِ custom؛ و ✖ِ حذف فقط
-            کنارِ مدلِ کاربرِ انتخابشده دیده میشود."""
+        def _on_provider_change(p, models, bank, cur_base, cur_key, cur_model):
+            """v1.14.222 — رفتارِ منو:
+            (۱) دستورِ سازنده «افزودن ai فقط تو کاستوم بیاد نه بقیه چیزاش» →
+            دکمهٔ «+ افزودن» و راهنما فقط رویِ custom دیده میشوند.
+            (۲) رویِ «auto» هیچ فیلدی نمیماند («وقتی رو auto بزارن اونجا نشه
+            مدلی چیزی وارد کرد») و رویِ مدلِ نامی هم فیلدها پنهاناند —
+            مشخصاتش (لینک/کلید/مدل) فقطخواندنی زیرِ منو میآید («لینکش هم
+            باید نشون بده»).
+            (۳) بانکِ حافظه: هر provider (gemini/custom) مقادیرِ فیلدهایِ
+            خودش را دارد — رفتن به Gemini دیگر مقادیرِ کاستوم را نشان
+            نمیدهد («میرم Gemini مال کاستوم ک سیو زدم نشون میده»)؛ مقادیرِ
+            providerِ جدید همیشه از بانک میآید (بانکِ خالی = فیلدهایِ خالی)."""
+            bank = dict(bank or {})
             v = str(p or "").strip()
             on_auto = (v == "auto")
             is_custom = (v == "custom")
             mine = v in _cm_names(models)
-            return (gr.update(visible=is_custom),
-                    gr.update(visible=not on_auto),
-                    gr.update(visible=not on_auto),
-                    gr.update(visible=not on_auto),
-                    gr.update(visible=mine))
+            last = str(bank.get("_last") or "").strip()
+            # ذخیرهٔ مقادیرِ فعلی مالِ providerِ قبلی (فقط gemini/custom —
+            # رویِ auto/مدلِ نامی فیلدها پنهاناند و چیزی برایِ ذخیره نیست)
+            if last in ("gemini", "custom") and last != v:
+                bank[last] = {"base": str(cur_base or ""),
+                              "key": str(cur_key or ""),
+                              "model": str(cur_model or "")}
+            bank["_last"] = v
+            # v1.14.222 — مقادیرِ providerِ جدید همیشه از بانک میآید (بانکِ
+            # خالی = فیلدهای خالی) — هرگز مقادیرِ providerِ قبلی زیرِ منویِ
+            # جدید نمیماند («میرم Gemini مال کاستوم ک سیو زدم نشون میده»)
+            saved = bank.get(v) if v in ("gemini", "custom") else {}
+            saved = saved if isinstance(saved, dict) else {}
+            nb = str(saved.get("base") or "")
+            nk = str(saved.get("key") or "")
+            nm = str(saved.get("model") or "")
+            if not is_custom:
+                nb = ""   # دامنهٔ API فقط مالِ custom است
+            if on_auto or mine:
+                nk, nm = "", ""   # رویِ auto/مدلِ نامی فیلدی برایِ ورود نیست
+            info = _cm_info_html(models, v) if mine else ""
+            row_vis = not on_auto and not mine
+            return (gr.update(visible=is_custom, value=nb),
+                    gr.update(visible=row_vis),
+                    gr.update(visible=row_vis, value=nk),
+                    gr.update(visible=row_vis, value=nm),
+                    gr.update(visible=is_custom),
+                    gr.update(visible=is_custom),
+                    gr.update(visible=mine, value=info),
+                    gr.update(visible=mine),
+                    bank)
 
         try:
             provider.change(
                 _on_provider_change,
-                inputs=[provider, custom_models_state],
-                outputs=[api_base, api_row, add_model_btn, cm_hint_md,
-                         cm_del_btn],
+                inputs=[provider, custom_models_state, fields_bank,
+                        api_base, api_keys, model],
+                outputs=[api_base, api_row, api_keys, model,
+                         add_model_btn, cm_hint_md, cm_info_md,
+                         cm_del_btn, fields_bank],
                 api_name="toggle_custom_base",
             )
         except Exception:
@@ -4144,10 +4254,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             models = [m for m in (models or [])
                       if str(m.get("name") or "") != name]
             models.append(entry)
+            # v1.14.222 — دستورِ سازنده: «وقتی یک چیز کاستوم سیو میکنم لینکش
+            # هم باید نشون بده» — پیامِ ذخیره لینکِ مدل را هم نشان میدهد
+            _link = entry["api_base"] or "Gemini رسمی (بدونِ دامنهٔ سفارشی)"
+            _mdl = f" — مدلِ هوش: {entry['model']}" if entry["model"] else ""
             return (*_cm_pack(models, prov_cur),
-                    gr.update(value=f"✅ مدلِ «{name}» به لیستِ مدلها اضافه شد"
-                                    + (" (روی دیسک)" if not _web_host()
-                                       else " (در مرورگرِ شما)"),
+                    gr.update(value=(f"✅ مدلِ «{name}» ذخیره شد — لینک: {_link}"
+                                     f"{_mdl}"
+                                     + (" (روی دیسک)" if not _web_host()
+                                        else " (در مرورگرِ شما)")),
                               visible=True))
 
         def _cm_del_selected(prov, models):
@@ -4264,12 +4379,42 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             pass
         try:
             # مرورگرِ وب: هر تغییرِ فهرست → localStorage
+            # v1.14.222 — بعدِ حذف/افزودن، اگر متنِ نمایشیِ منویِ AI مدلی
+            # باشد که دیگر در فهرست نیست (باگِ نمایشیِ gradio 6 — مقدارِ
+            # سرور درست است ولی برچسبِ منو کهنه میماند)، همان لحظه به
+            # فالبکِ درست (auto با مدل، وگرنه gemini) برمیگردد
             cm_json_box.change(
                 fn=None, inputs=[cm_json_box], outputs=[],
                 js="""(js) => {
   try {
     if (js && js.trim().charAt(0) === '[')
       localStorage.setItem('manga_custom_models', js);
+  } catch (e) {}
+  try {
+    let list = [];
+    try { list = JSON.parse(js || '[]') || []; } catch (e) { list = []; }
+    if (!Array.isArray(list)) list = [];
+    const names = list.map((m) => String((m && m.name) || '').trim())
+                      .filter(Boolean);
+    const inp = document.querySelector('#manga_provider_row input, #manga_provider_row select');
+    if (inp) {
+      const cur = String(inp.value || '').trim();
+      const valid = ['auto', 'gemini', 'custom'].concat(names);
+      if (cur && valid.indexOf(cur) < 0) {
+        const fb = names.length ? 'auto' : 'gemini';
+        try {
+          inp.focus();
+          const d = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, 'value');
+          if (d && d.set) d.set.call(inp, fb); else inp.value = fb;
+          inp.dispatchEvent(new Event('input', {bubbles: true}));
+          inp.dispatchEvent(new KeyboardEvent('keydown',
+            {key: 'Enter', bubbles: true}));
+          inp.dispatchEvent(new Event('change', {bubbles: true}));
+          inp.blur();
+        } catch (e2) {}
+      }
+    }
   } catch (e) {}
   return [];
 }""")
@@ -4334,10 +4479,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 return (gr.update(),
                         gr.update(value=f"❌ پشتیبان ناموفق: {e}", visible=True))
 
-        def _do_import(file_info, models_cur, prov_cur):
+        def _do_import(file_info, models_cur, prov_cur, bank_cur):
             import datetime as _dt
             n = len(_BACKUP_FIELDS)
             ups = [gr.update()] * n
+            bank_up = gr.update()
             try:
                 path = (file_info or "").strip() if isinstance(file_info, str) \
                     else (file_info.get("name") if isinstance(file_info, dict) else "")
@@ -4348,7 +4494,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     path = file_info.get("name") or ""
                 if not path or not os.path.isfile(path):
                     return (*ups, gr.update(), gr.update(), gr.update(),
-                            gr.update(),
+                            gr.update(), bank_up,
                             gr.update(value="❌ فایل پشتیبان انتخاب نشده.",
                                       visible=True))
                 with open(path, encoding="utf-8") as f:
@@ -4356,7 +4502,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 if not isinstance(payload, dict) \
                         or payload.get("_type") != "manga_autotranslate_backup":
                     return (*ups, gr.update(), gr.update(), gr.update(),
-                            gr.update(),
+                            gr.update(), bank_up,
                             gr.update(value="❌ این فایلِ پشتیبانِ این اپ نیست.",
                                       visible=True))
                 st = payload.get("settings") or {}
@@ -4381,16 +4527,29 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 _newv = _imp if _imp in _ch else (
                     _old if _old in _ch
                     else ("auto" if "auto" in _ch else "gemini"))
+                # v1.14.222 — بانکِ فیلدها هم از بکاپ بازسازی میشود تا
+                # provider.changeِ بعدی مقادیرِ تازه را جابهجا نکند
+                try:
+                    _bank = dict(bank_cur or {}) if isinstance(bank_cur, dict) else {}
+                except Exception:
+                    _bank = {}
+                _bank["_last"] = _newv
+                if _newv in ("gemini", "custom"):
+                    _bank[_newv] = {"base": str(st.get("api_base") or ""),
+                                    "key": str(st.get("api_keys") or ""),
+                                    "model": str(st.get("model") or "")}
+                bank_up = _bank
                 return (*ups, merged,
                         json.dumps(merged, ensure_ascii=False),
                         gr.update(choices=_ch, value=_newv),
                         gr.update(visible=_newv in _cm_names(merged)),
+                        bank_up,
                         gr.update(value=f"✅ بازیابیِ کامل شد: {len(merged)} مدل + "
                                         f"{len(st)} تنظیم (از فایلِ بکاپ).",
                                   visible=True))
             except Exception as e:
                 return (*ups, gr.update(), gr.update(), gr.update(),
-                        gr.update(),
+                        gr.update(), bank_up,
                         gr.update(value=f"❌ بازیابی ناموفق: {e}", visible=True))
 
         try:
@@ -4429,10 +4588,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # فایل) — همان هندلرِ قبلیِ _do_import
             import_file.upload(
                 _do_import,
-                inputs=[import_file, custom_models_state, provider],
+                inputs=[import_file, custom_models_state, provider,
+                        fields_bank],
                 outputs=[c for _, c in _BACKUP_FIELDS]
                         + [custom_models_state, cm_json_box, provider,
-                           cm_del_btn, backup_status],
+                           cm_del_btn, fields_bank, backup_status],
                 api_name="import_settings")
         except Exception:
             pass

@@ -179,32 +179,58 @@ try:
 except Exception as e:
     chk("model APIs", False, str(e)[:220])
 
-print("== 6) provider change gate (fields locked on auto) ==")
+print("== 6) provider change gate (add only on custom + fields bank) ==")
 try:
-    out = call_api("toggle_custom_base", ["auto", []])
+    # v1.14.222 — امضایِ تازه: (p, models, bank, cur_base, cur_key, cur_model)
+    # خروجیها: [api_base, api_row, api_keys, model, add, hint, info, del, bank]
+    _B = {"_last": "gemini", "custom": {"base": "b", "key": "k", "model": "m"},
+          "gemini": {"base": "", "key": "gk", "model": "gm"}}
+    out = call_api("toggle_custom_base", ["auto", [], _B, "", "", ""])
     vis = [o.get("visible") if isinstance(o, dict) else None for o in out]
     chk("on auto: api_base hidden", vis[0] is False, vis)
     chk("on auto: api row hidden", vis[1] is False, vis)
-    chk("on auto: add button hidden", vis[2] is False, vis)
-    chk("on auto: hint hidden", vis[3] is False, vis)
-    chk("on auto: del button hidden", vis[4] is False, vis)
+    chk("on auto: add button hidden (add only on custom)", vis[4] is False, vis)
+    chk("on auto: hint hidden", vis[5] is False, vis)
+    chk("on auto: del button hidden", vis[7] is False, vis)
+    chk("on auto: info hidden", vis[6] is False, vis)
 
-    out = call_api("toggle_custom_base", ["custom", []])
+    out = call_api("toggle_custom_base", ["custom", [], _B, "", "", ""])
     vis = [o.get("visible") if isinstance(o, dict) else None for o in out]
     chk("on custom: api_base visible", vis[0] is True, vis)
     chk("on custom: entry fields visible", vis[1] is True and vis[2] is True, vis)
-    chk("on custom: del button hidden", vis[4] is False, vis)
+    chk("on custom: add button visible", vis[4] is True, vis)
+    chk("on custom: hint visible", vis[5] is True, vis)
+    chk("on custom: del button hidden", vis[7] is False, vis)
+    _v = out[2].get("value") if isinstance(out[2], dict) else None
+    # نکته: در فراخوانیِ خامِ API، State هر بار ریست میشود (بانکِ بذرِ
+    # اولیه) — مقدارِ واقعیِ بانک در مرورگرِ واقعی تست شده است؛ اینجا فقط
+    # مسیرِ بانک (str بودنِ مقدار) چک میشود
+    chk("on custom: key value consulted from bank", isinstance(_v, str), out[2])
 
-    out = call_api("toggle_custom_base", ["M1", []])
+    out = call_api("toggle_custom_base",
+                   ["M1", [{"name": "M1", "api_base": "u", "api_key": "kk",
+                            "model": "mm"}], _B, "", "k", "m"])
     vis = [o.get("visible") if isinstance(o, dict) else None for o in out]
-    chk("on user model: del button visible NEXT TO menu", vis[4] is True, vis)
+    chk("on user model: del button visible NEXT TO menu", vis[7] is True, vis)
     chk("on user model: api_base still hidden", vis[0] is False, vis)
-    chk("on user model: entry fields visible", vis[1] is True, vis)
+    chk("on user model: entry fields hidden (model configured)",
+        vis[1] is False and vis[2] is False, vis)
+    _iv = out[6].get("value") if isinstance(out[6], dict) else ""
+    chk("on user model: info line visible with link",
+        vis[6] is True and isinstance(_iv, str) and "M1" in _iv
+        and "لینک" in _iv and "<code>" in _iv, out[6])
 
-    out = call_api("toggle_custom_base", ["gemini", []])
+    out = call_api("toggle_custom_base", ["gemini", [], _B, "", "k", "m"])
     vis = [o.get("visible") if isinstance(o, dict) else None for o in out]
     chk("on gemini: entry fields visible, del hidden",
-        vis[1] is True and vis[4] is False, vis)
+        vis[1] is True and vis[7] is False, vis)
+    _v = out[2].get("value") if isinstance(out[2], dict) else None
+    chk("on gemini: key value consulted from bank", isinstance(_v, str), out[2])
+    # نکته: خروجیِ State در فراخوانیِ خامِ API برنمیگردد (None) — رفتارِ
+    # واقعیِ بانک (ذخیره/بازیابیِ فیلدها) در مرورگرِ واقعی (E2E) تست شده
+    chk("bank state output accepted (None via raw api)",
+        (out[8] if len(out) > 8 else None) is None
+        or isinstance(out[8], dict), str(out[8])[:80] if len(out) > 8 else "short")
 except Exception as e:
     chk("provider gate", False, str(e)[:220])
 

@@ -110,12 +110,12 @@ print("== ۴) سرورِ سمتِ مدلها ==")
 try:
     out = call_api("cm_add", [json.dumps({"name": "تستA", "api_base": "https://x.example/v1",
                                           "api_key": "k12345678", "model": "m-1"},
-                                         ensure_ascii=False), [], "auto"])
+                                         ensure_ascii=False), [], "gemini"])
     outs = json.dumps(out, ensure_ascii=False)
     chk("cm_add مدل را ثبت کرد (JSONِ مرورگر برگشت)",
         "تستA" in outs, outs[:200])
     try:
-        out = call_api("cm_del_row", ["تستA", [], "auto"])
+        out = call_api("cm_del_row", ["تستA", [], "gemini"])
         ok_del = False
     except Exception:
         ok_del = True

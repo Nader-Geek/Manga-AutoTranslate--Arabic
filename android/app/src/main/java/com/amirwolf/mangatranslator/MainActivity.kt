@@ -95,10 +95,17 @@ class MainActivity : AppCompatActivity() {
     private var providerBtn: Button? = null
     private var providerFieldId: String = "provider"
     // v1.14.221 — ✖ِ حذفِ کنارِ منو + دکمهٔ افزودن (بهجایِ لیستِ چیپیِ پایین)
+    // v1.14.222 — راهنمایِ دکمهٔ افزودن (فقط رویِ custom دیده میشود) +
+    // مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدل/کلیدِ ماسکشده)
     private var cmDelBtn: Button? = null
     private var cmAddBtn: Button? = null
+    private var cmHintTv: TextView? = null
+    private var cmInfoTv: TextView? = null
     private var backupStatusView: TextView? = null
     private var manifestAppVer: String = ""
+    // v1.14.222 — تا فرمِ کامل ساخته نشود، بانکِ فیلدها کاری نمیکند
+    // (فیلدهایِ کلید/مدل دیرتر از منو ساخته میشوند)
+    private var formReady: Boolean = false
     // v1.14.220 — نقشهٔ نام↔مقدارِ هر select برایِ «Import» (applySetting)
     private val selectMaps = HashMap<String, List<Pair<String, String>>>()
 
@@ -1297,6 +1304,8 @@ class MainActivity : AppCompatActivity() {
             }
             // v1.14.221 — قفلِ نهاییِ فیلدها رویِ auto بعد از ساختهشدنِ
             // همهٔ فیلدها (کلیدها/مدل دیرتر از منو ساخته میشوند)
+            // v1.14.222 — بانکِ فیلدها هم فقط بعد از کاملشدنِ فرم فعال میشود
+            formReady = true
             refreshProviderBtn()
         } catch (e: Exception) {
             loadingRow.visibility = View.GONE
@@ -1396,6 +1405,9 @@ class MainActivity : AppCompatActivity() {
             // v1.14.221 — بدونِ مدل، «gemini» (auto اصلاً در منو نیست)
             cur = if (cmLoad().isNotEmpty()) "auto" else "gemini"
         }
+        // v1.14.222 — بانکِ فیلدها: مقادیرِ فعلی مالِ providerِ قبلی ذخیره و
+        // مقادیرِ providerِ جدید برمیگردد (Gemini مقادیرِ کاستوم را نشان نمیدهد)
+        bankFields(cur)
         values[id] = cur
         prefs.edit().putString(id, cur).apply()
         val nm = items.firstOrNull { it.second == cur }?.first ?: cur
@@ -1406,7 +1418,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun addProviderField(row: LinearLayout, lbl: String, info: String, id: String) {
         providerFieldId = id
-        if (lbl.isNotEmpty()) row.addView(label(lbl))
+        // v1.14.222 — برچسبِ «منوی انتخاب AI» دیگر اینجا تکرار نمیشود؛
+        // addField خودش آن را یکبار بالایِ ردیف گذاشته است (قبلاً دوبار
+        // پشتِ هم رندر میشد — دستورِ سازنده: «دوتا متن انتخاب ai نوشتع
+        // بجای یکی»)
         // v1.14.221 — منو + ✖ِ حذف در یک ردیف: ضربدرِ چسبیده به خودِ منو
         // (دستورِ سازنده: «هرمدلی ک خودم ساختم انتخاب کنم کنارش ضربدر بیاد
         // نه پایینش کلی ضربدر نشون بده»)
@@ -1465,6 +1480,16 @@ class MainActivity : AppCompatActivity() {
             text = info; setTextColor(MUT); textSize = 11f
             setPadding(dp(2), dp(3), dp(2), dp(4))
         })
+        // v1.14.222 — مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (دستورِ سازنده:
+        // «وقتی یک چیز کاستوم سیو میکنم لینکش هم باید نشون بده») —
+        // فقط وقتی مدلِ کاربر در منو انتخاب شده باشد دیده میشود
+        val infoTv = TextView(this).apply {
+            setTextColor(MUT); textSize = 11f
+            setPadding(dp(2), dp(3), dp(2), dp(4))
+            visibility = View.GONE
+        }
+        cmInfoTv = infoTv
+        row.addView(infoTv)
         refreshProviderBtn()
         fieldViews[id] = btn
 
@@ -1483,7 +1508,7 @@ class MainActivity : AppCompatActivity() {
         row.addView(addBtn, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
-        row.addView(TextView(this).apply {
+        val hintTv = TextView(this).apply {
             text = ("«+ افزودن» مدلِ فعلیِ صفحه (دامنه/کلید/مدل) را با یک نام در "
                     + "«لیست مدل‌ها» ثبت میکند؛ در حافظهٔ دستگاه میماند، در "
                     + "منوی انتخابِ AI میآید و در بکاپ هم ذخیره میشود. حذفِ "
@@ -1491,7 +1516,9 @@ class MainActivity : AppCompatActivity() {
                     + "فیلدها قفل میشوند — خودش بینِ مدلها انتخاب میکند.")
             setTextColor(MUT); textSize = 11f
             setPadding(dp(2), dp(3), dp(2), dp(4))
-        })
+        }
+        cmHintTv = hintTv
+        row.addView(hintTv)
     }
 
     private fun refreshCmDelBtn() {
@@ -1504,23 +1531,38 @@ class MainActivity : AppCompatActivity() {
 
     // v1.14.221 — رویِ «auto» هیچ فیلدی برایِ واردکردن نمیماند (دستورِ
     // سازنده: «وقتی رو auto بزارن اونجا نشه مدلی چیزی وارد کرد»)
+    // v1.14.222 — دستورِ سازنده: «افزودن ai فقط تو کاستوم بیاد نه بقیه
+    // چیزاش» → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom؛ «دامنهٔ API» هم
+    // فقط رویِ custom؛ رویِ مدلِ نامی فیلدها پنهان میشوند و مشخصاتِ ذخیره
+    // شده (لینک/کلید/مدل) فقطخواندنی نشان داده میشود؛ رویِ auto هم ردیفِ
+    // کلید/مدل کلاً پنهان میشود
     private fun applyProviderGate() {
         val cur = (values[providerFieldId]
             ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
         val onAuto = cur == "auto"
-        val al = if (onAuto) 0.45f else 1f
-        for (id in arrayOf("manga_api_base", "api_base", "manga_api_keys",
-                           "api_keys", "manga_model", "model")) {
+        val isCustom = cur == "custom"
+        val mine = cmLoad().any { it.optString("name") == cur }
+        for (id in arrayOf("manga_api_base", "api_base")) {
             val v = fieldViews[id]
             if (v is EditText) {
+                (v.parent as? View)?.visibility =
+                    if (isCustom) View.VISIBLE else View.GONE
                 v.isEnabled = !onAuto
-                v.alpha = al
+                v.alpha = 1f
             }
         }
-        cmAddBtn?.let {
-            it.isEnabled = !onAuto
-            it.alpha = al
+        for (id in arrayOf("manga_api_keys", "api_keys", "manga_model", "model")) {
+            val v = fieldViews[id]
+            if (v is EditText) {
+                (v.parent as? View)?.visibility =
+                    if (onAuto || mine) View.GONE else View.VISIBLE
+                v.isEnabled = !onAuto
+                v.alpha = 1f
+            }
         }
+        cmAddBtn?.visibility = if (isCustom) View.VISIBLE else View.GONE
+        cmHintTv?.visibility = if (isCustom) View.VISIBLE else View.GONE
+        refreshCmInfo(cur, mine)
     }
 
     private fun fieldText(vararg ids: String): String {
@@ -1535,6 +1577,80 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return ""
+    }
+
+    // v1.14.222 — فقطِ متنِ واقعیِ فیلد (بدونِ فالبکِ prefs) — برایِ بانکِ
+    // حافظهٔ فیلدها؛ prefs آینهٔ فیلد است و نباید مقدارِ providerِ دیگر را
+    // لو بدهد
+    private fun fieldTextStrict(vararg ids: String): String {
+        for (fid in ids) {
+            val v = fieldViews[fid]
+            if (v is EditText) return v.text.toString().trim()
+        }
+        return ""
+    }
+
+    private fun setFieldFor(ids: Array<String>, value: String) {
+        for (fid in ids) {
+            val v = fieldViews[fid]
+            if (v is EditText) {
+                if (v.text.toString() != value) v.setText(value)
+                return
+            }
+        }
+    }
+
+    // v1.14.222 — کلیدِ ماسکشده برایِ نمایشِ امن (مثلِ وب)
+    private fun maskKey(k: String): String {
+        val s = k.trim()
+        if (s.isEmpty()) return ""
+        return if (s.length <= 10) s.take(2) + "…" + s.takeLast(2)
+        else s.take(6) + "…" + s.takeLast(4)
+    }
+
+    // ══ v1.14.222 — بانکِ حافظهٔ فیلدها مالِ هر provider (gemini/custom) —
+    // دستورِ سازنده: «وقتی یک چیز کاستوم میکنم سیو میزنم میرم Gemini مال
+    // کاستوم ک سیو زدم نشون میده» — رفتن به Gemini دیگر مقادیرِ کاستوم را
+    // نشان نمیدهد؛ هر کدام مقادیرِ خودشان را برمیگردانند ══
+    private fun bankFields(newProv: String) {
+        if (!formReady) return
+        val last = prefs.getString("fld_last", "")?.trim() ?: ""
+        if (last == newProv) return
+        if (last == "gemini" || last == "custom") {
+            val o = JSONObject()
+            o.put("base", fieldTextStrict("manga_api_base", "api_base"))
+            o.put("key", fieldTextStrict("manga_api_keys", "api_keys"))
+            o.put("model", fieldTextStrict("manga_model", "model"))
+            prefs.edit().putString("fld_$last", o.toString()).apply()
+        }
+        prefs.edit().putString("fld_last", newProv).apply()
+        if (newProv == "gemini" || newProv == "custom") {
+            val raw = prefs.getString("fld_$newProv", null)
+            if (raw.isNullOrBlank()) return
+            val o = try { JSONObject(raw) } catch (e: Exception) { return }
+            setFieldFor(arrayOf("manga_api_base", "api_base"), o.optString("base"))
+            setFieldFor(arrayOf("manga_api_keys", "api_keys"), o.optString("key"))
+            setFieldFor(arrayOf("manga_model", "model"), o.optString("model"))
+        }
+    }
+
+    // v1.14.222 — مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک + مدلِ هوش + کلیدِ
+    // ماسکشده) — دستورِ سازنده: «وقتی یک چیز کاستوم سیو میکنم لینکش هم
+    // باید نشون بده» — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
+    private fun refreshCmInfo(cur: String, mine: Boolean) {
+        val tv = cmInfoTv ?: return
+        if (!mine) { tv.visibility = View.GONE; return }
+        val m = cmLoad().firstOrNull { it.optString("name") == cur }
+        if (m == null) { tv.visibility = View.GONE; return }
+        val base = m.optString("api_base").trim()
+        val mdl = m.optString("model").trim()
+        val key = maskKey(m.optString("api_key"))
+        val sb = StringBuilder("مدلِ ذخیره‌شدهٔ «").append(cur).append("» — لینک: ")
+        sb.append(if (base.isNotEmpty()) base else "Gemini رسمی")
+        if (mdl.isNotEmpty()) sb.append(" — مدلِ هوش: ").append(mdl)
+        if (key.isNotEmpty()) sb.append(" — کلید: ").append(key)
+        tv.text = sb.toString()
+        tv.visibility = View.VISIBLE
     }
 
     private fun onAddModel() {
@@ -1587,8 +1703,9 @@ class MainActivity : AppCompatActivity() {
                 })
                 cmSave(list)
                 refreshProviderBtn()
-                Toast.makeText(this, "✔ مدلِ «$nm» به لیست اضافه شد",
-                    Toast.LENGTH_SHORT).show()
+                val linkTxt = if (base.isNotBlank()) " — لینک: $base" else ""
+                Toast.makeText(this, "✔ مدلِ «$nm» ذخیره شد$linkTxt",
+                    Toast.LENGTH_LONG).show()
             }
             .setNegativeButton("بی‌خیال", null)
             .show()
