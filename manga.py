@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.217"
+APP_VER = "1.14.225"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -21704,6 +21704,23 @@ class MangaTranslator:
                     if _limB.shape == alpha.shape:
                         alpha = alpha * (
                             (_limB > 0).astype(np.uint8))
+                # v1.14.225 — قفلِ ساختار (ضدِ «حبابِ بیرون با حبابِ
+                # داخل یک رنگ»): هالهٔ ۱۹pxیِ m_eval وقتی متن به دیوارِ
+                # حباب چسبیده باشد از رویِ دیوار میگذشت و پرِ تختِ
+                # ترمیم (سفیدِ ناب/تختِ حلقه) دیوار را با رنگِ یکسان
+                # میپوشاند = بیرون و داخلِ حباب همرنگ. دیوار/قفلها
+                # (_prot_all = ساختارِ روشن + گلو + خطِ سراسری +
+                # page_protect) از نوشتنِ ترمیم خارج میشوند — همان
+                # قانونی که پرکنندههایِ اصلی از قبل دارند.
+                try:
+                    _pa225b = getattr(self, "_prot_all", None)
+                    if _pa225b is not None:
+                        _pac225b = _pa225b[Y0:Y1, X0:X1]
+                        if _pac225b.shape == alpha.shape:
+                            alpha = alpha * (
+                                (_pac225b == 0).astype(np.uint8))
+                except Exception:
+                    pass
                 a3 = (alpha.astype(np.float32) / 255.0)[..., None]
                 dst = out.astype(np.float32)
                 bl = dst * (1.0 - a3) + res_.astype(np.float32) * a3
@@ -22119,40 +22136,69 @@ class MangaTranslator:
                 return
             if self.debug:
                 try:
-                    print(f"  [!]ترمیمِ کاملِ crop@({cx0},{cy0}) "
-                          f"نشد — خروجیِ فعلی ماند", flush=True)
+                    print(f"  [!]ترمیمِ پلکانیِ crop@({cx0},{cy0}) "
+                          f"کامل نشد → فالبکِ نهاییِ ۲۲۵",
+                          flush=True)
                 except Exception:
                     pass
-            # v1.14.201 — «ماندنِ خروجیِ فعلی» یعنی نصفه‌پاک‌شده بماند:
-            # تکهٔ جوهرِ نصفه‌محوشده رویِ هنر/حباب (لاگِ فصلِ ۱۱۰:
-            # crop@(466,4504) و crop@(205,6117) و crop@(405,508)) —
-            # قاعدهٔ قطعیِ کاربر: «هیچ لکه/لاجی نباید بماند». هر مرحلهٔ
-            # ترمیم رد شد → پیکسلِ اورجینالِ همان ناحیه برمیگردد
-            # (حباب/هنر سالمِ قبل از پاکسازی)؛ قفلِ نوارِ کامپوز در
-            # _blend برقرار است، بیرونِ نوار هرگز نوشته نمیشود.
-            try:
-                _a201 = cv2.GaussianBlur(m, (5, 5), 1.0)
-                _a201 = np.minimum(_a201, m)
-                _o201 = orig.astype(np.float32)
-                _d201 = out.astype(np.float32)
-                _a3 = (_a201.astype(np.float32) / 255.0)[..., None]
-                _b201 = _d201 * (1.0 - _a3) + _o201 * _a3
-                if limit is not None:
-                    _limB = limit[Y0:Y1, X0:X1]
-                    if _limB.shape == _b201.shape[:2]:
-                        _b201 = np.where((_limB > 0)[..., None],
-                                         _b201,
-                                         out.astype(np.float32))
-                cleaned[Y0:Y1, X0:X1] = _b201.astype(np.uint8)
+            # v1.14.225 — پایانِ «بازگردانیِ اورجینال» (۲۰۱). دستورِ
+            # سازنده: «متنِ قبلی جا میمونه… باید بتونن خوب بپاکن» —
+            # برگرداندنِ پیکسلِ اورجینال در ناحیهٔ «متن» یعنی خودِ
+            # متنِ انگلیسیِ خام برمیگشت (لاگِ واقعیِ گوشیِ v1.14.217:
+            # crop@(1673,0) — LaMa×2-برش «هنوز بد» → [↺201] → متنِ
+            # اورجینال سرِ جایش ماند). قاعدهٔ تازه: هیچ مسیری حقِ
+            # برگرداندنِ اورجینالِ «متن» را ندارد؛ آخرین فالبک = «پرِ
+            # ردیفیِ بی‌گیت» (رنگِ میانهٔ زمینهٔ همان ردیف — گرادیانِ
+            # عمودی حفظ، جوهر به سازهٔ پیکسلیِ ردیف جایگزین میشود =
+            # از ساخت، بدونِ متن) و اگر نشد «پرِ تختِ حلقه». بدترین
+            # حالتِ تازه = یک لکهٔ همرنگِ زمینه — هرگز متنِ جامانده.
+            # گاردِ هنر (همارزِ ARTSKIPِ اندروید، حالا رویِ PC هم):
+            # جوهرِ ضعیف + حلقهٔ بافت‌مند + زمینهٔ رنگی = سایه/بوتهٔ
+            # هنر — نه متن؛ در آن حالت «خروجیِ فعلی» میماند (هرگز
+            # اورجینالِ متن برنمیگردد، هیچ پُری هم رویِ هنر نمیرود).
+            _art_like225 = bool(
+                rs > 22.0 and ink_m < 0.30 and neutr >= 40.0)
+            if _art_like225:
                 if self.debug:
                     try:
-                        print(f"  [↺201] بازگردانیِ اورجینال در "
-                              f"crop@({cx0},{cy0}) — ترمیمِ ناتمام به "
-                              f"جایِ لکه نماند", flush=True)
+                        print(f"  [🔍225] جوهرِ ضعیف + زمینهٔ هنریِ "
+                              f"crop@({cx0},{cy0}) → خروجیِ فعلی ماند "
+                              f"(بدونِ پر و بدونِ بازگردانی)", flush=True)
                     except Exception:
                         pass
-            except Exception:
-                pass
+            else:
+                try:
+                    _rf225 = _row_fill_res()
+                    if _rf225 is not None:
+                        _blend(_rf225)
+                        if self.debug:
+                            try:
+                                print(f"  [✓225] پرِ ردیفیِ نهاییِ "
+                                      f"crop@({cx0},{cy0}) — بدونِ "
+                                      f"بازگردانیِ اورجینال", flush=True)
+                            except Exception:
+                                pass
+                    else:
+                        _col225 = np.median(
+                            out[ring].astype(np.float32),
+                            axis=0).astype(np.float32) \
+                            if int(ring.sum()) else np.array(
+                                [252.0, 252.0, 252.0], np.float32)
+                        _flat225 = np.repeat(
+                            _col225[None, None, :], out.shape[0],
+                            axis=0).repeat(out.shape[1], axis=1)
+                        _blend(_flat225.astype(np.uint8))
+                        if self.debug:
+                            try:
+                                print(f"  [✓225] پرِ تختِ نهاییِ "
+                                      f"crop@({cx0},{cy0}) — بدونِ "
+                                      f"بازگردانیِ اورجینال", flush=True)
+                            except Exception:
+                                pass
+                except Exception:
+                    # حتی در خطا هم «خروجیِ فعلی» میماند — دیگر هرگز
+                    # اورجینال برنمیگردد.
+                    pass
         except Exception:
             return
 
@@ -27015,6 +27061,137 @@ class MangaTranslator:
             pass
         return regions
 
+    @staticmethod
+    def _dedup_duplicate_text_regions(
+            regions: List["TextRegion"]) -> List["TextRegion"]:
+        """v1.14.225 — حذفِ نواحیِ «هممتنِ همپوشان» (ضدِ رندرِ دوباره).
+
+        گزارشِ سازنده: «وقتی یک قسمت ترجمه کرده مجدد رو همون قسمت
+        ترجمه میکنه بالای جای قبلی مینویسه». ریشه: دو باکسِ detectorِ
+        همپوشان (IoU < آستانهٔ NMS ولی همپوشانیِ واقعیِ ۵۰٪+) هر دو
+        زنده میمانند، OCRِ هر دو همان متنِ فیزیکی را میخواند → دو ناحیه
+        با متنِ یکسان و مستطیلهای همپوشان → دو ترجمه → دو رندرِ
+        بالای هم (لاگِ گوشی: #07/#08 «GO! EVEN FASTER…»). همینطور
+        خطِ یتیمِ نجات‌یافته (216) که در نوارِ مجاورِ ناحیهٔ موجود،
+        خطِ «همان» ناحیه را دوباره پیدا میکند.
+
+        قواعد (محافظهکار — متنِ متفاوت هرگز حذف نمیشود):
+          ۱) نرمالسازی: حروف کوچک + حذفِ نویسههای غیرِ واژه (علائم/
+             فاصله) — برایِ همهٔ خطها (لاتین/فارسی/ja/ko/zh).
+          ۲) جفتِ «متنِ یکسان» (یا جابهجاییِ واژهها — همانِ چندمجموعهٔ
+             نویسهها؛ نمونهٔ واقعیِ img6: «EVEN GO! FASTER...» در برابر
+             «GO! FASTER... EVEN»): همپوشانی ≥۱۸٪ مساحتِ کوچکتر یا
+             احتوای ≥۴۵٪ → نسخهٔ کوچکتر (خط/مساحتِ کمتر) حذف.
+          ۳) جفتِ «شبیهِ هم» (بازخوانیِ کج‌وکولهٔ OCRِ همان متن —
+             نسبتهایِ difflib ≥۰٫۶۲ با طولِ ≥۶): مثلِ ۲.
+          ۴) جفتِ «زیررشته»: متنِ یکی داخلِ دیگری + احتوای ≥۶۰٪ →
+             ناحیهٔ درونی (بخشی) حذف — بازخوانیِ نصفهٔ همان متن.
+        متنِ تکراریِ واقعی در دو حبابِ جدا = بدونِ همپوشانی → دست‌نخورده.
+        یتیمِ واقعی (خطِ نو با متنِ تازه، بیرونِ مستطیلِ والد) =
+        بدونِ همپوشانی → دست‌نخورده (سناریوی «OUTER GOD…»).
+        """
+        if not regions or len(regions) < 2:
+            return regions
+
+        def _norm225(t) -> str:
+            try:
+                return re.sub(r"[\W_]+", "", str(t or "").lower())
+            except Exception:
+                return str(t or "").lower()
+
+        def _sim225(a: str, b: str) -> float:
+            """شباهتِ دو متنِ نرمال — ۱٫۰ = یکی."""
+            if a == b:
+                return 1.0
+            try:
+                import difflib as _dl225
+                return _dl225.SequenceMatcher(None, a, b).ratio()
+            except Exception:
+                return 0.0
+
+        def _xyxy225(r):
+            try:
+                x, y, w, h = [float(v) for v in r.rect]
+                return (x, y, x + w, y + h)
+            except Exception:
+                return (0.0, 0.0, 0.0, 0.0)
+
+        def _inter225(a, b):
+            ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+            return max(0.0, ix) * max(0.0, iy)
+
+        def _area225(a):
+            return max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+
+        infos = []
+        for r in regions:
+            try:
+                n = _norm225(getattr(r, "source_text", ""))
+            except Exception:
+                n = ""
+            if not n:
+                continue  # بی‌متن (ocr_empty و…) هرگز اینجا حذف نمیشود
+            try:
+                npol = len(getattr(r, "ocr_polys", None) or [])
+            except Exception:
+                npol = 0
+            infos.append((r, n, _xyxy225(r), _area225(_xyxy225(r)), npol))
+        if len(infos) < 2:
+            return regions
+
+        drop_ids: set = set()
+        n_eq = n_sub = 0
+        for i in range(len(infos)):
+            ra, na, ba, aa, pa = infos[i]
+            if id(ra) in drop_ids:
+                continue
+            for j in range(i + 1, len(infos)):
+                rb, nb, bb, ab, pb = infos[j]
+                if id(rb) in drop_ids:
+                    continue
+                if getattr(rb, "kind", "") != getattr(ra, "kind", ""):
+                    continue
+                inter = _inter225(ba, bb)
+                if inter <= 0.0:
+                    continue
+                amin = min(aa, ab) or 1.0
+                ov_min = inter / amin
+                # احتوای bb در ba و برعکس
+                cont_ba = inter / (ab or 1.0)
+                cont_ab = inter / (aa or 1.0)
+                _kill = None
+                # «یکسان» = متنِ برابر یا جابهجاییِ واژهها (چندمجموعهٔ
+                # نویسهها)؛ «شبیه» = بازخوانیِ کج‌وکولهٔ OCR (≥۰٫۶۲)
+                _same_txt = (na == nb) or (
+                    len(na) >= 6 and len(nb) >= 6
+                    and sorted(na) == sorted(nb))
+                if not _same_txt and len(na) >= 6 and len(nb) >= 6:
+                    _same_txt = _sim225(na, nb) >= 0.62
+                if _same_txt:
+                    if ov_min >= 0.18 or max(cont_ba, cont_ab) >= 0.45:
+                        # بزرگتر/پرخطتر میماند؛ کوچکتر حذف میشود
+                        _kill = ra if (pa, aa) <= (pb, ab) else rb
+                        n_eq += 1
+                elif nb in na and cont_ba >= 0.60:
+                    _kill = rb
+                    n_sub += 1
+                elif na in nb and cont_ab >= 0.60:
+                    _kill = ra
+                    n_sub += 1
+                if _kill is not None:
+                    drop_ids.add(id(_kill))
+        if not drop_ids:
+            return regions
+        out = [r for r in regions if id(r) not in drop_ids]
+        try:
+            print(f"    [*] {len(drop_ids)} ناحیهٔ هممتنِ همپوشان حذف شد "
+                  f"(ضدِ رندرِ دوباره — {n_eq} یکسان / {n_sub} بخشی)",
+                  flush=True)
+        except Exception:
+            pass
+        return out
+
     def _rescue_orphan_lines(self, image: np.ndarray,
                              regions: List["TextRegion"]) -> List["TextRegion"]:
         """v1.14.216 — نجاتِ خطِ یتیمِ همسایهٔ ناحیهٔ متن.
@@ -27215,6 +27392,55 @@ class MangaTranslator:
                     if not _txt or _lt < 6 \
                             or _lt * 2 < len(_txt.replace(" ", "")):
                         continue
+                    # v1.14.225 — پسگیرِ «بازخوانیِ متنِ پوشیدهشده»:
+                    # جعبهٔ خامِ جوهرِ نوار با هنرِ اطراف پهن میشود و
+                    # گاردِ ۷۰٪یِ بالای سر ردش میکند (لاگِ واقعیِ img6:
+                    # «attraction A» و «atfrach here.» — بازخوانیِ
+                    # کج‌وکولهٔ «You're the real attraction here.» از
+                    # نوارِ زیرِ حبابِ همسایه؛ ناحیهٔ ۶ با پسگیرِ جوهر
+                    # +1614px رویِ دُمِ حباب چسبید = خطِ حباب پاک شد).
+                    # سنجشِ درست = چندضلعیهایِ خودِ OCR (جعبهٔ واقعیِ
+                    # حروف): اگر ≥۶۰٪ حروف داخلِ ناحیههایِ موجودند،
+                    # این «همان متنِ دارایِ صاحب» است نه خطِ یتیم →
+                    # رد. یتیمِ واقعی (سناریوی «OUTER GOD…» — خطِ
+                    # دومی که detector ندید) بیرونِ همهٔ ناحیههاست
+                    # و زنده میماند.
+                    try:
+                        _ta225 = 0.0
+                        _ca225 = 0.0
+                        for _p225 in _polys:
+                            try:
+                                _pp225 = np.asarray(
+                                    _p225, np.float32).reshape(-1, 2)
+                                _pbx0 = float(_pp225[:, 0].min())
+                                _pby0 = float(_pp225[:, 1].min())
+                                _pbx1 = float(_pp225[:, 0].max())
+                                _pby1 = float(_pp225[:, 1].max())
+                                _pba = max(1.0, (_pbx1 - _pbx0)
+                                           * (_pby1 - _pby0))
+                                _pin = 0.0
+                                for _c225 in covered:
+                                    _ix225 = max(
+                                        0.0, min(_pbx1, _c225[2])
+                                        - max(_pbx0, _c225[0]))
+                                    _iy225 = max(
+                                        0.0, min(_pby1, _c225[3])
+                                        - max(_pby0, _c225[1]))
+                                    _pin = max(_pin, (_ix225 * _iy225)
+                                               / _pba)
+                                _ta225 += _pba
+                                _ca225 += _pba * min(1.0, _pin)
+                            except Exception:
+                                continue
+                        if _ta225 > 0.0 and \
+                                _ca225 / _ta225 >= 0.55:
+                            if self.debug:
+                                print(f"    [🔍225] یتیمِ بازخوانیِ "
+                                      f"متنِ پوشیدهشده رد شد: "
+                                      f"{_txt[:44]!r}", flush=True)
+                            continue
+                    except Exception:
+                        pass
                     _boxes = []
                     for _p in _polys:
                         try:
@@ -27464,6 +27690,26 @@ class MangaTranslator:
             # v1.14.163 — استخراج = فقط رویِ نواحیِ detector-v4-s؛ «جای
             # دیگ پیگیر نشه» — بدونِ detector هیچ پاسِ تمامصفحه‌ای نیست.
             print("    [!] detector-v4-s در دسترس نیست → ناحیهٔ متنی پیدا نشد")
+        _raise_if_stop()
+
+        # v1.14.225 — ضدِ «ترجمهٔ دوبارهٔ همان قسمت» (گزارشِ سازنده:
+        # «وقتی یک قسمت ترجمه کرده مجدد رو همون قسمت ترجمه میکنه
+        # بالای جای قبلی مینویسه») — دو باکسِ detectorِ همپوشان که
+        # NMS/merge نتوانست یکی کند (لاگِ واقعیِ گوشی: «GO! EVEN
+        # FASTER…» = ناحیهٔ ۷ با rect=(283,1919,296,178) و ناحیهٔ ۸ با
+        # rect=(445,1951,223,163) — همپوشانیِ ۵۴٪ ولی IoU=۰.۲۸<۰.۳۵)
+        # هر دو ترجمه و رندر میشدند → متنِ فارسی دوبار، بالای هم.
+        # همینطور خطِ یتیمِ نجات‌یافته که به ناحیهٔ موجود چسبیده بود.
+        # قاعدهٔ تازه: متنِ «یکسان» (بعد از نرمالسازی) + همپوشانیِ
+        # جعبه‌ها = همان متنِ فیزیکی است → فقط یکی (بزرگتر) میماند؛
+        # متنِ «محتوایِ» دیگری (زیررشته) با احتیاطِ بیشتر (۶۰٪ داخل).
+        # متنِ تکراریِ واقعی در حبابهایِ جدا = بدونِ همپوشانی → هر دو
+        # میمانند (رفتارِ قبلی).
+        try:
+            unique_regions = self._dedup_duplicate_text_regions(
+                unique_regions)
+        except Exception:
+            pass
         _raise_if_stop()
 
         # v1.14.70 — پاکسازیِ SFX: افکتِ صوتی/متنِ استایل‌دارِ بیرونِ حباب
@@ -27944,13 +28190,25 @@ class MangaTranslator:
                 except Exception:
                     pass
             if clean_targets:
-                if _android_gate("MANGA_PHASE_PRINTS"):
-                    print("[*] پاکسازی متن…", flush=True)
-                _t0 = time.time()
-                final_image = self.clean_image(image, clean_targets)
-                print(f"[+] پاکسازی: {time.time() - _t0:.1f} ثانیه با {self._clean_label()}")
+                # v1.14.225 — ضدِ «دوبارِ پاکسازی در حالتِ فقط-پاکسازی»
+                # (دستورِ سازنده: «سریع هم بپاکه وقت نگیره زیاد»):
+                # فازِ پسزمینه (فاز ۱/۲) همین صفحه را از قبل پاک کرده
+                # و precleaned داده شده — قبلاً این شاخه آن را نادیده
+                # میگرفت و کلِ پاکسازی از نو اجرا میشد (لاگِ واقعیِ
+                # PC: clean=51.7s و بعدش clean+render=53.5s = دوبرابر).
+                # حالا نتیجهٔ فازِ پسزمینه همان لحظه استفاده میشود؛
+                # فاصلهٔ هدفها هم با افزودنِ junk به فازِ پسزمینه
+                # (بالا) همسان شد.
+                if precleaned is not None:
+                    final_image = precleaned
+                else:
+                    if _android_gate("MANGA_PHASE_PRINTS"):
+                        print("[*] پاکسازی متن…", flush=True)
+                    _t0 = time.time()
+                    final_image = self.clean_image(image, clean_targets)
+                    print(f"[+] پاکسازی: {time.time() - _t0:.1f} ثانیه با {self._clean_label()}")
             else:
-                final_image = image.copy()
+                final_image = precleaned.copy() if precleaned is not None else image.copy()
             return final_image, page_debug
 
         # v1.14.149 — نجاتِ OCR: ناحیههایِ «حبابِ پیدا شده ولی
@@ -30958,6 +31216,15 @@ html, body { background: #0a0a0b; }
                 regs = regs + [r for r in regions if r.kind == "text_free"]
             if getattr(self, "clean_sfx", False):
                 regs = regs + [r for r in regions if r.kind == "sfx"]
+            # v1.14.225 — همسانسازیِ هدفها با شاخهٔ clean-onlyِ
+            # finish_page_phase (dialogue+junk): تا وقتی precleanedِ
+            # فازِ پسزمینه جای پاکسازیِ دومی نشیند، junk (شمارهٔ صفحه)
+            # هم همانجا پاک شود — وگرنه در استفادهِ مجددِ precleaned
+            # جا میماند.
+            if getattr(self, "clean_only", False):
+                _have225 = {id(x) for x in regs}
+                regs = regs + [r for r in regions
+                               if r.kind == "junk" and id(r) not in _have225]
             return regs or None
 
         def _clean_one_page(_p: int) -> None:

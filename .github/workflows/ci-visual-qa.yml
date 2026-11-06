@@ -62,9 +62,22 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           mkdir -p /tmp/mt/clean /tmp/mt/full /tmp/mt/dumps
           : > /tmp/mt/manifest.tsv
+          # v1.14.225 — زبانِ OCRِ هر فایل (درخواستِ سازنده: «همه عکس هاشو
+          # خوب تست کن») — صفحههایِ ja/ko/zh با OCRِ انگلیسیِ پیشفرض
+          # استخراج نمیشدند (ناحیهها «نویز» رد میشدند) = تستِ بیاثر.
+          # نگاشتِ همان EXT_SETِ اندروید.
+          lang_of() {
+            case "$1" in
+              lang_ja_bw|lang_ja_color) echo "ja en" ;;
+              lang_ko) echo "ko en" ;;
+              lang_zh|up0929|img20260929) echo "zh en" ;;
+              *) echo "en" ;;
+            esac
+          }
           for pair in $FILES; do
             name="${pair%%=*}"; f="${pair#*=}"
-            echo "=== clean: $f ==="
+            OL="$(lang_of "$name")"
+            echo "=== clean: $f (ocr-lang: $OL) ==="
             MANGA_DUMP_DONOR="/tmp/mt/dumps/${name}_donor.png" \
             MANGA_DUMP_CMP2="/tmp/mt/dumps/${name}_cmp2.png" \
             timeout 2400 python3 -u manga.py \
@@ -77,6 +90,7 @@ jobs:
               --request-delay 0.0 --temperature 0.15 \
               --reading-order rtl --active-tones normal \
               --clean-method lama-manga --clean-only \
+              --ocr-lang $OL \
               --prompt-mode auto --no-brief --img-format jpg \
               >> /tmp/mt/clean.log 2>&1
             echo "$name exit=$?"
@@ -89,6 +103,7 @@ jobs:
               pn="${pair%%=*}"; pf="${pair#*=}"
               if [ "$pn" = "$name" ]; then
                 echo "=== full(fake): $pf ==="
+                FL="$(lang_of "$name")"
                 timeout 2400 python3 -u manga.py \
                   -i "$pf" \
                   -o "/tmp/mt/full/${name}_fa.jpg" \
@@ -99,6 +114,7 @@ jobs:
                   --request-delay 0.0 --temperature 0.15 \
                   --reading-order rtl --active-tones normal \
                   --clean-method lama-manga \
+                  --ocr-lang $FL \
                   --fake-translate \
                   --prompt-mode auto --no-brief --img-format jpg \
                   >> /tmp/mt/full.log 2>&1
