@@ -17035,6 +17035,314 @@ class MangaTranslator:
                 print("  [!]texture-refill error:")
                 _tb96.print_exc()
 
+    def _fill_harmony_qc(self, donor: np.ndarray, original: np.ndarray,
+                         zone: np.ndarray, verbose: bool = True) -> int:
+        """v1.14.228 — QCِ هماهنگیِ رنگِ پر، برایِ «همهٔ» پرکنندهها.
+
+        دستورِ سازنده: «معلومه از حباب داخل با بیرون حباب یکی حساب کرده
+        یک رنگ کرده یا بعضی متن هارو نپاکیده» — پرِ خاکستری LaMa رویِ
+        زمینهٔ سفید/بنفش (img4ِ #13/#14/#20)، پرِ سفید رویِ آسمان/پوست
+        (#03/CMP1)، و پرِ یکرنگی که مرزِ حباب را میپوشاند از هر مسیری
+        (فوری/TELEA/LaMa/هارمونیکِ ۲۲۷) میآیند. QCهایِ قبلی فقطِ LaMa و
+        فقطِ کروما بودند. این QC درست قبلِ کامپوز میآید:
+          ۱) نوارِ متن به قطعههایی که «مرزِ قویِ اورجینال» بینشان حایل
+             است شکسته میشود → داخلِ حباب و بیرونِ حباب هرکدام رنگِ
+             سمتِ خودشان را میگیرند (ریشهٔ «یک رنگ کرده»).
+          ۲) هر قطعه: میانهٔ پرِ فعلی در برابرِ حلقهٔ محلیاش از
+             اورجینال (لومیا + کروما با هم) سنجیده میشود؛ اختلافِ
+             ≥۲۰ = دوبارهپر از حلقه (پلن رویِ گرادیانِ نرم، میانه رویِ
+             زمینهٔ تخت) با فدرِ نرم.
+          ۳) حلقهٔ شلوغ (بافت/گرادیانِ تند — هنر) هرگز دستنخورده
+             میماند؛ فقط پیکسلهایِ واقعاً پرشده (تغییرکرده) لمس
+             میشوند؛ هیچ نوشتنی بیرونِ نوارِ متن نمیرود.
+        """
+        try:
+            if donor is None or original is None or zone is None:
+                return 0
+            if donor.shape[:2] != original.shape[:2]:
+                return 0
+            if zone.shape[:2] != donor.shape[:2]:
+                return 0
+            zm = zone > 0
+            if not zm.any():
+                return 0
+            _diff = cv2.absdiff(donor, original).max(axis=2)
+            ch = (_diff > 12) & zm
+            if not ch.any():
+                return 0
+            _g = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+            # v1.14.228 — فقط «مرزهایِ ساختاریِ درشت» (کادرِ حباب، قابِ
+            # پنل، ستون) قطعه‌بندی میکنند. Canny رویِ اصل، لبههایِ
+            # «گلیفِ متن» را هم میداد → نوارهایِ متنِ متراکم به خردههایی
+            # زیرِ آستانهٔ ۴۰px میشکستند و QC هیچوقت به آنها نمیرسید
+            # (باقیماندهٔ خاکستریِ y=8500ِ img4). با بلورِ σ=۴ لبههایِ
+            # گلیف (کشِ ~۴-۶px) محو میشوند و مرزهایِ درشت میمانند.
+            _gb = cv2.GaussianBlur(_g, (0, 0), 4.0)
+            _ed = cv2.Canny(_gb, 40, 120)
+            _ed = (cv2.dilate(
+                _ed, cv2.getStructuringElement(
+                    cv2.MORPH_ELLIPSE, (7, 7))) > 0)
+            zm_c = zm & (~_ed)
+            if not zm_c.any():
+                return 0
+            _n_lab, _lab, _stats, _cents = \
+                cv2.connectedComponentsWithStats(
+                    zm_c.astype(np.uint8), 8)
+            H, W = zm.shape[:2]
+            _k17 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
+            _dbg228 = os.environ.get("MANGA_HQC_DBG", "0") == "1"
+            n_fix = 0
+            n_px = 0
+            for _i in range(1, _n_lab):
+                try:
+                    _a = int(_stats[_i, cv2.CC_STAT_AREA])
+                    if _a < 40:
+                        continue
+                    _sx = int(_stats[_i, cv2.CC_STAT_LEFT])
+                    _sy = int(_stats[_i, cv2.CC_STAT_TOP])
+                    _sw = int(_stats[_i, cv2.CC_STAT_WIDTH])
+                    _sh = int(_stats[_i, cv2.CC_STAT_HEIGHT])
+                    pcc = (_lab[_sy:_sy + _sh, _sx:_sx + _sw] == _i)
+                    y0, y1, x0, x1 = _sy, _sy + _sh - 1, _sx, _sx + _sw - 1
+                    ch_b = ch[_sy:_sy + _sh, _sx:_sx + _sw]
+                    pch_b = pcc & ch_b
+                    if int(pch_b.sum()) < 25:
+                        continue
+                    # حلقه از اورجینال — داخلِ جعبهٔ گسترش‌یافته تا سبک بماند
+                    _pad = 20
+                    by0 = max(0, y0 - _pad)
+                    bx0 = max(0, x0 - _pad)
+                    by1 = min(H, y1 + _pad + 1)
+                    bx1 = min(W, x1 + _pad + 1)
+                    _pcp = np.zeros((by1 - by0, bx1 - bx0), np.uint8)
+                    _pcp[y0 - by0:y1 - by0 + 1,
+                         x0 - bx0:x1 - bx0 + 1] = \
+                        pcc.astype(np.uint8)
+                    # حلقهٔ «مد-خوشهای»: نامزدها = دیلاتِ قطعه (۱۷px،
+                    # درِ کم تا ۳۱px) منهایِ مرزهایِ قوی؛ «مهم نیست داخلِ
+                    # zm باشد» — فاصلهٔ بینخطِ اورجینال هم پسزمینه است.
+                    # جوهرِ متنِ خطهایِ مجاور با پیکِ هیستوگرامِ لومیا +
+                    # پنجرهٔ ±۴۰ دورِ همان خوشه کنار گذاشته میشود تا
+                    # حلقه = رنگِ پسزمینهٔ غالب باشد نه جوهر.
+                    _oc = original[by0:by1, bx0:bx1]
+                    _ocf = _oc.astype(np.float32)
+                    _lum_map = (_ocf[:, :, 0] * 0.114
+                                + _ocf[:, :, 1] * 0.587
+                                + _ocf[:, :, 2] * 0.299)
+                    _edc = _ed[by0:by1, bx0:bx1]
+                    _chc = ch[by0:by1, bx0:bx1]
+                    # نامزدها = دورِ قطعه − مرز − «همهٔ پیکسلهایِ پروشده»
+                    # (خودِ قطعه و خطهایِ مجاور) → حلقه = پسزمینهٔ واقعیِ
+                    # دستنخورده (بینخط/حاشیه)، هرگز رنگِ خودِ پرها.
+                    cand = (cv2.dilate(_pcp, _k17) > 0) \
+                        & (~_edc) & (~_chc)
+                    if int(cand.sum()) < 80:
+                        cand = (cv2.dilate(_pcp, _k31) > 0) \
+                            & (~_edc) & (~_chc)
+                    _nr = int(cand.sum())
+                    if _nr < 80:
+                        if _dbg228:
+                            print(f"    [228d] قطعه@({x0},{y0}) "
+                                  f"حلقهکم={_nr}", flush=True)
+                        continue
+                    _gl = _lum_map[cand]
+                    _hist, _edges = np.histogram(_gl, bins=32,
+                                                 range=(0, 256))
+                    _mb = int(_hist.argmax())
+                    if int(_hist[_mb]) < 0.22 * _nr:
+                        # هیچ خوشهای حتی ۱۲٪ هم نیست (هنرِ کاملاً مرکب)
+                        # → نه آمارِ معتبر نه میدانِ امن؛ دستنخورده.
+                        if _dbg228:
+                            print(f"    [228d] قطعه@({x0},{y0}) "
+                                  f"حلقهٔ بیخوشه "
+                                  f"({_hist[_mb]}/{_nr}) رد",
+                                  flush=True)
+                        continue
+                    # همترازیِ pch با جعبهٔ پَددار (pch_b رویِ جعبهٔ stats است)
+                    pch_p = np.zeros((by1 - by0, bx1 - bx0), bool)
+                    pch_p[y0 - by0:y1 - by0 + 1,
+                          x0 - bx0:x1 - bx0 + 1] = pch_b
+                    _m0 = float(0.5 * (_edges[_mb] + _edges[_mb + 1]))
+                    fbm = cand & (np.abs(_lum_map - _m0) <= 40.0)
+                    if int(fbm.sum()) < 80:
+                        if _dbg228:
+                            print(f"    [228d] قطعه@({x0},{y0}) "
+                                  f"خوشهکم={int(fbm.sum())}", flush=True)
+                        continue
+                    # همترازیِ pch (بالا انجام شد) — آمارِ حلقه
+                    rpx = _ocf[fbm]
+                    rmed = np.median(rpx, axis=0)
+                    rsp = float(np.max(
+                        np.percentile(rpx, 90, axis=0)
+                        - np.percentile(rpx, 10, axis=0)))
+                    _rl = float(rmed[0] * 0.114 + rmed[1] * 0.587
+                                + rmed[2] * 0.299)
+                    fpx = donor[by0:by1, bx0:bx1][pch_p].astype(
+                        np.float32)
+                    if fpx.shape[0] < 25:
+                        continue
+                    fmed = np.median(fpx, axis=0)
+                    fstd = float(np.median(np.std(fpx, axis=0)))
+                    d = float(np.abs(fmed - rmed).max())
+                    # آستانهٔ تطبیقی: چشم رویِ زمینهٔ روشن/تیره حساستر است
+                    _thr = 20.0
+                    if _rl >= 232.0:
+                        _thr = 13.0
+                    elif _rl <= 60.0:
+                        _thr = 14.0
+                    _fsp = float(np.max(fmed) - np.min(fmed))
+                    if _fsp <= 12.0 and rsp >= 30.0:
+                        _thr = min(_thr, 14.0)  # پرِ خنثی رویِ رنگی
+                    if d < _thr:
+                        if _dbg228:
+                            print(f"    [228d] قطعه@({x0},{y0}) "
+                                  f"سالم d={d:.0f} پ={fmed.round(0)} "
+                                  f"ح={rmed.round(0)}", flush=True)
+                        continue
+                    if _dbg228:
+                        print(f"    [228d] قطعه@({x0},{y0}) d={d:.0f} "
+                              f"پ={fmed.round(0)} ح={rmed.round(0)} "
+                              f"rsp={rsp:.0f}", flush=True)
+                    plane = None
+                    # «میدانِ فرکانسِ پایین» پیشفرضِ خاموش: درِ تستِ واقعی
+                    # (img4ِ r20) نزدیکِ مرزِ هنر، رنگِ تیرهِ هنرِ مجاور را
+                    # به داخلِ پر میکشید (Δ منفیِ نوارهایِ بالا). فقط با
+                    # MANGA_HQC_FIELD=1 برایِ آزمایش.
+                    _field = (os.environ.get("MANGA_HQC_FIELD", "0") == "1"
+                              and fstd <= 32.0)
+                    if not _field:
+                        if rsp <= 16.0:
+                            tgt = rmed
+                        elif fstd <= 55.0:
+                            try:
+                                ry, rx = np.nonzero(fbm)
+                                _A = np.stack(
+                                    [np.ones(rx.size, np.float32),
+                                     (rx + bx0 - x0).astype(np.float32),
+                                     (ry + by0 - y0).astype(np.float32)],
+                                    axis=1)
+                                _rpx = rpx
+                                _coef, *_ = np.linalg.lstsq(
+                                    _A, _rpx, rcond=None)
+                                _res = np.sqrt(
+                                    ((_A @ _coef - _rpx) ** 2)
+                                    .sum(axis=1)).mean()
+                                if _res > 13.0:
+                                    if _dbg228:
+                                        print(f"    [228d] قطعه@({x0},{y0}) "
+                                              f"حلقهشلوغ res={_res:.0f} رد",
+                                              flush=True)
+                                    continue  # هنر؛ دستنخورده
+                                plane = _coef
+                            except Exception:
+                                continue
+                        else:
+                            if _dbg228:
+                                print(f"    [228d] قطعه@({x0},{y0}) "
+                                      f"پربافت fstd={fstd:.0f} رد",
+                                      flush=True)
+                            continue
+                    # مقدارِ نو فقط رویِ پیکسلهایِ پرشده — همراستا با
+                    # جعبهٔ پَددار (pch_p بالا ساخته شد)
+                    repl = donor[by0:by1, bx0:bx1].copy()
+                    if _field:
+                        try:
+                            _pp2 = 24
+                            _fy0 = max(0, by0 - _pp2)
+                            _fx0 = max(0, bx0 - _pp2)
+                            _fy1 = min(H, by1 + _pp2)
+                            _fx1 = min(W, bx1 + _pp2)
+                            _oc2 = original[_fy0:_fy1, _fx0:_fx1] \
+                                .astype(np.float32)
+                            _dc2 = donor[_fy0:_fy1, _fx0:_fx1] \
+                                .astype(np.float32)
+                            _ring2 = np.zeros(_oc2.shape[:2], np.float32)
+                            _ring2[(by0 - _fy0):(by1 - _fy0),
+                                   (bx0 - _fx0):(bx1 - _fx0)] = \
+                                fbm.astype(np.float32)
+                            _fill2 = np.zeros(_oc2.shape[:2], np.float32)
+                            _fill2[(by0 - _fy0):(by1 - _fy0),
+                                   (bx0 - _fx0):(bx1 - _fx0)] = \
+                                pch_p.astype(np.float32)
+                            _kb = cv2.GaussianBlur(_ring2, (0, 0), 13.0)
+                            _kn = cv2.GaussianBlur(_fill2, (0, 0), 13.0)
+                            _num = np.zeros_like(_oc2)
+                            for _c3 in range(3):
+                                _num[:, :, _c3] = cv2.GaussianBlur(
+                                    _oc2[:, :, _c3] * _ring2, (0, 0), 13.0)
+                            _den = np.maximum(_kb, 1e-3)[..., None]
+                            _bgf = _num / _den
+                            _fnum = np.zeros_like(_oc2)
+                            for _c3 in range(3):
+                                _fnum[:, :, _c3] = cv2.GaussianBlur(
+                                    _dc2[:, :, _c3] * _fill2, (0, 0), 13.0)
+                            _flf = _fnum / np.maximum(_kn, 1e-3)[..., None]
+                            _ratio = _bgf / np.maximum(_flf, 30.0)
+                            _ratio = np.clip(_ratio, 0.70, 1.45)
+                            _mis = (np.abs(_ratio - 1.0).max(axis=2)
+                                    > 0.10)
+                            _mis &= (_fill2 > 0)
+                            if int(_mis.sum()) >= 25:
+                                _newv = np.clip(
+                                    np.rint(_dc2 * _ratio), 0,
+                                    255).astype(np.uint8)
+                                _msk = np.zeros(_oc2.shape[:2], bool)
+                                _msk[(by0 - _fy0):(by1 - _fy0),
+                                     (bx0 - _fx0):(bx1 - _fx0)] = pch_p
+                                _use = _msk & _mis
+                                _wmf = _use.astype(np.float32)
+                                _wmf = cv2.GaussianBlur(_wmf, (0, 0), 2.0)
+                                _wmf = np.minimum(_wmf * 1.6, 1.0)
+                                _wmf *= zm[_fy0:_fy1,
+                                           _fx0:_fx1].astype(np.float32)
+                                _subf = donor[_fy0:_fy1,
+                                              _fx0:_fx1].astype(np.float32)
+                                donor[_fy0:_fy1, _fx0:_fx1] = np.clip(
+                                    _subf * (1.0 - _wmf[..., None])
+                                    + _newv.astype(np.float32)
+                                    * _wmf[..., None],
+                                    0, 255).astype(np.uint8)
+                                n_fix += 1
+                                n_px += int(_use.sum())
+                            continue
+                        except Exception:
+                            continue
+                    if plane is None:
+                        repl[pch_p] = np.clip(
+                            np.rint(tgt), 0, 255).astype(np.uint8)
+                    else:
+                        _py, _px = np.nonzero(pch_p)
+                        _A2 = np.stack(
+                            [np.ones(_px.size, np.float32),
+                             (_px + bx0 - x0).astype(np.float32),
+                             (_py + by0 - y0).astype(np.float32)],
+                            axis=1)
+                        repl[pch_p] = np.clip(
+                            np.rint(_A2 @ plane), 0, 255).astype(np.uint8)
+                    # فدرِ نرمِ مرز — فقط داخلِ نوارِ متن
+                    _wm = pch_p.astype(np.float32)
+                    _wm = cv2.GaussianBlur(_wm, (0, 0), 2.0)
+                    _wm = np.minimum(_wm * 1.6, 1.0)
+                    _wm *= zm[by0:by1, bx0:bx1].astype(np.float32)
+                    _sub = donor[by0:by1, bx0:bx1].astype(np.float32)
+                    donor[by0:by1, bx0:bx1] = np.clip(
+                        _sub * (1.0 - _wm[..., None])
+                        + repl.astype(np.float32) * _wm[..., None],
+                        0, 255).astype(np.uint8)
+                    n_fix += 1
+                    n_px += int(pch_b.sum())
+                except Exception:
+                    continue
+            if n_fix and verbose:
+                try:
+                    print(f"  [✓228] QCِ هماهنگیِ پر: {n_fix} قطعه "
+                          f"دوباره رنگ شد ({n_px}px)", flush=True)
+                except Exception:
+                    pass
+            return n_fix
+        except Exception:
+            return 0
+
     def _compose_two_image(self, donor: np.ndarray, original: np.ndarray,
 
                            mask: np.ndarray,
@@ -17072,6 +17380,16 @@ class MangaTranslator:
                 return donor
             if donor.shape[:2] != original.shape[:2]:
                 return donor
+            # v1.14.228 — QCِ هماهنگیِ رنگِ پر (همهٔ پرکنندهها، مرزآگاه)
+            # درست قبلِ کامپوز: خاکستری-روی-سفید/بنفش، سفید-روی-آسمان،
+            # و پرِ یکرنگِ رو-مرزِ حباب اینجا اصلاح میشوند — بیرونِ نوار
+            # نمینویسد و حلقهٔ شلوغ (هنر) را دستنخورده میگذارد.
+            if os.environ.get("MANGA_NO_HQC", "0") != "1":
+                try:
+                    self._fill_harmony_qc(donor, original, mask,
+                                          verbose=verbose or self.debug)
+                except Exception:
+                    pass
             _cmp = cv2.dilate(mask, self._compose_kernel9()) > 0
             # v1.14.64 — دیوارِ حباب/قوس/کادرِ پنل (نقشهٔ ساختاریِ محافظت)
             # هرگز از عکسِ پاک‌شده به خروجی نمی‌رود — حتی اگر لبهٔ نوارِ متن
@@ -20138,7 +20456,146 @@ class MangaTranslator:
                           f"val={cleaned[_py, _px]}", flush=True)
         except Exception:
             pass
+        # v1.14.228 — QCِ پایانیِ هماهنگیِ پر (بعد از همهٔ سویپها).
+        # درِ تستِ img4 همین پاس بود که نوارهایِ خاکستریِ باقیماندهٔ
+        # r20/#13/#16 را سفید کرد (۱۷ قطعه/۴۳۳هزارpx) — قطعاتِ بعد از
+        # سویپها بزرگترند (مرزهایِ ساختاریِ σ4) و حلقهشان پاکتر.
+        # با MANGA_HQC_FINAL=0 خاموش میشود.
+        if os.environ.get("MANGA_HQC_FINAL", "1") == "1" \
+                and os.environ.get("MANGA_NO_HQC", "0") != "1":
+            try:
+                _zq228 = getattr(self, "_compose_final_cmp", None)
+                if not isinstance(_zq228, np.ndarray) \
+                        or _zq228.ndim < 2 or not bool(_zq228.any()):
+                    _zq228 = _cmp2
+                if isinstance(_zq228, np.ndarray) and _zq228.any():
+                    self._fill_harmony_qc(cleaned, image, _zq228,
+                                          verbose=self.debug or True)
+                    _hqcd = os.environ.get("MANGA_HQC_DUMP", "")
+                    if _hqcd:
+                        cv2.imwrite(_hqcd, cleaned)
+                        cv2.imwrite(_hqcd + ".zone.png",
+                                    (_zq228.astype(np.uint8)) * 255)
+                        print(f"  [*] HQC dump -> {_hqcd}", flush=True)
+            except Exception:
+                pass
+        # v1.14.228 — جارویِ متنِ جاماندهٔ خوانا (دستورِ سازنده: «بعضی
+        # متن هارو نپاکیده متن قبلیش دیده میشه» — نمونهٔ img4:
+        # «…COUNSELING SESSION» رویِ کت، بیرونِ نوارِ ماسک).
+        if os.environ.get("MANGA_NO_LEFTOVER", "0") != "1":
+            try:
+                self._leftover_text_sweep(cleaned, image, _cmp2, regions)
+            except Exception:
+                pass
         return cleaned
+
+    def _leftover_text_sweep(self, cleaned: np.ndarray,
+                             original: np.ndarray,
+                             zone: Optional[np.ndarray],
+                             regions: List[TextRegion],
+                             verbose: bool = True) -> int:
+        """v1.14.228 — جارویِ متنِ جاماندهٔ خوانا با گیتِ OCR.
+
+        OCR رویِ خروجیِ پاکشده؛ هر خطِ لاتینِ بااطمینان (≥۰٫۷۲) که
+        ≥۴۰٪ آن داخلِ «زونِ مجاز» (نوارِ کامپوز + مستطیلهایِ ناحیه
+        با پدِ ۴px) باشد و درِ اصلِ همان‌جا جوهرِ متن داشته → پیکسلهایِ
+        «پاکنشده» (همانِ اصل، |Δ|≤۲۰) با TELEA پاک میشوند. متنِ هنریِ
+        بیرونِ نواحی (SFX/تابلو/کاغذِ دکور) هرگز دستنخورده میماند و
+        هیچ نوشتنی بیرونِ زون نمیرود.
+        """
+        n_fix = 0
+        n_px = 0
+        try:
+            if cleaned is None or original is None:
+                return 0
+            if cleaned.shape[:2] != original.shape[:2]:
+                return 0
+            h, w = cleaned.shape[:2]
+            ok = np.zeros((h, w), bool)
+            if zone is not None and zone.shape == (h, w):
+                ok |= (zone > 0)
+            for r in (regions or []):
+                try:
+                    rx, ry, rw, rh = [int(v) for v in r.rect]
+                except Exception:
+                    continue
+                _x0 = max(0, rx - 4)
+                _y0 = max(0, ry - 4)
+                _x1 = min(w, rx + rw + 5)
+                _y1 = min(h, ry + rh + 5)
+                if _x1 > _x0 and _y1 > _y0:
+                    ok[_y0:_y1, _x0:_x1] = True
+            if not ok.any():
+                return 0
+            try:
+                _res = self.ocr.ocr(cleaned)
+            except Exception:
+                return 0
+            if not _res or not _res[0]:
+                return 0
+            go = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+            gc = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
+            same = (np.abs(gc.astype(np.int16)
+                           - go.astype(np.int16)) <= 20)
+            _k3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            _k5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            for _ln in (_res[0] or []):
+                try:
+                    box = np.asarray(_ln[0], np.float32).reshape(-1, 2)
+                    _tv = _ln[1]
+                    if isinstance(_tv, (tuple, list)):
+                        txt = str(_tv[0]) if len(_tv) > 0 else ""
+                        sc = float(_tv[1]) if len(_tv) > 1 else 0.0
+                    else:
+                        txt = str(_tv)
+                        sc = 0.0
+                except Exception:
+                    continue
+                t = txt.strip()
+                if len(t) < 3 or sc < 0.72:
+                    continue
+                if not re.search(r"[A-Za-z]{3,}", t):
+                    continue
+                bx0 = int(max(0, np.floor(box[:, 0].min())) - 2)
+                by0 = int(max(0, np.floor(box[:, 1].min())) - 2)
+                bx1 = int(min(w, np.ceil(box[:, 0].max())) + 3)
+                by1 = int(min(h, np.ceil(box[:, 1].max())) + 3)
+                if bx1 - bx0 < 12 or by1 - by0 < 10:
+                    continue
+                sub_ok = ok[by0:by1, bx0:bx1]
+                if float(sub_ok.mean()) < 0.40:
+                    continue  # متنِ هنریِ بیرونِ نواحی
+                sub_go = go[by0:by1, bx0:bx1]
+                sub_same = same[by0:by1, bx0:bx1]
+                _med = float(np.median(sub_go))
+                _inko = ((sub_go < _med - 45.0)
+                         | (sub_go > min(232.0, _med + 45.0)))
+                # درِ اصل باید جوهرِ متن بوده باشد (≥۴٪)
+                if float(_inko.mean()) < 0.04:
+                    continue
+                resid = (_inko & sub_same & sub_ok)
+                resid = cv2.morphologyEx(
+                    resid.astype(np.uint8), cv2.MORPH_OPEN, _k3) > 0
+                resid = cv2.dilate(resid.astype(np.uint8), _k5) > 0
+                resid &= sub_ok
+                _np = int(resid.sum())
+                if _np < 40:
+                    continue
+                _m = np.zeros((h, w), np.uint8)
+                _m[by0:by1, bx0:bx1] = resid.astype(np.uint8) * 255
+                _patch = cv2.inpaint(cleaned, _m, 4, cv2.INPAINT_TELEA)
+                cleaned[resid] = _patch[resid]
+                n_fix += 1
+                n_px += _np
+            if n_fix and verbose:
+                try:
+                    print(f"  [✓228] جارویِ متنِ جامانده: {n_fix} خط "
+                          f"پاک شد ({n_px}px)", flush=True)
+                except Exception:
+                    pass
+            return n_fix
+        except Exception:
+            return n_fix
 
     def _residue_sweep(self, image: np.ndarray, cleaned: np.ndarray,
                        regions: List[TextRegion],
@@ -26115,14 +26572,29 @@ class MangaTranslator:
 
         variants = []
         variants.append(("raw", core, base_scale))
+        # v1.14.228 — گیتِ کنتراست برایِ CLAHE: رویِ کراپِ پرکنتراستِ
+        # تمیز (متنِ سیاهِ حباب رویِ سفید: p90−p10 ≥ ۱۲۰) خروجیِ CLAHE
+        # عملاً همانِ raw است — یک فراخوانیِ OCRِ کاملِ اضافه به ازایِ
+        # هر ناحیه (پروفایلِ up0822: ۱۶ فراخوانیِ نردبان برایِ ۵ ناحیه)
+        # که هیچ واریانتِ تازهای نمیآورد. رویِ کراپِ کمکنتراست/سایهدار
+        # (دلیلِ وجودِ CLAHE) همچنان اجرا میشود.
+        _clahe_skip228 = False
         try:
-            lab = cv2.cvtColor(core, cv2.COLOR_BGR2LAB)
-            l, a, b = cv2.split(lab)
-            l2 = cv2.createCLAHE(2.5, (8, 8)).apply(l)
-            enh = cv2.cvtColor(cv2.merge((l2, a, b)), cv2.COLOR_LAB2BGR)
-            variants.append(("clahe", enh, base_scale))
+            _gc228 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _p10_228 = float(np.percentile(_gc228, 10))
+            _p90_228 = float(np.percentile(_gc228, 90))
+            _clahe_skip228 = (_p90_228 - _p10_228) >= 120.0
         except Exception:
-            pass
+            _clahe_skip228 = False
+        if not _clahe_skip228:
+            try:
+                lab = cv2.cvtColor(core, cv2.COLOR_BGR2LAB)
+                l, a, b = cv2.split(lab)
+                l2 = cv2.createCLAHE(2.5, (8, 8)).apply(l)
+                enh = cv2.cvtColor(cv2.merge((l2, a, b)), cv2.COLOR_LAB2BGR)
+                variants.append(("clahe", enh, base_scale))
+            except Exception:
+                pass
         try:
             g = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
             _, bw = cv2.threshold(g, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
