@@ -53,7 +53,7 @@ def ocr_texts(tr, img):
 def main():
     tr = manga.MangaTranslator(
         api_key=["dummy"], provider="gemini", ocr_langs=["en"],
-        font_path="fonts/Vazir-Code.ttf",
+        font_path="fonts/Sahel-Bold.ttf",
         reading_order="rtl", gpu=False, clean_method="opencv",
         det_confidence=0.16, min_confidence=0.12,
         two_pass_ocr=False, img_format="jpg",

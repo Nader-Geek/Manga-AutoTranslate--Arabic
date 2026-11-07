@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.228"
+APP_VER = "1.14.229"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -86,13 +86,20 @@ FONT_BUNDLES = [
         "https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@master/dist/Samim-Bold.ttf",
         "https://raw.githubusercontent.com/rastikerdar/samim-font/master/dist/Samim-Bold.ttf",
     ]),
-    ("system",       "Vazir-Code.ttf", "پنجرهٔ سیستم/UI (دیجیتال)", [
-        "https://cdn.jsdelivr.net/gh/rastikerdar/vazir-code-font@master/dist/Vazir-Code.ttf",
-        "https://raw.githubusercontent.com/rastikerdar/vazir-code-font/master/dist/Vazir-Code.ttf",
-        "https://cdn.jsdelivr.net/gh/amirwolf512k/Manga-AutoTranslate@main/fonts/Vazir-Code.ttf",
-        "https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/fonts/Vazir-Code.ttf",
+    # v1.14.229 — دستورِ سازنده: «یک فونت تو لیست فونت هام هست ک حملات
+    # دو کلمش نمیزاره… ببین کدومه عوض کن یک چیز دیگ بزار». فونتِ مقصر
+    # Vazir-Code.ttf بود: فونتِ کدنویسی است و «هیچ‌کدام» از شش گلیفِ
+    # لیگاتورِ لام-الف (ﻻ/ﻼ/ﻵ/… U+FEF5..FEFC) را ندارد → «حملات» به‌جایِ
+    # رندر، «لا» کلاً غیب میشد و «حم ت» میماند (حتی نسخهٔ رسمیِ
+    # upstream هم ندارد — تست شد). جایگزین: Sahel-Bold (همهٔ گلیفها،
+    # حسِ پنجرهٔ سیستم، و از قبل در fallback همین باندل بود). گاردِ
+    # پوششِ ۲۲۹ در manga.py هم فونتِ خرابِ باقی‌مانده در نصبهای قدیمی را
+    # خودکار به فونتِ سالم فالبک میکند.
+    ("system",       "Sahel-Bold.ttf", "پنجرهٔ سیستم/UI (دیجیتال)", [
         "https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@master/dist/Sahel-Bold.ttf",
         "https://raw.githubusercontent.com/rastikerdar/sahel-font/master/dist/Sahel-Bold.ttf",
+        "https://cdn.jsdelivr.net/gh/amirwolf512k/Manga-AutoTranslate@main/fonts/Sahel-Bold.ttf",
+        "https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/fonts/Sahel-Bold.ttf",
     ]),
     ("letter",       "Amiri-Regular.ttf", "نامه/طومار", [
         "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/amiri/Amiri-Regular.ttf",
@@ -2576,10 +2583,22 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                       elem_id="manga_api_keys",
                                       info="کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ.")
 
-                model = gr.Textbox(label="مدل (خالی = پیش‌فرض)",
-                                   value="",
-                                   placeholder="gemini-3.8-flash", scale=2,
-                                   elem_id="manga_model")
+                # v1.14.229 — دستورِ سازنده: «قسمت ai همون قسمت gemini مدل
+                # دستی باید بنویسی بجاش تو خوده gemini لیسا مدلای موجود تو
+                # gemini نشون بده طرف انتخاب کنه بجز تو کاستوم باید طرف
+                # خودش بنویسه»: مدل دستی حذف شد؛ دراپ‌داون + دکمهٔ ↻ —
+                # با کلیدهای همین صفحه فهرستِ مدلهایِ زنده از خودِ سرویس
+                # میآید (Gemini: فقط مدلهایِ ترجمهپذیر) و کاربر انتخاب
+                # میکند؛ در custom هم میشود از فهرستِ همان سرویس گرفت و
+                # هم آزادانه تایپ کرد (allow_custom_value).
+                model = gr.Dropdown(
+                    choices=[], value="", allow_custom_value=True,
+                    label="مدل — Gemini: ↻ را بزن تا فهرستِ مدل‌ها بیاید "
+                          "(یا خودت بنویس) | خالی = پیش‌فرض",
+                    scale=2, elem_id="manga_model")
+                model_ref_btn = gr.Button(
+                    "↻ مدل‌ها", variant="secondary", scale=1,
+                    elem_id="manga_model_ref")
             # ── v1.14.217/218/220 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
             # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
             # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند.
@@ -4383,6 +4402,45 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                          cm_edit_btn, cm_save_btn],
                 api_name="toggle_custom_base",
             )
+        except Exception:
+            pass
+
+        # ── v1.14.229 — ↻ فهرستِ مدل‌ها از خودِ سرویس (دستورِ سازنده:
+        # «مدلای موجود تو gemini نشون بده طرف انتخاب کنه») ──
+        def _refresh_model_list(provider_v, api_keys_v, api_base_v, model_v):
+            try:
+                from manga import list_provider_models
+            except Exception as e:
+                raise gr.Error(f"خطا در بارگذاری: {str(e)[:80]}")
+            prov = str(provider_v or "").strip()
+            if prov in ("", "auto"):
+                raise gr.Error("روی «auto» مدلی وارد نمیشود — یک سرویس انتخاب کنید.")
+            # مدلِ نامی (مدلهایِ من) → مشخصاتِ ذخیرهشدهٔ خودش
+            _nm = None
+            try:
+                _nm = resolve_ai_named(custom_models_state.value, prov,
+                                       str(api_keys_v or ""),
+                                       str(model_v or ""))
+            except Exception:
+                pass
+            if _nm is not None:
+                _p, _b, _k, _m = _nm
+                prov, api_base_v, api_keys_v = _p, _b, _k
+            models, err = list_provider_models(
+                prov, str(api_keys_v or ""), str(api_base_v or ""))
+            if not models:
+                raise gr.Error(err or "مدلی پیدا نشد — کلید/لینک را با «تست کلیدها / لینک» چک کنید.")
+            keep = str(model_v or "").strip()
+            return gr.update(choices=models,
+                             value=keep if keep in models else keep,
+                             label=f"مدل — {len(models)} مدلِ زنده پیدا شد؛ انتخاب کن")
+
+        try:
+            model_ref_btn.click(
+                _refresh_model_list,
+                inputs=[provider, api_keys, api_base, model],
+                outputs=[model],
+                api_name="refresh_models", show_progress="full")
         except Exception:
             pass
 

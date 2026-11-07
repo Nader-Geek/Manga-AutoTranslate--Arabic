@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.226"
+APP_VER = "1.14.229"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -5471,6 +5471,114 @@ def format_key_test_text(res: list) -> str:
         else:
             lines.append(f"✘ کلید {i} ({key}): خراب" + (f" — {err}" if err else "") + f"  [{ms}ms]")
     return "\n".join(lines)
+
+
+def source_has_letters(text: str) -> bool:
+    """v1.14.229 — دستورِ سازنده: «اگ متنی عدد یا شکل بود یا بهتر بگم
+    فقط بجز حروف بود ترجمه نکنه… اگ فقط همین جیزا تو یک متن بود کلا
+    نره ترجمه اگ کنارش متن یا حروف واقعی بود بره مثل hi… باید ترجمه شه
+    ولی اگ میشد …. نره ترجمه الکی وقت ai میگیره». متنی که «هیچ" 
+    حرفی» (دستهٔ یونیکدِ L) ندارد — '123124'، './….'، '[] ,./???!?~' —
+    به مترجم نمی‌رود و فقط پاکسازی میشود؛ «hi…» حرف دارد → ترجمه
+    میشود. PC/لینوکس/اندروید یکسان."""
+    _t229 = str(text or "")
+    _letters229 = [_ch for _ch in _t229 if _ch.isalpha()]
+    if not _letters229:
+        return False
+    # «10,000G» (طلا/ارزِ بازی): یک حرفِ لاتینِ تنها چسبیده به رقم =
+    # پسوندِ واحد، نه کلمه — ترجمه‌اش دور ریختنِ وقتِ AI است. «hi…»،
+    # «A» (بدون رقم) و هر متنِ چندحرفیِ واقعی ترجمه میشوند.
+    if len(_letters229) == 1 and _letters229[0].isascii() \
+            and any(_c.isdigit() for _c in _t229):
+        return False
+    return True
+
+
+def list_provider_models(provider: str, keys_text: str, api_base: str = "",
+                         timeout: float = 20.0) -> Tuple[List[str], str]:
+    """v1.14.229 — فهرستِ مدلهایِ موجود از خودِ سرویس (دستورِ سازنده:
+    «مدلای موجود تو gemini نشون بده طرف انتخاب کنه بجز تو کاستوم باید
+    طرف خودش بنویسه»). Gemini: GET v1beta/models (فقط مدلهایِ ترجمهپذیر؛
+    همان صافیِ _is_bad_translate_model). custom: GET /models بر اساسِ
+    فرمتِ خودکارِ لینک (openai/responses/anthropic/google). خروجی:
+    (مدلها، خطا). برایِ دکمهٔ ↻ فهرستِ مدلها در رابط."""
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+
+    prov = str(provider or "gemini").strip().lower()
+    keys = [k.strip() for k in re.split(r"[\s,;\n]+", str(keys_text or ""))
+            if k.strip()]
+
+    def _get(url: str, headers: dict) -> Tuple[Optional[dict], str]:
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0", **headers})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read(4 * 1024 * 1024)
+                return json.loads(raw.decode("utf-8", "replace")), ""
+        except urllib.error.HTTPError as e:
+            return None, f"HTTP {e.code}"
+        except Exception as e:
+            return None, str(e).split(chr(10))[0][:120]
+
+    tried = 0
+    for k in keys:
+        tried += 1
+        if prov == "gemini":
+            url = ("https://generativelanguage.googleapis.com/v1beta/models"
+                   "?key=" + urllib.parse.quote(k) + "&pageSize=200")
+            data, err = _get(url, {})
+            if not data:
+                continue
+            out: List[str] = []
+            for it in (data.get("models") or []):
+                name = str(it.get("name") or "").strip()
+                if name.startswith("models/"):
+                    name = name[len("models/"):]
+                if not name:
+                    continue
+                meths = it.get("supportedGenerationMethods") or []
+                if meths and "generateContent" not in meths:
+                    continue
+                if MangaTranslator._is_bad_translate_model(name):
+                    continue
+                out.append(name)
+            if out:
+                return sorted(set(out), key=MangaTranslator._model_sort_key), ""
+            if data.get("models") is not None:
+                return [], "مدلی پیدا نشد"
+            continue
+        # custom — بر اساسِ فرمتِ لینک
+        base = normalize_api_base(api_base) or ""
+        if not base:
+            return [], "لینک (Base URL) وارد نشده"
+        ftype, fbase = detect_custom_api_format(base)
+        fbase = fbase.rstrip("/")
+        if ftype == "anthropic":
+            u = (fbase if fbase.endswith("/v1") else fbase + "/v1") + "/models"
+            data, err = _get(u, {"x-api-key": k,
+                                 "anthropic-version": "2023-06-01"})
+        elif ftype == "google-endpoint":
+            u = fbase + "/models?key=" + urllib.parse.quote(k) + "&pageSize=200"
+            data, err = _get(u, {})
+        else:  # openai / responses
+            u = fbase + ("" if fbase.endswith("/models") else "/models")
+            data, err = _get(u, {"Authorization": "Bearer " + k})
+        if not data:
+            continue
+        ids: List[str] = []
+        for it in (data.get("models") or data.get("data") or []):
+            _id = str((it.get("id") if isinstance(it, dict) else it)
+                      or "").strip()
+            if _id:
+                ids.append(_id)
+        if ids:
+            return sorted(set(ids)), ""
+        continue
+    if not tried:
+        return [], "کلیدی وارد نشده"
+    return [], "دریافت فهرست ناموفق بود (کلید/لینک را با «تست کلیدها» چک کنید)"
 
 
 def _ask(prompt: str) -> str:
@@ -24636,6 +24744,17 @@ class MangaTranslator:
         if not regions:
             return
 
+        # v1.14.229 — «اگ متنی عدد یا شکل بود کلا نره ترجمه»: ناحیه‌ای که
+        # متنش هیچ حرفی ندارد ('123124'، './….'، '[] ,./???!?~') به مترجم
+        # نمی‌رود — الکی وقتِ AI نمیگیرد؛ «hi…» حرف دارد → میرود.
+        _keep229 = [r for r in regions if source_has_letters(r.source_text)]
+        _drop229 = len(regions) - len(_keep229)
+        if _drop229:
+            print(f"    [*] {_drop229} ناحیه فقط عدد/علامت → ترجمه نمیشود (فقط پاکسازی)")
+            regions = _keep229
+        if not regions:
+            return
+
         if getattr(self, "fake_translate", False):
 
             samples = [
@@ -25443,6 +25562,13 @@ class MangaTranslator:
             shaped = sample
         txt = "".join(sorted({c for c in shaped
                               if not c.isspace() and c != "\u200c"}))
+        # v1.14.229 — لیگاتورهایِ لام-الف (ﻻ/ﻼ و همزه/مده): فونتی که این
+        # شش گلیف را ندارد «حملات» را «حم ت» رندر میکند (لا کلاً غیب
+        # میشود — فونتِ واقعیِ Vazir-Code همین است؛ حتی نسخهٔ رسمیِ
+        # upstream هم ندارد). پروبِ پوشش باید بگیردشان تا فونتِ خراب
+        # به فونتِ اصلی فالبک شود. «سلام» هم «لا» دارد — فقط عدد/علامت
+        # بی‌خطر است.
+        txt += "\uFEF5\uFEF6\uFEF7\uFEF8\uFEFB\uFEFC"
         MangaTranslator._FA_PROBE_CACHE = txt
         return txt
 
@@ -27797,14 +27923,23 @@ class MangaTranslator:
                 if not vert:
                     _capw = 0.18 * max(4.0, rw)
                     _caph = 0.30 * max(4.0, rh)
-                    if 0.0 <= ux0 - rx <= _capw:
-                        ux0 = rx
-                    if 0.0 <= (rx + rw) - ux1 <= _capw:
-                        ux1 = rx + rw
-                    if 0.0 <= uy0 - ry <= _caph:
-                        uy0 = ry
-                    if 0.0 <= (ry + rh) - uy1 <= _caph:
-                        uy1 = ry + rh
+                    # v1.14.229 — گشایشِ «تک-لبه» ممنوع: قبلاً هر لبهٔ
+                    # نزدیک جدا گیر میافتاد و اگر فقط «پایینِ» بلوکِ متن
+                    # به پایینِ حباب نزدیک بود (بالا دور — حالتِ طبیعیِ
+                    # متنِ وسطِ حبالِ بلند) جعبه فقط از پایین به لبهٔ حباب
+                    # باز میشد؛ وسطچینیِ بعدی متن را پایین میانداخت
+                    # (img6: حبابِ بالا-راست +53px، وسط +59px پایین‌تر از
+                    # متنِ اصلی — «کمی پایین چپ مینویسه»). حالا هر محور
+                    # فقط وقتی «هر دو» لبه‌اش به حباب نزدیک است به کلِ
+                    # حباب باز میشود؛ وگرنه جعبهٔ خودِ متن میماند.
+                    _near_t = 0.0 <= uy0 - ry <= _caph
+                    _near_b = 0.0 <= (ry + rh) - uy1 <= _caph
+                    _near_l = 0.0 <= ux0 - rx <= _capw
+                    _near_r = 0.0 <= (rx + rw) - ux1 <= _capw
+                    if _near_t and _near_b:
+                        uy0, uy1 = ry, ry + rh
+                    if _near_l and _near_r:
+                        ux0, ux1 = rx, rx + rw
                 ux0 = max(ux0, rx)
                 uy0 = max(uy0, ry)
                 ux1 = min(ux1, rx + max(4.0, rw))
@@ -29649,6 +29784,7 @@ class MangaTranslator:
                 _g_missing = [r for r in dialogue_regions
                               if not (r.translated_text or "").strip()
                               and (r.source_text or "").strip()
+                              and source_has_letters(r.source_text)
                               and not getattr(r, "ocr_empty", False)]
                 if not _g_missing:
                     break
@@ -29682,6 +29818,7 @@ class MangaTranslator:
             for _r192 in dialogue_regions:
                 if (_r192.translated_text or "").strip() \
                         or not (_r192.source_text or "").strip() \
+                        or not source_has_letters(_r192.source_text) \
                         or getattr(_r192, "ocr_empty", False):
                     continue
                 _c192 = copy.copy(_r192)
@@ -29741,7 +29878,8 @@ class MangaTranslator:
         missing_n = sum(1 for r in dialogue_regions
                         if not r.translated_text
                         and not getattr(r, "ocr_empty", False)
-                        and (r.source_text or "").strip())
+                        and (r.source_text or "").strip()
+                        and source_has_letters(r.source_text))
         if missing_n and final:
             print(f"[!] {missing_n} حباب ترجمه نشد")
         if self.debug:
@@ -32411,8 +32549,14 @@ html, body { background: #0a0a0b; }
                 results_by_i[page_i] = (out_file, None, dbg)
 
         def _finish_ready_pages() -> None:
+            # v1.14.229 — صفحهای که دیالوگهایش هنوز در صف‌شدن است
+            # (_qd_inflight) نهایی نمی‌شود — ریشهٔ «عکس ۲/۳ رد میشه».
+            with _qd_lock:
+                _inflight229 = set(_qd_inflight)
             for page_i in sorted(extracted_map.keys()):
                 if page_i in finished_pages:
+                    continue
+                if page_i in _inflight229:
                     continue
                 if pending_by_page.get(page_i, 0) > 0:
                     continue
@@ -32511,7 +32655,12 @@ html, body { background: #0a0a0b; }
                     continue
                 if not (r.source_text or "").strip():
                     continue
-
+                # v1.14.229 — «اگ فقط عدد/علامت بود کلا نره ترجمه الکی وقت
+                # ai میگیره»: بدونِ حرف → صفِ ترجمه نمی‌رود؛ پاکسازی‌اش
+                # همان فازِ پسزمینه انجام میدهد (هدفِ پاکسازی از متنِ
+                # مبدأ خالی نیست → پاک میشود).
+                if not source_has_letters(r.source_text):
+                    continue
                 r.id = global_id
                 page_of_region[global_id] = page_i
                 global_id += 1
@@ -32800,6 +32949,16 @@ html, body { background: #0a0a0b; }
         _ext_quota = {"v": False}
         _ext_err = {"exc": None}
         _qd_lock = threading.Lock()
+        # v1.14.229 — ریشهٔ «عکس ۲/۳ بیشترِ وقتا ترجمه نمیشه رد میکنه»:
+        # بینِ نوشتنِ extracted_map[i] و صفشدنِ دیالوگهایش
+        # (_queue_dialogues) پنجرهٔ چندثانیهایِ باز است (نجاتِ OCRِ ۱۴۹
+        # همان‌جا کار میکند). کارگرِ استخراجِ دیگر در همین پنجره
+        # _finish_ready_pages میزند، pending_by_page[i] هنوز صفر است →
+        # صفحه «کامل» حساب میشود و با صفر ترجمه رندرِ نهایی میگیرد و
+        # دیگر هرگز دوباره رندر نمیشود (لاگِ گوشی: «[!] ۷ حباب ترجمه
+        # نشد» قبل از شروعِ بستههایِ ترجمه). حالا: صفحهٔ درِ صف‌شدن با
+        # _qd_inflight علامت میخورد و تا پایانِ صف‌شدن تمام/نهایی نمیشود.
+        _qd_inflight: set = set()
 
         def _claim_ext(role: str):
             with _ext_lock:
@@ -32836,20 +32995,28 @@ html, body { background: #0a0a0b; }
                     print(f"    [!] خطای کارگرِ استخراج({role}): {e}",
                           file=sys.stderr)
                     continue
+                with _qd_lock:
+                    _qd_inflight.add(page_i)
                 extracted_map[page_i] = (out_file, image, None, regions, dbg)
-                if image is not None and regions:
-                    try:
-                        # v1.14.149 — نجاتِ OCR قبل از صفِ ترجمه
-                        self._rescue_empty_ocr_1149(image, regions)
-                        with _qd_lock:
-                            _queue_dialogues(regions, page_i)
-                    except GeminiQuotaExhausted as e:
-                        print(f"\n[!] {e}")
-                        _ext_quota["v"] = True
-                        return
-                    # v1.14.196/197 — «همزمان هم پاکسازیش»: صفِ فاز ۱
-                    # (بالا→پایین)؛ استخراجِ دو سمت بدونِ توقف ادامه میدهد.
-                    _clean_pages_bg([page_i])
+                try:
+                    if image is not None and regions:
+                        try:
+                            # v1.14.149 — نجاتِ OCR قبل از صفِ ترجمه
+                            self._rescue_empty_ocr_1149(image, regions)
+                            with _qd_lock:
+                                _queue_dialogues(regions, page_i)
+                        except GeminiQuotaExhausted as e:
+                            print(f"\n[!] {e}")
+                            _ext_quota["v"] = True
+                            return
+                        # v1.14.196/197 — «همزمان هم پاکسازیش»: صفِ فاز ۱
+                        # (بالا→پایین)؛ استخراجِ دو سمت بدونِ توقف ادامه میدهد.
+                        _clean_pages_bg([page_i])
+                finally:
+                    # v1.14.229 — صف‌شدن تمام شد (موفق یا خطا) → صفحه
+                    # حالا حق دارد نهایی شود؛ گیرِ ۲۲۹ آزاد است.
+                    with _qd_lock:
+                        _qd_inflight.discard(page_i)
                 try:
                     _finish_ready_pages()
                     _preview_ready_pages()  # v1.14.160 — پیش‌نمایشِ حینِ استخراج
@@ -32986,6 +33153,10 @@ html, body { background: #0a0a0b; }
                     if not (_r.source_text or "").strip():
                         continue
                     if getattr(_r, "ocr_empty", False):
+                        continue
+                    # v1.14.229 — فقطِ عدد/علامت «خالی» حساب نمیشود؛
+                    # دورهایِ پسگیریِ AI رویشان دور ریختن است.
+                    if not source_has_letters(_r.source_text):
                         continue
                     if (_r.translated_text or "").strip():
                         continue
@@ -33376,6 +33547,7 @@ html, body { background: #0a0a0b; }
         if abs(angle) < 5:
             bb = font.getbbox("آیگچ", stroke_width=sw)
             glyph_h = bb[3] - bb[1]
+            _dbg_pos = bool(os.environ.get("MANGA_DEBUG_POS"))
 
             n = max(1, len(lines))
 
@@ -33404,6 +33576,10 @@ html, body { background: #0a0a0b; }
                 _cy_off = (float(bb[1]) + float(bb[3])) / 2.0
                 _y_top = y + 1
                 _y_bot = y + pad + box_h - max(4, line_h)
+                if _dbg_pos:
+                    print(f"    [pos] r{region.id} ALIGN font={getattr(font,'size','?')} "
+                          f"n={n} olines={len(_olines)} bb=({bb[1]:.0f},{bb[3]:.0f}) "
+                          f"line_h={line_h} y={y} pad={pad} box_h={box_h}")
                 for i, line in enumerate(lines):
                     shaped = self._shape_farsi(line)
                     line_w = draw.textbbox(
@@ -33430,6 +33606,11 @@ html, body { background: #0a0a0b; }
                 start_y = y + pad + max(0, (box_h - total_h) // 2)
 
                 start_y = max(start_y, y + 1)
+                if _dbg_pos:
+                    print(f"    [pos] r{region.id} BLOCK font={getattr(font,'size','?')} "
+                          f"n={n} olines={len(_olines) if _olines else 0} "
+                          f"bb=({bb[1]:.0f},{bb[3]:.0f}) line_h={line_h} "
+                          f"y={y} pad={pad} box_h={box_h} start_y={start_y}")
 
                 bottom_limit = y + pad + box_h
 
