@@ -13726,6 +13726,437 @@ class MangaTranslator:
                     if _dbg:
                         print(f"      [🛡dbg] skip tiny mask {_n_mm}px", flush=True)
                     continue
+                # v1.14.227 — QCِ کروما (رنگ، نه فقط روشنایی) — «قبل از»
+                # همهٔ گاردهایِ خاکستری و مستقل از اینتریور: همهٔ QCهایِ
+                # قدیمی خاکستریند؛ LaMa (xnnpackِ گوشی + پچِ ثابتِ ۳۸۴)
+                # رویِ مرزِ دو حبابِ همپوشان با رنگهایِ متفاوت (img6:
+                # حبابِ سفیدِ «You're the real attraction here.» داخلِ
+                # کراپِ خوشهٔ حبابِ زردِ بزرگ — خوشهٔ واقعی: ماسکِ ۶۳هزارpx
+                # با حلقهٔ ذاتیِ مخلوطِ زرد+سفید+آسمان) پرِ «روشنِ زرد»
+                # میسازد که از هر بی‌رنگی سربلند بیرون میآید = «با حباب
+                # داخل به بیرون رنگ زده» (خروجیِ واقعیِ گوشیِ 226 —
+                # چپ‌بالا؛ PC هم در همان مرز لکهٔ خاکستریِ آبی میسازد).
+                # چون حلقهٔ کلِ چنین عضوی مخلوط است (و ماسکِ گسترش‌یافتهٔ
+                # چندخطی اغلب یک مؤلفهٔ عظیمِ به‌هم‌چسبیده است)، سنجش
+                # «پنجره‌پنجرهٔ شبکه‌ای (~۱۱۲px)» با حلقهٔ ۳۱pxیِ محلیِ
+                # همان پنجره انجام میشود: پنجره‌ای با حلقهٔ یکدست و پرِ
+                # تخت که ≥۴۸ واحد در یک کانال با حلقه‌اش فرق دارد = پرِ
+                # رنگِ غلط → همان پنجره با TELEAیِ محلی پر میشود (درمانِ
+                # ۲۱۳ — گرادیان حفظ، رنگِ حبابِ همسایه دیگر بیرون
+                # نمی‌ریزد). گاردها: حلقه/پرِ بافت‌دار (std بالا) و
+                # پنجره‌هایِ مرزی (حلقهٔ مخلوط) سنجیده نمیشوند تا هنرِ
+                # قانونی (سکرین‌تون/گرادیان/مرز) قربانی نشود.
+                try:
+                    _sic227 = sub_img[oy:oy + dm.shape[0],
+                                      ox:ox + dm.shape[1]]
+                    _rc227 = sub_bgr[oy:oy + dm.shape[0],
+                                     ox:ox + dm.shape[1]]
+                    _ch227, _cw227 = mm.shape[:2]
+                    _cell227 = 112
+
+                    _wins227 = []
+                    _tofix227 = []
+                    # انرژیِ فرکانس-بالای زمینه (ضدِ هنرِ هموارنما):
+                    # مو/پوستِ رگه‌دار (img4_s02: پیشانی) رنگِ غالب و
+                    # stdِ پایین دارد ولی بافتِ ریزش hf بالا است — حباب/
+                    # آسمانِ تخت hf≈۰. فقط حلقههایِ تختِ واقعی سنجیده
+                    # میشوند.
+                    try:
+                        _gS227 = cv2.cvtColor(_sic227,
+                                              cv2.COLOR_BGR2GRAY)
+                        _hfS227 = np.abs(
+                            _gS227.astype(np.float32)
+                            - cv2.medianBlur(_gS227, 31).astype(
+                                np.float32))
+                    except Exception:
+                        _hfS227 = None
+                    _gy227 = 0
+                    while _gy227 < _ch227:
+                        _gx227 = 0
+                        while _gx227 < _cw227:
+                            _win227 = mm[_gy227:_gy227 + _cell227,
+                                         _gx227:_gx227 + _cell227]
+                            if int(_win227.sum()) >= 200:
+                                _pad227 = np.zeros(mm.shape, np.uint8)
+                                _pad227[_gy227:_gy227 + _cell227,
+                                        _gx227:_gx227 + _cell227] = \
+                                    _win227.astype(np.uint8) * 255
+                                _ring227 = (cv2.dilate(
+                                    _pad227, _k49) > 0) & (~mm)
+                                if int(_ring227.sum()) >= 40:
+                                    _rngC227 = _sic227[
+                                        _ring227].astype(np.float32)
+                                    _flC227 = _rc227[
+                                        _gy227:_gy227 + _cell227,
+                                        _gx227:_gx227 + _cell227][
+                                            _win227].astype(np.float32)
+                                    if _flC227.shape[0] >= 40:
+                                        _rmedC227 = np.median(
+                                            _rngC227, axis=0)
+                                        # رنگِ غالب: سهمِ پیکسلهایِ حلقه
+                                        # که در ≤۳۰ از میانهاند — بهتر از
+                                        # std (خطِ دیوار/دورخطِ نازک در
+                                        # حلقهٔ سالم دیگر رد نمیکند)
+                                        _fracC227 = float((np.max(
+                                            np.abs(_rngC227
+                                                   - _rmedC227),
+                                            axis=1) <= 30.0).mean())
+                                        _fmedC227 = np.median(
+                                            _flC227, axis=0)
+                                        _fstdC227 = float(np.std(
+                                            _flC227, axis=0).max())
+                                        _rstdC227 = float(np.std(
+                                            _rngC227, axis=0).max())
+                                        _hfC227 = 0.0
+                                        if _hfS227 is not None:
+                                            try:
+                                                _hfC227 = float(np.median(
+                                                    _hfS227[_ring227]))
+                                            except Exception:
+                                                _hfC227 = 0.0
+                                        _dch227 = float(np.max(np.abs(
+                                            _fmedC227 - _rmedC227)))
+                                        # v1.14.227b — قانونِ «کروما یا
+                                        # قطب»: پرِ غلطِ قابلِ درمان فقط
+                                        # (الف) جابهجاییِ کرومایی است
+                                        # (کانالها با نسبتِ نابرابر
+                                        # جابهجا شدهاند — زرد رویِ آسمان)
+                                        # یا (ب) حلقهٔ قطبیِ ناب (سفیدِ
+                                        # ≥۲۳۵/سیاهِ ≤۷۰ — بلوکِ خاکستری
+                                        # رویِ حبابِ سفید / پرِ سفید رویِ
+                                        # پنلِ سیاه). «همفامِ تیرهترِ
+                                        # تناسبی» رویِ زمینهٔ میانه (سایهٔ
+                                        # پوست/مو — img4_s02: پیشانی) =
+                                        # بازسازیِ قانونیِ LaMa → دست
+                                        # نمیزیم.
+                                        _rel227 = ((_rmedC227 - _fmedC227)
+                                                   / np.maximum(_rmedC227,
+                                                                40.0))
+                                        _chroma227 = float(np.max(np.abs(
+                                            _rel227 - np.median(_rel227)))) \
+                                            >= 0.25
+                                        _extreme227 = (
+                                            (float(np.min(_rmedC227))
+                                             >= 200.0)
+                                            or (float(np.max(_rmedC227))
+                                                <= 70.0))
+                                        # گاردِ سه‌گانه: رنگِ غالب ≥۵۵٪
+                                        # «و» stdِ کانالیِ حلقه ≤۳۴ «و»
+                                        # hfِ حلقه ≤۶ — هنرِ هموارنما
+                                        # (مو/پوست) بافت/پراکندگی دارد؛
+                                        # بازسازیِ LaMa رویِ چنین حلقههایی
+                                        # قانونی است و دست نمی‌زنیم.
+                                        if (_fracC227 >= 0.55
+                                                and _rstdC227 <= 34.0
+                                                and _hfC227 <= 6.0
+                                                and _fstdC227 <= 46.0
+                                                and _dch227 >= 48.0
+                                                and (_chroma227
+                                                     or _extreme227)):
+                                            _tofix227.append(
+                                                (_gy227, _gx227, _win227,
+                                                 _fmedC227, _dch227,
+                                                 _rmedC227, "",
+                                                 _fracC227, _rstdC227,
+                                                 _hfC227, _fstdC227))
+                                        else:
+                                            _wins227.append(
+                                                (True, _gy227, _gx227,
+                                                 _win227, _fmedC227,
+                                                 _dch227, _rmedC227,
+                                                 _fstdC227, _fracC227,
+                                                 _rstdC227, _hfC227))
+                            _gx227 += _cell227
+                        _gy227 += _cell227
+                    # دورِ سرایتِ رنگ: پنجرهٔ ترمیم‌نشده که «پرِ»اش همان
+                    # رنگِ غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲ — همان لکهٔ
+                    # LaMa ادامه دارد) و با رنگِ غالبِ حلقهٔ خودش هم
+                    # نمیخواند (غالبِ ≥۴۰٪، Δ≥۴۸) → همان درمان؛ تا لبهٔ
+                    # لکه نصفه نماند (پنجره‌های مرزیِ آسمان+زرد).
+                    _fm227 = [t[3] for t in _tofix227]
+                    for (_dmy227, _gy227, _gx227, _win227, _fmedC227,
+                         _dch227, _rmedC227, _fstdC227, _fracC227,
+                         _rstdC227, _hfC227) in _wins227:
+                        # سرایت بدونِ گاردِ rstd: پرِ این پنجره عینِ پرِ
+                        # غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲) — یعنی همان
+                        # لکهی LaMa ادامه دارد، نه بازسازیِ هنر؛ گاردِ
+                        # هنرِ متقارن لازم نیست. مرزهایِ دو رنگِ همپوشان
+                        # (آسمان+زرد) همین‌جا ترمیم میشوند. hfِ هنری همچنان
+                        # رد میشود (بافتِ ریز = بازسازیِ قانونیِ LaMa).
+                        if _fstdC227 > 46.0 or _hfC227 > 6.0 \
+                                or _fracC227 < 0.40 or _dch227 < 48.0:
+                            continue
+                        # قانونِ کروما/قطب اینجا هم (لنگرِ سرایت معاف
+                        # نیست — پرِ همفامِ تیرهتر تناسبی رد).
+                        if any(float(np.max(np.abs(
+                                _fmedC227 - _f2_227))) <= 12.0
+                               for _f2_227 in _fm227):
+                            _tofix227.append(
+                                (_gy227, _gx227, _win227, _fmedC227,
+                                 _dch227, _rmedC227, "(سرایت)",
+                                 _fracC227, _rstdC227, _hfC227,
+                                 _fstdC227))
+                    # یک پخشِ واحد برای «همهٔ» پنجرههایِ تصمیمشده:
+                    # مرز = پیکسلهایِ اصلِ بیرونِ ماسک + پرهایِ درستِ
+                    # داخلِ ماسک (پنجرهٔ زرد-روی-زرد مرزِ درست میماند)؛
+                    # نه پخشِ تک‌پنجره‌ای که از لکهٔ همسایه آلوده میشد.
+                    if _tofix227:
+                        # پرِ «محلی» به‌ازایِ پنجره: برازشِ صفحهٔ
+                        # z=a+bx+cy رویِ زیرمجموعهٔ غالبِ حلقهٔ «همان
+                        # پنجره» (بدون نشتِ رنگِ حبابِ همسایه — پخش/
+                        # میانگینِ جعبه‌ای زردِ #02 را تا آسمانِ #04
+                        # میکشید)؛ بعدِ پر، نوارِ لبهٔ ۴px با تار کردن
+                        # نرم میشود تا درزِ پنجرهها/findها دیده نشود.
+                        try:
+                            _union227 = np.zeros(mm.shape, bool)
+                            for (_gyF, _gxF, _winF, _fmedF, _dchF,
+                                 _rmedF, _whyF, _frac227d, _rstd227d,
+                                 _hf227d, _fstd227d) in _tofix227:
+                                _union227[_gyF:_gyF + _cell227,
+                                          _gxF:_gxF + _cell227] |= _winF
+                            for (_gyF, _gxF, _winF, _fmedF, _dchF,
+                                 _rmedF, _whyF, _frac227d, _rstd227d,
+                                 _hf227d, _fstd227d) in _tofix227:
+                                _padF = np.zeros(mm.shape, np.uint8)
+                                _padF[_gyF:_gyF + _cell227,
+                                      _gxF:_gxF + _cell227] = \
+                                    _winF.astype(np.uint8) * 255
+                                _winfF = _padF > 0
+                                _ringF = (cv2.dilate(
+                                    _padF, _k49) > 0) & (~mm)
+                                _wyF, _wxF = np.nonzero(_winfF)
+                                if _wyF.size == 0:
+                                    continue
+                                # انتسابِ فاصله‌ای: فقط پیکسلهایِ ماسکی
+                                # که به «حلقهٔ غالب» نزدیکترند پر میشوند —
+                                # سمتِ دیگری از پنجرهٔ مرزی (نزدیکِ رنگِ
+                                # دیگر) دستنخورده میماند (Voronoi ساده).
+                                _selF = _winfF.copy()
+                                _planeImgF = None
+                                _hasPF = None
+                                _selOFok = None
+                                if int(_ringF.sum()) >= 60:
+                                    _ryF, _rxF = np.nonzero(_ringF)
+                                    _rcF = _sic227[_ringF].astype(
+                                        np.float32)
+                                    _domF = (np.max(np.abs(
+                                        _rcF - _rmedF),
+                                        axis=1) <= 30.0)
+                                    _domPF = np.zeros(mm.shape, np.uint8)
+                                    _othPF = np.zeros(mm.shape, np.uint8)
+                                    if int(_domF.sum()) >= 40:
+                                        _domPF[_ryF[_domF],
+                                               _rxF[_domF]] = 255
+                                    _othPF[_ryF[~_domF],
+                                           _rxF[~_domF]] = 255
+                                    if (_domPF > 0).any() \
+                                            and (_othPF > 0).any():
+                                        _ddF = cv2.distanceTransform(
+                                            ((_domPF == 0) * 255).astype(
+                                                np.uint8),
+                                            cv2.DIST_L2, 3)
+                                        _doF = cv2.distanceTransform(
+                                            ((_othPF == 0) * 255).astype(
+                                                np.uint8),
+                                            cv2.DIST_L2, 3)
+                                        _selF = _winfF & (_ddF <= _doF)
+                                        _selOF = _winfF & (_ddF > _doF)
+                                        # سمتِ «دیگر» هم پر میشود — با
+                                        # برازشِ حلقهٔ خودش (پنجرهٔ مرزی:
+                                        # هر سمت رنگِ خودش را میگیرد؛ وگرنه
+                                        # لکهٔ غلطِ آن سمت سرِ جایش میماند)
+                                        try:
+                                            _ryO = _ryF[~_domF]
+                                            _rxO = _rxF[~_domF]
+                                            _rcO = _rcF[~_domF]
+                                            if (_ryO.size >= 60
+                                                    and _selOF.any()):
+                                                _medO = np.median(
+                                                    _rcO, axis=0)
+                                                _uniO = (np.max(np.abs(
+                                                    _rcO - _medO),
+                                                    axis=1) <= 30.0)
+                                                if float(
+                                                        _uniO.mean()) >= 0.6:
+                                                    _AOF = np.stack([
+                                                        np.ones(
+                                                            _rxO.size,
+                                                            np.float32),
+                                                        _rxO.astype(
+                                                            np.float32),
+                                                        _ryO.astype(
+                                                            np.float32)],
+                                                        axis=1)
+                                                    _coefOF, *_ = \
+                                                        np.linalg.lstsq(
+                                                            _AOF, _rcO,
+                                                            rcond=None)
+                                                    try:
+                                                        _mSlO = float(
+                                                            np.max(np.abs(
+                                                                _coefOF[
+                                                                    1:, :])))
+                                                    except Exception:
+                                                        _mSlO = 999.0
+                                                    if (_mSlO * _cell227
+                                                            <= 110.0):
+                                                        _syO, _sxO = \
+                                                            np.nonzero(
+                                                                _selOF)
+                                                        _POF = np.stack([
+                                                            np.ones(
+                                                                _syO.size,
+                                                                np.float32),
+                                                            _sxO.astype(
+                                                                np.float32),
+                                                            _syO.astype(
+                                                                np.float32)],
+                                                            axis=1)
+                                                        if _planeImgF \
+                                                                is None:
+                                                            _planeImgF = \
+                                                                np.zeros(
+                                                                    mm.shape
+                                                                    + (3,),
+                                                                    np.float32)
+                                                            _hasPF = \
+                                                                np.zeros(
+                                                                    mm.shape,
+                                                                    bool)
+                                                        _planeImgF[
+                                                            _syO, _sxO] = \
+                                                            _POF @ _coefOF
+                                                        _hasPF[
+                                                            _syO, _sxO] = \
+                                                            True
+                                                        _selOFok = _selOF
+                                                        _union227 |= \
+                                                            _selOF
+                                        except Exception:
+                                            pass
+                                    if int(_domF.sum()) >= 60:
+                                        try:
+                                            _ryD = _ryF[_domF]
+                                            _rxD = _rxF[_domF]
+                                            _rcD = _rcF[_domF]
+                                            _AF = np.stack([
+                                                np.ones(_rxD.size,
+                                                        np.float32),
+                                                _rxD.astype(np.float32),
+                                                _ryD.astype(np.float32)],
+                                                axis=1)
+                                            _coefF, *_ = \
+                                                np.linalg.lstsq(
+                                                    _AF, _rcD,
+                                                    rcond=None)
+                                            try:
+                                                _maxSlopeF = float(
+                                                    np.max(np.abs(
+                                                        _coefF[1:, :])))
+                                            except Exception:
+                                                _maxSlopeF = 999.0
+                                            if (_maxSlopeF * _cell227
+                                                    <= 110.0
+                                                    and _selF.any()):
+                                                _syF, _sxF = np.nonzero(
+                                                    _selF)
+                                                _PF = np.stack([
+                                                    np.ones(
+                                                        _syF.size,
+                                                        np.float32),
+                                                    _sxF.astype(
+                                                        np.float32),
+                                                    _syF.astype(
+                                                        np.float32)],
+                                                    axis=1)
+                                                if _planeImgF is None:
+                                                    _planeImgF = np.zeros(
+                                                        mm.shape + (3,),
+                                                        np.float32)
+                                                    _hasPF = np.zeros(
+                                                        mm.shape, bool)
+                                                _planeImgF[_syF, _sxF] = \
+                                                    _PF @ _coefF
+                                                _hasPF[_syF, _sxF] = True
+                                        except Exception:
+                                            pass
+                                _useF = _selF if _selOFok is None \
+                                    else (_selF | _selOFok)
+                                _union227 |= _useF
+                                if not _useF.any():
+                                    continue
+                                _subF = _rc227[_gyF:_gyF + _cell227,
+                                               _gxF:_gxF + _cell227]
+                                _subW = _useF[_gyF:_gyF + _cell227,
+                                              _gxF:_gxF + _cell227]
+                                _flatF = np.clip(
+                                    np.rint(np.asarray(
+                                        _rmedF, np.float32)),
+                                    0, 255).astype(np.uint8)
+                                if _planeImgF is None or _hasPF is None:
+                                    _subF[_subW] = _flatF
+                                else:
+                                    _pwF = _planeImgF[
+                                        _gyF:_gyF + _cell227,
+                                        _gxF:_gxF + _cell227]
+                                    _hwF = _hasPF[
+                                        _gyF:_gyF + _cell227,
+                                        _gxF:_gxF + _cell227]
+                                    _subF[_subW] = _flatF
+                                    _selP = _subW & _hwF
+                                    if _selP.any():
+                                        _subF[_selP] = np.clip(
+                                            np.rint(_pwF),
+                                            0, 255).astype(
+                                                np.uint8)[_selP]
+                            # نرمسازیِ لبه: نوارِ ۴px دورِ اجتماعِ
+                            # پنجرههایِ پرشده با میانگینِ ۹px مینشیند
+                            _edgeF = cv2.erode(
+                                _union227.astype(np.uint8),
+                                np.ones((9, 9), np.uint8)) > 0
+                            _bandF = _union227 & (~_edgeF)
+                            if _bandF.any():
+                                _blE = cv2.blur(
+                                    _rc227.astype(np.float32), (9, 9))
+                                _rc227[_bandF] = np.clip(
+                                    np.rint(_blE), 0,
+                                    255).astype(np.uint8)[_bandF]
+                        except Exception:
+                            for (_gyF, _gxF, _winF, _fmedF, _dchF,
+                                 _rmedF, _whyF, _frac227d, _rstd227d,
+                                 _hf227d, _fstd227d) in _tofix227:
+                                _colF = np.zeros(_rc227.shape, np.uint8)
+                                _colF[:, :] = np.clip(
+                                    np.rint(_rmedF),
+                                    0, 255).astype(np.uint8)
+                                _subF = _rc227[_gyF:_gyF + _cell227,
+                                               _gxF:_gxF + _cell227]
+                                _subF[_winF] = _colF[
+                                    _gyF:_gyF + _cell227,
+                                    _gxF:_gxF + _cell227][_winF]
+                        for (_gyF, _gxF, _winF, _fmedF, _dchF, _rmedF,
+                             _whyF, _frac227d, _rstd227d, _hf227d,
+                             _fstd227d) in _tofix227:
+                            _n_rej += 1
+                            print(f"    [🛡227] پرِ رنگِ غلط رد شد "
+                                  f"@({cx0 + _gxF},{cy0 + _gyF}) "
+                                  f"px={int(_winF.sum())} "
+                                  f"Δch={_dchF:.0f} "
+                                  f"حلقه={_rmedF.round(0).tolist()} "
+                                  f"پر={_fmedF.round(0).tolist()}) "
+                                  f"{_whyF} → پرِ هارمونیکِ محلی",
+                                  flush=True)
+                            try:
+                                print(f"    [🛡227stats] frac="
+                                      f"{_frac227d:.2f} rstd="
+                                      f"{_rstd227d:.0f} hf="
+                                      f"{_hf227d:.1f} fstd="
+                                      f"{_fstd227d:.0f}",
+                                      flush=True)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
                 _gcr = _g_org[oy:oy + dm.shape[0], ox:ox + dm.shape[1]]
                 _intm = self._bubble_interior_mask(_gcr, dm, erode_iters=1)
                 try:
@@ -31682,6 +32113,7 @@ html, body { background: #0a0a0b; }
         clean_pool2 = None            # فقط فازِ دوطرفهٔ پس از استخراج
         clean_all_futs: list = []     # آیندههایِ پاکسازی برایِ حلقهٔ انتظار
         clean_started: set = set()
+        clean_claimed: set = set()   # v1.14.227 — ادعایِ اتمیکِ «در حالِ پاکسازیِ همین صفحه»
         clean_done_ev: Dict[int, threading.Event] = {}
         pending_clean: set = set()    # صفِ فاز ۱
         extraction_done = {"v": False}
@@ -31729,35 +32161,58 @@ html, body { background: #0a0a0b; }
                                if r.kind == "junk" and id(r) not in _have225]
             return regs or None
 
-        def _clean_one_page(_p: int) -> None:
+        def _clean_one_page(_p: int) -> bool:
             # v1.14.197 — بدنۀِ پاکسازِ «یک» صفحه؛ هم فاز ۱ هم فاز ۲ از
             # همین استفاده میکنند (قبلاً jobِ چندصفحهایِ بستهبسته بود).
+            # v1.14.227 — یک صفحه فقط «یک بار» پاکسازی میشود: در مرزِ
+            # پایانِ استخراج، فازِ ۱ (جارویِ بالا→پایین) و فازِ ۲ (دوطرفه)
+            # هر دو برایِ همان صفحهٔ مانده در صف میدویدند و این تابع فقط
+            # finished_pages را میسنجید (صفحه تا پایانِ ترجمه تمامشده
+            # نیست) → همان صفحه از «اصلِ تصویر» دوباره کامل پاک میشد —
+            # لاگِ واقعیِ گوشیِ v1.14.226 (تکصفحه): clean=35.1s +
+            # پاکسازیِ دومِ کاملِ همان صفحه (~۳۴ث) = «سه بار میپاکه».
+            # حالا: ادعایِ اتمیک + پرشِ صفحهٔ دارایِ precleaned. خروجیِ
+            # True = «این فراخوان کار را به پایان رساند» → فقط همان
+            # caller حقِ زدنِ clean_done را دارد (علامتِ زودهنگام توسطِ
+            # فازِ دیگر، رندرِ زودهنگامِ صفحهٔ نیمه‌پاک را بازمی‌گرداند).
+            _did227 = False
             try:
                 if stop_requested():
-                    return
-                if _p in finished_pages:
-                    return
-                _of, im, _pc, regions, _dbg = extracted_map.get(
-                    _p, (None, None, None, None, None))
-                if im is None:
-                    return
+                    return False
+                with _clean_cond:
+                    if _p in finished_pages:
+                        return False
+                    _e227 = extracted_map.get(_p)
+                    if _e227 is None:
+                        return False
+                    _of, im, _pc, regions, _dbg = _e227
+                    if im is None:
+                        return False
+                    if _pc is not None:
+                        return True  # فازِ دیگر پاک کرده — precleaned آماده است
+                    if _p in clean_claimed:
+                        return False  # کارگرِ دیگری همین حالا رویِ آن است
+                    clean_claimed.add(_p)
+                _did227 = True
                 regs = _clean_regions_for_page(_p)
                 if not regs:
-                    return
+                    return True
                 if _android_gate("MANGA_PHASE_PRINTS"):
                     print(f"[*] پاکسازی متنِ صفحهٔ {_p + 1}…",
                           flush=True)
                 _t0 = time.time()
                 _pcn = self.clean_image(im, regs)
-                if _p in finished_pages:
-                    return  # همزمان تمام شده بود — بیخیال
-                extracted_map[_p] = (_of, im, _pcn, regions, _dbg)
+                with _clean_cond:
+                    if _p in finished_pages:
+                        return True  # همزمان تمام شده بود — بیخیال
+                    extracted_map[_p] = (_of, im, _pcn, regions, _dbg)
                 try:
                     print(f"[TIME] page#{_p + 1} "
                           f"clean={time.time() - _t0:.1f}s",
                           flush=True)
                 except Exception:
                     pass
+                return True
             except GeminiQuotaExhausted as e:
                 print(f"\n[!] {e}")
                 quota_flag["dead"] = True
@@ -31773,6 +32228,14 @@ html, body { background: #0a0a0b; }
                         _tb201.print_exc()
                     except Exception:
                         pass
+            finally:
+                # v1.14.227 — آزادسازیِ ادعا؛ پاکسازیِ ناموفق → فازِ دیگر
+                # میتواند دوباره امتحان کند (فازِ پایانیِ finish_page_phase
+                # هم فالبکِ precleaned=Noneِ خودش را دارد).
+                if _did227:
+                    with _clean_cond:
+                        clean_claimed.discard(_p)
+            return _did227
 
         def _clean_done_mark(_p: int) -> None:
             _ev = clean_done_ev.get(_p)
@@ -31815,8 +32278,8 @@ html, body { background: #0a0a0b; }
                         _clean_cond.wait(timeout=0.5)
                     pi = min(cand)  # بالا→پایین
                     pending_clean.discard(pi)
-                _clean_one_page(pi)
-                _clean_done_mark(pi)
+                if _clean_one_page(pi):  # v1.14.227 — False = دیگری در حالِ پاکسازیِ آن است
+                    _clean_done_mark(pi)
 
         clean_all_futs.append(clean_pool.submit(_clean_sched_job))
 
@@ -31843,8 +32306,10 @@ html, body { background: #0a0a0b; }
                         _clean_done_mark(_p)
                         continue
                     pending_clean.discard(_p)
-                _clean_one_page(_p)
-                _clean_done_mark(_p)
+                # v1.14.227 — اگر فازِ ۱ همین حالا رویِ این صفحه است،
+                # علامتِ پایانِ زودهنگام نزن؛ وقتی کارش تمام شد خودش میزند.
+                if _clean_one_page(_p):
+                    _clean_done_mark(_p)
 
         def _dispatch_chunk_clean(chunk: List[TextRegion]) -> None:
             _pgs = sorted({page_of_region.get(r.id) for r in chunk
