@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.225"
+APP_VER = "1.14.226"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -12425,6 +12425,47 @@ class MangaTranslator:
                                             fill_plane = _coefs
                             except Exception:
                                 fill_plane = None
+                        # v1.14.226 — حلقهٔ تنگِ «نایکنواخت» هم صفحهای
+                        # سنجیده میشود: پنجرهٔ سیستمِ 4e2e77
+                        # («[CLEAR OBJECTIVE…]» رویِ گرادیانِ آبی):
+                        # حلقهٔ تنگ رویِ گرادیانِ اشباع هیچ‌وقت dev≤۱۵
+                        # نمیشود (۷۰-۴۵٪ نمونهها بیرونند) و حلقهٔ پهن
+                        # (۱.۱×) به هنرِ بیرونِ پنل می‌رسد (resid=۱۱.۲ > ۱۰)
+                        # → هیچ صفحهای پر نمیشد → خط به LaMa میفتاد →
+                        # LaMa-manga (سیاهوسفید) رویِ آبیِ اشباع پرِ تختِ
+                        # تیره + شبحِ سفیدِ حروف میگذاشت (لگهٔ مستطیلیِ
+                        # تیره + متنِ قبلی — گزارشِ سازنده). صفحهٔ خودِ
+                        # حلقهٔ تنگ (resid≤۱۰ پس از حذفِ ۲۰٪ بدترین
+                        # نمونهها) همین گرادیان را پیوسته بازسازی میکند.
+                        if fill_col is None and fill_plane is None \
+                                and r1.shape[0] >= 24 \
+                                and float(_ys1.max() - _ys1.min()) >= 20:
+                            try:
+                                _A226 = np.stack([
+                                    np.ones(r1.shape[0], np.float32),
+                                    _xs1.astype(np.float32),
+                                    _ys1.astype(np.float32)], axis=1)
+                                _c226, *_ = np.linalg.lstsq(
+                                    _A226, r1, rcond=None)
+                                _p226 = _A226 @ _c226
+                                _r226 = np.sqrt(
+                                    ((_p226 - r1) ** 2).sum(axis=1))
+                                _rs226 = np.sort(_r226)
+                                _k226 = max(8, int(_rs226.shape[0] * 0.8))
+                                if float(_rs226[:_k226].mean()) <= 10.0:
+                                    _bx226 = float(np.abs(_c226[1]).max())
+                                    _by226 = float(np.abs(_c226[2]).max())
+                                    _pw226 = float(pp[:, 0].max()
+                                                   - pp[:, 0].min())
+                                    _ph226 = float(pp[:, 1].max()
+                                                   - pp[:, 1].min())
+                                    if (_bx226 * _pw226
+                                            + _by226 * _ph226) >= 8.0:
+                                        fill_plane = _c226
+                                        fill_col = avg1
+                                        fill_exp = 1.05
+                            except Exception:
+                                fill_plane = None
                     if fill_col is None:
                         if self._clean_level() != "fast":
                             # v1.14.216 — پرِ صفحهٔ گرادیانی برایِ حلقهٔ
@@ -12452,7 +12493,14 @@ class MangaTranslator:
                                     _pg = _Ag @ _cg
                                     _rg = np.sqrt(((_pg - r2g) ** 2)
                                                   .sum(axis=1))
-                                    if float(np.mean(_rg)) <= 10.0:
+                                    # v1.14.226 — پسِ مقاوم: ۲۵٪ بدترین
+                                    # نمونهها (هنرِ بیرونِ پنل/لبهٔ قاب)
+                                    # خطایِ میانگین را کور میکرد (۴e2e77:
+                                    # mean=11.2 رد، بدونِ کانیوت=۸.۶)
+                                    _rgs226 = np.sort(_rg)
+                                    _kg226 = max(12, int(
+                                        _rgs226.shape[0] * 0.75))
+                                    if float(_rgs226[:_kg226].mean()) <= 10.0:
                                         _bxg = float(np.abs(_cg[1]).max())
                                         _byg = float(np.abs(_cg[2]).max())
                                         _pwg = float(pp[:, 0].max()
@@ -12466,7 +12514,7 @@ class MangaTranslator:
                             except Exception:
                                 fill_plane = None
                         if fill_col is None:
-                            r2 = _sample(1.10)
+                            _xs2f, _ys2f, r2 = _sample_xy(1.10)
                             if r2.shape[0] >= 16:
                                 avg2 = r2.mean(axis=0)
                                 dev2 = np.sqrt(((r2 - avg2[None, :]) ** 2).sum(axis=1))
@@ -12488,7 +12536,31 @@ class MangaTranslator:
                                         continue
                                     if float(_s2.std()) > 30.0:
                                         continue
-                                    fill_col = _cls_px.mean(axis=0)
+                                    # v1.14.226 — گاردِ شیبِ عمودی: حلقهٔ
+                                    # «آسمان/گرادیان» که بالا و پایینش
+                                    # ناهمسان است (>۱۶ کانالِ) با رنگِ تخت
+                                    # پر نشود — پرِ فوریِ تختِ هر خط با
+                                    # میانگینِ حلقه = نوارِ شیریِ بی‌بافت
+                                    # (لگهٔ سفیدِ img4 — آسمانِ ابری).
+                                    # چنین خطی به LaMa/TELEA واگذار میشود.
+                                    try:
+                                        _ym226 = float(np.median(
+                                            _ys2f[_close]))
+                                        _top226 = _close & (_ys2f <= _ym226)
+                                        _bot226 = _close & (_ys2f > _ym226)
+                                        if int(_top226.sum()) >= 8 \
+                                                and int(_bot226.sum()) >= 8:
+                                            _mt226 = np.median(
+                                                r2[_top226], axis=0)
+                                            _mb226 = np.median(
+                                                r2[_bot226], axis=0)
+                                            if float(np.abs(
+                                                    _mt226 - _mb226).max()) \
+                                                    > 16.0:
+                                                continue
+                                    except Exception:
+                                        pass
+                                    fill_col = np.median(_cls_px, axis=0)
                                     fill_exp = 1.10
                     if fill_col is None:
                         continue
@@ -15826,13 +15898,38 @@ class MangaTranslator:
                             _lapT82 = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
                             if (float(np.std(_vT82)) > 12.0
                                     or float(np.mean(_lapT82[subm])) > 2.5):
+                                # v1.14.226d — استثنایِ بلوکِ اجباری-LaMa:
+                                # «بافتِ» نوارِ بلوکهایِ اجباری، خودِ شبحِ
+                                # حروفِ LaMa است نه هنر (SFXِ 4e2e77:
+                                # CHANGES TO… ذوب‌شده ولی خوانا — std=۳۴)
+                                # → رد نکن؛ بگذار به گیتها/بازپرِ گرادیانی
+                                # برسد.
+                                _fhit26d = False
+                                try:
+                                    for _fb26d in (getattr(
+                                            self, "_lama_force_rect_boxes",
+                                            None) or []):
+                                        if not (x > _fb26d[2]
+                                                or x + w < _fb26d[0]
+                                                or y > _fb26d[3]
+                                                or y + h < _fb26d[1]):
+                                            _fhit26d = True
+                                            break
+                                except Exception:
+                                    _fhit26d = False
+                                if not _fhit26d:
+                                    if _pdbg:
+                                        print(f"  [dbg-polish] SKIP-textured "
+                                              f"comp x={x} y={y} {w}x{h} "
+                                              f"std={float(np.std(_vT82)):.1f} "
+                                              f"lap={float(np.mean(_lapT82[subm])):.2f}",
+                                              flush=True)
+                                    continue
                                 if _pdbg:
-                                    print(f"  [dbg-polish] SKIP-textured "
+                                    print(f"  [dbg-polish] force-block "
                                           f"comp x={x} y={y} {w}x{h} "
-                                          f"std={float(np.std(_vT82)):.1f} "
-                                          f"lap={float(np.mean(_lapT82[subm])):.2f}",
+                                          f"(بافت=شبح) → گیتها",
                                           flush=True)
-                                continue
                     except Exception:
                         pass
                 elif rstd is None:
@@ -15972,8 +16069,12 @@ class MangaTranslator:
                     # دست‌کشیدهٔ کیمتسو) و هنرِ چسبیده به نوار محفوظ می‌مانند.
                     try:
                         _fm73 = float(np.median(rg[subm]))
-                        _flat_dom &= (np.abs(
-                            rg.astype(np.float32) - _fm73) <= 26.0)
+                        # v1.14.226b — استثنایِ هستهٔ نوار: بقایایِ روشنِ
+                        # حروف (خاکستریِ ۲۵۰ در برابرِ میانهٔ ۱۶۰) از گیتِ
+                        # رنگ بیرون میافتادند و همان شبحهایِ سفید زنده
+                        # میماندند (پنجرهٔ 4e2e77) — گیت فقط برایِ هاله.
+                        _flat_dom &= ((np.abs(
+                            rg.astype(np.float32) - _fm73) <= 26.0) | subm)
                     except Exception:
                         pass
                     try:
@@ -16010,6 +16111,111 @@ class MangaTranslator:
                         if _refc is None:
                             _refc = np.median(
                                 sub[_flat_dom].astype(np.float32), axis=0)
+                        # v1.14.226 — فلتنِ گرادیان‌آگاه: پنجرهٔ سیستمِ
+                        # 4e2e77 — هر خطِ متن رویِ گرادیانِ آبی، حلقهٔ
+                        # «محلیِ» خودش را یکنواخت دارد (rstd≤۱۰) و فلت با
+                        # میانهٔ خودش پاک میشد → پلههایِ آبیِ ناهمسانِ
+                        # روی-هم (اسکرینشاتِ سازنده). سنجشِ شیب روی
+                        # «همهٔ پیکسلهایِ زمینهٔ اورجینالِ پنجرهٔ محلی»
+                        # (بیرونِ ماسکِ نوارها — نه فقط حلقهٔ ۲۵px که
+                        # همسایههاشان آن را میبلعند): شیبِ >۶ در هر
+                        # کانال بین ربعِ اول و آخرِ ردیفهای زمینه =
+                        # گرادیان → فلتن بهجایِ رنگِ تخت، «رنگِ ردیفی»
+                        # میان‌یابی‌شده میگیرد — گرادیان زنده میماند،
+                        # لکههایِ LaMa هم پاک میشوند.
+                        try:
+                            _prof26 = None
+                            try:
+                                # v1.14.226b — پنجرهٔ پروفایلِ بازتر
+                                # (±۶۰): در بلوکهایِ چندخطی، ماسکهایِ
+                                # خطوط، پنجرهٔ ۱۸px را میبلعند و مدل از
+                                # ۲-۳ ردیفِ باقیمانده ساخته میشد (رنگِ
+                                # غلط → دوختِ عمودی).
+                                _py026 = max(0, y - 60)
+                                _py126 = min(m.shape[0], y + h + 60)
+                                _bgw26 = (m[_py026:_py126, x0:x1] == 0)
+                                if int(_bgw26.sum()) >= 60:
+                                    _subO26 = image[_py026:_py126, x0:x1]
+                                    _rows26 = []
+                                    _cols26 = []
+                                    _free26 = max(
+                                        6, int(0.45 * _bgw26.shape[1]))
+                                    for _rr26 in range(
+                                            _bgw26.shape[0]):
+                                        _selr26 = _bgw26[_rr26]
+                                        if int(_selr26.sum()) >= _free26:
+                                            _rows26.append(
+                                                _rr26 + _py026 - y0)
+                                            _cols26.append(np.median(
+                                                _subO26[_rr26][_selr26],
+                                                axis=0))
+                                    if len(_rows26) >= 2 \
+                                            and (_rows26[-1] - _rows26[0]) \
+                                            >= 24:
+                                        _rarr26 = np.asarray(
+                                            _rows26, np.float32)
+                                        _carr26 = np.asarray(
+                                            _cols26, np.float32)
+                                        _q26 = max(
+                                            1, len(_rows26) // 4)
+                                        _mt26 = np.median(
+                                            _carr26[:_q26], axis=0)
+                                        _mb26 = np.median(
+                                            _carr26[-_q26:], axis=0)
+                                        _dr26 = float(np.abs(
+                                            _mt26 - _mb26).max())
+                                        if _pdbg:
+                                            try:
+                                                print(
+                                                    f"  [dbg-grad26] comp "
+                                                    f"x={x} y={y} {w}x{h} "
+                                                    f"drift={_dr26:.1f} "
+                                                    f"nrows={len(_rows26)}",
+                                                    flush=True)
+                                            except Exception:
+                                                pass
+                                        if _dr26 > 6.0:
+                                            _prof26 = (
+                                                _rarr26, _carr26)
+                            except Exception:
+                                _prof26 = None
+                            if _prof26 is not None:
+                                _rarr26, _carr26 = _prof26
+                                _h26 = sub.shape[0]
+                                _allr26 = np.arange(_h26, dtype=np.float32)
+                                _rowc26 = np.zeros((_h26, 3), np.float32)
+                                for _ch26 in range(3):
+                                    _rowc26[:, _ch26] = np.interp(
+                                        _allr26, _rarr26, _carr26[:, _ch26])
+                                _sF26 = sub.copy()
+                                _rowg26 = (0.299 * _rowc26[:, 2]
+                                           + 0.587 * _rowc26[:, 1]
+                                           + 0.114 * _rowc26[:, 0])
+                                for _rr26 in range(_h26):
+                                    _rd26 = _flat_dom[_rr26]
+                                    if not _rd26.any():
+                                        continue
+                                    _gate26 = np.abs(
+                                        rg[_rr26].astype(np.float32)
+                                        - float(_rowg26[_rr26])) <= 26.0
+                                    # v1.14.226b — گیتِ رنگ فقط رویِ هاله:
+                                    # هستهٔ نوار (= خودِ متن) همیشه بازپر
+                                    # میشود — بقایایِ سفیدِ حروف از مدل
+                                    # >۲۶ فاصله داشتند و گیت، همان شبحها
+                                    # را زنده نگه میداشت (خطوطِ سفیدِ
+                                    # پایینِ پنجرهٔ 4e2e77).
+                                    _gate26 |= subm[_rr26]
+                                    _rd26 = _rd26 & _gate26
+                                    if not _rd26.any():
+                                        continue
+                                    _sF26[_rr26][_rd26] = np.clip(
+                                        np.rint(_rowc26[_rr26]), 0,
+                                        255).astype(np.uint8)
+                                sub[:] = _sF26
+                                out[y0:y1, x0:x1] = sub
+                                continue
+                        except Exception:
+                            pass
                         fillc = _refc
                         _sF = sub.copy()
                         _sF[_flat_dom] = np.clip(
@@ -16017,6 +16223,166 @@ class MangaTranslator:
                         sub[:] = _sF
                         out[y0:y1, x0:x1] = sub
                         continue
+                # v1.14.226c — بلوکِ بزرگِ «فلت رویِ گرادیان»: بلوکهایِ
+                # اجباری-LaMaیِ پنجرهٔ سیستمِ 4e2e77 ([TRAITS…]/[CLASS…])
+                # — گیتهایِ فلتن (A/B/C) رینگِ پهنِ پنل+هنر را رد
+                # میکنند (rstd>10) و پرِ تختِ روشنِ LaMa [77,190,251]
+                # رویِ گرادیانِ آبی میماند = قابِ مستطیلیِ روشن
+                # (اسکرینشاتِ سازنده). مدلِ «جداکردنی» = ردیف(y)+ستون(x):
+                # گرادیانِ عمودی و افقی هر دو بازسازی میشوند؛ خشنیِ
+                # پروفایل = هنر/بافت → رد. انحرافِ پر از مدل ≥۳.۵ =
+                # پرِ غلط → بازپرِ ردیفی-ستونی.
+                if not _can_flat and a >= 4000 and (w >= 60 or h >= 60):
+                    try:
+                        _py026c = max(0, y - 60)
+                        _py126c = min(m.shape[0], y + h + 60)
+                        _bgw26c = (m[_py026c:_py126c, x0:x1] == 0)
+                        _subO26c = image[_py026c:_py126c, x0:x1]
+                        _off26c = y0 - _py026c
+                        _sep26c = None
+                        if int(_bgw26c.sum()) >= 200:
+                            # پروفایلِ ردیفی
+                            _rows26c = []
+                            _cols26c = []
+                            _free26c = max(
+                                6, int(0.45 * _bgw26c.shape[1]))
+                            for _rr26c in range(_bgw26c.shape[0]):
+                                _selr26c = _bgw26c[_rr26c]
+                                if int(_selr26c.sum()) >= _free26c:
+                                    _rows26c.append(_rr26c - _off26c)
+                                    _cols26c.append(np.median(
+                                        _subO26c[_rr26c][_selr26c], axis=0))
+                            # پروفایلِ ستونی
+                            _colsx26c = []
+                            _colsv26c = []
+                            for _cc26c in range(_bgw26c.shape[1]):
+                                _selc26c = _bgw26c[:, _cc26c]
+                                if int(_selc26c.sum()) >= 6:
+                                    _colsx26c.append(_cc26c)
+                                    _colsv26c.append(np.median(
+                                        _subO26c[:, _cc26c][_selc26c],
+                                        axis=0))
+                            if len(_rows26c) >= 4 and len(_colsx26c) >= 4 \
+                                    and (_rows26c[-1] - _rows26c[0]) >= 24:
+                                _rarr26c = np.asarray(_rows26c, np.float32)
+                                _carr26c = np.asarray(_cols26c, np.float32)
+                                _xarr26c = np.asarray(
+                                    _colsx26c, np.float32)
+                                _varr26c = np.asarray(
+                                    _colsv26c, np.float32)
+                                _q26c = max(1, len(_rows26c) // 4)
+                                _mt26c = np.median(
+                                    _carr26c[:_q26c], axis=0)
+                                _mb26c = np.median(
+                                    _carr26c[-_q26c:], axis=0)
+                                _dr26c = float(np.abs(
+                                    _mt26c - _mb26c).max())
+                                _g26c = float(np.mean(_carr26c))
+                                if _dr26c > 6.0:
+                                    # هموارسازی (۹تایی) + گیتِ خشنی
+                                    try:
+                                        _k26c = np.ones(
+                                            9, np.float32) / 9.0
+                                        _cs26c = np.zeros_like(_carr26c)
+                                        _vs26c = np.zeros_like(_varr26c)
+                                        for _ch26c in range(3):
+                                            _cs26c[:, _ch26c] = np.convolve(
+                                                np.pad(_carr26c[:, _ch26c],
+                                                       (4, 4),
+                                                       mode='edge'),
+                                                _k26c, mode='valid')
+                                            _vs26c[:, _ch26c] = np.convolve(
+                                                np.pad(_varr26c[:, _ch26c],
+                                                       (4, 4),
+                                                       mode='edge'),
+                                                _k26c, mode='valid')
+                                        _d226c = float(np.abs(np.diff(
+                                            _cs26c, n=2,
+                                            axis=0)).mean())
+                                        _d2x26c = float(np.abs(np.diff(
+                                            _vs26c, n=2,
+                                            axis=0)).mean())
+                                        if _d226c <= 1.2 \
+                                                and _d2x26c <= 1.2:
+                                            _sep26c = (_rarr26c, _cs26c,
+                                                       _xarr26c, _vs26c,
+                                                       _g26c)
+                                    except Exception:
+                                        _sep26c = None
+                        if _sep26c is not None:
+                            _rarr26c, _cs26c, _xarr26c, _vs26c, _g26c = \
+                                _sep26c
+                            _h26c = sub.shape[0]
+                            _w26c = sub.shape[1]
+                            # مدلِ ردیفی (گرادیانِ عمودی) — پروفایلِ ستونی
+                            # کنار گذاشته شد: ستونهایِ قابِ سفیدِ پنل،
+                            # میانگینِ ستون را می‌کشند و رنگِ مدل را در
+                            # کلِ ستون غلط میکنند (لکهٔ زردِ بالای پنل)
+                            _rowc26c = np.zeros((_h26c, 3), np.float32)
+                            for _ch26c in range(3):
+                                _rowc26c[:, _ch26c] = np.interp(
+                                    np.arange(_h26c, dtype=np.float32),
+                                    _rarr26c, _cs26c[:, _ch26c])
+                            _modelc26c = np.repeat(
+                                _rowc26c[:, None, :], _w26c, axis=1)
+                            _mg26c = (0.299 * _modelc26c[..., 2]
+                                      + 0.587 * _modelc26c[..., 1]
+                                      + 0.114 * _modelc26c[..., 0])
+                            # انحرافِ پرِ فعلی از مدل (فقط روی نوار)
+                            _fillrows26 = []
+                            _modelrows26 = []
+                            for _rr26c in range(_h26c):
+                                _sr26c = subm[_rr26c]
+                                if int(_sr26c.sum()) >= 6:
+                                    _fillrows26.append(float(np.median(
+                                        rg[_rr26c][_sr26c])))
+                                    _modelrows26.append(float(np.median(
+                                        _mg26c[_rr26c][_sr26c])))
+                            _dev26c = (float(np.mean(np.abs(
+                                np.asarray(_fillrows26)
+                                - np.asarray(_modelrows26))))
+                                if len(_fillrows26) >= 4 else 99.0)
+                            if _pdbg:
+                                try:
+                                    print(f"  [dbg-grad26c] x={x} y={y} "
+                                          f"{w}x{h} dev={_dev26c:.1f}",
+                                          flush=True)
+                                except Exception:
+                                    pass
+                            if _dev26c >= 3.5:
+                                _dom26c = cv2.dilate(
+                                    subm.astype(np.uint8),
+                                    cv2.getStructuringElement(
+                                        cv2.MORPH_ELLIPSE, (17, 17))) > 0
+                                try:
+                                    for _pm26c in (
+                                            getattr(self, "_page_protect",
+                                                    None),
+                                            getattr(self, "_page_wall_band",
+                                                    None)):
+                                        if _pm26c is not None \
+                                                and _pm26c.shape == \
+                                                out.shape[:2]:
+                                            _dom26c &= (
+                                                _pm26c[y0:y1, x0:x1] == 0)
+                                except Exception:
+                                    pass
+                                _sF26c = sub.copy()
+                                # بدونِ گیتِ رنگ: خودِ پرِ غلطِ LaMa در
+                                # ردیفهایِ پایین از مدل >۲۶ فاصله داشت و
+                                # گیت، همان پرِ غلط را زنده نگه میداشت =
+                                # نوارِ ترکیبی. دامنه = نوار+هاله منهایِ
+                                # نقشههایِ حفاظت — کافی است.
+                                _rd26c = _dom26c
+                                if int(_rd26c.sum()) >= 20:
+                                    _sF26c[_rd26c] = np.clip(np.rint(
+                                        _modelc26c[_rd26c]), 0,
+                                        255).astype(np.uint8)
+                                    sub[:] = _sF26c
+                                    out[y0:y1, x0:x1] = sub
+                                    continue
+                    except Exception:
+                        pass
                 if rstd is None or rstd > 26.0:
                     continue  # زمینهٔ بافت‌دار → دست نزن
                 _dv_thr = 14.0 if rstd <= 18.0 else 26.0
@@ -18029,6 +18395,47 @@ class MangaTranslator:
                                       f"نگه داشته شد (جلوگیری از متنِ شبح)",
                                       flush=True)
                             continue
+                        # v1.14.226 — گاردِ جوهرِ هستهٔ ماسک: اسنپ‌شاتی که
+                        # هنوز «جوهرِ متن» درونِ ماسکِ متن دارد هرگز
+                        # جایگزینِ LaMa نمیشود. آستانهٔ ۳۰ِ 62b شبحِ
+                        # نیمه‌پوشیده را نمیبیند (پرکنندهٔ فوریِ ناموفق،
+                        # کنتراستِ ~۲۰) — لاگِ کاملِ 4e2e77: «LaMa زمینه
+                        # را 146→183 → اسنپ‌شاتْ مرجع» = برگشتِ خوانای
+                        # [TRAITS: FILTHY RICH…] (اسکرینشاتِ سازنده).
+                        # سنجشِ مستقیم روی «هستهٔ ماسک» (جایی که میدانیم
+                        # متن بوده) با آستانهٔ ۲۰ + برتریِ ۲× از LaMa.
+                        try:
+                            _mc226 = None
+                            try:
+                                _mc226 = (crop_msk > 0) \
+                                    if crop_msk.shape[:2] == _gs62.shape \
+                                    else None
+                            except Exception:
+                                _mc226 = None
+                            if _mc226 is not None \
+                                    and int(_mc226.sum()) >= 200:
+                                _ds226 = np.abs(
+                                    _gs62.astype(np.int16)
+                                    - _ms62.astype(np.int16))
+                                _dl226 = np.abs(
+                                    _gl62.astype(np.int16)
+                                    - _ml62.astype(np.int16))
+                                _iks226 = float(
+                                    (_ds226[_mc226] > 20).mean())
+                                _ikl226 = float(
+                                    (_dl226[_mc226] > 20).mean())
+                                if _iks226 > 0.045 and \
+                                        _iks226 > _ikl226 * 2.0 + 0.02:
+                                    if self.debug:
+                                        print(
+                                            f"  [✓]جوهرِ متن در اسنپ‌شات "
+                                            f"(هسته={_iks226:.3f} > "
+                                            f"LaMa={_ikl226:.3f}) → LaMa "
+                                            f"نگه داشته شد (ضدِ شبح)",
+                                            flush=True)
+                                    continue
+                        except Exception:
+                            pass
                         # فقط «لکهٔ بلوکی» — لکهٔ واقعی (کارتِ عنوان) در
                         # Δ>26 بوم‌بوم است (اندازه‌گیری: ۰.۶۲/۰.۷۶) ولی
                         # بازسازیِ سالمِ LaMa روی پنل‌هایِ آبی فقط Δμ=۶-۷
@@ -25103,6 +25510,33 @@ class MangaTranslator:
 
         x1, y1, x2, y2 = [int(v) for v in rect]
         h, w = image_bgr.shape[:2]
+        # v1.14.226 — کشِ نتیجهٔ OCRِ همان برش: نجاتِ یتیم/خالی گاهی
+        # همان مستطیلِ نردبانِ اصلی را دوباره OCR میکرد (پروفایل:
+        # ۶۷ فراخوانی برایِ ۳۱ ناحیه). کلید = مختصاتِ برش + ابعادِ
+        # تصویر؛ عمرِ کش = یک صفحه (بازیابی در extract_regions_phase).
+        try:
+            _ck226 = (x1, y1, x2, y2, w, h,
+                      tuple(map(tuple, block_rects)) if block_rects else None)
+            _cc226 = getattr(self, "_ocr_crop_cache226", None)
+            if _cc226 is not None and _ck226 in _cc226:
+                return _cc226[_ck226]
+        except Exception:
+            pass
+        _rv226 = self._ocr_crop_run(image_bgr, rect, block_rects)
+        try:
+            if getattr(self, "_ocr_crop_cache226", None) is None:
+                self._ocr_crop_cache226 = {}
+            if len(self._ocr_crop_cache226) < 512:
+                self._ocr_crop_cache226[_ck226] = _rv226
+        except Exception:
+            pass
+        return _rv226
+
+    def _ocr_crop_run(self, image_bgr: np.ndarray, rect,
+                      block_rects: Optional[List[Tuple[int, int, int, int]]] = None) \
+            -> Tuple[str, List[np.ndarray]]:
+        x1, y1, x2, y2 = [int(v) for v in rect]
+        h, w = image_bgr.shape[:2]
         pad = 8
         x1, y1 = max(0, x1 - pad), max(0, y1 - pad)
         x2, y2 = min(w, x2 + pad), min(h, y2 + pad)
@@ -27379,6 +27813,72 @@ class MangaTranslator:
                            for s in _seen_bands):
                         continue
                     _seen_bands.append((gx0, gy0, gx1, gy1))
+                    # v1.14.226 — گیتِ پیش از OCR — «جوهرِ دارایِ صاحب»:
+                    # بازخوانیِ متنِ موجود، پرهزینهترین بخشِ استخراج بود
+                    # (پروفایلِ 4e2e77: ۲۶ فراخوانیِ OCRِ یتیم = ۳۲ثانیه
+                    # که اکثراً بعدش با گاردِ ۲۲۵ رد میشدند — «انگار
+                    # دوبار اون متن میخونه» درست بود). سنجشِ پیش از OCR:
+                    # چند درصدِ «پیکسلهایِ جوهرِ» این باند داخلِ
+                    # چندضلعیهایِ OCRِ نواحیِ موجود است؟ ≥۵۵٪ → متنِ
+                    # دارایِ صاحب → بدونِ OCR رد میشود (عینِ گاردِ ۲۲۵،
+                    # فقط این‌بار روی جوهرِ واقعی نه جعبهٔ خامِ هنر-آلود).
+                    try:
+                        _inkys226, _inkxs226 = np.nonzero(
+                            ink[_r0:_r1, :])
+                        if _inkys226.size >= 12:
+                            _gx226 = _inkxs226.astype(np.int32) + _x0
+                            _gy226 = _inkys226.astype(np.int32) + _b0
+                            _inany226 = np.zeros(
+                                _gx226.shape, bool)
+                            for _rp226 in regions:
+                                for _rpoly226 in (
+                                        getattr(_rp226, "ocr_polys", None)
+                                        or []):
+                                    try:
+                                        _pp226 = np.asarray(
+                                            _rpoly226,
+                                            np.float32).reshape(-1, 2)
+                                        _bx226a = int(_pp226[:, 0].min())
+                                        _by226a = int(_pp226[:, 1].min())
+                                        _bx226b = int(
+                                            _pp226[:, 0].max()) + 1
+                                        _by226b = int(
+                                            _pp226[:, 1].max()) + 1
+                                        _selb226 = (
+                                            (_gx226 >= _bx226a)
+                                            & (_gx226 < _bx226b)
+                                            & (_gy226 >= _by226a)
+                                            & (_gy226 < _by226b))
+                                        if not _selb226.any():
+                                            continue
+                                        _bw226 = max(
+                                            1, _bx226b - _bx226a)
+                                        _bh226 = max(
+                                            1, _by226b - _by226a)
+                                        _pm226 = np.zeros(
+                                            (_bh226, _bw226), np.uint8)
+                                        cv2.fillPoly(
+                                            _pm226,
+                                            [np.rint(
+                                                _pp226
+                                                - [_bx226a,
+                                                   _by226a]).astype(
+                                                np.int32)], 255)
+                                        _inany226[_selb226] |= (
+                                            _pm226[
+                                                _gy226[_selb226]
+                                                - _by226a,
+                                                _gx226[_selb226]
+                                                - _bx226a] > 0)
+                                    except Exception:
+                                        continue
+                                if float(
+                                        _inany226.mean()) >= 0.55:
+                                    break
+                            if float(_inany226.mean()) >= 0.55:
+                                continue
+                    except Exception:
+                        pass
                     try:
                         _oc = self._ocr_crop(
                             image, (max(0, gx0 - 6), max(0, gy0 - 6),
@@ -27674,7 +28174,9 @@ class MangaTranslator:
             return regions
 
     def extract_regions_phase(self, image: np.ndarray) -> Tuple[List[TextRegion], Optional[np.ndarray]]:
-
+        # v1.14.226 — عمرِ کشِ OCR = یک صفحه (کلید = مختصات؛ محتوا عوض
+        # میشود بین صفحات)
+        self._ocr_crop_cache226 = {}
         h, w = image.shape[:2]
         _t_ext150 = time.time()  # v1.14.150 — کرونومترِ استخراج (نمایشِ سرعت)
         # v1.14.154 — نشانگرِ شروعِ فاز برایِ اعلان (فقط اندروید؛ PC بدونِ
