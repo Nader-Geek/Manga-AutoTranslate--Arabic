@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.229"
+APP_VER = "1.14.230"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -283,6 +283,26 @@ def _nvidia_gpu_present() -> bool:
             return True
     except Exception:
         return False
+    # v1.14.230 — ویندوزِ بدونِ nvidia-smi در PATH (نصبِ درایورِ استودیو یا
+    # PATHِ ناقصِ پایتون): همان پرسوجویِ wmic/powershellِ DirectML حالا
+    # NVIDIA را هم میبیند — گرایندهٔ «GPU صفر درصد» وقتی کارت هست ولی
+    # مسیرِ auto هیچوقت onnxruntime-gpu را نمیگرفت.
+    try:
+        if _platform.system().lower() == "windows":
+            for _cmd in (
+                ["wmic", "path", "win32_VideoController", "get", "name"],
+                ["powershell", "-NoProfile", "-Command",
+                 "(Get-CimInstance win32_VideoController).Name"],
+            ):
+                try:
+                    r = subprocess.run(_cmd, capture_output=True, text=True,
+                                       timeout=12)
+                    if r.returncode == 0 and "nvidia" in (r.stdout or "").lower():
+                        return True
+                except Exception:
+                    continue
+    except Exception:
+        pass
     return False
 
 
@@ -1373,6 +1393,30 @@ _ORT_CUDA_OK = None
 
 
 def _prepare_ort_cuda_dlls() -> None:
+    # v1.14.230 — ویندوز: DLLهایِ CUDA/cuDNN که pip در site-packages/nvidia
+    # میگذارد باید با add_dll_directory معرفی شوند تا سشنِ CUDA واقعاً
+    # بالا بیاید (ریشهٔ «GPU صفر درصد»: بیلدِ GPU نصب است ولی سشن
+    # بیصدا به CPU برمی‌گشت). لینوکس: LD_LIBRARY_PATH را خودِ pip-wheels
+    # هندل میکنند — این بلوک فقط ویندوز است.
+    try:
+        if os.name == "nt":
+            import site as _site230
+            import glob as _glob230
+            for _sp230 in set(_site230.getsitepackages() or []):
+                for _nd230 in sorted(_glob230.glob(
+                        os.path.join(_sp230, "nvidia", "*", "bin"))):
+                    try:
+                        os.add_dll_directory(_nd230)
+                    except Exception:
+                        pass
+                for _nd230b in sorted(_glob230.glob(
+                        os.path.join(_sp230, "nvidia", "cuda_runtime", "bin"))):
+                    try:
+                        os.add_dll_directory(_nd230b)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
     try:
         import torch
         if torch.cuda.is_available():
@@ -4747,25 +4791,61 @@ class RapidOCRBackend:
                 _want69 = bool(prefer_gpu) and (_ORT_CUDA_OK is not False)
                 _ocr_head69 = (_best_providers_for("ocr", prefer_gpu=_want69)
                                or ["CPUExecutionProvider"])[0]
+                # v1.14.230 — پروبِ «واقعیِ» CUDA قبل از سپردنِ موتورِ OCR
+                # به rapidocr: «CUDA در get_available_providers» فقط یعنی
+                # بیلدِ GPU نصب است — نه اینکه DLLهایِ cudnn/cublas لود
+                # شوند. سشنِ آزمایشی رویِ همان مدلِ det ساخته میشود؛ اگر
+                # EPِ فعالِ سشن CUDA نبود، use_cuda هرگز تنظیم نمیشود و
+                # کاربر پیامِ روشن میبیند (گزارشِ سازنده: «چک میزنم
+                # گرافیک صفر درصده»). فایلِ مدلِ det همین بالا دانلود
+                # شده است (_ensure_rapidocr_models).
+                _ep_active230 = ""
                 if _ocr_head69 == "CUDAExecutionProvider":
-                    _gpu_flags69["EngineConfig.onnxruntime.use_cuda"] = True
-                    # v1.14.96-speed (SRV-G phase2) — CUDA EP options برایِ
-                    # سشن‌هایِ OCR هم (فقط وقتی مسیرِ GPU فعال است تا فال‌بکِ
-                    # CPU را آلوده نکند؛ در فال‌بک حذف می‌شود)
-                    _gpu_flags69["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_use_max_workspace"] = "1"
-                    # v1.14.98-speed (SRV-H3) — OCR هم MANGA_CUDNN_ALGO را
-                    # رعایت کند (سشن‌هایِ det/rec رویِ CUDA بدونِ
-                    # EXHAUSTIVE re-search وقتی heuristic خواسته شده)
-                    _algo_h3 = _cudnn_algo_search()
-                    if _algo_h3:
-                        _gpu_flags69["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search"] = _algo_h3
-                elif _ocr_head69 == "DmlExecutionProvider":
+                    _cuda_ok230 = False
+                    try:
+                        _detn230 = ""
+                        try:
+                            _detn230 = _det_n52
+                        except Exception:
+                            _detn230 = ""
+                        _probe_p230 = _os.path.join(_mdir or "", _detn230 or "")
+                        if _os.path.isfile(_probe_p230):
+                            _ps230 = ort.InferenceSession(
+                                _probe_p230,
+                                providers=["CUDAExecutionProvider",
+                                           "CPUExecutionProvider"])
+                            _cuda_ok230 = (
+                                _ps230.get_providers()[0]
+                                == "CUDAExecutionProvider")
+                            _ep_active230 = ",".join(_ps230.get_providers())
+                    except Exception as _pe230:
+                        _cuda_ok230 = False
+                        _ep_active230 = str(_pe230)[:90]
+                    if _cuda_ok230:
+                        _gpu_flags69["EngineConfig.onnxruntime.use_cuda"] = True
+                        # v1.14.96-speed (SRV-G phase2) — CUDA EP options برایِ
+                        # سشن‌هایِ OCR هم (فقط وقتی مسیرِ GPU فعال است تا فال‌بکِ
+                        # CPU را آلوده نکند؛ در فال‌بک حذف می‌شود)
+                        _gpu_flags69["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_use_max_workspace"] = "1"
+                        # v1.14.98-speed (SRV-H3) — OCR هم MANGA_CUDNN_ALGO را
+                        # رعایت کند (سشن‌هایِ det/rec رویِ CUDA بدونِ
+                        # EXHAUSTIVE re-search وقتی heuristic خواسته شده)
+                        _algo_h3 = _cudnn_algo_search()
+                        if _algo_h3:
+                            _gpu_flags69["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search"] = _algo_h3
+                    else:
+                        print(f"[!] CUDA در عمل لود نشد ({_ep_active230 or 'بدونِ جزئیات'}) "
+                              f"→ OCR روی CPU. راه‌حل: pip install "
+                              f"'onnxruntime-gpu[cuda,cudnn]==1.26.0'")
+                        _ocr_head69 = "CPUExecutionProvider"
+                if _ocr_head69 == "DmlExecutionProvider":
                     _gpu_flags69["EngineConfig.onnxruntime.use_dml"] = True
                 elif _ocr_head69 == "CoreMLExecutionProvider":
                     _gpu_flags69["EngineConfig.onnxruntime.use_coreml"] = True
                 if _gpu_flags69:
                     _base.update(_gpu_flags69)
                     print(f"[*] EPِ OCR: {_ocr_head69}")
+                self._ocr_ep_active = _ocr_head69
             except Exception:
                 _gpu_flags69 = {}
             try:
@@ -4829,7 +4909,10 @@ class RapidOCRBackend:
                     _p2 = {k: v for k, v in _p.items() if k not in _gpu_flags69}
                     self.engine = NewRapidOCR(params=_p2)
                 self._new_api = True
-                print(f"[+] RapidOCR (ONNX, PP-OCRv5) آماده | lang={lang} | threads={_intra_disp} | cls=خاموش")
+                _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
+                               if str(getattr(self, "_ocr_ep_active", "") or "").strip()
+                               else "")
+                print(f"[+] RapidOCR (ONNX, PP-OCRv5) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230} | cls=خاموش")
                 return
             _pb = dict(_base)
             _pb.update(_threads)
@@ -4842,7 +4925,10 @@ class RapidOCRBackend:
                 _pb2 = {k: v for k, v in _pb.items() if k not in _gpu_flags69}
                 self.engine = NewRapidOCR(params=_pb2)
             self._new_api = True
-            print(f"[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang={lang} | threads={_intra_disp} | cls=خاموش")
+            _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
+                           if str(getattr(self, "_ocr_ep_active", "") or "").strip()
+                           else "")
+            print(f"[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230} | cls=خاموش")
             return
         except Exception as e:
             import traceback as _tb
@@ -5119,8 +5205,9 @@ PROVIDER_PRESETS = {
     "gemini-openai": {
         "type": "openai",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        # v1.14.160 — gemini-2.5-flash مرده است؛ پیشفرضِ زنده
-        "default_model": "gemini-3.5-flash",
+        # v1.14.230 — gemini-3.5-flash (بدونِ Lite) دیگر در فهرستِ مدلهایِ
+        # زنده نیست → نزدیکترینِ پایدار: gemini-3.6-flash
+        "default_model": "gemini-3.6-flash",
         "env_key": "GEMINI_API_KEY",
     },
     "openai": {
@@ -5168,7 +5255,9 @@ PROVIDER_PRESETS = {
     "openrouter": {
         "type": "openai",
         "base_url": "https://openrouter.ai/api/v1",
-        "default_model": "google/gemini-2.0-flash-001",
+        # v1.14.230 — google/gemini-2.0-flash-001 سمتِ گوگل خاموش شده؛
+        # مدلِ زندهٔ فعلیِ OpenRouter: google/gemini-3.8-flash
+        "default_model": "google/gemini-3.8-flash",
         "env_key": "OPENROUTER_API_KEY",
     },
     "ollama": {
@@ -6656,8 +6745,21 @@ class MangaTranslator:
 
         if gpu is None:
             ocr_gpu = self._detect_paddle_gpu() or self._detect_torch_cuda() or _ort_has_cuda()
+            # v1.14.230 — کارتِ انویدیا هست ولی بیلدِ ORT بدونِ CUDA است
+            # (نصبِ قدیمی/دستیِ onnxruntime): دیگر «GPU پیدا نشد» نمیگوییم —
+            # وضعیتِ واقعی + راه‌حل چاپ میشود تا «گرافیک صفر درصد» معما
+            # نمانَد. بوت‌استرپ هم حالا NVIDIA را در ویندوز میبیند و
+            # onnxruntime-gpu را خودش نصب میکند.
+            try:
+                _nv230 = _nvidia_gpu_present()
+            except Exception:
+                _nv230 = False
             if ocr_gpu:
                 print("[*] GPU شناسایی شد؛ OCR روی GPU اجرا می‌شه (برای اجبار به CPU از --cpu استفاده کن).")
+            elif _nv230:
+                print("[*] کارتِ NVIDIA پیدا شد ولی onnxruntime فعلی بدونِ CUDA است "
+                      "→ OCR روی CPU. (بارِ بعدی استارت، onnxruntime-gpu خودکار "
+                      "نصب میشود؛ یا دستی: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0')")
             else:
                 print("[*] GPU پیدا نشد؛ OCR روی CPU اجرا می‌شه.")
         else:
@@ -7349,20 +7451,22 @@ class MangaTranslator:
 
     @staticmethod
     def _static_fallback_models(primary: str) -> List[str]:
-        # v1.14.160 — خواستهٔ کاربر: «مدل‌های Flash-Lite هم در چرخ باشند؛
-        # لیستِ ثابت هم یک بار آپدیت شود». مدل‌هایِ مردهٔ 2.x (مثلِ
-        # gemini-2.5-flash که از رفته) از لیست حذف شدند و Liteها اول
-        # آمدند — لیستِ ثابت فقط وقتی استفاده میشود که کشفِ زندهٔ API
-        # (SDK + REST) هیچ مدلی برنگرداند.
+        # v1.14.230 — لیستِ ثابت با مدل‌هایِ «واقعاً موجود» (نوامبر ۲۰۲۶ —
+        # مستنداتِ رسمیِ Gemini / فهرستِ models): قبلاً gemini-3.7-flash و
+        # gemini-3.5-flash (غیرِ Lite) در لیست بودند که هرگز/دیگر وجود
+        # ندارند — گزارشِ سازنده: «بعضی هاش کلا از کار افتادن فیک داده
+        # … لیستش اپدیت نیست». حالا: پایدارها (3.5-flash-lite،
+        # 3.1-flash-lite، 3.6-flash) + پرچمدارِ gemini-4-argon + previewِ
+        # 3.8-flash + اسم‌هایِ -latest. لیستِ ثابت فقط وقتی استفاده
+        # میشود که کشفِ زندهٔ API هیچ مدلی برنگرداند.
         preferred = [
-            "gemini-3.5-flash-lite",  # پیشفرضِ v1.14.147
-            "gemini-flash-lite-latest",
-            "gemini-3.1-flash-lite",
-            "gemini-flash-latest",
-            "gemini-3.8-flash",
-            "gemini-3.7-flash",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",   # پایدارِ سبک — پیشفرض
+            "gemini-flash-lite-latest",  # alias زنده
+            "gemini-3.1-flash-lite",   # پایدارِ سبک
+            "gemini-flash-latest",     # alias زنده
+            "gemini-3.6-flash",        # پایدارِ کامل
+            "gemini-4-argon",          # پرچمدارِ فعلی
+            "gemini-3.8-flash",        # preview
         ]
         cascade = [primary] if primary else []
         for m in preferred:
@@ -7528,9 +7632,25 @@ class MangaTranslator:
             return True
         if not low.startswith("gemini"):
             return True
+        # v1.14.230 — «argon» نامِ پرچمدارِ نسلِ ۴ است (بدونِ flash/pro)
+        if "argon" in low:
+            return False
         if "flash" not in low and "pro" not in low:
             return True
-
+        # v1.14.230 — مدل‌هایِ مُردهٔ نسلِ ۱/۲ (گزارشِ سازنده: «بعضی هاش
+        # کلا از کار افتادن … مثلا مدل gemini 2.5 flash وجود نداره از
+        # کجا میگیره»): سرویسِ gوگل در models.list هنوز اسمهایِ مُرده را
+        # برمیگرداند ولی generateContent رویشان 404 میدهد (تاییدِ رسمی:
+        # gemini-2.0-flash و 2.0-flash-lite خاموش؛ 2.5-flash/pro بهمرور
+        # ۱ دسامبر ۲۰۲۶). هر gemini-1.x/2.x از چرخ/لیست حذف میشود —
+        # کاربر همچنان میتواند دستی تایپ کند (allow_custom_value).
+        _m230 = re.match(r"gemini-(\d+)", low)
+        if _m230:
+            try:
+                if int(_m230.group(1)) <= 2:
+                    return True
+            except ValueError:
+                return False
         return False
 
 
@@ -17982,6 +18102,27 @@ class MangaTranslator:
         # v1.14.70 — نواحیِ صفحه نگه داشته می‌شوند تا «کامپوزِ دو-عکسی»
         # بتواند نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ متن) را بسازد.
         self._page_regions = list(regions or [])
+        # v1.14.230 — «متنِ فقط عدد/نماد دست‌نخورده بماند» (دستورِ
+        # سازنده: «ولی اگ میشد .... نره ترجمه و همچنین نباید پاک کنه
+        # هیچ دستی بهش نزنه»): ناحیه‌ای که متنِ OCRشدهاش «هیچ حرفی»
+        # ندارد ('....'، '123124'، '[] ,./???!?~') نه ترجمه میشود
+        # (فیلترِ ۲۲۹ در translate_regions) و نه پاکسازی — هنر/عدتِ
+        # صفحه دست‌نخورده میماند. ناحیهٔ «جوهرِ بی‌متن» (ocr_empty:
+        # حبابِ واقعی که OCR نخواند) همچنان پاک میشود — متنِ واقعی
+        # گم نشود.
+        _nt230 = [r for r in (regions or [])
+                  if getattr(r, "no_touch230", False)]
+        if _nt230:
+            regions = [r for r in (regions or [])
+                       if not getattr(r, "no_touch230", False)]
+            self._page_regions = list(regions)
+            try:
+                print(f"    [*] {len(_nt230)} ناحیهٔ فقط عدد/نماد "
+                      f"→ دست‌نخورده (نه ترجمه، نه پاکسازی)")
+            except Exception:
+                pass
+        if not regions:
+            return image.copy()
         # v1.14.185 — اندروید: پروفایلرِ سبکِ مرحله‌هایِ پاکسازی — هر
         # مرحله چند ثانیه میگیرد را در لاگ نشان میدهد تا کندیِ «پاکسازیِ
         # کلی یک کم طول میکشه» دقیق پیدا شود. PC هیچ چیزی چاپ نمیکند.
@@ -24747,10 +24888,14 @@ class MangaTranslator:
         # v1.14.229 — «اگ متنی عدد یا شکل بود کلا نره ترجمه»: ناحیه‌ای که
         # متنش هیچ حرفی ندارد ('123124'، './….'، '[] ,./???!?~') به مترجم
         # نمی‌رود — الکی وقتِ AI نمیگیرد؛ «hi…» حرف دارد → میرود.
+        # v1.14.230 — این نواحی دیگر پاک هم نمیشوند (no_touch230 در
+        # extract_regions_phase نشانهگذاری میشود و _clean_image_page
+        # کنارشان میگذارد) — دستورِ سازنده: «نباید پاک کنه هیچ دستی
+        # بهش نزنه».
         _keep229 = [r for r in regions if source_has_letters(r.source_text)]
         _drop229 = len(regions) - len(_keep229)
         if _drop229:
-            print(f"    [*] {_drop229} ناحیه فقط عدد/علامت → ترجمه نمیشود (فقط پاکسازی)")
+            print(f"    [*] {_drop229} ناحیه فقط عدد/علامت → دست‌نخورده (نه ترجمه، نه پاکسازی)")
             regions = _keep229
         if not regions:
             return
@@ -24958,12 +25103,21 @@ class MangaTranslator:
                 # فهرستِ بلند، مدل گرایش مییابد حبابها را مثلِ متنِ کتاب
                 # پیوسته و تحتاللفظی برگرداند — صریح ممنوع میشود.
                 + ((
+                    # v1.14.230 — این قانون دیگر فقط «فهرستِ بلند» (≥۲۵)
+                    # نیست؛ گزارشِ سازنده: «بار اولش خوب خروجی میده بار
+                    # دومش کتابی میشه همون مدل همون چیز» — در هر اندازهٔ
+                    # بچ، هر ران: حبابها جدا ترجمه میشوند و لحنِ
+                    # محاوره‌ای زنده اجباراً حفظ میشود.
                     "فهرستِ بلند است: اینها حبابهایِ دیالوگِ مانگا هستند، نه پاراگرافهایِ "
                     "یک کتاب — هر آیتم جدا و کامل ترجمه شود؛ هیچ آیتمی با آیتمِ دیگر ادغام "
                     "یا به روایتِ پیوستهٔ کتابی بازنویسی نشود؛ لحنِ محاورهایِ زنده بماند "
                     "(نه کتابی، نه تحتاللفظی، نه خلاصهسازی)؛ طولِ هر ترجمه متناسبِ متنِ "
                     "مبدأ است.\n"
-                   ) if len(work_regions) >= 25 else "")
+                   ) if len(work_regions) >= 8 else (
+                    "اینها حبابهایِ دیالوگِ مانگا هستند، نه پاراگرافِ کتاب — هر آیتم جدا و "
+                    "کامل ترجمه شود؛ لحنِ محاورهایِ زنده بماند (نه کتابی، نه "
+                    "تحتاللفظی)؛ طولِ هر ترجمه متناسبِ متنِ مبدأ است.\n"
+                   ))
                 + ((
                     "توجه ژاپنی: OCR ممکن است فوریگانا (کانای ریز تلفظ کنار کانجی) را "
                     "قاطی متن کرده باشد؛ فقط متن اصلی (کانجی + کانای درشت) معنا می‌دهد، "
@@ -26758,7 +26912,33 @@ class MangaTranslator:
         best = ("", [], -1.0, [], [], [])
         inset_used = inset if core is not crop0 else 0
         early_stop = False
+
+        # v1.14.230 — «تک‌پاسِ OCR» (دستورِ سازنده: «detector onnx مکانهایِ
+        # متن را پیدا کنه، بعد paddleocr det قسمتهای دقیق، بعد paddleocr
+        # rec استخراج کنه — هرکدام فقط یک بار … انگار دو سه بار استخراج
+        # میزنه»). پروفایلِ واقعیِ img6: ۵۹ پاسِ OCR برایِ ۹ ناحیه — ۴۰ پاسش
+        # نردبانِ واریانتها (raw→clahe→otsu→inv) بود در حالی که پاسِ اولِ
+        # raw همان ۵-۱۱ خطِ نهایی را با conf بالا خوانده بود. حالا: پاسِ
+        # اولِ (raw) اگر «خوانشِ خوب» داد — متنِ واقعی + conf ≥ ۰٫۸۰ +
+        # پوششِ جوهرِ عمودی کافی — نردبان اصلاً اجرا نمیشود (۱ پاس به‌ازایِ
+        # ناحیه). خوانشِ ضعیف/خالی → نردبان کامل مثلِ قبل (کراپِ تیره/کم-
+        # کنتراست نجاتِ خودش را دارد). پوششِ جوهر = بازهٔ عمودیِ خطهایِ
+        # یافتشده در برابرِ بازهٔ عمودیِ جوهرِ کراپ — اگر نصفِ حبابِ پر-
+        # متن ناخوانده مانده باشد، تک‌پاس قبول نمیشود.
+        _ink_rows230 = None
+        try:
+            _g230 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _med230 = float(np.median(_g230))
+            _rowink230 = ((_g230 < max(60.0, _med230 - 45.0)).mean(axis=1))
+            _rows230 = np.flatnonzero(_rowink230 > 0.02)
+            if len(_rows230) >= 4:
+                _ink_rows230 = (int(_rows230[0]), int(_rows230[-1]))
+        except Exception:
+            _ink_rows230 = None
+
+        _vi230 = -1
         for name, crop_v, sc in variants:
+            _vi230 += 1
             txt, polys, conf, entries = _run(crop_v, sc)
             if inset_used and entries:
                 polys = [p + inset_used for p in polys]
@@ -26837,6 +27017,43 @@ class MangaTranslator:
                          for e in entries if e[2] is not None])
 
             _latin_n = len(re.sub(r"[^A-Za-z]", "", txt or ""))
+            # v1.14.230 — گیتِ «تک‌پاسِ OCR»: پاسِ اولِ (raw) با خوانشِ
+            # خوب، نردبانِ clahe/otsu/inv را دور میزند (پروفایلِ img6:
+            # ۴۰ پاسِ نردبان برایِ ۹ ناحیه — اکثرشان بعد از خوانشِ
+            # موفقِ raw زده میشدند). شرطها: متنِ واقعی (لاتین ≥ ۳ یا
+            # CJK ≥ ۲) + conf ≥ ۰٫۸۰ + پوششِ عمودیِ جوهر (خطهایِ
+            # یافته ≥ ۶۰٪ بازهٔ جوهر — حبابِ نصفه‌خوانده قبول نیست).
+            if os.environ.get("MANGA_DBG_230") and _vi230 == 0:
+                print(f"    [DBG230] vi0 name={name} conf={conf:.3f} "
+                      f"latin={_latin_n} entries={len(entries)} "
+                      f"tilt={_tilted0} ink={_ink_rows230}", flush=True)
+            if (_vi230 == 0 and not _tilted0 and entries
+                    and conf >= 0.80
+                    and (_latin_n >= 3
+                         or sum(1 for _ch in (txt or "")
+                                if 0x3040 <= ord(_ch) <= 0x30FF
+                                or 0x3400 <= ord(_ch) <= 0x9FFF
+                                or 0xAC00 <= ord(_ch) <= 0xD7AF) >= 2)):
+                if os.environ.get("MANGA_DBG_230"):
+                    print(f"    [DBG230] gate-pass vi={_vi230} conf={conf:.2f} "
+                          f"latin={_latin_n} entries={len(entries)} "
+                          f"ink={_ink_rows230}", flush=True)
+                _cover_ok230 = True
+                if _ink_rows230 is not None and merged:
+                    _ys230 = [_bb_of(m[2]) for m in merged
+                              if m[2] is not None]
+                    _ys230 = [b for b in _ys230 if b is not None]
+                    if _ys230:
+                        _fy0230 = min(b[1] for b in _ys230)
+                        _fy1230 = max(b[3] for b in _ys230)
+                        _span230 = max(1.0, float(
+                            _ink_rows230[1] - _ink_rows230[0]))
+                        _cov230 = (_fy1230 - _fy0230) / _span230
+                        _cover_ok230 = _cov230 >= 0.60
+                if _cover_ok230:
+                    early_stop = True
+                    break
+
             if ((not _tilted0)
                     and ((conf >= 0.86 and _latin_n >= 8)
                          or (conf >= 0.78 and _latin_n >= 20))):
@@ -27292,6 +27509,106 @@ class MangaTranslator:
                                 _desk_blks)
             except Exception:
                 pass
+
+        # ── v1.14.230 — نجاتِ متنِ عمودی (±۹۰°): تستِ عکس‌های چرخیدهٔ
+        # ساختهشده نشان داد ≤۳۵° با deskewِ موجود درست خوانده میشود ولی
+        # ۶۰-۹۰° خراب میخوانَد (ستونهایِ عمودی به‌شکلِ خطهایِ خیلیبلندِ
+        # باریک: «OoR U' W EVER» از متنِ افقیِ چرخیده). محرک: کراپِ
+        # عمودی (h ≥ ۱٫۲×w) که یا هیچ خطی ندارد یا خطهایش «بلندتر از
+        # عرضِ کراپ»ند (نشانهٔ خوانشِ ستونی). دو پاسِ ±۹۰ (فقط همین دو؛
+        # فقط در این حالت) زده میشود و چندضلعیها به مختصاتِ صفحه
+        # برمیگردند.
+        try:
+            _latin_b230 = len(re.sub(r"[^A-Za-z]", "", best[0] or ""))
+            _tall230 = False
+            if merged:
+                _hb230 = []
+                for m_item in merged:
+                    mb = _bb_of(m_item[2])
+                    if mb is not None:
+                        _hb230.append((mb[3] - mb[1], mb[2] - mb[0]))
+                if _hb230:
+                    _mh230 = float(np.median([b[0] for b in _hb230]))
+                    _mw230 = float(np.median([b[1] for b in _hb230]))
+                    _tall230 = _mh230 > max(1.3 * _mw230, 1.15 * cw0)
+            _need90230 = (
+                cw0 >= 40 and ch0 >= 1.2 * cw0
+                and ((not merged) or _tall230
+                     or (_latin_b230 < 4 and bool(merged))))
+            # ستونِ عمودیِ واقعیِ CJK (ژاپنی/کره‌ایِ مانگا) متنِ درستِ
+            # عمودی است — چرخشِ ±۹۰ آن را خراب میکند. اگر متنِ موجودِ
+            # حروفِ CJK دارد، نجاتِ ۹۰ درجه اجرا نمیشود.
+            if _need90230 and merged:
+                _cjk_b230 = sum(
+                    1 for _ch in (best[0] or "")
+                    if 0x3040 <= ord(_ch) <= 0x30FF
+                    or 0x3400 <= ord(_ch) <= 0x9FFF
+                    or 0xAC00 <= ord(_ch) <= 0xD7AF)
+                if _cjk_b230 >= 2:
+                    _need90230 = False
+            if _need90230:
+                for _rotk230 in (cv2.ROTATE_90_CLOCKWISE,
+                                 cv2.ROTATE_90_COUNTERCLOCKWISE):
+                    try:
+                        _rot_img230 = cv2.rotate(crop0, _rotk230)
+                        _rt230, _rp230, _rc230, _re230 = _run(
+                            _rot_img230, base_scale, apply_offset=False)
+                        if not _re230:
+                            continue
+                        _keep230 = []
+                        for _e230 in (_re230 or []):
+                            if _e230[2] is None:
+                                continue
+                            _j230 = _latin_junk_line188(_e230[0]) \
+                                if _latin_lang188(self) else False
+                            if _j230:
+                                if isinstance(_j230, str):
+                                    _e230 = (_j230,) + tuple(_e230[1:])
+                                else:
+                                    continue
+                            _keep230.append(_e230)
+                        if not _keep230:
+                            continue
+                        _back230 = []
+                        for _e230 in _keep230:
+                            _pp230 = np.asarray(_e230[2], np.float32).reshape(-1, 2)
+                            if _rotk230 == cv2.ROTATE_90_CLOCKWISE:
+                                # (x',y') → (x,y) = (y', ch0-1-x')
+                                _bx230 = _pp230[:, 1].copy()
+                                _by230 = (ch0 - 1.0) - _pp230[:, 0]
+                            else:
+                                # (x',y') → (x,y) = (cw0-1-y', x')
+                                _bx230 = (cw0 - 1.0) - _pp230[:, 1]
+                                _by230 = _pp230[:, 0].copy()
+                            _bp230 = np.stack(
+                                [_bx230 + x1, _by230 + y1], axis=1)
+                            if inset_used:
+                                _bp230 += float(inset_used)
+                            _back230.append(np.rint(_bp230).astype(np.int32))
+                        _btxt230 = " ".join(str(e[0]) for e in _keep230).strip()
+                        _bconf230 = float(np.mean([e[1] for e in _keep230]))
+                        _scv230 = _score(_btxt230, _bconf230)
+                        _bl230 = len(re.sub(r"[^A-Za-z]", "", _btxt230))
+                        if _scv230 > best[2] and _bl230 >= _latin_b230:
+                            _bangs230 = []
+                            for _bp230 in _back230:
+                                try:
+                                    _bangs230.append(float(
+                                        MangaTranslator._poly_long_side_angle(_bp230)))
+                                except Exception:
+                                    _bangs230.append(0.0)
+                            best = (_btxt230, _back230, _scv230, _bangs230,
+                                    [str(e[0]) for e in _keep230],
+                                    [(int(e[4]) if len(e) > 4 else -1)
+                                     for e in _keep230])
+                            if self.debug:
+                                print(f"    [🔍230] نجاتِ ±۹۰°: "
+                                      f"{_btxt230[:60]!r}")
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            pass
 
         return (best[0], best[1], (best[3] if len(best) > 3 else []),
                 (best[4] if len(best) > 4 else []),
@@ -28234,6 +28551,51 @@ class MangaTranslator:
                 except Exception:
                     _gink = 0.0
                 if 0.008 <= _gink <= 0.50:
+                    # v1.14.230 — گاردِ «نقطه/نمادِ بی‌متن»: اگر جوهرِ
+                    # ناحیه فقط چند لکهٔ ریز است (مثلِ «....» که det خطی
+                    # برایش نمیسازد؛ بزرگترین مؤلفهٔ جوهر < ۱۸٪ بلندیِ
+                    # کراپ و ≤۱۰ مؤلفه)، دیگر «متنِ ناخوانده» حساب
+                    # نمیشود و دست‌نخورده میمانَد (دستورِ سازنده:
+                    # «نباید پاک کنه هیچ دستی بهش نزنه»). متنِ واقعیِ
+                    # ناخوانده (دست‌خط/فونتِ عجیب) حروفِ بزرگ دارد و
+                    # از این گارد رد میشود.
+                    _dots230 = False
+                    try:
+                        _gx1, _gy1 = max(0, int(x1)), max(0, int(y1))
+                        _gx2 = min(image.shape[1], int(x2))
+                        _gy2 = min(image.shape[0], int(y2))
+                        _gc2 = image[_gy1:_gy2, _gx1:_gx2]
+                        _gg2 = cv2.cvtColor(_gc2, cv2.COLOR_BGR2GRAY)
+                        _gm2 = float(np.median(_gg2))
+                        _mk2 = ((_gg2 < max(60.0, _gm2 - 45.0))
+                                .astype(np.uint8))
+                        _nl2, _l2, _st2, _c2 = cv2.connectedComponentsWithStats(
+                            _mk2, connectivity=8)
+                        _ncomp2 = 0
+                        _maxh2 = 0.0
+                        for _ci2 in range(1, _nl2):
+                            _a2 = float(_st2[_ci2, cv2.CC_STAT_AREA])
+                            if _a2 < 6:
+                                continue
+                            _w2 = float(_st2[_ci2, cv2.CC_STAT_WIDTH])
+                            _h2 = float(_st2[_ci2, cv2.CC_STAT_HEIGHT])
+                            # خطِ نازکِ دورِ حباب (حلقهٔ بیضی، fill کم) حساب
+                            # نمیشود — فقط محتوای توپُر (نقطه/حرف)
+                            if _w2 * _h2 > 0 and \
+                                    _a2 / (_w2 * _h2) < 0.22:
+                                continue
+                            _ncomp2 += 1
+                            _maxh2 = max(_maxh2, _h2)
+                        if _ncomp2 <= 10 and \
+                                _maxh2 < 0.18 * max(1, _gy2 - _gy1):
+                            _dots230 = True
+                    except Exception:
+                        _dots230 = False
+                    if _dots230:
+                        if self.debug:
+                            print(f"    [*] Region [{i}] جوهرِ نقطه/نمادِ "
+                                  f"ریز است → دست‌نخورده")
+                        continue
                     _epoly = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
                                       dtype=np.int32)
                     regions.append(TextRegion(
@@ -28711,6 +29073,12 @@ class MangaTranslator:
             pass
         rescued: List[TextRegion] = []
         _seen_bands: List[Tuple[int, int, int, int]] = []
+        # v1.14.230 — بودجهٔ پاسهایِ OCRِ یتیم: حداکثرِ ۲ پاس به‌ازایِ هر
+        # ناحیهٔ والد (پروفایلِ img6: ۳۵ پاسِ تقریباً بی‌نتیجه). وقتیِ هنر
+        # از همهٔ گاردها رد شود، این سقف جلویِ «دومین استخراجِ کاملِ صفحه»
+        # را میگیرد؛ خطِ یتیمِ واقعی (≥۶ حرفِ خوانا) تقریباً همیشه در
+        # پاسهایِ اولِ همان ناحیه پیدا میشود.
+        _orphan_budget230 = max(12, 2 * len(parents))
         for r in parents:
             try:
                 x, y, rw_, rh_ = [int(v) for v in r.rect]
@@ -28804,6 +29172,44 @@ class MangaTranslator:
                     _sub = ink[_r0:_r1, :]
                     if float(_sub.mean()) > 0.55:
                         continue
+                    # v1.14.230 — گیتِ «حرف‌مانندی» پیش از OCR: پروفایلِ
+                    # img6 نشان داد پاسهایِ یتیم گرانترین بخشِ استخراج
+                    # بعد از نردبان‌اند (~۳۵ فراخوانیِ OCR که تقریباً همه‌اش
+                    # هنر/کادر/بافت بود و ۰ خط داد — حسِ «دوبار استخراج
+                    # میزنه»). متنِ واقعی ≥۵ مؤلفهٔ پیوستهٔ حرف‌اندازه دارد
+                    # (هر حرف ~۱ مؤلفه)؛ خطِ کادر/هنر ۱-۲ مؤلفهٔ عظیم یا
+                    # خرده‌نویزهایِ ریز دارد. cv2.connectedComponents ~۱ms
+                    # است در برابرِ ~۱.۳s هر پاسِ OCR.
+                    try:
+                        _nlab230, _labs230, _stat230, _cent230 = \
+                            cv2.connectedComponentsWithStats(
+                                _sub.astype(np.uint8), connectivity=8)
+                        _letters230 = 0
+                        _bots230: List[int] = []
+                        for _li230 in range(1, _nlab230):
+                            _sx230, _sy230, _sw230, _sh230, _sa230 = \
+                                _stat230[_li230]
+                            if _sa230 < 8:
+                                continue
+                            if not (3 <= _sh230 <= max(12.0, lh * 1.6)):
+                                continue
+                            if _sw230 <= max(14.0, lh * 1.2):
+                                _letters230 += 1
+                                _bots230.append(int(_sy230 + _sh230))
+                            elif _sw230 <= max(30.0, lh * 3.5):
+                                _letters230 += 2  # حروفِ چسبیده (فونتِ ضخیم)
+                                _bots230.append(int(_sy230 + _sh230))
+                        if _letters230 < 5:
+                            continue
+                        # v1.14.230 — هم‌ترازیِ بیس‌لاین: حروفِ یک خطِ واقعی
+                        # پایینِ تقریباً یکسان دارند (واریانسِ کوچک)؛ لکهها/
+                        # بافتهایِ هنریِ حرف‌اندازه به‌طورِ تصادفی پخش‌اند.
+                        if len(_bots230) >= 5:
+                            _bstd230 = float(np.std(_bots230))
+                            if _bstd230 > max(6.0, 0.45 * lh):
+                                continue
+                    except Exception:
+                        pass
                     try:
                         _ys, _xs = np.nonzero(_sub)
                     except Exception:
@@ -28917,10 +29323,13 @@ class MangaTranslator:
                                 continue
                     except Exception:
                         pass
+                    if _orphan_budget230 <= 0:
+                        continue
                     try:
                         _oc = self._ocr_crop(
                             image, (max(0, gx0 - 6), max(0, gy0 - 6),
                                     min(w_img, gx1 + 6), min(h_img, gy1 + 6)))
+                        _orphan_budget230 -= 1
                         _txt = (_oc[0] or "").strip()
                         _polys = list(_oc[1] or []) if len(_oc) > 1 else []
                     except Exception:
@@ -29252,6 +29661,23 @@ class MangaTranslator:
             pass
         _raise_if_stop()
 
+        # v1.14.230 — نشانه‌گذاریِ «فقط عدد/نماد» برایِ همهٔ فازها:
+        # متنِ بدونِ هیچ حرف ('....'، '123124') نه ترجمه میشود نه
+        # پاکسازی (فیلترِ ۲۲۹ فقط ترجمه را میبست؛ پاکسازی میماند و
+        # هنرِ عدد/نقطه را پاک میکرد — دستورِ سازنده: «نباید پاک کنه
+        # هیچ دستی بهش نزنه»). «hi...» حرف دارد → کاملاً عادی.
+        _nt_n230 = 0
+        for _r230 in unique_regions:
+            _t230 = (_r230.source_text or "").strip()
+            if _t230 and not source_has_letters(_t230):
+                _r230.no_touch230 = True
+                _nt_n230 += 1
+            else:
+                _r230.no_touch230 = False
+        if _nt_n230:
+            print(f"[*] {_nt_n230} ناحیهٔ فقط عدد/نماد → دست‌نخورده "
+                  f"(نه ترجمه، نه پاکسازی)")
+
         # v1.14.70 — پاکسازیِ SFX: افکتِ صوتی/متنِ استایل‌دارِ بیرونِ حباب
         # فقط وقتی --clean-sfx یا MANGA_CLEAN_SFX=1 (پیش‌فرض: SFX هنر
         # است و دست‌نخورده می‌ماند)
@@ -29523,7 +29949,12 @@ class MangaTranslator:
                             _pad_w // 2, _pad_w - _pad_w // 2,
                             cv2.BORDER_REPLICATE)
                     _txt = ""
+                    # v1.14.230 — کاندیدِ خالی گران است (پروفایلِ img6: ۸
+                    # پاسِ OCR رویِ ۴ لکهٔ هنریِ بی‌متن). اگر در زومِ ۳
+                    # هیچ متنی نبود (هر دو واریانت)، زومِ ۲ هم نمیآید —
+                    # متنِ واقعیِ بنر در زومِ ۳ پیدا میشود.
                     for _zm in (3, 2):
+                        _zm_empty230 = True
                         _big = cv2.resize(
                             crop, (crop.shape[1] * _zm,
                                    crop.shape[0] * _zm),
@@ -29563,12 +29994,15 @@ class MangaTranslator:
                             _txt = " ".join(_txts)
                             if _txt:
                                 out["nonempty"] = True
+                                _zm_empty230 = False
                             else:
                                 out["empty"] += 1
                             if self._is_watermark_text(_txt):
                                 break
                             if _txt:
                                 break
+                        if _zm_empty230 and _zm == 3:
+                            break  # v1.14.230 — زومِ ۲ هم خالی می‌مانَد
                     if _txt and self._is_watermark_text(_txt):
                         out["found"] = True
                         out["txt"] = _txt
@@ -30585,7 +31019,8 @@ class MangaTranslator:
         return out_file
 
     @staticmethod
-    def _download_images_from_url(url: str, dest_dir: str) -> List[str]:
+    def _download_images_from_url(url: str, dest_dir: str,
+                                  shared_seen: Optional[set] = None) -> List[str]:
         import requests
         from bs4 import BeautifulSoup
         from urllib.parse import urljoin, urlparse
@@ -30603,6 +31038,8 @@ class MangaTranslator:
             "Referer": url,
         }
         url = MangaTranslator._normalize_image_url(url)
+
+        use_numeric_sort = False  # v1.14.230 — پیش از تعریفِ _save_bytes (مسیرِ عکسِ مستقیم هم اینجا میگذرد)
 
         def _save_bytes(content: bytes, index: int, hint_url: str = "") -> Optional[str]:
             ext = os.path.splitext(urlparse(hint_url or url).path)[1].lower()
@@ -30629,6 +31066,14 @@ class MangaTranslator:
             _base = os.path.splitext(os.path.basename(urlparse(hint_url or url).path))[0]
             _base = re.sub(r'[\\/:*?"<>|]+', "_", _base).strip("._ ")[:80]
             _stem = _base or f"page_{index:03d}"
+            # v1.14.230 — اسمهایِ بدونِ شماره (هشِ تصادفی مثل 888746.webp)
+            # در هر سورتی (نیچرال/الفبایی) ترتیبِ صفحه را بهم میریزند —
+            # حتی در رزومِ همان فصل. وقتی دستهٔ صفحهها شمارهٔ ترتیبیِ
+            # قابلِ اتکا ندارد (use_numeric_sort=False)، شمارهٔ ترتیبِ
+            # دانلود (HTML) به ابتدایِ نام میچسبد: 001_888746.webp
+            # → هر سورتی ترتیبِ واقعی را حفظ میکند.
+            if (not use_numeric_sort) and _base:
+                _stem = f"{index:03d}_{_base}"
             out_file = os.path.join(dest_dir, f"{_stem}{ext}")
             _k = 2
             while os.path.exists(out_file):
@@ -30772,6 +31217,22 @@ class MangaTranslator:
             print(f"    [*] مرتب‌سازی عددی صفحات ({len(img_urls)} تصویر).")
         else:
             print(f"    [*] ترتیب HTML حفظ شد ({len(img_urls)} تصویر، بدون شماره ترتیبی).")
+
+        # v1.14.230 — داراییِ مشترکِ سری (کاور/بنرِ تکراریِ بالای هر صفحهٔ
+        # فصل): وقتی چند لینکِ فصل پشتِ سرِ هم دانلود میشوند، هر URL که
+        # فصلِ قبلی دانلودش کرده (= عکسِ سطحِ سری، نه صفحهٔ فصل) رد
+        # میشود — گزارشِ سازنده: «وقتی دوتا لینک میدم ترتیب بندی عکس
+        # ها بهم میریزه». نامها هم (بالا) شمارهٔ ترتیب گرفتند تا سورتِ
+        # نهاییِ فصلها (01_001_ … 02_001_ …) هرگز بهم نریزد.
+        if shared_seen is not None and img_urls:
+            _b230 = len(img_urls)
+            img_urls = [u for u in img_urls
+                        if u.split("?")[0].lower() not in shared_seen]
+            if _b230 > len(img_urls):
+                print(f"    [*] {_b230 - len(img_urls)} تصویر مشترک با فصلِ "
+                      f"قبلی (کاور/بنرِ سری) رد شد.")
+            for u in img_urls:
+                shared_seen.add(u.split("?")[0].lower())
 
         # v1.14.203 — دانلودِ موازیِ صفحات (~۸۹ثانیه → چندثانیه): علتِ کندی،
         # دانلودِ پشتسرهم با هندشیکِ TLSِ جدا برایِ هر صفحه بود. حالا یک
@@ -32188,6 +32649,11 @@ html, body { background: #0a0a0b; }
                       f"بعد استخراج/پاکسازی/ترجمهٔ یک‌جا…")
                 os.makedirs(src_dir, exist_ok=True)
                 image_files = []
+                # v1.14.230 — حافظهٔ URLهایِ دانلودشده بینِ فصلها: کاور/
+                # بنرِ مشترکِ سری فقط در فصلِ اول میآید (ردِ خودکار در
+                # بقیه) و نامها شمارهٔ «فصل + صفحه» میگیرند تا سورتِ
+                # نهایی هرگز ترتیب را بهم نریزد.
+                _seen_ch230: set = set()
                 for i, url in enumerate(urls, 1):
                     if stop_requested():
                         raise JobCancelled("لغو توسط کاربر")
@@ -32195,7 +32661,8 @@ html, body { background: #0a0a0b; }
                     print(f"[دانلود {i}/{len(urls)}] {url}")
                     print(f"{'='*60}")
                     try:
-                        files_i = self._download_images_from_url(url, src_dir)
+                        files_i = self._download_images_from_url(
+                            url, src_dir, shared_seen=_seen_ch230)
                     except Exception as e:
                         print(f"[!] دانلود لینک {i} ناموفق: {str(e)[:120]}")
                         files_i = []
@@ -32204,8 +32671,11 @@ html, body { background: #0a0a0b; }
                         continue
                     # پیشوندِ «01_ / 02_ / …» تا ترتیبِ فصل‌ها در سورتِ
                     # نیچرال حفظ شود (فایلِ هم‌نامِ فصل‌ها تضمینی است!)
+                    # v1.14.230 — شمارهٔ «صفحه» هم کنارِ شمارهٔ فصل میآید
+                    # (01_001_x / 02_001_x): اسمهایِ هشِ تصادفیِ asura در
+                    # سورت درون‌فصلی بهم میریختند.
                     for j, fsrc in enumerate(files_i, 1):
-                        _nb = f"{i:02d}_" + os.path.splitext(os.path.basename(fsrc))[0]
+                        _nb = f"{i:02d}_{j:03d}_" + os.path.splitext(os.path.basename(fsrc))[0]
                         _nb = re.sub(r'[\\/:*?"<>|]+', "_", _nb).strip("._ ")[:100] \
                             or f"link{i:02d}_page_{j:03d}"
                         _ext = os.path.splitext(fsrc)[1].lower() or ".jpg"
