@@ -1,10 +1,10 @@
 # مترجم خودکار مانگا / مانهوا (فارسی)
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/amirwolf512k/Manga-AutoTranslate/blob/main/Manga_Translator_Colab.ipynb)
+[![Open In marimo](https://marimo.io/shield.svg)](https://molab.marimo.io/github/amirwolf512k/Manga-AutoTranslate/blob/main/Manga-AutoTranslate.py/server)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[DEMO](https://demo--amrie194sm.replit.app/)
 
 ![app](https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/refs/heads/main/examples/app.jpg)
 
