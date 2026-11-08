@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.234"
+APP_VER = "1.14.235"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -4131,9 +4131,23 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # خروجیِ قدیمی (باگ‌دار) برمیگشت. حالا هر اجرایِ آپلودی
             # پوشهٔ خروجی را از نو پاک میکند = هر تست واقعاً از صفر
             # اجرا میشود.
+            # v1.14.235 — فیکسِ «فایلِ محلیِ عکس میدم ارور میده» (No
+            # connection adapters): این پاک‌سازی «همهٔ» زیرپوشه‌های
+            # user_out_dir را برمیداشت — از جمله input_batch که فایلهایِ
+            # ورودیِ «همین» اجرا چند خط بالاتر در آن کپی شده بودند!
+            # موتور بعداً مسیرها را «نبود» میدید → C:\… به requests
+            # سپرده میشد → «No connection adapters were found for
+            # 'C:\…\file_001.jpg'» → «هیچ تصویری دانلود نشد».
+            # input_batch از پاک‌سازی مستثنی شد — در هر اجرا فقط وقتی
+            # آپلودِ چندفایلی باشد از نو ساخته میشود، پس محتوایش همیشه
+            # تازه است و کشِ کهنه در آن معنا ندارد؛ بقیهٔ زیرپوشه‌ها
+            # (کشِ resume/خروجی/…) مثل قبل کامل پاک میشوند = v1.14.210
+            # سرِ جایش میماند.
             if up_files or (_prev_src and _prev_src != str(src)):
                 try:
                     for _n in os.listdir(user_out_dir):
+                        if _n == "input_batch":
+                            continue
                         _p = os.path.join(user_out_dir, _n)
                         if os.path.isdir(_p):
                             shutil.rmtree(_p, ignore_errors=True)

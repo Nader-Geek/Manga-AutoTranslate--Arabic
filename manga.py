@@ -33219,6 +33219,19 @@ html, body { background: #0a0a0b; }
                             image_files.append(out_file)
                             print(f"    [+] {i}/{len(urls)} فایل محلی کپی شد")
                             continue
+                        # v1.14.235 — مسیرِ محلیِ موجود-نبود: پیامِ روشن
+                        # به‌جای خطای گیج‌کنندهٔ requests («No connection
+                        # adapters were found for 'C:\…'») — درایوِ
+                        # ویندوزی، UNC یا مسیرِ مطلقِ یونیکس هرگز URL نیست.
+                        # (ریشهٔ واقعیِ این حالت در manga_app.py فیکس شد:
+                        # پاک‌سازیِ استارت، input_batch را هم پاک میکرد.)
+                        if (re.match(r"^[A-Za-z]:[\\/]", u)
+                                or u.startswith("\\\\")
+                                or (u.startswith("/")
+                                    and not u.lower().startswith("//"))):
+                            print(f"    [!] فایلِ محلی پیدا نشد: {_lp[:140]}",
+                                  file=sys.stderr)
+                            continue
                         u = self._normalize_image_url(u)
                         r = _req.get(u, headers=headers, timeout=60)
                         r.raise_for_status()
