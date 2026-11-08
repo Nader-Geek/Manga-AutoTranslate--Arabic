@@ -247,7 +247,6 @@ bash manga.sh
 
 لینک عمومی `gradio.live` خودکار چاپ می‌شود. ⚠ هر دو فایل `manga.py` (مترجم) و `manga_app.py` (برنامه) باید کنار هم باشند.
 
-https://molab.marimo.io/notebooks/nb_crU9uichW6qU3VgLcfqW5m
 ### 3) GitHub Codespaces
 
 ```bash
