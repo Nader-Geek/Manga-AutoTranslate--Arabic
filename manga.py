@@ -7720,6 +7720,7 @@ class MangaTranslator:
             else:
                 final_image = image.copy()
                 print("  - لا توجد منطقة للمسح.")
+            self._typer_cleaned = final_image
             return final_image, page_debug
 
         if skip_translate:
@@ -7763,10 +7764,12 @@ class MangaTranslator:
         if translated_regions:
             cleaned_image = precleaned if precleaned is not None else self.clean_image(
                 image, translated_regions)
+            self._typer_cleaned = cleaned_image
             final_image = self.render_translations(cleaned_image, translated_regions, raw_image_copy)
             print("  - اكتمل تنظيف النص + الرسم بالعربية.")
         else:
             final_image = precleaned.copy() if precleaned is not None else image.copy()
+            self._typer_cleaned = final_image
             print("  - لا توجد ترجمة؛ الصورة دون تغيير.")
         return final_image, page_debug
 
@@ -8331,6 +8334,75 @@ class MangaTranslator:
         with zipfile.ZipFile(out_path, "w", zipfile.ZIP_STORED) as zf:
             for name in sorted(os.listdir(folder), key=MangaTranslator._natural_sort_key):
                 zf.write(os.path.join(folder, name), arcname=name)
+
+    # ---------------------------------------------------------------- TypeR export
+    def _typer_export_page(self, page_i: int, out_file: str, regions: List["TextRegion"],
+                           cleaned: Optional[np.ndarray]) -> None:
+        """Keep the text-erased page (PNG, nothing drawn on it) and its regions for TypeR."""
+        d = getattr(self, "typer_export_dir", None)
+        if not d or cleaned is None:
+            return
+        try:
+            os.makedirs(d, exist_ok=True)
+            name = f"page_{page_i + 1:03d}.png"
+            if not cv2.imwrite(os.path.join(d, name), cleaned):
+                raise RuntimeError("cv2.imwrite failed")
+            h, w = cleaned.shape[:2]
+            items = []
+            for r in regions:
+                x, y, rw, rh = [int(v) for v in r.rect]
+                polys = []
+                for b in (r.boxes or []):
+                    try:
+                        polys.append(np.asarray(b).reshape(-1, 2).round().astype(int).tolist())
+                    except Exception:
+                        pass
+                items.append({
+                    "id": int(r.id),
+                    "kind": r.kind,
+                    "det_class": r.det_class,
+                    "rect": [x, y, rw, rh],
+                    "angle": float(r.angle or 0.0),
+                    "tone": getattr(r, "bubble_style", "") or "",
+                    "source": r.source_text or "",
+                    "text": r.translated_text or "",
+                    "polys": polys,
+                })
+            if not hasattr(self, "_typer_pages"):
+                self._typer_pages = {}
+            self._typer_pages[page_i] = {
+                "index": page_i, "file": name, "width": int(w), "height": int(h),
+                "origin": os.path.basename(out_file), "regions": items,
+            }
+        except Exception as e:
+            print(f"    [!] تصدير TypeR للصفحة #{page_i + 1} فشل: {e}")
+
+    def _typer_finalize(self) -> None:
+        d = getattr(self, "typer_export_dir", None)
+        pages = getattr(self, "_typer_pages", None)
+        if not d or not pages:
+            return
+        import json as _json
+        ordered = [pages[i] for i in sorted(pages)]
+        job = {
+            "format": "manga-autotranslate/typer-job", "version": 1,
+            "reading_order": getattr(self, "reading_order", "rtl"),
+            "target_lang": os.environ.get("MANGA_TARGET_LANG", "ar"),
+            "translated": any(r["text"] for pg in ordered for r in pg["regions"]),
+            "pages": ordered,
+        }
+        with open(os.path.join(d, "typer_job.json"), "w", encoding="utf-8") as f:
+            _json.dump(job, f, ensure_ascii=False, indent=1)
+        zip_path = os.path.abspath(d.rstrip("/\\")) + ".zip"
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as z:
+                z.write(os.path.join(d, "typer_job.json"), "typer_job.json")
+                for pg in ordered:
+                    z.write(os.path.join(d, pg["file"]), pg["file"])
+            print(f"[✓] تصدير TypeR: {len(ordered)} صفحة → {zip_path}")
+        except Exception as e:
+            print(f"    [!] تعذّر إنشاء zip لـ TypeR: {e}")
+            print(f"[✓] تصدير TypeR (مجلد): {d}")
 
     def _save_as_psd(self, image_paths_in_order: List[str], out_path: str) -> None:
         
@@ -9439,10 +9511,15 @@ html, body { background: #0a0a0b; }
                     return
                 if not regions:
                     results_by_i[page_i] = (out_file, image, dbg)
+                    self._typer_export_page(page_i, out_file, [], image)
                     return
+                self._typer_cleaned = None
                 result, page_debug = self.finish_page_phase(
                     image, regions, skip_translate=True, precleaned=precleaned
                 )
+                self._typer_export_page(
+                    page_i, out_file, regions,
+                    self._typer_cleaned if self._typer_cleaned is not None else result)
                 dbg_out = page_debug if page_debug is not None else dbg
                 try:
                     self._write_image(result, out_file)
@@ -9591,6 +9668,7 @@ html, body { background: #0a0a0b; }
         except Exception:
             pass
 
+        self._typer_finalize()
         print("[*] الحفظ النهائي للمخرجات...", flush=True)
         debug_files = []
         for page_i in sorted(results_by_i.keys()):
@@ -9996,6 +10074,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--fake-translate", action="store_true",
                    help="وضع الاختبار: بدلًا من API يُعرض نص عربي عشوائي داخل الفقاعات "
                         "(للتحقق من الاستخراج/المسح/العرض بدون مفتاح API)")
+    p.add_argument("--export-typer", default=None, metavar="DIR",
+                   help="تصدير للاستيراد في TypeR Web: صفحات منظّفة (PNG) + typer_job.json "
+                        "(إحداثيات الفقاعات والنصوص) في المجلد DIR وملف DIR.zip. "
+                        "للترجمة الجاهزة استخدمه مع --clean-only (بلا API)")
     p.add_argument("--clean-only", action="store_true",
                    help="مسح النص فقط (inpaint) بدون ترجمة وبدون عرض عربي — "
                         "لاختبار اكتشاف الفقاعات/المسح؛ لا حاجة لمفتاح API")
@@ -10222,6 +10304,10 @@ def main():
         else:
             print(f"[*] النبرات المفعّلة (حسب الخط): {', '.join(sorted(auto_tones))}")
 
+    if getattr(args, "export_typer", None):
+        translator.typer_export_dir = os.path.abspath(args.export_typer)
+        args.no_resume = True   # every page must be processed to be exported
+        print(f"[*] --export-typer → {translator.typer_export_dir} (بدون استئناف من الكاش)")
     translator.run(
         args.input,
         output_path,

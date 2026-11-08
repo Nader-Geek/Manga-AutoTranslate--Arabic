@@ -40,3 +40,9 @@ python manga.py -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf \
 - لو عندك ملف إعدادات قديم من النسخة الفارسية (config)، احذفه لتجنب قيم قديمة مثل خيار الإخراج «پوشهٔ تصاویر».
 - لم أجرّب الواجهة الرسومية/الويب فعلياً بعد الترجمة (تحققت بالـ compile ومقارنة بنية الكود وأن النصوص التي يعتمد عليها الـ JS متطابقة).
 - لم أجرّب التشغيل الكامل على صفحات حقيقية (لا يوجد GPU/Ollama في بيئتي)؛ اختبرت البرومبت واختيار اللغة والرسم العربي بالخط ومسار الـ CLI.
+
+## التكامل مع TypeR Web (تنظيف + كشف هنا، والكتابة هناك)
+```
+python manga.py -i pages -o out.pdf --clean-only --export-typer job --provider ollama --target-lang ar --cpu
+```
+ينتج `job/` و`job.zip` (صفحات منظّفة + `typer_job.json` بإحداثيات الفقاعات). ثم في TypeR Web (فرع `autoplace-manga-autotranslate` من `Nader-Geek/TypeRN-Web`): **File ▸ Auto-place from Manga-AutoTranslate…** والصق سكربت الترجمة الجاهز. التفاصيل في `AUTOPLACE_AR.md` هناك.
