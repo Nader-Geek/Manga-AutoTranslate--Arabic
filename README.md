@@ -230,7 +230,7 @@ python manga_app.py -- -i input -o out.psd --font fonts/Vazirmatn-Bold.ttf --api
 
 ---
 
-## چهار روش اجرا
+## پنج روش اجرا
 
 ### ۱) Google Colab (پیشنهادی)
 
@@ -242,7 +242,19 @@ python manga_app.py -- -i input -o out.psd --font fonts/Vazirmatn-Bold.ttf --api
 
 لینک عمومی `gradio.live` خودکار چاپ می‌شود. ⚠ هر دو فایل `manga.py` (مترجم) و `manga_app.py` (برنامه) باید کنار هم باشند.
 
-### ۲) GitHub Codespaces
+
+### 2) Google Colab (پیشنهادی)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/amirwolf512k/Manga-AutoTranslate/blob/main/Manga_Translator_Colab.ipynb)
+
+```bash
+!bash manga.sh
+```
+
+لینک عمومی `gradio.live` خودکار چاپ می‌شود. ⚠ هر دو فایل `manga.py` (مترجم) و `manga_app.py` (برنامه) باید کنار هم باشند.
+
+https://molab.marimo.io/notebooks/nb_crU9uichW6qU3VgLcfqW5m
+### 3) GitHub Codespaces
 
 ```bash
 bash manga.sh
@@ -255,21 +267,17 @@ tmux new -s manga 'python3 manga_app.py --web'
 # detach: Ctrl+B بعد D | بازگشت: tmux attach -t manga
 ```
 
-### ۳) GitHub Actions
+### 4) GitHub Actions
 
-ریپو را Fork کن.  
-در Settings → Secrets and variables → Actions کلید را بگذار:  
-`GEMINI` / `OPENAI` / `DEEPSEEK` / `GROQ` / `XAI` / `OPENROUTER` / `TOGETHER`  
-یا یک Secret عمومی به نام `API`.
+ریپو را Fork کن.
 
 از تب Actions یکی از دو ورک‌فلو را Run کن:
 
 - **Manga Web (موقت)** — رابط وب با لینک gradio.live در لاگ؛ بعد از زمان تعیین‌شده خاموش می‌شود؛ خروجی را قبل از خاموش شدن از UI دانلود کن
-- **Manga CLI (ترجمه یک‌باره)** — لینک فصل را وارد کن؛ بعد از اتمام، خروجی را از Artifacts دانلود کن
 
 Runnerهای GitHub معمولاً GPU ندارند؛ اجرا روی CPU است و برای batch/CLI مناسب‌تر است. وب فقط موقت است و لینک دائمی نمی‌دهد.
 
-### ۴) اجرای لوکال
+### 5) اجرای لوکال
 
 ```bash
 git clone https://github.com/amirwolf512k/Manga-AutoTranslate.git
