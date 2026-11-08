@@ -229,6 +229,14 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 
+# v1.14.232 — باگِ تاریخی: `import platform as _platform` فقط داخلِ
+# _ensure_all_dependencies بود (محدودهٔ محلیِ تابع) ولی _nvidia_gpu_present
+# و _directx_gpu_present آن را در scopeِ ماژول میخوانند → NameError —
+# یعنی تشخیصِ DirectMLِ ویندوز هیچ‌وقت اجرا نمیشد (و رویِ ویندوزِ
+# بدونِ NVIDIA/DML کلِ بوت‌استرپ میمرد). حالا در سطحِ ماژول.
+import platform as _platform
+
+
 def _pip_install(*packages: str) -> bool:
     if not packages:
         return True
@@ -306,33 +314,88 @@ def _nvidia_gpu_present() -> bool:
     return False
 
 
+_DIRECTX_GPU_CACHE = None  # None = هنوز پروب نشده؛ True/False = کشِ نتیجه
+
+
 def _directx_gpu_present() -> bool:
-    """v1.14.75 — هر GPU-capable (AMD/Intel/графیکِ یکپارچه) رویِ ویندوز:
-    برایِ DirectML. فقط ویندوز؛ لینوکس DirectML ندارد."""
+    """v1.14.75 — هر GPU-capable (AMD/Intel/گرافیکِ یکپارچه) رویِ ویندوز:
+    برایِ DirectML. فقط ویندوز؛ لینوکس DirectML ندارد.
+    v1.14.232 — گزارشِ سازنده: «تا الان ندیدم از gpu استفاده کنه» با
+    RX 5700 XT — ریشه: wmic در ویندوزهایِ جدید (۲۴H۲+) حذف/خالی است و
+    پاورشل هم گاهی جوابِ خالی میداد → تشخیصِ «GPU ویندوزی» False میشد و
+    onnxruntime-directml هیچ‌وقت نصب نمیشد. حالا ۴ روشِ مستقل به‌ترتیب
+    امتحان میشوند و اگر «هر کدام» نامِ یک کارتِ گرافیک بدهد کافی است:
+    (۱) wmic، (۲) پاورشلِ Get-CimInstance، (۳) پاورشلِ Get-PnpDevice،
+    (۴) رجیستریِ کلاسِ Display (بدونِ WMI — سریع‌ترین و مطمئن‌ترین).
+    نتیجه در حافظهٔ ماژول کش میشود (پروبِ مکررِ کند حذف شد)."""
+    global _DIRECTX_GPU_CACHE
+    if _DIRECTX_GPU_CACHE is not None:
+        return _DIRECTX_GPU_CACHE
     if _platform.system().lower() != "windows":
+        _DIRECTX_GPU_CACHE = False
         return False
+
+    def _names_to_bool(txt: str, have_header: bool) -> bool:
+        low = (txt or "").lower()
+        if not low.strip():
+            return False
+        hit = any(t in low for t in ("gpu", "radeon", "nvidia", "geforce",
+                                     "intel", "arc", "graphics", "display"))
+        if hit:
+            return True
+        # خروجیِ فقط-سرستون (wmicِ ویندوزهایِ خراب) → None = نامشخص
+        return bool(have_header and "videocontroller" in low)
+
+    # (۱) wmic — در ویندوزهایِ قدیمی سریع است
     try:
         r = subprocess.run(
             ["wmic", "path", "win32_VideoController", "get", "name"],
             capture_output=True, text=True, timeout=10)
-        if r.returncode != 0:
-            raise RuntimeError
-        names = (r.stdout or "").lower()
-        if "videocontroller" not in names:
-            return True if "gpu" in names or "radeon" in names or \
-                "nvidia" in names or "intel" in names else False
-        return True
+        if r.returncode == 0:
+            res = _names_to_bool(r.stdout or "", have_header=True)
+            if res:
+                _DIRECTX_GPU_CACHE = True
+                return True
     except Exception:
         pass
+    # (۲) پاورشل — Get-CimInstance
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
              "(Get-CimInstance win32_VideoController).Name"],
-            capture_output=True, text=True, timeout=15)
-        if r.returncode == 0 and (r.stdout or "").strip():
+            capture_output=True, text=True, timeout=20)
+        if r.returncode == 0 and (r.stdout or "").strip() \
+                and _names_to_bool(r.stdout or "", have_header=False):
+            _DIRECTX_GPU_CACHE = True
             return True
     except Exception:
         pass
+    # (۳) پاورشل — Get-PnpDevice (بدونِ وابستگی به WMI-ویدئو)
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "(Get-PnpDevice -Class Display -Status OK).FriendlyName"],
+            capture_output=True, text=True, timeout=20)
+        if r.returncode == 0 and (r.stdout or "").strip() \
+                and _names_to_bool(r.stdout or "", have_header=False):
+            _DIRECTX_GPU_CACHE = True
+            return True
+    except Exception:
+        pass
+    # (۴) رجیستری — کلاسِ Display_ADAPTERS؛ بدونِ WMI/پاورشل همیشه هست
+    try:
+        r = subprocess.run(
+            ["reg", "query",
+             r"HKLM\SYSTEM\CurrentControlSet\Control\Class"
+             r"\{4d36e968-e325-11ce-bfc1-08002be10318}", "/s", "/v", "DriverDesc"],
+            capture_output=True, text=True, timeout=12)
+        if r.returncode == 0 and _names_to_bool(r.stdout or "",
+                                                have_header=False):
+            _DIRECTX_GPU_CACHE = True
+            return True
+    except Exception:
+        pass
+    _DIRECTX_GPU_CACHE = False
     return False
 
 
@@ -340,6 +403,18 @@ def _ort_has_cuda() -> bool:
     try:
         import onnxruntime as _ort
         return "CUDAExecutionProvider" in _ort.get_available_providers()
+    except Exception:
+        return False
+
+
+def _ort_has_dml() -> bool:
+    """v1.14.232 — بیلدِ DirectML (پکیجِ onnxruntime-directml) نصب است؟
+    برایِ کارت‌هایِ AMD/Intel رویِ ویندوز (گزارشِ سازنده: RX 5700 XT
+    «تا الان ندیدم از gpu استفاده کنه» — CUDA که مالِ NVIDIA است؛ مسیرِ
+    درستِ AMD رویِ ویندوز DirectML است)."""
+    try:
+        import onnxruntime as _ort
+        return "DmlExecutionProvider" in _ort.get_available_providers()
     except Exception:
         return False
 
@@ -403,7 +478,9 @@ def _parallel_budget(kind: str = "ocr") -> int:
     if _env > 0:
         return max(1, min(8, _env))
     try:
-        _gpu = (not _IS_ANDROID) and _ort_has_cuda()
+        # v1.14.232 — DirectML (AMD/Intel ویندوز) هم مثلِ CUDA یک نفرِ
+        # اضافهٔ موازی میگیرد
+        _gpu = (not _IS_ANDROID) and (_ort_has_cuda() or _ort_has_dml())
     except Exception:
         _gpu = False
     if kind == "clean":
@@ -2077,13 +2154,17 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
         )
 
     active = list(sess.get_providers())
-    if want and "CUDAExecutionProvider" in active:
+    # v1.14.232 — DML هم مثلِ CUDA «سشنِ GPUِ موفق» است (AMD/Intel رویِ
+    # ویندوز): قبلاً سشنِ سالمِ Dml باعثِ چاپِ «CUDA ساخته نشد» و
+    # قفلِ _ORT_CUDA_OK=False → همهٔ سشنهایِ بعدی CPU میشدند.
+    if want and ("CUDAExecutionProvider" in active
+                 or "DmlExecutionProvider" in active):
         _ORT_CUDA_OK = True
     elif want:
         _ORT_CUDA_OK = False
         print(
-            f"[!] session providers={active} (CUDA ساخته نشد؛ "
-            f"اغلب کمبود cuDNN/cublas). "
+            f"[!] session providers={active} (GPU ساخته نشد؛ "
+            f"اغلب کمبود cuDNN/cublas رویِ CUDA). "
             f"امتحان: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0'"
         )
     return sess
@@ -4839,7 +4920,33 @@ class RapidOCRBackend:
                               f"'onnxruntime-gpu[cuda,cudnn]==1.26.0'")
                         _ocr_head69 = "CPUExecutionProvider"
                 if _ocr_head69 == "DmlExecutionProvider":
-                    _gpu_flags69["EngineConfig.onnxruntime.use_dml"] = True
+                    # v1.14.232 — پروبِ واقعیِ DML (مثلِ پروبِ CUDA در 230):
+                    # سشنِ آزمایشی رویِ مدلِ det؛ اگر EPِ فعالِ سشن DML
+                    # نبود (درایور/DirectX مشکل دارد) → OCR روی CPU.
+                    _dml_ok232 = False
+                    try:
+                        _detn232 = ""
+                        try:
+                            _detn232 = _det_n52
+                        except Exception:
+                            _detn232 = ""
+                        _probe_p232 = _os.path.join(_mdir or "", _detn232 or "")
+                        if _os.path.isfile(_probe_p232):
+                            _ps232 = ort.InferenceSession(
+                                _probe_p232,
+                                providers=["DmlExecutionProvider",
+                                           "CPUExecutionProvider"])
+                            _dml_ok232 = (
+                                _ps232.get_providers()[0]
+                                == "DmlExecutionProvider")
+                    except Exception:
+                        _dml_ok232 = False
+                    if _dml_ok232:
+                        _gpu_flags69["EngineConfig.onnxruntime.use_dml"] = True
+                    else:
+                        print("[!] DirectML در عمل لود نشد (درایور/DirectX را "
+                              "آپدیت کن) → OCR روی CPU.")
+                        _ocr_head69 = "CPUExecutionProvider"
                 elif _ocr_head69 == "CoreMLExecutionProvider":
                     _gpu_flags69["EngineConfig.onnxruntime.use_coreml"] = True
                 if _gpu_flags69:
@@ -5583,14 +5690,42 @@ def source_has_letters(text: str) -> bool:
     return True
 
 
+# v1.14.232 — لیستِ آفلاینِ مدلهایِ Gemini (دستورِ سازنده: «مدل هارو
+# افلاین هم بزار یک بار خودت لیست هارو بگیر بزار کد اگ اپدیتی چیزی شد
+# خودشون رفرش میزنن بعد فقط مدلای flash و flash-lite و flash-preview
+# این لیست هارو باید بگیره بقیش نباید بگیره»). یک‌بار از فهرستِ رسمیِ
+# Gemini API (نوامبر ۲۰۲۶ — aistudio.google.com/docs/models) گرفته شد؛
+# فقط مدلهایِ متنِ خانوادهٔ flash (شاملِ flash-lite و flash-preview) —
+# بدونِ pro/argon و بدونِ نسل‌هایِ مردهٔ ۱/۲ (۲.۵ها یا محدود به
+# کاربرانِ قدیمیاند یا مسیرِ ۳.۵ میشوند). ترتیب = همان _model_sort_key
+# (Lite اول، بعدِ آن Flash کامل، بعدِ preview/aliasها). اگر گوگل مدلِ
+# تازه‌ای بیاورد، کاربر با دکمهٔ ↻ فهرستِ زنده را میگیرد.
+GEMINI_FLASH_MODELS_OFFLINE = [
+    "gemini-3.5-flash-lite",     # پایدارِ سبک — پیش‌فرضِ برنامه
+    "gemini-3.1-flash-lite",     # پایدارِ سبک
+    "gemini-flash-lite-latest",  # alias زنده
+    "gemini-3.8-flash",          # جدیدترین Flash کامل
+    "gemini-3.6-flash",          # پایدارِ کامل
+    "gemini-3-flash-preview",    # preview
+    "gemini-flash-latest",       # alias زنده
+]
+
+
+def gemini_offline_models() -> List[str]:
+    """v1.14.232 — رونوشتِ مرتبِ لیستِ آفلاین (برایِ دراپ‌داونِ وب و
+    فال‌بکِ دکمهٔ ↻ اندروید/وب وقتی اتصال برقرار نشد)."""
+    return list(GEMINI_FLASH_MODELS_OFFLINE)
+
+
 def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                          timeout: float = 20.0) -> Tuple[List[str], str]:
     """v1.14.229 — فهرستِ مدلهایِ موجود از خودِ سرویس (دستورِ سازنده:
     «مدلای موجود تو gemini نشون بده طرف انتخاب کنه بجز تو کاستوم باید
     طرف خودش بنویسه»). Gemini: GET v1beta/models (فقط مدلهایِ ترجمهپذیر؛
-    همان صافیِ _is_bad_translate_model). custom: GET /models بر اساسِ
-    فرمتِ خودکارِ لینک (openai/responses/anthropic/google). خروجی:
-    (مدلها، خطا). برایِ دکمهٔ ↻ فهرستِ مدلها در رابط."""
+    v1.14.232: فقط flash/flash-lite/flash-preview — صافیِ _is_bad_list_model).
+    custom: GET /models بر اساسِ فرمتِ خودکارِ لینک
+    (openai/responses/anthropic/google). خروجی: (مدلها، خطا). برایِ دکمهٔ
+    ↻ فهرستِ مدلها در رابط."""
     import urllib.request
     import urllib.error
     import urllib.parse
@@ -5630,7 +5765,7 @@ def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                 meths = it.get("supportedGenerationMethods") or []
                 if meths and "generateContent" not in meths:
                     continue
-                if MangaTranslator._is_bad_translate_model(name):
+                if MangaTranslator._is_bad_list_model(name):
                     continue
                 out.append(name)
             if out:
@@ -6744,7 +6879,16 @@ class MangaTranslator:
             pass
 
         if gpu is None:
-            ocr_gpu = self._detect_paddle_gpu() or self._detect_torch_cuda() or _ort_has_cuda()
+            # v1.14.232 — DirectML هم مسیرِ GPU است (AMD/Intel رویِ ویندوز؛
+            # گزارشِ سازنده: RX 5700 XT هرگز GPU نمیگرفت چون فقط CUDA
+            # بررسی میشد). اولویت: paddle/torch/CUDA → بعد DML.
+            _dml232 = False
+            try:
+                _dml232 = (os.name == "nt") and _ort_has_dml()
+            except Exception:
+                _dml232 = False
+            ocr_gpu = (self._detect_paddle_gpu() or self._detect_torch_cuda()
+                       or _ort_has_cuda() or _dml232)
             # v1.14.230 — کارتِ انویدیا هست ولی بیلدِ ORT بدونِ CUDA است
             # (نصبِ قدیمی/دستیِ onnxruntime): دیگر «GPU پیدا نشد» نمیگوییم —
             # وضعیتِ واقعی + راه‌حل چاپ میشود تا «گرافیک صفر درصد» معما
@@ -6754,14 +6898,30 @@ class MangaTranslator:
                 _nv230 = _nvidia_gpu_present()
             except Exception:
                 _nv230 = False
-            if ocr_gpu:
+            if ocr_gpu and _dml232 and not _ort_has_cuda():
+                print("[*] GPU (DirectML — AMD/Intel) شناسایی شد؛ OCR و پاکسازی "
+                      "روی GPU اجرا می‌شه (برای اجبار به CPU از --cpu استفاده کن).")
+            elif ocr_gpu:
                 print("[*] GPU شناسایی شد؛ OCR روی GPU اجرا می‌شه (برای اجبار به CPU از --cpu استفاده کن).")
             elif _nv230:
                 print("[*] کارتِ NVIDIA پیدا شد ولی onnxruntime فعلی بدونِ CUDA است "
                       "→ OCR روی CPU. (بارِ بعدی استارت، onnxruntime-gpu خودکار "
                       "نصب میشود؛ یا دستی: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0')")
             else:
-                print("[*] GPU پیدا نشد؛ OCR روی CPU اجرا می‌شه.")
+                # v1.14.232 — GPUِ ویندوزیِ بدونِ DirectML: راهنمای روشن
+                # (بوت‌استرپ همان اول باید onnxruntime-directml نصب کند)
+                _dx232 = False
+                try:
+                    _dx232 = _directx_gpu_present()
+                except Exception:
+                    _dx232 = False
+                if _dx232:
+                    print("[*] GPU ویندوزی (AMD/Intel) پیدا شد ولی onnxruntime فعلی "
+                          "بدونِ DirectML است → OCR روی CPU. (بارِ بعدی استارت، "
+                          "onnxruntime-directml خودکار نصب میشود؛ یا دستی: "
+                          "pip install onnxruntime-directml)")
+                else:
+                    print("[*] GPU پیدا نشد؛ OCR روی CPU اجرا می‌شه.")
         else:
             ocr_gpu = bool(gpu)
             if ocr_gpu:
@@ -7459,15 +7619,11 @@ class MangaTranslator:
         # 3.1-flash-lite، 3.6-flash) + پرچمدارِ gemini-4-argon + previewِ
         # 3.8-flash + اسم‌هایِ -latest. لیستِ ثابت فقط وقتی استفاده
         # میشود که کشفِ زندهٔ API هیچ مدلی برنگرداند.
-        preferred = [
-            "gemini-3.5-flash-lite",   # پایدارِ سبک — پیشفرض
-            "gemini-flash-lite-latest",  # alias زنده
-            "gemini-3.1-flash-lite",   # پایدارِ سبک
-            "gemini-flash-latest",     # alias زنده
-            "gemini-3.6-flash",        # پایدارِ کامل
-            "gemini-4-argon",          # پرچمدارِ فعلی
-            "gemini-3.8-flash",        # preview
-        ]
+        # v1.14.232 — دستورِ سازنده: «فقط مدلای flash و flash-lite و
+        # flash-preview این لیست هارو باید بگیره بقیش نباید بگیره» →
+        # argon و pro از فهرستِ ثابت حذف شدند؛ همانِ
+        # GEMINI_FLASH_MODELS_OFFLINE (یک منبعِ واحد).
+        preferred = list(GEMINI_FLASH_MODELS_OFFLINE)
         cascade = [primary] if primary else []
         for m in preferred:
             if m and m not in cascade:
@@ -7534,7 +7690,10 @@ class MangaTranslator:
                     continue
                 if not low.startswith("gemini"):
                     continue
-                if "flash" not in low and "pro" not in low:
+                # v1.14.232 — دستورِ سازنده: «فقط مدلای flash و flash-lite
+                # و flash-preview … بقیش نباید بگیره» → کشفِ SDK هم فقط
+                # flash؛ pro/argon دیگر در چرخِ کشف نمیآیند.
+                if "flash" not in low:
                     continue
                 if "preview" in low and "flash" not in low:
                     continue
@@ -7603,7 +7762,9 @@ class MangaTranslator:
                     continue
                 if any(b in low for b in ban_substrings):
                     continue
-                if "flash" not in low and "pro" not in low:
+                # v1.14.232 — فقط flash/flash-lite/flash-preview (دستورِ
+                # سازنده) — pro/argon از کشفِ REST هم حذف شدند.
+                if "flash" not in low:
                     continue
                 if "preview" in low and "flash" not in low:
                     continue
@@ -7653,6 +7814,19 @@ class MangaTranslator:
                 return False
         return False
 
+    @staticmethod
+    def _is_bad_list_model(name: str) -> bool:
+        """v1.14.232 — صافیِ «فهرستِ مدلها» (دراپ‌داونِ وب / ↻ اندروید /
+        کشفِ زندهٔ API): فقط flash و flash-lite و flash-preview (دستورِ
+        سازنده: «فقط مدلای flash و flash-lite و flash-preview این لیست
+        هارو باید بگیره بقیش نباید بگیره») — pro و argon دیگر در هیچ
+        فهرستی نمیآیند. این صافی فقط برایِ فهرست است؛ تایپِ دستیِ
+        مدلهایِ دیگر (argon/pro) در فیلدِ مدل همچنان آزاد و در ترجمه
+        پذیرفته میشود (_is_bad_translate_model سرِ جایش است)."""
+        if MangaTranslator._is_bad_translate_model(name):
+            return True
+        low = (name or "").lower().replace("models/", "")
+        return "flash" not in low
 
     @staticmethod
     def _extract_suggested_model(err: Exception) -> Optional[str]:

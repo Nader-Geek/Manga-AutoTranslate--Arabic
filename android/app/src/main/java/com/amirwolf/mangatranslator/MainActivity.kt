@@ -1604,7 +1604,7 @@ class MainActivity : AppCompatActivity() {
             if (onAuto || (mine && !editing)) View.GONE else View.VISIBLE
         modelRefBtn?.visibility = if (cur == "gemini") View.VISIBLE else View.GONE
         modelLabelTv?.text = if (cur == "gemini")
-            "مدل — Gemini: ↻ را بزن تا فهرست مدل‌ها بیاید (یا خودت بنویس) | خالی = پیش‌فرض"
+            "مدل — Gemini: ↻ فهرستِ مدل‌ها (آفلاین آماده؛ زنده با کلید) | خالی = پیش‌فرض"
         else
             "مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"
         for (id in arrayOf("manga_api_base", "api_base")) {
@@ -1639,12 +1639,12 @@ class MainActivity : AppCompatActivity() {
         val keys = fieldText("manga_api_keys", "api_keys", "keys")
         if (keys.isBlank()) {
             Toast.makeText(this,
-                "اول کلید API را در فیلد «کلیدهای API» وارد کن، بعد ↻ را بزن",
+                "کلید خالی است — فهرستِ آفلاینِ داخلِ برنامه می‌آید؛ برای فهرستِ زنده کلید API را وارد کن",
                 Toast.LENGTH_LONG).show()
-            return
         }
         Toast.makeText(this, "در حال گرفتن فهرست مدل‌ها…", Toast.LENGTH_SHORT).show()
         Thread {
+            var offline = false
             var models: List<String> = emptyList()
             var err = ""
             try {
@@ -1657,6 +1657,7 @@ class MainActivity : AppCompatActivity() {
                     bridge.callAttr("list_models", payload.toString()).toString())
                 if (r.optBoolean("ok")) {
                     val arr = r.optJSONArray("models")
+                    offline = r.optBoolean("offline")
                     models = (0 until (arr?.length() ?: 0))
                         .mapNotNull { arr?.optString(it) }.filter { it.isNotBlank() }
                 } else {
@@ -1677,7 +1678,7 @@ class MainActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
                 AlertDialog.Builder(this)
-                    .setTitle("مدلها (${list.size}) — یکی را انتخاب کن")
+                    .setTitle("مدلها (${list.size})${if (offline) " — آفلاین (اتصال/کلید برقرار نشد)" else ""} — یکی را انتخاب کن")
                     .setItems(list.toTypedArray()) { _, w ->
                         et.setText(list[w])
                     }.show()

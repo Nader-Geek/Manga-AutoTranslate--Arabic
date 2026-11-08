@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.229"
+APP_VER = "1.14.232"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -440,6 +440,30 @@ def _ai_choices(models: list) -> list:
     out.extend(names)
     out.append("custom")
     return out
+
+
+def _gemini_offline_models() -> list:
+    """v1.14.232 — لیستِ آفلاینِ مدلهایِ Gemini (دستورِ سازنده: «مدل
+    هارو افلاین هم بزار یک بار خودت لیست هارو بگیر بزار کد») — از
+    manga.py میآید (GEMINI_FLASH_MODELS_OFFLINE؛ فقط flash و flash-lite
+    و flash-preview). اگر import نشد (مثلاً وبِ هاست با بک‌اندِ سبک)
+    همین نسخهٔ داخلی استفاده میشود تا دراپ‌داون هرگز خالی نباشد."""
+    try:
+        from manga import gemini_offline_models as _g
+        _lst = _g()
+        if _lst:
+            return list(_lst)
+    except Exception:
+        pass
+    return [
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3-flash-preview",
+        "gemini-flash-latest",
+    ]
 
 
 def resolve_ai_named(models: list, pick: str, api_keys: str = "",
@@ -2596,10 +2620,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 # بیاد؛ بقیش باید دستی بنویسن و auto کلا نباید چیزی بیاد» —
                 # دراپ‌داونِ زنده + ↻ فقط رویِ Gemini؛ رویِ custom فیلدِ دستیِ
                 # ساده (لیبلِ جدا)؛ رویِ auto/مدلِ نامی کلِ ردیف پنهان است.
+                # v1.14.232 — دستورِ سازنده: «مدل هارو افلاین هم بزار …
+                # اگ اپدیتی چیزی شد خودشون رفرش میزنن» → دراپ‌داون از همان
+                # اول لیستِ آفلاینِ داخلِ کد را دارد (فقط flash و
+                # flash-lite و flash-preview)؛ ↻ همان لحظه از خودِ گوگل
+                # فهرستِ تازه میگیرد و جایگزین میکند.
                 model = gr.Dropdown(
-                    choices=[], value="", allow_custom_value=True,
-                    label="مدل — Gemini: ↻ را بزن تا فهرستِ مدل‌ها بیاید "
-                          "(یا خودت بنویس) | خالی = پیش‌فرض",
+                    choices=_gemini_offline_models(), value="",
+                    allow_custom_value=True,
+                    label="مدل — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
+                          "فهرستِ زنده (یا خودت بنویس) | خالی = پیش‌فرض",
                     scale=2, elem_id="manga_model")
                 model_ref_btn = gr.Button(
                     "↻ مدل‌ها", variant="secondary", scale=1,
@@ -4332,13 +4362,25 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # v1.14.231 — لیبلِ فیلدِ مدل به ازایِ هر provider: رویِ Gemini
             # دراپ‌داونِ زنده + ↻؛ بقیه (custom/ویرایشِ مدلِ نامی) دستی —
             # «بقیش باید دستی مینوشتن»؛ ↻ هم فقط رویِ gemini دیده میشود
-            mdl_label = ("مدل — Gemini: ↻ را بزن تا فهرستِ مدل‌ها بیاید "
-                         "(یا خودت بنویس) | خالی = پیش‌فرض" if v == "gemini"
-                         else "مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض")
+            # v1.14.232 — فیکسِ «وقتی میرم کاستوم مدلهایِ gemini نشون
+            # میده فقط باید رو خودش میومد»: منویِ دراپ‌داون رویِ هر
+            # providerِ غیرِ gemini خالی میشود (choices=[]) تا مدلهایِ
+            # Gemini فقط و فقط در خودِ Gemini دیده شوند؛ رویِ Gemini
+            # لیستِ آفلاینِ داخلِ کد برمیگردد (دستور: «مدل هارو افلاین
+            # هم بزار»).
+            if v == "gemini":
+                mdl_label = ("مدل — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
+                             "فهرستِ زنده (یا خودت بنویس) | خالی = پیش‌فرض")
+                mdl_upd = gr.update(visible=True, value=nm, label=mdl_label,
+                                    choices=_gemini_offline_models())
+            else:
+                mdl_label = "مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"
+                mdl_upd = gr.update(visible=row_vis, value=nm,
+                                    label=mdl_label, choices=[])
             return (gr.update(visible=is_custom, value=nb),
                     gr.update(visible=row_vis),
                     gr.update(visible=row_vis, value=nk),
-                    gr.update(visible=row_vis, value=nm, label=mdl_label),
+                    mdl_upd,
                     gr.update(visible=is_custom),
                     gr.update(visible=is_custom),
                     gr.update(visible=mine, value=info),
@@ -4366,7 +4408,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                               value=str(m.get("api_key") or "")),
                     gr.update(visible=True,
                               value=str(m.get("model") or ""),
-                              label="مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"),
+                              label="مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض",
+                              choices=[]),  # v1.14.232 — ویرایشِ مدلِ نامی هم دستی؛ منویِ Gemini نمیآید
                     gr.update(visible=False),   # «+ افزودن» پنهان
                     gr.update(visible=False),   # «✎ ویرایش» پنهان
                     gr.update(visible=True),    # «💾 ذخیرهٔ ویرایش»
@@ -4465,9 +4508,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 prov, api_base_v, api_keys_v = _p, _b, _k
             models, err = list_provider_models(
                 prov, str(api_keys_v or ""), str(api_base_v or ""))
-            if not models:
-                raise gr.Error(err or "مدلی پیدا نشد — کلید/لینک را با «تست کلیدها / لینک» چک کنید.")
             keep = str(model_v or "").strip()
+            # v1.14.232 — دستورِ سازنده: «اگ اپدیتی چیزی شد خودشون رفرش
+            # میزنن» → ↻ فهرستِ زنده میگیرد؛ اگر اتصال/کلید برقرار نشد،
+            # به‌جای خطا، فهرستِ آفلاینِ داخلِ کد برمیگردد (کاربر بی‌درنگ
+            # گزینه دارد) و دلیلِ قطعی در لیبل میآید.
+            if not models:
+                if prov == "gemini":
+                    offline = _gemini_offline_models()
+                    _why = f" — {str(err or '')[:60]}" if err else ""
+                    return gr.update(
+                        choices=offline,
+                        value=keep,
+                        label=(f"مدل — اتصال برقرار نشد{_why}؛ فهرستِ "
+                               f"آفلاینِ برنامه ({len(offline)} مدل)"))
+                raise gr.Error(err or "مدلی پیدا نشد — کلید/لینک را با «تست کلیدها / لینک» چک کنید.")
             return gr.update(choices=models,
                              value=keep if keep in models else keep,
                              label=f"مدل — {len(models)} مدلِ زنده پیدا شد؛ انتخاب کن")

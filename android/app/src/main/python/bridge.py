@@ -1357,12 +1357,37 @@ def test_keys(params_json):
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
+def _gemini_offline_models():
+    """v1.14.232 — لیستِ آفلاینِ مدلهایِ Gemini (دستورِ سازنده: «مدل هارو
+    افلاین هم بزار یک بار خودت لیست هارو بگیر بزار کد») — از manga.py؛
+    اگر import نشد، نسخهٔ داخلی همین‌جا."""
+    try:
+        from manga import gemini_offline_models as _g
+        lst = _g()
+        if lst:
+            return list(lst)
+    except Exception:
+        pass
+    return [
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3-flash-preview",
+        "gemini-flash-latest",
+    ]
+
+
 def list_models(params_json):
     """v1.14.231 — فهرستِ زندهٔ مدلها برایِ دکمهٔ «↻» کنارِ فیلدِ مدلِ
     اندروید (دستورِ سازنده: «تو گوشی دکمه رفرش مدل gemini نداره واسه
     انتخاب مدل»). params_json: {"provider": "gemini", "keys": "...",
     "api_base": "..."} — همان list_provider_modelsِ وب (Gemini: فقط
     مدلهایِ ترجمهپذیر). خروجی: {"ok": bool, "models": [...], "error": str}.
+    v1.14.232 — فال‌بکِ آفلاین: اگر گرفتنِ فهرستِ زندهٔ Gemini نشد
+    (اینترنت/کلید)، لیستِ هاردکدِ داخلِ کد با پرچمِ offline=true
+    برمیگردد (دستور: «اگ اپدیتی چیزی شد خودشون رفرش میزنن»).
     """
     try:
         p = json.loads(params_json or "{}")
@@ -1371,16 +1396,22 @@ def list_models(params_json):
     provider = str(p.get("provider") or "gemini").strip().lower() or "gemini"
     keys = str(p.get("keys") or "")
     api_base = str(p.get("api_base") or "")
+    err = ""
+    models = []
     try:
         import sys
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from manga import list_provider_models
         models, err = list_provider_models(provider, keys, api_base)
-        return json.dumps(
-            {"ok": bool(models), "models": models or [],
-             "error": str(err or "")},
-            ensure_ascii=False)
+        models = models or []
     except Exception as e:
+        err = str(e)
+    if not models and provider == "gemini":
         return json.dumps(
-            {"ok": False, "models": [], "error": str(e)},
+            {"ok": True, "models": _gemini_offline_models(),
+             "error": str(err or ""), "offline": True},
             ensure_ascii=False)
+    return json.dumps(
+        {"ok": bool(models), "models": models,
+         "error": str(err or "")},
+        ensure_ascii=False)
