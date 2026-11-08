@@ -242,6 +242,14 @@ def test_keys(params_json):
     return bridge.test_keys(params_json)
 
 
+def list_models(params_json):
+    """v1.14.231 - proxy of live model list for the refresh button next to
+    the Android model field (like test_keys; MainActivity calls the
+    native_bridge module). Output: {"ok": bool, "models": [...], "error": str}."""
+    import bridge
+    return bridge.list_models(params_json)
+
+
 def status():
     try:
         import launcher

@@ -2592,6 +2592,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 # میآید (Gemini: فقط مدلهایِ ترجمهپذیر) و کاربر انتخاب
                 # میکند؛ در custom هم میشود از فهرستِ همان سرویس گرفت و
                 # هم آزادانه تایپ کرد (allow_custom_value).
+                # v1.14.231 — دستورِ سازنده: «انتخاب مدل فقط باید تو Gemini
+                # بیاد؛ بقیش باید دستی بنویسن و auto کلا نباید چیزی بیاد» —
+                # دراپ‌داونِ زنده + ↻ فقط رویِ Gemini؛ رویِ custom فیلدِ دستیِ
+                # ساده (لیبلِ جدا)؛ رویِ auto/مدلِ نامی کلِ ردیف پنهان است.
                 model = gr.Dropdown(
                     choices=[], value="", allow_custom_value=True,
                     label="مدل — Gemini: ↻ را بزن تا فهرستِ مدل‌ها بیاید "
@@ -2599,7 +2603,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     scale=2, elem_id="manga_model")
                 model_ref_btn = gr.Button(
                     "↻ مدل‌ها", variant="secondary", scale=1,
-                    elem_id="manga_model_ref")
+                    elem_id="manga_model_ref",
+                    visible=(_init_prov == "gemini"))
             # ── v1.14.217/218/220 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
             # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
             # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند.
@@ -4324,17 +4329,24 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 nk, nm = "", ""   # رویِ auto/مدلِ نامی فیلدی برایِ ورود نیست
             info = _cm_info_html(models, v) if mine else ""
             row_vis = not on_auto and not mine
+            # v1.14.231 — لیبلِ فیلدِ مدل به ازایِ هر provider: رویِ Gemini
+            # دراپ‌داونِ زنده + ↻؛ بقیه (custom/ویرایشِ مدلِ نامی) دستی —
+            # «بقیش باید دستی مینوشتن»؛ ↻ هم فقط رویِ gemini دیده میشود
+            mdl_label = ("مدل — Gemini: ↻ را بزن تا فهرستِ مدل‌ها بیاید "
+                         "(یا خودت بنویس) | خالی = پیش‌فرض" if v == "gemini"
+                         else "مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض")
             return (gr.update(visible=is_custom, value=nb),
                     gr.update(visible=row_vis),
                     gr.update(visible=row_vis, value=nk),
-                    gr.update(visible=row_vis, value=nm),
+                    gr.update(visible=row_vis, value=nm, label=mdl_label),
                     gr.update(visible=is_custom),
                     gr.update(visible=is_custom),
                     gr.update(visible=mine, value=info),
                     gr.update(visible=mine),
                     bank,
                     gr.update(visible=mine),    # cm_edit_btn (v1.14.223)
-                    gr.update(visible=False))   # cm_save_btn — خروج از ویرایش
+                    gr.update(visible=False),   # cm_save_btn — خروج از ویرایش
+                    gr.update(visible=(v == "gemini")))  # ↻ فقط Gemini (231)
 
         # ── v1.14.223 — ویرایشِ مدلِ ذخیرهشده ─────────────────────
         def _cm_edit_start(prov, models):
@@ -4346,18 +4358,20 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             m = next((x for x in (models or [])
                       if str(x.get("name") or "").strip() == nm), None)
             if not m:
-                return (gr.update(),) * 8
+                return (gr.update(),) * 9
             return (gr.update(visible=True,
                               value=str(m.get("api_base") or "")),
                     gr.update(visible=True),
                     gr.update(visible=True,
                               value=str(m.get("api_key") or "")),
                     gr.update(visible=True,
-                              value=str(m.get("model") or "")),
+                              value=str(m.get("model") or ""),
+                              label="مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"),
                     gr.update(visible=False),   # «+ افزودن» پنهان
                     gr.update(visible=False),   # «✎ ویرایش» پنهان
                     gr.update(visible=True),    # «💾 ذخیرهٔ ویرایش»
-                    gr.update(visible=False))   # راهنما
+                    gr.update(visible=False),   # راهنما
+                    gr.update(visible=False))   # ↻ مدل — دستی (v1.14.231)
 
         def _cm_save_edits(prov, models, base, key, mdl):
             """«💾 ذخیرهٔ ویرایش»: همان مدلِ انتخابشده با مقادیرِ جدیدِ
@@ -4390,7 +4404,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=False, value=""),  # مدل
                     gr.update(visible=False),            # افزودن
                     gr.update(visible=False),            # راهنما
-                    gr.update(value=msg, visible=True))
+                    gr.update(value=msg, visible=True),
+                    gr.update(visible=False))            # ↻ مدل (v1.14.231)
 
         try:
             provider.change(
@@ -4400,8 +4415,29 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 outputs=[api_base, api_row, api_keys, model,
                          add_model_btn, cm_hint_md, cm_info_md,
                          cm_del_btn, fields_bank,
-                         cm_edit_btn, cm_save_btn],
+                         cm_edit_btn, cm_save_btn, model_ref_btn],
                 api_name="toggle_custom_base",
+            )
+        except Exception:
+            pass
+        # v1.14.231 — گاردِ سمتِ مرورگر برایِ دکمهٔ «↻ مدل‌ها»: در gradio 6
+        # گاهی updateِ visibleِ دکمهٔ داخلِ ردیفِ کلید/مدل اعمال نمیشود
+        # (سرور visible=False میفرستد ولی DOM دکمه را نشان میدهد — باتِ
+        # «انتخاب مدل فقط تو Gemini») — این رویدادِ JSِ محضِ بعدِ همان
+        # provider.change، نمایشِ دکمه را مستقیم در DOM تنظیم میکند:
+        # فقط رویِ gemini دیده شود؛ رویِ custom فقط تایپِ دستی؛ رویِ
+        # auto/مدلِ نامی هم ردیفِ کلید/مدل پنهان است.
+        try:
+            provider.change(
+                fn=None,
+                inputs=[provider],
+                outputs=None,
+                js="""(p) => {
+  try {
+    const b = document.getElementById('manga_model_ref');
+    if (b) b.style.display = (String(p || '').trim() === 'gemini') ? '' : 'none';
+  } catch (e) {}
+}""",
             )
         except Exception:
             pass
@@ -4613,7 +4649,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 inputs=[provider, custom_models_state],
                 outputs=[api_base, api_row, api_keys, model,
                          add_model_btn, cm_edit_btn, cm_save_btn,
-                         cm_hint_md],
+                         cm_hint_md, model_ref_btn],
                 api_name="cm_edit", show_progress="hidden")
         except Exception:
             pass
@@ -4625,7 +4661,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 outputs=[custom_models_state, cm_json_box, provider,
                          cm_del_btn, cm_info_md, cm_save_btn, cm_edit_btn,
                          api_base, api_row, api_keys, model,
-                         add_model_btn, cm_hint_md, backup_status],
+                         add_model_btn, cm_hint_md, backup_status,
+                         model_ref_btn],
                 api_name="cm_save_edits", show_progress="hidden")
         except Exception:
             pass
@@ -4977,7 +5014,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             else:
                 sid = ""
             if not sid:
-                return (gr.update(),) * 28
+                return (gr.update(),) * 27
             job = _get_job(sid)
             meta = _load_job_meta(sid) if sid else {}
             

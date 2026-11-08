@@ -108,6 +108,14 @@ class MainActivity : AppCompatActivity() {
     private var cmEditing: Boolean = false
     private var cmHintTv: TextView? = null
     private var cmInfoTv: TextView? = null
+    // v1.14.231 — فیلدِ مدلِ بومی: کادرِ دستی + دکمهٔ «↻» (فهرستِ زندهٔ
+    // Gemini). ریشهٔ دو باگ: از v1.14.229 فیلدِ مدلِ وب Dropdown شد؛
+    // استخراجِ اندروید آن را select با لیستِ خالی میساخت و چون select را
+    // Button رندر میکند، هم ↻/لیست وجود نداشت و هم گیتِ provider (که فقط
+    // EditText را مخفی میکند) آن را رویِ auto/مدلِ نامی پنهان نمیکرد.
+    private var modelFieldRoot: LinearLayout? = null
+    private var modelLabelTv: TextView? = null
+    private var modelRefBtn: Button? = null
     private var backupStatusView: TextView? = null
     private var manifestAppVer: String = ""
     // v1.14.222 — تا فرمِ کامل ساخته نشود، بانکِ فیلدها کاری نمیکند
@@ -1588,6 +1596,17 @@ class MainActivity : AppCompatActivity() {
         val isCustom = cur == "custom"
         val mine = cmLoad().any { it.optString("name") == cur }
         val editing = cmEditing && mine
+        // v1.14.231 — دستورِ سازنده: «انتخاب مدل فقط باید تو Gemini بیاد؛
+        // بقیش باید دستی بنویسن و auto کلا نباید چیزی بیاد» — کلِ بلوکِ
+        // مدل (لیبل + کادر + ↻) رویِ auto/مدلِ نامی پنهان است؛ رویِ custom
+        // کادرِ دستیِ بدونِ ↻؛ رویِ gemini کادر + ↻ِ فهرستِ زنده
+        modelFieldRoot?.visibility =
+            if (onAuto || (mine && !editing)) View.GONE else View.VISIBLE
+        modelRefBtn?.visibility = if (cur == "gemini") View.VISIBLE else View.GONE
+        modelLabelTv?.text = if (cur == "gemini")
+            "مدل — Gemini: ↻ را بزن تا فهرست مدل‌ها بیاید (یا خودت بنویس) | خالی = پیش‌فرض"
+        else
+            "مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"
         for (id in arrayOf("manga_api_base", "api_base")) {
             val v = fieldViews[id]
             if (v is EditText) {
@@ -1611,6 +1630,59 @@ class MainActivity : AppCompatActivity() {
         cmSaveBtn?.visibility = if (editing) View.VISIBLE else View.GONE
         cmHintTv?.visibility = if (isCustom) View.VISIBLE else View.GONE
         refreshCmInfo(cur, mine)
+    }
+
+    // ══ v1.14.231 — «↻» کنارِ فیلدِ مدل: فهرستِ زندهٔ مدلهایِ Gemini از
+    // خودِ سرویس (مثلِ وب) — با کلیدهایِ همین صفحه؛ انتخاب از لیست، متنِ
+    // کادر را پر میکند. network رویِ thread جدا — UI قفل نمیشود ══
+    private fun fetchModelList(et: EditText) {
+        val keys = fieldText("manga_api_keys", "api_keys", "keys")
+        if (keys.isBlank()) {
+            Toast.makeText(this,
+                "اول کلید API را در فیلد «کلیدهای API» وارد کن، بعد ↻ را بزن",
+                Toast.LENGTH_LONG).show()
+            return
+        }
+        Toast.makeText(this, "در حال گرفتن فهرست مدل‌ها…", Toast.LENGTH_SHORT).show()
+        Thread {
+            var models: List<String> = emptyList()
+            var err = ""
+            try {
+                val payload = JSONObject().apply {
+                    put("provider", "gemini")
+                    put("keys", keys)
+                    put("api_base", "")
+                }
+                val r = JSONObject(
+                    bridge.callAttr("list_models", payload.toString()).toString())
+                if (r.optBoolean("ok")) {
+                    val arr = r.optJSONArray("models")
+                    models = (0 until (arr?.length() ?: 0))
+                        .mapNotNull { arr?.optString(it) }.filter { it.isNotBlank() }
+                } else {
+                    err = r.optString("error")
+                }
+            } catch (e: Exception) {
+                err = e.message ?: e.toString()
+            }
+            val list = models
+            val error = err
+            runOnUiThread {
+                if (list.isEmpty()) {
+                    Toast.makeText(this@MainActivity,
+                        "فهرستِ مدلها نیامد" +
+                            (if (error.isNotBlank()) " — $error" else "") +
+                            " — کلید را با «تست کلیدها / لینک» چک کن یا مدل را دستی بنویس",
+                        Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("مدلها (${list.size}) — یکی را انتخاب کن")
+                    .setItems(list.toTypedArray()) { _, w ->
+                        et.setText(list[w])
+                    }.show()
+            }
+        }.start()
     }
 
     // ══ v1.14.223 — ویرایشِ مدلِ ذخیرهشده ══
@@ -2356,6 +2428,69 @@ class MainActivity : AppCompatActivity() {
                 // من | custom + چیپهایِ «نام ✖» + دکمهٔ افزودن
                 if (id == "provider" || id == "manga_provider") {
                     addProviderField(row, lbl, info, id)
+                    return
+                }
+                // v1.14.231 — فیلدِ مدل: کادرِ دستی + دکمهٔ «↻» (دستورِ
+                // سازنده: «تو گوشی دکمه رفرش مدل gemini نداره واسه انتخاب
+                // مدل ... فقط باید تو Gemini بیاد بقیش دستی و auto هیچ»).
+                // چون از v1.14.229 وب Dropdown است، extract آن را selectِ
+                // خالی میداد که Buttonِ «— انتخاب —» خالی رندر میشد و نه
+                // لیست داشت نه ↻ و گیتِ provider هم آن را مخفی نمیکرد.
+                // حالا: EditText (در fieldViews → گیت/بانک/ویرایش کار
+                // میکند) + ↻ فقط رویِ gemini که لیستِ زندهٔ Gemini را
+                // میآورد؛ custom فقط تایپِ دستی.
+                if (id.equals("manga_model", true) || id.equals("model", true)) {
+                    modelLabelTv = if (lbl.isNotEmpty() && row.childCount > 0 &&
+                        row.getChildAt(row.childCount - 1) is TextView)
+                        row.getChildAt(row.childCount - 1) as TextView else null
+                    val mrow = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                    val et = EditText(this).apply {
+                        setSingleLine(true)
+                        setTextColor(TXT); setHintTextColor(MUT); textSize = 14f
+                        background = rounded(CARD2, 10, 1)
+                        setPadding(dp(12), dp(11), dp(12), dp(11))
+                        hint = "خالی = پیش‌فرض"
+                        val dfltStr: String = when {
+                            dflt == null || dflt === org.json.JSONObject.NULL -> ""
+                            else -> {
+                                val s = dflt.toString()
+                                if (s.equals("null", true) || s.equals("undefined", true)) "" else s
+                            }
+                        }
+                        val saved = savedOr(id, dflt)
+                        if (saved is String) setText(saved.ifBlank { dfltStr })
+                        addTextChangedListener(object : android.text.TextWatcher {
+                            override fun afterTextChanged(s: android.text.Editable?) {
+                                values[id] = s?.toString() ?: ""
+                                prefs.edit().putString(id, s?.toString() ?: "").apply()
+                            }
+                            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+                            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+                        })
+                    }
+                    mrow.addView(et, LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    val ref = Button(this).apply {
+                        text = "↻"
+                        setTextColor(TXT); textSize = 15f
+                        background = rounded(CARD2, 10, 1)
+                        setPadding(dp(14), dp(9), dp(14), dp(9))
+                        stateListAnimator = null
+                        minWidth = 0; minimumWidth = 0
+                    }
+                    ref.setOnClickListener { fetchModelList(et) }
+                    mrow.addView(ref, LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
+                    row.addView(mrow)
+                    infoView()?.let { row.addView(it) }
+                    fieldViews[id] = et
+                    modelRefBtn = ref
+                    modelFieldRoot = row
+                    flushPendingTest(card)
                     return
                 }
                                 val items = ArrayList<Pair<String, String>>()
