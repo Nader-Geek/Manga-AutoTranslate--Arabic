@@ -1401,9 +1401,18 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
     if _opt69 and os.path.isfile(_opt69) \
             and os.path.getsize(_opt69) > 1_000_000:
         try:
-            _s69 = ort.InferenceSession(_opt69, sess_options=so,
-                                        providers=providers,
-                                        provider_options=provider_options)
+            # v1.14.233 — ساختِ سشنِ DML هم زیرِ قفلِ سراسری: هم‌زمانیِ
+            # ساختِ سشن با runِ سشنِ دیگر رویِ درایورهایِ AMD همان
+            # 887A0006 را میدهد (سشن CPU بدونِ قفل — بی‌تغییر)
+            if "DmlExecutionProvider" in (providers or []):
+                with _DML_RUN_LOCK:
+                    _s69 = ort.InferenceSession(_opt69, sess_options=so,
+                                                providers=providers,
+                                                provider_options=provider_options)
+            else:
+                _s69 = ort.InferenceSession(_opt69, sess_options=so,
+                                            providers=providers,
+                                            provider_options=provider_options)
             try:
                 print(f"[TIME] lama-create={time.time() - _t69:.1f}s "
                       f"(از کشِ بهینه‌شده)", flush=True)
@@ -1438,9 +1447,16 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
         except Exception:
             _part69 = None
     try:
-        _s69 = ort.InferenceSession(model_path, sess_options=so,
-                                    providers=providers,
-                                    provider_options=provider_options)
+        # v1.14.233 — ساختِ سشنِ DML زیرِ قفلِ سراسری (توضیح: بالا)
+        if "DmlExecutionProvider" in (providers or []):
+            with _DML_RUN_LOCK:
+                _s69 = ort.InferenceSession(model_path, sess_options=so,
+                                            providers=providers,
+                                            provider_options=provider_options)
+        else:
+            _s69 = ort.InferenceSession(model_path, sess_options=so,
+                                        providers=providers,
+                                        provider_options=provider_options)
     finally:
         try:
             if _part69 and os.path.isfile(_part69):
@@ -1467,6 +1483,147 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
 
 
 _ORT_CUDA_OK = None
+
+# v1.14.233 — DirectML (AMD/Intel رویِ ویندوز): مستنداتِ رسمیِ ORT:
+# «EPِ DirectML از اجرایِ موازی پشتیبانی نمیکند؛ در هر لحظه فقط یک
+# نخ میتواند Run را رویِ سشن صدا بزند.» لاگِ 232 رویِ RX 5700 XT:
+# ۴ کارگرِ موازیِ OCR همزمان رویِ سشنهایِ rapidocr → 887A0006
+# «GPU will not respond to more commands» → همه چیز بی‌صدا به CPU
+# برگشت و GPU هرگز استفاده نشد. قفلِ سراسریِ زیر «همهٔ» اینفرنسهایِ
+# DML (دیتکتور/OCR/LaMa) را سریال میکند؛ CPU خالص و CUDA/TRT و
+# اندروید دست‌نخورده میمانند.
+# RLock (نه Lock): اگر همین نخ قفل را دارد و دوباره میخواهد (ساختِ
+# سشنِ DML داخلِ runِ قفل‌شده)، بن‌بست نمیشود؛ نخهایِ دیگر همچنان
+# سریال میشوند.
+_DML_RUN_LOCK = threading.RLock()
+
+
+def _dml_sess(sess) -> bool:
+    """v1.14.233 — سرِ providersِ سشن DML است؟"""
+    try:
+        _p233 = list(sess.get_providers())
+        return bool(_p233) and _p233[0] == "DmlExecutionProvider"
+    except Exception:
+        return False
+
+
+def _dml_run(sess, feeds):
+    """v1.14.233 — session.run رویِ سشنِ DML فقط زیرِ قفلِ سراسری
+    (اجرایِ موازیِ DML ممنوع است — 887A0006 رویِ AMD). سشنهایِ CPU/CUDA
+    بدونِ قفل و بدونِ سربار میروند."""
+    if _dml_sess(sess):
+        with _DML_RUN_LOCK:
+            return sess.run(None, feeds)
+    return sess.run(None, feeds)
+
+
+def _dml_run_outs(sess, outs, feeds):
+    """v1.14.233 — همان _dml_run ولی با لیستِ خروجیهایِ صریح (پروبهایِ
+    داخلی مثلِ _ort_probe_ok)."""
+    if _dml_sess(sess):
+        with _DML_RUN_LOCK:
+            return sess.run(outs, feeds)
+    return sess.run(outs, feeds)
+
+
+def _dml_probe_cache_get(model_path: str):
+    """v1.14.233 — کشِ دیسکِ نتیجهٔ پروبِ DML (کنارِ فایلِ مدل،
+    .dmlprobe). پروبِ هر مدل چند ثانیه ساختِ سشن رویِ GPU است؛ بدونِ
+    کش هر استارت تکرار میشد. MANGA_ORT_EP_REPROBE=1 → بی‌اعتنا به کش
+    (همان قراردادِ پروبِ LaMa). کلید: حجمِ فایل + نسخهٔ ORT."""
+    try:
+        if os.environ.get("MANGA_ORT_EP_REPROBE", "").strip() == "1":
+            return None
+        _f233 = str(model_path) + ".dmlprobe"
+        if not os.path.isfile(_f233):
+            return None
+        import json as _json233
+        with open(_f233, "r", encoding="utf-8") as _fh233:
+            _d233 = _json233.load(_fh233)
+        if int(_d233.get("size", -1)) != int(os.path.getsize(model_path)):
+            return None
+        if str(_d233.get("ort", "")) != str(getattr(ort, "__version__", "")):
+            return None
+        return bool(_d233.get("ok"))
+    except Exception:
+        return None
+
+
+def _dml_probe_cache_set(model_path: str, ok: bool) -> None:
+    try:
+        import json as _json233
+        _f233 = str(model_path) + ".dmlprobe"
+        with open(_f233, "w", encoding="utf-8") as _fh233:
+            _json233.dump({"ok": bool(ok),
+                          "size": int(os.path.getsize(model_path)),
+                          "ort": str(getattr(ort, "__version__", ""))},
+                         _fh233)
+    except Exception:
+        pass
+
+
+def _dml_probe_model(model_path: str) -> bool:
+    """v1.14.233 — پروبِ واقعیِ DML رویِ یک فایلِ مدل: ساختِ سشن +
+    «یک اینفرنسِ واقعی» با فیدِ دامی از رویِ شکلِ ورودیها. «سشن ساخته
+    شد» کافی نیست — لاگِ 232: سشنهایِ det/rec ساخته شدند ولی اولین
+    Run با 887A0006 مرد. False = این مدل رویِ این GPU/DirectML کار
+    نمیکند (مثلاً int8 کوانتیزه — 80070057). نتیجه در دیسک کش
+    میشود (.dmlprobe) تا استارتِ بعدی پروبِ مجاز نخواهد."""
+    _c233 = _dml_probe_cache_get(model_path)
+    if _c233 is not None:
+        return _c233
+    _ok233 = _dml_probe_model_live(model_path)
+    _dml_probe_cache_set(model_path, _ok233)
+    return _ok233
+
+
+def _dml_probe_model_live(model_path: str) -> bool:
+    try:
+        if not model_path or not os.path.isfile(model_path):
+            return False
+        _so233 = _ort_session_options(2, prefer_gpu=True)
+        try:
+            # مستنداتِ DML: الگویِ حافظه باید خاموش باشد
+            _so233.enable_mem_pattern = False
+        except Exception:
+            pass
+        # ساختِ سشن و run «هر دو» زیرِ قفل: در لحظهٔ پروب ممکن است
+        # پیش‌بارگذاریِ پس‌زمینهٔ LaMa همینجا سشنِ DML بسازد/اجرا کند
+        with _DML_RUN_LOCK:
+            _ps233 = ort.InferenceSession(
+                model_path, sess_options=_so233,
+                providers=["DmlExecutionProvider", "CPUExecutionProvider"])
+            if not _dml_sess(_ps233):
+                return False
+            _feed233 = _ep_ab_feed(_ps233, side=320)
+            if not _feed233:
+                return False
+            # فیکسِ RT-DETR: ورودیِ int64ِ (B,2)ِ orig_target_sizes باید
+            # هم‌بُعدِ batchِ تصویر باشد — فیدِ خام (2,2) میسازد که با
+            # تصویرِ (1,...) mismatch میدهد و پروبِ سالم هم «مردود»
+            # میشود. batch همهٔ ورودیها را با بزرگ‌ترین batchِ 4بُعدی
+            # هم‌تراز میکنیم.
+            _b233 = 1
+            for _v233 in _feed233.values():
+                if getattr(_v233, "ndim", 0) == 4:
+                    _b233 = max(_b233, int(_v233.shape[0]))
+            for _k233, _v233 in list(_feed233.items()):
+                if getattr(_v233, "ndim", 0) == 2 \
+                        and _v233.dtype in (np.int64, np.int32) \
+                        and int(_v233.shape[0]) != _b233:
+                    _feed233[_k233] = np.full(
+                        (_b233, int(_v233.shape[1])), 320, dtype=_v233.dtype)
+            _outs233 = [o.name for o in _ps233.get_outputs()][:1]
+            _ps233.run(_outs233, _feed233)
+        try:
+            del _ps233
+        except Exception:
+            pass
+        import gc as _gc233
+        _gc233.collect()
+        return True
+    except Exception:
+        return False
 
 
 def _prepare_ort_cuda_dlls() -> None:
@@ -1797,14 +1954,14 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
             return False
         outs = [o.name for o in sess.get_outputs()][:1]
         try:
-            sess.run(outs, feed)
+            _dml_run_outs(sess, outs, feed)
         except Exception as _pe:
             try:
                 print(f"    [!] پروبِ run با نام خروجی: {str(_pe)[:110]}")
             except Exception:
                 pass
             try:
-                sess.run(None, feed)
+                _dml_run(sess, feed)
             except Exception as _pe2:
                 try:
                     print(f"    [!] پروبِ run هم با None: {str(_pe2)[:110]}")
@@ -1816,8 +1973,8 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
             return True
         t0 = time.time()
         try:
-            sess.run(outs, feed)
-            sess.run(outs, feed)
+            _dml_run_outs(sess, outs, feed)
+            _dml_run_outs(sess, outs, feed)
             t_ser = time.time() - t0
         except Exception:
             return False
@@ -2088,6 +2245,12 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
             # است، گاردِ سقفِ نخِ GPU اعمال شود
             so_ep = _ort_session_options(
                 threads, prefer_gpu=(ep == "CUDAExecutionProvider"))
+            if ep == "DmlExecutionProvider":
+                # v1.14.233 — مستنداتِ DML: الگویِ حافظه خاموش
+                try:
+                    so_ep.enable_mem_pattern = False
+                except Exception:
+                    pass
             try:
                 so_ep.append_execution_provider(ep)
             except Exception:
@@ -2137,6 +2300,14 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
     # نصب است + XNNPACKِ امولاتور + CPU همیشه آخر) — به‌جای چکِ
     # هاردکدِ CUDA که بقیهٔ EPهایِ GPU را از قلم می‌انداخت.
     providers = _best_providers_for("lama", prefer_gpu=want)
+    # v1.14.233 — مستنداتِ رسمیِ DirectML: «بهینه‌سازیِ الگویِ حافظه
+    # (enable_mem_pattern) برایِ سشنهایِ DML باید خاموش باشد» — پیشفرضِ
+    # PC روشن است و سشنِ DML را ناپایدار میکند.
+    if "DmlExecutionProvider" in providers:
+        try:
+            so.enable_mem_pattern = False
+        except Exception:
+            pass
     # v1.14.96-speed (SRV-G phase2) — CUDA EP options
     # (cudnn_conv_use_max_workspace=1) + XNNPACKِ A/B (intra=فیزیکی)
     _popts = _build_provider_options(providers)
@@ -2148,12 +2319,37 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
                                     provider_options=_popts)
     except Exception as e:
         print(f"[!] InferenceSession GPU ناموفق ({e}) → CPU")
+        if "DmlExecutionProvider" in (providers or []):
+            # v1.14.233 — شکستِ «همین مدل» رویِ DML نباید پرچمِ سراسری را
+            # مسموم کند (لاگِ 232: شکستِ دیتکتورِ int8 باعث شد LaMa هم
+            # بی‌دلیل CPU شود) — هر مدلی پشتیبانیِ اپراتورهایِ خودش را
+            # دارد. بازسازیِ CPU و خروجِ مستقیم.
+            _so233c = _ort_session_options(threads, prefer_gpu=False)
+            return ort.InferenceSession(
+                model_path, sess_options=_so233c,
+                providers=["CPUExecutionProvider"])
         _ORT_CUDA_OK = False
         sess = ort.InferenceSession(
             model_path, sess_options=so, providers=["CPUExecutionProvider"]
         )
 
     active = list(sess.get_providers())
+    # v1.14.233 — پروبِ واقعیِ اینفرنس رویِ سشنِ DML: «ساخته‌شدنِ سشن»
+    # کافی نیست (لاگِ 232: سشنهایِ det/rec ساخته شدند ولی اولین Run با
+    # 887A0006 مرد). یک اینفرنسِ دامیِ کوچک (نتیجه در دیسک-کش:
+    # .dmlprobe)؛ شکست → «همین مدل» رویِ CPU بازساخته میشود بدونِ
+    # مسموم‌کردنِ بقیهٔ مدلها. CUDA/TRT/CPU دست‌نخورده.
+    if "DmlExecutionProvider" in active:
+        try:
+            if not _dml_probe_model(model_path):
+                print("[!] اینفرنسِ آزمایشیِ DirectML رویِ این مدل ناموفق "
+                      "→ همین مدل رویِ CPU")
+                _so233c = _ort_session_options(threads, prefer_gpu=False)
+                return ort.InferenceSession(
+                    model_path, sess_options=_so233c,
+                    providers=["CPUExecutionProvider"])
+        except Exception:
+            pass
     # v1.14.232 — DML هم مثلِ CUDA «سشنِ GPUِ موفق» است (AMD/Intel رویِ
     # ویندوز): قبلاً سشنِ سالمِ Dml باعثِ چاپِ «CUDA ساخته نشد» و
     # قفلِ _ORT_CUDA_OK=False → همهٔ سشنهایِ بعدی CPU میشدند.
@@ -2162,11 +2358,20 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
         _ORT_CUDA_OK = True
     elif want:
         _ORT_CUDA_OK = False
-        print(
-            f"[!] session providers={active} (GPU ساخته نشد؛ "
-            f"اغلب کمبود cuDNN/cublas رویِ CUDA). "
-            f"امتحان: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0'"
-        )
+        if "DmlExecutionProvider" in (providers or []):
+            # v1.14.233 — پیامِ مخصوصِ DML (قبلاً راهنمایِ cuDNNِ CUDA
+            # چاپ میشد و کاربرِ AMD را گمراه میکرد)
+            print(
+                f"[!] session providers={active} (GPU ساخته نشد؛ DirectML "
+                f"این مدل را قبول نکرد — مدلهایِ int8/کوانتیزه رویِ DML "
+                f"پشتیبانی نمیشوند)."
+            )
+        else:
+            print(
+                f"[!] session providers={active} (GPU ساخته نشد؛ "
+                f"اغلب کمبود cuDNN/cublas رویِ CUDA). "
+                f"امتحان: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0'"
+            )
     return sess
 
 
@@ -2327,7 +2532,9 @@ class LamaONNX:
         mask_in = msk.astype(np.float32)
         img_in = img_in.transpose(2, 0, 1)[None]
         mask_in = mask_in[None, None]
-        out = self.session.run(None, {self._in_image: img_in, self._in_mask: mask_in})[0]
+        # v1.14.233 — رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع)
+        out = _dml_run(self.session,
+                       {self._in_image: img_in, self._in_mask: mask_in})[0]
 
         o = out[0].transpose(1, 2, 0).astype(np.float32)
         try:
@@ -2754,11 +2961,13 @@ class LamaMangaONNX:
         feeds = {self._in_image: img_in, self._in_mask: mask_in}
         _sess = self._next_session()
         try:
-            return _sess.run(None, feeds)[0]
+            # v1.14.233 — رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع —
+            # پچهایِ موازیِ LaMa همه از همینجا میگذرند)
+            return _dml_run(_sess, feeds)[0]
         except Exception:
             if _sess is not self.session:
                 # سشنِ CPU خراب شد → سشنِ اصلی (امن)
-                return self.session.run(None, feeds)[0]
+                return _dml_run(self.session, feeds)[0]
             raise
 
     def run_batch_tensors(self, tensors):
@@ -2993,25 +3202,83 @@ class RTDetrV2ONNXDetector:
         self.multi_scale = multi_scale
         self.INPUT_SIZE = 640
 
+        def _hf_with_timeout(fname: str):
+            if hf_hub_download is None:
+                raise RuntimeError("huggingface_hub لازم است")
+            import concurrent.futures as _cf
+            with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
+                fut = _ex.submit(
+                    hf_hub_download, repo_id=self.DET_REPO,
+                    filename=fname, cache_dir=cache_dir,
+                )
+                try:
+                    return fut.result(timeout=240)
+                except _cf.TimeoutError:
+                    raise RuntimeError("huggingface: تایم‌اوت ۲۴۰s (در ایران قطع است)") from None
+
+        _forced = (os.environ.get("MANGA_DET_MODEL") or "").strip()
+
+        # v1.14.233 — رویِ DirectML (AMD/Intel ویندوز): مدلِ int8 سشنِ DML
+        # نمیسازد (80070057 — اپراتورهایِ کوانتیزه؛ لاگِ 232 رویِ RX 5700
+        # XT). این بلوک در «هر دو» مسیر اجرا میشود (مدلِ کش‌شده و دانلودِ
+        # تازه — باگِ پیشین: فقط مسیرِ دانلود بود و مدلِ int8ِ کش‌شده اصلاً
+        # GPU امتحان نمیکرد): کاندیدها (مدلِ محلی + fp32هایِ ریپو) با
+        # «پروبِ واقعی» (سشن + یک اینفرنس؛ نتیجه دیسک-کش) امتحان میشوند و
+        # اولینِ سالم رویِ GPU میرود. هیچکدام؟ → دیتکتور رویِ CPU (int8
+        # سریعتر از fp32 رویِ CPU) تا تلاشِ خرابِ GPU پرچمِ «GPU ساخته نشد»
+        # را قفل نکند و LaMa/OCR آزاد بمانند.
+        _dml_skip233 = False
+        try:
+            _dml_head233 = (
+                bool(prefer_gpu) and (os.name == "nt") and _ort_has_dml()
+                and (_best_providers_for("det", prefer_gpu=True)
+                     or [""])[0] == "DmlExecutionProvider")
+        except Exception:
+            _dml_head233 = False
+        if _dml_head233 and not _forced:
+            _cand233 = []
+            if model_path and os.path.isfile(model_path) \
+                    and os.path.getsize(model_path) > 1000:
+                _cand233.append((os.path.basename(model_path), model_path))
+            for _f233 in ("detector-v4.onnx", "detector.onnx"):
+                _cand233.append((_f233, None))
+            _seen233 = set()
+            _pick233 = None
+            for _fn233, _fp233 in _cand233:
+                if not _fn233 or _fn233 in _seen233:
+                    continue
+                _seen233.add(_fn233)
+                _c233 = _fp233
+                if not _c233:
+                    try:
+                        _c233 = _mirror_model(_fn233)
+                    except Exception:
+                        _c233 = None
+                if not _c233:
+                    try:
+                        print(f"[*] دانلود {_fn233} برایِ GPU (DirectML) ...")
+                        _c233 = _hf_with_timeout(_fn233)
+                    except Exception:
+                        _c233 = None
+                if not (_c233 and os.path.isfile(_c233)
+                        and os.path.getsize(_c233) > 1000):
+                    continue
+                if _dml_probe_model(_c233):
+                    _pick233 = _c233
+                    break
+            if _pick233:
+                print(f"[+] DirectML: دیتکتور ({os.path.basename(_pick233)}) "
+                      f"رویِ GPU پروب شد → همین استفاده میشود.")
+                model_path = _pick233
+            else:
+                _dml_skip233 = True
+                print("[*] DirectML مدلِ دیتکتور را قبول نکرد → دیتکتور "
+                      "رویِ CPU؛ LaMa/OCR همچنان GPU امتحان میشوند.")
+
         if not model_path or not os.path.isfile(model_path) or os.path.getsize(model_path) < 1000:
             model_path = None
             last_err = None
 
-            def _hf_with_timeout(fname: str):
-                if hf_hub_download is None:
-                    raise RuntimeError("huggingface_hub لازم است")
-                import concurrent.futures as _cf
-                with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
-                    fut = _ex.submit(
-                        hf_hub_download, repo_id=self.DET_REPO,
-                        filename=fname, cache_dir=cache_dir,
-                    )
-                    try:
-                        return fut.result(timeout=240)
-                    except _cf.TimeoutError:
-                        raise RuntimeError("huggingface: تایم‌اوت ۲۴۰s (در ایران قطع است)") from None
-
-            _forced = (os.environ.get("MANGA_DET_MODEL") or "").strip()
             files = list(self.DET_FILES)
             if _forced:
                 _fb = os.path.basename(_forced)
@@ -3042,7 +3309,9 @@ class RTDetrV2ONNXDetector:
                         continue
                     try:
                         _sess = _make_ort_session(
-                            cand, prefer_gpu=prefer_gpu, threads=threads,
+                            cand,
+                            prefer_gpu=(False if _dml_skip233 else prefer_gpu),
+                            threads=threads,
                             ep=_resolve_lama_ep(), ep_ab=_is_auto_ep())
                     except Exception as _se:
                         print(f"    [!] {fname} سشن ONNX نساخت ({_se}) → فایل بعدی")
@@ -3062,8 +3331,12 @@ class RTDetrV2ONNXDetector:
                     f"نتوانست مدل RT-DETR را از {self.DET_REPO} دانلود کند: {last_err}"
                 )
         else:
+            # v1.14.233 — اگر پروبِ DML مردود شد (int8)، حتی امتحانِ GPU هم
+            # نکن (ارورِ 80070057 و پیامِ گمراه‌کننده نمیآید؛ مستقیم CPU)
             self.session = _make_ort_session(
-                model_path, prefer_gpu=prefer_gpu, threads=threads,
+                model_path,
+                prefer_gpu=(False if _dml_skip233 else prefer_gpu),
+                threads=threads,
                 ep=_resolve_lama_ep(), ep_ab=_is_auto_ep())
 
         self.model_path = model_path
@@ -3182,7 +3455,8 @@ class RTDetrV2ONNXDetector:
         feeds = {self._in_images: im_data}
         if self._in_sizes is not None:
             feeds[self._in_sizes] = orig_size
-        outputs = self.session.run(None, feeds)
+        # v1.14.233 — رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع)
+        outputs = _dml_run(self.session, feeds)
         return self._parse_outputs(outputs, h0, w0, threshold)
 
 
@@ -4729,6 +5003,9 @@ def _k3_speed_report() -> str:
         return ""
 
 
+_RAPIDOCR_RECOVER_LOCK = threading.Lock()
+
+
 class RapidOCRBackend:
 
     def __init__(self, lang: str = "en", prefer_gpu: Optional[bool] = None):
@@ -4920,29 +5197,30 @@ class RapidOCRBackend:
                               f"'onnxruntime-gpu[cuda,cudnn]==1.26.0'")
                         _ocr_head69 = "CPUExecutionProvider"
                 if _ocr_head69 == "DmlExecutionProvider":
-                    # v1.14.232 — پروبِ واقعیِ DML (مثلِ پروبِ CUDA در 230):
-                    # سشنِ آزمایشی رویِ مدلِ det؛ اگر EPِ فعالِ سشن DML
-                    # نبود (درایور/DirectX مشکل دارد) → OCR روی CPU.
-                    _dml_ok232 = False
+                    # v1.14.233 — پروبِ واقعیِ DML رویِ «هر دو» مدلِ det و
+                    # rec + یک اینفرنسِ واقعی (لاگِ 232: سشنها ساخته شدند
+                    # ولی اولین Run با 887A0006 مرد). همهٔ فراخوانیهایِ
+                    # موتور هم از این پس زیرِ قفلِ سراسریِ DML میروند
+                    # (مستندات: DML اجرایِ موازی ندارد).
+                    _dml_ok233 = False
                     try:
-                        _detn232 = ""
-                        try:
-                            _detn232 = _det_n52
-                        except Exception:
-                            _detn232 = ""
-                        _probe_p232 = _os.path.join(_mdir or "", _detn232 or "")
-                        if _os.path.isfile(_probe_p232):
-                            _ps232 = ort.InferenceSession(
-                                _probe_p232,
-                                providers=["DmlExecutionProvider",
-                                           "CPUExecutionProvider"])
-                            _dml_ok232 = (
-                                _ps232.get_providers()[0]
-                                == "DmlExecutionProvider")
+                        _probe233 = []
+                        for _nm233 in (_det_n52, _rec_n52):
+                            try:
+                                _p233 = _os.path.join(_mdir or "",
+                                                      str(_nm233 or ""))
+                            except Exception:
+                                _p233 = ""
+                            if _os.path.isfile(_p233) \
+                                    and _os.path.getsize(_p233) > 100_000:
+                                _probe233.append(_p233)
+                        _dml_ok233 = bool(_probe233) and all(
+                            _dml_probe_model(_p233) for _p233 in _probe233)
                     except Exception:
-                        _dml_ok232 = False
-                    if _dml_ok232:
+                        _dml_ok233 = False
+                    if _dml_ok233:
                         _gpu_flags69["EngineConfig.onnxruntime.use_dml"] = True
+                        self._dml_locked233 = True
                     else:
                         print("[!] DirectML در عمل لود نشد (درایور/DirectX را "
                               "آپدیت کن) → OCR روی CPU.")
@@ -5007,6 +5285,7 @@ class RapidOCRBackend:
                 _p.update(_threads)
                 try:
                     self.engine = NewRapidOCR(params=_p)
+                    self._eng_params233 = _p
                 except Exception as _eg69:
                     # v1.14.96-speed — اگر ساختِ سشنِ GPU شکست، بدونِ EPِ GPU
                     # دوباره (تا فال‌بکِ legacyِ PP-OCRv3 فعال نشود)
@@ -5015,6 +5294,9 @@ class RapidOCRBackend:
                     print(f"[!] EPِ GPU برایِ OCR نشد ({str(_eg69)[:130]}) → CPU")
                     _p2 = {k: v for k, v in _p.items() if k not in _gpu_flags69}
                     self.engine = NewRapidOCR(params=_p2)
+                    self._eng_params233 = _p2
+                    # v1.14.233 — موتور CPU شد؛ قفلِ DML بی‌مورد است
+                    self._dml_locked233 = False
                 self._new_api = True
                 _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
                                if str(getattr(self, "_ocr_ep_active", "") or "").strip()
@@ -5025,12 +5307,16 @@ class RapidOCRBackend:
             _pb.update(_threads)
             try:
                 self.engine = NewRapidOCR(params=_pb)
+                self._eng_params233 = _pb
             except Exception as _eg69:
                 if not _gpu_flags69:
                     raise
                 print(f"[!] EPِ GPU برایِ OCR نشد ({str(_eg69)[:130]}) → CPU")
                 _pb2 = {k: v for k, v in _pb.items() if k not in _gpu_flags69}
                 self.engine = NewRapidOCR(params=_pb2)
+                self._eng_params233 = _pb2
+                # v1.14.233 — موتور CPU شد؛ قفلِ DML بی‌مورد است
+                self._dml_locked233 = False
             self._new_api = True
             _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
                            if str(getattr(self, "_ocr_ep_active", "") or "").strip()
@@ -5090,6 +5376,61 @@ class RapidOCRBackend:
         except Exception:
             return txt
 
+    def _engine_run233_nolock(self, image_bgr):
+        try:
+            return self.engine(image_bgr, use_cls=False)
+        except TypeError:
+            return self.engine(image_bgr)
+
+    def _engine_run233(self, image_bgr):
+        """v1.14.233 — فراخوانیِ موتورِ OCR. رویِ DML زیرِ قفلِ سراسری:
+        سشنهایِ داخلیِ rapidocr (det/rec) از چند کارگرِ موازی صدا زده
+        میشوند و DML اجرایِ موازی ندارد (887A0006 رویِ RX 5700 XT —
+        لاگِ 232). CPU/CUDA/اندروید بدونِ قفل."""
+        if getattr(self, "_dml_locked233", False):
+            with _DML_RUN_LOCK:
+                return self._engine_run233_nolock(image_bgr)
+        return self._engine_run233_nolock(image_bgr)
+
+    def _dml_recover233(self, err) -> bool:
+        """v1.14.233 — خطایِ GPU (DirectML) در وسطِ OCR: موتور یک‌بار رویِ
+        CPU بازساخته میشود (همان APIِ جدید — بدونِ سقوط به «موتورِ
+        قدیمی» که در لاگِ 232 نیمی از متنها را از دست داد). فقط
+        خطاهایِ GPU؛ خطاهایِ عادیِ OCR دست‌نخورده میمانند. True = بازسازی
+        شد (یا نخِ دیگری کرد) → فراخواننده دوباره امتحان کند."""
+        if not getattr(self, "_dml_locked233", False):
+            return False
+        _m233 = str(err).lower()
+        if not any(_s233 in _m233 for _s233 in (
+                "887a0006", "80070057", "gpu will not respond",
+                "device hung", "device removed", "dml", "directml")):
+            return False
+        with _RAPIDOCR_RECOVER_LOCK:
+            if not getattr(self, "_dml_locked233", False):
+                # نخِ دیگری همین الان موتور را CPU کرد → همین موتورِ سالم
+                return True
+            try:
+                # مثلِ __init__: importِ محلی (rapidocr ممکن است نصب نباشد)
+                from rapidocr import RapidOCR as NewRapidOCR
+                _p233 = dict(getattr(self, "_eng_params233", None) or {})
+                if not _p233:
+                    return False
+                for _k233 in list(_p233.keys()):
+                    if _k233 in ("EngineConfig.onnxruntime.use_cuda",
+                                 "EngineConfig.onnxruntime.use_dml",
+                                 "EngineConfig.onnxruntime.use_coreml") \
+                            or "cuda_ep_cfg" in _k233:
+                        _p233.pop(_k233, None)
+                self.engine = NewRapidOCR(params=_p233)
+                self._eng_params233 = _p233
+                self._dml_locked233 = False
+                self._ocr_ep_active = "CPUExecutionProvider"
+                print("[!] خطایِ GPU در OCR → موتور رویِ CPU بازساخته شد "
+                      "(کیفیت حفظ شد؛ بقیهٔ صفحات بدونِ وقفه)")
+                return True
+            except Exception:
+                return False
+
     def ocr(self, image_bgr: np.ndarray, crop_mode: bool = False):
 
         if image_bgr is None or image_bgr.size == 0:
@@ -5133,43 +5474,52 @@ class RapidOCRBackend:
                       "(گاردِ لاتین — v1.14.154)")
             return [_lines] if _lines else None
         if self._new_api:
-            try:
+            # v1.14.233 — حداکثر ۲ تلاش: تلاشِ دوم فقط بعد از بازسازیِ
+            # موتور رویِ CPU در خطایِ GPU (_dml_recover233) — کیفیتِ
+            # نتایج حتی موقعِ خرابیِ GPU حفظ میشود (لاگِ 232: سقوط به
+            # «موتورِ قدیمی» ۸ ناحیه از ۱۱ را بی‌متن گذاشت).
+            for _att233 in range(2):
                 try:
-                    out = self.engine(image_bgr, use_cls=False)
-                except TypeError:
-                    out = self.engine(image_bgr)
-                txts = getattr(out, "txts", None)
-                if not txts:
-                    return None
-                boxes = getattr(out, "boxes", None)
-                scores = getattr(out, "scores", None)
-                lines = []
-                for i, t in enumerate(txts):
-                    t = self._deaccent(str(t)).strip()
-                    if not t:
-                        continue
-                    score = float(scores[i]) if scores is not None and i < len(scores) else 1.0
-                    box = boxes[i] if boxes is not None and i < len(boxes) else [[0, 0], [1, 0], [1, 1], [0, 1]]
-                    lines.append([np.asarray(box, dtype=np.float32), (t, score)])
-                return [lines] if lines else None
-            except Exception as e:
-                msg = str(e).lower()
-                if "text detection result is empty" in msg or "detection result is empty" in msg:
-                    return None
-                print(f"    [OCR] rapidocr جدید خطا: {e} → موتور قدیمی")
-                self._new_api = False
-                if not _HAS_RAPIDOCR:
-                    return None
+                    out = self._engine_run233(image_bgr)
+                    txts = getattr(out, "txts", None)
+                    if not txts:
+                        return None
+                    boxes = getattr(out, "boxes", None)
+                    scores = getattr(out, "scores", None)
+                    lines = []
+                    for i, t in enumerate(txts):
+                        t = self._deaccent(str(t)).strip()
+                        if not t:
+                            continue
+                        score = float(scores[i]) if scores is not None and i < len(scores) else 1.0
+                        box = boxes[i] if boxes is not None and i < len(boxes) else [[0, 0], [1, 0], [1, 1], [0, 1]]
+                        lines.append([np.asarray(box, dtype=np.float32), (t, score)])
+                    return [lines] if lines else None
+                except Exception as e:
+                    msg = str(e).lower()
+                    if "text detection result is empty" in msg or "detection result is empty" in msg:
+                        return None
+                    if _att233 == 0 and self._dml_recover233(e):
+                        continue  # موتور رویِ CPU بازساخته شد → تلاشِ دوم
+                    print(f"    [OCR] rapidocr جدید خطا: {e} → موتور قدیمی")
+                    self._new_api = False
+                    if not _HAS_RAPIDOCR:
+                        return None
+                    break
         try:
-            try:
-                result, _ = self.engine(image_bgr, use_cls=False)
-            except TypeError:
-                result, _ = self.engine(image_bgr)
+            result, _ = self._engine_run233(image_bgr)
         except Exception as e:
             msg = str(e).lower()
             if "text detection result is empty" in msg or "detection result is empty" in msg:
                 return None
-            return None
+            # v1.14.233 — خطایِ GPU → موتور رویِ CPU + یک تلاشِ دیگر
+            if self._dml_recover233(e):
+                try:
+                    result, _ = self._engine_run233(image_bgr)
+                except Exception:
+                    return None
+            else:
+                return None
         if not result:
             return None
         lines = []
