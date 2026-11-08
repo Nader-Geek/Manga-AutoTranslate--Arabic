@@ -3182,7 +3182,11 @@ class LamaTorch:
 class RTDetrV2ONNXDetector:
 
     DET_REPO = "ogkalu/comic-text-and-bubble-detector"
-    DET_FILES = ("detector-v4-s_int8.onnx", "detector.onnx", "detector-v4.onnx")
+    # v1.14.234 — «detector-v4.onnx» حذف شد: در «هیچ» منبعی وجود ندارد
+    # (ریلیزِ mirror: 404؛ APIِ ریپویِ HF هم فقط detector-v4-s_int8 و
+    # detector.onnx و detector_int8 را دارد) — امتحانِ آن در هر استارتِ
+    # تازه فقط دو 404ِ بی‌فایده میساخت.
+    DET_FILES = ("detector-v4-s_int8.onnx", "detector.onnx")
     CLASS_NAMES = {0: "bubble", 1: "text_bubble", 2: "text_free"}
     INPUT_SIZE = 640
     MAX_DETS = 120
@@ -3240,7 +3244,13 @@ class RTDetrV2ONNXDetector:
             if model_path and os.path.isfile(model_path) \
                     and os.path.getsize(model_path) > 1000:
                 _cand233.append((os.path.basename(model_path), model_path))
-            for _f233 in ("detector-v4.onnx", "detector.onnx"):
+            # v1.14.234 — «detector-v4.onnx» از کاندیدها حذف شد: فایلِ
+            # مرده — نه در ریلیزِ mirror هست (404) نه در ریپویِ HF. هر
+            # استارت یک mirror+HFِ بی‌فایده را امتحان میکرد و «ساکت»
+            # میانداخت — ریشهٔ پرسشِ سازنده: «سیستمم داشتم چرا رفت
+            # detector.onnx گرفت؟». کاندیدِ fp32 فقط detector.onnx است
+            # (160.7MB — همان دیتکتور، بدونِ کوانتیزه).
+            for _f233 in ("detector.onnx",):
                 _cand233.append((_f233, None))
             _seen233 = set()
             _pick233 = None
@@ -3258,7 +3268,10 @@ class RTDetrV2ONNXDetector:
                     try:
                         print(f"[*] دانلود {_fn233} برایِ GPU (DirectML) ...")
                         _c233 = _hf_with_timeout(_fn233)
-                    except Exception:
+                    except Exception as _e234:
+                        # v1.14.234 — دیگر بی‌صدا قورت داده نمیشود؛ در لاگ
+                        # باید دیده شود چرا کاندید رد شد.
+                        print(f"    [!] {_fn233} از HF هم نیامد: {_e234}")
                         _c233 = None
                 if not (_c233 and os.path.isfile(_c233)
                         and os.path.getsize(_c233) > 1000):
@@ -3266,14 +3279,27 @@ class RTDetrV2ONNXDetector:
                 if _dml_probe_model(_c233):
                     _pick233 = _c233
                     break
+                print(f"    [~] {os.path.basename(_c233)} رویِ DirectML "
+                      "پروب نشد → کاندیدِ بعدی …")
             if _pick233:
+                if model_path and os.path.isfile(model_path) \
+                        and os.path.abspath(_pick233) != os.path.abspath(model_path):
+                    _why234 = (" (کوانتیزهٔ int8 — 80070057)"
+                               if "int8" in os.path.basename(model_path).lower()
+                               else "")
+                    print(f"[*] {os.path.basename(model_path)}{_why234} رویِ "
+                          "DirectML سشن نمی‌سازد → نسخهٔ fp32 "
+                          f"({os.path.basename(_pick233)}) جایگزین شد؛ حجمِ "
+                          "fp32 چند برابرِ int8 است (همین دیتکتور، بدونِ "
+                          "کوانتیزه) و فقط یک بار دانلود میشود.")
                 print(f"[+] DirectML: دیتکتور ({os.path.basename(_pick233)}) "
                       f"رویِ GPU پروب شد → همین استفاده میشود.")
                 model_path = _pick233
             else:
                 _dml_skip233 = True
                 print("[*] DirectML مدلِ دیتکتور را قبول نکرد → دیتکتور "
-                      "رویِ CPU؛ LaMa/OCR همچنان GPU امتحان میشوند.")
+                      "رویِ CPU (همان int8)؛ LaMa/OCR همچنان GPU امتحان "
+                      "میشوند.")
 
         if not model_path or not os.path.isfile(model_path) or os.path.getsize(model_path) < 1000:
             model_path = None
@@ -3922,30 +3948,106 @@ def _dl_progress(name: str, done: int, total: int, _last: list = [0.0, 0]) -> No
         print(f"\r    دانلود {name}: {_fmt_mb(done)}", end="", flush=True)
 
 
-def _dl_to(url, dst, name: str = ""):
+def _dl_to(url, dst, name: str = "", attempts: int = 3):
+    """v1.14.234 — دانلودِ مقاوم: (۱) ادامهٔ دانلودِ نیمه‌کاره با هدرِ
+    Range — لاگِ کاربر: detector.onnx دو بار تا ~۷۵٪ (121MB از 160.7MB)
+    آمد و ریستِ اتصالِ WinError 10054 هر دو بار همه چیز را دور ریخت چون
+    .part بعد از شکست حذف میشد و دفعهٔ بعد از صفر شروع میشد؛ (۲) تا
+    «attempts» تلاشِ خودکار با مکثِ ۲s — هر تلاش از همان‌جا ادامه
+    مییابد (GitHub/HF هر دو به Range جوابِ 206 میدهند). (۳) نشانِِ
+    url کنارِ .part (‏.part.url): ادامهٔ دانلود فقط از «همین» url مجاز
+    است — الحاقِ بایتهای دو سرورِ مختلف (mirror + HF) = فایلِ خراب؛
+    .partِ بی‌نشان یا از سرورِ دیگر → دور ریخته میشود. 416 =
+    .partِ بی‌اعتبار → حذف و شروعِ تازه در تلاشِ بعدی."""
     import time as _t
+    import urllib.error
     import urllib.request
     if not name:
         name = os.path.basename(dst)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     t0 = _t.time()
-    with urllib.request.urlopen(req, timeout=900) as r, \
-            open(dst + ".part", "wb") as f:
-        total = int(r.headers.get("Content-Length") or 0)
-        done = 0
-        while True:
-            chunk = r.read(1 << 20)
-            if not chunk:
-                break
-            f.write(chunk)
-            done += len(chunk)
-            _dl_progress(name, done, total)
-    if total and done < total:
-        raise RuntimeError(f"ناقص: {done}/{total} بایت")
-    if os.path.getsize(dst + ".part") > 1000:
+    done = 0
+    total = 0
+    _n234 = max(1, int(attempts))
+    _part234 = dst + ".part"
+    _mark234 = _part234 + ".url"
+    for _try234 in range(_n234):
+        try:
+            _start234 = 0
+            if os.path.isfile(_part234):
+                _same234 = False
+                try:
+                    with open(_mark234, "r", encoding="utf-8") as _mf234:
+                        _same234 = _mf234.read().strip() == url.strip()
+                except Exception:
+                    _same234 = False
+                if _same234:
+                    _start234 = os.path.getsize(_part234)
+                else:
+                    # بی‌نشان یا از سرورِ دیگر → الحاق ممنوع
+                    try:
+                        os.remove(_part234)
+                    except Exception:
+                        pass
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            if _start234 > 0:
+                req.add_header("Range", f"bytes={_start234}-")
+            with urllib.request.urlopen(req, timeout=900) as r:
+                _code234 = int(r.getcode() or 200)
+                _clen234 = int(r.headers.get("Content-Length") or 0)
+                if _start234 > 0 and _code234 == 206:
+                    # ادامهٔ همان فایلِ نیمه‌کاره از همان سرور
+                    total = _start234 + _clen234
+                    done = _start234
+                    _mode234 = "ab"
+                else:
+                    # .part نبود یا سرور Range را نگرفد (200) → از صفر
+                    total = _clen234
+                    done = 0
+                    _mode234 = "wb"
+                with open(_part234, _mode234) as f:
+                    # نشانِ منبع — پیش از بایتهای بعدی بنویس تا شکستِ
+                    # میان‌راه نشان را با خود داشته باشد
+                    try:
+                        with open(_mark234, "w", encoding="utf-8") as _mf234:
+                            _mf234.write(url)
+                    except Exception:
+                        pass
+                    while True:
+                        chunk = r.read(1 << 20)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        done += len(chunk)
+                        _dl_progress(name, done, total)
+            if total and done < total:
+                raise RuntimeError(f"ناقص: {done}/{total} بایت")
+            break
+        except Exception as _e234:
+            if isinstance(_e234, urllib.error.HTTPError) \
+                    and int(getattr(_e234, "code", 0) or 0) == 416 \
+                    and os.path.isfile(_part234):
+                # .part از قبل کامل/بی‌اعتبار است → دورش بریز و تازه بگیر
+                for _del234 in (_part234, _mark234):
+                    try:
+                        if os.path.isfile(_del234):
+                            os.remove(_del234)
+                    except Exception:
+                        pass
+            if _try234 + 1 < _n234:
+                print(f"\n    [!] {name}: قطع شد ({_e234}) → "
+                      f"تلاشِ {_try234 + 2}/{_n234} از همان‌جا ...")
+                _t.sleep(2.0)
+                continue
+            raise
+    if os.path.isfile(_part234) and os.path.getsize(_part234) > 1000:
         dt = _t.time() - t0
         print(f"\r    ✔ {name}: {_fmt_mb(done)} در {dt:.0f}s" + " " * 8)
-        os.replace(dst + ".part", dst)
+        os.replace(_part234, dst)
+        try:
+            if os.path.isfile(_mark234):
+                os.remove(_mark234)
+        except Exception:
+            pass
         return dst
     raise RuntimeError("فایل ناقص")
 
@@ -3969,11 +4071,9 @@ def _mirror_model(fname):
         return loc
     except Exception as e:
         print(f"    [!] mirror نشد: {e}")
-        try:
-            if os.path.isfile(loc + ".part"):
-                os.remove(loc + ".part")
-        except Exception:
-            pass
+        # v1.14.234 — .part «حفظ» میشود تا دانلودِ بعدی با Range از
+        # همان‌جا ادامه یابد (قبلاً حذف میشد و 121MBِ نیمه‌کاره دور
+        # ریخته میشد).
         return None
 
 
@@ -4069,12 +4169,9 @@ def _ensure_rapidocr_models(mdir, files=None):
                     host = url.split("/")[2] if url else "?"
                     print(f"  [!] {fname} از {host} نشد: {e}")
             if not done:
-                print(f"  [!] دانلود {fname} ناموفق — اینترنت/VPN را چک کن")
-            try:
-                if os.path.isfile(dst + ".part"):
-                    os.remove(dst + ".part")
-            except Exception:
-                pass
+                print(f"  [!] دانلود {fname} ناموفق — اینترنت/VPN را چک کن "
+                      "(دانلودِ بعدی از همان‌جا ادامه مییابد)")
+            # v1.14.234 — .part حفظ میشود (ادامهٔ دانلود با Range)
 
 
 def _cjk_dominant_154(t: str) -> bool:
@@ -4598,7 +4695,8 @@ def _purge_loser_onnx_models() -> str:
                 continue
             if _fn in _keep:
                 continue
-            if _fn in _names or _fn.endswith(".part"):
+            if _fn in _names or _fn.endswith(".part") \
+                    or _fn.endswith(".part.url"):
                 try:
                     _freed += os.path.getsize(_fp)
                     os.remove(_fp)
