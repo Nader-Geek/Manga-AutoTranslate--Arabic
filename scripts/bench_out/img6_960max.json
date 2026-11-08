@@ -1,0 +1,45 @@
+{
+ "tag": "img6_960max",
+ "image": "ci_imgs/img6.jpg",
+ "shape": "1763x2480",
+ "cpu": 2,
+ "ort": "1.31.1",
+ "params": {
+  "det_threads": 2,
+  "multi_scale": true,
+  "ocr_threads": 0,
+  "workers": 0,
+  "det_limit": 960,
+  "det_limit_type": "max",
+  "arena": 0,
+  "rec_batch": 0
+ },
+ "build_s": {
+  "det": 0.11,
+  "ocr": 0.46
+ },
+ "runs": [
+  {
+   "run": 0,
+   "total_s": 15.32,
+   "det_s": 1.12,
+   "det_calls": 1,
+   "ocr_engine_s": 23.0,
+   "ocr_engine_calls": 21,
+   "regions": 9,
+   "lines": 41,
+   "chars": 313
+  },
+  {
+   "run": 1,
+   "total_s": 14.73,
+   "det_s": 1.5,
+   "det_calls": 1,
+   "ocr_engine_s": 21.84,
+   "ocr_engine_calls": 21,
+   "regions": 9,
+   "lines": 41,
+   "chars": 313
+  }
+ ]
+}

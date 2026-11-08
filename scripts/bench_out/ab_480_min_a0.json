@@ -1,0 +1,45 @@
+{
+ "tag": "ab_480_min_a0",
+ "image": "ci_imgs/img4.jpg",
+ "shape": "690x11200",
+ "cpu": 2,
+ "ort": "1.31.1",
+ "params": {
+  "det_threads": 2,
+  "multi_scale": true,
+  "ocr_threads": 0,
+  "workers": 0,
+  "det_limit": 480,
+  "det_limit_type": "min",
+  "arena": 0,
+  "rec_batch": 0
+ },
+ "build_s": {
+  "det": 0.11,
+  "ocr": 0.43
+ },
+ "runs": [
+  {
+   "run": 0,
+   "total_s": 63.71,
+   "det_s": 4.64,
+   "det_calls": 1,
+   "ocr_engine_s": 105.46,
+   "ocr_engine_calls": 40,
+   "regions": 24,
+   "lines": 106,
+   "chars": 3402
+  },
+  {
+   "run": 1,
+   "total_s": 62.74,
+   "det_s": 5.42,
+   "det_calls": 1,
+   "ocr_engine_s": 102.83,
+   "ocr_engine_calls": 40,
+   "regions": 24,
+   "lines": 106,
+   "chars": 3402
+  }
+ ]
+}

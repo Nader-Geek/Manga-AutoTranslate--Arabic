@@ -1,0 +1,45 @@
+{
+ "tag": "zh_old",
+ "image": "ci_imgs/up0929_zh.jpg",
+ "shape": "1008x1433",
+ "cpu": 2,
+ "ort": "1.31.1",
+ "params": {
+  "det_threads": 2,
+  "multi_scale": true,
+  "ocr_threads": 0,
+  "workers": 0,
+  "det_limit": 0,
+  "det_limit_type": "default(min)",
+  "arena": 0,
+  "rec_batch": 0
+ },
+ "build_s": {
+  "det": 0.11,
+  "ocr": 0.42
+ },
+ "runs": [
+  {
+   "run": 0,
+   "total_s": 81.26,
+   "det_s": 0.54,
+   "det_calls": 1,
+   "ocr_engine_s": 157.73,
+   "ocr_engine_calls": 54,
+   "regions": 14,
+   "lines": 7,
+   "chars": 38
+  },
+  {
+   "run": 1,
+   "total_s": 77.54,
+   "det_s": 0.91,
+   "det_calls": 1,
+   "ocr_engine_s": 149.28,
+   "ocr_engine_calls": 54,
+   "regions": 14,
+   "lines": 7,
+   "chars": 38
+  }
+ ]
+}

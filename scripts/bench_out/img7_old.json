@@ -1,0 +1,45 @@
+{
+ "tag": "img7_old",
+ "image": "ci_imgs/img7.jpg",
+ "shape": "800x2486",
+ "cpu": 2,
+ "ort": "1.31.1",
+ "params": {
+  "det_threads": 2,
+  "multi_scale": true,
+  "ocr_threads": 0,
+  "workers": 0,
+  "det_limit": 0,
+  "det_limit_type": "default(min)",
+  "arena": 0,
+  "rec_batch": 0
+ },
+ "build_s": {
+  "det": 0.12,
+  "ocr": 0.45
+ },
+ "runs": [
+  {
+   "run": 0,
+   "total_s": 23.13,
+   "det_s": 1.06,
+   "det_calls": 1,
+   "ocr_engine_s": 33.55,
+   "ocr_engine_calls": 17,
+   "regions": 11,
+   "lines": 32,
+   "chars": 382
+  },
+  {
+   "run": 1,
+   "total_s": 22.01,
+   "det_s": 1.19,
+   "det_calls": 1,
+   "ocr_engine_s": 31.81,
+   "ocr_engine_calls": 17,
+   "regions": 11,
+   "lines": 32,
+   "chars": 382
+  }
+ ]
+}

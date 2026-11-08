@@ -1,0 +1,45 @@
+{
+ "tag": "jabw_960max",
+ "image": "ci_imgs/lang_ja_bw.jpg",
+ "shape": "1200x1837",
+ "cpu": 2,
+ "ort": "1.31.1",
+ "params": {
+  "det_threads": 2,
+  "multi_scale": true,
+  "ocr_threads": 0,
+  "workers": 0,
+  "det_limit": 960,
+  "det_limit_type": "max",
+  "arena": 0,
+  "rec_batch": 0
+ },
+ "build_s": {
+  "det": 0.11,
+  "ocr": 0.43
+ },
+ "runs": [
+  {
+   "run": 0,
+   "total_s": 16.97,
+   "det_s": 0.49,
+   "det_calls": 1,
+   "ocr_engine_s": 30.96,
+   "ocr_engine_calls": 32,
+   "regions": 7,
+   "lines": 2,
+   "chars": 5
+  },
+  {
+   "run": 1,
+   "total_s": 16.69,
+   "det_s": 0.89,
+   "det_calls": 1,
+   "ocr_engine_s": 30.04,
+   "ocr_engine_calls": 32,
+   "regions": 7,
+   "lines": 2,
+   "chars": 5
+  }
+ ]
+}

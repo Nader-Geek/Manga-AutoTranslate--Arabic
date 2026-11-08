@@ -3783,6 +3783,80 @@ def _pc_ocr_small() -> bool:
     return bool(_android_x86_emulator())
 
 
+def _ocr_det_resize_policy(lang: str):
+    """v1.14.237 — سیاستِ تغییرِ اندازهٔ detِ داخلِ RapidOCR رویِ کراپها.
+
+    دستورِ سازنده: «میخوام یک کاری کنی استخراج خوب کار کنی … به پایین
+    ترین حد ممکن زمانش برسونی سریع استخراج کنه با cpu … مدل استخراج باید
+    همین paddleocr onnx باشه». ریشه‌یابی با بنچمارکِ واقعیِ img4
+    (690×11200 — سندباکسِ ۲هسته، پایپ‌لاینِ کاملِ _extract_regions_from_
+    bubbles): پیشفرضِ rapidocr پایتون یعنی Det.limit_type="min" با
+    limit_side_len=736 — «هر» کراپی که ضلعِ کوتاهش <736 باشد قبل از det
+    بزرگ میشود تا ضلعِ کوتاهش ۷۳۶ شود. کراپِ متعارفِ حباب (پهن اما
+    کم‌ارتفاع؛ مثلِ 613×84) با نسبتِ ۸.۷۶× به detِ 736×5376 میرود!
+    نتیجه: detِ داخلِ کراپ ۶۰٪+ زمانِ OCR بود (پروفایل: det 5.7s /
+    rec 25.2s بعد از فیکس). این همان دلیلی است که «گوشی سریعتر از PC
+    استخراج میکرد»: موتورِ اندروید (RapidOcrEngine.kt) از اول
+    maxSideLen=960 با سیاستِ max بود و پایتون نه.
+
+    سیاستِ تازه برایِ زبانهایِ لاتین = 960/max — دقیقاً پیشفرضِ رسمیِ
+    PaddleOCR («The default setting of the parameters is limit_type=max,
+    det_limit_side_len=960» — مستنداتِ inferenceِ PaddleOCR): بزرگنماییِ
+    کراپهای کوچک دیگر انجام نمیشود؛ فقط کراپِ بلندتر از ۹۶۰ کوچک
+    میشود. بنچمارکِ A/B (متنِ کاملِ مقایسه شد):
+      • img4 (انگلیسی، وبتونِ ۱۱۲۰۰px): کلِ استخراج ۹۹.۹s → ۴۳.۲s
+        (۲.۳×) و متنِ «بهتر»: ARTCLE9(TEACHERSAUTHORTY)/E7(STUDREPE)ی
+        غلط → ARTICLE9(TEACHERS'AUTHORITY) درست + ARTICLE7ی جاافتاده
+        پیدا شد (۲۴→۲۶ ناحیه، ۱۰۶→۱۰۹ خط).
+      • img6 (کمیکِ انگلیسی): ۳۲.۸s → ۱۴.۷s (۲.۲×)، متنِ همارز
+        (فقط جابهجاییِ ترتیبِ واژه در باکسها + ترمیمِ I'Ll→I'll).
+      • lang_ja_color (پیشنمایشِ ژاپنیِ ریز 1200×675): متنِ کانجیِ ریز
+        به بزرگنمایی نیاز دارد → با 960/max از ۱۰ خط به ۲ خط سقوط
+        کرد. پس زبانهایِ CJK (ja/ko/zh/multi) روی همان 736/minِ
+        rapidocr میمانند — کیفیتِ امروز، ریسکِ صفر؛ سرعتِ CJK از
+        سمتِ مدلها تغییر نمیکند.
+    نردبانِ واریانتها (raw→clahe/otsu/inv) و تقویتِ کراپ (scale تا 2.4)
+    دستنخوردهاند — همان جبرانِ کیفیتِ قبلی برایِ متنِ ریز.
+
+    اوررایدها: MANGA_OCR_DET_FAST=0 → خاموش (رفتارِ کاملِ قدیم =
+    736/min برایِ همه) | MANGA_OCR_DET_LIMIT=N | MANGA_OCR_DET_TYPE=
+    min|max (برایِ هر زبان — تستِ دستی). خروجی: dictِ پارامترهایِ
+    rapidocr یا None (= پیشفرضِ rapidocr)."""
+    try:
+        _v237 = str(os.environ.get("MANGA_OCR_DET_FAST", "")).strip().lower()
+        if _v237 in ("0", "false", "no", "off"):
+            return None
+    except Exception:
+        pass
+    _low237 = str(lang or "").lower()
+    _cjk237 = _low237 in ("japan", "ja", "japanese", "ko", "korean",
+                          "zh", "ch", "chinese", "ch_sim", "zh_hans",
+                          "zh_hant", "zh-tw", "zh_tw", "multi")
+    # اوررایدهای صریحِ کاربر
+    try:
+        _e_lim237 = int(os.environ.get("MANGA_OCR_DET_LIMIT", "0") or 0)
+    except Exception:
+        _e_lim237 = 0
+    _e_typ237 = str(os.environ.get("MANGA_OCR_DET_TYPE", "") or "").strip().lower()
+    if _cjk237:
+        # CJK: پیشفرضِ rapidocr (736/min) + اوررایدِ صریحِ کاربر
+        if _e_lim237 > 0 or _e_typ237 in ("min", "max"):
+            out = {}
+            if _e_lim237 > 0:
+                out["Det.limit_side_len"] = int(_e_lim237)
+            if _e_typ237 in ("min", "max"):
+                out["Det.limit_type"] = _e_typ237
+            return out or None
+        return None
+    # لاتین: 960/maxِ رسمیِ PaddleOCR (اورراید بر آن هم اعمال میشود)
+    out = {"Det.limit_side_len": 960, "Det.limit_type": "max"}
+    if _e_lim237 > 0:
+        out["Det.limit_side_len"] = int(_e_lim237)
+    if _e_typ237 in ("min", "max"):
+        out["Det.limit_type"] = _e_typ237
+    return out
+
+
 def _latin_lang188(tr) -> bool:
     """v1.14.188 — زبانِ صفحه لاتین است؟ (برایِ فیلترِ آشغالِ لاتین؛
     صفحاتِ ja/ko/zh هرگز این فیلتر را نمیگیرند.)"""
@@ -5373,6 +5447,15 @@ class RapidOCRBackend:
                 "EngineConfig.onnxruntime.intra_op_num_threads": int(_intra),
                 "EngineConfig.onnxruntime.inter_op_num_threads": 1,
             }
+            # v1.14.237 — سیاستِ تغییرِ اندازهٔ detِ کراپ (لاتین = 960/maxِ
+            # رسمیِ PaddleOCR — ۲.۲..۲.۳× سریعتر؛ CJK = همان 736/minِ
+            # rapidocr برایِ حفظِ خواندنِ کانجیِ ریز). جزئیات و بنچمارک:
+            # _ocr_det_resize_policy
+            _det_speed237 = _ocr_det_resize_policy(lang) or {}
+            _det_disp237 = ""
+            if _det_speed237:
+                _det_disp237 = (f" | det={_det_speed237.get('Det.limit_side_len', 736)}"
+                                f"/{_det_speed237.get('Det.limit_type', 'min')}")
             _intra_disp = _intra
             # v1.14.191 — برایِ همترازیِ workers×threads≈هسته‌ها (MangaTranslator
             # بعد از ساختِ موتور این را میخواند)
@@ -5381,6 +5464,7 @@ class RapidOCRBackend:
                 _p = dict(_rec_params)
                 _p.update(_base)
                 _p.update(_threads)
+                _p.update(_det_speed237)
                 try:
                     self.engine = NewRapidOCR(params=_p)
                     self._eng_params233 = _p
@@ -5399,10 +5483,11 @@ class RapidOCRBackend:
                 _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
                                if str(getattr(self, "_ocr_ep_active", "") or "").strip()
                                else "")
-                print(f"[+] RapidOCR (ONNX, PP-OCRv5) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230} | cls=خاموش")
+                print(f"[+] RapidOCR (ONNX, PP-OCRv5) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230}{_det_disp237} | cls=خاموش")
                 return
             _pb = dict(_base)
             _pb.update(_threads)
+            _pb.update(_det_speed237)
             try:
                 self.engine = NewRapidOCR(params=_pb)
                 self._eng_params233 = _pb
@@ -5419,7 +5504,7 @@ class RapidOCRBackend:
             _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
                            if str(getattr(self, "_ocr_ep_active", "") or "").strip()
                            else "")
-            print(f"[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230} | cls=خاموش")
+            print(f"[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230}{_det_disp237} | cls=خاموش")
             return
         except Exception as e:
             import traceback as _tb
@@ -28059,7 +28144,17 @@ class MangaTranslator:
                             (_bb_of(m_item[2])[0]
                              if m_item[2] is not None else 0.0)))
             else:
-                row_h = max(8.0, (float(np.median(hts)) if hts else 8.0) * 1.25)
+                # v1.14.237 — پورتِ فیکسِ اندروید (v1.14.185) به PC: سطلِ
+                # ۱.۲۵×بلندیِ خط از گامِ واقعیِ خط‌ها بلندتر بود → دو خطِ
+                # مجاورِ حبابِ با leadingِ فشرده (گامِ ~۱.۰×بلندی) در یک
+                # سطلِ y//row_h می‌افتادند و تای‌بریکِ x ترتیبشان را
+                # برمی‌چید (نمونهٔ img7 با detِ 960/max: «STOP BEING A
+                # SECURITY YOU SHOULD ALSO GUARD…» و «WHEN WERE SINCE WE
+                # FRIENDS?»؛ رویِ 736/min هم نهفته بود — فقط شانسِ
+                # ارتفاعِ باکسها جور نبود). سطل = ۰.۷۵×میانه (کوچکتر از
+                # گامِ خط) → هیچ برخوردی؛ تای‌بریکِ x فقط برای تکههایِ
+                # همخط (دو باکسِ کنارِ هم) میماند.
+                row_h = max(8.0, (float(np.median(hts)) if hts else 8.0) * 0.75)
                 merged.sort(key=lambda m_item: (
                     ((_bb_of(m_item[2])[1] if m_item[2] is not None else 0.0) // row_h),
                     (_bb_of(m_item[2])[0] if m_item[2] is not None else 0.0),
