@@ -25452,6 +25452,18 @@ class MangaTranslator:
         try:
             print("[فاز ۳ - بریف داستان] زمینه کوتاه از متن‌های موجود...")
             save_model = self._thread_model()
+            # v1.14.236 — بریفِ داستان هم از چرخشِ کلیدها بهره میبرد.
+            # قبلاً بریف با همان «یک» کلیدی که برای صفحهٔ جاری چیده شده
+            # بود صدا زده میشد و هیچ تعویضی نداشت: سهمیه/بنِ همان کلید →
+            # بریف برای «کلِ فصل» حذف میشد با اینکه توکنهایِ دیگر سالم
+            # بودند (حسِ سازنده: «حس میکنم فقط توکن اولی استفاده میکنه
+            # بقیش نه»). حالا هر تلاش، کلیدِ تصادفیِ تازه (خارج از
+            # استراحت، مثلِ ترجمهٔ صفحه) میگیرد و بعدِ پایانِ بریف،
+            # کلیدِ صفحه به جای خودش برمیگردد. خودِ متنِ بریف از قبل
+            # در «هر» درخواستِ ترجمه با «هر» کلید می‌رود (_brief_prompt_block
+            # در پرامپتِ همهٔ بچهاست) — این فیکس فقط «ساختِ» بریف است.
+            save_key = self._current_api_key()
+            save_idx = self._key_index
             lite = next((m for m in (self._model_cascade or [])
                          if "lite" in (m or "").lower()), "")
             try:
@@ -25459,16 +25471,38 @@ class MangaTranslator:
                     self._set_thread_model(lite)
             except Exception:
                 pass
+            raw = ""
+            _bt_max = max(1, len(getattr(self, "_api_keys", []) or []))
             try:
-                if self.provider_type == "gemini":
-                    raw = self._translate_with_gemini(
-                        prompt, "فقط شواهد صریح متن را برای مترجم خلاصه کن.",
-                        structured=False)
-                else:
-                    raw = self._translate_via_provider(
-                        prompt, "فقط شواهد صریح متن را برای مترجم خلاصه کن.",
-                        structured=False)
+                for _bt in range(_bt_max):
+                    try:
+                        self._pick_random_api_key(reason="بریف داستان")
+                        if self.provider_type == "gemini":
+                            raw = self._translate_with_gemini(
+                                prompt, "فقط شواهد صریح متن را برای مترجم خلاصه کن.",
+                                structured=False)
+                        else:
+                            raw = self._translate_via_provider(
+                                prompt, "فقط شواهد صریح متن را برای مترجم خلاصه کن.",
+                                structured=False)
+                        break
+                    except Exception as _be:
+                        try:
+                            _bd = self._quota_retry_delay(_be)
+                            if _bd:
+                                self._mark_key_cooldown(_be)
+                        except Exception:
+                            pass
+                        print(f"[!] بریف: تلاشِ {_bt + 1}/{_bt_max} ناموفق "
+                              f"({str(_be)[:90]}) → کلیدِ بعدی…")
+                        continue
             finally:
+                try:
+                    if save_key:
+                        self._apply_api_key(save_key)
+                    self._key_index = save_idx
+                except Exception:
+                    pass
                 try:
                     self._set_thread_model(save_model)
                 except Exception:

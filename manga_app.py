@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.235"
+APP_VER = "1.14.236"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -38,6 +38,92 @@ PROVIDER_ALIASES = {"chatgpt": "openai", "grok": "xai"}
 PROVIDERS = ["gemini", "custom"]
 
 DEFAULT_GEMINI_KEYS = []#",".join(["123:])
+
+# v1.14.236 — نوارِ پیشرفتِ زیرِ لاگ در وب (خواستهٔ سازنده: «تو گوشی
+# یه قابلیت هست ک میگه چند از چند درصد متن استخراج شده و یا کجای کاره…
+# میخوام رو پی سی و لینوکس تو وبش پایین لاگ درصدش نشون بده مثل گوشی»).
+# همان نشانگرهایی که اعلانِ اندروید میسازند (bridge.py — v1.14.154) اینجا
+# از دنبالهٔ لاگِ وب خوانده میشوند: فاز از آخرین خطِ شناخته‌شده و شمارهٔ
+# صفحه از آخرین «N آماده شد»؛ درصد = صفحهٔ در حال کار ÷ کل (total.txt
+# پوشهٔ live را موتور همان اول می‌نویسد). ترتیب مهم است (اولین تطبیقِ
+# هر خط برنده میشود) — عینِ لیستِ اندروید.
+_WEB_PROG_PHASES = (
+    ("بارگذاری موتور", "بارگذاری مدلها"),
+    ("لود نشد", "خطا"),
+    ("استخراج متن", "استخراج متن"),
+    ("متن استخراج شد", "استخراج متن"),
+    ("(PaddleOCR)", "استخراج متن"),
+    ("OCR]", "استخراج متن"),
+    ("ترجمه:", "ترجمه"),
+    ("فاز ۳", "ترجمه"),
+    ("ترجمه با", "ترجمه"),
+    ("پاکسازی متن", "پاکسازی"),
+    ("روش پاکسازی", "پاکسازی"),
+    ("پاکسازی:", "پاکسازی"),
+    ("ذخیرهٔ نهایی", "ذخیرهٔ نهایی"),
+    ("[✓] تمام شد", "تمام شد"),
+    ("لغو شد", "لغو شد"),
+    ("خطا:", "خطا"),
+    ("آماده شد", "رندر و ذخیره"),
+    ("OCR:", "استخراج متن"),
+    ("پدلِ رسمیِ اندروید", "استخراج متن"),
+    ("پدلِ اندروید", "استخراج متن"),
+)
+
+
+def _web_prog_parse(log: str):
+    """(فاز، شمارهٔ صفحهٔ آماده) از انتهای لاگ — آخرین نشانه ملاک است."""
+    tail = (log or "").splitlines()[-160:]
+    phase = ""
+    for ln in reversed(tail):
+        for _k, _v in _WEB_PROG_PHASES:
+            if _k in ln:
+                phase = _v
+                break
+        if phase:
+            break
+    page = 0
+    for ln in reversed(tail):
+        m = re.search(r"(\d{1,4})\s+آماده شد", ln)
+        if m:
+            page = int(m.group(1))
+            break
+    return phase, page
+
+
+def _web_prog_html(phase: str, page: int, total: int, running: bool,
+                   done: bool) -> str:
+    """HTML نوار پیشرفت: میله + «فاز — صفحهٔ n از N (p٪)» مثل گوشی."""
+    cls = ""
+    if done:
+        cls = " done"
+        pct, now = 100, total
+    elif not running and phase == "خطا":
+        cls = " err"
+        pct = min(100, int(page * 100 / total)) if total > 0 else 0
+        now = page
+    else:
+        now = min(page + 1, total) if total > 0 else page
+        pct = int(now * 100 / total) if total > 0 else 0
+    txt = ""
+    if done:
+        txt = (f"✅ تمام شد — {total if total > 0 else page} صفحه"
+               + (f" ({total}/{total})" if total > 0 else ""))
+    elif not running and phase == "خطا":
+        txt = f"❌ خطا — آخرین صفحهٔ آماده: {page}" + (
+            f" از {total}" if total > 0 else "")
+    elif phase:
+        txt = f"📊 {phase} — صفحهٔ {now} از {total} ({pct}٪)" \
+            if total > 0 else f"📊 {phase}…"
+    else:
+        txt = "📊 در حال شروع…"
+    return (
+        '<div class="mprog">'
+        f'<div class="mprog-track"><div class="mprog-fill{cls}" '
+        f'style="width:{pct}%"></div></div>'
+        f'<div class="mprog-txt">{txt}</div>'
+        '</div>'
+    )
 
 
 C_BG = "#0a0a0c"      # پس‌زمینهٔ اصلی — هم‌خانوادهٔ تم وب
@@ -1643,6 +1729,32 @@ footer { display: none !important; }
 .chip-dot.idle { background: var(--ink-dim); }
 @keyframes chipPulse { 50% { opacity: .3; } }
 
+/* ---- نوار پیشرفت زیر لاگ (v1.14.236 — مثل اپ اندروید: فاز + صفحه + درصد) ---- */
+#manga_prog_row .mprog {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 10px 0 2px; padding: 11px 16px;
+  background: linear-gradient(180deg, #101014, #0a0a0c);
+  border: 1px solid var(--ink-line); border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4);
+  animation: rise .35s ease both;
+}
+#manga_prog_row .mprog-track {
+  flex: 1 1 170px; height: 10px; border-radius: 999px;
+  background: #17171b; overflow: hidden; direction: ltr;
+}
+#manga_prog_row .mprog-fill {
+  height: 100%; border-radius: 999px; min-width: 0;
+  background: linear-gradient(90deg, var(--ink-red), #ff8a5e);
+  transition: width .6s ease;
+}
+#manga_prog_row .mprog-fill.done { background: linear-gradient(90deg, #2e7d4f, #38c98a); }
+#manga_prog_row .mprog-fill.err  { background: linear-gradient(90deg, #a3271e, #ff6a5e); }
+#manga_prog_row .mprog-txt {
+  color: var(--ink-text); font-size: .85rem; font-weight: 600;
+  white-space: nowrap; line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- دکمه‌های ابزار لاگ (کپی/پاک‌کردن) ---- */
 .log-tools { display: flex; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
 .log-tool-btn {
@@ -1940,7 +2052,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .sp{width:26px;height:26px;border-radius:50%;border:3px solid #26262a;border-top-color:#ff4a3d;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hint{padding:16px;text-align:center;color:#6b6963;font-size:.85rem}
-.chip{position:fixed;bottom:18px;left:18px;z-index:3;display:none;background:#ff4a3d;color:#fff;border:none;border-radius:999px;padding:10px 16px;font-size:.85rem;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.5);font-family:inherit}
 .zbtn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:7px 11px;font-size:.85rem;cursor:pointer;font-family:inherit;flex:none;min-height:36px;min-width:36px}
 .zbtn:active{background:#2a2a30}
 .zv{color:#97948c;font-size:.78rem;min-width:42px;text-align:center;flex:none;font-variant-numeric:tabular-nums}
@@ -1949,7 +2060,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 </style></head><body>
 <div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><button type="button" class="dbtn" id="db">🔍 دیباگ</button><div class="n" id="n">0</div></div>
 <main class="c" id="c"><div class="hint" id="h">در انتظار اولین صفحه…</div></main>
-<button type="button" class="chip" id="chip">↓ صفحه‌های جدید</button>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
 <script>
 (function(){
@@ -1958,7 +2068,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   var mtimes = {};  // v1.14.160 — slot → mtime of last image update
   var c = document.getElementById('c'), h = document.getElementById('h'),
       b = document.getElementById('n'), dot = document.getElementById('dot'),
-      db = document.getElementById('db'), chip = document.getElementById('chip');
+      db = document.getElementById('db');
   var haveDbg = !!DBG, dbgTotal = -1;
   // v1.14.159 — دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
   // صفحهٔ دیباگ واقعاً وجود دارد (قبلاً فقط وجودِ پوشه کافی بود → دکمه
@@ -2160,22 +2270,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       })
       .catch(function(){});
   }
-  // چیپ «صفحه‌های جدید»: فقط وقتی کاربر بالا است و صفحهٔ تازه آمده — بدون پرش
-  var lastNew = 0;
+  // v1.14.236 — چیپِ «↓ صفحه‌های جدید» پایین-چپ حذف شد (دستورِ سازنده:
+  // «سمت چپ پایین میزنه چپتر جدید یا قسمت جدید… اونو حذف کن نمیخواد
+  // بیاد») — اسکرولِ خودکار و پرشِ صفحه از قبل ممنوع بود؛ چیپ فقط
+  // اعلانِ «صفحهٔ تازه آمده» بود.
   setInterval(function(){
     pollTotal();
     pollMtimes();
-    var a = curArrived();
-    if (a > lastNew) {
-      if (!nearBottom()) chip.style.display = 'block';
-      lastNew = a;
-    }
     probe();
   }, 1800);
-  chip.addEventListener('click', function(){
-    chip.style.display = 'none';
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  });
   // ——— زوم پهنا (بزرگ/کوچک) + نوار پیشرفت پایین — همان سبکِ نمایشگر نهایی ———
   var zv = document.getElementById('zv'), pf = document.getElementById('pf');
   var z = 1;
@@ -2212,7 +2315,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     pf.style.width = (m > 0 ? Math.min(100, Math.max(0, window.scrollY / m * 100)) : 0) + '%';
   };
   window.addEventListener('scroll', function(){
-    if (nearBottom()) chip.style.display = 'none';
     updateProgress();
   }, { passive: true });
   window.addEventListener('resize', function(){
@@ -3403,6 +3505,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             show_label=False, interactive=True,
                             elem_id="manga_live_log",
                             value="— لاگ بعد از شروع ترجمه اینجا می‌آید —")
+            # v1.14.236 — نوارِ پیشرفتِ زیرِ لاگ: فاز + «صفحهٔ n از N» +
+            # درصد — مثلِ اعلانِ اپ اندروید؛ هر ۱ ثانیه از همان لاگ
+            # بهروزرسانی میشود (تایمرِ _poll_job_status).
+            prog_html = _safe(gr.HTML, elem_id="manga_prog_row",
+                              visible=False, value="")
 
         html_state = gr.State("")
         html_debug_state = gr.State("")
@@ -5323,7 +5430,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         def _poll_job_status(sid, sid_box_v):
             preferred = (sid or sid_box_v or "").strip()
             sid = _find_active_sid(preferred) or preferred
-            empty = (gr.update(),) * 14
+            empty = (gr.update(),) * 15
             if not sid:
                 return empty
             job = _get_job(sid)
@@ -5391,6 +5498,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     _dbg_sz = f" ({human_size(os.path.getsize(dl_dbg))})"
             except Exception:
                 pass
+            # v1.14.236 — نوارِ پیشرفتِ زیرِ لاگ (مثلِ اپ اندروید): فاز +
+            # «صفحهٔ n از N» + درصد؛ از همان لاگ و total.txt پوشهٔ live.
+            _prog_upd = gr.update()
+            try:
+                if (running or vis) and log:
+                    _ld = job.get("live_dir")
+                    _tot = _live_total_of(_ld) if _ld else 0
+                    _ph, _pg = _web_prog_parse(log)
+                    _done = (not running) and ("✅" in log or "تمام شد" in log)
+                    if _done or _ph or running:
+                        _prog_upd = gr.update(
+                            value=_web_prog_html(_ph, _pg, _tot, running, _done),
+                            visible=True)
+            except Exception:
+                _prog_upd = gr.update()
             # v1.14.31: نمایش اصلی/دیباگ حذف — همه‌جا مخفی؛ فقط «نمایش» (دکمهٔ 📖) می‌ماند
             return (
                 sid,
@@ -5410,11 +5532,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 gr.update(visible=False),
                 gr.update(visible=bool(dl_dbg and vis)),
                 gr.update(),
+                _prog_upd,
             )
 
 
         _poll_outputs = [session_id, sid_box, sid_holder, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
-                         dl_btn_debug, btn_view_debug, debug_row, html_debug_state]
+                         dl_btn_debug, btn_view_debug, debug_row, html_debug_state, prog_html]
 
         def _scan_live_dir(live_dir):
             try:
