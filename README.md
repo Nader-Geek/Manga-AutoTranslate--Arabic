@@ -95,6 +95,7 @@ python manga.py -i "URL" -o .psd --font fonts/Vazirmatn-Bold.ttf --api-key KEY
 |---|---|
 | ویندوز / لینوکس / مک (دسکتاپ) | پنجرهٔ نیتیو (pywebview / WebView2) — دقیقاً همان رابط وب؛ تنظیمات و کلید API دائمی ذخیره می‌شود؛ «نمایش» داخل خود پنجرهٔ برنامه باز می‌شود (نه مرورگر) |
 | Google Colab | رابط وب تیره + لینک عمومی gradio.live خودکار |
+| Molab Marimo | رابط وب تیره + لینک عمومی gradio.live خودکار |
 | GitHub Codespaces | رابط وب + لینک عمومی (بدون Port Forwarding) |
 | GitHub Actions | رابط وب + لینک عمومی |
 
@@ -133,13 +134,6 @@ python manga_app.py -- -i input -o out.psd --font fonts/Vazirmatn-Bold.ttf --api
 | provider | مدل پیش‌فرض | متغیر محیطی |
 |---|---|---|
 | gemini | gemini-3.8-flash | GEMINI_API_KEY |
-| openai / chatgpt | gpt-4o-mini | OPENAI_API_KEY |
-| deepseek | deepseek-chat | DEEPSEEK_API_KEY |
-| groq | llama-3.3-70b-versatile | GROQ_API_KEY |
-| xai / grok | grok-2-latest | XAI_API_KEY |
-| together | meta-llama/Llama-3.3-70B-Instruct-Turbo | TOGETHER_API_KEY |
-| openrouter | google/gemini-2.0-flash-001 | OPENROUTER_API_KEY |
-| ollama | llama3.2 | — |
 | custom | — | CUSTOM_API_KEY |
 
 **سرویس دلخواه (custom)** — ۴ فرمت API خودکار از روی خودِ لینک شناخته می‌شود؛ لینک کامل endpoint را هم می‌شود چسباند:
@@ -243,12 +237,12 @@ python manga_app.py -- -i input -o out.psd --font fonts/Vazirmatn-Bold.ttf --api
 لینک عمومی `gradio.live` خودکار چاپ می‌شود. ⚠ هر دو فایل `manga.py` (مترجم) و `manga_app.py` (برنامه) باید کنار هم باشند.
 
 
-### 2) Google Colab (پیشنهادی)
+### 2) molab marimo
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/amirwolf512k/Manga-AutoTranslate/blob/main/Manga_Translator_Colab.ipynb)
+[![Open In marimo](https://marimo.io/shield.svg)](https://molab.marimo.io/github/amirwolf512k/Manga-AutoTranslate/blob/main/Manga-AutoTranslate.py/server)
 
 ```bash
-!bash manga.sh
+bash manga.sh
 ```
 
 لینک عمومی `gradio.live` خودکار چاپ می‌شود. ⚠ هر دو فایل `manga.py` (مترجم) و `manga_app.py` (برنامه) باید کنار هم باشند.
