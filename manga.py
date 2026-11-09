@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.247"
+APP_VER = "1.14.248"
 
 # v1.14.246 — پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
@@ -34,8 +34,6 @@ K3_JP_SYSTEM_RULE = "\r\n1. MANDATORY FURIGANA & DEDUPLICATION PURGE (HIGHEST PR
 K3_RESPONSE_SCHEMA_TEXT = "{\n  \"type\": \"ARRAY\",\n  \"description\": \"List of processed manga pages with their translations.\",\n  \"items\": {\n    \"type\": \"OBJECT\",\n    \"properties\": {\n      \"filename\": {\n        \"type\": \"STRING\",\n        \"description\": \"The filename of the image as provided.\"\n      },\n      \"translations\": {\n        \"type\": \"ARRAY\",\n        \"description\": \"Extracted text blocks and their translations.\",\n        \"items\": {\n          \"type\": \"OBJECT\",\n          \"properties\": {\n            \"en_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Exact original text from the dialogue input.\"\n            },\n            \"fa_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Creative, natural Persian translation.\"\n            }\n          },\n          \"required\": [\n            \"en_text\",\n            \"fa_text\"\n          ]\n        }\n      }\n    },\n    \"required\": [\n      \"filename\",\n      \"translations\"\n    ]\n  }\n}"
 
 
-def k3_schema_json() -> str:
-    return K3_RESPONSE_SCHEMA_TEXT
 
 
 def k3_system_instruction(japanese: bool = False, with_schema: bool = False) -> str:
@@ -858,18 +856,6 @@ except ImportError:
     hf_hub_download = None
 
 
-def _ort_providers(prefer_gpu: bool = True):
-    if ort is None:
-        return ["CPUExecutionProvider"]
-    available = set(ort.get_available_providers())
-    order = []
-    if prefer_gpu and "CUDAExecutionProvider" in available:
-        order.append("CUDAExecutionProvider")
-    elif prefer_gpu and "CoreMLExecutionProvider" in available:
-        order.append("CoreMLExecutionProvider")
-    if "CPUExecutionProvider" in available:
-        order.append("CPUExecutionProvider")
-    return order or ["CPUExecutionProvider"]
 
 
 def _sys_avail_ram_gb():
@@ -903,54 +889,6 @@ def _android_x86_emulator() -> bool:
 _GPU_VENDOR_CACHE = None
 
 
-def _gpu_vendor() -> str:
-    """v1.14.117 — تشخیصِ فروشندهٔ GPU رویِ اندروید: "adreno" / "mali" /
-    "powervr" / "unknown" (رویِ PC همیشه "unknown" و بدونِ هیچ اثری).
-    با getprop (ro.hardware.egl / ro.soc.model / ro.board.platform).
-    زمینه: کرنلهایِ OpenCLِ مدلهایِ nb موقعِ ساختِ predictor رویِ
-    درایورهایِ Mali JIT میشوند و رویِ بعضی درایورها سگفلتِ native
-    میدهند (کرشِ 2026-10-28، Redmi 22021211RG / هلیو G96 / Mali-G57)
-    — رویِ Adreno سالهاست ثابت است."""
-    global _GPU_VENDOR_CACHE
-    if _GPU_VENDOR_CACHE is not None:
-        return _GPU_VENDOR_CACHE
-    v = "unknown"
-    try:
-        if _on_android():
-            import re as _re
-            import subprocess as _sp
-            props = []
-            for key in ("ro.hardware.egl", "ro.hardware",
-                        "ro.board.platform", "ro.soc.manufacturer",
-                        "ro.soc.model"):
-                try:
-                    props.append(str(_sp.check_output(
-                        ["getprop", key], timeout=5,
-                        stderr=_sp.DEVNULL).decode("utf-8", "replace").strip()))
-                except Exception:
-                    props.append("")
-            _egl = props[0].lower()
-            if "adreno" in _egl:
-                v = "adreno"
-            elif "mali" in _egl:
-                v = "mali"
-            elif "powervr" in _egl:
-                v = "powervr"
-            if v == "unknown":
-                blob = " ".join(props).lower()
-                if (any(t in blob for t in ("adreno", "qcom", "qualcomm"))
-                        or _re.search(r"\b(sm|sdm|qcs)[0-9]", blob)):
-                    v = "adreno"
-                elif ("mali" in blob or "mediatek" in blob
-                        or "helio" in blob or "dimens" in blob
-                        or _re.search(r"\bmt[0-9]", blob)):
-                    v = "mali"
-                elif "powervr" in blob or "imgtec" in blob:
-                    v = "powervr"
-    except Exception:
-        pass
-    _GPU_VENDOR_CACHE = v
-    return v
 
 
 def _cpu_ep_xnnpack() -> bool:
@@ -4097,45 +4035,6 @@ def _mirror_model(fname):
         return None
 
 
-def _android_heal_model_dir(mdir, quiet=False):
-    """v1.14.154 — درمانِ EACCES («system error number 13») مدلها رویِ گوشی.
-
-    ریشه: بعد از بهروزرسانیِ اپ/بازیابیِ بکاپ، مجوزِ خواندنِ فایلِ مدلِ
-    دانلودشده از ONNX Runtime گرفته میشود → «PP-OCRv6 … failed: system
-    error number 13» → استخراجِ بیصدا خالی میماند (شکایتِ «استخراج
-    نمیکند»). درمان: chmodِ 0o644 همهٔ فایلهایِ
-    پوشهٔ مدل؛ فایلِ هنوزناخوانا → حذف (تا _ensure دوباره دانلود کند).
-    فقط اندروید (گیتِ MANGA_MODEL_HEAL) — PC بیت‌به‌بیت دستنخورده."""
-    try:
-        if not mdir or not os.path.isdir(mdir):
-            return
-        if not _android_gate("MANGA_MODEL_HEAL"):
-            return
-        _n_heal = 0
-        for _fn in sorted(os.listdir(mdir)):
-            _fp = os.path.join(mdir, _fn)
-            if not os.path.isfile(_fp):
-                continue
-            try:
-                os.chmod(_fp, 0o644)
-            except Exception:
-                pass
-            try:
-                with open(_fp, "rb") as _f:
-                    _f.read(64)
-            except PermissionError:
-                try:
-                    os.remove(_fp)
-                    _n_heal += 1
-                except Exception:
-                    pass
-            except Exception:
-                pass
-        if _n_heal and not quiet:
-            print(f"[*] {_n_heal} فایلِ مدلِ ناخوانا (EACCES) حذف شد "
-                  "→ دانلودِ دوباره")
-    except Exception:
-        pass
 
 
 # v1.14.162 — قفلِ تک‌نمونهٔ دانلودِ هر فایل: دو ورکرِ همزمان که همان
@@ -4655,10 +4554,8 @@ class K3LadderOCR:
 # تنظیمها از پنلِ اپ میآیند → bridge آنها را به speed_lab_env() میدهد →
 # envهایِ مانده ست/پاک میشوند. پیشفرضِ هر کلید = رفتارِ همین نسخه.
 
-_SPEED_LAB_EP = ("auto",)
 # v1.14.187 — RapidOCR رویِ CPU اجرا میشود؛ EPهایِ ONNXِ قدیمی
 # (nnapi/xnnpack/cpu) دیگر معنا ندارند. روشِ یگانه = padandroid.
-_SPEED_LAB_LADDER = ("padandroid",)
 
 # اسمِ فارسیِ هر روش برایِ لاگها (کلیدِ انگلیسی هم کنارش میآید تا لاگ
 # قابلِ جستجو بماند)
@@ -6469,12 +6366,9 @@ class BalloonToneClassifier:
         except Exception:
             return "normal"
 
-    def classify_batch(self, crops):
-        return [self.classify(c) for c in crops]
 
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".avif", ".heic", ".heif"}
-PUNCTUATION_SET = set(string.punctuation + "؟«»٪٫،؛…")
 
 WATERMARK_PATTERNS = (
     "lunatoons", "lunatoon", "nadeinkorea", "made in korea", "madeinkorea",
@@ -6571,7 +6465,6 @@ SFX_WORD_RE = re.compile(
 )
 
 HANGUL_RE = re.compile(r"[\uac00-\ud7a3]+")
-PURE_HANGUL_SFX_RE = re.compile(r"^[\uac00-\ud7a3\s!?.…~\-]+$")
 
 
 def uncensor_swears(text: str) -> str:
@@ -8679,9 +8572,6 @@ class MangaTranslator:
             allow_en = True
         return allow_en, allow_ko, allow_ja, allow_zh
 
-    def _want_english_only(self) -> bool:
-        allow_en, allow_ko, allow_ja, allow_zh = self._ocr_lang_flags()
-        return allow_en and not (allow_ko or allow_ja or allow_zh)
 
     def _is_non_english_script(self, text: str) -> bool:
 
@@ -9026,65 +8916,6 @@ class MangaTranslator:
 
         return "dialogue"
 
-    @staticmethod
-    def _dedupe_detections(detections: List[dict], iou_thresh: float = 0.28) -> List[dict]:
-        def rect_of(d):
-            return cv2.boundingRect(d["poly"])
-
-        def iou(r1, r2):
-            x1, y1, w1, h1 = r1
-            x2, y2, w2, h2 = r2
-            xi1, yi1 = max(x1, x2), max(y1, y2)
-            xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
-            inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-            union = w1 * h1 + w2 * h2 - inter
-            return inter / union if union > 0 else 0
-
-        def text_norm(t: str) -> str:
-            return re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", (t or "").lower())
-
-        def is_near_duplicate_text(a: str, b: str) -> bool:
-
-            na, nb = text_norm(a), text_norm(b)
-            if not na or not nb:
-                return False
-            if na == nb:
-                return True
-            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
-
-            if len(shorter) >= 3 and shorter in longer:
-                return True
-            return False
-
-        kept: List[dict] = []
-        for d in detections:
-            r = rect_of(d)
-            dup_idx = None
-            for i, k in enumerate(kept):
-                kr = rect_of(k)
-                if iou(r, kr) > iou_thresh:
-                    dup_idx = i
-                    break
-                if is_near_duplicate_text(d.get("text") or "", k.get("text") or ""):
-                    cx1 = r[0] + r[2] / 2.0
-                    cy1 = r[1] + r[3] / 2.0
-                    cx2 = kr[0] + kr[2] / 2.0
-                    cy2 = kr[1] + kr[3] / 2.0
-                    if (abs(cx1 - cx2) < max(r[2], kr[2]) * 0.95 + 50
-                            and abs(cy1 - cy2) < max(r[3], kr[3]) * 1.3 + 40):
-                        dup_idx = i
-                        break
-            if dup_idx is None:
-                kept.append(d)
-            else:
-                cur = kept[dup_idx]
-                better_conf = d["conf"] > cur["conf"] + 0.04
-                similar_conf = abs(d["conf"] - cur["conf"]) <= 0.06
-                longer = len(d.get("text") or "") > len(cur.get("text") or "")
-                if (better_conf or (similar_conf and longer)
-                        or (is_near_duplicate_text(d.get("text") or "", cur.get("text") or "") and longer)):
-                    kept[dup_idx] = d
-        return kept
 
     @staticmethod
     def _column_line_groups(idxs, bbs, rtl: bool = True):
@@ -9143,451 +8974,6 @@ class MangaTranslator:
         except Exception:
             return None
 
-    def group_into_regions(self, detections: List[dict], y_offset: int = 0) -> List[TextRegion]:
-      if not detections:
-        return []
-
-      n = len(detections)
-      rects = []
-      texts = []
-      for d in detections:
-        x, y, w, h = cv2.boundingRect(d["poly"])
-        rects.append((x, y + y_offset, w, h))
-        texts.append((d.get("text") or "").strip())
-
-      parent = list(range(n))
-
-      def find(a):
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-      def union(a, b):
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
-
-      def iou(r1, r2):
-        x1, y1, w1, h1 = r1
-        x2, y2, w2, h2 = r2
-        xi1, yi1 = max(x1, x2), max(y1, y2)
-        xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
-        inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-        union_area = w1 * h1 + w2 * h2 - inter
-        return inter / union_area if union_area > 0 else 0.0
-
-      def pair_metrics(r1, r2):
-        x1, y1, w1, h1 = r1
-        x2, y2, w2, h2 = r2
-        cy1 = y1 + h1 / 2.0
-        cy2 = y2 + h2 / 2.0
-        cx1 = x1 + w1 / 2.0
-        cx2 = x2 + w2 / 2.0
-        vgap = abs(cy1 - cy2) - (h1 + h2) / 2.0
-        hgap = abs(cx1 - cx2) - (w1 + w2) / 2.0
-        avg_h = max(1.0, (h1 + h2) / 2.0)
-        avg_w = max(1.0, (w1 + w2) / 2.0)
-        return vgap, hgap, avg_h, avg_w, abs(cx1 - cx2), max(h1, h2), min(h1, h2), min(w1, w2), max(w1, w2)
-
-      def starts_with_lowercase(text: str) -> bool:
-        for ch in text:
-            if ch.isalpha():
-                return ch.islower()
-        return False
-
-      def likely_same_bubble(i, j) -> bool:
-        r1, r2 = rects[i], rects[j]
-        t1, t2 = texts[i], texts[j]
-        k1 = detections[i].get("kind", "dialogue")
-        k2 = detections[j].get("kind", "dialogue")
-
-        if r1[1] > r2[1]:
-          r1, r2 = r2, r1
-          t1, t2 = t2, t1
-
-        vgap, hgap, avg_h, avg_w, cx_dist, h_max, h_min, w_min, w_max = pair_metrics(r1, r2)
-        if self.debug and os.environ.get("MANGA_VGAP_DEBUG") == "1":
-          short1 = (t1 or "")[:25]
-          short2 = (t2 or "")[:25]
-          print(f"  [VGAP DEBUG] \"{short1}\" <-> \"{short2}\"")
-          print(f"       vgap={vgap:.1f} | avg_h={avg_h:.1f} | cx_dist={cx_dist:.1f}")
-        if vgap > 28:
-          return False
-
-
-        small_attach = (
-            h_min <= 28 or (h_max > h_min * 2.5 and h_min <= 40)
-        ) and (k1 in ("junk", "sfx", "promo") or k2 in ("junk", "sfx", "promo"))
-
-        if h_max > h_min * 3.0 and not small_attach:
-          return False
-
-        if cx_dist > max(avg_w * 0.55, 45) and not small_attach:
-          return False
-        if small_attach and cx_dist > max(avg_w * 0.85, 60):
-          return False
-
-        if starts_with_lowercase(t2) and cx_dist < max(avg_w * 0.40, 35) and vgap < 25:
-          return True
-
-        width_ratio = w_min / w_max if w_max > 0 else 0
-        centers_aligned = cx_dist < max(avg_w * 0.28, 20)
-
-        if width_ratio > 0.60 and centers_aligned and vgap < 18:
-          return True
-
-        if centers_aligned and vgap <= max(8.0, avg_h * 0.45):
-          return True
-
-        margin = max(3, int(avg_h * 0.18))
-        if small_attach:
-          margin = max(margin, 10)
-        x1, y1, w1, h1 = r1
-        x2, y2, w2, h2 = r2
-        a = (x1 - margin, y1 - margin, x1 + w1 + margin, y1 + h1 + margin)
-        b = (x2 - margin, y2 - margin, x2 + w2 + margin, y2 + h2 + margin)
-        overlaps = not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
-
-        if not overlaps:
-          return False
-
-        if iou(r1, r2) >= 0.25:
-          return True
-
-        if centers_aligned and vgap < 14:
-          return True
-
-        if small_attach and vgap < 20 and cx_dist < max(avg_w * 0.7, 50):
-          return True
-
-        if vgap <= 4.0 and cx_dist < max(avg_w * 0.5, 40):
-          return True
-
-        return False
-
-
-      for i in range(n):
-        ki = detections[i].get("kind", "dialogue")
-        if ki not in ("sfx", "junk"):
-            continue
-
-        t_i = (detections[i].get("text") or "").strip()
-        if ki == "sfx" and len(t_i) >= 3:
-            continue
-        for j in range(n):
-            if i == j:
-                continue
-            if detections[j].get("kind", "dialogue") != "dialogue":
-                continue
-            near_margin = max(8, int(min(rects[i][3], rects[j][3]) * 0.30))
-            x1, y1, w1, h1 = rects[i]
-            x2, y2, w2, h2 = rects[j]
-            a = (x1 - near_margin, y1 - near_margin, x1 + w1 + near_margin, y1 + h1 + near_margin)
-            b = (x2 - near_margin, y2 - near_margin, x2 + w2 + near_margin, y2 + h2 + near_margin)
-            if not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1]):
-
-                cx1 = x1 + w1 / 2.0
-                cx2 = x2 + w2 / 2.0
-                if abs(cx1 - cx2) > max((w1 + w2) / 2.0 * 0.6, 45):
-                    continue
-                detections[i]["kind"] = "dialogue"
-                break
-
-      def kinds_compatible(i, j):
-        ki = detections[i].get("kind", "dialogue")
-        kj = detections[j].get("kind", "dialogue")
-        if ki == kj:
-            return True
-
-        pair = {ki, kj}
-        if pair == {"junk", "dialogue"}:
-            return True
-        if "junk" in pair and ("sfx" in pair or "promo" in pair):
-            return True
-        return False
-
-
-      for i in range(n):
-        for j in range(i + 1, n):
-            if not kinds_compatible(i, j):
-                continue
-            if likely_same_bubble(i, j):
-                union(i, j)
-
-
-      groups = {}
-      for i in range(n):
-        root = find(i)
-        groups.setdefault(root, []).append(i)
-
-      regions = []
-      for gid, idxs in enumerate(groups.values()):
-
-
-        boxes = []
-        for i in idxs:
-            poly = np.array(detections[i]["poly"], dtype=np.int32).copy()
-            if poly.ndim == 2 and poly.shape[1] == 2 and y_offset:
-                poly = poly.copy()
-                poly[:, 1] = poly[:, 1] + int(y_offset)
-            elif poly.ndim == 3 and poly.shape[-1] == 2 and y_offset:
-                poly = poly.copy()
-                poly[:, :, 1] = poly[:, :, 1] + int(y_offset)
-            boxes.append(poly)
-        xs = [rects[i][0] for i in idxs]
-        ys = [rects[i][1] for i in idxs]
-        xe = [rects[i][0] + rects[i][2] for i in idxs]
-        ye = [rects[i][1] + rects[i][3] for i in idxs]
-        x0, y0, x1, y1 = min(xs), min(ys), max(xe), max(ye)
-
-        idxs_sorted = sorted(idxs, key=lambda i: (rects[i][1], rects[i][0]))
-
-
-        def _norm_txt(t: str) -> str:
-            return re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", (t or "").lower())
-
-        def _is_strict_partial(a: str, b: str) -> bool:
-
-            na, nb = _norm_txt(a), _norm_txt(b)
-            if not na or not nb:
-                return False
-            if na == nb:
-                return True
-            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
-            return len(shorter) >= 3 and shorter in longer
-
-        kept_idxs: List[int] = []
-        for i in idxs_sorted:
-            t_i = (detections[i].get("text") or "").strip()
-            if not t_i:
-                continue
-            r_i = rects[i]
-            is_dup = False
-            for k, j in enumerate(kept_idxs):
-                t_j = (detections[j].get("text") or "").strip()
-                r_j = rects[j]
-                cy_i = r_i[1] + r_i[3] / 2.0
-                cy_j = r_j[1] + r_j[3] / 2.0
-                avg_h = max(1.0, (r_i[3] + r_j[3]) / 2.0)
-                same_line = abs(cy_i - cy_j) < avg_h * 0.65
-                if same_line and _is_strict_partial(t_i, t_j):
-                    conf_i = float(detections[i].get("conf") or 0)
-                    conf_j = float(detections[j].get("conf") or 0)
-                    if len(t_i) > len(t_j) or (len(t_i) == len(t_j) and conf_i > conf_j):
-                        kept_idxs[k] = i
-                    is_dup = True
-                    break
-            if not is_dup:
-                kept_idxs.append(i)
-
-
-        if len(kept_idxs) > 1:
-            long_norms = []
-            short_idxs = []
-            for i in kept_idxs:
-                t = (detections[i].get("text") or "").strip()
-                n = _norm_txt(t)
-                if len(t) >= 10 or len(n) >= 8:
-                    long_norms.append(n)
-                else:
-                    short_idxs.append(i)
-            if long_norms and short_idxs:
-                combined = "".join(long_norms)
-                final = [i for i in kept_idxs if i not in short_idxs]
-                for i in short_idxs:
-                    n = _norm_txt(detections[i].get("text") or "")
-                    if not n or n not in combined:
-                        final.append(i)
-                kept_idxs = sorted(final, key=lambda i: (rects[i][1], rects[i][0]))
-
-        kept_idxs = sorted(kept_idxs, key=lambda i: (rects[i][1], rects[i][0]))
-        # v1.14.90 — ستون‌بندیِ خط‌ها (همان منطقِ _ocr_crop): دو ستونِ
-        # کنارِ هم با (y,x) در هم می‌پیچد → هر ستون متنِ خودش، ستون‌ها \n
-        try:
-            _cg89 = MangaTranslator._column_line_groups(
-                kept_idxs,
-                [(rects[i][0], rects[i][1],
-                  rects[i][0] + rects[i][2], rects[i][1] + rects[i][3])
-                 for i in kept_idxs],
-                rtl=(getattr(self, "reading_order", "rtl") == "rtl"))
-        except Exception:
-            _cg89 = None
-        if _cg89 and len(_cg89) > 1:
-            _tparts89 = []
-            for _g89 in _cg89:
-                _gs89 = sorted(_g89, key=lambda k: (rects[k][1], rects[k][0]))
-                _tt89 = " ".join(
-                    (detections[i].get("text") or "").strip()
-                    for i in _gs89
-                    if (detections[i].get("text") or "").strip()
-                ).strip()
-                if _tt89:
-                    _tparts89.append(_tt89)
-            text = "\n".join(_tparts89)
-        else:
-            text = " ".join(
-                (detections[i].get("text") or "").strip()
-                for i in kept_idxs
-                if (detections[i].get("text") or "").strip()
-            )
-        text = re.sub(r"[ \t]{2,}", " ", text).strip()
-        text = re.sub(r"\b(\w{2,})\s+\1\b", r"\1", text, flags=re.IGNORECASE)
-
-        angles = [float(detections[i].get("angle", 0.0) or 0.0) for i in kept_idxs] or [0.0]
-        _nz = [a for a in angles if abs(a) >= 3.0]
-        avg_angle = float(np.median(_nz)) if _nz else 0.0
-        region_kind = MangaTranslator._classify_text(text)
-        # v1.14.202 — واترمارکِ چسبیده به متنِ حباب («…LIKEMANGA.INK») به
-        # مترجم نرود؛ باقیِ متن باید همچنان دیالوگ بماند
-        if region_kind == "dialogue" and MangaTranslator._is_watermark_text(text):
-            _scrub = MangaTranslator._strip_watermark_tokens(text)
-            if _scrub and MangaTranslator._classify_text(_scrub) == "dialogue":
-                text = _scrub
-
-        regions.append(
-            TextRegion(
-                id=gid,
-                boxes=boxes,
-                source_text=text,
-                rect=(x0, y0, x1 - x0, y1 - y0),
-                angle=avg_angle,
-                kind=region_kind,
-                ocr_polys=list(boxes),
-            )
-        )
-
-      merged_flags = [False] * len(regions)
-      for i, ri in enumerate(regions):
-        if merged_flags[i] or ri.kind not in ("sfx", "junk"):
-            continue
-        sfx_text = (ri.source_text or "").strip()
-        for j, rj in enumerate(regions):
-            if i == j or merged_flags[j] or rj.kind != "dialogue":
-                continue
-            x1, y1, w1, h1 = ri.rect
-            x2, y2, w2, h2 = rj.rect
-            cx1 = x1 + w1 / 2.0
-            cy1 = y1 + h1 / 2.0
-            cx2 = x2 + w2 / 2.0
-            cy2 = y2 + h2 / 2.0
-            avg_w = max(1.0, (w1 + w2) / 2.0)
-            avg_h = max(1.0, (h1 + h2) / 2.0)
-
-
-            if abs(cx1 - cx2) > max(avg_w * 0.55, 45):
-                continue
-
-
-            pad = max(8, int(min(h1, h2) * 0.35))
-            inside = (
-                x2 - pad <= cx1 <= x2 + w2 + pad
-                and y2 - pad <= cy1 <= y2 + h2 + pad
-            )
-
-            vgap = abs(cy1 - cy2) - (h1 + h2) / 2.0
-            stacked = vgap < 18 and abs(cx1 - cx2) < max(avg_w * 0.40, 35)
-
-
-            if ri.kind == "sfx" and len(sfx_text) >= 4 and not inside:
-                continue
-            if not (inside or stacked):
-                continue
-
-            rj.boxes = list(rj.boxes) + list(ri.boxes)
-            rj.ocr_polys = list(rj.ocr_polys) + list(ri.ocr_polys)
-
-            parts = sorted(
-                [(rj.rect[1], rj.source_text.strip()), (ri.rect[1], ri.source_text.strip())],
-                key=lambda t: t[0],
-            )
-            rj.source_text = " ".join(t[1] for t in parts if t[1])
-            x0 = min(rj.rect[0], ri.rect[0])
-            y0 = min(rj.rect[1], ri.rect[1])
-            x1b = max(rj.rect[0] + rj.rect[2], ri.rect[0] + ri.rect[2])
-            y1b = max(rj.rect[1] + rj.rect[3], ri.rect[1] + ri.rect[3])
-            rj.rect = (x0, y0, x1b - x0, y1b - y0)
-            rj.kind = "dialogue"
-            merged_flags[i] = True
-            break
-
-      regions = [r for i, r in enumerate(regions) if not merged_flags[i]]
-      return regions
-    @staticmethod
-    def _deduplicate_regions(regions: List[TextRegion], overlap_thresh: float = 0.25) -> List[TextRegion]:
-        if not regions:
-            return []
-
-        def get_iou(r1, r2):
-            x1, y1, w1, h1 = r1
-            x2, y2, w2, h2 = r2
-            xi1, yi1 = max(x1, x2), max(y1, y2)
-            xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
-            inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-            r1_area = max(1, w1 * h1)
-            r2_area = max(1, w2 * h2)
-            union_area = r1_area + r2_area - inter_area
-            return inter_area / float(union_area) if union_area > 0 else 0
-
-        def containment(r1, r2):
-            x1, y1, w1, h1 = r1
-            x2, y2, w2, h2 = r2
-            xi1, yi1 = max(x1, x2), max(y1, y2)
-            xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
-            inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-            return inter / max(1, w1 * h1)
-
-        def centers_close(r1, r2, max_dist=100):
-            cx1 = r1[0] + r1[2] / 2
-            cy1 = r1[1] + r1[3] / 2
-            cx2 = r2[0] + r2[2] / 2
-            cy2 = r2[1] + r2[3] / 2
-            return abs(cx1 - cx2) < max_dist and abs(cy1 - cy2) < max_dist
-
-        def text_similar(a: str, b: str) -> bool:
-            a, b = a.strip().lower(), b.strip().lower()
-            if not a or not b:
-                return False
-            if a == b:
-                return True
-            if len(a) >= 4 and (a in b or b in a):
-                return True
-            na = re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", a)
-            nb = re.sub(r"[^a-z0-9\uac00-\ud7a3]", "", b)
-            if not na or not nb:
-                return False
-            if na == nb:
-                return True
-            shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
-            if len(shorter) >= 4 and shorter in longer:
-                return True
-            return False
-
-        ordered = sorted(regions, key=lambda r: r.rect[2] * r.rect[3], reverse=True)
-        unique: List[TextRegion] = []
-        for r in ordered:
-            is_dup = False
-            for u in unique:
-                iou = get_iou(r.rect, u.rect)
-                c1 = containment(r.rect, u.rect)
-                c2 = containment(u.rect, r.rect)
-                near_same = centers_close(r.rect, u.rect) and text_similar(r.source_text, u.source_text)
-                if iou > overlap_thresh or c1 > 0.5 or c2 > 0.5 or near_same:
-                    is_dup = True
-                    if len(r.source_text) > len(u.source_text):
-                        u.source_text = r.source_text
-                    u.boxes = u.boxes + r.boxes
-                    u.ocr_polys = list(u.ocr_polys) + list(r.ocr_polys)
-                    x0 = min(u.rect[0], r.rect[0])
-                    y0 = min(u.rect[1], r.rect[1])
-                    x1 = max(u.rect[0] + u.rect[2], r.rect[0] + r.rect[2])
-                    y1 = max(u.rect[1] + u.rect[3], r.rect[1] + r.rect[3])
-                    u.rect = (x0, y0, x1 - x0, y1 - y0)
-                    u.kind = MangaTranslator._classify_text(u.source_text)
-                    break
-            if not is_dup:
-                unique.append(r)
-        return unique
 
 
     def _ink_mask_inside_bubble(self, gray: np.ndarray, x0: int, y0: int, x1: int, y1: int) -> np.ndarray:
@@ -10447,83 +9833,6 @@ class MangaTranslator:
             self._donor_boxes = []
             return mask
 
-    def _letters_mask_in_crop(self, gray_crop: np.ndarray, zone: np.ndarray,
-                              ch: int, cw: int, wide: bool = False,
-                              bright: bool = False) -> np.ndarray:
-        blk = max(15, (min(ch, cw) // 10) * 2 + 1)
-        if blk % 2 == 0:
-            blk += 1
-        ad = cv2.adaptiveThreshold(
-            gray_crop, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY if bright else cv2.THRESH_BINARY_INV, blk, 9,
-        ) if not bright else None
-        if bright:
-            med_b = float(np.median(gray_crop))
-            cand = (gray_crop > max(med_b + 35.0, 165.0)).astype(np.uint8) * 255
-            bb = 3
-            cand[:bb, :] = 0
-            cand[-bb:, :] = 0
-            cand[:, :bb] = 0
-            cand[:, -bb:] = 0
-            n_b, lab_b, st_b, _ = cv2.connectedComponentsWithStats(cand, connectivity=8)
-            keep_b = np.zeros_like(cand)
-            cap_b = 0.60 if wide else 0.25
-            for i in range(1, n_b):
-                a = int(st_b[i, cv2.CC_STAT_AREA])
-                if a < 4 or a > cap_b * ch * cw:
-                    continue
-                bw_ = int(st_b[i, cv2.CC_STAT_WIDTH])
-                bh_ = int(st_b[i, cv2.CC_STAT_HEIGHT])
-                if a > 0.08 * ch * cw and bh_ > 0.35 * ch:
-                    continue
-                keep_b[lab_b == i] = 255
-            keep_b = cv2.dilate(keep_b, np.ones((3, 3), np.uint8), iterations=1)
-            keep_b = cv2.bitwise_and(keep_b, cand)
-            return cv2.dilate(keep_b, np.ones((2, 2), np.uint8), iterations=1)
-
-        mean = cv2.boxFilter(gray_crop, ddepth=cv2.CV_32F, ksize=(blk, blk))
-        flat = np.abs(gray_crop.astype(np.float32) - mean) < 10.0
-        ad[flat] = 0
-        if wide or zone is None:
-            near = np.full_like(gray_crop, 255)
-            b = 3
-            near[:b, :] = 0
-            near[-b:, :] = 0
-            near[:, :b] = 0
-            near[:, -b:] = 0
-        else:
-            near = cv2.dilate(zone, np.ones((3, 3), np.uint8), iterations=6)
-        cand = cv2.bitwise_and(ad, near)
-        cores = cv2.erode(cand, np.ones((3, 3), np.uint8), iterations=1)
-        n, lab, st, _ = cv2.connectedComponentsWithStats(cores, connectivity=8)
-        keep_cores = np.zeros_like(cores)
-
-
-        comp_cap = 0.60 if wide else 0.25
-        for i in range(1, n):
-            a = int(st[i, cv2.CC_STAT_AREA])
-            if a < 4 or a > comp_cap * ch * cw:
-                continue
-            bx, by = int(st[i, cv2.CC_STAT_LEFT]), int(st[i, cv2.CC_STAT_TOP])
-            bw_, bh_ = int(st[i, cv2.CC_STAT_WIDTH]), int(st[i, cv2.CC_STAT_HEIGHT])
-            touches = (bx == 0, by == 0, bx + bw_ >= cw, by + bh_ >= ch)
-            if any(touches):
-                if not wide:
-                    continue
-                comp = (lab == i)
-                wall_like = (
-                    int(np.count_nonzero(comp[:2, :])) > 0.6 * cw
-                    or int(np.count_nonzero(comp[-2:, :])) > 0.6 * cw
-                    or int(np.count_nonzero(comp[:, :2])) > 0.6 * ch
-                    or int(np.count_nonzero(comp[:, -2:])) > 0.6 * ch
-                )
-                if wall_like:
-                    continue
-            keep_cores[lab == i] = 255
-        keep = cv2.dilate(keep_cores, np.ones((5, 5), np.uint8), iterations=1)
-        keep = cv2.bitwise_and(keep, cand)
-        keep = cv2.dilate(keep, np.ones((2, 2), np.uint8), iterations=1)
-        return keep
 
     def _bubble_domain_local(self, bgr_crop: np.ndarray,
                              seed_mask: np.ndarray,
@@ -12023,60 +11332,6 @@ class MangaTranslator:
         except Exception:
             return (None, (0, 0.0, -1.0)) if ret_stats else None
 
-    @staticmethod
-    def _panel_leftover_stats(image: np.ndarray, rect, excl: np.ndarray):
-        """v1.14.135 — آمارِ «متنِ جامانده» در بلوک (فقطِ مصرفِ اندروید).
-
-        وقتی OCRِ گوشی خطهایِ یک بلوکِ متراکم را هرز/ناقص خوانده، بینِ
-        نوارهایِ خط، دهها گلیفِ واقعی رویِ زمینهٔ روشنِ تخت باقی میماند
-        (لکه/متنِ نیمهپاکِ صفحهٔ قانونیِ 700×11362). خروجی:
-        (تعدادِ قطعههایِ گلیف‌مانند، میانهٔ زمینه، انحرافِ زمینه) —
-        یا None اگر زمینه روشن-تخت نباشد (حبابِ گرادیانی/هنر → دخالت
-        ممنوع). excl = ماسکِ نوارها/پالیها که از زمینه خارج میشود."""
-        try:
-            h, w = image.shape[:2]
-            rx, ry, rw, rh = [int(v) for v in rect]
-            x0, y0 = max(0, rx), max(0, ry)
-            x1, y1 = min(w, rx + rw), min(h, ry + rh)
-            if x1 - x0 < 48 or y1 - y0 < 32:
-                return None
-            sub = image[y0:y1, x0:x1]
-            g = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
-            ex = excl[y0:y1, x0:x1] > 0
-            bg = ~ex
-            nbg = int(bg.sum())
-            if nbg < 400:
-                return None
-            med = float(np.median(g[bg]))
-            if med < 150.0:
-                return None
-            ink = (g.astype(np.int16) < (med - 55.0)) & bg
-            ink_n = int(ink.sum())
-            if ink_n < 40 or ink_n > 0.42 * nbg:
-                return (0, med, -1.0)
-            # v1.14.135b — معیارِ «تخت» باید رویِ زمینهٔ روشنِ بیرونِ
-            # جوهر سنجیده شود نه کلِ bg؛ خودِ متنِ جامانده (جوهرِ تیره)
-            # stdِ کل را تا ۸۵ میترکاند (اندازهگیریِ صفحهٔ 700×11362)
-            _lite = (bg & ~cv2.dilate(
-                ink.astype(np.uint8),
-                np.ones((15, 15), np.uint8)).astype(bool))
-            if int(_lite.sum()) < 300:
-                return (0, med, -1.0)
-            std_l = float(np.std(g[_lite]))
-            if std_l > 52.0:
-                return None
-            nl, lbl, st, _ = cv2.connectedComponentsWithStats(
-                ink.astype(np.uint8), connectivity=8)
-            n_g = 0
-            for i in range(1, nl):
-                a = int(st[i, cv2.CC_STAT_AREA])
-                hh = int(st[i, cv2.CC_STAT_HEIGHT])
-                ww = int(st[i, cv2.CC_STAT_WIDTH])
-                if 8 <= a <= 2600 and 3 <= hh <= 64 and ww <= 180:
-                    n_g += 1
-            return (n_g, med, std_l)
-        except Exception:
-            return None
 
     @staticmethod
     def _ring_flat_stats(crop_img: np.ndarray, crop_msk: np.ndarray,
@@ -12106,101 +11361,6 @@ class MangaTranslator:
         except Exception:
             return None
 
-    @staticmethod
-    def _merge_overlap_final_regions(regions, max_frac: float = 0.25,
-                                        page_area: float = 1.0):
-        """v1.14.135 — ادغامِ نواحیِ مستطیل‌همپوشان (فقطِ اندروید).
-
-        تفکیکِ بلوکِ درهم گاهی دو ناحیهٔ روی‌هم‌افتاده میسازد (عنوانِ
-        استایل‌دارِ 700×11362: #00/#01 — هدر/بدنِ #16/#17 و #21/#22) →
-        «تشخیصِ بالن اشتباه» + دو کادرِ روی‌هم در دیباگ + پاکسازیِ
-        متقاطع. اگر همپوشانی ≥ max_frac مساحتِ کوچکتر بود، پالیها/
-        باکسها/متن در «ناحیهٔ بالاتر» ادغام میشوند. گاردها: promo/sfx
-        و بالنِ سیستم (sys_split/cover_rect) هرگز ادغام نمیشوند؛
-        مساحتِ ادغامی ≤ ۱۰٪ صفحه؛ حداکثر ۶ دور (ضدِ چرخه)."""
-        regs = list(regions)
-        guard = 0
-        changed = True
-        while changed and guard < 6:
-            changed = False
-            guard += 1
-            n = len(regs)
-            used = [False] * n
-            out = []
-            for a in range(n):
-                if used[a]:
-                    continue
-                ra = regs[a]
-                if getattr(ra, "kind", "") in ("promo", "sfx") \
-                        or getattr(ra, "sys_split", False) \
-                        or getattr(ra, "cover_rect", None) is not None:
-                    out.append(ra)
-                    continue
-                try:
-                    ax, ay, aw, ah = [int(v) for v in ra.rect]
-                except Exception:
-                    out.append(ra)
-                    continue
-                for b in range(a + 1, n):
-                    if used[b]:
-                        continue
-                    rb = regs[b]
-                    if getattr(rb, "kind", "") in ("promo", "sfx") \
-                            or getattr(rb, "sys_split", False) \
-                            or getattr(rb, "cover_rect", None) is not None:
-                        continue
-                    try:
-                        bx, by, bw, bh = [int(v) for v in rb.rect]
-                    except Exception:
-                        continue
-                    ox = max(0, min(ax + aw, bx + bw) - max(ax, bx))
-                    oy = max(0, min(ay + ah, by + bh) - max(ay, by))
-                    if ox <= 0 or oy <= 0:
-                        continue
-                    ov = float(ox * oy)
-                    sa = max(1.0, float(aw * ah))
-                    sb = max(1.0, float(bw * bh))
-                    if (ov / min(sa, sb)) < max_frac:
-                        continue
-                    ux, uy = min(ax, bx), min(ay, by)
-                    ux2, uy2 = max(ax + aw, bx + bw), max(ay + ah, by + bh)
-                    if (ux2 - ux) * (uy2 - uy) > 0.10 * max(1.0, page_area):
-                        continue
-                    # ادغام در ناحیهٔ بالاتر (ترتیبِ خواندن حفظ شود)
-                    if ay <= by:
-                        base = ra
-                    else:
-                        base = rb
-                    try:
-                        base.boxes = list(
-                            getattr(ra, "boxes", None) or []) + list(
-                            getattr(rb, "boxes", None) or [])
-                        if base is rb:
-                            base.boxes.reverse()
-                        base.ocr_polys = list(
-                            getattr(ra, "ocr_polys", None) or []) + list(
-                            getattr(rb, "ocr_polys", None) or [])
-                        if base is rb:
-                            base.ocr_polys.reverse()
-                        _ta = str(getattr(ra, "source_text", "") or "").strip()
-                        _tb = str(getattr(rb, "source_text", "") or "").strip()
-                        _t12 = (_ta, _tb) if base is ra else (_tb, _ta)
-                        base.source_text = "\n".join(
-                            [t for t in _t12 if t])
-                        base.rect = (ux, uy, ux2 - ux, uy2 - uy)
-                    except Exception:
-                        continue
-                    used[b] = True
-                    if base is rb:
-                        used[a] = True
-                    changed = True
-                    out.append(base)
-                    break
-                if used[a]:
-                    continue
-                out.append(ra)
-            regs = out
-        return regs
 
     def _build_text_mask_fast(self, image: np.ndarray,
                               regions: List[TextRegion]) -> Optional[np.ndarray]:
@@ -25435,61 +24595,6 @@ class MangaTranslator:
             except TypeError:
                 ex.shutdown(wait=False)
 
-    @staticmethod
-    def test_api_key(provider: str, api_key: str, model: str = "",
-                     api_base: str = "") -> tuple:
-        try:
-            key = (api_key or "").strip().split(",")[0].strip()
-            if not key:
-                return False, "کلید خالی است."
-            prov = (provider or "gemini").strip().lower()
-            if prov == "gemini":
-                if not _HAS_GEMINI:
-                    return False, "کتابخانه google-genai نصب نیست."
-                client = genai.Client(api_key=key)
-                m = (model or "").strip() or "gemini-3.5-flash-lite"
-                resp = client.models.generate_content(
-                    model=m, contents="Reply with: OK",
-                    config=genai_types.GenerateContentConfig(
-                        max_output_tokens=16, temperature=0),
-                )
-                txt = (getattr(resp, "text", "") or "").strip()
-                if txt:
-                    return True, f"اتصال موفق ({m})."
-                return False, "پاسخ خالی از سرور."
-            else:
-                if not _HAS_OPENAI:
-                    return False, "کتابخانه openai نصب نیست."
-                base = (api_base or "").strip()
-                kwargs = {"api_key": key}
-                if base:
-                    kwargs["base_url"] = base
-                elif prov == "openai":
-                    kwargs["base_url"] = "https://api.openai.com/v1"
-                elif prov == "deepseek":
-                    kwargs["base_url"] = "https://api.deepseek.com/v1"
-                elif prov == "groq":
-                    kwargs["base_url"] = "https://api.groq.com/openai/v1"
-                client = OpenAI(**kwargs)
-                m = (model or "").strip() or "gpt-4o-mini"
-                resp = client.chat.completions.create(
-                    model=m,
-                    messages=[{"role": "user", "content": "Reply with: OK"}],
-                    max_tokens=16, temperature=0,
-                )
-                txt = ""
-                try:
-                    txt = (resp.choices[0].message.content or "").strip()
-                except Exception:
-                    pass
-                if txt:
-                    return True, f"اتصال موفق ({m})."
-                return False, "پاسخ خالی از سرور."
-        except Exception as e:
-            msg = str(e)
-            if len(msg) > 200:
-                msg = msg[:200] + "..."
-            return False, f"خطا: {msg}"
 
     def _translate_with_gemini(self, user_prompt: str, system_instruction: str,
                                *, structured: bool = True,
@@ -31719,18 +30824,6 @@ class MangaTranslator:
             return True
         return False
 
-    def process_image_file(self, in_path: str) -> Optional[np.ndarray]:
-        _t_ld66 = time.time()
-        image = MangaTranslator._imread_any(in_path)
-        _t_ld66 = time.time() - _t_ld66
-        if image is None:
-            raise ValueError(f"تصویر قابل خواندن نیست: {in_path}")
-        basename = os.path.basename(in_path)
-        if self._is_mostly_blank(image):
-            print(f"[!] رد شد (صفحه تقریباً خالی/کارت پایان): {basename}")
-            return None
-        print(f"[*] {basename} (لود {_t_ld66:.2f}s)")
-        return self.process_core(image)
 
     @staticmethod
     def _is_url(s: str) -> bool:
@@ -33241,9 +32334,6 @@ html, body { background: #0a0a0b; }
 
         os.makedirs(work_dir, exist_ok=True)
         result: List[str] = []
-        if not hasattr(self, "_strip_boundaries"):
-            self._strip_boundaries = {}
-        self._strip_boundaries = {}
         start_idx = 0
 
         if self.det is None and (len(image_files) > 1 or not self.stitch_keep_first):
@@ -33329,7 +32419,6 @@ html, body { background: #0a0a0b; }
         strip_i = 0
         current_pages: List[np.ndarray] = []
         current_h = 0
-        current_bounds: List[int] = []
         min_strip = max(1, int(work_h * 0.65))
         scan_from = 0
 
@@ -33451,7 +32540,7 @@ html, body { background: #0a0a0b; }
         def _stack_pages(pages: List[np.ndarray]) -> np.ndarray:
             return np.vstack(pages) if len(pages) > 1 else pages[0]
 
-        def _emit_array(arr: np.ndarray, bounds: List[int], label: str = "") -> None:
+        def _emit_array(arr: np.ndarray, label: str = "") -> None:
             nonlocal strip_i
             if arr is None or arr.size == 0:
                 return
@@ -33468,16 +32557,12 @@ html, body { background: #0a0a0b; }
                                    "با --img-format png دوباره اجرا کنید. "
                                    "برای رعایت محدودیت فرمت از وسط متن برش زده نشد.")
             self._write_image(arr, out_path)
-            if bounds:
-                kept = [b for b in bounds if 0 < b < arr.shape[0] - 20]
-                if kept:
-                    self._strip_boundaries[out_path] = kept
             result.append(out_path)
             print(f"    [+] نوار {strip_i + 1}: {label} ({arr.shape[0]}px)")
             strip_i += 1
 
         def _cut_and_emit(final: bool = False) -> None:
-            nonlocal current_pages, current_h, current_bounds, current_protected, scan_from
+            nonlocal current_pages, current_h, current_protected, scan_from
             if not current_pages or (not final and current_h < work_h + lookahead):
                 return
 
@@ -33628,12 +32713,10 @@ html, body { background: #0a0a0b; }
                         )
                 if cut_y is None:
                     break
-                bounds = [b - offset for b in current_bounds if offset < b < cut_y]
-                _emit_array(strip[offset:cut_y], bounds, f"برش بررسی‌شده y={cut_y}")
+                _emit_array(strip[offset:cut_y], f"برش بررسی‌شده y={cut_y}")
                 offset = cut_y
 
             current_h = ih - offset
-            current_bounds = [b - offset for b in current_bounds if b > offset]
             current_protected = [(max(0, top - offset), bottom - offset)
                                  for top, bottom in current_protected if bottom >= offset]
             scan_from = max(0, scan_from - offset)
@@ -33644,8 +32727,8 @@ html, body { background: #0a0a0b; }
             if final:
                 label = ("پایان فصل" if current_h <= work_h + min_strip
                          else "بزرگ‌تر از هدف: محل برش امن پیدا نشد")
-                _emit_array(strip[offset:], current_bounds, label)
-                current_pages, current_h, current_bounds = [], 0, []
+                _emit_array(strip[offset:], label)
+                current_pages, current_h = [], 0
             else:
 
                 current_pages = [strip[offset:].copy()]
@@ -33683,8 +32766,6 @@ html, body { background: #0a0a0b; }
                 interp = cv2.INTER_AREA if target_w < w else cv2.INTER_CUBIC
                 im = cv2.resize(im, (target_w, new_h), interpolation=interp)
                 h, w = im.shape[:2]
-            if current_pages:
-                current_bounds.append(current_h)
             current_pages.append(im)
             _page_spans.append([_abs_i, _life[0]])
             _life[0] += h

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-import queue
 import re
 import shutil
 import signal
@@ -16,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.247"
+APP_VER = "1.14.248"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -190,16 +189,6 @@ def _web_prog_html(phase: str, cur: int, total: int, running: bool,
     )
 
 
-C_BG = "#0a0a0c"      # پس‌زمینهٔ اصلی — هم‌خانوادهٔ تم وب
-C_BG2 = "#121216"     # هدر/نوارها
-C_CARD = "#141419"    # کارت‌ها
-C_LINE = "#2a2a31"    # خطوط
-C_TXT = "#eceae5"
-C_MUT = "#9b978f"
-C_ACC = "#e63b2e"     # قرمز جوهری مثل وب
-ACCENT = C_ACC
-C_OK = "#38c98a"
-C_ERR = "#ff6a5e"
 
 
 
@@ -499,11 +488,6 @@ def _cm_info_html(models: list, name: str) -> str:
     return "<div class='hint'>" + " — ".join(parts) + "</div>"
 
 
-def _cm_choices(models: list) -> list:
-    """v1.14.219 — (قبلاً برایِ دراپ‌داونِ «انتخاب مدل» بود که حذف شد؛ برای
-    سازگاریِ تستهایِ قدیمی نگه داشته میشود.)"""
-    return [str(m.get("name") or "").strip() for m in models
-            if str(m.get("name") or "").strip()]
 
 
 # ── v1.14.218 — منویِ انتخابِ AI با گزینهٔ auto ──────────────────
@@ -894,39 +878,6 @@ def human_size(n: float) -> str:
     return f"{n:.1f} TB"
 
 
-def system_info() -> str:
-    import platform
-    lines = [
-        f"پایتون: {platform.python_version()} — {platform.system()} {platform.release()}",
-        f"هستهٔ CPU: {os.cpu_count()}",
-    ]
-    try:
-        import onnxruntime as ort
-        lines.append("ONNX Runtime: " + ort.__version__ + " | " +
-                     ", ".join(ort.get_available_providers()))
-    except Exception:
-        lines.append("ONNX Runtime: نصب نیست")
-    try:
-        import torch  
-        lines.append("GPU (CUDA): ✅")
-    except Exception:
-        lines.append("GPU (CUDA): —")
-    if os.path.isdir(MODELS_DIR):
-        lines.append("مدل‌های کش‌شده:")
-        for f in sorted(os.listdir(MODELS_DIR)):
-            p = os.path.join(MODELS_DIR, f)
-            if os.path.isfile(p):
-                lines.append(f"  • {f} — {human_size(os.path.getsize(p))}")
-    else:
-        lines.append("مدل‌های کش‌شده: — (بار اول دانلود می‌شوند)")
-    fonts = os.listdir(FONT_DIR) if os.path.isdir(FONT_DIR) else []
-    lines.append(f"فونت‌ها: {len(fonts)} فایل در fonts/")
-    try:
-        du = shutil.disk_usage(HERE)
-        lines.append(f"فضای آزاد: {human_size(du.free)}")
-    except Exception:
-        pass
-    return "\n".join(lines)
 
 
 
@@ -1011,32 +962,8 @@ def append_history(entry: dict) -> None:
         pass
 
 
-def history_text() -> str:
-    if not os.path.isfile(HIST_PATH):
-        return "هنوز اجرایی ثبت نشده."
-    rows = []
-    try:
-        with open(HIST_PATH, encoding="utf-8") as f:
-            for line in f:
-                e = json.loads(line)
-                rows.append(f"{e.get('time','')}  |  "
-                            f"{os.path.basename(str(e.get('input','')))[:36]:36}  |  "
-                            f"{e.get('status','')}  |  {e.get('duration','')}")
-    except Exception:
-        return "تاریخچه خوانده نشد."
-    return "\n".join(reversed(rows[-60:])) or "هنوز اجرایی ثبت نشده."
 
 
-def open_path(path: str):
-    try:
-        if os.name == "nt":
-            os.startfile(path)  
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", path])
-        else:
-            subprocess.Popen(["xdg-open", path])
-    except Exception:
-        pass
 
 
 def has_display() -> bool:
@@ -1045,42 +972,6 @@ def has_display() -> bool:
     return bool(os.environ.get("DISPLAY"))
 
 
-HELP_TEXT = f"""راهنما — {APP_NAME} v{APP_VER}
-
-▶ اجرا (خودکار: دسکتاپ → پنجرهٔ برنامه، Colab/Codespace → وب)
-  ویندوز:            دابل‌کلیک Manga.bat
-  لینوکس / مک:       ./manga.sh
-  مستقیم:            python manga_app.py
-
-▶ اجبار حالت
-  python manga_app.py --web       (Colab: لینک عمومی gradio.live چاپ می‌شود)
-  python manga_app.py --desktop
-
-▶ Colab — دو فایل لازم است کنار هم باشند:
-  manga.py      (فایل مترجم — همان فایل اصلی)
-  manga_app.py  (برنامه)
-  سپس:  !python manga_app.py
-  ⚠ manga_app.py را با نام manga.py ذخیره نکنید — خطای «فایل مترجم نیست» می‌گیرید.
-
-▶ GitHub Codespaces / SSH
-  لینک عمومی خودکار چاپ می‌شود (gradio.live) — نیازی به Port Forwarding نیست.
-  ⚠ سرور وب به نشست ترمینال چسبیده است: با بستن ترمینال kill می‌شود.
-  برای زنده‌ماندن: tmux new -s manga 'python3 manga_app.py --web'
-  (detach: Ctrl+B بعد D | بازگشت: tmux attach -t manga)
-
-▶ فونت‌ها
-  بار اول خودکار در fonts/ دانلود می‌شوند (کودک، افسانه، کروش، دست‌نویس،
-  مروارید، سیستم، نامه، راوی …). برای تغییر، فقط فایل .ttf را با همان نام
-  در fonts/ جایگزین کنید و برنامه را دوباره باز کنید.
-
-▶ CLI
-  python manga_app.py -- -i input -o out.pdf --font fonts/Vazirmatn-Bold.ttf --api-key KEY --clean-method lama-manga
-
-▶ نکات
-  • کلید از aistudio.google.com / platform.openai.com / openrouter.ai — چند کلید = چرخش خودکار
-  • مدل‌ها بار اول دانلود و در ~/.cache کش می‌شوند
-  • تنظیمات در workspace/config.json ذخیره می‌شود
-"""
 
 
 
@@ -3569,8 +3460,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
         LS_KEY = "manga_autotranslate_form_v2"
         JOB_KEY = "manga_job_v1"
-        browser_form_json = gr.State("")
-
         save_form_js = f"""
 (sid, sidBox, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, topp, readord, cleanm, twopass, fake, cleano) => {{
   try {{
