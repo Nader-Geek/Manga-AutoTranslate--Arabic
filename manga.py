@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.246"
+APP_VER = "1.14.247"
 
 # v1.14.246 — پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
@@ -33026,6 +33026,7 @@ html, body { background: #0a0a0b; }
         max_y: int,
         search_radius: int = 900,
         protected_ranges: Optional[List[Tuple[int, int]]] = None,
+        spans_ready: bool = False,
     ) -> Optional[int]:
         # v1.14.163 — سبکِ جدیدِ برشِ امن (دستورِ سازنده: «بجایِ استفاده
         # از ocr واسهٔ پیدا کردنِ برشِ امن از detector-v4-s_int8.onnx
@@ -33050,24 +33051,42 @@ html, body { background: #0a0a0b; }
                      ih - clearance - edge_margin)
             if y1 < y0:
                 return None
-            probe_half = max(250, int(round((y1 - y0) * 0.25)),
-                             clearance + edge_margin)
-            wy0 = max(0, y0 - probe_half)
-            wy1 = min(ih, y1 + probe_half)
-            if wy1 - wy0 < 100:
-                return None
-            band = strip[wy0:wy1]
-            boxes = self.det.detect(band)
+            # v1.14.246 — سرعتِ برش به سبکِ مرجع (ManhwaSlicer.
+            # VerifyAndAdjustCutWithDetectorAsync): (۱) باندِ برش از
+            # قبل پوشش داده شده (کشِ دوطرفه یا اسکنِ زندهٔ _scan_band)
+            # → دیگر هیچ تشخیصِ دومی رویِ همان ناحیه اجرا نمیشود
+            # (قبلاً هر برش یک det.detectِ تمام‌عیارِ ~۱۵۰۰px با پاسِ
+            # چندمقیاسیِ کند اضافه میگرفت)؛ (۲) مسیرِ تشخیصِ زنده فقط
+            # پنجرهٔ کوچکِ دورِ هدف و fast=True (تک‌مقیاس — عینِ
+            # _scan_window)؛ (۳) خروجِ زودهنگامِ «هدف بی‌متن است» +
+            # جستجوی مارپیچِ ±۱px (پایینتر) — عینِ مرجع.
             spans: List[Tuple[int, int]] = []
-            for box in boxes:
-                _, by1, _, by2 = box["rect"]
-                top = max(0, wy0 + int(by1) - edge_margin)
-                bot = min(ih, wy0 + int(by2) + 1 + edge_margin)
-                if bot > top:
-                    spans.append((top, bot))
-            for top, bottom in (protected_ranges or []):
-                spans.append((max(0, int(top) - edge_margin),
-                              min(ih, int(bottom) + 1 + edge_margin)))
+            if spans_ready:
+                # spans از _scan_band از قبل حاشیهدار شدهاند (پدینگ =
+                # max(14, 2%·target_w) — همان مقیاسِ edge_margin چون عرضِ
+                # نوار = target_w)؛ دوباره پد نمیشوند.
+                for top, bottom in (protected_ranges or []):
+                    t, b = int(top), int(bottom)
+                    if b > t:
+                        spans.append((max(0, t), min(ih, b)))
+            else:
+                probe_half = max(250, int(round((y1 - y0) * 0.25)),
+                                 clearance + edge_margin)
+                wy0 = max(0, y0 - probe_half)
+                wy1 = min(ih, y1 + probe_half)
+                if wy1 - wy0 < 100:
+                    return None
+                band = strip[wy0:wy1]
+                boxes = self.det.detect(band, fast=True)
+                for box in boxes:
+                    _, by1, _, by2 = box["rect"]
+                    top = max(0, wy0 + int(by1) - edge_margin)
+                    bot = min(ih, wy0 + int(by2) + 1 + edge_margin)
+                    if bot > top:
+                        spans.append((top, bot))
+                for top, bottom in (protected_ranges or []):
+                    spans.append((max(0, int(top) - edge_margin),
+                                  min(ih, int(bottom) + 1 + edge_margin)))
             spans.sort()
             merged: List[Tuple[int, int]] = []
             for top, bot in spans:
@@ -33098,9 +33117,22 @@ html, body { background: #0a0a0b; }
                 last_bot = merged[-1][1] + pad
                 if y0 <= last_bot <= y1:
                     cands.append(last_bot)
-            if not cands:
-                return None
-            return min(cands, key=lambda y: abs(y - target_y))
+            cands = [c for c in cands if not _hit_text(c)]
+            if cands:
+                return min(cands, key=lambda y: abs(y - target_y))
+            # v1.14.246 — جستجوی مارپیچِ ±۱px دورِ هدف (عینِ مرجع:
+            # VerifyAndAdjust — localCutY∓n): نزدیکترین ردیفِ بی‌متن به
+            # هدف، قبل از ردِ کلِ باند → فالبکِ اسکنِ مجددِ باندِ عقبتر
+            # کمتر لازم میشود.
+            _t = int(target_y)
+            for _d in range(1, max(y1 - _t, _t - y0) + 1):
+                _yy = _t - _d
+                if y0 <= _yy <= y1 and not _hit_text(_yy):
+                    return _yy
+                _yy = _t + _d
+                if y0 <= _yy <= y1 and not _hit_text(_yy):
+                    return _yy
+            return None
         except Exception:
             return None
 
@@ -33255,6 +33287,9 @@ html, body { background: #0a0a0b; }
                                        "صفحه جدا نشد.") from exc
                 keep_first = self._find_safe_cut_y_smart(
                     preview, seam_y, seam_y, seam_y, protected_ranges=protected,
+                    # v1.14.246 — protected همین الان از detect(preview) ساخته
+                    # شد و کلِ پنجره را پوشش میدهد؛ تشخیصِ دوم حذف شد
+                    spans_ready=True,
                 ) is not None
                 if not keep_first:
                     current_protected = [
@@ -33571,6 +33606,9 @@ html, body { background: #0a0a0b; }
                         strip, _band_mid, _band_lo, min(_band_hi, max_cut),
                         search_radius=max(250, (_band_hi - _band_lo) // 2),
                         protected_ranges=protected,
+                        # v1.14.246 — باند بالا همین الان با _scan_band
+                        # اسکن شد؛ تشخیصِ دوم لازم نیست (سبکِ مرجع)
+                        spans_ready=True,
                     )
                 if cut_y is None:
                     # v1.14.166 — فالبکِ فقط-به-عقب: اگر کلِ باندِ
@@ -33586,6 +33624,7 @@ html, body { background: #0a0a0b; }
                             strip, _fb_hi, _fb_lo, _fb_hi,
                             search_radius=max(200, _fb_hi - _fb_lo),
                             protected_ranges=protected,
+                            spans_ready=True,  # v1.14.246 — همین الان با _scan_band اسکن شد
                         )
                 if cut_y is None:
                     break
