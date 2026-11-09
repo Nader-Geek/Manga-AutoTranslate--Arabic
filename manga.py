@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.243"
+APP_VER = "1.14.244"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -7142,7 +7142,7 @@ class MangaTranslator:
         img_quality: int = 90,
         max_workers: int = 1,
         mag_ratio: float = 1.35,
-        translation_temperature: float = 0.85,  # مقدارِ دقیقِ خودِ سازنده (K3: 0.7)
+        translation_temperature: float = 0.7,  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
         # v1.14.243 — K3: CustomTopP (Preferences «CustomTopP» پیشفرض 0.9؛
         # Math.Clamp(0..1)) — حالا مثلِ خودِ K3 از تنظیمات میآید نه هاردکد
         translation_top_p: float = 0.9,
@@ -7298,7 +7298,7 @@ class MangaTranslator:
         try:
             self.translation_temperature = min(2.0, max(0.0, float(translation_temperature)))
         except Exception:
-            self.translation_temperature = 0.85
+            self.translation_temperature = 0.7
         try:
             self.translation_top_p = min(1.0, max(0.0, float(translation_top_p)))
         except Exception:
@@ -13858,7 +13858,9 @@ class MangaTranslator:
             if int(np.count_nonzero(solid)) < 120:
                 return None
             _c0 = quad.reshape(-1, 2).mean(axis=0)
-            M = cv2.getRotationMatrix2D((float(_c0[0]), float(_c0[1])), -float(ang), 1.0)
+            # v1.14.244 — علامتِ + برایِ همسطح‌سازی (قراردادِ مشترک با deskew و
+            # نوارهایِ چرخیده؛ قبلاً -ang کجی را دوبرابر می‌کرد)
+            M = cv2.getRotationMatrix2D((float(_c0[0]), float(_c0[1])), float(ang), 1.0)
             _cos, _sin = abs(M[0, 0]), abs(M[0, 1])
             nw = int(ch * _sin + cw * _cos) + 2
             nh = int(ch * _cos + cw * _sin) + 2
@@ -16693,8 +16695,10 @@ class MangaTranslator:
         «لکهٔ سبز-خاکستری روی زرد»؛ (۲) لبهٔ نوار وسطِ حروف میگذرد و
         گاردِ ساختار (v1.14.64) تکههایِ گلیفِ چسبیده به لبه را از
         ماسک بیرون میکشد → «نقطه‌های سیاه»؛ (۳) خطوطِ کج در یک سطلِ
-        y می‌افتند → نوارِ چاق. راه‌حل: برشِ ناحیه با -angle همسطح
-        میشود (همان قراردادِ _tilted_ink_mask)، نوارها در فضای
+        y می‌افتند → نوارِ چاق. راه‌حل: برشِ ناحیه با +angle همسطح
+        میشود (قراردادِ همسطح‌سازیِ OCR و _max_font_for_region —
+        v1.14.244: علامتِ درست؛ قبلاً -angle بود و کجی را «دوبرابر»
+        میکرد = ریشهٔ «برعکس میچرخونه» و جوهرِ جامانده)، نوارها در فضای
         چرخیده ساخته میشوند (خطوط افقند؛ لبه‌ها هرگز حروف را نمیبرند)
         و ماسک با اینترپولیشنِ NEAREST به مختصاتِ اصلی برمیگردد.
         خروجی: (strips, failed) یا None (فراخواننده به مسیرِ عادی
@@ -16708,7 +16712,11 @@ class MangaTranslator:
             by1 = float(_all[:, 1].max())
             cx, cy = (bx0 + bx1) / 2.0, (by0 + by1) / 2.0
             pad = 30.0
-            M = cv2.getRotationMatrix2D((cx, cy), -float(ang), 1.0)
+            # v1.14.244 — علامتِ + : زاویهٔ مثبت = نزولی-به-راست (قراردادِ y-down)؛
+            # همسطح‌سازی نیاز به چرخشِ پادساعتگرد دارد = getRotationMatrix2D(+ang)
+            # (عینِ قراردادِ اثبات‌شدهٔ deskew در _ocr_crop و _max_font_for_region).
+            # قبلاً -ang بود → کجی دوبرابر می‌شد (چرخشِ برعکس + جوهرِ جامانده).
+            M = cv2.getRotationMatrix2D((cx, cy), float(ang), 1.0)
             _cos, _sin = abs(M[0, 0]), abs(M[0, 1])
             bw = (bx1 - bx0) + 2.0 * pad
             bh = (by1 - by0) + 2.0 * pad
@@ -25699,7 +25707,7 @@ class MangaTranslator:
         _g_temp = self.translation_temperature if structured else 0.2
         _g_top_p = self.translation_top_p
         if (structured and "gemini-3.6-flash" in (self._thread_model() or "")
-                and _g_temp == 0.85 and _g_top_p == 0.9):
+                and _g_temp == 0.7 and _g_top_p == 0.9):
             _g_temp, _g_top_p = 0.4, 0.7
         config_args = dict(
             system_instruction=system_instruction,
@@ -35916,7 +35924,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="سبکِ پرامپت وقتی --instruction داده نشده: auto (پیشفرض؛ بر اساسِ "
                         "سرویس/مدل: غیرِ Gemini و مدلهایِ Lite → سبک، بقیه → حرفهای)، "
                         "professional (حرفهای انگلیسی)، lite (سبک انگلیسی)، classic (دستورِ فارسیِ قدیمی)")
-    p.add_argument("--temperature", type=float, default=0.85)  # مقدارِ خودِ سازنده (K3: 0.7)
+    p.add_argument("--temperature", type=float, default=0.7)  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
     p.add_argument("--top-p", type=float, default=0.9)  # v1.14.243 — K3 CustomTopP
     p.add_argument(
         "--debug",

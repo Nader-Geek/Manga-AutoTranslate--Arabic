@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.243"
+APP_VER = "1.14.244"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1261,8 +1261,8 @@ def run_cli_interactive():
            "--batch-workers", str(int(cfg.get("batch_workers", 3))),
            "--max-retries", str(int(cfg.get("max_retries", 8))),
            "--request-delay", str(float(cfg.get("request_delay", 0))),
-           "--temperature", str(float(cfg.get("temperature", 0.85))),  # مقدارِ خودِ سازنده (K3: 0.7)
-           "--top-p", str(float(cfg.get("top_p", 0.9))),  # v1.14.243 — K3 CustomTopP
+           "--temperature", str(float(cfg.get("temperature", 0.7))),  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
+           "--top-p", str(float(cfg.get("top_p", 0.9))),  # v1.14.243 — CustomTopP
            "--reading-order", str(cfg.get("reading_order", "rtl"))]
     cmd += font_args()
     klist = [k.strip() for k in (keys or "").replace(";", ",").split(",") if k.strip()]
@@ -2938,11 +2938,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                               step=1, label="حداکثر تلاش ترجمه")
                 reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
                                  step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
-            # v1.14.243 — دکمهٔ کم/زیاد temperature و top_p عینِ SettingsPageِ K3
-            # (CustomTemperature / CustomTopP). پیشفرضِ top_p = ۰.۹ (عینِ K3) ولی
-            # پیشفرضِ temperature = ۰.۸۵ = «مقدارِ دقیقِ خودِ سازنده» (دستور:
-            # temperature واسه من یک کم فرق داشته دقیق بزار). تایپِ دستیِ دقیق
-            # تا ۲ رقمِ اعشار + دکمهٔ ±۰.۰۵ تا هر مقدارِ دقیقِ دلخواه در دسترس باشد.
+            # v1.14.244 — دکمهٔ کم/زیاد temperature و top_p عینِ صفحهٔ تنظیماتِ مرجع
+            # (CustomTemperature / CustomTopP: پیشفرضِ هر دو = ۰.۷/۰.۹؛ دکمههایِ
+            # مرجع: temp ±۰.۱ با کلمپِ ۰..۱.۵، topP ±۰.۰۵ با کلمپِ ۰.۱..۱).
+            # تایپِ دستیِ دقیق تا ۲ رقمِ اعشار برایِ هر مقدارِ «دقیق» دلخواه.
             def _k3_step(v, d, lo, hi):
                 try:
                     v = float(v)
@@ -2954,7 +2953,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
             with gr.Row():
                 with gr.Column(scale=1, min_width=150):
-                    temp = _safe(gr.Number, value=float(cfg.get("temperature", 0.85)),
+                    temp = _safe(gr.Number, value=float(cfg.get("temperature", 0.7)),
                                  minimum=0.0, maximum=2.0, precision=2, step=0.05,
                                  label="Temperature (خلاقیت)")
                     with gr.Row():
@@ -3667,7 +3666,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       batchw: batchw,
       maxre: maxre,
       reqdelay: reqdelay,
-      temp: temp,
+      temp: (temp === null || temp === undefined) ? 0.7 : temp,
       top_p: (topp === null || topp === undefined) ? 0.9 : topp,
       readord: readord || "",
       cleanm: clean(cleanm) || "lama-manga",
@@ -4384,8 +4383,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                    "--batch-workers", str(int(batchw_v)),
                    "--max-retries", str(int(maxre_v)),
                    "--request-delay", str(float(reqdelay_v)),
-                   "--temperature", str(float(temp_v)),
-                   "--top-p", str(float(top_p_v if top_p_v not in (None, "") else 0.9)),  # v1.14.243 — K3
+                   "--temperature", str(float(temp_v if temp_v not in (None, "") else 0.7)),  # v1.14.244 — گاردِ کادرِ خالی
+                   "--top-p", str(float(top_p_v if top_p_v not in (None, "") else 0.9)),  # v1.14.243 — CustomTopP
                    "--reading-order", str(readord_v)]
             if prov_s == "custom" and str(api_base_v or "").strip():
                 cmd += ["--api-base", str(api_base_v).strip()]
