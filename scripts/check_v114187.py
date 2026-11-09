@@ -103,7 +103,7 @@ for _frag in ("com.amirwolf.mangatranslator.PaddleOcrBridge",
         fail(f"B: PaddleAndroidOCR فاقدِ {_frag!r}")
 ok("B: PaddleAndroidOCR = پلِ RapidOCR + سلف‌تست + پارسرِ META + lang")
 
-for _frag in ('_K3_MODES = ("padandroid",)',
+for _frag in ('_MT_MODES = ("padandroid",)',
               'self._mode = "padandroid"',
               '_SPEED_LAB_LADDER = ("padandroid",)',
               '"padandroid": "رپیدِ رسمیِ اندروید"',

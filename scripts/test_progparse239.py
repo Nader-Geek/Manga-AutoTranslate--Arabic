@@ -1,4 +1,4 @@
-# تست واحدِ _web_prog_parse / _web_prog_html — سناریوهای K3 واقعی
+# تست واحدِ _web_prog_parse / _web_prog_html — سناریوهای مرجع واقعی
 import sys, re
 sys.path.insert(0, "/home/z/my-project/Manga-AutoTranslate")
 
@@ -31,8 +31,8 @@ def check(name, log, total_txt, running, want_phase, want_cur, want_tot, want_un
 
 NOISE = "[🔍] جارویِ بنر: 9 کاندید | بودجه 24\n[🔍188] خطِ آشغالِ لاتین حذف شد: '5'\n"
 
-# ۱) وسطِ استخراجِ K3 — شمارندهٔ استخراج زنده (مشکلِ گیرِ 0٪)
-check("استخراجِ زندهٔ K3",
+# ۱) وسطِ استخراجِ مرجع — شمارندهٔ استخراج زنده (مشکلِ گیرِ 0٪)
+check("استخراجِ زندهٔ مرجع",
       NOISE + "[*] استخراج متن: 5/27 صفحه\n" + NOISE,
       27, True, "استخراج متن", 5, 27, "صفحه")
 

@@ -40,13 +40,13 @@ span_rm('def load_default_system_instruction(tone_list=None) -> str:',
         'def _norm_instr(text: str) -> str:',
         'remove default_system_instruction chain')
 
-# ── ۳) _known_default_instruction_texts — فقط پرامپتهای K3 ──
+# ── ۳) _known_default_instruction_texts — فقط پرامپتهای مرجع ──
 span_rm('def _known_default_instruction_texts() -> list:',
         'def normalize_api_base(url: str) -> str:',
         'remove old _known_default_instruction_texts')
 rep('def normalize_api_base(url: str) -> str:',
     'def _known_default_instruction_texts() -> list:\n'
-    '    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند (فقط K3 — v1.14.246)."""\n'
+    '    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند (فقط مرجع — v1.14.246)."""\n'
     '    try:\n'
     '        from manga import PROMPT_PRESETS  # ایمپورتِ سنگین — فقط همین‌جا\n'
     '        return [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]\n'

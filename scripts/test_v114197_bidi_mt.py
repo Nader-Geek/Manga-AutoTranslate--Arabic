@@ -7,7 +7,7 @@
   ۲. پاکسازی دوفازی: فاز ۱ حینِ استخراج = جاروی بالا→پایین (min(cand))؛
      فاز ۲ فقط بعد از اتمامِ کاملِ استخراج (extraction_done) = نصفِ
      باقیمانده از بالا→پایین + نصفِ دیگر از پایین→بالا (reversed).
-  ۳. فیکسِ تایم‌اوت به سبکِ K3: سقفِ زمانیِ متناسبِ حجم (۶۰ + ۱.۵×تعداد +
+  ۳. فیکسِ تایم‌اوت به سبکِ مرجع: سقفِ زمانیِ متناسبِ حجم (۶۰ + ۱.۵×تعداد +
      حجم/۴۰، سقفِ ۱۸۰۰) روی مسیرِ provider هم؛ استریمِ SSE با پارسرِ
      افزایشی در _translate_with_openai + فالبکِ «استریم پذیرفته نشد»؛
      AutoRetry چندبارهٔ همهمدل با انتظارِ واقعی (۲/۴/۸ثانیه) بهجایِ
@@ -104,14 +104,14 @@ gate(_expected_tout(100, 6000) > 300,
 gate(_expected_tout(25, 1500) == max(45.0, 60.0 + 37.5 + 37.5),
      f"۲۵ دیالوگ → {_expected_tout(25, 1500):.0f}ثانیه")
 
-print("── ۴. AutoRetry K3 (همهمدلِ صبور) ──")
+print("── ۴. AutoRetry مرجع (همهمدلِ صبور) ──")
 gate("صبر ۰.۵ثانیه و تلاش دوباره" not in src,
      "رفتارِ قدیمیِ «صبر ۰.۵ثانیه و فقط ۱ تلاش» حذف شد")
 gate("MANGA_TIMEOUT_RETRIES" in src and "MANGA_TIMEOUT_WAIT" in src,
      "قابلِ تنظیم با MANGA_TIMEOUT_RETRIES/WAIT")
-gate("same_retries < _k3_max:" in src,
-     "همان مدل تا K3_max بار دوباره پرسیده میشود")
-gate("min(_k3_wait * (2 ** same_retries), 30.0)" in src,
+gate("same_retries < _mt_max:" in src,
+     "همان مدل تا MT_max بار دوباره پرسیده میشود")
+gate("min(_mt_wait * (2 ** same_retries), 30.0)" in src,
      "انتظارِ نمایی ۲/۴/۸/… تا سقفِ ۳۰ثانیه")
 gate("_still = [r for r in work_regions\n                              if not (r.translated_text or \"\").strip()]" in src,
      "آیتمهایِ نشسته از جریان قبلی از تلاشِ بعدی حذف میشوند")
@@ -168,7 +168,7 @@ try:
         "p", "s", timeout=360.0,
         on_item=lambda rid, t: got.__setitem__(rid, t))
     gate(client.chat.completions.calls[0].get("stream") is True,
-         "درخواست با stream=True رفت (سبکِ K3)")
+         "درخواست با stream=True رفت (سبکِ مرجع)")
     gate(client.chat.completions.calls[0].get("timeout") == 360.0,
          "سقفِ HTTP هم همان سقفِ بزرگِ متناسب شد (نه ۴۵ ثانیه)")
     gate(set(got) == {1, 2, 3}, f"پارسرِ افزایشی همهٔ آیتمها را نشاند ({sorted(got)})")
@@ -198,7 +198,7 @@ try:
 except Exception as _e:
     fail(f"فالبکِ استریم: {_e}")
 
-print("── ۶. AutoRetry K3 عملی (تایم‌اوت → صبرِ واقعی → جواب) ──")
+print("── ۶. AutoRetry مرجع عملی (تایم‌اوت → صبرِ واقعی → جواب) ──")
 
 
 class _Reg:
@@ -281,11 +281,11 @@ try:
     gate(switched["model"] == 0 and switched["reset"] == 0 and switched["key"] == 0,
          "مدلِ سالمِ «کند» قربانیِ cascade نشد (همهمدل ماند)")
     gate(abs(_sleeps[0] - 2.0) < 0.01 and abs(_sleeps[1] - 4.0) < 0.01,
-         f"انتظارهایِ K3 = {_sleeps[:2]} (۲ و ۴ ثانیه؛ قبلاً ۰.۵)")
+         f"انتظارهایِ مرجع = {_sleeps[:2]} (۲ و ۴ ثانیه؛ قبلاً ۰.۵)")
     done = sum(1 for r in regs if (r.translated_text or "").strip())
     gate(done == 25, f"همهٔ ۲۵ دیالوگ در نهایت ترجمه شدند ({done}/25)")
 except Exception as _e:
-    fail(f"AutoRetry K3 عملی: {_e}")
+    fail(f"AutoRetry مرجع عملی: {_e}")
 
 print()
 if FAILS:

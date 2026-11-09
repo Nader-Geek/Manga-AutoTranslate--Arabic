@@ -3,8 +3,8 @@
 """چکِ رگرسیونِ v1.14.197 — «استخراج از عکس اول تا آخر بره و از آخر تا
 اول — دو طرفه؛ وسطش پاکسازیش همزمان کار کنه از بالا به پایین؛ وقتی
 استخراج تموم شد پاکسازیش هم دوطرفه کار کنه (دوطرفه فقط بعد از اتمامِ
-کاملِ استخراج)» + فیکسِ تایم‌اوتِ مترجمِ پر متن به سبکِ K3 (گزارش:
-«متن زیاد باشه تایم اوت میخوره — k3 متن زیاد چکار کرده؟؟»).
+کاملِ استخراج)» + فیکسِ تایم‌اوتِ مترجمِ پر متن به سبکِ مرجع (گزارش:
+«متن زیاد باشه تایم اوت میخوره — مرجع متن زیاد چکار کرده؟؟»).
 
 گیتها:
   A. نسخه = 1.14.197 / versionCode=202 (manga.py + manga_app.py + VERSION
@@ -16,14 +16,14 @@
      (min(cand))؛ فاز ۲ فقط بعد از extraction_done = نصف از بالا→پایین
      + نصف از پایین→بالا (reversed) با کارگرِ clean2؛ انتظارِ پاکسازی
      با Event (_wait_clean/_clean_ready) — clean_futuresِ قدیمی حذف.
-  D. فیکسِ تایم‌اوت به سبکِ K3: سقفِ متناسبِ حجم (۶۰ + ۱.۵×تعداد +
+  D. فیکسِ تایم‌اوت به سبکِ مرجع: سقفِ متناسبِ حجم (۶۰ + ۱.۵×تعداد +
      حجم/۴۰، سقفِ ۱۸۰۰) برایِ «هر» provider (نه فقط Gemini)؛ استریمِ
      SSE در _translate_with_openai با پارسرِ افزایشیِ همان
      _salvage_stream_items + فالبکِ «استریم پذیرفته نشد»؛ AutoRetryِ
      همهمدل (MANGA_TIMEOUT_RETRIES/WAIT، انتظارِ نمایی ۲/۴/۸… سقف ۳۰)
      بهجایِ صبرِ ۰.۵ثانیه و cascadeِ بیفایده؛ حذفِ آیتمهایِ نشسته از
      پرامپتِ تلاشِ بعدی.
-  E. سلامتِ عمومی: py_compile + بقایِ سبکِ K3ِ ۱۹۶ (یک درخواست، بدونِ
+  E. سلامتِ عمومی: py_compile + بقایِ سبکِ مرجعِ ۱۹۶ (یک درخواست، بدونِ
      ۱۵تا۱۵تا، salvage، BLOCK_NONE، [CENSORED]).
 """
 
@@ -115,7 +115,7 @@ gate("_clean_pages_bg([page_i])" in _manga,
 gate("if clean_pool2 is not None:  # v1.14.197 — کارگرِ پایین→بالا" in _manga,
      "خاموشیِ امنِ clean_pool2 در پایان")
 
-print("── D. فیکسِ تایم‌اوت به سبکِ K3 ────────────")
+print("── D. فیکسِ تایم‌اوت به سبکِ مرجع ────────────")
 gate("_want_stream = (\n                    getattr(self, \"chapter_one_request\", False)\n                    and len(work_regions) > 6)" in _manga,
      "استریم/سقفِ بزرگ دیگر مخصوصِ Gemini نیست — برایِ هر provider")
 gate("60.0 + 1.5 * len(work_regions) + _chars / 40.0" in _manga,
@@ -128,26 +128,26 @@ gate("def _translate_with_openai(self, user_prompt: str, system_instruction: str
 gate("_eff_t = max(_eff_t,\n                         float(getattr(self, \"api_timeout\", 45.0) or 45.0))" in _manga,
      "سقفِ HTTP هم به همان سقفِ بزرگ میرسد (نه ۱۰–۴۵ ثانیه)")
 gate("skw[\"stream\"] = True" in _manga,
-     "استریمِ SSE در مسیرِ openai/custom (سبکِ K3)")
+     "استریمِ SSE در مسیرِ openai/custom (سبکِ مرجع)")
 gate("self._salvage_stream_items(\"\".join(parts), on_item)" in _manga,
      "پارسرِ افزایشی رویِ هر قطعهٔ استریمِ openai")
 gate('"stream" in _ss and ("support" in _ss or "invalid" in _ss' in _manga,
      "فالبکِ خودکار فقط وقتی endpoint استریم را نمیپذیرد")
 gate("صبر ۰.۵ثانیه و تلاش دوباره" not in _manga,
      "رفتارِ قدیمیِ «فقط ۱ تلاش با صبرِ ۰.۵ثانیه» حذف شد")
-gate("AutoRetry K3 " in _manga, "پیامِ AutoRetry K3 در لاگ")
+gate("AutoRetry مرجع " in _manga, "پیامِ AutoRetry مرجع در لاگ")
 gate("MANGA_TIMEOUT_RETRIES" in _manga and "MANGA_TIMEOUT_WAIT" in _manga,
      "قابلِ تنظیم با MANGA_TIMEOUT_RETRIES/WAIT")
-gate("same_retries < _k3_max:" in _manga,
-     "همان مدلِ «کند ولی سالم» تا K3_max بار دوباره پرسیده میشود")
-gate("min(_k3_wait * (2 ** same_retries), 30.0)" in _manga,
+gate("same_retries < _mt_max:" in _manga,
+     "همان مدلِ «کند ولی سالم» تا MT_max بار دوباره پرسیده میشود")
+gate("min(_mt_wait * (2 ** same_retries), 30.0)" in _manga,
      "انتظارِ نمایی ۲/۴/۸… تا سقفِ ۳۰ثانیه")
 gate("_still = [r for r in work_regions\n                              if not (r.translated_text or \"\").strip()]" in _manga,
      "آیتمهایِ نشسته از جریانِ قبلی از تلاشِ بعدی حذف میشوند")
-gate("_k3_max = min(10, max(1, int(" in _manga,
-     "سقفِ K3: حداکثر ۱۰ بار (قابلِ تنظیم، پیشفرض ۳)")
+gate("_mt_max = min(10, max(1, int(" in _manga,
+     "سقفِ مرجع: حداکثر ۱۰ بار (قابلِ تنظیم، پیشفرض ۳)")
 
-print("── E. سلامتِ عمومی + بقایِ سبکِ K3ِ ۱۹۶ ────")
+print("── E. سلامتِ عمومی + بقایِ سبکِ مرجعِ ۱۹۶ ────")
 try:
     py_compile.compile("manga.py", doraise=True)
     ok("py_compile: manga.py")

@@ -16,7 +16,7 @@
      پشتسرهم میبرد (workers=1 — «موازی» ممنوع).
   ۴. تقسیمِ متوازن: هیچ بستهای زیرِ ۳۰ نیست وقتی کل ≥ ۳۰ است
      (۱۳۰ → ۳۳/۳۳/۳۲/۳۲؛ نه ۳۰/۳۰/۳۰/۳۰/۱۰).
-  ۵. رگرسیون: اسلاتِ صریحِ ۱۹۸ + دوطرفه/دوفازی/K3ِ ۱۹۷.
+  ۵. رگرسیون: اسلاتِ صریحِ ۱۹۸ + دوطرفه/دوفازی/مرجعِ ۱۹۷.
 """
 
 import io
@@ -125,11 +125,11 @@ gate(n_slot >= 5, f"اسلاتِ صریحِ صفحه در همهٔ مسیرها 
 gate("def _live_page_dump(out_file: str, key: Optional[str] = None,\n                    slot: Optional[int] = None)" in src,
      "_live_page_dump slot دارد")
 
-print("── ۶. رگرسیونِ ۱۹۷ (دوطرفه + دوفازی + K3) ──")
+print("── ۶. رگرسیونِ ۱۹۷ (دوطرفه + دوفازی + مرجع) ──")
 gate("def _claim_ext(role" in src, "استخراج دوطرفه سرِ جایش")
 gate('extraction_done["v"] = True' in src, "پرچمِ پایانِ استخراج")
 gate('thread_name_prefix="clean2"' in src, "کارگرِ دومِ پاکسازی (پایین→بالا)")
-gate("MANGA_TIMEOUT_RETRIES" in src, "AutoRetry همهمدلِ K3")
+gate("MANGA_TIMEOUT_RETRIES" in src, "AutoRetry همهمدلِ مرجع")
 gate("60.0 + 1.5 * len(work_regions)" in src, "سقفِ زمانیِ متناسبِ حجم")
 gate("_salvage_stream_items" in src, "پارسرِ افزایشیِ استریم")
 gate("فهرستِ بلند است: اینها حبابهایِ دیالوگِ مانگا هستند" in src,

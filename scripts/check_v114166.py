@@ -65,7 +65,7 @@ for s in ("PaddleAndroidOCR", "com.amirwolf.mangatranslator.PaddleOcrBridge",
     if s not in src:
         fail(f"رشتهٔ لازم در manga.py نیست: {s!r}")
 for s in ("PliteCropOCR", "_PLOCR_LiteRunner", "_plite_backend",
-          "MANGA_K3_PLITE", '"paddle", "paddlelite", "plite"'):
+          "MANGA_MT_PLITE", '"paddle", "paddlelite", "plite"'):
     if s in src:
         fail(f"بقایایِ Paddle-Lite در manga.py: {s!r}")
 

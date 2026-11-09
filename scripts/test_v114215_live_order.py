@@ -66,7 +66,7 @@ manga._live_page_dump(p1_path, key="k1", slot=1)
 gate("B1: dump(1) → live_0001 فوراً", exists(1))
 manga._live_page_dump(p7_path, key="k7", slot=7)
 gate("B2: dump(7) → هنوز قفل (منتظرِ ۲..۶)", not exists(7))
-manga._live_page_dump(p3_path, key="k3", slot=3)
+manga._live_page_dump(p3_path, key="مرجع", slot=3)
 gate("B3: dump(3) → هنوز قفل (منتظرِ ۲)", not exists(3) and not exists(7))
 manga._live_page_dump(p2_path, key="k2", slot=2)
 gate("B4: dump(2) → زنجیرهٔ ۲و۳ آزاد؛ ۷ هنوز قفل",

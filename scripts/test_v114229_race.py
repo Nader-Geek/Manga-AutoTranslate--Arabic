@@ -3,7 +3,7 @@
 """تستِ ریسِسِ v1.14.229 — «عکس دوم یا سوم بیشترِ وقتا ترجمه نمیشه رد
 میکنه».
 
-ریشه (اثباتشده با لاگِ گوشیِ v1.14.227): در K3 بینِ نوشتنِ
+ریشه (اثباتشده با لاگِ گوشیِ v1.14.227): در مرجع بینِ نوشتنِ
 extracted_map[i] و صفشدنِ دیالوگهایش (_queue_dialogues →
 pending_by_page[i]>0) پنجرهٔ چندثانیهایِ باز است (_rescue_empty_ocr_1149
 همان‌جا OCRِ نجات میزند). اگر کارگرِ استخراجِ «دیگر» در همین پنجره
@@ -86,7 +86,7 @@ def _spy_fpp(self, image, regions, *a, **k):
 
 manga.MangaTranslator.finish_page_phase = _spy_fpp
 
-# ── ۳) رانِ واقعیِ K3 با fake-translate ──
+# ── ۳) رانِ واقعیِ مرجع با fake-translate ──
 tr = manga.MangaTranslator(
     api_key=["dummy"], provider="gemini", ocr_langs=["en"],
     font_path="fonts/Sahel-Bold.ttf", reading_order="rtl", gpu=False,
@@ -104,7 +104,7 @@ try:
 finally:
     manga.MangaTranslator._rescue_empty_ocr_1149 = _orig_rescue
     manga.MangaTranslator.finish_page_phase = _orig_fpp
-print(f"\n— رانِ K3 در {time.time() - t0:.0f}s —")
+print(f"\n— رانِ مرجع در {time.time() - t0:.0f}s —")
 LOG229 = _log229.getvalue()
 
 # ── ۴) گیت‌ها ──

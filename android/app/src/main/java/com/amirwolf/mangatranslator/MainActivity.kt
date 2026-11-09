@@ -2274,7 +2274,7 @@ class MainActivity : AppCompatActivity() {
                     row.addView(keyRow)
                 } else if (type == "number" && f.optDouble("step", 0.0) > 0.0) {
                     // v1.14.243 — دکمهٔ کم/زیادِ نیتیو برایِ فیلدهایِ عددیِ stepper
-                    // (temperature/top_p — عینِ SettingsPageِ K3: − / + با گامِ
+                    // (temperature/top_p — عینِ صفحهٔ تنظیماتِ مرجعِ مرجع: − / + با گامِ
                     // manifest و کلمپِ min..max؛ خودِ کادر هم تایپِ دقیق است).
                     // مقدارِ پیشفرضِ عددی (0.7/0.9) هم اینجا در کادر مینشیند
                     // (savedOr برایِ عدد Double برمیگرداند و setTextِ عادی

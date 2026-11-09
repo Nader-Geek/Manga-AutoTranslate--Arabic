@@ -432,7 +432,7 @@ def extract(path_or_source, is_source=False):
                 field["step"] = st or 1
             if kind == "Number":
                 # v1.14.243 — temperature/top_p: فیلدِ عددیِ دارایِ step در
-                # اندروید دکمهٔ کم/زیادِ نیتیو میگیرد (عینِ SettingsPageِ K3)
+                # اندروید دکمهٔ کم/زیادِ نیتیو میگیرد (عینِ صفحهٔ تنظیماتِ مرجعِ مرجع)
                 mn = _lit(kw.get("minimum"))
                 mx = _lit(kw.get("maximum"))
                 stn = _lit(kw.get("step"))

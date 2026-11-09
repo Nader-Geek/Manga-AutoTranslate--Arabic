@@ -13,7 +13,7 @@
   B. manga.py — گوشی: PaddleAndroidOCR با det=PP-OCRv6_small +
      rec=PP-OCRv6_medium (باندلِ APK)؛ پیامِ «روشِ استخراج» با
      PP-OCRv6. PC: هر دو call-site از _pc_ocr_small() استفاده میکنند
-     (پیشفرض = ستِ mediumِ K3؛ MANGA_OCR_SMALL=1/امولاتور = ستِ سبکِ
+     (پیشفرض = ستِ mediumِ مرجع؛ MANGA_OCR_SMALL=1/امولاتور = ستِ سبکِ
      CI). ضدِ چرت‌پرت: _line_is_foreign188 (مالکیتِ خطِ ناحیهٔ مجاور) +
      _latin_junk_line188 (خطِ آشغالِ لاتین) — رویِ هر دو مسیر (PC و
      اندروید) داخلِ _ocr_crop (حلقهٔ واریانت‌ها + نجاتِ لبه).
@@ -107,7 +107,7 @@ if "PP-OCRv4_mobile" in _cls:
     fail("B2: PaddleAndroidOCR هنوز رشتهٔ v4_mobile دارد")
 ok("B2: PaddleAndroidOCR = detِ v6_small + recِ v6_medium باندل")
 for _frag in ("PP-OCRv6ِ دانلودی (det=small + rec=MEDIUM — ",
-              '_K3_MODES = ("padandroid",)'):
+              '_MT_MODES = ("padandroid",)'):
     if _frag not in _manga:
         fail(f"B2: پیام/نردبانِ اندروید فاقدِ {_frag!r}")
 

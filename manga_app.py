@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.248"
+APP_VER = "1.14.249"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -69,7 +69,7 @@ _WEB_PROG_PHASES = (
     ("پدلِ اندروید", "استخراج متن"),
 )
 
-# v1.14.239 — شمارنده‌های صریحِ موتور (manga.py — پایپ‌لاینِ K3):
+# v1.14.239 — شمارنده‌های صریحِ موتور (manga.py — پایپ‌لاینِ مرجع):
 # «استخراج متن: n/N صفحه»، «پاکسازی متن: n/N صفحه»، «ترجمه: n/N ناحیه».
 # n/N از خودِ خط خوانده میشود (کلِ همراه، مستقل از total.txt).
 _WEB_PROG_COUNT_RES = (
@@ -79,9 +79,9 @@ _WEB_PROG_COUNT_RES = (
      "پاکسازی", "صفحه"),
     (re.compile(r"ترجمه[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*ناحیه"),
      "ترجمه", "ناحیه"),
-    # v1.14.242 — استریمِ زندهٔ K3: در درخواستِ واحد، پیشرفتِ لحظهای از
+    # v1.14.242 — استریمِ زندهٔ مرجع: در درخواستِ واحد، پیشرفتِ لحظهای از
     # خطوطِ «← استریم: X/Y دیالوگ…» خوانده میشود (همان پیشنمایشِ
-    # صفحهبهصفحهٔ K3)
+    # صفحهبهصفحهٔ مرجع)
     (re.compile(r"استریم[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*دیالوگ"),
      "ترجمه", "ناحیه"),
 )
@@ -90,7 +90,7 @@ _WEB_PROG_COUNT_RES = (
 def _web_prog_parse(log: str):
     """(فاز، مقدارِ فعلی، کلِ همراهِ خط، واحد) از انتهای لاگ — آخرین رخداد ملاک است.
 
-    v1.14.239 — موتور (manga.py) حالا در سبکِ K3 بعد از «هر» صفحهٔ
+    v1.14.239 — موتور (manga.py) حالا در سبکِ مرجع بعد از «هر» صفحهٔ
     استخراج‌شده «استخراج متن: n/N صفحه»، بعد از هر صفحهٔ پاک‌شده
     «پاکسازی متن: n/N صفحه» و بعد از هر بستهٔ ترجمه «ترجمه: n/N ناحیه»
     چاپ میکند (قبلاً تا پایانِ کلِ استخراج هیچ «N آماده شد»ای نبود و
@@ -265,7 +265,7 @@ def is_custom_instruction(text: str) -> bool:
 
 
 def _known_default_instruction_texts() -> list:
-    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند (فقط K3 — v1.14.246)."""
+    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند (فقط مرجع — v1.14.246)."""
     try:
         from manga import PROMPT_PRESETS  # ایمپورتِ سنگین — فقط همین‌جا
         return [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]
@@ -1083,7 +1083,7 @@ def run_cli_interactive():
            "--max-retries", str(int(cfg.get("max_retries", 8))),
            "--request-delay", str(float(cfg.get("request_delay", 0))),
            "--temperature", str(float(cfg.get("temperature", 0.7))),  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
-           "--top-p", str(float(cfg.get("top_p", 0.9))),  # v1.14.243 — CustomTopP
+           "--top-p", str(float(cfg.get("top_p", 0.9))),  # v1.14.243 — تنظیمِ top_p
            "--reading-order", str(cfg.get("reading_order", "rtl"))]
     cmd += font_args()
     klist = [k.strip() for k in (keys or "").replace(";", ",").split(",") if k.strip()]
@@ -2760,10 +2760,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
                                  step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
             # v1.14.244 — دکمهٔ کم/زیاد temperature و top_p عینِ صفحهٔ تنظیماتِ مرجع
-            # (CustomTemperature / CustomTopP: پیشفرضِ هر دو = ۰.۷/۰.۹؛ دکمههایِ
-            # مرجع: temp ±۰.۱ با کلمپِ ۰..۱.۵، topP ±۰.۰۵ با کلمپِ ۰.۱..۱).
+            # (دما / top_pِ قابلِ تنظیم: پیشفرضِ هر دو = ۰.۷/۰.۹؛ دکمههایِ
+            # کم/زیاد: temp ±۰.۱ با کلمپِ ۰..۱.۵، topP ±۰.۰۵ با کلمپِ ۰.۱..۱).
             # تایپِ دستیِ دقیق تا ۲ رقمِ اعشار برایِ هر مقدارِ «دقیق» دلخواه.
-            def _k3_step(v, d, lo, hi):
+            def _mt_step(v, d, lo, hi):
                 try:
                     v = float(v)
                 except (TypeError, ValueError):
@@ -2794,13 +2794,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 readord = gr.Radio(["rtl", "ltr"], value=str(cfg.get("reading_order", "rtl")),
                                    label="ترتیب خواندن حباب‌ها")
             try:
-                temp_dn.click(lambda v: gr.update(value=_k3_step(v, -0.05, 0.0, 1.5)),
+                temp_dn.click(lambda v: gr.update(value=_mt_step(v, -0.05, 0.0, 1.5)),
                               inputs=[temp], outputs=[temp])
-                temp_up.click(lambda v: gr.update(value=_k3_step(v, 0.05, 0.0, 1.5)),
+                temp_up.click(lambda v: gr.update(value=_mt_step(v, 0.05, 0.0, 1.5)),
                               inputs=[temp], outputs=[temp])
-                topp_dn.click(lambda v: gr.update(value=_k3_step(v, -0.05, 0.1, 1.0)),
+                topp_dn.click(lambda v: gr.update(value=_mt_step(v, -0.05, 0.1, 1.0)),
                               inputs=[top_p], outputs=[top_p])
-                topp_up.click(lambda v: gr.update(value=_k3_step(v, 0.05, 0.1, 1.0)),
+                topp_up.click(lambda v: gr.update(value=_mt_step(v, 0.05, 0.1, 1.0)),
                               inputs=[top_p], outputs=[top_p])
             except Exception:
                 pass
@@ -2841,7 +2841,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 lines=10, max_lines=25, interactive=True,
                 placeholder="خالی = پرامپتِ خودکارِ بر اساسِ سبک و مدل…",
                 value=_pp_body0)
-            # v1.14.242 — چکباکسِ «بریف داستان» حذف شد: دیکدِ K3 نشان داد
+            # v1.14.242 — چکباکسِ «بریف داستان» حذف شد: دیکدِ مرجع نشان داد
             # پاسِ خلاصهٔ داستان وجود ندارد (دستورِ سازنده: «نداشته باشه
             # مال منم حذف کن») — همهٔ متنها در همان یک درخواستِ ترجمه میروند.
 
@@ -4200,7 +4200,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                    "--max-retries", str(int(maxre_v)),
                    "--request-delay", str(float(reqdelay_v)),
                    "--temperature", str(float(temp_v if temp_v not in (None, "") else 0.7)),  # v1.14.244 — گاردِ کادرِ خالی
-                   "--top-p", str(float(top_p_v if top_p_v not in (None, "") else 0.9)),  # v1.14.243 — CustomTopP
+                   "--top-p", str(float(top_p_v if top_p_v not in (None, "") else 0.9)),  # v1.14.243 — تنظیمِ top_p
                    "--reading-order", str(readord_v)]
             if prov_s == "custom" and str(api_base_v or "").strip():
                 cmd += ["--api-base", str(api_base_v).strip()]

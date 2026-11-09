@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""چکِ رگرسیونِ v1.14.171 — نردبانِ K3 + حفاظتِ حباب (فقطِ موبایل):
+"""چکِ رگرسیونِ v1.14.171 — نردبانِ مرجع + حفاظتِ حباب (فقطِ موبایل):
 
 دستورِ سازنده: «ml kit خوب نیست مال پی سی میخوام استفاده کنه … detector
 اول پیدا میکنه بعد همون قسمت استخراج کنه ولی تو گوشی کنده» (v1.14.183:
-«ml kit حذف کن خوب نیست») + نقلِ توسعه‌دهندهٔ K3: «کراپ → افزایشِ
+«ml kit حذف کن خوب نیست») + نقلِ توسعه‌دهندهٔ مرجع: «کراپ → افزایشِ
 کیفیت → موتورِ استخراج → پوششِ زیرِ ۷۰٪ → پدل → اطمینانِ زیرِ ۸۰٪ →
-رپید … فقط در سطحِ کراپ نه تمام صفحه» + «حبابِ متن خراب نشه … خوده k3
+رپید … فقط در سطحِ کراپ نه تمام صفحه» + «حبابِ متن خراب نشه … خوده مرجع
 ببین چکار کرده» + «نباید استخراجِ پاکسازیِ پی‌سی لینوکس دست بزنی».
 
-۱) manga.py: K3LadderOCR (پلهٔ ۱ پدلِ رسمیِ اندروید رویِ کراپِ تقویتشده /
+۱) manga.py: MtLadderOCR (پلهٔ ۱ پدلِ رسمیِ اندروید رویِ کراپِ تقویتشده /
    پلهٔ ۲ پدلِ ONNX با پوششِ <70٪ / پلهٔ ۳ رپید با اطمینانِ <80٪ — فقط
    سطحِ کراپ) + wiringِ پیشفرض در _init_mobile_engine +
-   _build_mobile_onnx (مجموعهٔ K3 برایِ پدل / سبک برایِ رپید؛ شبیهساز =
+   _build_mobile_onnx (مجموعهٔ مرجع برایِ پدل / سبک برایِ رپید؛ شبیهساز =
    سبک برایِ هر دو).
 ۲) حفاظتِ حبابِ موبایل: _pad_dilate_wall_safe (دیلیشن + گیردهِ دوبارهٔ
    اندروید-گیت‌شدهٔ MANGA_MASK_WALL_RECLIP) جایگزینِ دیلیشنِ خام بعد از
@@ -60,23 +60,23 @@ if _m.group(1) != _vn.group(1):
     fail(f"APP_VER ({_m.group(1)}) با versionName ({_vn.group(1)}) یکی نیست")
 ok(f"نسخه {_m.group(1)} (APP_VER↔versionName)")
 
-# ۱) نردبانِ K3 — کلاس/آستانهها/فقط-کراپ
-lad = cls.get("K3LadderOCR")
+# ۱) نردبانِ مرجع — کلاس/آستانهها/فقط-کراپ
+lad = cls.get("MtLadderOCR")
 if lad is None:
-    fail("K3LadderOCR نیست")
+    fail("MtLadderOCR نیست")
 lad_src = ast.get_source_segment(src, lad) or ""
 # v1.14.184 — نردبانِ چندپلهای حذف شد؛ تنها پله = SDKِ رسمی رویِ کراپ
-for s in ("if not crop_mode:", "_k3_boost_crop", "_k3_map_boxes",
-          "_k3_stats_note", '_K3_MODES = ("padandroid",)'):
+for s in ("if not crop_mode:", "_mt_boost_crop", "_mt_map_boxes",
+          "_mt_stats_note", '_MT_MODES = ("padandroid",)'):
     if s not in lad_src:
-        fail(f"K3LadderOCR محتوایِ لازم را ندارد: {s!r}")
-for gone in ("_k3_ink_coverage", "_k3_best_conf", "_engine_tiny",
+        fail(f"MtLadderOCR محتوایِ لازم را ندارد: {s!r}")
+for gone in ("_mt_ink_coverage", "_mt_best_conf", "_engine_tiny",
              "_build_onnx(small"):
     if gone in lad_src:
-        fail(f"K3LadderOCR هنوز موتورِ قدیمی دارد: {gone!r}")
-if "_k3_ladder_on" in topfns or "MANGA_K3_LADDER" in src:
-    fail("گیتِ MANGA_K3_LADDER باید حذف شده باشد")
-ok("K3LadderOCR = تکپلهٔ SDKِ رسمی (بدونِ پلههایِ ۲/۳)")
+        fail(f"MtLadderOCR هنوز موتورِ قدیمی دارد: {gone!r}")
+if "_mt_ladder_on" in topfns or "MANGA_MT_LADDER" in src:
+    fail("گیتِ MANGA_MT_LADDER باید حذف شده باشد")
+ok("MtLadderOCR = تکپلهٔ SDKِ رسمی (بدونِ پلههایِ ۲/۳)")
 
 # ۲) wiringِ _init_mobile_engine
 rb = cls.get("RapidOCRBackend")
@@ -90,7 +90,7 @@ ime_src = ime.group(0)
 for s in ("_build_paddle_android(lang)", "فالبکی نیست"):
     if s not in ime_src:
         fail(f"_init_mobile_engine ناقص است: {s!r}")
-for gone in ("_build_mobile_onnx(", "_k3_ladder_on()", "MANGA_ANDROID_OCR"):
+for gone in ("_build_mobile_onnx(", "_mt_ladder_on()", "MANGA_ANDROID_OCR"):
     if gone in ime_src:
         fail(f"_init_mobile_engine هنوز مسیرِ قدیمی دارد: {gone!r}")
 # v1.14.172 — لامبداِ خرابِ قدیمی (پارامترِ s) نبود — نردبان با کلیدواژه
@@ -146,10 +146,10 @@ ok("CI: img6.jpg + گیتِ «attraction» + ۸ تصویر")
 
 # ۵) تستِ منطقیِ نردبان با موتورهایِ فیک
 sys.path.insert(0, ROOT)
-os.environ.setdefault("MANGA_K3_LADDER", "1")
+os.environ.setdefault("MANGA_MT_LADDER", "1")
 # v1.14.183 — پلهٔ ۱ = پدلِ رسمیِ اندروید (ML Kit حذف شد)؛ این چکِ
 # قدیمی، مسیرِ خاموشِ پلهٔ ۲/۳ را تست میکند → صریحاً full
-os.environ["MANGA_K3_MODE"] = "full"
+os.environ["MANGA_MT_MODE"] = "full"
 import manga  # noqa: E402
 
 H, W = 120, 200
@@ -204,7 +204,7 @@ def _mk_ladder(pad_lines, med, sml):
         return sml if small else med
 
     _pad = FakePad(pad_lines) if pad_lines is not None else None
-    return manga.K3LadderOCR("en", build, build_pad=lambda: _pad)
+    return manga.MtLadderOCR("en", build, build_pad=lambda: _pad)
 
 
 img = np.full((H, W, 3), 245, dtype=np.uint8)
@@ -243,7 +243,7 @@ class ShapePad(FakePad):
 
 
 _pad5 = ShapePad(None)
-lad5 = manga.K3LadderOCR(
+lad5 = manga.MtLadderOCR(
     "en", lambda s: (_ for _ in ()).throw(AssertionError(
         "پلهٔ ۱ باید کافی باشد")),
     build_pad=lambda: _pad5)

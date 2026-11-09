@@ -7,7 +7,7 @@ P = '/home/z/manga-work/manga.py'
 src = open(P, encoding='utf-8').read()
 
 DEAD_FUNCS = {
-    'k3_schema_json', '_ort_providers', '_gpu_vendor', '_android_heal_model_dir',
+    'mt_schema_json', '_ort_providers', '_gpu_vendor', '_android_heal_model_dir',
     'classify_batch', '_want_english_only', '_dedupe_detections',
     'group_into_regions', '_deduplicate_regions', '_letters_mask_in_crop',
     '_panel_leftover_stats', '_merge_overlap_final_regions', 'test_api_key',

@@ -4,7 +4,7 @@
 
 ۱) ناحیهٔ ocr_empty (زمینهٔ روشن + جوهرِ متنی — حتی بعد از ردِ نجاتِ 201
    مثلِ '85') حالا «فقط پاکسازی» میشود — هم در مسیرِ صفحهٔ تکی
-   (finish_page_phase) هم در مسیرِ بچ (K3/_clean_regions_for_page).
+   (finish_page_phase) هم در مسیرِ بچ (مرجع/_clean_regions_for_page).
    → «متنِ قبلی» دیگر سرِ جایش نمیماند.
 ۲) کامپوزِ دو-عکسی دیگر «کلِ حباب/بلوک» را منتقل نمیکند: نه باندِ
    تیرهٔ یکدست (۷۸f) نه اینتریورِ باکسِ سیستم (۱۰۴) — فقط نوارهایِ
@@ -48,7 +48,7 @@ def make_tr(method="opencv"):
 def test_source_gates():
     gate("مسیرِ تکی: _ocr_empty_regions = _oe149",
          "_ocr_empty_regions = _oe149" in SRC)
-    gate("مسیرِ بچ (K3): ocr_empty در فیلترِ پاکسازی",
+    gate("مسیرِ بچ (مرجع): ocr_empty در فیلترِ پاکسازی",
          "or getattr(r, \"ocr_empty\", False))]" in SRC
          and "متن قبلی میمونه نمیپاکه" in SRC)
     # فیکسِ B — ممنوعیتِ انتقالِ یکجا

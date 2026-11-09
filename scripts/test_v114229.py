@@ -125,7 +125,7 @@ mods2, err2 = list_provider_models("custom", "k", "")
 chk("custom بدونِ لینک → خطای لینک", not mods2 and "لینک" in err2, f"err={err2}")
 
 
-print("── ۳) گیتِ ریسِسِ ۲۲۹ (K3: صفِ درِ صف‌شدن نهایی نمیشود) ──")
+print("── ۳) گیتِ ریسِسِ ۲۲۹ (مرجع: صفِ درِ صف‌شدن نهایی نمیشود) ──")
 _src = open("manga.py", encoding="utf-8").read()
 chk("A: گاردِ _qd_inflight در _finish_ready_pages هست",
     "_inflight229 = set(_qd_inflight)" in _src

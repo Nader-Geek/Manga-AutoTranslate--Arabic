@@ -27,19 +27,19 @@ src = io.open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
 tree = ast.parse(src)
 
 # ── ۱) روشهایِ حذفشده در نردبان نیستند ──────────────────────────
-m = src.index("class K3LadderOCR:")
+m = src.index("class MtLadderOCR:")
 m2 = src.index("\nclass ", m + 10)
-_k3_src = src[m:m2]
+_mt_src = src[m:m2]
 for gone in ('"flutter"', '_engine_tiny', '_build_onnx(small', "tiny=True"):
-    if gone in _k3_src:
+    if gone in _mt_src:
         fail("F: نردبانِ 184 هنوز %r دارد" % gone)
-if '_K3_MODES = ("padandroid",)' not in _k3_src:
-    fail("F: _K3_MODESِ 184 نیست")
+if '_MT_MODES = ("padandroid",)' not in _mt_src:
+    fail("F: _MT_MODESِ 184 نیست")
 ok("F: روشهایِ full/fast/rapid/paddle/flutter حذف — فقط padandroid")
 
 # ── ۲) مهارِ Paddle-Lite + سلامتِ PC ─────────────────────────────
 for _bad in ("PliteCropOCR", "_PLOCR_LiteRunner", "PliteProbeService.kt\"",
-             "MANGA_K3_PLITE", "plite_banned"):
+             "MANGA_MT_PLITE", "plite_banned"):
     if _bad in src:
         fail("P: %s برگشته!" % _bad)
 _kt = os.path.join(ROOT, "android", "app", "src", "main", "java",

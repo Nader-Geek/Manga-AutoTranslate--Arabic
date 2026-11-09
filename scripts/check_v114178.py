@@ -39,11 +39,11 @@ for node in tree.body:
         picks[node.name] = ast.get_source_segment(src, node)
 for node in tree.body:
     if isinstance(node, ast.Assign) and getattr(
-            node.targets[0], "id", "") == "_K3_MODE_FA":
-        picks["_K3_MODE_FA"] = ast.get_source_segment(src, node)
-m = src.index("class K3LadderOCR:")
+            node.targets[0], "id", "") == "_MT_MODE_FA":
+        picks["_MT_MODE_FA"] = ast.get_source_segment(src, node)
+m = src.index("class MtLadderOCR:")
 m2 = src.index("\nclass ", m + 10)
-picks["K3LadderOCR"] = src[m:m2]
+picks["MtLadderOCR"] = src[m:m2]
 
 E2E = r'''
 import io, json, os, sys, time
@@ -63,11 +63,11 @@ for node in tree.body:
         picks[node.name] = ast.get_source_segment(src, node)
 for node in tree.body:
     if isinstance(node, ast.Assign) and getattr(
-            node.targets[0], "id", "") == "_K3_MODE_FA":
-        picks["_K3_MODE_FA"] = ast.get_source_segment(src, node)
-m = src.index("class K3LadderOCR:")
+            node.targets[0], "id", "") == "_MT_MODE_FA":
+        picks["_MT_MODE_FA"] = ast.get_source_segment(src, node)
+m = src.index("class MtLadderOCR:")
 m2 = src.index("\nclass ", m + 10)
-picks["K3LadderOCR"] = src[m:m2]
+picks["MtLadderOCR"] = src[m:m2]
 
 class FakePad:
     """قراردادِ PaddleAndroidOCR: r0 = [ [[box, (text, conf)], ...] ]"""
@@ -86,11 +86,11 @@ _pad = FakePad()
 g = {"os": os, "time": time, "json": json, "np": np, "cv2": cv2,
      "threading": __import__("threading"), "print": print,
      "APP_VER": "1.14.184-test",
-     "_K3_STATS": {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0},
+     "_MT_STATS": {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0},
      "_PAD_STATS": {"ms": 0.0, "n": 0, "lines": 0},
-     "_k3_stats_note": lambda *a, **k: None,
-     "_k3_boost_crop": lambda image, *a, **k: (image, None, 1.0),
-     "_k3_map_boxes": lambda r, pad=None, scale=1.0: (r or []),
+     "_mt_stats_note": lambda *a, **k: None,
+     "_mt_boost_crop": lambda image, *a, **k: (image, None, 1.0),
+     "_mt_map_boxes": lambda r, pad=None, scale=1.0: (r or []),
      "MangaTranslator": FakeMT,
      "RapidOCRBackend": object}
 exec(compile("\n\n".join(picks.values()), "manga_bits", "exec"), g)
@@ -102,7 +102,7 @@ cv2.imwrite(os.path.join(ST_DIR, "page.png"), img)
 class FakeBE:
     def __init__(self, lang="en"):
         self.lang = lang
-        self._mobile = g["K3LadderOCR"](
+        self._mobile = g["MtLadderOCR"](
             lang, build_pad=lambda: _pad)
     def _build_paddle_android(self, lang):
         return _pad

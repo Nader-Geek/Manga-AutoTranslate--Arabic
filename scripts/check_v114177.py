@@ -54,7 +54,7 @@ if lab is None:
 else:
     if "p.get(" in lab:
         fail("speed_lab_env هنوز پارامترِ p را میخواند")
-    if 'os.environ["MANGA_K3_MODE"] = "padandroid"' not in lab:
+    if 'os.environ["MANGA_MT_MODE"] = "padandroid"' not in lab:
         fail("forceِ padandroid نیست")
     ok("speed_lab_env = تکروشِ padandroid (بدونِ خواندنِ p)")
 

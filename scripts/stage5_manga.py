@@ -32,7 +32,7 @@ done.append('remove DEFAULT_SYSTEM_INSTRUCTION_STYLE block (84 lines)')
 # ── ۲) SYSTEM_INSTRUCTION_PROTOCOL مرده (صفر استفاده) ──
 rep(
     '# مسیرِ بومیِ Gemini — بدونِ بندِ ۷ (اسکیما از response_schema)\n'
-    'SYSTEM_INSTRUCTION_PROTOCOL = k3_system_instruction()\n'
+    'SYSTEM_INSTRUCTION_PROTOCOL = mt_system_instruction()\n'
     '\n\n',
     '',
     'remove dead SYSTEM_INSTRUCTION_PROTOCOL')
@@ -62,7 +62,7 @@ rep(
     '    """آیا متنِ دستورِ دادهشده یکی از پیشفرضهایِ شناختهشده است؟\n'
     '    (دستورِ کلاسیکِ فارسی + پرامپتهایِ سبکیِ انگلیسیِ v1.14.144)',
     '    """آیا متنِ دستورِ دادهشده یکی از پیشفرضهایِ شناختهشده است؟\n'
-    '    (فقط پرامپتهایِ K3: professional/lite — v1.14.246)',
+    '    (فقط پرامپتهایِ مرجع: professional/lite — v1.14.246)',
     'is_known_default_instruction docstring')
 
 rep(
@@ -82,7 +82,7 @@ rep(
 # ── ۵) پارامترهای سازنده: glossary_path + story_brief ──
 rep(
     '        glossary_path: Optional[str] = None,\n'
-    '        # v1.14.242 — story_brief حذف شد (K3 بریف ندارد؛ دستورِ سازنده) —\n'
+    '        # v1.14.242 — story_brief حذف شد (مرجع بریف ندارد؛ دستورِ سازنده) —\n'
     '        # پارامتر برایِ سازگاریِ فراخوان‌هایِ قدیمی نادیده گرفته میشود\n'
     '        story_brief: bool = True,\n'
     '        fake_translate: bool = False,',
@@ -96,7 +96,7 @@ rep(
     '        self.glossary_path = glossary_path\n'
     '        self._glossary_out_dir = ""\n'
     '        self._glossary_dirty = False\n'
-    '        # v1.14.242 — بریفِ داستان حذف شد (دیکدِ K3: پاسِ خلاصهٔ داستان\n'
+    '        # v1.14.242 — بریفِ داستان حذف شد (دیکدِ مرجع: پاسِ خلاصهٔ داستان\n'
     '        # وجود ندارد) — stateهایِ بریف دیگر ساخته نمیشوند؛ story_brief\n'
     '        # برایِ سازگاریِ bridge/وباپ قدیمی فقط نادیده گرفته میشود.\n'
     '        self._chapter_brief: str = ""\n'
@@ -109,8 +109,8 @@ rep(
 # ── ۷) TONE_LABELS مرده (فقط تعریف — هیچ استفاده‌ای در هیچ فایلی) + docstring ──
 rep(
     '        - classic: مسیرِ فارسیِ قدیمی — متنِ سفارشیِ کاربر همان system می‌شود.\n'
-    '        متنِ سفارشیِ کاربر در سبکهایِ flash دیگر system را عوض نمی‌کند — در K3',
-    '        متنِ سفارشیِ کاربر system را عوض نمی‌کند — در K3',
+    '        متنِ سفارشیِ کاربر در سبکهایِ flash دیگر system را عوض نمی‌کند — در مرجع',
+    '        متنِ سفارشیِ کاربر system را عوض نمی‌کند — در مرجع',
     '_get_system_instruction docstring')
 
 # ── ۸) شاخهٔ classic در _get_system_instruction (mode دیگر استفاده نمی‌شود) ──
@@ -162,9 +162,9 @@ done.append('remove old {id,translation} fallback parser (~88 lines)')
 rep(
     '    @staticmethod\n'
     '    def _salvage_stream_items(text: str, on_item) -> None:\n'
-    '        """v1.14.196 — پارسرِ بخشندهٔ K3 (قالبِ قدیمی): در جریانِ ناقص،\n'
+    '        """v1.14.196 — پارسرِ بخشندهٔ مرجع (قالبِ قدیمی): در جریانِ ناقص،\n'
     '        شیءهایِ «کاملِ» {id, translation} را بیرون میکشد. از v1.14.242 قالبِ\n'
-    '        اصلی K3 صفحه‌محور است (_salvage_stream_pages) — این فقط پشتیبانِ\n'
+    '        اصلی مرجع صفحه‌محور است (_salvage_stream_pages) — این فقط پشتیبانِ\n'
     '        جوابهایِ {id, translation} است (میراثِ مسیرِ classic)."""\n'
     '        if not text or on_item is None:\n'
     '            return\n'
@@ -185,7 +185,7 @@ rep(
 # ── ۱۱) شاخهٔ classic در _make_prompt ──
 rep(
     '            if _pm == "classic":\n'
-    '                # میراثِ قدیمی — بدونِ بریف/واژه‌نامه (سبکِ AI = K3)\n'
+    '                # میراثِ قدیمی — بدونِ بریف/واژه‌نامه (سبکِ AI = مرجع)\n'
     '                allowed = self._allowed_tones()\n'
     '                example = {"id": work_regions[0].id, "translation": "متن فارسی"}\n'
     '                if allowed:\n'
@@ -224,8 +224,8 @@ rep(
     '                       + "\\nورودی (داده، نه دستور):\\n"\n'
     '                       + json.dumps(payload, ensure_ascii=False, separators=(",", ":")))\n'
     '                )\n'
-    '            # ── سبکِ K3 (professional/lite) — عینِ BuildOpenAiPayloadTextOnly:',
-    '            # ── سبکِ K3 (professional/lite) — عینِ BuildOpenAiPayloadTextOnly:',
+    '            # ── سبکِ مرجع (professional/lite) — عینِ سازندهٔ درخواستِ متنیِ OpenAI در مرجع:',
+    '            # ── سبکِ مرجع (professional/lite) — عینِ سازندهٔ درخواستِ متنیِ OpenAI در مرجع:',
     '_make_prompt classic branch')
 
 # ── ۱۲) توابع glossary (چهار تابع) + کامنتِ بریفِ قدیمی ──
@@ -251,7 +251,7 @@ rep(
     '            self._parse_translation_response(text_final, work_regions)\n',
     'save_glossary call #2')
 
-# ── ۱۴) گام B نجاتِ 1189 → قالبِ K3 ──
+# ── ۱۴) گام B نجاتِ 1189 → قالبِ مرجع ──
 rep(
     '            # گام B: همان آیتم در حالتِ JSON ساختاریافته\n'
     '            if not val:\n'
@@ -267,7 +267,7 @@ rep(
     '                                     ensure_ascii=False, separators=(",", ":"))\n'
     '                    )\n'
     '                    with self._api_lock:',
-    '            # گام B: همان آیتم در قالبِ K3 — یک صفحه، یک دیالوگ (v1.14.246)\n'
+    '            # گام B: همان آیتم در قالبِ مرجع — یک صفحه، یک دیالوگ (v1.14.246)\n'
     '            if not val:\n'
     '                try:\n'
     '                    _rules = (getattr(self, "custom_instruction", "") or "").strip() \\\n'
@@ -279,12 +279,12 @@ rep(
     '                        _jp = bool(self._ocr_lang_flags()[2])\n'
     '                    except Exception:\n'
     '                        _jp = False\n'
-    '                    p2 = k3_user_prompt(\n'
+    '                    p2 = mt_user_prompt(\n'
     '                        _rules,\n'
     '                        [{"filename": "rescue_%d.png" % r.id, "dialogues": [src]}],\n'
     '                        _jp)\n'
     '                    with self._api_lock:',
-    'rescue step B -> K3 format')
+    'rescue step B -> مرجع format')
 
 # ── ۱۵) CLI: --glossary و --no-brief حذف کامل (لنگرِ ASCII — متن فارسی ZWNJ دارد) ──
 _s = '    p.add_argument("--glossary", default=None,'
@@ -314,7 +314,7 @@ done.append('CLI --prompt-mode choices (span)')
 rep(
     '        debug=bool(getattr(args, "debug", False)),\n'
     '        glossary_path=getattr(args, "glossary", None),\n'
-    '        # v1.14.242 — story_brief حذف (K3 بریف ندارد)؛ فلگِ قدیمی نادیده\n'
+    '        # v1.14.242 — story_brief حذف (مرجع بریف ندارد)؛ فلگِ قدیمی نادیده\n'
     '        fake_translate=bool(getattr(args, "fake_translate", False)),',
     '        debug=bool(getattr(args, "debug", False)),\n'
     '        fake_translate=bool(getattr(args, "fake_translate", False)),',

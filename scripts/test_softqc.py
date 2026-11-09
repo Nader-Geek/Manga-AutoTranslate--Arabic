@@ -101,8 +101,8 @@ else:
     fails.append("پرِ سالمِ بافت‌دار خراب شد — false positive!")
 
 # ۳) SOFTQC خاموش → پرِ شیری همان ورودی میماند (رفتارِ 185)
-off, _mk3 = run_case("milky", False)
-if np.array_equal(off[_mk3 > 0], ref[_mk3 > 0]):
+off, _mkt = run_case("milky", False)
+if np.array_equal(off[_mkt > 0], ref[_mkt > 0]):
     print("[✓] SOFTQC خاموش = رفتارِ v1.14.185 (بیت‌به‌بیت)")
 else:
     fails.append("SOFTQC خاموش خروجی را عوض کرد — گیت نشتی دارد!")

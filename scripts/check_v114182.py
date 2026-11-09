@@ -14,7 +14,7 @@ paddleocr.ai …/android_deployment.html و از PP-OCRv6_medium بزار تو �
    RecPreprocessor/CTCDecoder) با مدلهایِ رسمیِ PP-OCRv6 medium
    (det 59MB + rec 73MB + inference.yml) — فقط ONNX Runtime؛
    نه Paddle-Lite، نه OpenCVِ جدید، بدونِ تغییرِ gradle.
-۳) K3LadderOCR: پیشفرضِ ناشناخته/خالی = padandroid؛ پلهٔ ۱ = پدلِ رسمی
+۳) MtLadderOCR: پیشفرضِ ناشناخته/خالی = padandroid؛ پلهٔ ۱ = پدلِ رسمی
    رویِ کراپِ تقویتشده، خالی/خطا → ML Kitِ باندلشده؛ پلههایِ ۲/۳ِ ONNXِ
    بازنده در این روش هرگز بیدار نمیشوند.
 ۴) PC بیت‌به‌بیت دستنخورده (همان dict/helperها برایِ موتورِ خودش).
@@ -80,10 +80,10 @@ def _func(name):
 _lab = ast.get_source_segment(src, _func("speed_lab_env")) or ""
 
 # ── ۱) forceِ padandroid در speed_lab_env ────────────────────────
-if _lab.count('os.environ["MANGA_K3_MODE"] = "padandroid"') != 1:
+if _lab.count('os.environ["MANGA_MT_MODE"] = "padandroid"') != 1:
     fail("L: forceِ padandroid باید دقیقاً یکبار باشد (پیدا: %d)"
-         % _lab.count('os.environ["MANGA_K3_MODE"] = "padandroid"'))
-_i_ov = _lab.index('os.environ["MANGA_K3_MODE"] = "padandroid"')
+         % _lab.count('os.environ["MANGA_MT_MODE"] = "padandroid"'))
+_i_ov = _lab.index('os.environ["MANGA_MT_MODE"] = "padandroid"')
 _i_ms = _lab.index('_ms_l = ""')
 if not (_i_ov < _i_ms):
     fail("L: forceِ padandroid باید قبل از _ms_l باشد")
@@ -133,26 +133,26 @@ for _gone in ("_ensure_rapidocr_models", "_FILES", "_android_heal_model_dir"):
         fail("E: PaddleAndroidOCR هنوز دانلودِ مدل دارد: %r" % _gone)
 ok("E: PaddleAndroidOCR — پلِ SDKِ باندل + سلف‌تست + پارسرِ مشترک")
 
-# ── ۴) K3LadderOCR — پیشفرض و پلهٔ ۱ ────────────────────────────
+# ── ۴) MtLadderOCR — پیشفرض و پلهٔ ۱ ────────────────────────────
 if 'self._mode = "padandroid"' not in src:
     fail("K: mode باید همیشه padandroid باشد")
-if '_K3_MODES = ("padandroid",)' not in src:
-    fail("K: _K3_MODESِ 184 (تکروش) نیست")
+if '_MT_MODES = ("padandroid",)' not in src:
+    fail("K: _MT_MODESِ 184 (تکروش) نیست")
 if '"padandroid": "رپیدِ رسمیِ اندروید"' not in src:
-    fail("K: برچسبِ فارسیِ padandroid در _K3_MODE_FA نیست")
+    fail("K: برچسبِ فارسیِ padandroid در _MT_MODE_FA نیست")
 if "def _engine_pad(" not in src:
     fail("K: _engine_pad (سازندهٔ تنلِ پدلِ رسمی) نیست")
-_k3_src = src[src.index("class K3LadderOCR:"):src.index(
-    "\nclass ", src.index("class K3LadderOCR:") + 10)]
-_ocr0 = _k3_src.index("def ocr(self")
-_ocr1 = _k3_src.find("\n    def ", _ocr0 + 10)
+_mt_src = src[src.index("class MtLadderOCR:"):src.index(
+    "\nclass ", src.index("class MtLadderOCR:") + 10)]
+_ocr0 = _mt_src.index("def ocr(self")
+_ocr1 = _mt_src.find("\n    def ", _ocr0 + 10)
 if _ocr1 < 0:
-    _ocr1 = len(_k3_src)
-_ocr_src = _k3_src[_ocr0:_ocr1]
+    _ocr1 = len(_mt_src)
+_ocr_src = _mt_src[_ocr0:_ocr1]
 if "self._mlkit" in _ocr_src or "_engine(small" in _ocr_src:
     fail("K: نردبانِ 184 نباید پلهٔ ONNX داشته باشد")
 _i_fp = _ocr_src.index("if not crop_mode:")
-_i_boost = _ocr_src.index("_k3_boost_crop(image_bgr)", _i_fp)
+_i_boost = _ocr_src.index("_mt_boost_crop(image_bgr)", _i_fp)
 _i_ret = _ocr_src.find("return [lines1] if lines1 else None")
 if _i_ret == -1:
     fail("K: بازگشتِ خروجیِ کراپِ SDKِ رسمی نیست")
@@ -208,7 +208,7 @@ if _ocr_flds:
 ok("181: پاکسازیِ بازندهها + حذفِ دکمه سرِ جایش")
 
 # ── ۷) Paddle-Lite برنگشته ───────────────────────────────────────
-for _bad in ("PliteCropOCR", "_PLOCR_LiteRunner", "MANGA_K3_PLITE"):
+for _bad in ("PliteCropOCR", "_PLOCR_LiteRunner", "MANGA_MT_PLITE"):
     if _bad in src or _bad in bsrc or _bad in ksrc:
         fail("P: %s برگشته!" % _bad)
 # «PaddleLiteBridge» فقط به‌عنوانِ ارجاعِ تاریخی در کامنتِ 1.14.170
@@ -237,13 +237,13 @@ for n in tree.body:
             "_purge_loser_onnx_models", "_fmt_mb"):
         picks[n.name] = ast.get_source_segment(src, n)
     if isinstance(n, ast.Assign) and getattr(
-            n.targets[0], "id", "") in ("_K3_MODE_FA", "_SPEED_LAB_EP",
-                                        "_SPEED_LAB_LADDER", "_K3_STATS",
+            n.targets[0], "id", "") in ("_MT_MODE_FA", "_SPEED_LAB_EP",
+                                        "_SPEED_LAB_LADDER", "_MT_STATS",
                                         "_MLKIT_STATS", "_PAD_STATS",
                                         "_SPEED_TEST_FILE",
                                         "_RAPIDOCR_MIRROR", "_RAPIDOCR_MS",
                                         "_RAPIDOCR_FILES",
-                                        "_K3_PURGE_EXTRA",
+                                        "_MT_PURGE_EXTRA",
                                         "_PURGE_MARKER"):
         picks[getattr(n.targets[0], "id", "")] = ast.get_source_segment(src, n)
 g = {"os": os, "json": json, "print": print, "time": __import__("time"),
@@ -263,8 +263,8 @@ with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:
                          "nnapi": 20994.0}, "nnapi_pending": False},
               f, ensure_ascii=False)
 ret = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "padandroid", os.environ.get(
-    "MANGA_K3_MODE")
+assert os.environ.get("MANGA_MT_MODE") == "padandroid", os.environ.get(
+    "MANGA_MT_MODE")
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, os.environ.get(
     "MANGA_MOBILE_OCR_EP")
 assert "RapidOCRِ اندروید" in ret, ret
@@ -275,17 +275,17 @@ assert ("v1.14.184" in ret or "v1.14.185" in ret
 with open(os.path.join(td, "speed_test.json"), "w", encoding="utf-8") as f:
     json.dump({"ladder": "flutter", "ep": "cpu",
                "ladder_ms": {"flutter": 3855.0}}, f, ensure_ascii=False)
-os.environ.pop("MANGA_K3_MODE", None)
+os.environ.pop("MANGA_MT_MODE", None)
 ret1b = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "padandroid", "برندهٔ کهنه غلبه کرد"
+assert os.environ.get("MANGA_MT_MODE") == "padandroid", "برندهٔ کهنه غلبه کرد"
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None
 
 # شاخهٔ بدونِ نتیجهٔ ذخیرهشده
 os.remove(os.path.join(td, "speed_test.json"))
-os.environ.pop("MANGA_K3_MODE", None)
+os.environ.pop("MANGA_MT_MODE", None)
 os.environ["MANGA_MOBILE_OCR_EP"] = "nnapi"
 ret2 = g["speed_lab_env"]({})
-assert os.environ.get("MANGA_K3_MODE") == "padandroid", "بدونِ فایل هم نیست"
+assert os.environ.get("MANGA_MT_MODE") == "padandroid", "بدونِ فایل هم نیست"
 assert os.environ.get("MANGA_MOBILE_OCR_EP") is None, "ep باید auto/pop میشد"
 assert "RapidOCRِ اندروید" in ret2, ret2
 print("LAB_OK")
@@ -302,31 +302,31 @@ with tempfile.TemporaryDirectory() as td:
     ok("E2E-LAB: padandroid در هر سه سناریو + EPِ ذخیرهشده")
 
 # ── ۹) E2E-ب: نردبان — پلهٔ ۱ِ پدلِ رسمی، بدونِ فالبک (183) ──────
-E2E_K3 = r'''
+E2E_MT = r'''
 # -*- coding: utf-8 -*-
 import ast, io, os, sys, threading, time
 import cv2
 import numpy as np
 ROOT = os.environ["ROOT"]
 src = io.open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
-m = src.index("class K3LadderOCR:")
+m = src.index("class MtLadderOCR:")
 m2 = src.index("\nclass ", m + 10)
-k3 = src[m:m2]
-picks = [k3]
+مرجع = src[m:m2]
+picks = [مرجع]
 tree = ast.parse(src)
 for n in tree.body:
     if isinstance(n, ast.FunctionDef) and n.name in (
-            "_k3_boost_crop", "_k3_map_boxes", "_k3_ink_coverage",
-            "_k3_best_conf", "_k3_stats_note"):
+            "_mt_boost_crop", "_mt_map_boxes", "_mt_ink_coverage",
+            "_mt_best_conf", "_mt_stats_note"):
         picks.append(ast.get_source_segment(src, n))
 g = {"os": os, "np": np, "cv2": cv2, "time": time, "print": print,
      "threading": threading}
-g["_K3_STATS"] = {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0}
-exec(compile("\n\n".join(picks), "k3", "exec"), g)
+g["_MT_STATS"] = {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0}
+exec(compile("\n\n".join(picks), "مرجع", "exec"), g)
 
-os.environ.pop("MANGA_K3_MODE", None)   # بدونِ env → پیشفرضِ جدید
+os.environ.pop("MANGA_MT_MODE", None)   # بدونِ env → پیشفرضِ جدید
 calls, ml_calls, pad_calls = [], [], []
-K3 = g["K3LadderOCR"]
+مرجع = g["MtLadderOCR"]
 
 
 class FakeML:
@@ -365,7 +365,7 @@ def pad_factory(behavior):
 img = np.full((200, 160, 3), 200, np.uint8)
 
 # ۱) پیشفرضِ بدونِ env = padandroid؛ پدل جواب میدهد → بدونِ ONNX
-lad = K3("en", builder, build_pad=pad_factory("ok"))
+lad = مرجع("en", builder, build_pad=pad_factory("ok"))
 assert lad._mode == "padandroid", lad._mode
 out = lad.ocr(img, crop_mode=True)
 assert out and out[0] and out[0][0][1][0] == "PPV6", out
@@ -373,13 +373,13 @@ assert pad_calls == [1], pad_calls
 assert not calls, "در padandroid نباید ONNX ساخته شود: %s" % calls
 
 # ۲) پدلِ خالی → خروجیِ None (v1.14.183: فالبکِ ML Kit حذف شد)
-lad2 = K3("en", builder, build_pad=pad_factory("empty"))
+lad2 = مرجع("en", builder, build_pad=pad_factory("empty"))
 out2 = lad2.ocr(img, crop_mode=True)
 assert out2 is None, out2
 assert not calls, calls
 
 # ۳) پدلِ خطاداده → None بدونِ کرش (فالبکی نیست)
-lad3 = K3("en", builder, build_pad=pad_factory("fail"))
+lad3 = مرجع("en", builder, build_pad=pad_factory("fail"))
 out3 = lad3.ocr(img, crop_mode=True)
 assert out3 is None, out3
 assert not calls, calls
@@ -391,25 +391,25 @@ assert out4 and out4[0][0][1][0] == "PPV6", out4
 assert pad_calls == [1], pad_calls
 
 # ۵) مقدارِ کهنهٔ mlkit (env) → فالبکِ ناشناخته = padandroid → پدلِ رسمی
-os.environ["MANGA_K3_MODE"] = "mlkit"
+os.environ["MANGA_MT_MODE"] = "mlkit"
 pad_calls.clear()
-lad5 = K3("en", builder, build_pad=pad_factory("ok"))
+lad5 = مرجع("en", builder, build_pad=pad_factory("ok"))
 assert lad5._mode == "padandroid", lad5._mode
 out5 = lad5.ocr(img, crop_mode=True)
 assert out5 and out5[0][0][1][0] == "PPV6", out5
 assert pad_calls == [1], pad_calls
-print("K3_OK")
+print("MT_OK")
 '''
 with tempfile.TemporaryDirectory() as td:
     env = dict(os.environ)
     env["ROOT"] = ROOT
-    r = subprocess.run([sys.executable, "-c", E2E_K3], env=env,
+    r = subprocess.run([sys.executable, "-c", E2E_MT], env=env,
                        capture_output=True, text=True, timeout=120)
     out = r.stdout + r.stderr
-    if r.returncode != 0 or "K3_OK" not in out:
+    if r.returncode != 0 or "MT_OK" not in out:
         print(out[-3000:])
-        fail("E2E-K3: نردبانِ padandroid شکست خورد")
-    ok("E2E-K3: پدلِ رسمی پلهٔ ۱ + خالی/خطا = None (بدونِ فالبکِ 183) + "
+        fail("E2E-مرجع: نردبانِ padandroid شکست خورد")
+    ok("E2E-مرجع: پدلِ رسمی پلهٔ ۱ + خالی/خطا = None (بدونِ فالبکِ 183) + "
        "mlkitِ کهنه → padandroid")
 
 # ── ۱۰) E2E-پ: پاکسازی — پیامِ جدیدِ 182 ─────────────────────────
@@ -427,7 +427,7 @@ for n in tree.body:
     if isinstance(n, ast.Assign) and getattr(
             n.targets[0], "id", "") in ("_RAPIDOCR_MIRROR", "_RAPIDOCR_MS",
                                         "_RAPIDOCR_FILES",
-                                        "_K3_PURGE_EXTRA", "_PURGE_MARKER"):
+                                        "_MT_PURGE_EXTRA", "_PURGE_MARKER"):
         picks.append(ast.get_source_segment(src, n))
 g = {"os": os, "print": print, "time": __import__("time"),
      "APP_VER": "1.14.184",

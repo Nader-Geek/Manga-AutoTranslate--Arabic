@@ -3,54 +3,54 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.248"
+APP_VER = "1.14.249"
 
 # v1.14.246 — پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
-# ── v1.14.242 — پرامپتهای K3 — استخراجِ بایت‌به‌بایت از APKِ K3-Manga v4.3.0 ──
+# ── v1.14.242 — پرامپتهای مرجع — استخراجِ بایت‌به‌بایت از APKِ اپِ مرجع ──
 # (LibAssemblyStore → XALZ/LZ4 → اسمبلی → دیکدِ C#؛ سه کپچرِ واقعیِ ارسالیِ
 # سازنده [تک‌صفحه lite، تک‌صفحه pro، شش‌صفحه pro] با همین ثابتها بایت‌به‌بایت
 # بازسازی و تطبیق داده شدند — حتی `\n` لفظی + CRLF عیناً حفظ شده است.)
-# سبکِ درخواست (حالتِ نوشتاریِ K3 = «عکسِ فیک»):
+# سبکِ درخواست (حالتِ نوشتاریِ مرجع = «عکسِ فیک»):
 #   system = SYSTEM BEHAVIOR PROTOCOL (۲..۶) [+ بلوکِ ژاپنی] [+ بندِ ۷: اسکیما]
 #   user   = TASK: Translate… + [بلوکِ ژاپنی] + TRANSLATION RULES: {pro|lite}
 #            + INPUT PAGES AND DIALOGUES (JSON): [{filename, dialogues}]
 # هیچ عکسی ارسال نمی‌شود — filename فقط شناسهٔ صفحه است (01.png / slice_0001.webp).
-# K3 همهٔ متنها را در «یک» درخواست می‌فرستد و هیچ بریف/خلاصهٔ داستانی ندارد.
-# قوانینِ «حرفه‌ای» (پیشفرضِ K3 — Prompts[0]: «پرامپت ترجمه حرفه‌ای (مدل های Flash, Pro)»)
+# مرجع همهٔ متنها را در «یک» درخواست می‌فرستد و هیچ بریف/خلاصهٔ داستانی ندارد.
+# قوانینِ «حرفه‌ای» (پیشفرضِ مرجع — Prompts[0]: «پرامپت ترجمه حرفه‌ای (مدل های Flash, Pro)»)
 FLASH_PROMPT = "فرایند پردازش و ترجمه (مبتنی بر خود-اصلاحی): شما باید این فرآیند را در سه گام ذهنی و متوالی اجرا کنید:\\n\r\nگام ۱: تحلیل جامع و تولید پیش‌نویس اولیه\\n\r\n* پیش از شروع ترجمه، کل محتوای متن را بخوانید تا ژانر، فضای داستانی، کنایه‌ها و ویژگی‌های شخصیتی کاراکترها را درک کنید.\\n\r\n* در مرحلهٔ اندیشیدن، بر اساس این درک، یک پیش‌نویس اولیه از ترجمه را در ذهن تولید کنید.\\n\\n\r\nگام ۲: بازبینی موشکافانه و پالایش (مرحلهٔ خود-اصلاحی)\\n\r\n* با نگاه یک ویراستار سخت‌گیر، پیش‌نویس خود را به چالش بکشید و بازبینی کنید.\\n\r\n* از خود بپرسید: آیا این جمله روان است یا بوی ترجمه می‌دهد؟ آیا لحن شخصیت حفظ شده؟ آیا معادل بهتری برای این اصطلاح وجود دارد؟\\n\\n\r\nگام ۳: ارائه خروجی نهایی\\n\r\n* نسخهٔ نهایی، سلیس و بی‌نقص را که حاصل گام دوم است، به‌عنوان خروجی قطعی ارائه دهید.\\n\\n\r\n---\\n\\n\r\nاصول کلیدی ترجمه (قوانین حاکم بر گام‌های بالا):\\n\\n\r\n1. روانی، سلیس بودن و زبان محاوره‌ای زنده (پرهیز از ترجمه تحت‌اللفظی):\\n\r\nهدف اصلی، انتقال دقیق پیام و حس دیالوگ است. از ترجمهٔ کلمه‌به‌کلمه، کتابی، نوشتاری و عبارات ماشینی اکیداً پرهیز کنید؛ ترجمه باید به زبان فارسی امروزی، طبیعی، پویا و کاملاً گیرا باشد.\\n\\n\r\n2. حفظ و بازتاب دقیق لحن و سبک شخصیت‌ها (حیاتی و بدون سانسور):\\n\r\nلحن و شیوه گفتار هر کاراکتر (رسمی، دوستانه، طنز، جدی، خشن، معصومانه و...) باید با ظرافت رعایت شود. مدل زبانی باید مانند یک بازیگر نقش‌آفرینی کند:\\n\r\n- برای شخصیت‌های بی‌پروا، لات‌منش یا بی‌سواد: ترجمه باید کاملاً عامیانه، کوچه‌بازاری و دارای اصطلاحات خیابانی باشد. از اتوکشیده کردن، مؤدب‌سازی یا رسمی کردن دیالوگ‌های این شخصیت‌ها اکیداً خودداری کنید.\\n\r\n- برای شخصیت‌های باوقار، مرموز یا اشرافی: لحن باید محترمانه باشد، اما همچنان طبیعی و روان بماند (از تبدیل گفت‌وگو به متن نوشتاری و کتابی خودداری کنید).\\n\\n\r\nتذکر بسیار مهم: ترجمه حرفه‌ای به معنای سانسور، تلطیف یا پاستوریزه کردن کلمات نیست؛ بلکه به معنای انتقال دقیق حس جمله است. اگر متن اصلی دارای کلمات رکیک، جنسی یا خشن است، ترجمه فارسی نیز باید با همان شدت و حدت (بدون سانسور) ارائه شود تا اصالت اثر حفظ گردد.\\n\\n\r\n3. بومی‌سازی هوشمندانه اصطلاحات و ارجاعات فرهنگی:\\n\r\nاصطلاحات، ضرب‌المثل‌ها، شوخی‌ها و عبارات خاص فرهنگی مانگا را شناسایی کنید. اولویت با یافتن معادل‌های دقیق، رایج و طبیعی در زبان و فرهنگ فارسی است. در صورت نبود معادل مستقیم، مفهوم را با خلاقیت و به‌گونه‌ای که برای مخاطب فارسی‌زبان جذاب و ملموس باشد منتقل کنید.\\n\\n\r\n4. دقت و یکپارچگی در اسامی و جزئیات:\\n\r\nتمامی جزئیات متن اصلی (شامل اعداد، اسامی خاص شخصیت‌ها، مکان‌ها، تکنیک‌ها و علائم نگارشی) باید با دقت کامل ترجمه شوند و در سرتاسر تمام فایل‌ها کاملاً یکسان و هماهنگ استفاده شود.\\n"
 
 # قوانینِ «سبک» («پرامپت ترجمه محاوره‌ای (مدل های Flash Lite)»)
 FLASH_LITE_PROMPT = "قوانین ترجمه:\\n\\n\r\n1. روانی، سلیس بودن و جذابیت کلام: ترجمه باید به زبان فارسی امروزی، طبیعی و پویا باشد. متن نهایی باید به‌راحتی خوانده شود و برای مخاطب عام فارسی‌زبان کاملاً قابل فهم و گیرا باشد و از به‌کار بردن لحن کتابی، رسمی و عبارات ماشینی پرهیز کن.\\n\r\n2. حفظ و بازتاب دقیق لحن و سبک شخصیت‌ها (حیاتی):\\n\r\nلحن و شیوه گفتار هر کاراکتر (رسمی، دوستانه، طنز، جدی، خشن، معصومانه و...) باید با دقت در ترجمه رعایت شود؛ مثلاً:\\n\r\n- برای شخصیت‌های بی‌پروا، لات یا کم‌سواد: ترجمه باید کاملاً عامیانه، کوچه‌بازاری و دارای اصطلاحات خیابانی باشد. از مؤدبانه کردن یا رسمی نوشتن دیالوگ‌های این کاراکترها خودداری کنید.\\n\r\n- برای شخصیت‌های رسمی، مرموز یا اشرافی: لحن باید متین باشد.\\n\r\n3. در ترجمه اسامی، القاب و اصطلاحات داستانی، در سرتاسر فایل یکدستی و هماهنگی کامل را رعایت کن.\\n"
 
 # بندهای ۲..۶ پروتکلِ سیستمی (مشترکِ هر دو مسیر)
-K3_SYSTEM_PROTOCOL_ITEMS = "2. IDENTITY & TASK: You are an Expert Manga & Comic Dialogue Translation Engine.\r\n3. CONTEXT & READING FLOW: You receive an array of pages, each containing sequential dialogue text blocks. Translate them into natural, flowing Persian according to the provided translation rules.\r\n4. STRICT 1-TO-1 TRANSLATION:\r\n   - Maintain the exact sequence of dialogue blocks for each page.\r\n   - For every single input text block in a page's `dialogues`, produce exactly one corresponding entry with its original `en_text` and translated `fa_text`.\r\n   - NEVER skip, merge, reorder, or duplicate text blocks.\r\n5. EMPTY / NOISE: If a page has an empty `dialogues` list, output an empty array `[]` for its translations.\r\n6. SAFETY FALLBACK: If translation of a specific text block is restricted by safety policies, do not refuse or break the response; populate its `fa_text` with '[CENSORED]'."
+MT_SYSTEM_PROTOCOL_ITEMS = "2. IDENTITY & TASK: You are an Expert Manga & Comic Dialogue Translation Engine.\r\n3. CONTEXT & READING FLOW: You receive an array of pages, each containing sequential dialogue text blocks. Translate them into natural, flowing Persian according to the provided translation rules.\r\n4. STRICT 1-TO-1 TRANSLATION:\r\n   - Maintain the exact sequence of dialogue blocks for each page.\r\n   - For every single input text block in a page's `dialogues`, produce exactly one corresponding entry with its original `en_text` and translated `fa_text`.\r\n   - NEVER skip, merge, reorder, or duplicate text blocks.\r\n5. EMPTY / NOISE: If a page has an empty `dialogues` list, output an empty array `[]` for its translations.\r\n6. SAFETY FALLBACK: If translation of a specific text block is restricted by safety policies, do not refuse or break the response; populate its `fa_text` with '[CENSORED]'."
 
-# بلوکهای ژاپنی (فوریگانا) — فقط وقتی زبانِ مبدأ ژاپنی است (عینِ BuildOpenAiPayloadTextOnly)
-K3_JP_USER_DIRECTIVE = "\r\n*** CRITICAL MANDATORY DIRECTIVE FOR JAPANESE DIALOGUE BLOCKS ***\r\n1. FURIGANA / DUPLICATE CLEANUP: The input dialogue may contain both Kanji and its small Furigana phonetic reading captured together (e.g., '宿夏ライカ' or duplicated phrases). Identify the intended word/name and translate it ONLY ONCE. Do NOT translate both the Kanji and its phonetic reading.\r\n2. DEDUPLICATION: Eliminate accidental repeated words/syllables in the source block and produce exactly ONE clean, unified Persian translation.\r\n"
-K3_JP_SYSTEM_RULE = "\r\n1. MANDATORY FURIGANA & DEDUPLICATION PURGE (HIGHEST PRIORITY):\r\n   - Input dialogue blocks may contain Kanji together with their small Furigana phonetic readings (e.g. '宿夏ライカ' or duplicated phrases).\r\n   - Recognize the word and translate it ONLY ONCE. Strip away phonetic duplicate readings and repeated words.\r\n   - Provide strictly ONE clean, unified Persian translation for each dialogue block.\r\n"
+# بلوکهای ژاپنی (فوریگانا) — فقط وقتی زبانِ مبدأ ژاپنی است (عینِ سازندهٔ درخواستِ متنیِ OpenAI در مرجع)
+MT_JP_USER_DIRECTIVE = "\r\n*** CRITICAL MANDATORY DIRECTIVE FOR JAPANESE DIALOGUE BLOCKS ***\r\n1. FURIGANA / DUPLICATE CLEANUP: The input dialogue may contain both Kanji and its small Furigana phonetic reading captured together (e.g., '宿夏ライカ' or duplicated phrases). Identify the intended word/name and translate it ONLY ONCE. Do NOT translate both the Kanji and its phonetic reading.\r\n2. DEDUPLICATION: Eliminate accidental repeated words/syllables in the source block and produce exactly ONE clean, unified Persian translation.\r\n"
+MT_JP_SYSTEM_RULE = "\r\n1. MANDATORY FURIGANA & DEDUPLICATION PURGE (HIGHEST PRIORITY):\r\n   - Input dialogue blocks may contain Kanji together with their small Furigana phonetic readings (e.g. '宿夏ライカ' or duplicated phrases).\r\n   - Recognize the word and translate it ONLY ONCE. Strip away phonetic duplicate readings and repeated words.\r\n   - Provide strictly ONE clean, unified Persian translation for each dialogue block.\r\n"
 
-# اسکیمای پاسخ (عینِ JsonConvert.SerializeObject(…, Formatting.1) در K3)
-K3_RESPONSE_SCHEMA_TEXT = "{\n  \"type\": \"ARRAY\",\n  \"description\": \"List of processed manga pages with their translations.\",\n  \"items\": {\n    \"type\": \"OBJECT\",\n    \"properties\": {\n      \"filename\": {\n        \"type\": \"STRING\",\n        \"description\": \"The filename of the image as provided.\"\n      },\n      \"translations\": {\n        \"type\": \"ARRAY\",\n        \"description\": \"Extracted text blocks and their translations.\",\n        \"items\": {\n          \"type\": \"OBJECT\",\n          \"properties\": {\n            \"en_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Exact original text from the dialogue input.\"\n            },\n            \"fa_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Creative, natural Persian translation.\"\n            }\n          },\n          \"required\": [\n            \"en_text\",\n            \"fa_text\"\n          ]\n        }\n      }\n    },\n    \"required\": [\n      \"filename\",\n      \"translations\"\n    ]\n  }\n}"
-
-
+# اسکیمای پاسخ (عینِ JsonConvert.SerializeObject(…, Formatting.1) در مرجع)
+MT_RESPONSE_SCHEMA_TEXT = "{\n  \"type\": \"ARRAY\",\n  \"description\": \"List of processed manga pages with their translations.\",\n  \"items\": {\n    \"type\": \"OBJECT\",\n    \"properties\": {\n      \"filename\": {\n        \"type\": \"STRING\",\n        \"description\": \"The filename of the image as provided.\"\n      },\n      \"translations\": {\n        \"type\": \"ARRAY\",\n        \"description\": \"Extracted text blocks and their translations.\",\n        \"items\": {\n          \"type\": \"OBJECT\",\n          \"properties\": {\n            \"en_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Exact original text from the dialogue input.\"\n            },\n            \"fa_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Creative, natural Persian translation.\"\n            }\n          },\n          \"required\": [\n            \"en_text\",\n            \"fa_text\"\n          ]\n        }\n      }\n    },\n    \"required\": [\n      \"filename\",\n      \"translations\"\n    ]\n  }\n}"
 
 
-def k3_system_instruction(japanese: bool = False, with_schema: bool = False) -> str:
-    """پروتکلِ سیستمیِ K3: بندهای ۲..۶؛ در مسیرِ OpenAI-compatible بندِ ۷ (اسکیما)
+
+
+def mt_system_instruction(japanese: bool = False, with_schema: bool = False) -> str:
+    """پروتکلِ سیستمیِ مرجع: بندهای ۲..۶؛ در مسیرِ OpenAI-compatible بندِ ۷ (اسکیما)
     هم پایینش می‌آید — در مسیرِ بومیِ Gemini اسکیما از response_schema می‌رود
-    (عینِ BuildGeminiPayloadTextOnly در برابرِ BuildOpenAiPayloadTextOnly)."""
+    (عینِ سازندهٔ درخواستِ متنیِ بومیِ Gemini در مرجع در برابرِ سازندهٔ درخواستِ متنیِ OpenAI در مرجع)."""
     out = ("SYSTEM BEHAVIOR PROTOCOL:\r\n"
-           + (K3_JP_SYSTEM_RULE if japanese else "")
-           + "\r\n" + K3_SYSTEM_PROTOCOL_ITEMS)
+           + (MT_JP_SYSTEM_RULE if japanese else "")
+           + "\r\n" + MT_SYSTEM_PROTOCOL_ITEMS)
     if with_schema:
         out += ("\r\n7. RESPONSE SCHEMA: Output must strictly conform to "
-                "this JSON schema:\r\n" + K3_RESPONSE_SCHEMA_TEXT)
+                "this JSON schema:\r\n" + MT_RESPONSE_SCHEMA_TEXT)
     return out
 
 
-def k3_user_prompt(rules: str, pages, japanese: bool = False) -> str:
-    """user prompt دقیقِ K3 (BuildOpenAiPayloadTextOnly/BuildGeminiPayloadTextOnly).
+def mt_user_prompt(rules: str, pages, japanese: bool = False) -> str:
+    """user prompt دقیقِ مرجع (سازندهٔ درخواستِ متنیِ OpenAI در مرجع/سازندهٔ درخواستِ متنیِ بومیِ Gemini در مرجع).
     pages = [{"filename": str, "dialogues": [str, …]}, …] — خروجیِ JSON با
     تورفتگیِ ۲ (عینِ Formatting.1) و بدونِ escapeِ یونیکد."""
     import json as _json
@@ -58,7 +58,7 @@ def k3_user_prompt(rules: str, pages, japanese: bool = False) -> str:
     return ("TASK: Translate the sequential dialogue blocks for the following "
             "manga pages into natural, high-quality Persian according to the "
             "rules below.\r\n"
-            + (K3_JP_USER_DIRECTIVE if japanese else "")
+            + (MT_JP_USER_DIRECTIVE if japanese else "")
             + "\r\nTRANSLATION RULES:\r\n" + (rules or "")
             + "\r\n\r\nINPUT PAGES AND DIALOGUES (JSON):\r\n"
             + pages_json + "\r\n")
@@ -72,7 +72,7 @@ PROMPT_MODES = ("auto", "professional", "lite")
 
 
 def resolve_prompt_mode(mode: str, provider: str = "gemini", model: str = "") -> str:
-    """انتخابِ سبکِ پرامپت — v1.14.242 عینِ K3: پیشفرض = حرفه‌ای
+    """انتخابِ سبکِ پرامپت — v1.14.242 عینِ مرجع: پیشفرض = حرفه‌ای
     (Prompts[0] در APK)؛ فقط مدل‌های «lite» پرامپتِ سبک می‌گیرند.
     مقدارِ قدیمیِ classic → مسیرِ خودکار (بر اساسِ مدل)."""
     m = (mode or "auto").lower().strip()
@@ -99,7 +99,7 @@ def _norm_prompt_text(t: str) -> str:
 
 def is_known_default_instruction(text: str) -> bool:
     """آیا متنِ دستورِ دادهشده یکی از پیشفرضهایِ شناختهشده است؟
-    (فقط پرامپتهایِ K3: professional/lite — v1.14.246)
+    (فقط پرامپتهایِ مرجع: professional/lite — v1.14.246)
     v1.14.146 — فیکسِ «رویِ گوشی پرامپت auto نمیشود»: فرمِ گوشی فیلدِ
     دستور را با متنِ پیشفرض پُر میفرستاد و موتور آن را «سفارشی» میگرفت؛
     حالا متنِ برابرِ پیشفرضها سفارشی حساب نمیشود و مسیرِ سبک (auto) میرود."""
@@ -2417,7 +2417,7 @@ class LamaMangaONNX:
            "releases/download/models/lama-manga-dyn.onnx")
     # v1.14.115 — واریانتِ «بدونِ DFT» (همان وزنهای big-lama؛ بلوکهایِ
     # Fourier به ماتمولِ کسینوسی/سینوسی صادر شدهاند — فایلِ عمومیِ
-    # K3-Manga-AutoTranslate-Mobile v4.1.1، وزنها Apache-2.0).
+    # اپِ مرجع، وزنها Apache-2.0).
     # وریفایِ عددی (scripts/lama_equiv.py): خروجی در برابرِ lama-manga-dyn
     # رویِ ورودیِ تصادفی 384×384 → cosine=1.0000 MAE=0.002؛ سرعتِ CPU:
     # 2.0s در برابرِ 8.2s (~۴×). DFT (144 نود) رویِ CPU/ARM گوشی سم است.
@@ -3501,11 +3501,11 @@ class RTDetrV2ONNXDetector:
 # (همان amirwolf512k/Manga-AutoTranslate)؛ assetsها دقیقاً با همین نام‌ها
 # آنجاست: PP-OCRv6_det_small.onnx (det) / PP-OCRv6_rec_small.onnx (rec
 # en+ch) / korean_PP-OCRv5_rec_mobile.onnx / japan_PP-OCRv4_rec_mobile.onnx
-# v1.14.152 — مجموعهٔ K3 اضافه شد (درخواست: «از همین نسخه که k3 استفاده
+# v1.14.152 — مجموعهٔ مرجع اضافه شد (درخواست: «از همین نسخه که مرجع استفاده
 # میکنه استفاده کن»): PP-OCRv6_medium_det_onnx.onnx (59.16MiB) /
 # PP-OCRv6_medium_rec_onnx.onnx (73.01MiB) / PP-OCRv5_korean_rec.onnx
 # (12.80MiB) = عینِ فایلهایِ رسمیِ PaddlePaddle رویِ HuggingFace که خودِ
-# K3 دانلود میکند (حجمها مو به مو با پوشهٔ K3) + ch_PP-OCRv4_det_infer
+# مرجع دانلود میکند (حجمها مو به مو با پوشهٔ مرجع) + ch_PP-OCRv4_det_infer
 # .onnx (4.53MiB) + ch_PP-OCRv4_rec_infer.onnx (10.35MiB؛ dict داخلیِ
 # metadata = ppocr_keys_v1 با 6623 کاراکتر).
 # / ch_ppocr_mobile_v2.0_cls_mobile.onnx (cls — در رانِ عادی استفاده
@@ -3525,7 +3525,7 @@ _RAPIDOCR_FILES = {
         _RAPIDOCR_MS + "/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx",
     "japan_PP-OCRv4_rec_mobile.onnx":
         _RAPIDOCR_MS + "/PP-OCRv4/rec/japan_PP-OCRv4_rec_mobile.onnx",
-    # v1.14.152 — مجموعهٔ K3 (منبعِ فالبک = رسمیِ PaddlePaddle/modelscope؛
+    # v1.14.152 — مجموعهٔ مرجع (منبعِ فالبک = رسمیِ PaddlePaddle/modelscope؛
     # منبعِ اصلی = ریلیزِ «models» خودمان با همین نامها)
     "PP-OCRv6_medium_det_onnx.onnx":
         "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_det_onnx"
@@ -3573,7 +3573,7 @@ def _pc_det_medium() -> bool:
     دستورِ سازنده: «نمیشه کاری کرد مثل گوشی پی سی لینوکس هم استخراجش
     سریع باشه؟» → پیشفرضِ PC از v1.14.191 = عینِ ستِ گوشی (detِ
     PP-OCRv6_small ۱۰MB). با MANGA_OCR_DET_MEDIUM=1 رفتارِ
-    v1.14.188..190 (detِ mediumِ ۵۹MB — K3) برگردد (کسانی که detِ
+    v1.14.188..190 (detِ mediumِ ۵۹MB — مرجع) برگردد (کسانی که detِ
     حداکثری میخواهند؛ CPUهایِ قوی).
     """
     _v = str(os.environ.get("MANGA_OCR_DET_MEDIUM", "") or "").strip().lower()
@@ -3595,7 +3595,7 @@ def _rapidocr_model_pair(lang: str, small: bool = False,
     v1.14.191 — zh هم عینِ گوشی شد: جفتِ قدیمیِ ch_PP-OCRv4 (v1.14.152)
     فاصلههایِ لاتین را میبلعید («ONESOURCEART-3PANELS») و پسِ ویرگول
     تکراری میساخت («،自 自己»)؛ v6_medium مو به مو متنِ گوشی را میدهد.
-    MANGA_OCR_DET_MEDIUM=1 = detِ mediumِ قبلی (K3 — v1.14.188..190).
+    MANGA_OCR_DET_MEDIUM=1 = detِ mediumِ قبلی (مرجع — v1.14.188..190).
     small=True (فقط شبیهسازِ x86_64 در CI) = مجموعهٔ سبکِ قبلی تا
     بودجهٔ زمانی و گیتهایِ CI دستنخورده بمانند.
     tiny=True = «فلاتر-پدل» (v1.14.179 — بدونِ تغییر).
@@ -3633,7 +3633,7 @@ def _pc_ocr_small() -> bool:
     همون مدل onnx v6 ocr … مدل v6_medium استفاده کن بعد توجه ک کردم رو
     پی سی هم ناقص استخراج میشه رو اونم چک کن هردوشو چک بزن» → PC هم از
     مجموعهٔ کاملِ medium استفاده میکند (detِ medium + recِ medium —
-    همان ستِ K3). MANGA_OCR_SMALL=1 یا شبیهسازِ x86_64 (CI) = ستِ سبک
+    همان ستِ مرجع). MANGA_OCR_SMALL=1 یا شبیهسازِ x86_64 (CI) = ستِ سبک
     (small) تا بودجهٔ زمانیِ CI دستنخورده بماند."""
     _v = str(os.environ.get("MANGA_OCR_SMALL", "") or "").strip().lower()
     if _v in ("1", "true", "yes", "on"):
@@ -4407,8 +4407,8 @@ class PaddleAndroidOCR:
         return [lines] if lines else None
 
 
-def _k3_boost_crop(crop_bgr: np.ndarray):
-    """گامِ «افزایشِ کیفیتِ کراپ»ٔ K3: پدِ سفید دورِ کراپ (متنِ چسبیده به
+def _mt_boost_crop(crop_bgr: np.ndarray):
+    """گامِ «افزایشِ کیفیتِ کراپ»ٔ مرجع: پدِ سفید دورِ کراپ (متنِ چسبیده به
     لبه — مثلِ img6 «You're the real attraction here.» که رویِ لبهٔ چپِ
     صفحه است) + بزرگنماییِ کراپهایِ ریز تا موتورِ استخراج بهتر بخواند.
     خروجی: (کراپِ تقویتشده، pad، scale) برایِ برگرداندنِ مختصات."""
@@ -4431,7 +4431,7 @@ def _k3_boost_crop(crop_bgr: np.ndarray):
     return out, pad, scale
 
 
-def _k3_map_boxes(lines, pad: float, scale: float):
+def _mt_map_boxes(lines, pad: float, scale: float):
     """باکسهایِ کراپِ تقویتشده → مختصاتِ کراپِ اصلی."""
     out = []
     if pad == 0 and scale == 1.0:
@@ -4446,24 +4446,24 @@ def _k3_map_boxes(lines, pad: float, scale: float):
     return out
 
 
-_K3_STATS = {"n": 0, "ms": 0.0, "st1": 0, "st2": 0, "st3": 0}
+_MT_STATS = {"n": 0, "ms": 0.0, "st1": 0, "st2": 0, "st3": 0}
 
 
-def _k3_stats_note(t0: float, stage: int) -> None:
+def _mt_stats_note(t0: float, stage: int) -> None:
     try:
-        _K3_STATS["n"] += 1
-        _K3_STATS["ms"] += (time.time() - t0) * 1000.0
-        _K3_STATS[f"st{stage}"] += 1
-        if _K3_STATS["n"] % 20 == 0:
-            n = _K3_STATS["n"]
-            print(f"[⚡] پدلِ اندروید (نردبانِ K3): {n} کراپ | "
-                  f"رسمی={_K3_STATS['st1']} | "
-                  f"میانگینِ {_K3_STATS['ms'] / max(1, n):.0f}ms")
+        _MT_STATS["n"] += 1
+        _MT_STATS["ms"] += (time.time() - t0) * 1000.0
+        _MT_STATS[f"st{stage}"] += 1
+        if _MT_STATS["n"] % 20 == 0:
+            n = _MT_STATS["n"]
+            print(f"[⚡] پدلِ اندروید (نردبانِ مرجع): {n} کراپ | "
+                  f"رسمی={_MT_STATS['st1']} | "
+                  f"میانگینِ {_MT_STATS['ms'] / max(1, n):.0f}ms")
     except Exception:
         pass
 
 
-class K3LadderOCR:
+class MtLadderOCR:
     """v1.14.187 — استخراجِ کراپ با RapidOCRِ اندروید (ONNXِ خالص).
 
     دستورِ سازنده: «ببین چجور به این خوبی استخراج میکنه همونو رو گوشی
@@ -4478,9 +4478,9 @@ class K3LadderOCR:
 
     # v1.14.187 — تنها روشِ استخراجِ گوشی = RapidOCRِ اندروید
     # (دستورِ سازنده: «ببین چجور به این خوبی استخراج میکنه همونو رو
-    # گوشی بزار»). مقدارهایِ کهنهٔ MANGA_K3_MODE
+    # گوشی بزار»). مقدارهایِ کهنهٔ MANGA_MT_MODE
     # (full/fast/rapid/paddle/flutter/mlkit/…) همگی نادیده گرفته میشوند.
-    _K3_MODES = ("padandroid",)
+    _MT_MODES = ("padandroid",)
 
     def __init__(self, lang: str, build_onnx=None, build_pad=None):
         # v1.14.184 — build_onnx دیگر «هرگز» صدا زده نمیشود (هیچ موتورِ
@@ -4515,40 +4515,40 @@ class K3LadderOCR:
             return None
         _t0 = time.time()
         # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → RapidOCR؛ استخراجِ
-        # اصلی فقط رویِ کراپ است (دستورِ K3: «نه رو تمام صفحه»).
+        # اصلی فقط رویِ کراپ است (دستورِ مرجع: «نه رو تمام صفحه»).
         if not crop_mode:
             eng0 = self._engine_pad()
             if eng0 is None:
-                _k3_stats_note(_t0, 1)
+                _mt_stats_note(_t0, 1)
                 return None
             try:
                 return eng0.ocr(image_bgr)
             except Exception as e:
                 print(f"[!] رپیدِ رسمیِ اندروید خطا داد: {str(e)[:110]}")
-                _k3_stats_note(_t0, 1)
+                _mt_stats_note(_t0, 1)
                 return None
 
         # ── RapidOCR رویِ کراپِ تقویتشده (تنها پله؛ بدونِ پلههایِ ۲/۳) ──
         eng0 = self._engine_pad()
         if eng0 is None:
-            _k3_stats_note(_t0, 1)
+            _mt_stats_note(_t0, 1)
             return None
         try:
-            boosted, pad, scale = _k3_boost_crop(image_bgr)
+            boosted, pad, scale = _mt_boost_crop(image_bgr)
             r0 = eng0.ocr(boosted)
-            lines1 = _k3_map_boxes(r0[0], pad, scale) \
+            lines1 = _mt_map_boxes(r0[0], pad, scale) \
                 if r0 and r0[0] else []
         except Exception as e:
             print(f"[!] رپیدِ رسمیِ اندروید خطا داد: {str(e)[:110]}")
             lines1 = []
-        _k3_stats_note(_t0, 1)
+        _mt_stats_note(_t0, 1)
         return [lines1] if lines1 else None
 
 
 # ── v1.14.187 — انتخابِ موتورِ OCRِ گوشی ─────────────────────────────
 #   تنها روش = «RapidOCRِ اندروید» (سهگانهٔ RapidOcrAndroidOnnx با
 #   PP-OCRv4_mobileِ باندل در assetsِ APK) — MANGA_ANDROID_OCR /
-#   MANGA_MOBILE_OCR_ENGINE و مقدارهایِ کهنهٔ MANGA_K3_MODE همگی
+#   MANGA_MOBILE_OCR_ENGINE و مقدارهایِ کهنهٔ MANGA_MT_MODE همگی
 #   نادیده گرفته میشوند (دستورِ سازنده: «همونو رو گوشی بزار»).
 # ── v1.14.176 — «آزمایشگاهِ سرعتِ استخراج» ────────────────────────────
 # تنظیمها از پنلِ اپ میآیند → bridge آنها را به speed_lab_env() میدهد →
@@ -4559,7 +4559,7 @@ class K3LadderOCR:
 
 # اسمِ فارسیِ هر روش برایِ لاگها (کلیدِ انگلیسی هم کنارش میآید تا لاگ
 # قابلِ جستجو بماند)
-_K3_MODE_FA = {
+_MT_MODE_FA = {
     "padandroid": "رپیدِ رسمیِ اندروید",
 }
 
@@ -4571,12 +4571,12 @@ _K3_MODE_FA = {
 # در APK (هیچ مدلِ OCRی دانلود نمیشود).
 # سه مجموعهٔ مدلِ بازنده از پوشهٔ rapidocr_modelsِ گوشی حذف میشوند:
 #   رپید (small): PP-OCRv6_det_small[.int8]/rec_small + cls + ja/ko
-#   پدل (K3 medium): PP-OCRv6_medium_det/rec + korean v5 + ch v4
+#   پدل (medium): PP-OCRv6_medium_det/rec + korean v5 + ch v4
 #   فلاتر-پدل (tiny): PP-OCRv6_tiny_det/rec + dictِ tiny
 # فهرستِ نامها از خودِ _RAPIDOCR_FILES میآید (بدونِ تغییرِ آن dict —
 # PC از همان helper برایِ مجموعهٔ سبکِ خودش استفاده میکند و بیت‌به‌بیت
 # دستنخورده میماند) + نوعِ int8ِ detِ رپید.
-_K3_PURGE_EXTRA = ("PP-OCRv6_det_small.int8.onnx",)
+_MT_PURGE_EXTRA = ("PP-OCRv6_det_small.int8.onnx",)
 _PURGE_MARKER = ".onnx_loser_models_purged_184"
 
 
@@ -4600,7 +4600,7 @@ def _purge_loser_onnx_models() -> str:
         _mk = os.path.join(_mdir, _PURGE_MARKER)
         if os.path.isfile(_mk):
             return ""
-        _names = set(_RAPIDOCR_FILES) | set(_K3_PURGE_EXTRA)
+        _names = set(_RAPIDOCR_FILES) | set(_MT_PURGE_EXTRA)
         # v1.14.187 — موتورِ گوشی = RapidOCR با سهگانهٔ PP-OCRv4_mobileِ
         # باندل در APK — هیچ فایلِ مدلی در rapidocr_models نگه داشته نمیشود.
         _keep = ()
@@ -4659,7 +4659,7 @@ def speed_lab_env(p: dict) -> str:
         os.environ.pop("MANGA_MOBILE_OCR_EP", None)
         _w = speed_test_load()
         _lad = "padandroid"
-        os.environ["MANGA_K3_MODE"] = "padandroid"
+        os.environ["MANGA_MT_MODE"] = "padandroid"
         _ms_l = ""
         try:
             _lm = (_w or {}).get("ladder_ms") or {}
@@ -4674,14 +4674,14 @@ def speed_lab_env(p: dict) -> str:
 
         # سنجههایِ سرعت = مالِ «این اجرا» — بینِ کارها ریست
         for _k in ("n", "ms", "st1", "st2", "st3"):
-            _K3_STATS[_k] = 0 if _k != "ms" else 0.0
+            _MT_STATS[_k] = 0 if _k != "ms" else 0.0
         for _k in ("ms", "n", "lines"):
             _PAD_STATS[_k] = 0 if _k != "ms" else 0.0
 
         if _purge:
             return ("[⚡] روشِ استخراج: RapidOCRِ اندروید — "
                     "PP-OCRv6ِ دانلودی (%s)%s | v%s: %s"
-                    % (_K3_MODE_FA.get(_lad, _lad), _ms_l,
+                    % (_MT_MODE_FA.get(_lad, _lad), _ms_l,
                        APP_VER, _purge))
         return ("[⚡] روشِ استخراج: RapidOCRِ اندروید — "
                 "PP-OCRv6ِ دانلودی (det=small + rec=MEDIUM — "
@@ -4849,10 +4849,10 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     except Exception:
         per_mode = 60.0
     lang = (langs[0] if langs else "en") or "en"
-    _modes = tuple(K3LadderOCR._K3_MODES)
+    _modes = tuple(MtLadderOCR._MT_MODES)
     log("[⚡] تستِ سرعتِ استخراج: %d روش (%s) × %d ثانیه"
         % (len(_modes),
-           " + ".join(_K3_MODE_FA.get(_m, _m) for _m in _modes),
+           " + ".join(_MT_MODE_FA.get(_m, _m) for _m in _modes),
            int(per_mode)))
     log("[⚡] در این حالت ترجمه انجام نمیشود — فقط استخراجِ متن "
         "اندازهگیری میشود؛ لطفاً برنامه را باز نگه دار…")
@@ -4871,8 +4871,8 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
         log("[!] موتورِ OCR ساخته نشد: %s" % str(_e)[:140])
         return None
     _lad0 = getattr(be, "_mobile", None)
-    if not isinstance(_lad0, K3LadderOCR):
-        log("[!] «تستِ سرعت» رویِ نردبانِ K3 کار میکند — این دستگاه "
+    if not isinstance(_lad0, MtLadderOCR):
+        log("[!] «تستِ سرعت» رویِ نردبانِ مرجع کار میکند — این دستگاه "
             "نردبان ندارد (PC/موتورِ دیگر). از اپِ گوشی تست کن.")
         return None
 
@@ -4926,15 +4926,15 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
         if not _need_ok:
             _res["ladder_ms"][_mode] = None
             log("[⚡] (%d/%d) روشِ %s (%s) → رد شد (موتورش رویِ این دستگاه آماده نیست)"
-                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode))
+                % (_wi, _total, _MT_MODE_FA.get(_mode, _mode), _mode))
             continue
-        os.environ["MANGA_K3_MODE"] = _mode
+        os.environ["MANGA_MT_MODE"] = _mode
         try:
-            _lad = K3LadderOCR(lang, build_pad=lambda: _padbe)
+            _lad = MtLadderOCR(lang, build_pad=lambda: _padbe)
         except Exception as _e:
             _res["ladder_ms"][_mode] = None
             log("[⚡] (%d/%d) روشِ %s (%s) → نردبان ساخته نشد: %s"
-                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode,
+                % (_wi, _total, _MT_MODE_FA.get(_mode, _mode), _mode,
                    str(_e)[:100]))
             continue
         _n, _ts, _err, _stp = _speed_test_window(
@@ -4945,16 +4945,16 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
         _res["ladder_n"][_mode] = _n
         if _err:
             log("[⚡] (%d/%d) روشِ %s (%s) → خطا: %s"
-                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode,
+                % (_wi, _total, _MT_MODE_FA.get(_mode, _mode), _mode,
                    str(_err)[:100]))
         elif _stp:
             log("[⚡] (%d/%d) روشِ %s (%s) → متوقف شد (%d کراپ)"
-                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode, _n))
+                % (_wi, _total, _MT_MODE_FA.get(_mode, _mode), _mode, _n))
             _speed_test_save(_res)
             return _res
         else:
             log("[⚡] (%d/%d) روشِ %s (%s) → %d کراپ | میانگینِ %.0fms/کراپ"
-                % (_wi, _total, _K3_MODE_FA.get(_mode, _mode), _mode,
+                % (_wi, _total, _MT_MODE_FA.get(_mode, _mode), _mode,
                    _n, _ms))
         _speed_test_save(_res)  # بعد از هر پنجره ذخیره — کرش = از دست نمیرود
 
@@ -4973,14 +4973,14 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     _res["ladder"], _res["ep"] = _best_l, _best_e
     _res["seconds"] = int(time.time() - _t_all)
     _speed_test_save(_res)
-    _tbl = " | ".join("%s(%s)=%.0fms" % (_K3_MODE_FA.get(k, k), k, v)
+    _tbl = " | ".join("%s(%s)=%.0fms" % (_MT_MODE_FA.get(k, k), k, v)
                       for k, v in sorted(_ok_l.items(), key=lambda kv: kv[1]))
     log("[⚡] جدولِ روشها (سریع → کند): %s" % (_tbl or "—"))
     log("[⚡] شتاب‌دهندهٔ جداگانه ندارد — RapidOCR رویِ CPU با "
         "EngineConfig.numThreads اجرا میشود (v1.14.184).")
     log("[⚡] برنده: روشِ %s (%s؛ %s) → ذخیره شد (v1.14.184: تنها روش — "
         "شتاب‌دهندهٔ جداگانه ندارد)."
-        % (_K3_MODE_FA.get(_best_l, _best_l), _best_l,
+        % (_MT_MODE_FA.get(_best_l, _best_l), _best_l,
            ("%.0fms/کراپ" % _ok_l[_best_l]) if _best_l in _ok_l else "—"))
     try:
         log("[⚡] کلِ تست: %d دقیقه و %d ثانیه"
@@ -4990,17 +4990,17 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     return _res
 
 
-def _k3_speed_report() -> str:
+def _mt_speed_report() -> str:
     """گزارشِ سرعتِ «این اجرا» — bridge بعد از پایانِ هر کار لاگش میکند
     تا سازنده بتونه بینِ حالتهایِ آزمایشگاه مقایسه کنه."""
     try:
-        _n = int(_K3_STATS.get("n") or 0)
+        _n = int(_MT_STATS.get("n") or 0)
         if _n <= 0:
             return ""
-        _ms = float(_K3_STATS.get("ms") or 0.0)
+        _ms = float(_MT_STATS.get("ms") or 0.0)
         _out = ("[🧪] گزارشِ سرعتِ استخراج: %d کراپ | میانگینِ %.0fms | "
                 "رسمی=%d"
-                % (_n, _ms / max(1, _n), int(_K3_STATS.get("st1") or 0)))
+                % (_n, _ms / max(1, _n), int(_MT_STATS.get("st1") or 0)))
         try:
             _pn = int(_PAD_STATS.get("n") or 0)
             if _pn > 0:
@@ -5009,7 +5009,7 @@ def _k3_speed_report() -> str:
         except Exception:
             pass
         try:
-            _lad = str(os.environ.get("MANGA_K3_MODE", "") or "").strip().lower()
+            _lad = str(os.environ.get("MANGA_MT_MODE", "") or "").strip().lower()
             _out += " | روش=%s" % (_lad if _lad else "padandroid")
         except Exception:
             pass
@@ -5034,9 +5034,9 @@ class RapidOCRBackend:
                 str(lang).lower() in ("en", "latin", "english")
         except Exception:
             self._cjk_guard = False
-        # v1.14.123 — اندروید: موتورِ PP-OCRv6 ONNX (عینِ PC/K3) از
+        # v1.14.123 — اندروید: موتورِ PP-OCRv6 ONNX (عینِ PC/مرجع) از
         # rapidocr_mobile (بدونِ پکیجِ rapidocr/pyclipper/shapely).
-        # زمینه: دیکدِ K3 v4.1.1 نشان داد K3 رویِ گوشی هم همین پایپلاینِ
+        # زمینه: دیکدِ اپِ مرجع نشان داد مرجع رویِ گوشی هم همین پایپلاینِ
         # ONNX را اجرا میکند (RunRapidOcrPipelineOnCrop + _ppOcrDict +
         # ppocrv6_dict.txt) و دقیق/سریع استخراج میزند. درخواستِ کاربر:
         # «استخراجِ مالِ پی‌سی لینوکس هستو رو گوشی اوکی کرد».
@@ -5107,7 +5107,7 @@ class RapidOCRBackend:
                 try:
                     # v1.14.29: فقط مدل‌های همین زبان دانلود می‌شود — نه همهٔ زبان‌ها
                     # (det مشترک است؛ rec مخصوص زبان؛ cls دیگر استفاده نمی‌شود)
-                    # v1.14.152 — مجموعهٔ K3 با helperِ مشترک
+                    # v1.14.152 — مجموعهٔ مرجع با helperِ مشترک
                     _det_n52, _rec_n52 = _rapidocr_model_pair(
                         lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
                     _ensure_rapidocr_models(_mdir,
@@ -5123,7 +5123,7 @@ class RapidOCRBackend:
             _gpu_flags69 = {}
             if _mdir:
                 try:
-                    # v1.14.152 — مسیرِ صریحِ مدلها از helperِ مجموعهٔ K3
+                    # v1.14.152 — مسیرِ صریحِ مدلها از helperِ مجموعهٔ مرجع
                     _det_n52, _rec_n52 = _rapidocr_model_pair(
                         lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
                     for _sec69, _fn69 in (
@@ -5564,7 +5564,7 @@ class RapidOCRBackend:
 # v1.14.163 — سبکِ «استخراج و پاکسازی»ٔ مخصوصِ گوشی کلاً حذف شد (دستورِ
 # سازنده: «سبکِ استخراج و پاکسازی رو گوشی کامل حذف کنی؛ مالِ پی‌سی
 # لینوکس استفاده کنه»). حذفشده‌ها در این نسخه:
-#   • کاسکادِ K3 (راهنمایِ ML Kit + پلهٔ Paddle-Lite + رپیدِ فالبک)
+#   • کاسکادِ مرجع (راهنمایِ ML Kit + پلهٔ Paddle-Lite + رپیدِ فالبک)
 #   • کلاسِ MlKitBackend و راهنمایِ برشِ امنِ ML Kit (_mlkit_guide)
 #   • _mobile_banded_ocr (خواندنِ باندبه‌باندِ تمامصفحه)
 #   • MlKitBridge.kt + PaddleLiteBridge.kt + PliteProbeService.kt
@@ -6232,7 +6232,7 @@ class TextRegion:
     bubble_style: str = "normal"
     det_class: str = ""
 
-    # v1.14.242 — سبکِ K3: هر دیالوگ صفحهٔ خودش را می‌شناسد تا درخواستِ
+    # v1.14.242 — سبکِ مرجع: هر دیالوگ صفحهٔ خودش را می‌شناسد تا درخواستِ
     # ترجمه به شکلِ [{filename, dialogues}] گروه‌بندی شود (حالتِ نوشتاریِ
     # «عکسِ فیک» — هیچ عکسی ارسال نمی‌شود، filename فقط شناسهٔ صفحه است)
     page_index: int = -1
@@ -6631,7 +6631,7 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
         img = cv2.resize(img, (tw, max(1, round(h * tw / w))),
                          interpolation=cv2.INTER_AREA)
     out_name = os.path.join(d, f"live_{slot:04d}.jpg")
-    # v1.14.239 — اولین نوشتنِ اسلات = «صفحهٔ N آماده شد»: در سبکِ K3 همهٔ
+    # v1.14.239 — اولین نوشتنِ اسلات = «صفحهٔ N آماده شد»: در سبکِ مرجع همهٔ
     # dumpها slotِ صریح دارند و slot_new همیشه False میماند → این خط هرگز
     # چاپ نمیشد و نوارِ پیشرفتِ وب هیچ «رندرِ نهایی»ای نمیدید (ریشهٔ
     # «صفحهٔ 1 از 105 (0٪)» گیرکرده). به‌روزرسانیِ پیش‌نمایشِ همان اسلات
@@ -6763,7 +6763,7 @@ def _live_page_dump(out_file: str, key: Optional[str] = None,
 
 
 # v1.14.242 — _one_request_caps/_split_one_request_batches حذف شدند:
-# دیکدِ APKِ K3 نشان داد که هیچ بستهبندی/سقفی وجود ندارد — کلِ فصل در
+# دیکدِ APKِ مرجع نشان داد که هیچ بستهبندی/سقفی وجود ندارد — کلِ فصل در
 # «یک» درخواست می‌رود (دستورِ سازنده: «کامل سبکش مثل همون باشه»).
 
 
@@ -6968,8 +6968,8 @@ class MangaTranslator:
         max_workers: int = 1,
         mag_ratio: float = 1.35,
         translation_temperature: float = 0.7,  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
-        # v1.14.243 — K3: CustomTopP (Preferences «CustomTopP» پیشفرض 0.9؛
-        # Math.Clamp(0..1)) — حالا مثلِ خودِ K3 از تنظیمات میآید نه هاردکد
+        # v1.14.243 — تنظیمِ top_p (ذخیره در تنظیمات؛ پیشفرض 0.9؛ کلمپ 0..1)
+        # — حالا مثلِ خودِ مرجع از تنظیمات میآید نه هاردکد
         translation_top_p: float = 0.9,
         two_pass_ocr: bool = True,
         max_output_width: Optional[int] = None,
@@ -7100,7 +7100,7 @@ class MangaTranslator:
 
         self.min_translate_batch = max(1, int(getattr(self, "min_translate_batch", 15) or 15))
 
-        # v1.14.196 — سبکِ K3: «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن» — کلِ
+        # v1.14.196 — سبکِ مرجع: «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن» — کلِ
         # متنهایِ استخراجشدهٔ فصل در «یک» درخواستِ ترجمه میروند (استریم +
         # پارسرِ افزایشی)؛ ردیفِ ترجمهٔ ۱۵تاییِ میانهٔ کار دیگر نیست.
         self.chapter_one_request = True
@@ -7115,7 +7115,7 @@ class MangaTranslator:
         self.img_quality = img_quality
         self.max_workers = max(1, int(max_workers))
         self.mag_ratio = mag_ratio
-        # v1.14.243 — clamp عینِ K3 (Math.Clamp(temperature 0..2, topP 0..1))
+        # v1.14.243 — clamp عینِ مرجع (Math.Clamp(temperature 0..2, topP 0..1))
         try:
             self.translation_temperature = min(2.0, max(0.0, float(translation_temperature)))
         except Exception:
@@ -10150,8 +10150,8 @@ class MangaTranslator:
                               region: "TextRegion",
                               pad_k) -> np.ndarray:
         """v1.14.171 — دیلیشنِ ماسک + گیردهِ دوباره به داخلِ حباب (فقطِ
-        اندروید — دستورِ سازنده: «حبابِ متن خراب نشه … خوده k3 ببین چکار
-        کرده»). دیکدِ K3: اپِ K3 هیچ مدلِ inpaintی ندارد و فقط پالیِ تنگِ
+        اندروید — دستورِ سازنده: «حبابِ متن خراب نشه … خوده مرجع ببین چکار
+        کرده»). دیکدِ مرجع: اپِ مرجع هیچ مدلِ inpaintی ندارد و فقط پالیِ تنگِ
         خطهایِ OCR را با رنگِ زمینه پر میکند — دیوارِ حباب هرگز لمس
         نمیشود. نزدیکترین معادلِ امنِ همین‌جا: پدِ ماسکِ اندروید (۸px —
         درسِ 1.14.133 برایِ دورخطِ ضخیمِ حبابهایِ زرد) بعد از گیردهِ حباب
@@ -11787,7 +11787,7 @@ class MangaTranslator:
                                         _rm, image, region, _pad_k)
                                 m = cv2.bitwise_or(m, _rm)
                                 try:
-                                    _dm3 = os.environ.get("MANGA_DUMP_MASK3")
+                                    _dm3 = os.environ.get("MANGA_DUMP_MASK_3")
                                     if _dm3:
                                         cv2.imwrite(_dm3, m)
                                 except Exception:
@@ -16212,17 +16212,17 @@ class MangaTranslator:
                                                  for b in _ln35]))
                                     except Exception:
                                         _mh35 = 0.0
-                                    _ink35 = \
+                                    _ink_35 = \
                                         MangaTranslator._panel_leftover_ink(
                                             image,
                                             (_bx0, _by0,
                                              _bx1 - _bx0, _by1 - _by0),
                                             _ex135, med_h=_mh35)
-                                    if _ink35 is not None:
+                                    if _ink_35 is not None:
                                         # فقط گلیفهای جامانده از donor —
                                         # نه کلِ بلوک (LaMaِ بلوکِ کامل
                                         # رویِ زمینهٔ عکسی توهم/نویز)
-                                        _im35 = _ink35 > 0
+                                        _im35 = _ink_35 > 0
                                         out[_im35] = True
                                         _sweep[_im35] = True
                                         if self.debug:
@@ -16231,7 +16231,7 @@ class MangaTranslator:
                                                     f"  [*]پنلِ متنی → "
                                                     f"گلیفهای جامانده از "
                                                     f"donor ("
-                                                    f"{int(cv2.countNonZero(_ink35))}"
+                                                    f"{int(cv2.countNonZero(_ink_35))}"
                                                     f"px @({_bx0},{_by0})")
                                             except Exception:
                                                 pass
@@ -17510,7 +17510,7 @@ class MangaTranslator:
                     cand = (cv2.dilate(_pcp, _k17) > 0) \
                         & (~_edc) & (~_chc)
                     if int(cand.sum()) < 80:
-                        cand = (cv2.dilate(_pcp, _k31) > 0) \
+                        cand = (cv2.dilate(_pcp, _ker31) > 0) \
                             & (~_edc) & (~_chc)
                     _nr = int(cand.sum())
                     if _nr < 80:
@@ -20758,25 +20758,25 @@ class MangaTranslator:
 
             pass
 
-        # v1.14.44: پاسِ K3 حذف شد — درخواستِ کاربر: «این خط خط چیه؛
-        # mm خوب می‌پاکه». پاسِ هندسی K3 (v1.14.41) بعد از همهٔ پاس‌ها
+        # v1.14.44: پاسِ مرجع حذف شد — درخواستِ کاربر: «این خط خط چیه؛
+        # mm خوب می‌پاکه». پاسِ هندسی مرجع (v1.14.41) بعد از همهٔ پاس‌ها
         # روی هر خطِ OCR هیل/پرکردن انجام می‌داد و روی زمینه‌های روشن
         # نوارهای افقیِ هم‌راستا با خطوطِ متن می‌ساخت (خط‌خطیِ
         # اسکرین‌شاتِ کاربر: ۲۴/۲۴ خطِ heal). شاخهٔ mm این پاس را
         # ندارد و کاربر تأیید کرده پاکسازیِ mm تمیز است → حذفِ کاملِ
         # پاس تا خطِ لوله‌ایِ پاکسازی دقیقاً برابرِ mm بشود. خودِ تابع
         # نگه داشته شده (بدونِ فراخوانی) برای استفادهٔ آزمایشی با
-        # MANGA_K3=1 در CLI.
+        # MANGA_MT=1 در CLI.
         try:
-            if os.environ.get("MANGA_K3", "0") == "1":
-                _n_k3, _k3_how = self._k3_polygon_clean(cleaned, image,
+            if os.environ.get("MANGA_MT", "0") == "1":
+                _n_mt, _mt_how = self._mt_polygon_clean(cleaned, image,
                                                         regions)
-                if _n_k3 and self.debug:
-                    print(f"  [*] K3 polygon clean: {_n_k3} lines "
-                          f"({_k3_how})")
+                if _n_mt and self.debug:
+                    print(f"  [*] MT polygon clean: {_n_mt} lines "
+                          f"({_mt_how})")
         except Exception:
             import traceback as _tb
-            print("  [!] K3 polygon clean error:")
+            print("  [!] MT polygon clean error:")
             _tb.print_exc()
 
 
@@ -21176,7 +21176,7 @@ class MangaTranslator:
             gc = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
             same = (np.abs(gc.astype(np.int16)
                            - go.astype(np.int16)) <= 20)
-            _k3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            _ker3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
             _k5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
             for _ln in (_res[0] or []):
                 try:
@@ -21214,7 +21214,7 @@ class MangaTranslator:
                     continue
                 resid = (_inko & sub_same & sub_ok)
                 resid = cv2.morphologyEx(
-                    resid.astype(np.uint8), cv2.MORPH_OPEN, _k3) > 0
+                    resid.astype(np.uint8), cv2.MORPH_OPEN, _ker3) > 0
                 resid = cv2.dilate(resid.astype(np.uint8), _k5) > 0
                 resid &= sub_ok
                 _np = int(resid.sum())
@@ -21604,10 +21604,10 @@ class MangaTranslator:
                 continue
         return n_fix
 
-    def _k3_ring_samples(self, img: np.ndarray, hull: np.ndarray,
+    def _mt_ring_samples(self, img: np.ndarray, hull: np.ndarray,
                          out_px: int):
         """نمونه‌گیری رنگ پس‌زمینه از بیرونِ چندضلعی — رئوس + میانه‌های
-        یال، همه به اندازهٔ out_px بیرون‌زده از مرکز (الگوی K3:
+        یال، همه به اندازهٔ out_px بیرون‌زده از مرکز (الگوی مرجع:
         ×1.025 روی رئوس — اینجا فاصلهٔ پیکسلیِ صریح برای اطمینان)."""
         c = hull.mean(axis=0)
         samples = []
@@ -21627,7 +21627,7 @@ class MangaTranslator:
             return np.empty((0, 3), np.float32)
         return np.asarray(samples, dtype=np.float32)
 
-    def _k3_polygon_clean(self, cleaned: np.ndarray, image: np.ndarray,
+    def _mt_polygon_clean(self, cleaned: np.ndarray, image: np.ndarray,
                           regions: List[TextRegion]) -> Tuple[int, str]:
         n_fill = 0
         n_heal = 0
@@ -21635,7 +21635,7 @@ class MangaTranslator:
             H, W = cleaned.shape[:2]
         except Exception:
             return 0, ""
-        _dbg_path = os.environ.get("MANGA_DEBUG_K3", "")
+        _dbg_path = os.environ.get("MANGA_DEBUG_MT", "")
         _dbg_img = image.copy() if _dbg_path else None
         try:
             if _dbg_img is not None:
@@ -21697,10 +21697,10 @@ class MangaTranslator:
                                  255)
                     if not emask.any():
                         continue
-                    # رنگ مرجع — اول از نمونه‌های رأسِ K3 (گوشه‌های خط =
+                    # رنگ مرجع — اول از نمونه‌های رأسِ مرجع (گوشه‌های خط =
                     # انتهای متن = پس‌زمینهٔ واقعی)، بعد رینگِ بیرونی
                     _sub_f = sub.astype(np.float32)
-                    samp = self._k3_ring_samples(cleaned, exp, margin + 2)
+                    samp = self._mt_ring_samples(cleaned, exp, margin + 2)
                     bg_med = None
                     if len(samp) >= 3:
                         _v_med = np.median(samp, axis=0)
@@ -21749,7 +21749,7 @@ class MangaTranslator:
                         if len(samp) >= 3 else samp
                     fill_color = (np.median(_sf, axis=0) if len(_sf) >= 3
                                   else bg_med)
-                    # گیتِ یکنواختی K3: فاصلهٔ اقلیدسیِ RGB ≤ ۲۵
+                    # گیتِ یکنواختی مرجع: فاصلهٔ اقلیدسیِ RGB ≤ ۲۵
                     _unif = samp[np.linalg.norm(samp - fill_color,
                                                 axis=1) <= 25.0]
                     uniform = (len(samp) >= 3
@@ -24301,12 +24301,12 @@ class MangaTranslator:
     ]
 
     def _get_system_instruction(self) -> str:
-        """v1.14.242 — سبکِ K3:
-        - flash/lite: پروتکلِ سیستمیِ K3؛ در مسیرِ OpenAI-compatible بندِ ۷
+        """v1.14.242 — سبکِ مرجع:
+        - flash/lite: پروتکلِ سیستمیِ مرجع؛ در مسیرِ OpenAI-compatible بندِ ۷
           (اسکیما) هم چسبیده می‌شود، در مسیرِ بومیِ Gemini نمی‌آید (اسکیما از
           response_schema می‌رود) — عینِ APK.
-        متنِ سفارشیِ کاربر system را عوض نمی‌کند — در K3
-        پرامپتِ قابلِ ویرایش همان «قوانین» است (PromptEditPopup) →
+        متنِ سفارشیِ کاربر system را عوض نمی‌کند — در مرجع
+        پرامپتِ قابلِ ویرایش همان «قوانین» است (ویرایشگرِ قوانینِ مرجع) →
         custom_instruction جایگزینِ قوانین در user prompt می‌شود (در
         _translate_regions_batch)."""
         try:
@@ -24314,7 +24314,7 @@ class MangaTranslator:
         except Exception:
             _jp = False
         _with_schema = getattr(self, "provider_type", "openai") != "gemini"
-        return k3_system_instruction(japanese=_jp, with_schema=_with_schema)
+        return mt_system_instruction(japanese=_jp, with_schema=_with_schema)
 
 
     @staticmethod
@@ -24382,15 +24382,15 @@ class MangaTranslator:
         t = re.sub(r"\s+([؟!.,،])", r"\1", t)
         return t.strip()
 
-    # ── v1.14.242 — سبکِ K3: ساختِ ورودیِ «صفحه‌ها» و ماندنِ جوابها ──────
+    # ── v1.14.242 — سبکِ مرجع: ساختِ ورودیِ «صفحه‌ها» و ماندنِ جوابها ──────
     @staticmethod
-    def _k3_norm(text: str) -> str:
-        """عینِ NormalizeTextForComparison در K3: lowercase + حذفِ [^\\w]."""
+    def _mt_norm(text: str) -> str:
+        """عینِ نرمال‌سازِ مقایسهٔ متنِ مرجع در مرجع: lowercase + حذفِ [^\\w]."""
         return re.sub(r"[^\w]", "", (text or "").lower())
 
     @staticmethod
-    def _k3_pages_payload(regions: List[TextRegion]):
-        """گروه‌بندیِ نواحی به صفحه (سبکِ K3): خروجی = (pages, region_page).
+    def _mt_pages_payload(regions: List[TextRegion]):
+        """گروه‌بندیِ نواحی به صفحه (سبکِ مرجع): خروجی = (pages, region_page).
         pages = [{"filename": str, "dialogues": [str, …]}, …] به ترتیبِ
         صفحه؛ region_page = {id(ناحیه): filename}. نواحی بدونِ صفحه (مسیرِ
         تک‌صفحه‌ای/قدیمی) در یک گروهِ «page_01.png» می‌افتند."""
@@ -24417,19 +24417,19 @@ class MangaTranslator:
                 by_key[key] = (fname, [])
                 groups.append((fname, by_key[key][1]))
             by_key[key][1].append(r)
-        # ترتیبِ ورودی (صفحه‌ها به ترتیبِ رسیدن) حفظ می‌شود — عینِ K3
+        # ترتیبِ ورودی (صفحه‌ها به ترتیبِ رسیدن) حفظ می‌شود — عینِ مرجع
         pages = [{"filename": fname,
                   "dialogues": [r.source_text or "" for r in rs]}
                  for fname, rs in groups]
         region_page = {id(r): fname for fname, rs in groups for r in rs}
         return pages, region_page
 
-    def _apply_k3_pages(self, pages, regions: List[TextRegion],
+    def _apply_mt_pages(self, pages, regions: List[TextRegion],
                         region_page: Optional[dict] = None) -> int:
-        """نشاندنِ جوابِ قالبِ K3 [{filename, translations:[{en_text, fa_text}]}]
-        روی نواحی — عینِ منطقِ تطبیقِ K3 (ParseGeminiResults + Phase4):
+        """نشاندنِ جوابِ قالبِ مرجع [{filename, translations:[{en_text, fa_text}]}]
+        روی نواحی — عینِ منطقِ تطبیقِ مرجع (پارسرِ جوابِ صفحه‌محورِ مرجع + Phase4):
         ۱) متنِ دقیق، ۲) متنِ نرمال‌شده، ۳) جایِگاه (قانونِ ۱به۱) در همان صفحه.
-        [CENSORED] عیناً می‌نشیند (سیاستِ ضدِ سانسورِ K3)."""
+        [CENSORED] عیناً می‌نشیند (سیاستِ ضدِ سانسورِ مرجع)."""
         if not pages or not regions:
             return 0
         applied = 0
@@ -24461,11 +24461,11 @@ class MangaTranslator:
                                 if id(r) not in done
                                 and (r.source_text or "") == en), None)
                     if reg is None:
-                        _ne = self._k3_norm(en)
+                        _ne = self._mt_norm(en)
                         if _ne:
                             reg = next((r for r in page_regions
                                         if id(r) not in done
-                                        and self._k3_norm(r.source_text) == _ne),
+                                        and self._mt_norm(r.source_text) == _ne),
                                        None)
                 if reg is not None:
                     reg.translated_text = self._cleanup_translation(fa)
@@ -24483,19 +24483,19 @@ class MangaTranslator:
                     applied += 1
         return applied
 
-    _K3_PAGE_BLOCK_RE = re.compile(
+    _MT_PAGE_BLOCK_RE = re.compile(
         r'\{\s*"filename"\s*:\s*"[^"]+"\s*,\s*"translations"\s*:\s*\[.*?\]\s*\}',
         re.S,
     )
 
     @classmethod
     def _salvage_stream_pages(cls, text: str, on_pages) -> None:
-        """پارسرِ افزایشیِ K3 (عینِ onChunkReceived در HomePage): بلوکهایِ
+        """پارسرِ افزایشیِ مرجع (عینِ حلقهٔ استریمِ صفحه‌محور در صفحهٔ اصلیِ مرجع): بلوکهایِ
         «کاملِ» {filename, translations} را از جریانِ ناقص بیرون می‌کشد؛
         نیمه‌کاره دست‌نخورده می‌ماند تا در پارسِ نهایی بنشیند."""
         if not text or on_pages is None:
             return
-        blocks = cls._K3_PAGE_BLOCK_RE.findall(text)
+        blocks = cls._MT_PAGE_BLOCK_RE.findall(text)
         if not blocks:
             return
         pages = []
@@ -24535,15 +24535,15 @@ class MangaTranslator:
         if not isinstance(results, list):
             raise ValueError("پاسخ مدل آرایه نیست.")
 
-        # v1.14.242 — قالبِ K3: [{filename, translations: [{en_text, fa_text}]}]
-        # (ParseGeminiResults در APK). اگر جوابِ این قالب بود، عینِ K3 روی
+        # v1.14.242 — قالبِ مرجع: [{filename, translations: [{en_text, fa_text}]}]
+        # (پارسرِ جوابِ صفحه‌محورِ مرجع در APK). اگر جوابِ این قالب بود، عینِ مرجع روی
         # نواحی مینشیند — تنها قالبِ پاسخ (v1.14.246).
-        _k3_pages = [it for it in results
+        _mt_pages = [it for it in results
                      if isinstance(it, dict)
                      and isinstance(it.get("translations"), list)
                      and ("filename" in it)]
-        if _k3_pages:
-            applied = self._apply_k3_pages(_k3_pages, regions, region_page)
+        if _mt_pages:
+            applied = self._apply_mt_pages(_mt_pages, regions, region_page)
             if applied > 0:
                 return True
 
@@ -24600,8 +24600,8 @@ class MangaTranslator:
                                *, structured: bool = True,
                                timeout: float = None,
                                on_item=None) -> str:
-        # v1.14.243 — temperature/topP از تنظیماتِ کاربر (K3: CustomTemperature/
-        # CustomTopP). استثنایِ gemini-3.6-flash (۰.۴/۰.۷) عینِ K3 فقط وقتی
+        # v1.14.243 — temperature/topP از تنظیماتِ کاربر (مرجع: دما و
+        # top_pِ ذخیرهشده). استثنایِ gemini-3.6-flash (۰.۴/۰.۷) عینِ مرجع فقط وقتی
         # کاربر پیشفرضها را دستنخورده گذاشته فعال میماند — اگر مقدارِ دلخواه
         # گذاشته باشد «همان دقیق» فرستاده میشود (دستور: دقیق بزار).
         _g_temp = self.translation_temperature if structured else 0.2
@@ -24615,7 +24615,7 @@ class MangaTranslator:
         )
         if structured:
             config_args["top_p"] = _g_top_p  # v1.14.189 — کپچر: topP 0.9 (حالا از تنظیمات)
-            # v1.14.196 — سبکِ K3: هر ۴ دستهٔ HARM = BLOCK_NONE تا یک حبابِ
+            # v1.14.196 — سبکِ مرجع: هر ۴ دستهٔ HARM = BLOCK_NONE تا یک حبابِ
             # حساس کلِ جواب را نسوزاند (تلاشهایِ تکراری و وقت هدر نمیرود)؛
             # مدلی که نپذیرد در مسیرِ خطا فلگ میشود و بدونِ آن ادامه میدهد.
             if getattr(self, "_sbn_ok", True):
@@ -24633,9 +24633,9 @@ class MangaTranslator:
                 except Exception:
                     pass
             config_args["response_mime_type"] = "application/json"
-            # v1.14.242 — اسکیمای K3: [{filename, translations:[{en_text, fa_text}]}]
-            # (عینِ BuildGeminiPayloadTextOnly — دیگر id/translation/tone نیست)
-            config_args["response_schema"] = json.loads(K3_RESPONSE_SCHEMA_TEXT)
+            # v1.14.242 — اسکیمای مرجع: [{filename, translations:[{en_text, fa_text}]}]
+            # (عینِ سازندهٔ درخواستِ متنیِ بومیِ Gemini در مرجع — دیگر id/translation/tone نیست)
+            config_args["response_schema"] = json.loads(MT_RESPONSE_SCHEMA_TEXT)
         else:
             config_args["max_output_tokens"] = 768
         config = genai_types.GenerateContentConfig(**config_args)
@@ -24644,7 +24644,7 @@ class MangaTranslator:
         self._pace_before_gemini_call()
 
         def _do():
-            # v1.14.242 — سبکِ K3 (همیشه استریم + پارسرِ افزایشیِ صفحه‌ای):
+            # v1.14.242 — سبکِ مرجع (همیشه استریم + پارسرِ افزایشیِ صفحه‌ای):
             # هر بلوکِ کاملِ {filename, translations} که در جریان میرسد همان
             # لحظه رویِ نواحی می‌نشیند (پیشنمایشِ زنده)؛ اگر استریم ممکن
             # نشد، مسیرِ عادی.
@@ -24692,15 +24692,15 @@ class MangaTranslator:
                                *, structured: bool = True,
                                timeout: float = None,
                                on_item=None) -> str:
-        """v1.14.242 — عینِ GetStreamingTranslationOpenAiAsync/BuildOpenAiPayloadTextOnly
-        در K3: payload = {model, stream:true, temperature, top_p, messages:[system,user]}
+        """v1.14.242 — عینِ مسیرِ استریمِ ترجمه در مرجع/سازندهٔ درخواستِ متنیِ OpenAI در مرجع
+        در مرجع: payload = {model, stream:true, temperature, top_p, messages:[system,user]}
         و همیشه استریم؛ فقط اگر نقطهٔ پایانی stream را نپذیرفت، مسیرِ عادی
         (بدونِ تغییرِ سبکِ پرامپت). پارامترهایِ o1/gpt-5 که temperature
         نمی‌پذیرند حذف میشوند (خطایِ سختِ API)."""
         model = self._thread_model()
         client = self._thread_openai()
         mlow = model.lower()
-        # v1.14.197 — درخواستِ کلِ فصل سقفِ زمانیِ متناسب میگیرد (سبکِ K3):
+        # v1.14.197 — درخواستِ کلِ فصل سقفِ زمانیِ متناسب میگیرد (سبکِ مرجع):
         # هم در کلاینتِ HTTP هم در منتظرِ آینده — قبلاً سقفِ کوچکِ
         # api_timeout (۱۰–۴۵ثانیه) هرگز برایِ فصلِ پر متن کفایت نمیکرد و
         # همان پیامِ «تایم‌اوت» تا بی نهایت تکرار میشد.
@@ -24721,7 +24721,7 @@ class MangaTranslator:
                      else float(getattr(self, "api_timeout", 10.0) or 10.0)),
         )
         if structured:
-            kwargs["top_p"] = self.translation_top_p  # v1.14.189 — کپچر: topP 0.9 (v1.14.243: از تنظیمات — K3 CustomTopP)
+            kwargs["top_p"] = self.translation_top_p  # v1.14.189 — کپچر: topP 0.9 (v1.14.243: از تنظیمات — مرجع تنظیمِ top_p)
 
         if re.search(r"(?:^|/)(?:o[134](?:-|$)|gpt-5(?:-|$))", mlow):
             kwargs.pop("temperature", None)
@@ -24734,7 +24734,7 @@ class MangaTranslator:
                 raise RuntimeError(f"پاسخ خالی از {self.provider} دریافت شد.")
             return text
 
-        # v1.14.242 — K3 همیشه stream:true می‌فرستد؛ اینجا هم مسیرِ اول
+        # v1.14.242 — مرجع همیشه stream:true می‌فرستد؛ اینجا هم مسیرِ اول
         # استریم است (قطعهها که میرسند سقفِ «مرگِ بی‌صدا» وجود ندارد و هر
         # بلوکِ کاملِ صفحه همان لحظه رویِ نواحی می‌نشیند). اگر نقطهٔ پایانی
         # stream را قبول نکرد، خودکار به مسیرِ عادی برمی‌گردیم.
@@ -25114,7 +25114,7 @@ class MangaTranslator:
 
         def _make_batches(items: List[TextRegion]):
 
-            # v1.14.242 — عینِ K3 (دیکدِ APK): همهٔ متنها در «یک» درخواست —
+            # v1.14.242 — عینِ مرجع (دیکدِ APK): همهٔ متنها در «یک» درخواست —
             # هیچ بچ/سقفی (۴۰تایی/۱۰هزار نویسه) وجود ندارد؛ فصلِ هر اندازه
             # یک درخواست است. کپسولهایِ قبلی (v1.14.198/199/213) حذف شدند.
             if getattr(self, "chapter_one_request", False):
@@ -25221,7 +25221,7 @@ class MangaTranslator:
         if not work_regions:
             return
 
-        # v1.14.242 — بافتِ درخواست (سبکِ K3): نگاشتِ ناحیه→فایل‌نیم برای
+        # v1.14.242 — بافتِ درخواست (سبکِ مرجع): نگاشتِ ناحیه→فایل‌نیم برای
         # نشاندنِ جوابها (قالبِ [{filename, translations:[…]}])
         _pctx: dict = {}
 
@@ -25231,18 +25231,18 @@ class MangaTranslator:
                 getattr(self, "provider", "gemini"),
                 getattr(self, "model_name", ""),
             )
-            # ── سبکِ K3 (professional/lite) — عینِ BuildOpenAiPayloadTextOnly:
-            # قوانین = preset (یا متنِ سفارشیِ کاربر — هم‌ارزِ PromptEditPopup)؛
+            # ── سبکِ مرجع (professional/lite) — عینِ سازندهٔ درخواستِ متنیِ OpenAI در مرجع:
+            # قوانین = preset (یا متنِ سفارشیِ کاربر — هم‌ارزِ ویرایشگرِ قوانینِ مرجع)؛
             # هیچ واژه‌نامه/بریف/آیتمِ id-دار اضافه نمیشود.
             rules = (getattr(self, "custom_instruction", "") or "").strip() \
                 or PROMPT_PRESETS[_pm]
-            pages, _rpage = self._k3_pages_payload(work_regions)
+            pages, _rpage = self._mt_pages_payload(work_regions)
             _pctx["region_page"] = _rpage
             try:
                 _jp = bool(self._ocr_lang_flags()[2])
             except Exception:
                 _jp = False
-            return k3_user_prompt(rules, pages, _jp)
+            return mt_user_prompt(rules, pages, _jp)
 
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -25263,7 +25263,7 @@ class MangaTranslator:
                     break
 
 
-                # v1.14.242 — سبکِ K3: همیشه استریم (هر دو مسیرِ gemini و
+                # v1.14.242 — سبکِ مرجع: همیشه استریم (هر دو مسیرِ gemini و
                 # openai) + پارسرِ افزایشیِ صفحه‌ای — هر بلوکِ کاملِ {filename,
                 # translations} که در جریان میرسد همان لحظه رویِ نواحی
                 # می‌نشیند (پیشنمایشِ زنده)؛ مسیرهایِ غیرِ استریم فقط
@@ -25279,7 +25279,7 @@ class MangaTranslator:
                             return
                         for p in _new:
                             _applied_pages.add(str(p.get("filename")))
-                        self._apply_k3_pages(
+                        self._apply_mt_pages(
                             _new, work_regions, _pctx.get("region_page"))
                         _done = sum(1 for r in work_regions
                                     if (r.translated_text or "").strip())
@@ -25288,7 +25288,7 @@ class MangaTranslator:
                     _on_item = _on_pages
 
                 # درخواستِ کلِ فصل جوابِ بلند میدهد — سقفِ زمانی با
-                # «تعدادِ دیالوگ + حجمِ واقعیِ متن» بزرگ میشود (K3:
+                # «تعدادِ دیالوگ + حجمِ واقعیِ متن» بزرگ میشود (مرجع:
                 # AutoRetry صبور؛ سقفِ مردهٔ کوچکِ قبلی ۳۰+۱.۵×تعداد بود
                 # و برایِ ۱۰۰+ دیالوگِ پرحرف نمیکشید) — سقفِ ۳۰ دقیقه.
                 _chars = sum(len(r.source_text or "") for r in work_regions)
@@ -25380,11 +25380,11 @@ class MangaTranslator:
                     print(f"    [!] {tag} روی {self.provider}/{self.model_name}")
                     self._recreate_api_client()
 
-                    # v1.14.197 — AutoRetry به سبکِ K3: مدلِ «کند ولی سالم»
+                    # v1.14.197 — AutoRetry به سبکِ مرجع: مدلِ «کند ولی سالم»
                     # قربانیِ cascade نمیشود (گزارشِ سازنده: همان مدل بارها
                     # تایم‌اوت میخورد و ترجمه هیچوقت برنمیگشت). همان مدل تا
                     # چند بار با انتظارِ واقعی (نمایی ۲/۴/۸/… ثانیه) دوباره
-                    # پرسیده میشود؛ K3 تا ۱۰ بار با انتظارِ قابلِ تنظیم.
+                    # پرسیده میشود؛ مرجع تا ۱۰ بار با انتظارِ قابلِ تنظیم.
                     # آیتمهایی که از جریانِ قبلی نشستهاند از پرامپتِ بعدی
                     # حذف میشوند تا هر تلاش سبکتر شود.
                     _still = [r for r in work_regions
@@ -25393,20 +25393,20 @@ class MangaTranslator:
                         work_regions = _still
                     same_retries = int(getattr(self, "_same_model_timeout_retries", 0) or 0)
                     try:
-                        _k3_max = min(10, max(1, int(
+                        _mt_max = min(10, max(1, int(
                             os.environ.get("MANGA_TIMEOUT_RETRIES", "3") or 3)))
                     except Exception:
-                        _k3_max = 3
+                        _mt_max = 3
                     try:
-                        _k3_wait = max(0.5, float(
+                        _mt_wait = max(0.5, float(
                             os.environ.get("MANGA_TIMEOUT_WAIT", "2.0") or 2.0))
                     except Exception:
-                        _k3_wait = 2.0
-                    if same_retries < _k3_max:
+                        _mt_wait = 2.0
+                    if same_retries < _mt_max:
                         self._same_model_timeout_retries = same_retries + 1
-                        _ws = min(_k3_wait * (2 ** same_retries), 30.0)
-                        print(f"    [*] AutoRetry K3 "
-                              f"{same_retries + 1}/{_k3_max} روی "
+                        _ws = min(_mt_wait * (2 ** same_retries), 30.0)
+                        print(f"    [*] AutoRetry مرجع "
+                              f"{same_retries + 1}/{_mt_max} روی "
                               f"{self.model_name} — صبر {_ws:.0f}ثانیه و "
                               f"تلاش دوباره…")
                         time.sleep(_ws)
@@ -25754,7 +25754,7 @@ class MangaTranslator:
                 except Exception as e:
                     print(f"    [!] نجاتِ تکآیتمیِ بالن[{r.id}]: {str(e)[:80]}")
                     time.sleep(0.4)
-            # گام B: همان آیتم در قالبِ K3 — یک صفحه، یک دیالوگ (v1.14.246)
+            # گام B: همان آیتم در قالبِ مرجع — یک صفحه، یک دیالوگ (v1.14.246)
             if not val:
                 try:
                     _rules = (getattr(self, "custom_instruction", "") or "").strip() \
@@ -25766,7 +25766,7 @@ class MangaTranslator:
                         _jp = bool(self._ocr_lang_flags()[2])
                     except Exception:
                         _jp = False
-                    p2 = k3_user_prompt(
+                    p2 = mt_user_prompt(
                         _rules,
                         [{"filename": "rescue_%d.png" % r.id, "dialogues": [src]}],
                         _jp)
@@ -32145,7 +32145,7 @@ html, body { background: #0a0a0b; }
             if y1 < y0:
                 return None
             # v1.14.246 — سرعتِ برش به سبکِ مرجع (ManhwaSlicer.
-            # VerifyAndAdjustCutWithDetectorAsync): (۱) باندِ برش از
+            # راستیآزما/جابهجاییِ برش با تشخیصِ متن در مرجع): (۱) باندِ برش از
             # قبل پوشش داده شده (کشِ دوطرفه یا اسکنِ زندهٔ _scan_band)
             # → دیگر هیچ تشخیصِ دومی رویِ همان ناحیه اجرا نمیشود
             # (قبلاً هر برش یک det.detectِ تمام‌عیارِ ~۱۵۰۰px با پاسِ
@@ -32783,7 +32783,7 @@ html, body { background: #0a0a0b; }
 
     def run(self, input_path: str, output_path: str, resume: bool = True,
             clean_old: bool = True) -> None:
-        # v1.14.242 — بریف داستان حذف شد (K3 ندارد) — اینجا فقط ریستِ قدیمی بود
+        # v1.14.242 — بریف داستان حذف شد (مرجع ندارد) — اینجا فقط ریستِ قدیمی بود
         # v1.14.213 — قفلِ دو-فازی (دستورِ سازنده: «همه متن هارو جمع کنه
         # استخراج تموم شد بعدش بره ترجمه»): در طولِ فازِ
         # استخراجِ بچ هیچ فراخوانیِ مترجمی مجاز نیست؛ بعد از joinِ دو
@@ -33436,12 +33436,12 @@ html, body { background: #0a0a0b; }
             # بافتِ رواییِ مدل، قبل از ارسال به ترتیبِ طبیعیِ صفحهها مرتب
             # میشود (idها دستنخورده میمانند — نگاشتِ جواب به ناحیه سالم).
             dialogue_buffer.sort(key=lambda r: page_of_region.get(r.id, 0))
-            # v1.14.242 — عینِ K3 (دیکدِ APK): همهٔ دیالوگها در «یک» درخواست
+            # v1.14.242 — عینِ مرجع (دیکدِ APK): همهٔ دیالوگها در «یک» درخواست
             # — هیچ بستهبندیِ ۴۰تایی/سقفِ نویسه وجود ندارد؛ مرزِ فاز هم
             # همین است (استخراجِ همه ← پاکسازیِ دوطرفه + ترجمهٔ یکجا).
             _groups = [dialogue_buffer]
             dialogue_buffer = []
-            print(f"[*] ترجمهٔ {n} دیالوگ در «یک» درخواست (سبکِ K3)…")
+            print(f"[*] ترجمهٔ {n} دیالوگ در «یک» درخواست (سبکِ مرجع)…")
             for _g in _groups:
                 _translate_chunk_bg(_g)
 
@@ -33463,7 +33463,7 @@ html, body { background: #0a0a0b; }
                     continue
                 r.id = global_id
                 page_of_region[global_id] = page_i
-                # v1.14.242 — سبکِ K3: هر دیالوگ صفحه/فایلِ خودش را می‌شناسد
+                # v1.14.242 — سبکِ مرجع: هر دیالوگ صفحه/فایلِ خودش را می‌شناسد
                 # تا درخواست به شکلِ [{filename, dialogues}] گروه‌بندی شود
                 r.page_index = page_i
                 _pf213 = _src_of_page.get(page_i)
@@ -33485,12 +33485,12 @@ html, body { background: #0a0a0b; }
             # و «نمایش زنده» هم در clean_only صفحه‌به‌صفحه کار می‌کند.
             min_batch = 15
         else:
-            # v1.14.196/199 — سبکِ K3، دقیقاً طبقِ دستورِ سازنده:
+            # v1.14.196/199 — سبکِ مرجع، دقیقاً طبقِ دستورِ سازنده:
             # «اول کامل استخراج کنه دو طرفه + پاکسازی یک طرفه؛
             # استخراج تموم شد پاکسازی دو طرفه + ترجمه»؛ v1.14.242 —
-            # عینِ دیکدِ K3: ترجمهٔ همه در «یک» درخواست (بدونِ بستهبندی).
+            # عینِ دیکدِ مرجع: ترجمهٔ همه در «یک» درخواست (بدونِ بستهبندی).
             print(
-                f"[*] سبکِ K3: اول استخراجِ دوطرفهٔ همهٔ {len(pending)} صفحه "
+                f"[*] سبکِ مرجع: اول استخراجِ دوطرفهٔ همهٔ {len(pending)} صفحه "
                 f"+ پاکسازیٔ یکطرفهٔ بالا→پایین همزمان؛ بعد از اتمامِ "
                 f"کاملِ استخراج: پاکسازیٔ دوطرفه + ترجمهٔ همه در «یک» "
                 f"درخواست (هیچ متنی زودتر از اتمامِ استخراج به مترجم نمیرود)."
@@ -33563,7 +33563,7 @@ html, body { background: #0a0a0b; }
         _clean_cond = threading.Condition()
 
         # v1.14.196 — سدِ دستهٔ ۱۵تایی حذف شد (خواستهٔ کاربر: «کلا عوض شه —
-        # مثلِ k3 بشه»): استخراج هرگز برای پاکسازی/ترجمه نمی‌ایستد؛
+        # مثلِ مرجع بشه»): استخراج هرگز برای پاکسازی/ترجمه نمی‌ایستد؛
         # پاکسازیٔ هر صفحه بلافاصله بعد از استخراجش در پسزمینه (صفِ
         # تک‌نمونه) جریان دارد و تا شروعِ ترجمه معمولاً تمام شده است.
 
@@ -33797,7 +33797,7 @@ html, body { background: #0a0a0b; }
 
         # v1.14.239 — شمارندهٔ پیشرفتِ استخراج (نوارِ وب — مثل اپ اندروید):
         # «استخراج متن: n/N صفحه» بعد از هر صفحه؛ موتورِ وب از همین خط
-        # درصدِ زنده میسازد (قبلاً در سبکِ K3 تا پایانِ کلِ استخراج هیچ
+        # درصدِ زنده میسازد (قبلاً در سبکِ مرجع تا پایانِ کلِ استخراج هیچ
         # «صفحهٔ n آماده شد»ای چاپ نمیشد و درصد روی 0٪ گیر میکرد).
         _ext_prog239 = {"n": 0}
 
@@ -33928,14 +33928,14 @@ html, body { background: #0a0a0b; }
         # کنه استخراج تموم شد بعدش بره ترجمه»): این خطِ لاگ
         # لحظهٔ مرز است — قبل از آن هیچ درخواستِ ترجمه‌ای به مدل نرفته
         # است (قفلِ self._extraction_done در finish_page_phase/translate_regions).
-        # v1.14.242 — عینِ K3: بستهبندیِ ۴۰تایی حذف شد — یک درخواست.
+        # v1.14.242 — عینِ مرجع: بستهبندیِ ۴۰تایی حذف شد — یک درخواست.
         self._extraction_done = True
         _n_dlg_total = int(len(dialogue_buffer))
         if not getattr(self, "clean_only", False):
             print(
                 f"[✓] استخراجِ همهٔ {len(pending)} صفحه کامل شد — "
                 f"{_n_dlg_total} دیالوگ جمع شد؛ حالا ترجمهٔ همه در «یک» "
-                "درخواست (سبکِ K3) شروع میشود…"
+                "درخواست (سبکِ مرجع) شروع میشود…"
             )
         else:
             # v1.14.239 — نشانِ پایانِ استخراج در clean-only هم لازم است
@@ -34074,7 +34074,7 @@ html, body { background: #0a0a0b; }
                 _empties = _collect_empty_dialogues()
                 if not _empties:
                     break
-                # v1.14.242 — عینِ K3: پسگیری هم «یک» درخواست (بدونِ بستهٔ
+                # v1.14.242 — عینِ مرجع: پسگیری هم «یک» درخواست (بدونِ بستهٔ
                 # ۳۰تایی) — همان سبکِ درخواستِ اصلی
                 print(f"[*] پسگیریِ خالیهایِ AI: {_empties.__len__()} حباب "
                       f"بیترجمه در یک درخواستِ دوباره (دورِ {_er_round}/۳)…")
@@ -34709,7 +34709,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         "مدلهای Lite → سبک، بقیه → حرفهای)، "
                         "professional (حرفهای انگلیسی)، lite (سبک انگلیسی)")
     p.add_argument("--temperature", type=float, default=0.7)  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
-    p.add_argument("--top-p", type=float, default=0.9)  # v1.14.243 — K3 CustomTopP
+    p.add_argument("--top-p", type=float, default=0.9)  # v1.14.243 — مرجع تنظیمِ top_p
     p.add_argument(
         "--debug",
         action="store_true",
@@ -34842,7 +34842,7 @@ def main():
         mag_ratio=args.mag_ratio,
         two_pass_ocr=not args.no_two_pass_ocr,
         translation_temperature=args.temperature,
-        translation_top_p=getattr(args, "top_p", 0.9),  # v1.14.243 — K3
+        translation_top_p=getattr(args, "top_p", 0.9),  # v1.14.243 — مرجع
         max_output_width=(args.max_width or None),
         stitch_max_height=(8000 if getattr(args, "stitch_max_height", None) is None
                            else int(args.stitch_max_height)),

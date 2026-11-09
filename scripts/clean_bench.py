@@ -86,9 +86,9 @@ def region_metrics(go, gc, mc, pad_mode='in'):
     n_mask = int(mc.sum())
     mrd = cv2.dilate(mc.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
     keep = (~mrd).astype(np.float32)
-    k31 = np.ones((41, 41), np.float32)
-    num = cv2.filter2D(goi.astype(np.float32) * keep, -1, k31)
-    den = cv2.filter2D(keep, -1, k31)
+    ker31 = np.ones((41, 41), np.float32)
+    num = cv2.filter2D(goi.astype(np.float32) * keep, -1, ker31)
+    den = cv2.filter2D(keep, -1, ker31)
     bgest = np.where(den > 40, num / np.maximum(den, 1), 255.0)
     bgi = bgest.astype(np.int16)
     bgv = go[~mrd]
@@ -99,8 +99,8 @@ def region_metrics(go, gc, mc, pad_mode='in'):
     # پسزمینهٔ محلیِ خودِ «خروجی» — برایِ تشخیصِ ضربهٔ باقیمانده
     keep_c = (~cv2.dilate(glyph.astype(np.uint8),
                           np.ones((11, 11), np.uint8))).astype(np.float32)
-    numc = cv2.filter2D(gci.astype(np.float32) * keep_c, -1, k31)
-    denc = cv2.filter2D(keep_c, -1, k31)
+    numc = cv2.filter2D(gci.astype(np.float32) * keep_c, -1, ker31)
+    denc = cv2.filter2D(keep_c, -1, ker31)
     bgc = np.where(denc > 40, numc / np.maximum(denc, 1), 255.0).astype(np.int16)
     dark_c = gci < np.minimum(bgc - 60, 110)
     lite_c = gci > np.maximum(bgc + 60, 200)

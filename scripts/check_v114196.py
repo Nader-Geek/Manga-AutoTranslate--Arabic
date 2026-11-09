@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""چکِ رگرسیونِ v1.14.196 — «حالتهایِ کدم کلا عوض شه به سبکِ K3:
+"""چکِ رگرسیونِ v1.14.196 — «حالتهایِ کدم کلا عوض شه به سبکِ مرجع:
 قبلاً ۱۵تا۱۵ ترجمه میفرستادم — حذف کن؛ استخراجش هم همینجوری بود، ۱۵تا
 میرسید متوقف میشد پاکسازی میکرد بعد ادامه میداد؛ حالا اول همهٔ عکسها
 استخراج بزنه، بعد تموم شد متنهایِ استخراجشده بده به AI، همزمان هم
-پاکسازیش انجام بده — حالتِ ۱۵تا۱۵تا حذف شه، مثلِ K3 بشه» (دستورِ سازنده).
+پاکسازیش انجام بده — حالتِ ۱۵تا۱۵تا حذف شه، مثلِ مرجع بشه» (دستورِ سازنده).
 
 گیتها:
   A. نسخه = 1.14.196 / versionCode=201 (manga.py + manga_app.py + VERSION
@@ -17,7 +17,7 @@
   C. حذفِ توقفِ استخراج: در حلقهٔ اصلی دیگر _wait_batch_clean_barrier
      نیست؛ پاکسازیٔ هر صفحه بلافاصله بعد از استخراجش در پسزمینه
      (_clean_pages_bg([page_i])) صف میشود — «همزمان هم پاکسازیش».
-  D. درخواستِ کلِ فصل به سبکِ K3 رویِ مسیرِ Gemini:
+  D. درخواستِ کلِ فصل به سبکِ مرجع رویِ مسیرِ Gemini:
      استریم (generate_content_stream) + پارسرِ بخشندهٔ افزایشی
      (_salvage_stream_items: regexِ شیءهایِ کاملِ {id,translation} داخلِ
      جریانِ ناقص + unescape) + فالبکِ مسیرِ عادی + سقفِ زمانیِ متناسبِ
@@ -77,7 +77,7 @@ gate("while len(dialogue_buffer) >= min_batch:" not in _manga,
 gate("chapter_one_request = True" in _manga,
      "فلگِ chapter_one_request در سازنده روشن است")
 gate("if getattr(self, \"chapter_one_request\", False):\n                return [list(items)]" in _manga,
-     "_make_batches در سبکِ K3 کلِ بچ را یک درخواست میفرستد")
+     "_make_batches در سبکِ مرجع کلِ بچ را یک درخواست میفرستد")
 gate("_flush_translate_buffer(force=True)" in _manga,
      "فلاشِ پایانی: کلِ بافر بعد از استخراجِ همهٔ صفحهها میرود")
 gate("if dialogue_buffer and not getattr(self, \"clean_only\", False):\n            _flush_translate_buffer(force=True)" in _manga,
@@ -96,14 +96,14 @@ gate("_clean_pages_bg([page_i])" in _manga,
      "پاکسازیٔ هر صفحه بلافاصله بعد از استخراجش در پسزمینه صف میشود")
 gate("دستهٔ ۱۵تایی پر شد" not in _manga,
      "پیامِ «استخراج متوقف تا پاکسازیِ بسته» حذف شده")
-gate("سبکِ K3: اول استخراجِ همهٔ" in _manga,
-     "پیامِ سبکِ K3 در ابتدایِ کار")
+gate("سبکِ مرجع: اول استخراجِ همهٔ" in _manga,
+     "پیامِ سبکِ مرجع در ابتدایِ کار")
 gate("clean_pool = ThreadPoolExecutor(\n            max_workers=1" in _manga,
      "صفِ تک‌نمونهٔ پاکسازی (ضدِ قفلِ منابع) سرِ جایش است")
 
-print("── D. درخواستِ کلِ فصل به سبکِ K3 ──────────")
+print("── D. درخواستِ کلِ فصل به سبکِ مرجع ──────────")
 gate("def _salvage_stream_items" in _manga,
-     "پارسرِ بخشندهٔ K3 (_salvage_stream_items) اضافه شده")
+     "پارسرِ بخشندهٔ مرجع (_salvage_stream_items) اضافه شده")
 gate('r\'"id"\\s*:\\s*(\\d+)\\s*,\\s*"translation"\\s*:\\s* \'' in _manga.replace("\n                r'", "\n                r'") or '"id"\\s*:\\s*(\\d+)\\s*,\\s*"translation"' in _manga,
      "regexِ شیءهایِ کاملِ {id, translation} در پارسر")
 gate("json.loads('\"' + _m.group(2) + '\"')" in _manga,
@@ -125,7 +125,7 @@ gate("HARM_CATEGORY_HARASSMENT" in _manga and "HARM_CATEGORY_HATE_SPEECH" in _ma
      and "HARM_CATEGORY_DANGEROUS_CONTENT" in _manga,
      "هر ۴ دستهٔ HARM در safety_settings")
 gate("HarmBlockThreshold.BLOCK_NONE" in _manga,
-     "آستانهٔ BLOCK_NONE (سبکِ K3)")
+     "آستانهٔ BLOCK_NONE (سبکِ مرجع)")
 gate("self._sbn_ok = False" in _manga,
      "مدلی BLOCK_NONE را نپذیرد → فلگ میشود و بدونِ آن ادامه میدهد")
 gate("[CENSORED]" in _manga,

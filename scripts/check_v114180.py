@@ -60,7 +60,7 @@ names = {"PP-OCRv6_medium_det_onnx.onnx", "PP-OCRv6_medium_rec_onnx.onnx",
 os.environ["MANGA_FILES_DIR"] = os.environ["ST_DIR"]
 g = {"os": os, "time": time, "APP_VER": "t",
      "_PURGE_MARKER": ".onnx_loser_models_purged_184",
-     "_RAPIDOCR_FILES": names, "_K3_PURGE_EXTRA": (),
+     "_RAPIDOCR_FILES": names, "_MT_PURGE_EXTRA": (),
      "_android_gate": lambda k: True,
      "_fmt_mb": lambda b: "%dMB" % (b // (1024 * 1024))}
 d = os.path.join(os.environ["ST_DIR"], "rapidocr_models")

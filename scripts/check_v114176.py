@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """v1.14.176/184 — «آزمایشگاهِ سرعت» = تکروشِ SDKِ رسمی.
-speed_lab_env هر envِ کهنه را پاک میکند، همیشه MANGA_K3_MODE=padandroid
+speed_lab_env هر envِ کهنه را پاک میکند، همیشه MANGA_MT_MODE=padandroid
 را force میکند و پاکسازیِ مدلهایِ بازنده (حتی medium) را صدا میزند؛
 پیامِ لاگ = SDKِ رسمیِ PaddleOCR اندروید (PP-OCRv6_smallِ باندل)."""
 import ast
@@ -34,7 +34,7 @@ for node in tree.body:
         picks[node.name] = ast.get_source_segment(src, node)
 for node in tree.body:
     if isinstance(node, ast.Assign) and getattr(
-            node.targets[0], "id", "") in ("_SPEED_LAB_LADDER", "_K3_MODE_FA"):
+            node.targets[0], "id", "") in ("_SPEED_LAB_LADDER", "_MT_MODE_FA"):
         picks[getattr(node.targets[0], "id", "")] = \
             ast.get_source_segment(src, node)
 missing = [w for w in ("speed_lab_env", "_purge_loser_onnx_models")
@@ -43,7 +43,7 @@ if missing:
     fail("توابعِ لازم استخراج نشد: %s" % missing)
 
 lab = picks.get("speed_lab_env") or ""
-if 'os.environ["MANGA_K3_MODE"] = "padandroid"' not in lab:
+if 'os.environ["MANGA_MT_MODE"] = "padandroid"' not in lab:
     fail("forceِ padandroid در speed_lab_env نیست")
 if 'os.environ.pop("MANGA_MOBILE_OCR_EP", None)' not in lab:
     fail("پاکسازیِ EPِ کهنه در speed_lab_env نیست")
@@ -57,8 +57,8 @@ import time  # noqa: E402
 g = {"os": os, "time": time, "json": json, "print": print,
      "APP_VER": "1.14.184-test",
      "_SPEED_LAB_EP": ("auto",),
-     "_K3_MODE_FA": {"padandroid": "پدلِ رسمیِ اندروید"},
-     "_K3_STATS": {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0},
+     "_MT_MODE_FA": {"padandroid": "پدلِ رسمیِ اندروید"},
+     "_MT_STATS": {"ms": 0.0, "n": 0, "st1": 0, "st2": 0, "st3": 0},
      "_PAD_STATS": {"ms": 0.0, "n": 0, "lines": 0},
      "_fmt_mb": lambda b: "%dMB" % (b // (1024 * 1024)),
      "_android_gate": lambda *a, **k: False,
@@ -71,10 +71,10 @@ except Exception as e:
     fail("execِ sandbox شکست خورد: %r" % e)
 
 os.environ["MANGA_MOBILE_OCR_EP"] = "nnapi"
-os.environ["MANGA_K3_MODE"] = "flutter"
+os.environ["MANGA_MT_MODE"] = "flutter"
 try:
     ret = g["speed_lab_env"]({})
-    if os.environ.get("MANGA_K3_MODE") != "padandroid":
+    if os.environ.get("MANGA_MT_MODE") != "padandroid":
         fail("forceِ padandroid اعمال نشد")
     if os.environ.get("MANGA_MOBILE_OCR_EP") is not None:
         fail("EPِ کهنه پاک نشد")
@@ -85,7 +85,7 @@ try:
     ok("عملی: EP پاک + padandroid force + پیامِ 184/187/188")
 finally:
     os.environ.pop("MANGA_MOBILE_OCR_EP", None)
-    os.environ.pop("MANGA_K3_MODE", None)
+    os.environ.pop("MANGA_MT_MODE", None)
 
 if FAILS:
     print()

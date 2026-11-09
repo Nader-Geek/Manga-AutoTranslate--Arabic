@@ -27,14 +27,14 @@ tree = ast.parse(src)
 cls = {n.name: n for n in tree.body if isinstance(n, ast.ClassDef)}
 
 # ۱) نردبان = تکروش
-lad = cls.get("K3LadderOCR")
+lad = cls.get("MtLadderOCR")
 if lad is None:
-    fail("K3LadderOCR نیست")
+    fail("MtLadderOCR نیست")
 lad_src = ast.get_source_segment(src, lad) or ""
-if '_K3_MODES = ("padandroid",)' not in lad_src:
+if '_MT_MODES = ("padandroid",)' not in lad_src:
     fail("تکروشِ padandroid نیست")
-for gone in ("_engine(small", "_engine_tiny", "_k3_ink_coverage",
-             "_k3_best_conf"):
+for gone in ("_engine(small", "_engine_tiny", "_mt_ink_coverage",
+             "_mt_best_conf"):
     if gone in lad_src:
         fail("نردبانِ 184 هنوز %r دارد" % gone)
 ok("نردبان = تکپلهٔ SDKِ رسمی")

@@ -5,7 +5,7 @@
 
 لاگِ واقعیِ گوشی (v1.14.171): «[!] مدلِ پدل آماده نشد:
 RapidOCRBackend._init_mobile_engine.<locals>.<lambda>() got an unexpected
-keyword argument 'small'» + همین برایِ رپید → نردبانِ K3 عملاً فقط
+keyword argument 'small'» + همین برایِ رپید → نردبانِ مرجع عملاً فقط
 پلهٔ ۱ بود (پلهها: پله۱=20 پدل=0 رپید=0؛ در آن زمان ML Kit) و متنِ
 ضعیفِ پلهٔ ۱ («Youre attractien nere.») بدونِ پلهٔ ۲ برگشت.
 
@@ -77,7 +77,7 @@ ok("wiringِ 184 = SDKِ رسمیِ اندروید (بدونِ لامبدا/ONNX
 
 # ۲) تستِ عملی — build_onnx هرگز صدا نمیشود؛ فقط SDKِ رسمی
 sys.path.insert(0, ROOT)
-os.environ["MANGA_K3_MODE"] = "padandroid"
+os.environ["MANGA_MT_MODE"] = "padandroid"
 import manga  # noqa: E402
 
 H, W = 120, 200
@@ -119,13 +119,13 @@ class _Forbidden:
 
 _forbidden = _Forbidden()
 pad_ok = FakePad([[_box_full(), ("FROM OFFICIAL", 0.9)]])
-lad = manga.K3LadderOCR("en", _forbidden, build_pad=lambda: pad_ok)
+lad = manga.MtLadderOCR("en", _forbidden, build_pad=lambda: pad_ok)
 out = lad.ocr(img, crop_mode=True)
 assert out and out[0][0][1][0] == "FROM OFFICIAL", out
 outf = lad.ocr(img, crop_mode=False)
 assert outf and outf[0][0][1][0] == "FROM OFFICIAL", outf
 pad_none = FakePad(None)
-lad2 = manga.K3LadderOCR("en", _forbidden, build_pad=lambda: pad_none)
+lad2 = manga.MtLadderOCR("en", _forbidden, build_pad=lambda: pad_none)
 assert lad2.ocr(img, crop_mode=True) is None
 ok("تکپلهٔ 184: SDKِ رسمی جواب میدهد؛ خالی = None؛ build_onnx هرگز صدا نشد")
 
@@ -197,10 +197,10 @@ assert _green2 == 0, f"بدونِ det_raw نباید سبزِ detector باشد:
 ok("عملیِ پوششِ سبز: با det_raw سبزِ D رسم میشود؛ بدونِ آن نه")
 
 # ۴) تکپلهٔ 184 — تقویتِ کراپ → SDKِ رسمی → بازگشت
-lad = cls.get("K3LadderOCR")
+lad = cls.get("MtLadderOCR")
 lad_src = ast.get_source_segment(src, lad) or ""
-for s in ("_k3_boost_crop(image_bgr)", "_k3_map_boxes(r0[0], pad, scale)",
-          "if not crop_mode:", '_K3_MODES = ("padandroid",)'):
+for s in ("_mt_boost_crop(image_bgr)", "_mt_map_boxes(r0[0], pad, scale)",
+          "if not crop_mode:", '_MT_MODES = ("padandroid",)'):
     if s not in lad_src:
         fail(f"نردبانِ 184 تغییر کرده: {s!r}")
 ok("تکپلهٔ 184 (تقویت → SDKِ رسمی → بازگشت) سرِ جایش")

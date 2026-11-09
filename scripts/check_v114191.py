@@ -126,7 +126,7 @@ try:
          "B: tiny=True (فلاتر-پدل) دستنخورده")
     os.environ["MANGA_OCR_DET_MEDIUM"] = "1"
     gate(f("en")[0] == "PP-OCRv6_medium_det_onnx.onnx",
-         "B: MANGA_OCR_DET_MEDIUM=1 → detِ mediumِ قبلی (K3) برمیگردد")
+         "B: MANGA_OCR_DET_MEDIUM=1 → detِ mediumِ قبلی (مرجع) برمیگردد")
     os.environ.pop("MANGA_OCR_DET_MEDIUM", None)
 except Exception as e:
     fail(f"B: تستِ جفتِ مدل: {e}")

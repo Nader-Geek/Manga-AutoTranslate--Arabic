@@ -6,9 +6,9 @@
 #     می‌شد → DFT/FFT با ۸ نخ = ۲.۶× کندتر!
 #   • تبدیل سریع تانسور ورودی (buffer-protocol → jarray؛ کپی خام به‌جای
 #     لیست‌سازی عنصربه‌عنصر) و خروجی (getFloatBuffer → numpy).
-# v3 — 1.14.18 (الگوی رقیب K3 v4.0.0):
+# v3 — 1.14.18 (الگوی رقیب v4.0.0):
 #   • پشتیبانی از موتورهای شتاب سخت‌افزاری ORT: XNNPACK (کرنل‌های ARM
-#     بهینه‌شده) + NNAPI (GPU/DSP/NPU اندروید) + WebGPU. APK رقیب K3
+#     بهینه‌شده) + NNAPI (GPU/DSP/NPU اندروید) + WebGPU. APK رقیب
 #     دیکد شد — libonnxruntime.so آن (ORT 1.28) دقیقاً همین EPها را
 #     دارد (NnapiExecutionProvider + WebGpuExecutionProvider +
 #     XnnpackExecutionProvider). ORT-android خود ما (1.31) هم دارد.
@@ -149,7 +149,7 @@ class SessionOptions:
 
 def get_available_providers():
     # 🎮 v3: EPهای سخت‌افزاری ORT-android (داخل AAR از قبل کامپایل شده‌اند؛
-    # همان‌هایی که APK رقیب K3 هم دارد). CPU همیشه هست.
+    # همان‌هایی که APK رقیب هم دارد). CPU همیشه هست.
     return ["CPUExecutionProvider", "XnnpackExecutionProvider",
             "NnapiExecutionProvider"]
 
@@ -401,7 +401,7 @@ def _node_info(info):
 
 def _apply_java_eps(jopt, sess_options):
     """🎮 v3: اعمال EPهای درخواستی روی SessionOptions جاوا.
-    XNNPACK: کرنل‌های ARM بهینه (dotprod) — مثل رقیب K3.
+    XNNPACK: کرنل‌های ARM بهینه (dotprod) — مثل رقیب.
     NNAPI: شتاب GPU/DSP/NPU اندروید. WebGPU: آزمایشی."""
     try:
         eps = list(getattr(sess_options, "_eps", []) or [])

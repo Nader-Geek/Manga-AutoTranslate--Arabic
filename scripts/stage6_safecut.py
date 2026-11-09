@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v1.14.246 — مرحله ۶: سرعتِ برشِ امن به سبکِ K3 (ManhwaSlicer.VerifyAndAdjustCutWithDetectorAsync)
+"""v1.14.246 — مرحله ۶: سرعتِ برشِ امن به سبکِ مرجع (ManhwaSlicer.راستیآزما/جابهجاییِ برش با تشخیصِ متن در مرجع)
 (۱) spans_ready: باندِ برش از قبل با کشِ دوطرفه/اسکنِ زنده پوشش داده شده → حذفِ تشخیصِ دومِ
     تمام‌عیار (قبلاً هر برش یک det.detectِ ~۱۵۰۰px با پاسِ چندمقیاسیِ کند میگرفت)؛
 (۲) مسیرِ تشخیصِ زنده fast=True (تک‌مقیاس — عینِ _scan_window)؛
@@ -51,7 +51,7 @@ rep(
     '                              min(ih, int(bottom) + 1 + edge_margin)))\n'
     '            spans.sort()',
     '            # v1.14.246 — سرعتِ برش به سبکِ مرجع (ManhwaSlicer.\n'
-    '            # VerifyAndAdjustCutWithDetectorAsync): (۱) باندِ برش از\n'
+    '            # راستیآزما/جابهجاییِ برش با تشخیصِ متن در مرجع): (۱) باندِ برش از\n'
     '            # قبل پوشش داده شده (کشِ دوطرفه یا اسکنِ زندهٔ _scan_band)\n'
     '            # → دیگر هیچ تشخیصِ دومی رویِ همان ناحیه اجرا نمیشود\n'
     '            # (قبلاً هر برش یک det.detectِ تمام‌عیارِ ~۱۵۰۰px با پاسِ\n'
@@ -89,7 +89,7 @@ rep(
     '            spans.sort()',
     'spans_ready branch + fast=True live path')
 
-# ── ۳) فیلترِ کاندیدها + جستجوی مارپیچِ K3 قبل از None ──
+# ── ۳) فیلترِ کاندیدها + جستجوی مارپیچِ مرجع قبل از None ──
 rep(
     '            if not cands:\n'
     '                return None\n'
@@ -110,7 +110,7 @@ rep(
     '                if y0 <= _yy <= y1 and not _hit_text(_yy):\n'
     '                    return _yy\n'
     '            return None',
-    'candidate filter + K3 spiral search')
+    'candidate filter + مرجع spiral search')
 
 # ── ۴) دو فراخوانِ _cut_and_emit → spans_ready=True ──
 rep(

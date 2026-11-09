@@ -95,10 +95,10 @@ if 'os.environ["MANGA_MOBILE_OCR_EP"]' in src:
 ok("EPِ موبایل بازنشسته — SDKِ رسمی رویِ CPU (بدونِ rapidocr_mobile)")
 
 # ۳) نردبانِ 184 — تکپلهٔ SDKِ رسمی (بدونِ آستانههایِ پلهای)
-lad = cls.get("K3LadderOCR")
+lad = cls.get("MtLadderOCR")
 lad_src = ast.get_source_segment(src, lad) or ""
-for s in ("_k3_boost_crop(image_bgr)", "_k3_map_boxes(r0[0], pad, scale)",
-          '_K3_MODES = ("padandroid",)'):
+for s in ("_mt_boost_crop(image_bgr)", "_mt_map_boxes(r0[0], pad, scale)",
+          '_MT_MODES = ("padandroid",)'):
     if s not in lad_src:
         fail(f"نردبانِ 184 تغییر کرده: {s!r}")
 rb = cls.get("RapidOCRBackend")

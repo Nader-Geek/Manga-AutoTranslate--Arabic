@@ -89,7 +89,7 @@ def _run_extract(rects):
     s.max_workers = 1
     s.min_confidence = 0.5
     s.ocr = None
-    s._k3_used = False
+    s._mt_used = False
     orig_ocr = manga.MangaTranslator._ocr_crop
     manga.MangaTranslator._ocr_crop = (
         lambda self, image_bgr, rect, block_rects=None:
@@ -205,9 +205,9 @@ else:
         pm3 = cv2.dilate(pm3, np.ones((7, 7), np.uint8)) > 0
         _med3 = float(np.median(g3[pm3]))
         _lite3 = pm3 & (np.abs(g3 - _med3) <= 14.0)
-        _dark3 = pm3 & (g3 < 150)
+        _dark_v3 = pm3 & (g3 < 150)
         cov_lite = float((m3 & _lite3).sum()) / max(1.0, float(_lite3.sum()))
-        cov_dark = float((m3 & _dark3).sum()) / max(1.0, float(_dark3.sum()))
+        cov_dark = float((m3 & _dark_v3).sum()) / max(1.0, float(_dark_v3.sum()))
         gate(f"جوهرِ تیره ۱۰۰٪ در کامپوز ({cov_dark:.2f})", cov_dark >= 0.99)
         gate(f"لبهٔ روشنِ چسبیده پوشش داده شد ({cov_lite:.2f} — قبل: فقط هسته)",
              cov_lite >= 0.70)

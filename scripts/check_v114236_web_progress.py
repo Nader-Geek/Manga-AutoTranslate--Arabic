@@ -145,7 +145,7 @@ def _mk_mt(keys, fail_times, ret_text="خلاصهٔ زمینهٔ داستان ب
 
 
 # سناریو A: ۳ کلید؛ اولی سهمیه دارد → دومی/سومی ادامه میدهند
-mtA, appliedA, callsA = _mk_mt(["K1", "K2", "K3"], fail_times=1)
+mtA, appliedA, callsA = _mk_mt(["K1", "K2", "مرجع"], fail_times=1)
 mtA._build_chapter_brief(["TEXT ONE", "TEXT TWO", "TEXT THREE"] * 3)
 check("A: بریف ساخته شد با شکستِ تلاشِ اول",
       mtA._chapter_brief == "خلاصهٔ زمینهٔ داستان برای مترجم.",
