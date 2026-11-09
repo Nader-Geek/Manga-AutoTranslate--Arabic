@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.242"
+APP_VER = "1.14.243"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1261,7 +1261,8 @@ def run_cli_interactive():
            "--batch-workers", str(int(cfg.get("batch_workers", 3))),
            "--max-retries", str(int(cfg.get("max_retries", 8))),
            "--request-delay", str(float(cfg.get("request_delay", 0))),
-           "--temperature", str(float(cfg.get("temperature", 0.6))),
+           "--temperature", str(float(cfg.get("temperature", 0.85))),  # مقدارِ خودِ سازنده (K3: 0.7)
+           "--top-p", str(float(cfg.get("top_p", 0.9))),  # v1.14.243 — K3 CustomTopP
            "--reading-order", str(cfg.get("reading_order", "rtl"))]
     cmd += font_args()
     klist = [k.strip() for k in (keys or "").replace(";", ",").split(",") if k.strip()]
@@ -2937,11 +2938,52 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                               step=1, label="حداکثر تلاش ترجمه")
                 reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
                                  step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
+            # v1.14.243 — دکمهٔ کم/زیاد temperature و top_p عینِ SettingsPageِ K3
+            # (CustomTemperature / CustomTopP). پیشفرضِ top_p = ۰.۹ (عینِ K3) ولی
+            # پیشفرضِ temperature = ۰.۸۵ = «مقدارِ دقیقِ خودِ سازنده» (دستور:
+            # temperature واسه من یک کم فرق داشته دقیق بزار). تایپِ دستیِ دقیق
+            # تا ۲ رقمِ اعشار + دکمهٔ ±۰.۰۵ تا هر مقدارِ دقیقِ دلخواه در دسترس باشد.
+            def _k3_step(v, d, lo, hi):
+                try:
+                    v = float(v)
+                except (TypeError, ValueError):
+                    v = lo
+                if v != v:  # NaN
+                    v = lo
+                return round(min(hi, max(lo, v + d)) + 1e-9, 2)
+
             with gr.Row():
-                temp = _safe(gr.Slider, 0, 1.5, value=float(cfg.get("temperature", 0.85)),
-                             step=0.05, label="خلاقیت ترجمه (temperature)")
+                with gr.Column(scale=1, min_width=150):
+                    temp = _safe(gr.Number, value=float(cfg.get("temperature", 0.85)),
+                                 minimum=0.0, maximum=2.0, precision=2, step=0.05,
+                                 label="Temperature (خلاقیت)")
+                    with gr.Row():
+                        temp_dn = _safe(gr.Button, "➖  کم", size="sm", scale=1,
+                                        elem_id="temp_dn")
+                        temp_up = _safe(gr.Button, "➕  زیاد", size="sm", scale=1,
+                                        elem_id="temp_up")
+                with gr.Column(scale=1, min_width=150):
+                    top_p = _safe(gr.Number, value=float(cfg.get("top_p", 0.9)),
+                                  minimum=0.05, maximum=1.0, precision=2, step=0.05,
+                                  label="Top P")
+                    with gr.Row():
+                        topp_dn = _safe(gr.Button, "➖  کم", size="sm", scale=1,
+                                        elem_id="topp_dn")
+                        topp_up = _safe(gr.Button, "➕  زیاد", size="sm", scale=1,
+                                        elem_id="topp_up")
                 readord = gr.Radio(["rtl", "ltr"], value=str(cfg.get("reading_order", "rtl")),
                                    label="ترتیب خواندن حباب‌ها")
+            try:
+                temp_dn.click(lambda v: gr.update(value=_k3_step(v, -0.05, 0.0, 1.5)),
+                              inputs=[temp], outputs=[temp])
+                temp_up.click(lambda v: gr.update(value=_k3_step(v, 0.05, 0.0, 1.5)),
+                              inputs=[temp], outputs=[temp])
+                topp_dn.click(lambda v: gr.update(value=_k3_step(v, -0.05, 0.1, 1.0)),
+                              inputs=[top_p], outputs=[top_p])
+                topp_up.click(lambda v: gr.update(value=_k3_step(v, 0.05, 0.1, 1.0)),
+                              inputs=[top_p], outputs=[top_p])
+            except Exception:
+                pass
             with gr.Row():
                 _cm0 = str(cfg.get("clean_method") or "lama-manga").strip()
                 if _cm0 not in ("lama-manga", "lama-big", "opencv"):
@@ -3604,7 +3646,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         browser_form_json = gr.State("")
 
         save_form_js = f"""
-(sid, sidBox, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord, cleanm, twopass, fake, cleano) => {{
+(sid, sidBox, inp, prov, keys, model, fmt, qual, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, topp, readord, cleanm, twopass, fake, cleano) => {{
   try {{
     const realSid = (sid || sidBox || "").toString().trim();
     const clean = (v) => {{
@@ -3626,6 +3668,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       maxre: maxre,
       reqdelay: reqdelay,
       temp: temp,
+      top_p: (topp === null || topp === undefined) ? 0.9 : topp,
       readord: readord || "",
       cleanm: clean(cleanm) || "lama-manga",
       twopass: twopass === null || twopass === undefined ? true : !!twopass,
@@ -4145,7 +4188,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             ocr_lang_v,
                             out_fmt_v, quality_v, font_up,
                             workers_v, bubbles_v, timeout_v,
-                            batchw_v, maxre_v, reqdelay_v, temp_v, readord_v,
+                            batchw_v, maxre_v, reqdelay_v, temp_v, top_p_v, readord_v,
                             clean_method_v, two_pass_v,
                             fake_test_v, clean_only_v, web_debug_v, prompt_mode_v, prompt_body_v,
                             glossary_text_v, api_base_v,
@@ -4342,6 +4385,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                    "--max-retries", str(int(maxre_v)),
                    "--request-delay", str(float(reqdelay_v)),
                    "--temperature", str(float(temp_v)),
+                   "--top-p", str(float(top_p_v if top_p_v not in (None, "") else 0.9)),  # v1.14.243 — K3
                    "--reading-order", str(readord_v)]
             if prov_s == "custom" and str(api_base_v or "").strip():
                 cmd += ["--api-base", str(api_base_v).strip()]
@@ -4968,7 +5012,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ("quality", quality), ("workers", workers),
             ("bubbles", bubbles), ("timeout", timeout),
             ("batchw", batchw), ("maxre", maxre),
-            ("reqdelay", reqdelay), ("temp", temp), ("readord", readord),
+            ("reqdelay", reqdelay), ("temp", temp), ("top_p", top_p), ("readord", readord),
             ("clean_method", clean_method), ("two_pass", two_pass),
             ("fake_test", fake_test), ("clean_only", clean_only),
             ("web_debug", web_debug), ("prompt_mode", prompt_mode),
@@ -5149,7 +5193,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     ocr_lang,
                     out_fmt, quality, font_upload,
                     workers, bubbles, timeout,
-                    batchw, maxre, reqdelay, temp, readord,
+                    batchw, maxre, reqdelay, temp, top_p, readord,
                     clean_method, two_pass,
                     fake_test, clean_only, web_debug, prompt_mode, prompt_preview_body,
                     glossary_text, api_base,
@@ -5202,7 +5246,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
         _save_inputs = [
             session_id, sid_box, inp_path, provider, api_keys, model, out_fmt, quality,
-            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
+            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, top_p, readord,
             clean_method, two_pass, fake_test, clean_only,
         ]
 
@@ -5233,7 +5277,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     _comp.blur(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
                 except Exception:
                     pass
-        for _comp in (quality, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
+        for _comp in (quality, workers, bubbles, timeout, batchw, maxre, reqdelay, temp, top_p, readord,
                       clean_method, two_pass, fake_test, clean_only):
             try:
                 _comp.change(fn=None, inputs=_save_inputs, outputs=[], js=save_form_js)
@@ -5378,6 +5422,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 u_num("maxre"),
                 u_num("reqdelay"),
                 u_num("temp"),
+                u_num("top_p"),
                 u_str("readord"),
                 u_cleanm(),
                 u_bool("twopass"),
@@ -5388,7 +5433,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         _restore_outputs = [
             session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
             inp_path, provider, api_keys, model, out_fmt, quality,
-            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, readord,
+            workers, bubbles, timeout, batchw, maxre, reqdelay, temp, top_p, readord,
             clean_method, two_pass, fake_test, clean_only,
         ]
 

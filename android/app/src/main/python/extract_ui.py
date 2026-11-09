@@ -430,6 +430,19 @@ def extract(path_or_source, is_source=False):
                 field["max"] = pos[1] if len(pos) > 1 else 100
                 st = _lit(kw.get("step"))
                 field["step"] = st or 1
+            if kind == "Number":
+                # v1.14.243 — temperature/top_p: فیلدِ عددیِ دارایِ step در
+                # اندروید دکمهٔ کم/زیادِ نیتیو میگیرد (عینِ SettingsPageِ K3)
+                mn = _lit(kw.get("minimum"))
+                mx = _lit(kw.get("maximum"))
+                stn = _lit(kw.get("step"))
+                if mn is not None:
+                    field["min"] = mn
+                if mx is not None:
+                    field["max"] = mx
+                if stn:
+                    field["step"] = stn
+                    field["stepper"] = True
             if kind == "File":
                 ft = _lit(kw.get("file_types"))
                 if ft:

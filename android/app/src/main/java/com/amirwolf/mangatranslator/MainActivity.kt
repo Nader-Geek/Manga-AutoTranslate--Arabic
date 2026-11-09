@@ -1885,7 +1885,7 @@ class MainActivity : AppCompatActivity() {
     private fun backupKeys(): List<String> = listOf(
         "provider", "api_base", "api_keys", "model", "ocr_lang", "out_fmt",
         "quality", "workers", "bubbles", "timeout", "batchw", "maxre",
-        "reqdelay", "temp", "readord", "clean_method", "two_pass",
+        "reqdelay", "temp", "top_p", "readord", "clean_method", "two_pass",
         "fake_test", "clean_only", "web_debug", "prompt_mode",
         "prompt_body", "glossary_text", "story_brief")
 
@@ -2178,7 +2178,10 @@ class MainActivity : AppCompatActivity() {
                     background = rounded(CARD2, 10, 1)
                     setPadding(dp(12), dp(11), dp(12), dp(11))
                     if (lines < 2 && (type == "password" || isSecret)) inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                    if (lines < 2 && type == "number") inputType = InputType.TYPE_CLASS_NUMBER
+                    // v1.14.243 — اعشار لازم است (temperature 0.7 / top_p 0.9)
+                    if (lines < 2 && type == "number")
+                        inputType = InputType.TYPE_CLASS_NUMBER or
+                                InputType.TYPE_NUMBER_FLAG_DECIMAL
                     // v1.14.192 — «قسمت لینک هردفعه وارد میشم null نشون میده
                     // با این که لینک نزدم»: defaultِ nullِ اسکیما (JSON null)
                     // از dflt?.toString() به رشتهٔ «null» تبدیل میشد و وقتی
@@ -2269,6 +2272,54 @@ class MainActivity : AppCompatActivity() {
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
                     row.addView(keyRow)
+                } else if (type == "number" && f.optDouble("step", 0.0) > 0.0) {
+                    // v1.14.243 — دکمهٔ کم/زیادِ نیتیو برایِ فیلدهایِ عددیِ stepper
+                    // (temperature/top_p — عینِ SettingsPageِ K3: − / + با گامِ
+                    // manifest و کلمپِ min..max؛ خودِ کادر هم تایپِ دقیق است).
+                    // مقدارِ پیشفرضِ عددی (0.7/0.9) هم اینجا در کادر مینشیند
+                    // (savedOr برایِ عدد Double برمیگرداند و setTextِ عادی
+                    // فقط رشته را میپذیرفت).
+                    val stepN = f.optDouble("step", 0.05)
+                    val minN = if (f.has("min")) f.optDouble("min", 0.0) else 0.0
+                    val maxN = if (f.has("max")) f.optDouble("max", 1.0) else 1.0
+                    fun fmtN(v: Double): String {
+                        val r = Math.round(v * 100.0) / 100.0
+                        return if (r == Math.floor(r)) r.toInt().toString()
+                        else String.format(java.util.Locale.US, "%.2f", r)
+                            .trimEnd('0').trimEnd('.')
+                    }
+                    fun curNum(): Double = et.text.toString().trim().toDoubleOrNull()
+                        ?: ((dflt as? Number)?.toDouble()
+                            ?: dflt?.toString()?.toDoubleOrNull() ?: minN)
+                    if (et.text.isBlank()) {
+                        et.setText(fmtN(curNum().coerceIn(minN, maxN)))
+                    }
+                    val numRow = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                    numRow.addView(et, LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    fun mkStepBtn(lblTxt: String, delta: Double) = Button(this).apply {
+                        text = lblTxt
+                        setTextColor(Color.WHITE); textSize = 17f
+                        background = rounded(CARD2, 10, 1, ACC)
+                        setPadding(dp(16), dp(10), dp(16), dp(10))
+                        stateListAnimator = null
+                        minWidth = 0; minimumWidth = 0
+                        setOnClickListener {
+                            val v = Math.round(
+                                (curNum() + delta).coerceIn(minN, maxN) * 100.0) / 100.0
+                            et.setText(fmtN(v))
+                        }
+                    }
+                    numRow.addView(mkStepBtn("−", -stepN), LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
+                    numRow.addView(mkStepBtn("+", stepN), LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
+                    row.addView(numRow)
                 } else {
                     row.addView(et)
                 }
@@ -2821,7 +2872,7 @@ class MainActivity : AppCompatActivity() {
         map.put("prompt_body", firstNonEmpty(o, "prompt_preview_body", "prompt_body") ?: "")
         map.put("story_brief", optBoolD(o, true, "story_brief"))
 
-        for (k in listOf("workers", "bubbles", "batchw", "timeout", "maxre", "reqdelay", "temp")) {
+        for (k in listOf("workers", "bubbles", "batchw", "timeout", "maxre", "reqdelay", "temp", "top_p")) {
             if (o.has(k) && !o.isNull(k)) map.put(k, o.get(k))
         }
         for ((id, v) in values) {

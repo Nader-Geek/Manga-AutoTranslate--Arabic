@@ -1093,7 +1093,9 @@ def _run(job):
                     api_timeout=_f("timeout", 40.0),
                     max_retries=_i("maxre", 8),
                     request_delay=_f("reqdelay", 0.0),
-                    translation_temperature=_f("temp", 0.85),
+                    translation_temperature=_f("temp", 0.85),  # مقدارِ دقیقِ خودِ سازنده (K3: 0.7)
+                    # v1.14.243 — K3: CustomTopP (پیشفرض 0.9) — از فرمِ اندروید
+                    translation_top_p=_f("top_p", 0.9),
                     img_quality=_i("quality", 92),
                     img_format=_resolve_img_format(p),
                     style_fonts=bool(active),

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.242"
+APP_VER = "1.14.243"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -7142,7 +7142,10 @@ class MangaTranslator:
         img_quality: int = 90,
         max_workers: int = 1,
         mag_ratio: float = 1.35,
-        translation_temperature: float = 0.7,  # v1.14.189 — کپچر: 0.7
+        translation_temperature: float = 0.85,  # مقدارِ دقیقِ خودِ سازنده (K3: 0.7)
+        # v1.14.243 — K3: CustomTopP (Preferences «CustomTopP» پیشفرض 0.9؛
+        # Math.Clamp(0..1)) — حالا مثلِ خودِ K3 از تنظیمات میآید نه هاردکد
+        translation_top_p: float = 0.9,
         two_pass_ocr: bool = True,
         max_output_width: Optional[int] = None,
         stitch_max_height: int = 0,
@@ -7291,7 +7294,15 @@ class MangaTranslator:
         self.img_quality = img_quality
         self.max_workers = max(1, int(max_workers))
         self.mag_ratio = mag_ratio
-        self.translation_temperature = translation_temperature
+        # v1.14.243 — clamp عینِ K3 (Math.Clamp(temperature 0..2, topP 0..1))
+        try:
+            self.translation_temperature = min(2.0, max(0.0, float(translation_temperature)))
+        except Exception:
+            self.translation_temperature = 0.85
+        try:
+            self.translation_top_p = min(1.0, max(0.0, float(translation_top_p)))
+        except Exception:
+            self.translation_top_p = 0.9
         self.two_pass_ocr = bool(two_pass_ocr)
         # v1.14.123 — پاسِ دومِ OCR رویِ اندروید هم مثلِ PC روشن است
         # (قبلاً کلاً خاموش بود → «کمتر استخراج شده»). خاموشیِ دستی:
@@ -25681,18 +25692,21 @@ class MangaTranslator:
                                *, structured: bool = True,
                                timeout: float = None,
                                on_item=None) -> str:
-        # v1.14.242 — سبکِ K3 (BuildGeminiPayloadTextOnly):
-        # temperature/topP: ۰.۷/۰.۹ — فقط gemini-3.6-flash استثناست (۰.۴/۰.۷)
+        # v1.14.243 — temperature/topP از تنظیماتِ کاربر (K3: CustomTemperature/
+        # CustomTopP). استثنایِ gemini-3.6-flash (۰.۴/۰.۷) عینِ K3 فقط وقتی
+        # کاربر پیشفرضها را دستنخورده گذاشته فعال میماند — اگر مقدارِ دلخواه
+        # گذاشته باشد «همان دقیق» فرستاده میشود (دستور: دقیق بزار).
         _g_temp = self.translation_temperature if structured else 0.2
-        _g_top_p = 0.9
-        if structured and "gemini-3.6-flash" in (self._thread_model() or ""):
+        _g_top_p = self.translation_top_p
+        if (structured and "gemini-3.6-flash" in (self._thread_model() or "")
+                and _g_temp == 0.85 and _g_top_p == 0.9):
             _g_temp, _g_top_p = 0.4, 0.7
         config_args = dict(
             system_instruction=system_instruction,
             temperature=_g_temp,
         )
         if structured:
-            config_args["top_p"] = _g_top_p  # v1.14.189 — کپچر: topP 0.9
+            config_args["top_p"] = _g_top_p  # v1.14.189 — کپچر: topP 0.9 (حالا از تنظیمات)
             # v1.14.196 — سبکِ K3: هر ۴ دستهٔ HARM = BLOCK_NONE تا یک حبابِ
             # حساس کلِ جواب را نسوزاند (تلاشهایِ تکراری و وقت هدر نمیرود)؛
             # مدلی که نپذیرد در مسیرِ خطا فلگ میشود و بدونِ آن ادامه میدهد.
@@ -25817,7 +25831,7 @@ class MangaTranslator:
                      else float(getattr(self, "api_timeout", 10.0) or 10.0)),
         )
         if structured:
-            kwargs["top_p"] = 0.9  # v1.14.189 — کپچر: topP 0.9
+            kwargs["top_p"] = self.translation_top_p  # v1.14.189 — کپچر: topP 0.9 (v1.14.243: از تنظیمات — K3 CustomTopP)
 
         if re.search(r"(?:^|/)(?:o[134](?:-|$)|gpt-5(?:-|$))", mlow):
             kwargs.pop("temperature", None)
@@ -25983,7 +25997,7 @@ class MangaTranslator:
             "system": system_instruction,
             "messages": [{"role": "user", "content": user_prompt}],
             "temperature": self.translation_temperature if structured else 0.2,
-            **({"top_p": 0.9} if structured else {}),  # v1.14.189
+            **({"top_p": self.translation_top_p} if structured else {}),  # v1.14.189 — v1.14.243: از تنظیمات
         }
         headers = {
             "x-api-key": key,
@@ -26017,7 +26031,7 @@ class MangaTranslator:
             "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
             "generationConfig": {
                 "temperature": self.translation_temperature if structured else 0.2,
-                **({"topP": 0.9} if structured else {}),  # v1.14.189
+                **({"topP": self.translation_top_p} if structured else {}),  # v1.14.189 — v1.14.243: از تنظیمات
             },
         }
         headers = {
@@ -35902,7 +35916,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="سبکِ پرامپت وقتی --instruction داده نشده: auto (پیشفرض؛ بر اساسِ "
                         "سرویس/مدل: غیرِ Gemini و مدلهایِ Lite → سبک، بقیه → حرفهای)، "
                         "professional (حرفهای انگلیسی)، lite (سبک انگلیسی)، classic (دستورِ فارسیِ قدیمی)")
-    p.add_argument("--temperature", type=float, default=0.7)  # v1.14.189
+    p.add_argument("--temperature", type=float, default=0.85)  # مقدارِ خودِ سازنده (K3: 0.7)
+    p.add_argument("--top-p", type=float, default=0.9)  # v1.14.243 — K3 CustomTopP
     p.add_argument(
         "--debug",
         action="store_true",
@@ -36035,6 +36050,7 @@ def main():
         mag_ratio=args.mag_ratio,
         two_pass_ocr=not args.no_two_pass_ocr,
         translation_temperature=args.temperature,
+        translation_top_p=getattr(args, "top_p", 0.9),  # v1.14.243 — K3
         max_output_width=(args.max_width or None),
         stitch_max_height=(8000 if getattr(args, "stitch_max_height", None) is None
                            else int(args.stitch_max_height)),
