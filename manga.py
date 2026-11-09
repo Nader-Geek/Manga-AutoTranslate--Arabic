@@ -1840,7 +1840,7 @@ PROVIDER_PRESETS = {
     },
     "ollama": {
         "type": "openai",
-        "base_url": "http://localhost:11434/v1",
+        "base_url": os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
         # Qwen2.5 follows JSON + Arabic well at 7B; for better quality try qwen2.5:14b
         "default_model": "qwen2.5:7b-instruct",
         "env_key": "OLLAMA_API_KEY",

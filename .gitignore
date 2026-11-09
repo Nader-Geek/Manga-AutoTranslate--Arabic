@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# bot runtime
+bot_work/
+bot/.env
