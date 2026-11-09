@@ -2801,51 +2801,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                               step=1, label="حداکثر تلاش ترجمه")
                 reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
                                  step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
-            # v1.14.244 — دکمهٔ کم/زیاد temperature و top_p عینِ صفحهٔ تنظیماتِ مرجع
-            # (دما / top_pِ قابلِ تنظیم: پیشفرضِ هر دو = ۰.۷/۰.۹؛ دکمههایِ
-            # کم/زیاد: temp ±۰.۱ با کلمپِ ۰..۱.۵، topP ±۰.۰۵ با کلمپِ ۰.۱..۱).
-            # تایپِ دستیِ دقیق تا ۲ رقمِ اعشار برایِ هر مقدارِ «دقیق» دلخواه.
-            def _mt_step(v, d, lo, hi):
-                try:
-                    v = float(v)
-                except (TypeError, ValueError):
-                    v = lo
-                if v != v:  # NaN
-                    v = lo
-                return round(min(hi, max(lo, v + d)) + 1e-9, 2)
-
+            # v1.14.253 — دستورِ سازنده: «دکمه‌های temperature و top p میخوام
+            # مثلِ بالایی باشه هم گوشی هم پی‌سی نه اون شکل» → همان
+            # gr.Sliderِ هموارِ شش اسلایدرِ بالای همین صفحه (ورکر/حباب/
+            # بسته/تایم‌اوت/…). دکمههایِ کم/زیاد و کادرِ عددی حذف شدند.
+            # اندروید: extract_ui همین Slider را به اسلایدرِ نیتیو (گامِ
+            # ۰.۰۵ — عینِ تأخیرِ ۰.۵) تبدیل میکند؛ وب: اسلایدرِ گرادیو.
             with gr.Row():
-                with gr.Column(scale=1, min_width=150):
-                    temp = _safe(gr.Number, value=float(cfg.get("temperature", 0.7)),
-                                 minimum=0.0, maximum=2.0, precision=2, step=0.05,
-                                 label="Temperature (خلاقیت)")
-                    with gr.Row():
-                        temp_dn = _safe(gr.Button, "➖  کم", size="sm", scale=1,
-                                        elem_id="temp_dn")
-                        temp_up = _safe(gr.Button, "➕  زیاد", size="sm", scale=1,
-                                        elem_id="temp_up")
-                with gr.Column(scale=1, min_width=150):
-                    top_p = _safe(gr.Number, value=float(cfg.get("top_p", 0.9)),
-                                  minimum=0.05, maximum=1.0, precision=2, step=0.05,
-                                  label="Top P")
-                    with gr.Row():
-                        topp_dn = _safe(gr.Button, "➖  کم", size="sm", scale=1,
-                                        elem_id="topp_dn")
-                        topp_up = _safe(gr.Button, "➕  زیاد", size="sm", scale=1,
-                                        elem_id="topp_up")
+                temp = _safe(gr.Slider, 0.0, 1.5,
+                             value=float(cfg.get("temperature", 0.7)),
+                             step=0.05, label="Temperature (خلاقیت)")
+                top_p = _safe(gr.Slider, 0.1, 1.0,
+                              value=float(cfg.get("top_p", 0.9)),
+                              step=0.05, label="Top P")
                 readord = gr.Radio(["rtl", "ltr"], value=str(cfg.get("reading_order", "rtl")),
                                    label="ترتیب خواندن حباب‌ها")
-            try:
-                temp_dn.click(lambda v: gr.update(value=_mt_step(v, -0.05, 0.0, 1.5)),
-                              inputs=[temp], outputs=[temp])
-                temp_up.click(lambda v: gr.update(value=_mt_step(v, 0.05, 0.0, 1.5)),
-                              inputs=[temp], outputs=[temp])
-                topp_dn.click(lambda v: gr.update(value=_mt_step(v, -0.05, 0.1, 1.0)),
-                              inputs=[top_p], outputs=[top_p])
-                topp_up.click(lambda v: gr.update(value=_mt_step(v, 0.05, 0.1, 1.0)),
-                              inputs=[top_p], outputs=[top_p])
-            except Exception:
-                pass
             with gr.Row():
                 _cm0 = str(cfg.get("clean_method") or "lama-manga").strip()
                 if _cm0 not in ("lama-manga", "lama-big", "opencv"):

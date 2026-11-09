@@ -87,38 +87,12 @@ def health():
     lines = []
     ok = True
 
-    lines.append("📋 وضعیت فایل‌های موتور (updates):")
-    for n in _ENGINE_FILES:
-        p = os.path.join(upd, n)
-        if not os.path.isfile(p):
-            lines.append("  • %s — نیست (از داخل APK استفاده می‌شود)" % n)
-            continue
-        size = os.path.getsize(p)
-        if size < 1000:
-            ok = False
-            lines.append("  • %s — ❌ خراب (فقط %d بایت)" % (n, size))
-            continue
-        err = _syntax_check(p)
-        if err:
-            ok = False
-            lines.append("  • %s — ❌ %s" % (n, err))
-        else:
-            lines.append("  • %s — ✔ سالم (%.1f KB)" % (n, size / 1024.0))
-
-    # v1.14.251 — موتور پلاگینی است: بدنه از manga_sections/ میآید
-    sec_dir = os.path.join(upd, "manga_sections")
-    if os.path.isdir(sec_dir):
-        n_sec = len([x for x in os.listdir(sec_dir) if x.endswith(".py")])
-        lines.append("  • manga_sections/ — %d فایلِ بخش" % n_sec)
-        if n_sec < 5:
-            ok = False
-            lines.append("  • manga_sections/ — ❌ ناقص (حداقل ۱۳ فایل لازم است)")
-    else:
-        ok = False
-        lines.append("  • manga_sections/ — ❌ نیست (لودر بدونِ آن اجرا نمیشود)")
-
+    # v1.14.253 — اول import (لودرِ v1.14.253+ خودش بخشهایِ غایب را
+    # دانلود میکند — خودترمیمی)؛ بعد وضعیتِ فایلها را فهرست کن تا
+    # نتیجهٔ ترمیم هم در همین گزارش دیده شود.
     culprit = None
     tb_full = ""
+    sections_err = False
     try:
         import manga
         lines.append("📥 import manga.py — ✔ موفق")
@@ -126,6 +100,7 @@ def health():
         ok = False
         tb_full = traceback.format_exc()
         culprit = _find_culprit(tb_full)
+        sections_err = ("manga_sections" in tb_full)
         lines.append("📥 import manga.py — ❌ خطا:")
         lines.append("```")
         lines.append(tb_full.strip()[-2500:])
@@ -144,10 +119,54 @@ def health():
         lines.append("```")
         lines.append("👉 فایل مقصر: %s" % (culprit2 or "نامشخص"))
 
+    lines.append("📋 وضعیت فایل‌های موتور (updates):")
+    for n in _ENGINE_FILES:
+        p = os.path.join(upd, n)
+        if not os.path.isfile(p):
+            lines.append("  • %s — نیست (از داخل APK استفاده می‌شود)" % n)
+            continue
+        size = os.path.getsize(p)
+        if size < 1000:
+            ok = False
+            lines.append("  • %s — ❌ خراب (فقط %d بایت)" % (n, size))
+            continue
+        err = _syntax_check(p)
+        if err:
+            ok = False
+            lines.append("  • %s — ❌ %s" % (n, err))
+        else:
+            lines.append("  • %s — ✔ سالم (%.1f KB)" % (n, size / 1024.0))
+
+    # v1.14.251 — موتور پلاگینی است: بدنه از manga_sections/ میآید.
+    # v1.14.253 — «نیست» دیگر فوراً ❌ نیست: لودر خودش دانلودش میکند؛
+    # فقط وقتی خطا داریم که import هم واقعا شکست خورده باشد.
+    sec_dir = os.path.join(upd, "manga_sections")
+    if os.path.isdir(sec_dir):
+        n_sec = len([x for x in os.listdir(sec_dir) if x.endswith(".py")])
+        lines.append("  • manga_sections/ — %d فایلِ بخش" % n_sec)
+        if n_sec < 5:
+            ok = False
+            lines.append("  • manga_sections/ — ❌ ناقص (حداقل ۱۳ فایل لازم است)")
+    elif sections_err:
+        ok = False
+        lines.append("  • manga_sections/ — ❌ نیست (دانلودِ خودترمیم هم "
+                     "ناموفق بود — اینترنت وصل است؟)")
+    else:
+        lines.append("  • manga_sections/ — نیست (لودرِ جدید خودش "
+                     "دانلودش میکند)")
+
     if ok:
         lines.insert(0, "✅ موتور سالم است.")
         lines.append("💡 اگر باز هم خطا گرفتی، متن کامل خطای زمان اجرا در همین "
                      "کادر لاگ، موقع شروع ترجمه نمایش داده می‌شود.")
+    elif sections_err:
+        # v1.14.253 — توصیهٔ «Clear Data» برایِ نبودِ بخشها «مضر» بود:
+        # داده‌ها را پاک میکند و همان وضعیتِ شکسته را دوباره میسازد.
+        lines.insert(0, "❌ بخشهایِ موتور (manga_sections/) دانلود نشده‌اند.")
+        lines.append("🔧 راه‌حل: اینترنت را وصل کن و اپ را ببند و دوباره باز "
+                     "کن — موتور (v1.14.253+) بخشها را خودش دانلود "
+                     "میکند و چند لحظه بعد دوباره همین تست را بزن. "
+                     "«Clear Data» نزن — لازم نیست و کمک هم نمیکند.")
     else:
         lines.insert(0, "❌ موتور خرابه — دقیقاً این‌جا:")
         lines.append("🔧 راه‌حل سریع: تنظیمات اپ → پاک‌کردن داده اپ (Clear Data) "

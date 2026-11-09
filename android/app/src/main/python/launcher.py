@@ -143,7 +143,14 @@ def _update_engine_sections(upd_dir, engine_ver):
     فایلهایِ فهرستشده را در updates/manga_sections/ میگذارد. فقط وقتی
     دانلود میکند که نسخهٔ مهرشده با نسخهٔ موتورِ دانلودشده فرق کند
     (هر تغییرِ موتور با بامپِ APP_VER همراه است). فایلهایِ زامبیِ
-    آپدیتِ قبلی هم پاک میشوند تا لودر فایلِ تکراری/مرده نبیند."""
+    آپدیتِ قبلی هم پاک میشوند تا لودر فایلِ تکراری/مرده نبیند.
+
+    v1.14.253 — (۱) همهٔ فایلها اول stage میشوند و فقط بعد ازِ موفقیتِ
+    «همه» commit (00_base.py آخر) — شکستِ وسطِ راه دیگر نسخهٔ مخلوط
+    نمیگذارد؛ (۲) خودِ MANIFEST هم ذخیره میشود تا لودر (که مسیرِ
+    تازهسازیِ خودش را از رویِ MANIFEST میفهمد) زنده بماند؛ (۳) این
+    تابع حالا «قبل از» نصبِ manga.py صدا زده میشود تا پنجرهٔ شکستهٔ
+    «لودر نصب شد ولی بخشها هنوز نرسیده» اصلا باز نشود."""
     sec_dir = os.path.join(upd_dir, "manga_sections")
     stamp = os.path.join(upd_dir, ".ver_manga_sections")
     if engine_ver and engine_ver != "0":
@@ -153,8 +160,9 @@ def _update_engine_sections(upd_dir, engine_ver):
                     return  # همگام است — دانلودی لازم نیست
         except Exception:
             pass
-    elif os.path.isdir(sec_dir):
-        return  # نسخهٔ موتور نامعلوم و پوشهٔ بخشها هست — دست نزن
+    elif os.path.isdir(sec_dir) and any(
+            n.endswith(".py") for n in os.listdir(sec_dir)):
+        return  # نسخهٔ موتور نامعلوم و پوشهٔ بخشها پر است — دست نزن
     man = _fetch_mirrors("manga_sections/MANIFEST", min_size=8, timeout=12)
     names = [ln.strip() for ln in man.decode("utf-8", "ignore").split("\n")
              if ln.strip() and not ln.strip().startswith("#")
@@ -162,16 +170,38 @@ def _update_engine_sections(upd_dir, engine_ver):
     if not names:
         _log("MANIFEST خالی بود — بخشها دستنخورده ماندند.")
         return
+    names = [os.path.basename(n) for n in names]
     os.makedirs(sec_dir, exist_ok=True)
+    # مرحلهٔ stage: همه را بگیر؛ هر کدام شکست خورد → هیچ کدام نصب نمیشود
+    staged = []
     for n in names:
         try:
             data = _fetch_mirrors("manga_sections/" + n, min_size=64)
             with open(os.path.join(sec_dir, n + ".new"), "wb") as f:
                 f.write(data)
-            os.replace(os.path.join(sec_dir, n + ".new"),
-                       os.path.join(sec_dir, n))
+            staged.append(n)
         except Exception as e:
             _log("بخش %s ناموفق: %s" % (n, str(e)[:60]))
+            for s in staged:
+                try:
+                    os.remove(os.path.join(sec_dir, s + ".new"))
+                except Exception:
+                    pass
+            return
+    # commit: MANIFEST اول (سفیدنامه)، 00_base.py آخر (نشانگرِ نسخه)
+    try:
+        with open(os.path.join(sec_dir, "MANIFEST.new"), "wb") as f:
+            f.write(man)
+        os.replace(os.path.join(sec_dir, "MANIFEST.new"),
+                   os.path.join(sec_dir, "MANIFEST"))
+    except Exception:
+        pass
+    ordered = [n for n in staged if n != "00_base.py"]
+    if "00_base.py" in staged:
+        ordered.append("00_base.py")
+    for n in ordered:
+        os.replace(os.path.join(sec_dir, n + ".new"),
+                   os.path.join(sec_dir, n))
     # زامبیها: فایلهایِ عددیِ خارج از MANIFESTِ جدید
     for n in os.listdir(sec_dir):
         if n.endswith(".py") and n[:1].isdigit() and n not in names:
@@ -214,14 +244,13 @@ def apply_updates(files_dir):
                 _log("منبع %s برای %s جواب نداد: %s" % (host, name, str(e)[:60]))
         raise last_err if last_err else RuntimeError("همهٔ منابع ناموفق")
 
+    # ── فاز ۱: دانلود (هنوز نصب نکن) ─────────────────────────────────
+    # v1.14.253 — نسخهٔ موتور از «دادهٔ دانلودشده» خوانده میشود؛ قبلاً از
+    # manga.py.newِ «هنوزدانلودنشده» میخواندند → همیشه None → بخشها هرگز
+    # با تغییرِ نسخه همگام نمیشدند (گوشی رویِ بخشهایِ کهنه گیر میکرد).
+    downloads = {}
     for name in _UPDATE_FILES:
         new_p = os.path.join(upd_dir, name + ".new")
-        if name == "manga.py":
-            try:
-                engine_remote_ver = _read_ver_from_str(
-                    open(new_p, "rb").read(8192).decode("utf-8", "ignore"))
-            except Exception:
-                pass
         try:
             data = _download(name, new_p)
         except Exception as e:
@@ -235,6 +264,26 @@ def apply_updates(files_dir):
         try:
             remote_ver = _read_ver_from_str(
                 data.decode("utf-8", "ignore")[:8192])
+        except Exception:
+            remote_ver = "0"
+        downloads[name] = (data, remote_ver)
+        if name == "manga.py" and remote_ver != "0":
+            engine_remote_ver = remote_ver
+
+    # ── فاز ۱٫۵: بخشهایِ پلاگینی «قبل از» نصبِ لودرِ جدید ─────────────
+    # تا بینِ نصبِ manga.py و رسیدنِ بخشها موتورِ بی‌بدنه نبینیم.
+    try:
+        _update_engine_sections(upd_dir, engine_remote_ver)
+    except Exception:
+        traceback.print_exc()
+
+    # ── فاز ۲: نصب (مقایسهٔ نسخه/هش — عینِ قبل) ────────────────────────
+    for name in _UPDATE_FILES:
+        if name not in downloads:
+            continue
+        data, remote_ver = downloads[name]
+        new_p = os.path.join(upd_dir, name + ".new")
+        try:
             cur = _file_ver(upd_dir, name)
             if cur == "0":
                 cur = _local_ver(files_dir, name)
@@ -268,11 +317,6 @@ def apply_updates(files_dir):
         except Exception:
             traceback.print_exc()
 
-    # v1.14.251 — بخشهایِ پلاگینیِ موتور: همراهِ آپدیتِ موتور همگام شوند
-    try:
-        _update_engine_sections(upd_dir, engine_remote_ver)
-    except Exception:
-        traceback.print_exc()
     return upd_dir
 
 

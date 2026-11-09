@@ -3007,6 +3007,13 @@ def _latin_junk_line188(text, region_has_letters: Optional[bool] = None):
         # بی‌حرفِ کوتاه (H/، ؟!) در ناحیهٔ حرف‌دار هنوز آشغال است.
         if region_has_letters is False:
             return False
+        # v1.14.253 — هر خطِ «دارایِ رقم» محتواست، حتی با نقطه/ویرگولِ
+        # چسبیده: «.85» (شمارهٔ صفحهٔ img7 روی گوشی — det جعبهٔ عدد و
+        # تیتر را یکی دیده بود، خطِ «.85» میافتاد ولی ناحیه پاک میشد =
+        # «میپاکید ولی نمیخواند»). عدد همیشه خوانده میشود؛ فقط خطِ
+        # بی‌رقمِ بیحرفِ کوتاه (سمبلِ خاموش) آشغال است.
+        if re.search(r"\d", s):
+            return False
         if re.fullmatch(
                 r"[\d\u06F0-\u06F9\u0660-\u0669]"
                 r"[\d\u06F0-\u06F9\u0660-\u0669\s.,:'\-]*", s):
@@ -3027,6 +3034,13 @@ def _latin_junk_line188(text, region_has_letters: Optional[bool] = None):
     if all(len(t) <= 2 for t in toks):
         _vow = "AEIOUaeiou"
         if not any(any(c in _vow for c in t) for t in toks):
+            # v1.14.253 — در ناحیهٔ بیحرف خط نباید بیفتد: «2B» /
+            # «10,000G» (پسوندِ واحد — source_has_letters آنها را
+            # بیحرف میشمارد) باید بمانند تا ناحیه no_touch230 شود و
+            # دست‌نخورده بماند؛ در ناحیهٔ حرف‌دار همان آشغالِ
+            # قبلی است («FL»، «SS» — خوانشِ غلطِ هنر).
+            if region_has_letters is False:
+                return False
             return True
     return False
 
