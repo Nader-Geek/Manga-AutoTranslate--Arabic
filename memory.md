@@ -10,7 +10,7 @@
 
 - **مالکِ ریپو:** امیر (`amirwolf512k`) — فارسی‌زبان. لحنِ گزارش: فارسی، ساده، بدونِ کلمهٔ نجنبه.
 - **ریپو:** `https://github.com/amirwolf512k/Manga-AutoTranslate` — شاخهٔ کاری: **`main`** (شاخهٔ قدیمی `mail` حذف شده). شاخه‌های دیگر: `aaa`، `speed2` (تاریخیِ کمپین سرعت)، `speed-opt`، `pr1`، `fast3`، `v1.14.98-bea6516` (نسخهٔ موازیِ حفظ‌شده). **موضعِ فعلی: `main` = df55e0c = v1.14.99-speed** (جزئیات → راند ۱۶ در پایین همین فایل).
-- **موتور:** `manga.py` (~۲۳.۴هزار خط) — تشخیص حباب (RT-DETR ONNX) + OCR (ML Kit اندروید / RapidOCR) + ترجمه (APIهای مختلف) + پاکسازی (LaMa-Manga ONNX / OpenCV) + رندر فارسی.
+- **موتور:** `manga.py` (~۳۵ هزار خط — از v1.14.250 «ساخته‌شده» از ۲۵ فایلِ موضوعی در `manga_sections/` با `scripts/build_manga.py`؛ ویرایش فقط در بخشها، نه خودِ manga.py) — تشخیص حباب (RT-DETR ONNX) + OCR (ML Kit اندروید / RapidOCR) + ترجمه (APIهای مختلف) + پاکسازی (LaMa-Manga ONNX / OpenCV) + رندر فارسی.
 - **اپ اندروید:** پوشهٔ `android/` — نسخه در `VERSION` (`versionCode` + `versionName` + لینک‌های APK).
 - **گوشیِ تستِ کاربر:** POCO F4 — **arm64 (aarch64)، Snapdragon 870، ۸ هسته، رم کل ~۵.۵GB (آزاد موقعِ کار گاهی فقط ۰.۶GB!)** — GPU در دسترسِ اپ نیست؛ همه‌چیز روی CPU.
 - **سلیقه‌های قطعیِ کاربر:**
@@ -56,6 +56,14 @@
 ---
 
 ## ۳) تاریخچهٔ نسخه‌ها (خلاصه)
+
+### v1.14.250 (versionCode=254) — فیکسِ ارورِ ۲۸/۲۷ ری‌استور + تجزیهٔ manga.py به manga_sections/ (۲۰۲۶-۱۱-۱۰)
+- **فیکس:** شاخهٔ خالیِ `_apply_browser_restore` در manga_app.py هنگامِ نبودِ sid برمی‌گشت `(gr.update(),) * 27` ولی `_restore_outputs` ۲۸ مؤلفه دارد (v1.14.236+) → ارورِ گریدیو «didn't return enough output values (needed: 28, returned: 27)» موقعِ لودِ صفحه → `* 28`.
+- **ماژولارسازی (دستور: «manga.py بخش بخش جدا کنی هرچیز یک فایل باشه تو یک پوشه… همشو هم manga.py بخونه»):** منبعِ اصلیِ کد از این نسخه پوشهٔ `manga_sections/` است (۲۵ فایل: 00_header، 10_prompts، 20_install، 30_stop_state، 40_ort_hardware، 50_lama، 60_detector، 70_models، 80_ocr، 90_api، 95_text_utils، 100..220 = ۱۳ قطعهٔ کلاسِ MangaTranslator، 300_cli). `scripts/build_manga.py` آنها را به همان manga.pyیِ تکفایلی میچسباند (با `--check` برای CI). 
+- **چرا تک‌فایل ماند:** آپدیترِ خودکار (UPDATE_FILES)، لانچرِ اندروید (_UPDATE_FILES) و APK همه فقط یک فایلِ manga.py دانلود/باندل میکنند — لودرِ پوشه‌ای همهٔ نصبهایِ قدیمی را می‌شکست.
+- **بدون تغییرِ رفتار:** برشِ بایت‌دقیق در مرزهای def/متد؛ سربرگها/کلاسِ پوششی داخلِ `# BUILD-STRIP-START/END`؛ خروجیِ بیلد قبل از بنرِ نسخه با `cmp` بایت‌به‌بایت با فایلِ قبلی یکسان بود؛ هر ۲۵ فایل standalone قابلِ py_compile.
+- **نگهبانها:** `build --check` + `manga_build_stale()` در manga_app.py (اگر بخشها از manga.py جدیدتر باشند، هشدارِ «بیلد کن» — فقط محیطِ توسعه).
+- ⚠️ **قانونِ طلایی از این نسخه:** هر تغییری در موتور → فایلِ مربوطه در `manga_sections/` را ویرایش کن → `python scripts/build_manga.py` → بعد تست/کامیت. manga.py را مستقیم دست نزن (بنرش هم میگوید).
 
 ### v1.14.230 (versionCode=234) — «تک‌پاسِ OCR» + دست‌نخوردگیِ عدد/نماد + GPU شفاف + ترتیبِ دو فصل + لیستِ Gemini واقعی + نجاتِ ±۹۰° (2026-11-08)
 

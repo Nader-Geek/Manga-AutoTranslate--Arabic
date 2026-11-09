@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ⚠️ این فایل بهصورتِ خودکار ساخته شده — «scripts/build_manga.py»
+# (از v1.14.250 منبعِ اصلیِ کد، فایلهایِ پوشهٔ manga_sections/ است؛
+# این فایل را مستقیم ویرایش نکنید — برایِ ساختِ دوباره: python scripts/build_manga.py)
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.249"
+APP_VER = "1.14.250"
 
 # v1.14.246 — پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
@@ -766,7 +769,6 @@ import random
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont
-
 REQUEST_STOP = False
 
 

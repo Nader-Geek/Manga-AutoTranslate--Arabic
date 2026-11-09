@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.249"
+APP_VER = "1.14.250"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -989,6 +989,36 @@ MANGA_MIXED_MSG = (
     "❌ فایل manga.py کنار برنامه، فایل «مترجم» نیست — کد خود برنامه داخلش ذخیره شده\\n"
     "(احتمالاً manga_app.py را با نام manga.py ذخیره کرده‌اید).\\n"
     "فایل manga.py اصلی (مترجم) را کنار manga_app.py بگذارید و دوباره اجرا کنید."
+)
+
+
+def manga_build_stale() -> bool:
+    """v1.14.250 — چکِ تازگیِ بیلد (فقط محیطِ توسعه):
+    اگر پوشهٔ manga_sections/ کنار برنامه باشد (ریپویِ کامل)، بررسی
+    میکند که manga.py بعد از آخرین ویرایشِ بخشها ساخته شده باشد.
+    روی سیستمِ کاربرِ نهایی این پوشه نیست → همیشه False و بی‌هزینه."""
+    try:
+        sec_dir = os.path.join(HERE, "manga_sections")
+        if not os.path.isdir(sec_dir):
+            return False
+        mp = os.path.join(HERE, "manga.py")
+        if not os.path.isfile(mp):
+            return False
+        built = os.path.getmtime(mp)
+        newest = 0.0
+        for name in os.listdir(sec_dir):
+            if name.endswith(".py"):
+                newest = max(newest,
+                             os.path.getmtime(os.path.join(sec_dir, name)))
+        return newest > built + 1.0
+    except Exception:
+        return False
+
+
+MANGA_BUILD_STALE_MSG = (
+    "⚠️  فایلهایِ manga_sections/ از manga.py جدیدترند — تغییرات هنوز"
+    "    در manga.py بیلد نشدهاند. قبل از تست/کامیت اجرا کن: "
+    "python scripts/build_manga.py"
 )
 
 
@@ -5105,7 +5135,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             else:
                 sid = ""
             if not sid:
-                return (gr.update(),) * 27
+                # v1.14.250 — فیکسِ ارورِ «needed: 28, returned: 27»:
+                # _restore_outputs از v1.14.236 بیست‌وهشت مؤلفه دارد
+                # (session_id, sid_box, run_btn, log_box, dl_btn, btn_view,
+                # result_group, viewer_html, html_state + ۱۹ فیلدِ فرم)
+                # ولی این شاخهٔ خالی هنوز ۲۷تایی بود.
+                return (gr.update(),) * 28
             job = _get_job(sid)
             meta = _load_job_meta(sid) if sid else {}
             
@@ -5980,6 +6015,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
 def main():
     ensure_dirs()
+    if manga_build_stale():
+        print(MANGA_BUILD_STALE_MSG)
     args = sys.argv[1:]
 
     if not any(a in ("--web", "-h", "--help") for a in args):

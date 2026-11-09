@@ -1,0 +1,4381 @@
+# BUILD-STRIP-START
+# ─────────────────────────────────────────────────────────────
+# ⚠️ MangaTranslator (۹ از ۱۳) — استخراجِ متن: اسکیو، _ocr_crop_run، ادغام/شکستنِ نواحی، SFX، extract_regions_phase، process_core
+# این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
+# اجرا نمیشود — scripts/build_manga.py این محتوا را بههمان ترتیبِ
+# شمارهٔ فایل، داخلِ کلاس در manga.py میچسباند. کلاسِ پوششیِ زیر فقط
+# برای معتبر بودنِ سینتکسِ این فایلِ تکی است و موقعِ بیلد حذف میشود.
+class _MangaTranslatorBody_180:
+# BUILD-STRIP-END
+    @staticmethod
+    def _estimate_skew_angle(crop_bgr: np.ndarray) -> float:
+
+
+        try:
+            g = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+            med = float(np.median(g))
+            ink = (g < max(60, med - 45)).astype(np.uint8) * 255
+            ink = cv2.dilate(ink, np.ones((3, 3), np.uint8), iterations=2)
+            n, lab, st, _ = cv2.connectedComponentsWithStats(ink, connectivity=8)
+            crop_area = float(max(1, crop_bgr.shape[0] * crop_bgr.shape[1]))
+            angs: List[float] = []
+            for i in range(1, n):
+                a = int(st[i, cv2.CC_STAT_AREA])
+                bw = int(st[i, cv2.CC_STAT_WIDTH])
+                bh = int(st[i, cv2.CC_STAT_HEIGHT])
+                if a < 150 or max(bw, bh) < 40:
+                    continue
+
+                if max(bw, bh) < 2.0 * max(1, min(bw, bh)):
+                    continue
+                if a > 0.5 * crop_area:
+                    continue
+                pts = np.column_stack(np.where(lab == i))[:, ::-1].astype(np.float32)
+                rect = cv2.minAreaRect(pts)
+                box = cv2.boxPoints(rect)
+                best_a, best_len = 0.0, 0.0
+                for k in range(4):
+                    p0, p1 = box[k], box[(k + 1) % 4]
+                    dx, dy = float(p1[0] - p0[0]), float(p1[1] - p0[1])
+                    ln = float(np.hypot(dx, dy))
+                    if ln > best_len:
+                        best_len = ln
+                        if dx < 0.0:
+                            dx, dy = -dx, -dy
+                        best_a = float(np.degrees(np.arctan2(dy, dx)))
+                if best_a > 90:
+                    best_a -= 180.0
+                elif best_a < -90:
+                    best_a += 180.0
+                if abs(best_a) <= 45:
+                    angs.append(best_a)
+            if not angs:
+                return 0.0
+            return float(np.median(angs))
+        except Exception:
+            return 0.0
+
+    # ──────────────────────────────────────────────────────────────────────
+    # v1.14.31: تشخیص «پنجرهٔ سیستم» (System Window / Quest / INFO …) از
+    # نشانه‌های متنی — براکت [ ] ، دونقطه، کلیدواژه و فاصلهٔ خط‌ها — برای
+    # همهٔ زبان‌ها: انگلیسی، ژاپنی، کره‌ای، چینی. هر خط جدا ترجمه و با
+    # فونت مخصوص سیستم رندر می‌شود (خواستهٔ کاربر).
+    # ──────────────────────────────────────────────────────────────────────
+    _SYSTEM_KEYWORDS = (
+        # انگلیسی
+        "system", "info", "information", "quest", "mission", "level", "status",
+        "window", "menu", "alert", "notice", "warning", "shop", "store",
+        "skill", "inventory", "reward", "daily", "weekly", "tutorial",
+        "settings", "objective", "complete", "completed", "failed", "bonus",
+        "achievement", "notification", "loading", "confirm", "cancel",
+        "accept", "decline", "points", "exp", "time left", "countdown",
+        "timer", "update", "guild", "dungeon", "penalty", "runaway",
+        # ژاپنی
+        "システム", "情報", "インフォ", "クエスト", "ミッション", "レベル",
+        "ステータス", "警告", "注意", "通知", "ショップ", "商店", "アイテム",
+        "報酬", "デイリー", "ウィークリー", "達成", "実績", "完了", "失敗",
+        "確認", "キャンセル", "設定", "スキル", "経験値", "所持", "メニュー",
+        "討伐", "侵入", "準備",
+        # کره‌ای
+        "시스템", "정보", "퀘스트", "미션", "레벨", "상태", "경고", "알림",
+        "상점", "아이템", "보상", "일일", "주간", "업적", "완료", "실패",
+        "확인", "취소", "설정", "스킬", "경험치", "메뉴", "공지",
+        # چینی
+        "系统", "信息", "任务", "等级", "状态", "警告", "提醒", "通知", "商店",
+        "道具", "奖励", "日常", "每周", "成就", "完成", "失败", "确认", "取消",
+        "设置", "技能", "经验", "公告", "菜单", "副本", "公会",
+    )
+
+    @staticmethod
+    def _system_window_score(text: str, line_texts, line_polys, rect) -> int:
+        """امتیاز ۰..۱۲ برای «پنجرهٔ سیستم» از نشانه‌های متنی/هندسی.
+        ≥۵ → پنجرهٔ سیستم: خط‌ها جدا و با فونت سیستم رندر می‌شوند."""
+        try:
+            t = str(text or "").strip()
+            if not t:
+                return 0
+            lines = [str(l or "").strip() for l in (line_texts or [])
+                     if str(l or "").strip()]
+            if not lines:
+                lines = [p for p in re.split(r"[\n]+", t) if p.strip()]
+            n = len(lines)
+            if n <= 0:
+                return 0
+            score = 0
+            # ۱) براکتِ سرصفحه — قوی‌ترین نشانه ([ Daily Quest ] / 【】)
+            if re.search(r"[\[\u3010][^\]\u3011\n]{1,48}[\]\u3011]", t):
+                score += 3
+            # ۲) کلیدواژه‌های سیستم (چهار زبان — لاتین با مرزِ کلمه)
+            kw = MangaTranslator._sys_keyword_hits(lines)
+            if kw >= 1:
+                score += 2
+            if kw >= 3:
+                score += 1
+            # ۳) دونقطه‌های لیبل (HP: 120 / TIME : 05:00)
+            colons = sum(l.count(":") + l.count("\uff1a") + l.count("\uff1d")
+                         for l in lines)
+            if colons >= 2:
+                score += 2
+            # ۴) یکنواختی طول خط‌ها — ترازِ متنِ پنجره (فاصلهٔ متن‌ها)
+            lens = [len(l) for l in lines]
+            if n >= 3 and max(lens) - min(lens) <= max(6, int(0.35 * max(lens))):
+                score += 2
+            # ۵) فاصلهٔ عمودی باز بین خط‌ها — تایپوگرافی UI
+            if line_polys and len(line_polys) >= 3:
+                try:
+                    tops, hts = [], []
+                    for _p in line_polys:
+                        _a = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                        tops.append(float(_a[:, 1].min()))
+                        hts.append(max(1.0, float(_a[:, 1].max() - _a[:, 1].min())))
+                    tops.sort()
+                    gaps = [tops[i2 + 1] - tops[i2] for i2 in range(len(tops) - 1)]
+                    hmed = float(np.median(hts))
+                    if hmed > 1 and gaps and float(np.median(gaps)) >= hmed * 1.35:
+                        score += 2
+                except Exception:
+                    pass
+            # ۶) خط‌های کوتاه متعدد
+            if n >= 4 and max(lens) <= 42:
+                score += 1
+            # ۷) بدون نقطه‌گذاری جمله‌ای
+            if n >= 3 and not any(re.search(r"[\u3002\uff0e\uff01!?\u2026]$", l)
+                                  for l in lines):
+                score += 1
+            # ۸) پنجرهٔ عریض با چند خط
+            try:
+                w_ = int(rect[2]) - int(rect[0])
+                h_ = int(rect[3]) - int(rect[1])
+                if w_ > 0 and h_ > 0 and (w_ / float(h_)) >= 2.2 and n >= 3:
+                    score += 1
+            except Exception:
+                pass
+            return score
+        except Exception:
+            return 0
+
+    @staticmethod
+    def _sys_keyword_hits(lines) -> int:
+        """تعداد خط‌های دارای کلیدواژهٔ سیستم. کلیدواژهٔ لاتین با «مرزِ کلمه»
+        (\bexp\b نه «unexpected»!) — ژاپنی/کره‌ای/چینی زیررشته."""
+        n = 0
+        for l in (lines or []):
+            ll = str(l or "").strip().lower()
+            if not ll:
+                continue
+            for k in MangaTranslator._SYSTEM_KEYWORDS:
+                try:
+                    if k.isascii():
+                        if re.search(r"(?<![a-z0-9])" + re.escape(k)
+                                     + r"(?![a-z0-9])", ll):
+                            n += 1
+                            break
+                    elif k in ll:
+                        n += 1
+                        break
+                except Exception:
+                    continue
+        return n
+
+    @staticmethod
+    def _is_label_block(line_texts) -> bool:
+        """v1.14.34: «بلوکِ برچسب» — جعبهٔ مشخصاتِ شخصیت (NAME / AGE: 40 /
+        RACE: …) و پنجره‌های UI چندخطیِ کوتاه. این خط‌ها باید «جدا جدا»
+        ترجمه شوند (خواستهٔ کاربر)، ولی حبابِ دیالوگِ عادی هرگز نباید.
+        شرط‌ها: چند خطِ کوتاه + حداقل ۲ لیبلِ دونقطه‌دار یا براکتِ سرصفحه +
+        هیچ خطی با نقطه‌گذاریِ جملهٔ گفتاری تمام نشود (؟ ! …)."""
+        try:
+            lines = [str(l or "").strip() for l in (line_texts or [])
+                     if str(l or "").strip()]
+            n = len(lines)
+            if not (2 <= n <= 12):
+                return False
+            lens = [len(l) for l in lines]
+            if max(lens) > 46 or (sum(lens) / float(n)) > 30.0:
+                return False
+            # جملهٔ گفتاری — هیچ خط نباید با ؟/!/… تمام شود (جعبهٔ مشخصات ندارد)
+            if any(re.search(r"[?!…\u3002\uff01\uff1f]$", l) for l in lines):
+                return False
+            colon_lines = sum(1 for l in lines if re.search(r"[:\uff1a\uff1d=]", l))
+            has_bracket = any(
+                re.search(r"[\[\u3010][^\]\u3011]{1,48}[\]\u3011]", l)
+                for l in lines)
+            if colon_lines >= 2 or has_bracket:
+                return True
+            # v1.14.34: بلوکِ کلیدواردی — لیستِ مهارت‌ها (SKILL(S): … / MEDITATION
+            # / MOBILE MEDITATION (LV.11) / …): یک خطِ کلیدواژه + یک لیبلِ
+            # دونقطه‌دار + همهٔ خط‌ها ≤۴ کلمه (نثرِ گفتاری این‌قدر کوتاه نیست)
+            if len(lines) >= 3 and all(len(l.split()) <= 4 for l in lines):
+                kw = MangaTranslator._sys_keyword_hits(lines)
+                if kw >= 1 and colon_lines >= 1:
+                    return True
+            return False
+        except Exception:
+            return False
+
+    @staticmethod
+    def _system_window_strong(text: str, line_texts) -> bool:
+        """v1.14.32: نشانهٔ «قوی» پنجرهٔ سیستم — بدون این هیچ حباب عادی
+        نباید پنجره حساب شود (براکت سرصفحه / کلیدواژهٔ سیستم / ≥۲ لیبلِ
+        دونقطه‌دار). حباب عادی فقط امتیازهای ظاهری دارد (فاصله، تراز)،
+        پس این شرط جلوی جدا شدن حباب‌های دیالوگ را می‌گیرد.
+        براکت = فقط [ ] و 【 】 — پرانتزِ عادی («(CLRD & TS)») نشانه نیست."""
+        try:
+            t = str(text or "")
+            # ۱) براکت سرصفحه — قوی‌ترین ([ Daily Quest ] / 【…】)
+            if re.search(r"[\[\u3010][^\]\u3011\n]{1,48}[\]\u3011]", t):
+                return True
+            lines = [str(l or "").strip().lower() for l in (line_texts or [])
+                     if str(l or "").strip()]
+            if not lines:
+                lines = [p.strip().lower() for p in re.split(r"[\n]+", t) if p.strip()]
+            # ۲) کلیدواژهٔ سیستم در یکی از خط‌ها (مرزِ کلمه برای لاتین)
+            if MangaTranslator._sys_keyword_hits(lines) >= 1:
+                return True
+            # ۳) لیبل‌های دونقطه‌دار (HP: 120 / TIME : 05:00 / GOAL :)
+            colons = sum(l.count(":") + l.count("\uff1a") + l.count("\uff1d")
+                         for l in lines)
+            if colons >= 2:
+                return True
+            return False
+        except Exception:
+            return False
+
+    @staticmethod
+    def _cluster_ocr_lines(polys, texts, y_tol_factor: float = 0.65):
+        """جعبه‌های OCR (که گاهی کلمه‌به‌کلمه‌اند) را به «خط» خوشه‌بندی می‌کند.
+        خروجی: [(x0, y0, x1, y1, text)] مرتب بر اساس y."""
+        try:
+            items = []
+            for _i, _p in enumerate(list(polys or [])):
+                _t = str((list(texts or []) + [""] * (len(polys or []) ))[_i] or "").strip()
+                if not _t:
+                    continue
+                _a = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                items.append([float(_a[:, 1].min()), float(_a[:, 1].max()),
+                              float(_a[:, 0].min()), float(_a[:, 0].max()), _t])
+            if not items:
+                return []
+            _hs = sorted(it[1] - it[0] for it in items)
+            _hmed = max(1.0, float(np.median(_hs)))
+            items.sort(key=lambda it: ((it[0] + it[1]) / 2.0, it[2]))
+            lines: List[dict] = []
+            for it in items:
+                _cy = (it[0] + it[1]) / 2.0
+                _hit = None
+                for ln in lines:
+                    _lcy = (ln["y0"] + ln["y1"]) / 2.0
+                    if abs(_cy - _lcy) <= max(_hmed * y_tol_factor,
+                                              (ln["y1"] - ln["y0"]) * 0.6):
+                        _hit = ln
+                        break
+                if _hit is None:
+                    lines.append({"y0": it[0], "y1": it[1], "x0": it[2],
+                                  "x1": it[3], "words": [it]})
+                else:
+                    _hit["y0"] = min(_hit["y0"], it[0])
+                    _hit["y1"] = max(_hit["y1"], it[1])
+                    _hit["x0"] = min(_hit["x0"], it[2])
+                    _hit["x1"] = max(_hit["x1"], it[3])
+                    _hit["words"].append(it)
+            out = []
+            for ln in lines:
+                ln["words"].sort(key=lambda w2: w2[2])
+                _txt = " ".join(w2[4] for w2 in ln["words"]).strip()
+                out.append((ln["x0"], ln["y0"], ln["x1"], ln["y1"], _txt))
+            out.sort(key=lambda t2: t2[1])
+            return out
+        except Exception:
+            return []
+
+    def _ocr_pool_workers(self, n_tasks: int) -> int:
+        """v1.14.148 — تعدادِ workerِ موازیِ OCR برایِ حلقههایِ کراپ.
+        فقط RapidOCRBackend (سشنهای det/recِ ORT مشترک و thread-safe
+        هستند — الگویِ _ocr_one90 از v1.14.120). بقیهٔ بکاندها (Paddle)
+        ترتیبی میمانند. پیشفرض: min(4, هستهٔ فیزیکی) —
+        MANGA_OCR_WORKERS=N اورراید. خروجیِ OCR در همهٔ حالتها یکسان
+        است (همان فراخوانیها، فقط همزمان)."""
+        try:
+            if n_tasks is None or int(n_tasks) <= 1:
+                return 1
+            if not isinstance(getattr(self, "ocr", None), RapidOCRBackend):
+                return 1
+        except Exception:
+            return 1
+        try:
+            w = int(os.environ.get("MANGA_OCR_WORKERS", "0") or 0)
+        except Exception:
+            w = 0
+        if w <= 0:
+            try:
+                # v1.14.148b — سشنِ OCR خودش intra=2 نخ دارد (تuned در
+                # RapidOCRBackend) → workerِ موازی = هستهٔ فیزیکی ÷ 2 تا
+                # مجموعِ نخها اشباع نشود (واگرنه حتی کندتر از ترتیبی
+                # میشود — بنچمارکِ 2core: 19.1s→18.6s با workers=2×intra2).
+                w = max(1, min(4, int(_physical_core_count()) // 2))
+            except Exception:
+                w = 1
+        try:
+            return max(1, min(int(w), int(n_tasks)))
+        except Exception:
+            return 1
+
+    def _ocr_crop(self, image_bgr: np.ndarray, rect,
+                  block_rects: Optional[List[Tuple[int, int, int, int]]] = None) \
+            -> Tuple[str, List[np.ndarray]]:
+
+        x1, y1, x2, y2 = [int(v) for v in rect]
+        h, w = image_bgr.shape[:2]
+        # v1.14.226 — کشِ نتیجهٔ OCRِ همان برش: نجاتِ یتیم/خالی گاهی
+        # همان مستطیلِ نردبانِ اصلی را دوباره OCR میکرد (پروفایل:
+        # ۶۷ فراخوانی برایِ ۳۱ ناحیه). کلید = مختصاتِ برش + ابعادِ
+        # تصویر؛ عمرِ کش = یک صفحه (بازیابی در extract_regions_phase).
+        try:
+            _ck226 = (x1, y1, x2, y2, w, h,
+                      tuple(map(tuple, block_rects)) if block_rects else None)
+            _cc226 = getattr(self, "_ocr_crop_cache226", None)
+            if _cc226 is not None and _ck226 in _cc226:
+                return _cc226[_ck226]
+        except Exception:
+            pass
+        _rv226 = self._ocr_crop_run(image_bgr, rect, block_rects)
+        try:
+            if getattr(self, "_ocr_crop_cache226", None) is None:
+                self._ocr_crop_cache226 = {}
+            if len(self._ocr_crop_cache226) < 512:
+                self._ocr_crop_cache226[_ck226] = _rv226
+        except Exception:
+            pass
+        return _rv226
+
+    def _ocr_crop_run(self, image_bgr: np.ndarray, rect,
+                      block_rects: Optional[List[Tuple[int, int, int, int]]] = None) \
+            -> Tuple[str, List[np.ndarray]]:
+        x1, y1, x2, y2 = [int(v) for v in rect]
+        h, w = image_bgr.shape[:2]
+        pad = 8
+        x1, y1 = max(0, x1 - pad), max(0, y1 - pad)
+        x2, y2 = min(w, x2 + pad), min(h, y2 + pad)
+        if x2 - x1 < 8 or y2 - y1 < 8:
+            return "", [], [], []
+        crop0 = image_bgr[y1:y2, x1:x2]
+        ch0, cw0 = crop0.shape[:2]
+
+        try:
+            _sk = self._estimate_skew_angle(crop0)
+        except Exception:
+            _sk = 0.0
+        _tilted0 = abs(_sk) >= 8.0
+        if _tilted0:
+            pad2 = min(120, int(abs(np.sin(np.radians(_sk))) * max(x2 - x1, y2 - y1)) + 16)
+            nx1, ny1 = max(0, int(rect[0]) - pad2), max(0, int(rect[1]) - pad2)
+            nx2, ny2 = min(w, int(rect[2]) + pad2), min(h, int(rect[3]) + pad2)
+            if (nx2 - nx1) > (x2 - x1) or (ny2 - ny1) > (y2 - y1):
+                x1, y1, x2, y2 = nx1, ny1, nx2, ny2
+                crop0 = image_bgr[y1:y2, x1:x2]
+                ch0, cw0 = crop0.shape[:2]
+
+        def _run(crop_bgr, scale: float, apply_offset: bool = True,
+                 ang_corr: float = 0.0, origin=None):
+            if scale > 1.01:
+                crop_bgr = cv2.resize(
+                    crop_bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+                )
+            try:
+                # v1.14.125 — اندروید: OCRِ برش با crop_mode (detِ بدونِ
+                # بزرگنمایی) — نردبانِ variantها ۴-۶× ارزانتر میشود؛
+                # PC بیت‌به‌بیت دستنخورده.
+                _oc125 = self.ocr
+                if _on_android() and getattr(_oc125, "_mobile", None) \
+                        is not None:
+                    results = _oc125.ocr(crop_bgr, crop_mode=True)
+                else:
+                    results = _oc125.ocr(crop_bgr)
+            except Exception as _e164:
+                # v1.14.164 — خرابیِ OCRِ برش دیگر بیصدا نمیماند
+                # (دیباگ: خطِ کوتاهِ خطا — ریشهِ «متن پیدا نشد» فوراً
+                # در لاگ دیده میشود).
+                if getattr(self, "debug", False):
+                    print(f"    [!] OCRِ برش خطا داد: {str(_e164)[:140]}")
+                return "", [], 0.0, []
+            if not results or not results[0]:
+                return "", [], 0.0, []
+            lines, polys, confs, entries = [], [], [], []
+            for line in results[0]:
+                try:
+                    if not (isinstance(line, (list, tuple)) and len(line) >= 2):
+                        continue
+                    pair = line[1]
+                    eng_ang = 0.0
+                    if isinstance(pair, (list, tuple)):
+                        text = str(pair[0]).strip()
+                        conf = float(pair[1]) if len(pair) > 1 else 1.0
+                        if len(pair) > 2:
+                            try:
+                                eng_ang = float(pair[2])
+                                if eng_ang > 180.0:
+                                    eng_ang -= 360.0
+                                if abs(eng_ang) > 45.0:
+                                    eng_ang = 0.0
+                            except (TypeError, ValueError):
+                                eng_ang = 0.0
+                    else:
+                        text, conf = str(pair).strip(), 1.0
+                    if not text or conf < self.min_confidence:
+                        continue
+                    if self._is_non_english_script(text):
+                        continue
+                    lines.append(text)
+                    confs.append(conf)
+                    box0 = line[0] if len(line) >= 1 else None
+                    # v1.14.121 — blk = شمارهٔ بلوکِ ML Kit (فقط بکاندِ mlkit)
+                    _blk_id = -1
+                    if isinstance(pair, (list, tuple)) and len(pair) > 3:
+                        try:
+                            _blk_id = int(pair[3])
+                        except (TypeError, ValueError):
+                            _blk_id = -1
+
+                    entry_poly = None
+                    if box0 is not None and isinstance(box0, (list, tuple, np.ndarray)) and len(box0) >= 3:
+                        poly = np.array(line[0], dtype=np.float32).reshape(-1, 2)
+                        if poly.min() >= -8 and poly.max() < 100000:
+                            if scale > 1.01:
+                                poly = poly / scale
+                            if apply_offset:
+                                _ox86, _oy86 = origin if origin is not None else (x1, y1)
+                                poly = poly + np.array([_ox86, _oy86], dtype=np.float32)
+                            polys.append(poly.astype(np.int32))
+                            entry_poly = poly.astype(np.float32)
+                    entries.append((text, conf, entry_poly,
+                                    float(eng_ang) + float(ang_corr),
+                                    int(_blk_id)))
+                except Exception:
+                    continue
+            joined = " ".join(lines).strip()
+            avg_conf = float(np.mean(confs)) if confs else 0.0
+            return joined, polys, avg_conf, entries
+
+        # v1.14.185 — اندروید: امتیازدهیِ واریانت باید «متنِ درستِ هر
+        # اسکریپت» را بپذیرد؛ فرمولِ قدیمی فقط لاتین را می‌شمرد → رویِ
+        # صفحهٔ ژاپنی، واریانتِ آشغالِ لاتینِ با confِ تصادفیِ بالاتر
+        # خوانشِ درستِ CJK را می‌بَرد (نمونه: «描いて精神統一» ← «bI 2 2い»).
+        # PC بیت‌به‌بیت فرمولِ قدیمی.
+        _sc_cjk_185 = _on_android()
+
+        def _score(txt: str, conf: float) -> float:
+            if not txt:
+                return -1.0
+            latin = sum(1 for c in txt if c.isascii() and c.isalpha())
+            if _sc_cjk_185:
+                _cjk185 = sum(
+                    1 for c in txt
+                    if (0x3040 <= ord(c) <= 0x30FF)
+                    or (0x3400 <= ord(c) <= 0x9FFF)
+                    or (0xAC00 <= ord(c) <= 0xD7AF))
+                return (max(latin, _cjk185) * 2.0 + conf * 3.0
+                        + min(len(txt), 24) * 0.15)
+
+            return latin * 2.0 + conf * 3.0 + min(len(txt), 24) * 0.15
+
+        candidates = []
+
+
+        m = max(ch0, cw0)
+        if m < 200:
+            base_scale = 2.4
+        elif m < 360:
+            base_scale = 1.8
+        elif m < 600:
+            base_scale = 1.35
+        else:
+            base_scale = 1.0
+
+
+        inset = int(min(ch0, cw0) * 0.06)
+        if min(ch0, cw0) >= 160 and ch0 > 2 * inset + 20 and cw0 > 2 * inset + 20:
+            core = crop0[inset:ch0 - inset, inset:cw0 - inset]
+        else:
+            core = crop0
+
+        variants = []
+        variants.append(("raw", core, base_scale))
+        # v1.14.228 — گیتِ کنتراست برایِ CLAHE: رویِ کراپِ پرکنتراستِ
+        # تمیز (متنِ سیاهِ حباب رویِ سفید: p90−p10 ≥ ۱۲۰) خروجیِ CLAHE
+        # عملاً همانِ raw است — یک فراخوانیِ OCRِ کاملِ اضافه به ازایِ
+        # هر ناحیه (پروفایلِ up0822: ۱۶ فراخوانیِ نردبان برایِ ۵ ناحیه)
+        # که هیچ واریانتِ تازهای نمیآورد. رویِ کراپِ کمکنتراست/سایهدار
+        # (دلیلِ وجودِ CLAHE) همچنان اجرا میشود.
+        _clahe_skip228 = False
+        try:
+            _gc228 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _p10_228 = float(np.percentile(_gc228, 10))
+            _p90_228 = float(np.percentile(_gc228, 90))
+            _clahe_skip228 = (_p90_228 - _p10_228) >= 120.0
+        except Exception:
+            _clahe_skip228 = False
+        if not _clahe_skip228:
+            try:
+                lab = cv2.cvtColor(core, cv2.COLOR_BGR2LAB)
+                l, a, b = cv2.split(lab)
+                l2 = cv2.createCLAHE(2.5, (8, 8)).apply(l)
+                enh = cv2.cvtColor(cv2.merge((l2, a, b)), cv2.COLOR_LAB2BGR)
+                variants.append(("clahe", enh, base_scale))
+            except Exception:
+                pass
+        try:
+            g = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _, bw = cv2.threshold(g, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            if float(np.mean(bw)) < 127:
+                bw = cv2.bitwise_not(bw)
+            bw = cv2.cvtColor(bw, cv2.COLOR_GRAY2BGR)
+            variants.append(("otsu", bw, min(base_scale + 0.25, 2.2)))
+
+
+            if float(np.median(g)) < 110:
+                inv = cv2.cvtColor(cv2.bitwise_not(g), cv2.COLOR_GRAY2BGR)
+                variants.append(("inv", inv, min(base_scale + 0.4, 2.6)))
+        except Exception:
+            pass
+
+
+        def _bb_of(poly):
+            if poly is None:
+                return None
+            p = np.asarray(poly, dtype=np.float32).reshape(-1, 2)
+            return (float(p[:, 0].min()), float(p[:, 1].min()),
+                    float(p[:, 0].max()), float(p[:, 1].max()))
+
+        def _overlap_frac(a, b):
+            ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+            inter = ix * iy
+            if inter <= 0:
+                return 0.0
+            aa = max(1e-6, (a[2] - a[0]) * (a[3] - a[1]))
+            ab = max(1e-6, (b[2] - b[0]) * (b[3] - b[1]))
+            return inter / min(aa, ab)
+
+        merged: List[List] = []
+        best = ("", [], -1.0, [], [], [])
+        inset_used = inset if core is not crop0 else 0
+        early_stop = False
+
+        # v1.14.230 — «تک‌پاسِ OCR» (دستورِ سازنده: «detector onnx مکانهایِ
+        # متن را پیدا کنه، بعد paddleocr det قسمتهای دقیق، بعد paddleocr
+        # rec استخراج کنه — هرکدام فقط یک بار … انگار دو سه بار استخراج
+        # میزنه»). پروفایلِ واقعیِ img6: ۵۹ پاسِ OCR برایِ ۹ ناحیه — ۴۰ پاسش
+        # نردبانِ واریانتها (raw→clahe→otsu→inv) بود در حالی که پاسِ اولِ
+        # raw همان ۵-۱۱ خطِ نهایی را با conf بالا خوانده بود. حالا: پاسِ
+        # اولِ (raw) اگر «خوانشِ خوب» داد — متنِ واقعی + conf ≥ ۰٫۸۰ +
+        # پوششِ جوهرِ عمودی کافی — نردبان اصلاً اجرا نمیشود (۱ پاس به‌ازایِ
+        # ناحیه). خوانشِ ضعیف/خالی → نردبان کامل مثلِ قبل (کراپِ تیره/کم-
+        # کنتراست نجاتِ خودش را دارد). پوششِ جوهر = بازهٔ عمودیِ خطهایِ
+        # یافتشده در برابرِ بازهٔ عمودیِ جوهرِ کراپ — اگر نصفِ حبابِ پر-
+        # متن ناخوانده مانده باشد، تک‌پاس قبول نمیشود.
+        _ink_rows230 = None
+        try:
+            _g230 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _med230 = float(np.median(_g230))
+            _rowink230 = ((_g230 < max(60.0, _med230 - 45.0)).mean(axis=1))
+            _rows230 = np.flatnonzero(_rowink230 > 0.02)
+            if len(_rows230) >= 4:
+                _ink_rows230 = (int(_rows230[0]), int(_rows230[-1]))
+        except Exception:
+            _ink_rows230 = None
+
+        _vi230 = -1
+        for name, crop_v, sc in variants:
+            _vi230 += 1
+            txt, polys, conf, entries = _run(crop_v, sc)
+            if inset_used and entries:
+                polys = [p + inset_used for p in polys]
+                for e in entries:
+                    if e[2] is not None:
+                        e[2][:, 0] += inset_used
+                        e[2][:, 1] += inset_used
+            # v1.14.188 — دو فیلترِ ضدِ «چرت‌پرت» (دستورِ سازنده: «چرت پرت
+            # هم زیاد استخراج میکنه … از نسخهٔ پی سی استخراج استفاده کنه
+            # همون مدل onnx v6 ocr … رو پی سی هم ناقص استخراج میشه رو اونم
+            # چک کن هردوشو چک بزن») — PC و اندروید یکسان:
+            #   الف) مالکیتِ خط: خطی که به ناحیهٔ همسایهٔ تنگتر تعلق دارد
+            #   از این ناحیه حذف میشود (نمونهٔ img6 #02: نشتِ متنِ حبابِ
+            #   «You're the real attraction here.» به کراپِ حبابِ زرد).
+            #   ب) خطِ آشغالِ لاتین: خطِ تکقسمتیِ بیواکل/بیحرفِ کوتاه
+            #   («FL»، «SS»، «23»، «豊») که فقط جوهرِ هنر است.
+            # هر دو رویِ مختصاتِ صفحه (بعد از جبرانِ inset) اعمال میشوند.
+            _own188 = max(1.0, float((x2 - x1) * (y2 - y1)))
+            if entries:
+                # v1.14.245 — سیاستِ عدد/سمبل در سطحِ ناحیه: متنِ «کلِ»
+                # کاندید (قبل از فیلتر) تعیین میکند که خطِ عدد محتواست
+                # («19 hi») یا ناحیهٔ فقط-عدد است (no_touch میشود).
+                try:
+                    _rhas245 = source_has_letters(
+                        " ".join(str(_e245[0]) for _e245 in entries))
+                except Exception:
+                    _rhas245 = None
+                _keep188 = []
+                _fix188 = False
+                for _e188 in entries:
+                    _bb188 = _bb_of(_e188[2]) if _e188[2] is not None else None
+                    if _bb188 is not None and _line_is_foreign188(
+                            _bb188, block_rects, _own188):
+                        if self.debug:
+                            print(f"    [🔍188] خطِ ناحیهٔ مجاور حذف شد: "
+                                  f"{str(_e188[0])[:36]!r}")
+                        continue
+                    _j188 = _latin_junk_line188(_e188[0], _rhas245) \
+                        if _latin_lang188(self) else False
+                    if _j188:
+                        if isinstance(_j188, str):
+                            # v1.14.189 — ترمیمِ «77,I» → «I» بهجایِ حذف
+                            _e188 = (_j188,) + tuple(_e188[1:])
+                            _fix188 = True
+                        else:
+                            if self.debug:
+                                print(f"    [🔍188] خطِ آشغالِ لاتین حذف شد: "
+                                      f"{str(_e188[0])[:36]!r}")
+                            continue
+                    _keep188.append(_e188)
+                if _fix188 or len(_keep188) != len(entries):
+                    entries = _keep188
+                    txt = " ".join(e[0] for e in entries).strip()
+                    polys = [np.asarray(e[2], dtype=np.int32)
+                             for e in entries if e[2] is not None]
+                    conf = (float(np.mean([e[1] for e in entries]))
+                            if entries else 0.0)
+            _poly_angs = [float(e[3]) if len(e) > 3 else 0.0
+                          for e in entries if e[2] is not None]
+            for e in entries:
+                text, e_conf, e_poly = e[0], e[1], e[2]
+                e_ang = float(e[3]) if len(e) > 3 else 0.0
+                bb = _bb_of(e_poly)
+                hit = None
+                if bb is not None:
+                    for m_item in merged:
+                        mb = _bb_of(m_item[2])
+                        if mb is not None and _overlap_frac(bb, mb) > 0.35:
+                            hit = m_item
+                            break
+                if hit is None:
+                    merged.append([text, e_conf, e_poly, e_ang,
+                                   (e[4] if len(e) > 4 else -1)])
+                elif e_conf > hit[1]:
+                    hit[0], hit[1], hit[3] = text, e_conf, e_ang
+                    if len(hit) > 4:
+                        hit[4] = (e[4] if len(e) > 4 else -1)
+
+            scv = _score(txt, conf)
+            if scv > best[2]:
+                best = (txt, polys, scv, _poly_angs,
+                        [e[0] for e in entries if e[2] is not None],
+                        [(e[4] if len(e) > 4 else -1)
+                         for e in entries if e[2] is not None])
+
+            _latin_n = len(re.sub(r"[^A-Za-z]", "", txt or ""))
+            # v1.14.230 — گیتِ «تک‌پاسِ OCR»: پاسِ اولِ (raw) با خوانشِ
+            # خوب، نردبانِ clahe/otsu/inv را دور میزند (پروفایلِ img6:
+            # ۴۰ پاسِ نردبان برایِ ۹ ناحیه — اکثرشان بعد از خوانشِ
+            # موفقِ raw زده میشدند). شرطها: متنِ واقعی (لاتین ≥ ۳ یا
+            # CJK ≥ ۲) + conf ≥ ۰٫۸۰ + پوششِ عمودیِ جوهر (خطهایِ
+            # یافته ≥ ۶۰٪ بازهٔ جوهر — حبابِ نصفه‌خوانده قبول نیست).
+            if os.environ.get("MANGA_DBG_230") and _vi230 == 0:
+                print(f"    [DBG230] vi0 name={name} conf={conf:.3f} "
+                      f"latin={_latin_n} entries={len(entries)} "
+                      f"tilt={_tilted0} ink={_ink_rows230}", flush=True)
+            if (_vi230 == 0 and not _tilted0 and entries
+                    and conf >= 0.80
+                    and (_latin_n >= 3
+                         or sum(1 for _ch in (txt or "")
+                                if 0x3040 <= ord(_ch) <= 0x30FF
+                                or 0x3400 <= ord(_ch) <= 0x9FFF
+                                or 0xAC00 <= ord(_ch) <= 0xD7AF) >= 2)):
+                if os.environ.get("MANGA_DBG_230"):
+                    print(f"    [DBG230] gate-pass vi={_vi230} conf={conf:.2f} "
+                          f"latin={_latin_n} entries={len(entries)} "
+                          f"ink={_ink_rows230}", flush=True)
+                _cover_ok230 = True
+                if _ink_rows230 is not None and merged:
+                    _ys230 = [_bb_of(m[2]) for m in merged
+                              if m[2] is not None]
+                    _ys230 = [b for b in _ys230 if b is not None]
+                    if _ys230:
+                        _fy0230 = min(b[1] for b in _ys230)
+                        _fy1230 = max(b[3] for b in _ys230)
+                        _span230 = max(1.0, float(
+                            _ink_rows230[1] - _ink_rows230[0]))
+                        _cov230 = (_fy1230 - _fy0230) / _span230
+                        _cover_ok230 = _cov230 >= 0.60
+                if _cover_ok230:
+                    early_stop = True
+                    break
+
+            if ((not _tilted0)
+                    and ((conf >= 0.86 and _latin_n >= 8)
+                         or (conf >= 0.78 and _latin_n >= 20))):
+                early_stop = True
+                break
+
+            if (not _tilted0) and conf >= 0.80:
+                _cjk = 0
+                for _ch in (txt or ""):
+                    _o = ord(_ch)
+                    if (0x3040 <= _o <= 0x30FF or 0x3400 <= _o <= 0x9FFF
+                            or 0xAC00 <= _o <= 0xD7AF):
+                        _cjk += 1
+                if _cjk >= 3:
+                    early_stop = True
+                    break
+
+        # ── v1.14.189 — نجاتِ خطهایِ جامانده در کراپهایِ کشیده (مشکل۱) ──
+        # لاگِ گوشیِ ۱۸۸ (img6): حبابِ زرد فقط ۴ خط از ۷ خط داد و کلِ صفحه
+        # ۴۸ خط در برابرِ ۷۱ خطِ PC — detِ خطیِ یکجا رویِ کراپِ بلند
+        # خطهایِ وسط را از دست میدهد. اگر بینِ خطهایِ یافتشده شکافِ
+        # بزرگی (>۲× ضخامتِ معمولِ خط) باشد، دو نیمهٔ همپوشانِ کراپ جدا
+        # OCR میشوند؛ خطهایِ تازه از راهِ dedupِ همپوشانیِ همان به
+        # merged اضافه میشوند و فیلترهایِ ۱۸۸ هم رویشان اجرا میشود.
+        # کراپِ سالم (شکافِ نرمال) = صفر هزینهٔ اضافه.
+        try:
+            if merged and not _tilted0:
+                _mx189, _mn189 = max(ch0, cw0), min(ch0, cw0)
+                if _mx189 >= 260 and _mx189 / max(1, _mn189) >= 1.5:
+                    _bxs189 = [_bb_of(m[2]) for m in merged
+                               if m[2] is not None]
+                    _bxs189 = [b for b in _bxs189 if b is not None]
+                    if 2 <= len(_bxs189) <= 30:
+                        _dims189 = [max(2.0, min(b[2] - b[0], b[3] - b[1]))
+                                    for b in _bxs189]
+                        _med189 = float(np.median(_dims189))
+                        _vert189 = sum(
+                            1 for b in _bxs189
+                            if (b[3] - b[1]) > (b[2] - b[0])
+                        ) > len(_bxs189) / 2
+                        _sb189 = sorted(_bxs189, key=(
+                            (lambda b: b[0]) if _vert189
+                            else (lambda b: b[1])))
+                        _maxgap189 = 0.0
+                        for _i189 in range(len(_sb189) - 1):
+                            _g189 = (
+                                (_sb189[_i189 + 1][0] - _sb189[_i189][2])
+                                if _vert189 else
+                                (_sb189[_i189 + 1][1] - _sb189[_i189][3]))
+                            if _g189 > _maxgap189:
+                                _maxgap189 = _g189
+                        if _maxgap189 > 2.0 * _med189:
+                            _halves189 = []
+                            if ch0 >= cw0:
+                                _oh189 = max(60, int(ch0 * 0.58))
+                                if 60 <= _oh189 < ch0:
+                                    _halves189 = [
+                                        ("half-top", crop0[0:_oh189], 0, 0),
+                                        ("half-bot", crop0[ch0 - _oh189:],
+                                         0, ch0 - _oh189)]
+                            else:
+                                _ow189 = max(60, int(cw0 * 0.58))
+                                if 60 <= _ow189 < cw0:
+                                    _halves189 = [
+                                        ("half-left", crop0[:, 0:_ow189],
+                                         0, 0),
+                                        ("half-right",
+                                         crop0[:, cw0 - _ow189:],
+                                         cw0 - _ow189, 0)]
+                            if _halves189 and self.debug:
+                                print(f"    [🔍189] شکافِ خط {_maxgap189:.0f}px "
+                                      f"(میانه {_med189:.0f}px) → OCRِ نیمهها")
+                            for _hn189, _hc189, _hox189, _hoy189 in _halves189:
+                                try:
+                                    _t2, _p2, _c2, _e2 = _run(
+                                        _hc189, base_scale,
+                                        origin=(x1 + _hox189, y1 + _hoy189))
+                                except Exception:
+                                    continue
+                                for _e189 in (_e2 or []):
+                                    _bb2 = (_bb_of(_e189[2])
+                                            if _e189[2] is not None else None)
+                                    if _bb2 is None:
+                                        continue
+                                    if _line_is_foreign188(
+                                            _bb2, block_rects, _own188):
+                                        continue
+                                    # v1.14.245 — ناحیه = merged + نیمه‌ها
+                                    try:
+                                        _rhas189 = source_has_letters(
+                                            " ".join(
+                                                [str(_m245[0]) for _m245 in merged]
+                                                + [str(_e245[0]) for _e245 in (_e2 or [])]))
+                                    except Exception:
+                                        _rhas189 = None
+                                    _j189 = _latin_junk_line188(_e189[0], _rhas189) \
+                                        if _latin_lang188(self) else False
+                                    if _j189:
+                                        if isinstance(_j189, str):
+                                            _e189 = (_j189,) + tuple(_e189[1:])
+                                        else:
+                                            continue
+                                    _hit2 = None
+                                    for _m189 in merged:
+                                        _bm189 = _bb_of(_m189[2])
+                                        if _bm189 is not None and \
+                                                _overlap_frac(_bb2, _bm189) > 0.35:
+                                            _hit2 = _m189
+                                            break
+                                    if _hit2 is None:
+                                        merged.append(
+                                            [_e189[0], float(_e189[1]), _e189[2],
+                                             float(_e189[3]) if len(_e189) > 3 else 0.0,
+                                             (int(_e189[4]) if len(_e189) > 4 else -1)])
+                                        if self.debug:
+                                            print(f"    [🔍189] خطِ بازیابی‌شده از "
+                                                  f"{_hn189}: {str(_e189[0])[:36]!r}")
+        except Exception:
+            pass
+
+        # ── v1.14.90: نجاتِ خطِ لبه‌بریدهٔ کراپ (متنِ کنارِ حباب) ──
+        # OCRِ کراپِ حباب متنی را که فقط «گوشه‌اش» داخلِ باکس است نصفه
+        # می‌خواند (نمونهٔ 01.jpg: «You're the real attraction here.» کنارِ
+        # حبابِ زرد → تکه‌هایِ «su're / ereal / traction» چسبیده به لبهٔ
+        # کراپ). اگر خطی به لبهٔ چپ/راستِ کراپ چسبیده بود، کراپ در همان سمت
+        # باز می‌شود (سقفِ ۱۱۰px یا ۳۵٪ عرض؛ بدونِ عبور از باکسِ ناحیهٔ
+        # دیگر) و یک پاسِ OCR رویِ کراپِ بازشده زده می‌شود؛ خطِ کامل‌تر
+        # جایگزینِ تکهٔ نصفه می‌شود. فقط خط‌هایی پذیرفته می‌شوند که در
+        # نوارِ عمودیِ همان خطِ بریده باشند (جوهرِ نامربوطِ بالا/پایینِ
+        # نوار جذب نمی‌شود).
+        try:
+            if merged and not _tilted0:
+                _dbg90 = bool(os.environ.get("MANGA_R90_DBG"))
+                _edge86 = 3 + int(inset_used or 0)
+                for _side86 in (0, 1):
+                    if _side86 == 0:
+                        _clip86 = [m for m in merged if m[2] is not None
+                                   and _bb_of(m[2])[0] <= x1 + _edge86]
+                    else:
+                        _clip86 = [m for m in merged if m[2] is not None
+                                   and _bb_of(m[2])[2] >= x2 - _edge86]
+                    if not _clip86:
+                        continue
+                    _ext86 = min(110, int((x2 - x1) * 0.35))
+                    if _ext86 < 12:
+                        continue
+                    if _side86 == 0:
+                        _nb86 = max(0, x1 - _ext86)
+                        if block_rects:
+                            for (_bx1, _by1, _bx2, _by2) in block_rects:
+                                try:
+                                    if (_bx1 < x1 and _bx2 > _nb86
+                                            and _by1 < y2 and _by2 > y1):
+                                        _nb86 = max(_nb86,
+                                                    min(x1 - 2, _bx2 + 6))
+                                except Exception:
+                                    continue
+                        if _nb86 >= x1 - 4:
+                            continue
+                        _crop86 = image_bgr[y1:y2, _nb86:x2]
+                        _org86 = (_nb86, y1)
+                    else:
+                        _nb86 = min(w, x2 + _ext86)
+                        if block_rects:
+                            for (_bx1, _by1, _bx2, _by2) in block_rects:
+                                try:
+                                    if (_bx2 > x2 and _bx1 < _nb86
+                                            and _by1 < y2 and _by2 > y1):
+                                        _nb86 = min(_nb86,
+                                                    max(x2 + 2, _bx1 - 6))
+                                except Exception:
+                                    continue
+                        if _nb86 <= x2 + 4:
+                            continue
+                        _crop86 = image_bgr[y1:y2, x1:_nb86]
+                        _org86 = (x1, y1)
+                    if _crop86.size == 0 or _crop86.shape[0] < 12 \
+                            or _crop86.shape[1] < 12:
+                        continue
+                    _ylo86 = min(_bb_of(m[2])[1] for m in _clip86) - 10
+                    _yhi86 = max(_bb_of(m[2])[3] for m in _clip86) + 10
+                    if _dbg90:
+                        print(f"    [r90] crop=({x1},{y1},{x2},{y2}) side="
+                              f"{'L' if _side86 == 0 else 'R'} → تاِ {_nb86} | "
+                              f"بریده: {[m[0] for m in _clip86]}", flush=True)
+                    _txtE, _polE, _confE, _entE = _run(
+                        _crop86, base_scale, apply_offset=True, origin=_org86)
+                    for _e86 in (_entE or []):
+                        _tE = str(_e86[0] or "").strip()
+                        _pE = _e86[2] if len(_e86) > 2 else None
+                        if not _tE or _pE is None:
+                            continue
+                        _bE = _bb_of(_pE)
+                        if _bE is None or (_bE[3] - _bE[1]) < 8:
+                            continue
+                        # v1.14.188 — همان دو فیلترِ ضدِ چرت‌پرت رویِ نجاتِ لبه
+                        if _line_is_foreign188(_bE, block_rects, _own188):
+                            continue
+                        # v1.14.245 — ناحیه = merged + خطِ نجات‌یافته
+                        try:
+                            _rhasE = source_has_letters(
+                                " ".join(
+                                    [str(_m245[0]) for _m245 in merged]
+                                    + [_tE]))
+                        except Exception:
+                            _rhasE = None
+                        _jE = _latin_junk_line188(_tE, _rhasE) \
+                            if _latin_lang188(self) else False
+                        if _jE:
+                            if isinstance(_jE, str):
+                                _tE = _jE  # v1.14.189 — ترمیم
+                            else:
+                                continue
+                        _oyE = min(_yhi86, _bE[3]) - max(_ylo86, _bE[1])
+                        if _oyE <= 0.3 * max(1.0, _bE[3] - _bE[1]):
+                            continue
+                        if _side86 == 0 and _bE[0] >= x1 - 2:
+                            continue
+                        if _side86 == 1 and _bE[2] <= x2 + 2:
+                            continue
+                        _hitE = None
+                        for _m86 in merged:
+                            _bM = _bb_of(_m86[2]) if _m86[2] is not None else None
+                            if _bM is not None and _overlap_frac(_bE, _bM) > 0.40:
+                                _hitE = _m86
+                                break
+                        if _hitE is None:
+                            merged.append([_tE, float(_e86[1]), _pE,
+                                           float(_e86[3]) if len(_e86) > 3 else 0.0,
+                                           (int(_e86[4]) if len(_e86) > 4 else -1)])
+                            if _dbg90:
+                                print(f"    [r90]   + «{_tE}» "
+                                      f"x[{_bE[0]:.0f}-{_bE[2]:.0f}] "
+                                      f"y[{_bE[1]:.0f}-{_bE[3]:.0f}]", flush=True)
+                        elif _hitE in _clip86 and (
+                                len(_tE) >= len(_hitE[0] or "")):
+                            # تکهٔ بریده جایگزینِ کامل‌تر می‌شود؛ خوانشِ
+                            # کراپِ بازشده کلِ خط را دیده (حتی اگر هم‌طول
+                            # باشد، خوانشِ ناقصِ لبه اعتمادِ کمتری دارد)
+                            if _dbg90:
+                                print(f"    [r90]   ~ «{_hitE[0]}» → «{_tE}»",
+                                      flush=True)
+                            _hitE[0] = _tE
+                            _hitE[1] = float(_e86[1])
+                            _hitE[2] = _pE
+                            if len(_e86) > 3:
+                                _hitE[3] = float(_e86[3])
+                            if len(_hitE) > 4 and len(_e86) > 4:
+                                _hitE[4] = int(_e86[4])
+                        elif _dbg90 and _hitE is not None:
+                            print(f"    [r90]   . نگهِ «{_hitE[0]}» "
+                                  f"(جدید: «{_tE}»)", flush=True)
+        except Exception:
+            pass
+
+        if merged:
+            _allow_en, _allow_ko, _allow_ja, _allow_zh = self._ocr_lang_flags()
+            if _allow_ja and len(merged) > 1:
+                _hts0 = []
+                for m_item in merged:
+                    mb = _bb_of(m_item[2])
+                    if mb is not None:
+                        _hts0.append(mb[3] - mb[1])
+                _hmax0 = max(_hts0) if _hts0 else 0.0
+                if _hmax0 > 0:
+                    _kana_re = re.compile(r"^[\u3040-\u30FFー・]+$")
+                    _kept = [
+                        m for m in merged
+                        if not (
+                            _kana_re.match((m[0] or "").replace(" ", "").replace("　", ""))
+                            and _bb_of(m[2]) is not None
+                            and (_bb_of(m[2])[3] - _bb_of(m[2])[1]) < _hmax0 * 0.62
+                        )
+                    ]
+                    if _kept:
+                        merged = _kept
+            # v1.14.185 — اندروید: فیلترِ «خون‌جهٔ جهت‌به‌در» — متنِ چرخیدهٔ
+            # ۹۰°ِ کنارِ حباب (یا حبابِ مجاور) که داخلِ کراپِ این ناحیه
+            # می‌افتد، باکس‌هایی با «جهتِ برعکسِ اکثریت» میسازد و بعداً
+            # متنِ ناحیه را درهم میریزد (نمونهٔ img6 ناحیهٔ THEN I'LL PULL:
+            # تکه‌هایِ «re / real / action nere» از متنِ چرخیدهٔ لبهٔ صفحه).
+            # در ناحیهٔ غالبِ افقی (≥۵۵٪)، باکسِ خیلی‌بلندِ باریک؛ در ناحیهٔ
+            # غالبِ عمودی، باکسِ خیلی‌پهنِ کوتاه حذف میشود. آستانه‌ها
+            # محافظه‌کار (۱.۷× میانه + نسبتِ ۱.۶×) و فقط با ≥۳ باکس و بقایِ ≥۲ خط.
+            # PC بیت‌به‌بیت بدونِ این فیلتر.
+            if _on_android() and len(merged) >= 3:
+                try:
+                    _bbsF185 = [_bb_of(m[2]) for m in merged]
+                    _vF185 = [b for b in _bbsF185 if b is not None]
+                    if len(_vF185) >= 3:
+                        _medhF185 = float(np.median(
+                            [b[3] - b[1] for b in _vF185]))
+                        _medwF185 = float(np.median(
+                            [b[2] - b[0] for b in _vF185]))
+                        _tallF185 = sum(
+                            1 for b in _vF185
+                            if (b[3] - b[1]) > 1.4 * (b[2] - b[0]))
+                        _wideF185 = len(_vF185) - _tallF185
+                        _keepF185 = None
+                        if _tallF185 * 20 >= len(_vF185) * 11:
+                            _keepF185 = [
+                                m for m, b in zip(merged, _bbsF185)
+                                if b is None or not (
+                                    (b[2] - b[0]) > max(
+                                        1.7 * _medwF185, _medwF185 + 28.0)
+                                    and (b[2] - b[0]) > 1.6 * (b[3] - b[1]))
+                            ]
+                        elif _wideF185 * 20 >= len(_vF185) * 11:
+                            _keepF185 = [
+                                m for m, b in zip(merged, _bbsF185)
+                                if b is None or not (
+                                    (b[3] - b[1]) > max(
+                                        1.7 * _medhF185, _medhF185 + 28.0)
+                                    and (b[3] - b[1]) > 1.6 * (b[2] - b[0]))
+                            ]
+                        if (_keepF185 is not None and len(_keepF185) >= 2
+                                and len(_keepF185) < len(merged)):
+                            merged = _keepF185
+                except Exception:
+                    pass
+            hts = []
+            for m_item in merged:
+                mb = _bb_of(m_item[2])
+                if mb is not None:
+                    hts.append(mb[3] - mb[1])
+            if _on_android():
+                # v1.14.185 — اندروید: ترتیبِ درستِ خط‌ها/ستون‌ها.
+                # ریشهٔ «GO! FASTER. EVEN» / «THERE ATTRACTIONS, ARE NO»:
+                # row_hِ قدیمی = ۱.۲۵×بلندیِ خط از گامِ واقعیِ خط‌ها بلندتر
+                # بود → دو خطِ مجاور در یک سطلِ y//row_h می‌افتادند و
+                # تای‌بریکِ x ترتیبشان را عوض می‌کرد. حالا سطل = ۰.۷۵×میانه
+                # (کوچکتر از گامِ خط) → هیچ برخوردی. برایِ ستون‌هایِ عمودیِ
+                # ژاپنی/کره‌ای (اکثریتِ باکس‌ها بلند): ترتیبِ راست‌به‌چپِ
+                # واقعیِ منگا با x نزولی (rtl) — قدیمی x صعودی می‌خواند.
+                _bbsS185 = [_bb_of(m[2]) for m in merged]
+                _vS185 = [b for b in _bbsS185 if b is not None]
+                if _vS185:
+                    _medhS185 = float(np.median(
+                        [b[3] - b[1] for b in _vS185]))
+                    _tallS185 = sum(
+                        1 for b in _vS185
+                        if (b[3] - b[1]) > 1.4 * (b[2] - b[0]))
+                    _rtlS185 = (
+                        getattr(self, "reading_order", "rtl") == "rtl")
+                    if len(_vS185) >= 2 and _tallS185 * 2 >= len(_vS185):
+                        if _rtlS185:
+                            merged.sort(key=lambda m_item: (
+                                (-(_bb_of(m_item[2])[0])
+                                 if m_item[2] is not None else 0.0),
+                                (_bb_of(m_item[2])[1]
+                                 if m_item[2] is not None else 0.0)))
+                        else:
+                            merged.sort(key=lambda m_item: (
+                                (_bb_of(m_item[2])[0]
+                                 if m_item[2] is not None else 0.0),
+                                (_bb_of(m_item[2])[1]
+                                 if m_item[2] is not None else 0.0)))
+                    else:
+                        _rh185 = max(8.0, _medhS185 * 0.75)
+                        merged.sort(key=lambda m_item: (
+                            ((_bb_of(m_item[2])[1]
+                              if m_item[2] is not None else 0.0) // _rh185),
+                            (_bb_of(m_item[2])[0]
+                             if m_item[2] is not None else 0.0)))
+            else:
+                # v1.14.237 — پورتِ فیکسِ اندروید (v1.14.185) به PC: سطلِ
+                # ۱.۲۵×بلندیِ خط از گامِ واقعیِ خط‌ها بلندتر بود → دو خطِ
+                # مجاورِ حبابِ با leadingِ فشرده (گامِ ~۱.۰×بلندی) در یک
+                # سطلِ y//row_h می‌افتادند و تای‌بریکِ x ترتیبشان را
+                # برمی‌چید (نمونهٔ img7 با detِ 960/max: «STOP BEING A
+                # SECURITY YOU SHOULD ALSO GUARD…» و «WHEN WERE SINCE WE
+                # FRIENDS?»؛ رویِ 736/min هم نهفته بود — فقط شانسِ
+                # ارتفاعِ باکسها جور نبود). سطل = ۰.۷۵×میانه (کوچکتر از
+                # گامِ خط) → هیچ برخوردی؛ تای‌بریکِ x فقط برای تکههایِ
+                # همخط (دو باکسِ کنارِ هم) میماند.
+                row_h = max(8.0, (float(np.median(hts)) if hts else 8.0) * 0.75)
+                merged.sort(key=lambda m_item: (
+                    ((_bb_of(m_item[2])[1] if m_item[2] is not None else 0.0) // row_h),
+                    (_bb_of(m_item[2])[0] if m_item[2] is not None else 0.0),
+                ))
+            # v1.14.90 — ستون‌بندیِ خط‌ها: دو ستونِ کنارِ هم (متنِ حباب +
+            # متنِ دست‌نویسِ کنارش) با مرتب‌سازیِ (y,x) در هم می‌پیچد؛
+            # هر ستون متنِ خودش را می‌گیرد و ستون‌ها با \n جدا می‌شوند
+            # (مترجم دو متنِ جدا را با \n ترجمه/رندر می‌کند).
+            try:
+                _cg86 = MangaTranslator._column_line_groups(
+                    list(range(len(merged))),
+                    [_bb_of(m_item[2]) for m_item in merged],
+                    rtl=(getattr(self, "reading_order", "rtl") == "rtl"))
+            except Exception:
+                _cg86 = None
+            if _cg86 and len(_cg86) > 1:
+                _parts86 = []
+                for _g86 in _cg86:
+                    _gs86 = sorted(_g86, key=lambda _k86: (
+                        (_bb_of(merged[_k86][2])[1]
+                         if merged[_k86][2] is not None else 0.0),
+                        (_bb_of(merged[_k86][2])[0]
+                         if merged[_k86][2] is not None else 0.0)))
+                    _tg86 = " ".join(
+                        str(merged[_k86][0] or "").strip() for _k86 in _gs86
+                    ).strip()
+                    if _tg86:
+                        _parts86.append(_tg86)
+                u_txt = "\n".join(_parts86)
+            else:
+                u_txt = " ".join(m_item[0] for m_item in merged).strip()
+            u_txt = u_txt.strip()
+            u_conf = float(np.mean([m_item[1] for m_item in merged])) if merged else 0.0
+            u_polys = [
+                np.rint(np.asarray(m_item[2], dtype=np.float32)).astype(np.int32)
+                for m_item in merged if m_item[2] is not None
+            ]
+            u_angs = [float(m_item[3]) if len(m_item) > 3 else 0.0
+                      for m_item in merged if m_item[2] is not None]
+            u_texts = [str(m_item[0] or "") for m_item in merged if m_item[2] is not None]
+            u_blks = [int(m_item[4]) if len(m_item) > 4 else -1
+                      for m_item in merged if m_item[2] is not None]
+            scv = _score(u_txt, u_conf)
+            if scv >= best[2]:
+                best = (u_txt, u_polys, scv, u_angs, u_texts, u_blks)
+
+
+        best_txt = best[0] or ""
+        latin_n = len(re.sub(r"[^A-Za-z]", "", best_txt))
+
+        skew = self._skew_from_quads(core, best[1], x1, y1, inset_used)
+        if skew == 0.0:
+            skew = _sk if _sk != 0.0 else self._estimate_skew_angle(core)
+        if (not early_stop) and skew != 0.0 and 4.0 <= abs(skew) <= 40.0 and (latin_n < 3 or abs(skew) >= 5.0):
+            try:
+                hc, wc = core.shape[:2]
+                M = cv2.getRotationMatrix2D((wc / 2.0, hc / 2.0), skew, 1.0)
+                nw = int(round(wc * abs(np.cos(np.radians(skew))) +
+                               hc * abs(np.sin(np.radians(skew))))) + 4
+                nh = int(round(wc * abs(np.sin(np.radians(skew))) +
+                               hc * abs(np.cos(np.radians(skew))))) + 4
+                M[0, 2] += nw / 2.0 - wc / 2.0
+                M[1, 2] += nh / 2.0 - hc / 2.0
+                desk = cv2.warpAffine(
+                    core, M, (nw, nh),
+                    flags=cv2.INTER_CUBIC,
+                    borderMode=cv2.BORDER_CONSTANT,
+                    borderValue=(255, 255, 255),
+                )
+                txt, polys, conf, _entries = _run(desk, base_scale,
+                                                  apply_offset=False,
+                                                  ang_corr=float(skew))
+                if txt and polys:
+                    M_inv = cv2.getRotationMatrix2D((wc / 2.0, hc / 2.0), -skew, 1.0)
+                    M_inv[0, 2] += wc / 2.0 - nw / 2.0
+                    M_inv[1, 2] += hc / 2.0 - nh / 2.0
+                    off = np.array([x1, y1], dtype=np.float32)
+                    back_polys = []
+                    for p in polys:
+                        pp = p.astype(np.float32).reshape(-1, 2)
+                        ones = np.hstack([pp, np.ones((pp.shape[0], 1), dtype=np.float32)])
+                        backp = (M_inv @ ones.T).T + off[None, :]
+                        back_polys.append(np.rint(backp).astype(np.int32))
+                    if inset_used:
+                        for pp in back_polys:
+                            pp[:, 0] += inset_used
+                            pp[:, 1] += inset_used
+                    scv = _score(txt, conf)
+                    latin_d = len(re.sub(r"[^A-Za-z]", "", txt or ""))
+                    if scv > best[2] and latin_d >= latin_n:
+                        _desk_angs = []
+                        for _bp in back_polys:
+                            try:
+                                _desk_angs.append(float(
+                                    MangaTranslator._poly_long_side_angle(_bp)))
+                            except Exception:
+                                _desk_angs.append(0.0)
+                        _desk_texts = [str(e[0] or "") for e in _entries
+                                       if e[2] is not None]
+                        _desk_blks = [(int(e[4]) if len(e) > 4 else -1)
+                                      for e in _entries if e[2] is not None]
+                        best = (txt, back_polys, scv, _desk_angs, _desk_texts,
+                                _desk_blks)
+            except Exception:
+                pass
+
+        # ── v1.14.230 — نجاتِ متنِ عمودی (±۹۰°): تستِ عکس‌های چرخیدهٔ
+        # ساختهشده نشان داد ≤۳۵° با deskewِ موجود درست خوانده میشود ولی
+        # ۶۰-۹۰° خراب میخوانَد (ستونهایِ عمودی به‌شکلِ خطهایِ خیلیبلندِ
+        # باریک: «OoR U' W EVER» از متنِ افقیِ چرخیده). محرک: کراپِ
+        # عمودی (h ≥ ۱٫۲×w) که یا هیچ خطی ندارد یا خطهایش «بلندتر از
+        # عرضِ کراپ»ند (نشانهٔ خوانشِ ستونی). دو پاسِ ±۹۰ (فقط همین دو؛
+        # فقط در این حالت) زده میشود و چندضلعیها به مختصاتِ صفحه
+        # برمیگردند.
+        try:
+            _latin_b230 = len(re.sub(r"[^A-Za-z]", "", best[0] or ""))
+            _tall230 = False
+            if merged:
+                _hb230 = []
+                for m_item in merged:
+                    mb = _bb_of(m_item[2])
+                    if mb is not None:
+                        _hb230.append((mb[3] - mb[1], mb[2] - mb[0]))
+                if _hb230:
+                    _mh230 = float(np.median([b[0] for b in _hb230]))
+                    _mw230 = float(np.median([b[1] for b in _hb230]))
+                    _tall230 = _mh230 > max(1.3 * _mw230, 1.15 * cw0)
+            _need90230 = (
+                cw0 >= 40 and ch0 >= 1.2 * cw0
+                and ((not merged) or _tall230
+                     or (_latin_b230 < 4 and bool(merged))))
+            # ستونِ عمودیِ واقعیِ CJK (ژاپنی/کره‌ایِ مانگا) متنِ درستِ
+            # عمودی است — چرخشِ ±۹۰ آن را خراب میکند. اگر متنِ موجودِ
+            # حروفِ CJK دارد، نجاتِ ۹۰ درجه اجرا نمیشود.
+            if _need90230 and merged:
+                _cjk_b230 = sum(
+                    1 for _ch in (best[0] or "")
+                    if 0x3040 <= ord(_ch) <= 0x30FF
+                    or 0x3400 <= ord(_ch) <= 0x9FFF
+                    or 0xAC00 <= ord(_ch) <= 0xD7AF)
+                if _cjk_b230 >= 2:
+                    _need90230 = False
+            if _need90230:
+                for _rotk230 in (cv2.ROTATE_90_CLOCKWISE,
+                                 cv2.ROTATE_90_COUNTERCLOCKWISE):
+                    try:
+                        _rot_img230 = cv2.rotate(crop0, _rotk230)
+                        _rt230, _rp230, _rc230, _re230 = _run(
+                            _rot_img230, base_scale, apply_offset=False)
+                        if not _re230:
+                            continue
+                        _keep230 = []
+                        # v1.14.245 — سیاستِ عدد در سطحِ ناحیه برایِ نجاتِ ۹۰°
+                        try:
+                            _rhas230 = source_has_letters(
+                                " ".join(str(_e245[0])
+                                          for _e245 in (_re230 or [])))
+                        except Exception:
+                            _rhas230 = None
+                        for _e230 in (_re230 or []):
+                            if _e230[2] is None:
+                                continue
+                            _j230 = _latin_junk_line188(_e230[0], _rhas230) \
+                                if _latin_lang188(self) else False
+                            if _j230:
+                                if isinstance(_j230, str):
+                                    _e230 = (_j230,) + tuple(_e230[1:])
+                                else:
+                                    continue
+                            _keep230.append(_e230)
+                        if not _keep230:
+                            continue
+                        _back230 = []
+                        for _e230 in _keep230:
+                            _pp230 = np.asarray(_e230[2], np.float32).reshape(-1, 2)
+                            if _rotk230 == cv2.ROTATE_90_CLOCKWISE:
+                                # (x',y') → (x,y) = (y', ch0-1-x')
+                                _bx230 = _pp230[:, 1].copy()
+                                _by230 = (ch0 - 1.0) - _pp230[:, 0]
+                            else:
+                                # (x',y') → (x,y) = (cw0-1-y', x')
+                                _bx230 = (cw0 - 1.0) - _pp230[:, 1]
+                                _by230 = _pp230[:, 0].copy()
+                            _bp230 = np.stack(
+                                [_bx230 + x1, _by230 + y1], axis=1)
+                            if inset_used:
+                                _bp230 += float(inset_used)
+                            _back230.append(np.rint(_bp230).astype(np.int32))
+                        _btxt230 = " ".join(str(e[0]) for e in _keep230).strip()
+                        _bconf230 = float(np.mean([e[1] for e in _keep230]))
+                        _scv230 = _score(_btxt230, _bconf230)
+                        _bl230 = len(re.sub(r"[^A-Za-z]", "", _btxt230))
+                        if _scv230 > best[2] and _bl230 >= _latin_b230:
+                            _bangs230 = []
+                            for _bp230 in _back230:
+                                try:
+                                    _bangs230.append(float(
+                                        MangaTranslator._poly_long_side_angle(_bp230)))
+                                except Exception:
+                                    _bangs230.append(0.0)
+                            best = (_btxt230, _back230, _scv230, _bangs230,
+                                    [str(e[0]) for e in _keep230],
+                                    [(int(e[4]) if len(e) > 4 else -1)
+                                     for e in _keep230])
+                            if self.debug:
+                                print(f"    [🔍230] نجاتِ ±۹۰°: "
+                                      f"{_btxt230[:60]!r}")
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
+        return (best[0], best[1], (best[3] if len(best) > 3 else []),
+                (best[4] if len(best) > 4 else []),
+                (best[5] if len(best) > 5 else []))
+
+
+    @staticmethod
+    def _drop_contained_boxes(boxes: List[dict], contain_thresh: float = 0.72) -> List[dict]:
+
+        if len(boxes) < 2:
+            return boxes
+
+        def _area(r):
+            return max(0, int(r[2]) - int(r[0])) * max(0, int(r[3]) - int(r[1]))
+
+        def _iou(a, b):
+            ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+            inter = ix * iy
+            if inter <= 0:
+                return 0.0
+            ua = _area(a) + _area(b) - inter
+            return inter / float(ua) if ua > 0 else 0.0
+
+        def _contain(big, small):
+            ix = max(0, min(big[2], small[2]) - max(big[0], small[0]))
+            iy = max(0, min(big[3], small[3]) - max(big[1], small[1]))
+            a_s = _area(small)
+            return (ix * iy) / a_s if a_s > 0 else 0.0
+
+        n_all = len(boxes)
+        is_group = [False] * n_all
+        if n_all >= 3:
+            for i in range(n_all):
+                members = [j for j in range(n_all) if j != i
+                           and _contain(boxes[i]["rect"], boxes[j]["rect"]) >= 0.82]
+                disjoint: List[int] = []
+                for j in members:
+                    if all(_iou(boxes[j]["rect"], boxes[k]["rect"]) < 0.10
+                           for k in disjoint):
+                        disjoint.append(j)
+                if len(disjoint) >= 2:
+                    is_group[i] = True
+        boxes = [b for i, b in enumerate(boxes) if not is_group[i]]
+
+        priority = {"text_bubble": 2, "text_free": 1, "bubble": 0}
+        boxes = sorted(
+            boxes,
+            key=lambda x: (priority.get(x.get("class_name", ""), 0),
+                           float(x.get("confidence", 0.0)),
+                           _area(x["rect"])),
+            reverse=True,
+        )
+        kept: List[dict] = []
+        for b in boxes:
+            rb = b["rect"]
+            ab = _area(rb)
+            if ab < 1:
+                continue
+            dup = False
+            for k in kept:
+                rk = k["rect"]
+
+                ix = max(0, min(rb[2], rk[2]) - max(rb[0], rk[0]))
+                iy = max(0, min(rb[3], rk[3]) - max(rb[1], rk[1]))
+                inter = ix * iy
+                smaller = min(ab, _area(rk))
+                if smaller > 0 and inter / smaller >= contain_thresh:
+                    dup = True
+                    break
+
+                if _iou(rb, rk) >= 0.45:
+                    dup = True
+                    break
+            if not dup:
+                kept.append(b)
+        return kept
+
+    @staticmethod
+    def _split_adjacent_balloons(image_bgr: np.ndarray, rect,
+                                 min_area_frac: float = 0.16) -> List[list]:
+
+
+        try:
+            x1, y1, x2, y2 = [int(v) for v in rect[:4]]
+            h_img, w_img = image_bgr.shape[:2]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w_img, x2), min(h_img, y2)
+            full = [x1, y1, x2, y2]
+            if x2 - x1 < 48 or y2 - y1 < 48:
+                return [full]
+            crop = image_bgr[y1:y2, x1:x2]
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+            _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            if float(np.mean(bw)) < 127:
+                bw = 255 - bw
+            k = min(9, max(3, min(bw.shape) // 80))
+            bw = cv2.morphologyEx(bw, cv2.MORPH_CLOSE, np.ones((k, k), np.uint8))
+            n, _lab, st, _ = cv2.connectedComponentsWithStats(bw, connectivity=8)
+            box_area = float((x2 - x1) * (y2 - y1))
+            comps: List[list] = []
+            for i in range(1, n):
+                area = float(st[i, cv2.CC_STAT_AREA])
+                cw_, ch_ = int(st[i, cv2.CC_STAT_WIDTH]), int(st[i, cv2.CC_STAT_HEIGHT])
+                if area >= box_area * min_area_frac and cw_ >= 32 and ch_ >= 32:
+                    comps.append([int(st[i, cv2.CC_STAT_LEFT]), int(st[i, cv2.CC_STAT_TOP]),
+                                  cw_, ch_, area])
+            if len(comps) < 2:
+                return [full]
+            comps.sort(key=lambda c: -c[4])
+            comps = comps[:4]
+            if sum(c[4] for c in comps) < box_area * 0.50:
+                return [full]
+            subs: List[list] = []
+            for cx, cy, cw_, ch_, _a in comps:
+                sx1, sy1 = max(x1, x1 + cx), max(y1, y1 + cy)
+                sx2, sy2 = min(x2, x1 + cx + cw_), min(y2, y1 + cy + ch_)
+                if sx2 - sx1 >= 28 and sy2 - sy1 >= 28:
+                    subs.append([sx1, sy1, sx2, sy2])
+            if len(subs) < 2:
+                return [full]
+            ded = MangaTranslator._drop_contained_boxes(
+                [{"rect": r} for r in subs], contain_thresh=0.85)
+            subs = [d["rect"] for d in ded]
+            return subs if len(subs) >= 2 else [full]
+        except Exception:
+            try:
+                return [[int(v) for v in rect[:4]]]
+            except Exception:
+                return [rect]
+
+    def _ocr_guard_line_boxes_239(self, crop: np.ndarray):
+        """v1.14.239 — جعبههایِ خطِ متنِ داخلِ کراپ (برایِ گاردِ برش).
+
+        از همان فراخوانیِ عادیِ ocr() استفاده میکند (مثلِ کارگرهایِ
+        موازی) — نه از حالتِ det-only: rapidocr نسخهٔ ۳ در __call__
+        پارامترها را با update_params «دائمی» رویِ موتورِ مشترک
+        میگذارد (use_rec=False → همهٔ پاسهایِ بعدیِ همهٔ کارگرها بی‌متن
+        میشدند!) پس مسیرِ عادیِ بدونِ تغییرِ وضعیتِ موتور تنها راهِ
+        امن است. خروجی: [(x0,y0,x1,y1,h), …] در مختصاتِ کراپ."""
+        try:
+            try:
+                _res239 = self.ocr.ocr(crop, crop_mode=True)
+            except TypeError:
+                # PaddleOCRWrapper امضایِ crop_mode ندارد (بدونِ تغییرِ
+                # رفتار — همان پاسِ عادی کافی است)
+                _res239 = self.ocr.ocr(crop)
+            boxes = []
+            for _pg239 in (_res239 or []):
+                for _it239 in (_pg239 or []):
+                    try:
+                        boxes.append(np.asarray(
+                            _it239[0], dtype=np.float32).reshape(-1, 2))
+                    except Exception:
+                        continue
+        except Exception:
+            return []
+        out = []
+        for _p239 in (boxes or []):
+            try:
+                _pp239 = np.asarray(_p239, dtype=np.float32).reshape(-1, 2)
+                if _pp239.shape[0] < 4:
+                    continue
+                _w239 = float(_pp239[:, 0].max() - _pp239[:, 0].min())
+                _h239 = float(_pp239[:, 1].max() - _pp239[:, 1].min())
+                if _w239 >= 12.0 and _h239 >= 6.0:
+                    out.append((float(_pp239[:, 0].min()),
+                                float(_pp239[:, 1].min()),
+                                float(_pp239[:, 0].max()),
+                                float(_pp239[:, 1].max()), _h239))
+            except Exception:
+                continue
+        return out
+
+    def _split_cuts_text_239(self, image: np.ndarray, full_rect, parts) -> bool:
+        """v1.14.239 — آیا برشِ حبابهایِ چسبیده از وسطِ «خطِ متن» میگذرد؟
+
+        ریشهٔ باگِ فصلِ Green-Skin 22 (لاگِ سازنده): کپشنِ یک‌خطیِ
+        «HELLO, I AM JANG HA-YEON.» با باکسِ درستِ (41,4607,723,4745)
+        پیدا شده بود ولی _split_adjacent_balloons آن را به دو نیمه برید
+        (خوشههایِ روشنِ پسزمینه دو «حباب» تصور شدند) → دو ناحیهٔ
+        «HELLO, I AM JANG HA» + «HA-YEON.» با ترجمههایِ جدا و «HA»
+        دوبار. حالا: قبل از پذیرشِ برش، detِ OCR رویِ کراپِ باکسِ کامل
+        اجرا میشود؛ اگر خطی از مرزِ بینِ دو پارت (با حاشیهٔ امنِ
+        متناسبِ بلندیِ خط — جبرانِ گسترشِ unclip) دو طرف عبور کند، برش
+        لغو و باکسِ کامل حفظ میشود. خطی که کامل داخلِ یک پارت است
+        (حبابهایِ واقعیِ چسبیده با متنِ جدا) برش را بازنمیگرداند."""
+        try:
+            _ocr239 = getattr(self, "ocr", None)
+            if _ocr239 is None:
+                return False
+            x1, y1, x2, y2 = [int(v) for v in full_rect[:4]]
+            _pad239 = 6
+            _cx1 = max(0, x1 - _pad239)
+            _cy1 = max(0, y1 - _pad239)
+            _cx2 = min(int(image.shape[1]), x2 + _pad239)
+            _cy2 = min(int(image.shape[0]), y2 + _pad239)
+            if _cx2 - _cx1 < 24 or _cy2 - _cy1 < 24:
+                return False
+            crop = image[_cy1:_cy2, _cx1:_cx2]
+            if crop is None or crop.size == 0:
+                return False
+            lines = self._ocr_guard_line_boxes_239(crop)
+            if not lines:
+                return False
+            # خطهای عمدتاً داخلِ باکس (نه لکهٔ لبهٔ کراپِ همسایه)
+            _bx0, _by0 = float(x1 - _cx1), float(y1 - _cy1)
+            _bx1, _by1 = float(x2 - _cx1), float(y2 - _cy1)
+            _good = []
+            for _L239 in lines:
+                _lx0, _ly0, _lx1, _ly1, _lh = _L239
+                _mxc = (_lx0 + _lx1) * 0.5
+                _myc = (_ly0 + _ly1) * 0.5
+                if _bx0 - 2 <= _mxc <= _bx1 + 2 and _by0 - 2 <= _myc <= _by1 + 2:
+                    _good.append(_L239)
+            if not _good:
+                return False
+            _parts239 = sorted(
+                [[int(v) for v in p[:4]] for p in parts],
+                key=lambda p: (p[0], p[1]))
+            for _a239, _b239 in zip(_parts239, _parts239[1:]):
+                # کنارهم (درزِ عمودی) یا رویهم (درزِ افقی)؟
+                _ovx = min(_a239[2], _b239[2]) - max(_a239[0], _b239[0])
+                _ovy = min(_a239[3], _b239[3]) - max(_a239[1], _b239[1])
+                _wa = max(1, _a239[2] - _a239[0])
+                _ha = max(1, _a239[3] - _a239[1])
+                _side = (_ovy >= 0.5 * min(_ha, max(1, _b239[3] - _b239[1])))
+                _stack = (_ovx >= 0.5 * min(_wa, max(1, _b239[2] - _b239[0])))
+                if not _side and not _stack:
+                    continue
+                if _side:
+                    _lo = max(_a239[0], _b239[0])
+                    _hi = min(_a239[2], _b239[2])
+                    if _hi <= _lo:            # دو پارتِ جدا از هم → درز = فاصله
+                        _lo, _hi = min(_a239[2], _b239[2]), max(_a239[0], _b239[0])
+                    for _lx0, _ly0, _lx1, _ly1, _lh in _good:
+                        _tol = min(24.0, max(4.0, 0.12 * max(1.0, _lh)))
+                        if (_lo - _lx0) >= _tol and (_lx1 - _hi) >= _tol:
+                            return True
+                if _stack:
+                    _lo = max(_a239[1], _b239[1])
+                    _hi = min(_a239[3], _b239[3])
+                    if _hi <= _lo:
+                        _lo, _hi = min(_a239[3], _b239[3]), max(_a239[1], _b239[1])
+                    for _lx0, _ly0, _lx1, _ly1, _lh in _good:
+                        _tol = min(24.0, max(4.0, 0.12 * max(1.0, _lh)))
+                        if (_lo - _ly0) >= _tol and (_ly1 - _hi) >= _tol:
+                            return True
+            return False
+        except Exception:
+            return False
+
+    @staticmethod
+    def _merge_overlapping_regions(regions: List[TextRegion],
+                                   iou_thresh: float = 0.35,
+                                   contain_thresh: float = 0.65) -> List[TextRegion]:
+
+        if len(regions) < 2:
+            return regions
+
+        def _line_min_dims_1189(r):
+            """ضخامتِ هر خطِ OCR (minِ عرض/ارتفاع — برایِ متنِ عمودی هم درست)."""
+            out = []
+            for p in (getattr(r, "ocr_polys", None) or []):
+                try:
+                    pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                    w = float(pp[:, 0].max() - pp[:, 0].min())
+                    h = float(pp[:, 1].max() - pp[:, 1].min())
+                    d = min(w, h)
+                    if d > 2.0:
+                        out.append(d)
+                except Exception:
+                    continue
+            return out
+
+        def _incoherent_lines_1189(a, b):
+            """v1.14.189 — مشکل۱: دو متنِ جدا در یک ناحیه ممنوع.
+            سناریوی img6 (گوشی): باکسِ detِ شلِ حبابِ زرد برچسبِ کوچکِ
+            «You're the real attraction here.» را میبلعید؛ merge با
+            contain_thresh دو ناحیه را یکی میکرد و دو دیالوگِ مستقل
+            قاطی میشدند. اگر هر دو ناحیه چندخطیاند و بلندیِ خطهایشان
+            ناهماهنگ است (دو فونتِ متفاوت) و متنِ یکی داخلِ دیگری
+            نیست → این جفت نباید ادغام شود."""
+            ha = _line_min_dims_1189(a)
+            hb = _line_min_dims_1189(b)
+            if len(ha) < 2 or len(hb) < 2:
+                return False
+            ma, mb = float(np.median(ha)), float(np.median(hb))
+            if ma <= 0 or mb <= 0:
+                return False
+            return (max(ma, mb) / min(ma, mb)) >= 1.35
+
+        def rect_xyxy(r: TextRegion):
+            x, y, w, h = r.rect
+            return [x, y, x + w, y + h]
+
+        def area(xyxy):
+            return max(0, xyxy[2] - xyxy[0]) * max(0, xyxy[3] - xyxy[1])
+
+        def iou(a, b):
+            ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+            inter = ix * iy
+            if inter <= 0:
+                return 0.0
+            ua = area(a) + area(b) - inter
+            return inter / float(ua) if ua > 0 else 0.0
+
+        def contain_ratio(inner, outer):
+            ix = max(0, min(inner[2], outer[2]) - max(inner[0], outer[0]))
+            iy = max(0, min(inner[3], outer[3]) - max(inner[1], outer[1]))
+            inter = ix * iy
+            ai = area(inner)
+            return inter / float(ai) if ai > 0 else 0.0
+
+        # v1.14.206 — درِ باکسِ detector: mergeِ دو ناحیه فقط وقتی مجاز
+        # است که باکسهایِ detectorِ خودشان همپوشانی دارند — نه مستطیلِ
+        # گسترشیافتهٔ angle. دستورِ سازنده: «وقتی detector متن در اورد
+        # نباید استخراج از اون بیشتر بگیره — الان میشه دید کل سه حباب
+        # گرفته» — detector سه حباب/تایتلِ کج را جدا داده بود؛ ادغامِ
+        # مستطیلیِ همپوشانیِ گسترشیافته آنها را یکجا میگرفت.
+        def _det_box204(r):
+            try:
+                bs = getattr(r, "boxes", None) or []
+                if not bs:
+                    return None
+                p = np.asarray(bs[0], dtype=np.float32).reshape(-1, 2)
+                if p.size < 8:
+                    return None
+                return [float(p[:, 0].min()), float(p[:, 1].min()),
+                        float(p[:, 0].max()), float(p[:, 1].max())]
+            except Exception:
+                return None
+
+
+        ordered = sorted(
+            regions,
+            key=lambda r: (len((r.source_text or "").strip()), r.rect[2] * r.rect[3]),
+            reverse=True,
+        )
+        used = [False] * len(ordered)
+        merged: List[TextRegion] = []
+        n_merged = 0
+        for i, a in enumerate(ordered):
+            if used[i]:
+                continue
+            cur = a
+            used[i] = True
+            ca = rect_xyxy(cur)
+            _cur_det204 = [d for d in [_det_box204(cur)] if d]
+            changed = True
+            while changed:
+                changed = False
+                for j, b in enumerate(ordered):
+                    if used[j]:
+                        continue
+                    cb = rect_xyxy(b)
+                    _db204 = _det_box204(b)
+                    if _cur_det204 and _db204:
+                        if not any(
+                                iou(cd, _db204) >= iou_thresh
+                                or contain_ratio(_db204, cd) >= contain_thresh
+                                or contain_ratio(cd, _db204) >= contain_thresh
+                                for cd in _cur_det204):
+                            # v1.14.206 — باکسِ detectorِ جدا = متنِ جدا؛
+                            # مستطیلِ گسترشیافته حقِ جذبِ همسایه را ندارد
+                            continue
+                    ov = iou(ca, cb)
+                    cont_ab = contain_ratio(cb, ca)
+                    cont_ba = contain_ratio(ca, cb)
+                    if ov < iou_thresh and cont_ab < contain_thresh and cont_ba < contain_thresh:
+                        continue
+
+                    nx0 = min(ca[0], cb[0]); ny0 = min(ca[1], cb[1])
+                    nx1 = max(ca[2], cb[2]); ny1 = max(ca[3], cb[3])
+                    ta = (cur.source_text or "").strip()
+                    tb = (b.source_text or "").strip()
+                    if not ta:
+                        joined = tb
+                    elif not tb:
+                        joined = ta
+                    elif tb.lower() in ta.lower():
+                        joined = ta
+                    elif ta.lower() in tb.lower():
+                        joined = tb
+                    elif _incoherent_lines_1189(cur, b):
+                        # v1.14.189 — مشکل۱: دو متنِ مستقل با فونتِ متفاوت —
+                        # جدا بمانند (img6: حبابِ زرد + برچسبِ کوچک)
+                        continue
+                    else:
+
+                        if ca[1] <= cb[1]:
+                            joined = (ta + " " + tb).strip()
+                        else:
+                            joined = (tb + " " + ta).strip()
+                        joined = re.sub(r"\s{2,}", " ", joined)
+                    _aa = float(cur.angle or 0.0)
+                    _ba = float(b.angle or 0.0)
+                    if abs(_aa) < 3.0:
+                        _ang = _ba
+                    elif abs(_ba) < 3.0:
+                        _ang = _aa
+                    elif (_aa > 0.0) == (_ba > 0.0):
+                        _ang = (_aa + _ba) / 2.0
+                    else:
+                        _ang = _aa if abs(_aa) >= abs(_ba) else _ba
+                    cur = TextRegion(
+                        id=cur.id,
+                        boxes=list(cur.boxes or []) + list(b.boxes or []),
+                        source_text=joined,
+                        rect=(nx0, ny0, nx1 - nx0, ny1 - ny0),
+                        angle=_ang,
+                        kind=cur.kind if cur.kind == "dialogue" else b.kind,
+                        ocr_polys=list(getattr(cur, "ocr_polys", None) or [])
+                        + list(getattr(b, "ocr_polys", None) or []),
+                    )
+                    ca = [nx0, ny0, nx1, ny1]
+                    if _db204 is not None:
+                        _cur_det204.append(_db204)
+                    used[j] = True
+                    n_merged += 1
+                    changed = True
+            merged.append(cur)
+        return merged
+
+    @staticmethod
+    def _poly_long_side_angle(pts) -> float:
+        try:
+            pts = np.asarray(pts, dtype=np.float32).reshape(-1, 2)
+        except Exception:
+            return 0.0
+        if pts.shape[0] < 2:
+            return 0.0
+        try:
+            box = cv2.boxPoints(cv2.minAreaRect(pts.astype(np.float32)))
+        except Exception:
+            return 0.0
+        best_a, best_len = 0.0, 0.0
+        for k in range(4):
+            p0, p1 = box[k], box[(k + 1) % 4]
+            dx, dy = float(p1[0] - p0[0]), float(p1[1] - p0[1])
+            ln = float(np.hypot(dx, dy))
+            if ln > best_len:
+                best_len = ln
+                if dx < 0.0:
+                    dx, dy = -dx, -dy
+                best_a = float(np.degrees(np.arctan2(dy, dx)))
+        if abs(best_a) > 45:
+            return 0.0
+        return best_a
+
+    @staticmethod
+    def _ink_slant_angle(crop_bgr) -> float:
+        return MangaTranslator._ink_slant_measure(crop_bgr)[0]
+
+    @staticmethod
+    def _ink_slant_support(crop_bgr, angle_deg: float) -> Optional[float]:
+        """v1.14.213 — آیا زاویهٔ «ادعاشده» جوهرِ این کراپ را واقعاً رویِ
+        هم میاندازد؟ نسبتِ شکستِ ردیفها در زاویهٔ ادعایی بر افقی:
+        score(angle)/score(0). ≥~۱٫۱۰ یعنی خطِ واقعاً کج است (وتو نکن)؛
+        ~۱٫۰ یعنی کجیِ کاذبِ پالی/فونتِ استایل‌دار (وتو کن).
+
+        ریشه (img3): وتویِ «جوهر مسطح» زاویهٔ واقعیِ ‎-۶٫۷°/-۱۳٫۲° را
+        صفر میکرد — سنجشِ قبلی «بهترینِ خودش» را با افقی مقایسه میکرد و
+        برایِ خطهایِ کوتاهِ کج، بهترینِ سنجش (~۴°) فقط ۱٫۱× بهتر ازِ
+        افقی بود و رأیِ «مسطح» میداد؛ حالا خودِ زاویهٔ ادعایی آزموده
+        میشود (دستورِ سازنده: «بعد چرخش همچین بعضی متن ها درست
+        نمیچرخه»)."""
+        try:
+            if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
+                return None
+            h_c, w_c = crop_bgr.shape[:2]
+            if w_c < 40 or h_c < 14:
+                return None
+            g = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+            med = float(np.median(g))
+            _dark = (g < max(60.0, med - 45.0))
+            _bright = (g > min(195.0, max(med + 45.0, 150.0)))
+            _fd = float(_dark.mean())
+            _fb = float(_bright.mean())
+            _cands = []
+            if 0.010 <= _fd <= 0.45:
+                _cands.append(_dark)
+            if 0.010 <= _fb <= 0.45:
+                _cands.append(_bright)
+            if not _cands:
+                if 0.45 < _fd <= 0.60:
+                    _cands.append(_dark)
+                elif 0.010 <= _fb <= 0.60:
+                    _cands.append(_bright)
+                else:
+                    return None
+            _cands.sort(key=lambda _b: float(_b.mean()))
+
+            def _sup(ink: np.ndarray) -> Optional[float]:
+                try:
+                    ys_, xs_ = np.nonzero(ink)
+                    if len(ys_) < 60:
+                        return None
+                    ys_f = ys_.astype(np.float64)
+                    xs_f = xs_.astype(np.float64)
+
+                    def _score(theta_deg: float) -> float:
+                        t = float(np.tan(np.radians(theta_deg)))
+                        rows = ys_f - t * xs_f
+                        idx = (rows - rows.min()).astype(np.int32)
+                        hist = np.bincount(idx)
+                        hf = hist.astype(np.float64)
+                        return float(np.dot(hf, hf))
+
+                    s0 = max(1.0, _score(0.0))
+                    sa = _score(float(angle_deg))
+                    return sa / s0
+                except Exception:
+                    return None
+
+            for _ink_b in _cands:
+                _r213 = _sup(_ink_b)
+                if _r213 is not None:
+                    return _r213
+            return None
+        except Exception:
+            return None
+
+    def _ink_slant_measure(crop_bgr) -> Tuple[float, bool]:
+        """v1.14.79 — (زاویه، قابل‌اتکا) + قطب‌آگاهیِ تیره/روشن.
+
+        قبلاً فقط جوهرِ تیره سنجیده می‌شد؛ متنِ روشن/درخشان روی زمینهٔ
+        تیره (تیترهای BLUE MOON / RED MOON و…) اصلاً سنجیده نمی‌شد و
+        وتویِ «جوهرِ مسطح» ممکن نبود — حروفِ استایل‌دار زاویهٔ کاذبِ
+        ±۱۵..۲۰° می‌ساختند و متنِ افقی کج رندر می‌شد. حالا قطبِ جوهر
+        با جرمِ معقولِ متن (۱٪..۴۵٪) انتخاب می‌شود. خروجیِ دوم یعنی
+        «سنجش به نتیجه رسید» (حتی وقتی جواب «مسطح» است) تا caller
+        بتواند کجیِ کاذب را صفر کند."""
+        try:
+            if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
+                return 0.0, False
+            h_c, w_c = crop_bgr.shape[:2]
+            if w_c < 40 or h_c < 14:
+                return 0.0, False
+            g = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+            med = float(np.median(g))
+            # قطبِ تیره اول (رفتارِ قدیمی)؛ اگر جرمش در بازهٔ متن نبود،
+            # قطبِ روشن (متنِ سفید/درخشان روی زمینهٔ تیره) سنجیده می‌شود
+            _dark = (g < max(60.0, med - 45.0))
+            # v1.14.80 — آستانهٔ روشن حداقل ۱۵۰: با زمینهٔ تیره، آستانهٔ
+            # قبلیِ (med+45) هالهٔ گلو و ستاره‌ها را هم «جوهر» می‌گرفت و
+            # جرم از بازهٔ مجاز بیرون می‌زد → سنجش شکست → کجیِ کاذبِ
+            # عنوان‌های درخشان (BLUE/RED/PURPLE MOON) وتو نمی‌شد
+            _bright = (g > min(195.0, max(med + 45.0, 150.0)))
+            _fd = float(_dark.mean())
+            _fb = float(_bright.mean())
+            _cands = []
+            if 0.010 <= _fd <= 0.45:
+                _cands.append(_dark.astype(np.uint8))
+            if 0.010 <= _fb <= 0.45:
+                _cands.append(_bright.astype(np.uint8))
+            if not _cands:
+                # بیرونِ بازه: جرمِ تیرهٔ پر (۰.۴۵..۰.۶۰) مثلِ قبل مجاز
+                if 0.45 < _fd <= 0.60:
+                    _cands.append(_dark.astype(np.uint8))
+                elif 0.010 <= _fb <= 0.60:
+                    _cands.append(_bright.astype(np.uint8))
+                else:
+                    return 0.0, False
+            # v1.14.80 — قطبِ کم‌جرم‌تر اول: خودِ متن تقریباً همیشه
+            # کم‌جرم‌تر از پس‌زمینه است (متنِ روشن روی تیره: bright ~۳۰٪
+            # در برابر نویزِ تیره ~۴۳٪). قبلاً قطبِ تیره (نویزِ ستاره‌های
+            # پس‌زمینه) زودتر سنجیده می‌شد و کجیِ کاذبِ مرزیِ (-۱۵°)
+            # برمی‌گرداند و قطبِ متنِ واقعی هرگز دیده نمی‌شد
+            # (BLUE MOON روی تصویرِ normalized)
+            _cands.sort(key=lambda _b: float(_b.mean()))
+            for _ink_b in _cands:
+                _res = MangaTranslator._ink_slant_core(_ink_b, h_c, w_c)
+                if _res is not None:
+                    return _res
+            return 0.0, False
+        except Exception:
+            return 0.0, False
+
+    @staticmethod
+    def _ink_slant_core(ink, h_c: int, w_c: int) -> Optional[Tuple[float, bool]]:
+        try:
+            if float(ink.mean()) < 0.010 or float(ink.mean()) > 0.60:
+                return None
+            n, lab, st, _cents = cv2.connectedComponentsWithStats(ink, connectivity=8)
+            crop_area = float(max(1.0, h_c * w_c))
+            clean = np.zeros_like(ink)
+            comp_ang: List[float] = []
+            for i in range(1, n):
+                a_ = int(st[i, cv2.CC_STAT_AREA])
+                if a_ < 12 or a_ > 0.08 * crop_area:
+                    continue
+                x_c = int(st[i, cv2.CC_STAT_LEFT])
+                y_c = int(st[i, cv2.CC_STAT_TOP])
+                bw_ = int(st[i, cv2.CC_STAT_WIDTH])
+                bh_ = int(st[i, cv2.CC_STAT_HEIGHT])
+                touches = ((x_c <= 0) + (y_c <= 0)
+                           + (x_c + bw_ >= w_c) + (y_c + bh_ >= h_c))
+                aspect = max(bw_, bh_) / max(1.0, float(min(bw_, bh_)))
+                if a_ < 0.25 * float(max(1, bw_ * bh_)):
+                    continue
+                if touches >= 2 or (touches >= 1 and aspect > 3.0):
+                    continue
+                if touches == 1:
+                    border_span = 0.0
+                    if x_c <= 0 or x_c + bw_ >= w_c:
+                        border_span = bh_ / float(h_c)
+                    else:
+                        border_span = bw_ / float(w_c)
+                    if border_span > 0.45 or aspect > 1.9:
+                        continue
+                clean[lab == i] = 1
+                try:
+                    _pc = np.column_stack(np.nonzero(lab == i))[:, ::-1].astype(np.float32)
+                    _ca = MangaTranslator._poly_long_side_angle(_pc)
+                    if abs(_ca) >= 3.0:
+                        comp_ang.append(_ca)
+                except Exception:
+                    pass
+            if float(clean.mean()) < 0.008:
+                return None
+            ys_, xs_ = np.nonzero(clean)
+            if len(ys_) < 60:
+                return None
+            ys_f = ys_.astype(np.float64)
+            xs_f = xs_.astype(np.float64)
+
+            def _score(theta_deg: float) -> float:
+                t = float(np.tan(np.radians(theta_deg)))
+                rows = ys_f - t * xs_f
+                idx = (rows - rows.min()).astype(np.int32)
+                hist = np.bincount(idx)
+                hf = hist.astype(np.float64)
+                return float(np.dot(hf, hf))
+
+            best_t, best_s = 0.0, -1.0
+            for td in range(-45, 46, 3):
+                s_ = _score(float(td))
+                if s_ > best_s:
+                    best_s, best_t = s_, float(td)
+            for td in np.arange(best_t - 3.0, best_t + 3.01, 0.5):
+                s_ = _score(float(td))
+                if s_ > best_s:
+                    best_s, best_t = s_, float(td)
+            try:
+                if best_s < 1.12 * max(1.0, _score(0.0)):
+                    # سنجید و جوابش «مسطح» است — قابل‌اتکا برایِ وتو
+                    return (0.0, True)
+            except Exception:
+                pass
+            a = float(best_t)
+            if abs(a) > 45.0:
+                return None
+            if abs(a) < 5.0:
+                return (0.0, True)
+            if len(comp_ang) >= 3:
+                _med = float(np.median(comp_ang))
+                if abs(_med) >= 5.0 and (_med > 0.0) != (a > 0.0):
+                    return (_med, True)
+            return (a, True)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _polys_vertical(polys) -> bool:
+        tall = wide = 0
+        for p in list(polys or []):
+            try:
+                pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+            except Exception:
+                continue
+            if pp.shape[0] < 3:
+                continue
+            pw_ = float(pp[:, 0].max() - pp[:, 0].min())
+            ph_ = float(pp[:, 1].max() - pp[:, 1].min())
+            if ph_ >= 1.3 * pw_ and ph_ >= 18.0:
+                tall += 1
+            elif pw_ >= 1.3 * ph_ and pw_ >= 18.0:
+                wide += 1
+        return tall > wide
+
+    @staticmethod
+    def _polys_dense(polys) -> bool:
+        tall = wide = 0
+        _pl: List[np.ndarray] = []
+        for p in list(polys or []):
+            try:
+                pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+            except Exception:
+                continue
+            if pp.shape[0] < 3:
+                continue
+            _pl.append(pp)
+            pw_ = float(pp[:, 0].max() - pp[:, 0].min())
+            ph_ = float(pp[:, 1].max() - pp[:, 1].min())
+            if ph_ >= 1.3 * pw_ and ph_ >= 18.0:
+                tall += 1
+            elif pw_ >= 1.3 * ph_ and pw_ >= 18.0:
+                wide += 1
+        if tall > 0 or wide < 2 or len(_pl) < 2:
+            return False
+        try:
+            _all = np.concatenate(_pl, axis=0)
+            _ua = max(1.0, float(_all[:, 0].max() - _all[:, 0].min())
+                      * float(_all[:, 1].max() - _all[:, 1].min()))
+            _sa = 0.0
+            for _q in _pl:
+                _sa += 0.5 * abs(float(np.dot(
+                    _q[:, 0], np.roll(_q[:, 1], -1))
+                    - np.dot(_q[:, 1], np.roll(_q[:, 0], -1))))
+            return (_sa / _ua) >= 0.34
+        except Exception:
+            return False
+
+    @staticmethod
+    def _text_block_box(polys, rect, vert: bool):
+        try:
+            _pl = []
+            for p in list(polys or []):
+                try:
+                    pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                except Exception:
+                    continue
+                if pp.shape[0] >= 3:
+                    _pl.append(pp)
+            if not _pl:
+                return None
+            _all = np.concatenate(_pl, axis=0)
+            ux0 = float(_all[:, 0].min())
+            ux1 = float(_all[:, 0].max())
+            uy0 = float(_all[:, 1].min())
+            uy1 = float(_all[:, 1].max())
+            _ws = [float(p[:, 0].max() - p[:, 0].min()) for p in _pl]
+            _hs = [float(p[:, 1].max() - p[:, 1].min()) for p in _pl]
+            if vert:
+                _mw = float(np.median(_ws)) if _ws else 30.0
+                pad_x = max(6.0, 0.55 * _mw)
+                pad_y = max(4.0, 0.30 * _mw)
+            else:
+                _mh = float(np.median(_hs)) if _hs else 20.0
+                pad_y = max(6.0, 0.55 * _mh)
+                pad_x = max(4.0, 0.35 * _mh)
+            ux0 -= pad_x
+            ux1 += pad_x
+            uy0 -= pad_y
+            uy1 += pad_y
+            if rect:
+                rx, ry, rw, rh = [float(v) for v in rect]
+                if not vert:
+                    _capw = 0.18 * max(4.0, rw)
+                    _caph = 0.30 * max(4.0, rh)
+                    # v1.14.229 — گشایشِ «تک-لبه» ممنوع: قبلاً هر لبهٔ
+                    # نزدیک جدا گیر میافتاد و اگر فقط «پایینِ» بلوکِ متن
+                    # به پایینِ حباب نزدیک بود (بالا دور — حالتِ طبیعیِ
+                    # متنِ وسطِ حبالِ بلند) جعبه فقط از پایین به لبهٔ حباب
+                    # باز میشد؛ وسطچینیِ بعدی متن را پایین میانداخت
+                    # (img6: حبابِ بالا-راست +53px، وسط +59px پایین‌تر از
+                    # متنِ اصلی — «کمی پایین چپ مینویسه»). حالا هر محور
+                    # فقط وقتی «هر دو» لبه‌اش به حباب نزدیک است به کلِ
+                    # حباب باز میشود؛ وگرنه جعبهٔ خودِ متن میماند.
+                    _near_t = 0.0 <= uy0 - ry <= _caph
+                    _near_b = 0.0 <= (ry + rh) - uy1 <= _caph
+                    _near_l = 0.0 <= ux0 - rx <= _capw
+                    _near_r = 0.0 <= (rx + rw) - ux1 <= _capw
+                    if _near_t and _near_b:
+                        uy0, uy1 = ry, ry + rh
+                    if _near_l and _near_r:
+                        ux0, ux1 = rx, rx + rw
+                ux0 = max(ux0, rx)
+                uy0 = max(uy0, ry)
+                ux1 = min(ux1, rx + max(4.0, rw))
+                uy1 = min(uy1, ry + max(4.0, rh))
+            bx0, by0 = int(np.floor(ux0)), int(np.floor(uy0))
+            bx1, by1 = int(np.ceil(ux1)), int(np.ceil(uy1))
+            if bx1 - bx0 >= 8 and by1 - by0 >= 8:
+                return (bx0, by0, bx1 - bx0, by1 - by0)
+        except Exception:
+            return None
+        return None
+
+    @staticmethod
+    def _estimate_angle_from_polys(polys) -> float:
+        angs: List[float] = []
+        for p in list(polys or []):
+            angs.append(MangaTranslator._poly_long_side_angle(p))
+        if not angs:
+            return 0.0
+        return float(np.median(angs))
+
+    def _split_mixed_column_regions(self, regions: List["TextRegion"]) -> List["TextRegion"]:
+        """v1.14.92 — ستون‌هایِ x-جدا از هم در یک ناحیه → ناحیه‌هایِ جدا.
+
+        v1.14.90 متنِ کنارِ حباب (کراپِ بازشدهٔ لبه) را با \n داخلِ «همان»
+        ناحیهٔ حباب نگه می‌داشت: جوهرش در ماسکِ حباب پاک می‌شد ولی ترجمه‌اش
+        فقط داخلِ حباب رندر می‌شد → «جایش سفید می‌شود، متنش استخراج
+        نمی‌شود». حالا وقتی خط‌هایِ OCRِ یک ناحیه در ≥۲ ستونِ با فاصلهٔ
+        مرکزیِ واقعی قرار می‌گیرند (خروجیِ _column_line_groups) و متنِ
+        \n-دار دقیقاً همان تعداد بخش دارد، هر ستون → ناحیهٔ مستقل با
+        rect/پالی/ترجمه/رندرِ خودش. تکی و دسته‌ای یکسان.
+        """
+        out: List["TextRegion"] = []
+        for r in regions:
+            try:
+                if getattr(r, "sys_span", None) or getattr(r, "sys_split", False):
+                    out.append(r)
+                    continue
+                if abs(float(getattr(r, "angle", 0.0) or 0.0)) >= 8.0:
+                    out.append(r)
+                    continue
+                if getattr(r, "kind", "dialogue") in (
+                        "system", "promo", "junk", "sfx", "free_text"):
+                    out.append(r)
+                    continue
+                polys = [p for p in (r.ocr_polys or [])
+                         if p is not None and len(np.asarray(p).reshape(-1, 2)) >= 3]
+                txt = (r.source_text or "").strip()
+                if len(polys) < 4 or "\n" not in txt:
+                    out.append(r)
+                    continue
+                parts = [p.strip() for p in txt.split("\n") if p.strip()]
+                if len(parts) < 2:
+                    out.append(r)
+                    continue
+                bbs = []
+                for p in polys:
+                    pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                    bbs.append((float(pp[:, 0].min()), float(pp[:, 1].min()),
+                                float(pp[:, 0].max()), float(pp[:, 1].max())))
+                groups = MangaTranslator._column_line_groups(
+                    list(range(len(polys))), bbs,
+                    rtl=(getattr(self, "reading_order", "rtl") == "rtl"))
+                if not groups or len(groups) < 2 or len(groups) != len(parts):
+                    out.append(r)
+                    continue
+                med_h = float(np.median([bbs[i][3] - bbs[i][1]
+                                         for i in range(len(polys))]))
+                spans = sorted(
+                    [(min(bbs[i][0] for i in g), max(bbs[i][2] for i in g))
+                     for g in groups], key=lambda s: s[0])
+                _ok = True
+                for _a in range(len(spans) - 1):
+                    if spans[_a][1] - spans[_a + 1][0] > max(10.0, 0.45 * med_h):
+                        _ok = False
+                        break
+                if not _ok:
+                    out.append(r)
+                    continue
+                if self.debug:
+                    try:
+                        print("    [*]ناحیهٔ چندستونی → "
+                              f"{len(groups)} ناحیهٔ جدا: "
+                              + " | ".join(p[:30] for p in parts))
+                    except Exception:
+                        pass
+                for gi, g in enumerate(groups):
+                    xs0 = int(min(bbs[i][0] for i in g)) - 3
+                    ys0 = int(min(bbs[i][1] for i in g)) - 3
+                    xs1 = int(max(bbs[i][2] for i in g)) + 3
+                    ys1 = int(max(bbs[i][3] for i in g)) + 3
+                    nx0, ny0 = max(0, xs0), max(0, ys0)
+                    out.append(TextRegion(
+                        id=-1,
+                        boxes=[np.array([[nx0, ny0], [max(nx0 + 1, xs1), ny0],
+                                         [max(nx0 + 1, xs1), max(ny0 + 1, ys1)],
+                                         [nx0, max(ny0 + 1, ys1)]],
+                                        dtype=np.int32)],
+                        source_text=parts[gi],
+                        rect=(nx0, ny0, max(1, xs1 - nx0), max(1, ys1 - ny0)),
+                        angle=float(getattr(r, "angle", 0.0) or 0.0),
+                        kind=getattr(r, "kind", "dialogue"),
+                        bubble_style=getattr(r, "bubble_style", "normal"),
+                        det_class=getattr(r, "det_class", "") or "",
+                        ocr_polys=[np.asarray(polys[i], dtype=np.int32)
+                                   for i in g],
+                    ))
+            except Exception:
+                out.append(r)
+        return out
+
+    def _extract_regions_from_bubbles(self, image: np.ndarray) -> List[TextRegion]:
+
+        if self.det is None:
+            return []
+        boxes = self.det.detect(image)
+        if not boxes:
+            return []
+        n0 = len(boxes)
+        # v1.14.173 — باکسهایِ خامِ detector برایِ رسمِ سبز رویِ همان
+        # DEBUGِ صفحه (دستورِ سازنده: «عکس جدا نشون نده رو همون عکس اصلی
+        # دیباگ بزاره با یک رنگ دیگ سبز نشون بده») — فایلِ جدا حذف شد؛
+        # باکسها رویِ خودِ ناحیهها سوار میشوند تا از استخرِ استخراج تا
+        # فازِ صفحه (پاکسازی/رندر) زنده بمانند — استخرهایِ موازی/مختلف.
+        _raw_det_dbg = []
+        if self.debug:
+            try:
+                _raw_det_dbg = [
+                    ([int(v) for v in _b["rect"][:4]],
+                     str(_b.get("class_name") or ""))
+                    for _b in boxes]
+            except Exception:
+                _raw_det_dbg = []
+        boxes = self._drop_contained_boxes(boxes, contain_thresh=0.72)
+        if len(boxes) < n0 and self.debug:
+            print(f"    [*] {n0 - len(boxes)} باکس تودرتو/تکراری حذف شد (از {n0})")
+
+        expanded: List[dict] = []
+        split_groups: List[Tuple[List[int], list]] = []
+        for b in boxes:
+            try:
+                parts = MangaTranslator._split_adjacent_balloons(image, b["rect"])
+            except Exception:
+                parts = [b["rect"]]
+            if len(parts) > 1:
+                # v1.14.239 — گاردِ «برش، خط را نبُرد»: اگر خطی از مرزِ
+                # بینِ پارتها عبور کند، باکسِ کامل حفظ میشود (کپشنِ
+                # یک‌خطیِ Green-Skin 22 دیگر نصف نمیشود).
+                try:
+                    if self._split_cuts_text_239(image, b["rect"], parts):
+                        print(f"    [*] برشِ باکس {b['rect']} به {len(parts)} "
+                              f"حباب لغو شد — خطِ متن از مرز میگذشت (باکس کامل حفظ شد)")
+                        parts = [[int(v) for v in b["rect"][:4]]]
+                except Exception:
+                    pass
+            if len(parts) > 1:
+                print(f"    [*] باکس {b['rect']} شامل {len(parts)} حباب چسبیده → جدا شدند")
+                idxs: List[int] = []
+                for p in parts:
+                    idxs.append(len(expanded))
+                    nb = dict(b)
+                    nb["rect"] = p
+                    expanded.append(nb)
+                split_groups.append((idxs, [int(v) for v in b["rect"][:4]]))
+            else:
+                expanded.append(b)
+        boxes = expanded
+        # v1.14.73 — باکس‌های خامِ حباب/متنِ صفحه نگه داشته می‌شوند تا
+        # گسترشِ donor (کلِ داخلِ حباب در عکسِ اول) ناحیه‌هایِ بدونِ
+        # det_class (gap-OCR/free-text) هم بتوانند حبابِ خود را پیدا
+        # کنند.
+        try:
+            self._page_bubble_boxes = [
+                (int(b["rect"][0]), int(b["rect"][1]),
+                 int(b["rect"][2]), int(b["rect"][3]),
+                 str(b.get("class_name") or ""))
+                for b in boxes
+            ]
+        except Exception:
+            self._page_bubble_boxes = []
+
+        regions: List[TextRegion] = []
+        h, w = image.shape[:2]
+        # v1.14.205 — آستانهٔ نسبیِ «باکسِ خیلی کوچک» باید در مقیاسِ یک
+        # صفحه/تایل بماند نه کلِ نوار: ۰.۰۸٪ِ نوارِ ۷۰۰×۷۷۹۲ = ۴۳۶۴px²
+        # می‌شود و حبابِ کوچکِ واقعی («YEAH, YEAH~» با ۵۸×۶۱ — لاگِ
+        # v1.14.200: ۲۴ خام → ۲۳ OCR بدونِ هیچ «حذف شد») با لرزشِ ±چندpxِ
+        # باکس غیب می‌شد (گزارشِ سازنده: «متن yeah yeah استخراج نشده یا
+        # پاک نشده؟» + دیباگِ سبزِ D11 رویِ همان حباب).
+        page_area = float(max(1, min(h, RTDetrV2ONNXDetector.TILE_HEIGHT) * w))
+        cand: List[Tuple[int, dict, int, int, int, int, int, int]] = []
+        for i, b in enumerate(boxes):
+            x1, y1, x2, y2 = b["rect"]
+            x1, y1 = max(0, int(x1)), max(0, int(y1))
+            x2, y2 = min(w, int(x2)), min(h, int(y2))
+            bw, bh = x2 - x1, y2 - y1
+            if bw < 16 or bh < 16:
+                if self.debug:
+                    print(f"    [*] باکسِ ریزِ detector حذف شد: ({x1},{y1},{bw}x{bh})")
+                continue
+
+            if bw * bh < page_area * 0.0008 and max(bw, bh) < 60:
+                if self.debug:
+                    print(f"    [*] باکسِ خیلی کوچک حذف شد: ({x1},{y1},{bw}x{bh})")
+                continue
+            cand.append((i, b, x1, y1, x2, y2, bw, bh))
+        ocr_results: List[Tuple[str, List[np.ndarray], List[float]]] = [
+            ("", [], [], [], [])] * len(cand)
+        # v1.14.163 — سبکِ جدیدِ استخراج (PC/لینوکس/اندروید یکسان):
+        # detector-v4-s_int8.onnx محلِ متن را پیدا کرده و OCR فقط رویِ
+        # همان کراپها تمرکز میکند — هیچ پاسِ تمامصفحه/کاسکادی.
+        if cand:
+            # v1.14.90 — باکس‌هایِ همسایه به _ocr_crop داده میشود تا
+            # نجاتِ خطِ لبه‌بریده، کراپ را تا باکسِ ناحیهٔ دیگر باز نکند
+            # (جذبِ متنِ حبابِ مجاور ممنوع).
+            _all_rects90 = [(t[2], t[3], t[4], t[5]) for t in cand]
+
+            def _ocr_one90(k: int):
+                _t90 = cand[k]
+                _blk90 = [_all_rects90[j]
+                          for j in range(len(_all_rects90)) if j != k]
+                return self._ocr_crop(
+                    image, [_t90[2], _t90[3], _t90[4], _t90[5]],
+                    block_rects=_blk90)
+
+            n_workers = max(1, min(int(getattr(self, "max_workers", 3) or 1), len(cand)))
+            # v1.14.167 — همهٔ ناحیهها همزمان (حداکثرِ توانِ سیستم):
+            # RapidOCR مجازِ موازی: سشن‌های det/rec ORT مشترک و
+            # thread-safe هستند؛ موتورِ Paddle-Lite هم حالا با «استخرِ
+            # predictor» در پلِ جاوا موازی شد (هر کارگر یک نمونهٔ
+            # predictor خودش را برمیدارد — قفلِ سراسریِ run حذف شد).
+            _ocr_ts90 = isinstance(self.ocr, RapidOCRBackend)
+            if n_workers > 1 and _ocr_ts90:
+                if self.debug and not getattr(self, "_par_note90", False):
+                    self._par_note90 = True
+                    print(f"    [*] استخراجِ موازی: {len(cand)} ناحیه × "
+                          f"{n_workers} کارگر (cpu={os.cpu_count()})")
+                with ThreadPoolExecutor(max_workers=n_workers) as ex:
+                    ocr_results = list(ex.map(_ocr_one90, range(len(cand))))
+            else:
+                ocr_results = [_ocr_one90(k) for k in range(len(cand))]
+
+        # v1.14.206 — خطِ بیرونِ باکسِ detector مالِ این ناحیه نیست
+        # (توضیحِ کامل در helper) — هر ناحیه فقط متنِ داخلِ باکسِ خودش
+        # را میگیرد؛ دیگر تایتلِ کجِ مجاور داخلِ حبابِ کوچک نمیآید و
+        # ناحیهٔ بزرگ هم خطِ حبابهایِ کوچکِ داخلِ باکسش را برنمیدارد
+        # (مسیرِ deskewِ _ocr_crop از فیلترِ ۱۸۸ رد میشود — اینجا
+        # بعد ازِ خروجیِ نهایی پوشش داده میشود).
+        for _k204 in range(len(cand)):
+            _t204 = cand[_k204]
+            ocr_results[_k204] = _clamp_lines_to_det204(
+                ocr_results[_k204], (_t204[2], _t204[3], _t204[4], _t204[5]),
+                _all_rects90)
+
+        if split_groups:
+            for idxs, full_rect in split_groups:
+                try:
+                    any_text = any(
+                        str(ocr_results[j][0] or "").strip()
+                        for j in idxs if 0 <= j < len(ocr_results)
+                    )
+                except Exception:
+                    any_text = True
+                if any_text:
+                    continue
+                full_txt, full_polys, full_angs, _full_lts, _full_blks = \
+                    _clamp_lines_to_det204(
+                        self._ocr_crop(
+                            image, full_rect,
+                            block_rects=[(cand[j][2], cand[j][3], cand[j][4],
+                                          cand[j][5])
+                                         for j in range(len(cand))
+                                         if j not in idxs]),
+                        full_rect,
+                        [(cand[j][2], cand[j][3], cand[j][4], cand[j][5])
+                         for j in range(len(cand)) if j not in idxs])  # v1.14.206
+                if not str(full_txt or "").strip():
+                    continue
+                if self.debug:
+                    print(f"    [*] اجزای شکسته خالی بودند → OCR باکس کامل {full_rect}")
+                fx1, fy1, fx2, fy2 = full_rect
+                cand.append((len(cand), {
+                    "class_name": "text_bubble", "confidence": 0.40,
+                    "rect": full_rect, "shape_type": "round", "mask_poly": None,
+                }, fx1, fy1, fx2, fy2, fx2 - fx1, fy2 - fy1))
+                ocr_results.append((full_txt, full_polys, full_angs,
+                                    _full_lts, _full_blks))
+
+        for (i, b, x1, y1, x2, y2, bw, bh), (text, line_polys, line_angs,
+                                             line_texts, line_blks) in zip(
+                cand, ocr_results):
+            if not text:
+                _gink = 0.0
+                try:
+                    _gx1, _gy1 = max(0, int(x1)), max(0, int(y1))
+                    _gx2 = min(image.shape[1], int(x2))
+                    _gy2 = min(image.shape[0], int(y2))
+                    if _gx2 - _gx1 >= 12 and _gy2 - _gy1 >= 12:
+                        _gcrop = image[_gy1:_gy2, _gx1:_gx2]
+                        _gg = cv2.cvtColor(_gcrop, cv2.COLOR_BGR2GRAY)
+                        _gmed = float(np.median(_gg))
+                        _gink = float((_gg < max(60.0, _gmed - 45.0)).mean())
+                except Exception:
+                    _gink = 0.0
+                if 0.008 <= _gink <= 0.50:
+                    # v1.14.239 — باکسِ تکراریِ حبابِ متن‌دار: ناحیهٔ
+                    # بی‌متنِ هم‌پوشان با ناحیه‌ای که «متن» دارد = دو
+                    # تشخیصِ همان یک حباب (فصلِ Green-Skin 22: باکسِ
+                    # خالیِ 142,5443,740,5680 رویِ باکسِ 200,5602,646,5789
+                    # با متنِ «AHHH!!! AREN'T YOU MY MAN'S PRIZE?» — هر
+                    # دو مالِ یک حبابِ جگ‌دارند؛ خطهایِ باکسِ خالی همه
+                    # به «ناحیهٔ مجاور» (فیلترِ 188) واگذار شده بودند).
+                    # ناحیهٔ خالی حذف میشود: نه پاکسازیِ دوباره، نه
+                    # نجاتِ OCR با متنِ همسایه (ریشهٔ «AHHH!!!» دوبار).
+                    try:
+                        _dupe239 = None
+                        for _j239 in range(len(cand)):
+                            if _j239 == i:
+                                continue
+                            _jt239 = ""
+                            if _j239 < len(ocr_results):
+                                _jt239 = str(
+                                    (ocr_results[_j239][0] if ocr_results[_j239]
+                                     else "") or "").strip()
+                            if not _jt239:
+                                continue
+                            _jc239 = cand[_j239]
+                            _jx1, _jy1 = float(_jc239[2]), float(_jc239[3])
+                            _jx2, _jy2 = float(_jc239[4]), float(_jc239[5])
+                            _ix239 = max(0.0, min(x2, _jx2) - max(x1, _jx1))
+                            _iy239 = max(0.0, min(y2, _jy2) - max(y1, _jy1))
+                            _inter239 = _ix239 * _iy239
+                            if _inter239 <= 0:
+                                continue
+                            _aA239 = max(1e-6, float((x2 - x1) * (y2 - y1)))
+                            _aB239 = max(1e-6, (_jx2 - _jx1) * (_jy2 - _jy1))
+                            _iom239 = _inter239 / min(_aA239, _aB239)
+                            if _iom239 >= 0.28:
+                                _dupe239 = (_j239, _iom239)
+                                break
+                        if _dupe239 is not None:
+                            if self.debug:
+                                print(f"    [*] Region [{i}] باکسِ تکراریِ "
+                                      f"حبابِ متن‌دار (هم‌پوشانیِ "
+                                      f"{_dupe239[1]*100:.0f}% با کاندیدِ "
+                                      f"{_dupe239[0]}) → حذف شد")
+                            continue
+                    except Exception:
+                        pass
+                    # v1.14.230 — گاردِ «نقطه/نمادِ بی‌متن»: اگر جوهرِ
+                    # ناحیه فقط چند لکهٔ ریز است (مثلِ «....» که det خطی
+                    # برایش نمیسازد؛ بزرگترین مؤلفهٔ جوهر < ۱۸٪ بلندیِ
+                    # کراپ و ≤۱۰ مؤلفه)، دیگر «متنِ ناخوانده» حساب
+                    # نمیشود و دست‌نخورده میمانَد (دستورِ سازنده:
+                    # «نباید پاک کنه هیچ دستی بهش نزنه»). متنِ واقعیِ
+                    # ناخوانده (دست‌خط/فونتِ عجیب) حروفِ بزرگ دارد و
+                    # از این گارد رد میشود.
+                    _dots230 = False
+                    try:
+                        _gx1, _gy1 = max(0, int(x1)), max(0, int(y1))
+                        _gx2 = min(image.shape[1], int(x2))
+                        _gy2 = min(image.shape[0], int(y2))
+                        _gc2 = image[_gy1:_gy2, _gx1:_gx2]
+                        _gg2 = cv2.cvtColor(_gc2, cv2.COLOR_BGR2GRAY)
+                        _gm2 = float(np.median(_gg2))
+                        _mk2 = ((_gg2 < max(60.0, _gm2 - 45.0))
+                                .astype(np.uint8))
+                        _nl2, _l2, _st2, _c2 = cv2.connectedComponentsWithStats(
+                            _mk2, connectivity=8)
+                        _ncomp2 = 0
+                        _maxh2 = 0.0
+                        for _ci2 in range(1, _nl2):
+                            _a2 = float(_st2[_ci2, cv2.CC_STAT_AREA])
+                            if _a2 < 6:
+                                continue
+                            _w2 = float(_st2[_ci2, cv2.CC_STAT_WIDTH])
+                            _h2 = float(_st2[_ci2, cv2.CC_STAT_HEIGHT])
+                            # خطِ نازکِ دورِ حباب (حلقهٔ بیضی، fill کم) حساب
+                            # نمیشود — فقط محتوای توپُر (نقطه/حرف)
+                            if _w2 * _h2 > 0 and \
+                                    _a2 / (_w2 * _h2) < 0.22:
+                                continue
+                            _ncomp2 += 1
+                            _maxh2 = max(_maxh2, _h2)
+                        if _ncomp2 <= 10 and \
+                                _maxh2 < 0.18 * max(1, _gy2 - _gy1):
+                            _dots230 = True
+                    except Exception:
+                        _dots230 = False
+                    if _dots230:
+                        if self.debug:
+                            print(f"    [*] Region [{i}] جوهرِ نقطه/نمادِ "
+                                  f"ریز است → دست‌نخورده")
+                        continue
+                    _epoly = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                                      dtype=np.int32)
+                    regions.append(TextRegion(
+                        id=i,
+                        boxes=[_epoly],
+                        source_text="",
+                        rect=(x1, y1, bw, bh),
+                        angle=0.0,
+                        kind="dialogue",
+                        ocr_polys=[],
+                        det_class=b.get("class_name", "") or "",
+                    ))
+                    regions[-1].ocr_empty = True
+                    if self.debug:
+                        print(f"    [!] Region [{i}] had no OCR text but has "
+                              f"text-like ink → cleaning only")
+                continue
+
+
+            if self._is_non_english_script(text):
+                continue
+
+            # ── v1.14.32: پنجرهٔ سیستم → خط‌به‌خط جدا (نه یک متن یکجا) ──
+            # فقط با «نشانهٔ قوی»: براکت/کلیدواژه/لیبل دونقطه‌دار.
+            # حباب عادی (فقط فاصله و تراز) دیگر جدا نمی‌شود.
+            try:
+                _sys_score = MangaTranslator._system_window_score(
+                    text, line_texts, line_polys, (x1, y1, x2, y2))
+                _sys_strong = MangaTranslator._system_window_strong(
+                    text, line_texts)
+            except Exception:
+                _sys_score, _sys_strong = 0, False
+            # v1.14.34: جعبهٔ مشخصات (NAME / AGE: 40 / RACE: …) همیشه جدا شود —
+            # بلوکِ برچسبِ کوتاه با نشانهٔ قوی (≥۲ لیبل دونقطه‌دار یا براکت)
+            # کافی است؛ دیگر به امتیازِ هندسیِ سخت‌گیر وابسته نیست (قبلاً
+            # جعبهٔ «DEVON … AGE: 18» با امتیاز ۳ از دست می‌رفت).
+            _lbl_block = MangaTranslator._is_label_block(line_texts or [])
+            _sys_ok = _sys_strong and (
+                _sys_score >= 5
+                # برچسبِ تک‌خطیِ کوتاه مثل «Status» / «NOTICE» — امتیازِ ظاهری
+                # به چند خط نیاز دارد؛ برچسب تک‌خطی با نشانهٔ قوی کافی است
+                or (len(line_polys) <= 1
+                    and len(str(text or '').strip()) <= 28)
+                or _lbl_block)
+            _sys_can_split = (
+                _sys_ok
+                and len(line_polys) >= 2
+                and len(line_texts or []) == len(line_polys)
+                and (_lbl_block or _sys_score >= 6))
+            if os.environ.get("MANGA_SYS_DEBUG"):
+                try:
+                    print(f"    [SYSDBG] text={str(text)[:60]!r} score={_sys_score} "
+                          f"strong={_sys_strong} nlp={len(line_polys)} "
+                          f"nlt={len(line_texts or [])} lbl={_lbl_block} "
+                          f"ok={_sys_ok} cansplit={_sys_can_split}")
+                except Exception:
+                    pass
+            if _sys_can_split:
+                # v1.14.31: OCR گاهی هر «کلمه» را جدا می‌دهد → اول خط‌سازی کن
+                _lines = MangaTranslator._cluster_ocr_lines(
+                    line_polys, line_texts or [])
+                _made = 0
+                for (_qx1, _qy1, _qx2, _qy2, _lt) in _lines:
+                    _lt = _lt.strip()
+                    if not _lt:
+                        continue
+                    _lx1 = int(max(0, np.floor(_qx1)) - 4)
+                    _ly1 = int(max(0, np.floor(_qy1)) - 3)
+                    _lx2 = int(min(w - 1, np.ceil(_qx2)) + 4)
+                    _ly2 = int(min(h - 1, np.ceil(_qy2)) + 3)
+                    if _lx2 - _lx1 < 12 or _ly2 - _ly1 < 8:
+                        continue
+                    _lpoly = np.array(
+                        [[_lx1, _ly1], [_lx2, _ly1], [_lx2, _ly2], [_lx1, _ly2]],
+                        dtype=np.int32)
+                    _sr = TextRegion(
+                        id=len(regions),
+                        boxes=[_lpoly],
+                        source_text=_lt,
+                        rect=(_lx1, _ly1, _lx2 - _lx1, _ly2 - _ly1),
+                        angle=0.0,
+                        kind="dialogue",
+                        bubble_style="system",
+                        ocr_polys=[_lpoly],
+                        det_class=b.get("class_name", "") or "",
+                    )
+                    _sr.style_locked = True
+                    _sr.sys_split = True
+                    # مستطیلِ والد برای پوششِ gap-OCR (تا خط‌ها دوباره OCR نشوند)
+                    _sr.cover_rect = (x1, y1, x2, y2)
+                    regions.append(_sr)
+                    _made += 1
+                if _made:
+                    if self.debug:
+                        print(f"    [*] پنجرهٔ سیستم → {_made} خط جداگانه")
+                    continue
+
+            kind = self._classify_text(text)
+
+
+            if kind == "dialogue":
+                if MangaTranslator._is_watermark_text(text):
+                    # v1.14.202 — واترمارکِ رویِ حباب: باقیِ متنِ واقعی =
+                    # دیالوگ میماند (واترمارک از متنِ ترجمه هم برداشته میشود)
+                    _scrub = MangaTranslator._strip_watermark_tokens(text)
+                    if _scrub and self._classify_text(_scrub) == "dialogue":
+                        text = _scrub
+                    else:
+                        kind = "promo"
+
+
+            if kind == "junk":
+                if not MangaTranslator._is_watermark_text(text):
+                    latin = re.sub(r"[^A-Za-z]", "", text)
+                    if len(latin) >= 3 and any(c in "AEIOUaeiou" for c in latin):
+                        kind = "dialogue"
+            poly = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.int32)
+            eng_angs = []
+            for _a in (line_angs or []):
+                try:
+                    _af = float(_a)
+                except (TypeError, ValueError):
+                    continue
+                if _af > 180.0:
+                    _af -= 360.0
+                if abs(_af) > 45.0:
+                    continue
+                if abs(_af) >= 1.0:
+                    eng_angs.append(_af)
+            ang_src = "ink"
+            poly_ang = self._estimate_angle_from_polys(line_polys)
+            if abs(poly_ang) >= 3.0:
+                ang_ = poly_ang
+                ang_src = "poly"
+            elif eng_angs:
+                ang_ = float(np.median(eng_angs))
+                ang_src = "engine"
+            else:
+                ang_ = poly_ang
+            _is_vert = self._polys_vertical(line_polys)
+            if abs(ang_) < 5.0:
+                try:
+                    if _is_vert:
+                        _tx1, _ty1 = float(x1), float(y1)
+                        _tx2, _ty2 = float(x2), float(y2)
+                    else:
+                        _tx1 = _ty1 = None
+                        if line_polys:
+                            try:
+                                _pts_all = np.concatenate(
+                                    [np.asarray(p).reshape(-1, 2) for p in line_polys])
+                                _tx1, _ty1 = float(_pts_all[:, 0].min()), float(_pts_all[:, 1].min())
+                                _tx2, _ty2 = float(_pts_all[:, 0].max()), float(_pts_all[:, 1].max())
+                            except Exception:
+                                _tx1 = _ty1 = None
+                        if _tx1 is None:
+                            _tx1, _ty1, _tx2, _ty2 = float(x1), float(y1), float(x2), float(y2)
+                    _iy1, _iy2 = max(0, int(_ty1)), min(image.shape[0], int(_ty2) + 1)
+                    _ix1, _ix2 = max(0, int(_tx1)), min(image.shape[1], int(_tx2) + 1)
+                    if _ix2 - _ix1 >= 40 and _iy2 - _iy1 >= 14:
+                        a_ink2 = MangaTranslator._ink_slant_angle(
+                            image[_iy1:_iy2, _ix1:_ix2])
+                        _thr_ink = 7.0 if _is_vert else 5.0
+                        if abs(a_ink2) >= _thr_ink and abs(a_ink2) > abs(ang_) + 1.0:
+                            ang_ = a_ink2
+                            ang_src = "ink"
+                except Exception:
+                    pass
+            rx1, ry1, rw_, rh_ = x1, y1, bw, bh
+            if line_polys and abs(ang_) >= 8.0:
+                try:
+                    # v1.14.206 — فقط خطهایی که بیشترشان داخلِ باکسِ detector
+                    # اند در گسترشِ مستطیل شرکت میکنند؛ خطِ ترکیبیِ عابر
+                    # (تکهٔ حبابِ مجاور چسبیده به تایتلِ کج) نباید مستطیلِ
+                    # ناحیه را تا رویِ حبابِ مجاور بکشد (همان «کلِ سه حباب
+                    # گرفته») — خودِ خط برایِ ترجمه/پاکسازی میماند.
+                    _rx_pts204 = []
+                    for _p204 in line_polys:
+                        try:
+                            _pp204 = np.asarray(_p204,
+                                                dtype=np.float32).reshape(-1, 2)
+                            _qx1 = float(_pp204[:, 0].min())
+                            _qy1 = float(_pp204[:, 1].min())
+                            _qx2 = float(_pp204[:, 0].max())
+                            _qy2 = float(_pp204[:, 1].max())
+                            _qa204 = max(1.0, (_qx2 - _qx1) * (_qy2 - _qy1))
+                            _ix204 = max(0.0, min(_qx2, float(x2))
+                                         - max(_qx1, float(x1)))
+                            _iy204 = max(0.0, min(_qy2, float(y2))
+                                         - max(_qy1, float(y1)))
+                            if (_ix204 * _iy204) / _qa204 >= 0.60:
+                                _rx_pts204.append(_pp204)
+                        except Exception:
+                            _rx_pts204.append(
+                                np.asarray(_p204).reshape(-1, 2))
+                    if not _rx_pts204:
+                        _rx_pts204 = [np.asarray(p).reshape(-1, 2)
+                                      for p in line_polys]
+                    pts = np.concatenate(_rx_pts204)
+                    px1, py1 = int(pts[:, 0].min()), int(pts[:, 1].min())
+                    px2, py2 = int(pts[:, 0].max()) + 1, int(pts[:, 1].max()) + 1
+                    rx1, ry1 = min(rx1, px1), min(ry1, py1)
+                    rw_ = max(x1 + bw, px2) - rx1
+                    rh_ = max(y1 + bh, py2) - ry1
+                except Exception:
+                    rx1, ry1, rw_, rh_ = x1, y1, bw, bh
+            regions.append(TextRegion(
+                id=i,
+                boxes=[poly],
+                source_text=text,
+                rect=(rx1, ry1, rw_, rh_),
+                angle=ang_,
+                kind=kind,
+                ocr_polys=line_polys,
+                det_class=b.get("class_name", "") or "",
+            ))
+            regions[-1].angle_src = ang_src
+            if _raw_det_dbg:
+                # v1.14.173 — باکسِ خامِ detector برایِ DEBUGِ سبزِ صفحه
+                regions[-1].det_raw = _raw_det_dbg
+            if _sys_ok:
+                # تک‌خطی/تگ براکت‌دار مثل [ Daily Quest ] — فونت سیستم
+                regions[-1].bubble_style = "system"
+                regions[-1].style_locked = True
+                if self.debug:
+                    print(f"    [*] برچسب/پنجرهٔ سیستم (تک‌قطعه) → فونت سیستم")
+
+        # v1.14.31: خط‌های تکراریِ پنجرهٔ سیستم (والدهای هم‌پوشان detector) → یکی
+        try:
+            _sreg = [r for r in regions if getattr(r, "sys_split", False)]
+            if len(_sreg) > 1:
+                def _riou(_a, _b):
+                    ax, ay, aw, ah = _a.rect
+                    bx, by, bw2, bh2 = _b.rect
+                    ix = max(0, min(ax + aw, bx + bw2) - max(ax, bx))
+                    iy = max(0, min(ay + ah, by + bh2) - max(ay, by))
+                    inter = ix * iy
+                    if inter <= 0:
+                        return 0.0
+                    return inter / float(min(aw * ah, bw2 * bh2) or 1)
+                _keep = []
+                for _r in sorted(_sreg, key=lambda r: -(len(r.source_text or "")
+                                                        * 1000 + r.rect[2] * r.rect[3])):
+                    if any(_riou(_r, _k) >= 0.45 for _k in _keep):
+                        continue
+                    _keep.append(_r)
+                if len(_keep) < len(_sreg):
+                    _drop_ids = {id(r) for r in _sreg if r not in _keep}
+                    regions = [r for r in regions if id(r) not in _drop_ids]
+                    if self.debug:
+                        print(f"    [*] {len(_drop_ids)} خط تکراری پنجرهٔ سیستم حذف شد")
+        except Exception:
+            pass
+
+        # v1.14.32: «پهنای پنجره» برای خط‌های پنجرهٔ سیستم — OCR گاهی تهِ خط را
+        # نمی‌گیرد («speed)» می‌ماند)؛ پس افقی تا پهنای مشترک همهٔ خط‌های همان
+        # پنجره (یا والد، با حاشیهٔ امن) گسترش بده تا پاکسازی کامل شود.
+        try:
+            _sys_groups: Dict[Tuple[int, int], List[TextRegion]] = {}
+            for _r in regions:
+                if not getattr(_r, "sys_split", False):
+                    continue
+                _cr = getattr(_r, "cover_rect", None)
+                _key = (int(_cr[0]), int(_cr[1])) if _cr else (
+                    int(_r.rect[0]), int(_r.rect[1]))
+                _sys_groups.setdefault(_key, []).append(_r)
+            for _grp in _sys_groups.values():
+                if not _grp:
+                    continue
+                _cr = getattr(_grp[0], "cover_rect", None)
+                if _cr:
+                    _pw = max(1, int(_cr[2]) - int(_cr[0]))
+                    _inset = max(6, int(0.03 * _pw))
+                    _sx0 = min(int(_cr[0]) + _inset,
+                               min(int(r_.rect[0]) for r_ in _grp))
+                    _sx1 = max(int(_cr[2]) - _inset,
+                               max(int(r_.rect[0] + r_.rect[2]) for r_ in _grp))
+                else:
+                    _sx0 = min(int(r_.rect[0]) for r_ in _grp)
+                    _sx1 = max(int(r_.rect[0] + r_.rect[2]) for r_ in _grp)
+                for r_ in _grp:
+                    r_.sys_span = (max(0, _sx0), _sx1)
+        except Exception:
+            pass
+
+        before = len(regions)
+        regions = self._split_mixed_column_regions(regions)
+        regions = self._merge_overlapping_regions(regions, iou_thresh=0.35, contain_thresh=0.65)
+        if self.debug:
+            print(f"    [*] RT-DETR: {n0} خام → {before} OCR → {len(regions)} نهایی")
+        # v1.14.216 — نجاتِ «خطِ یتیم»: خطی که detector اصلاً نبینیده
+        # (نمونهٔ واقعی: «OUTER GOD WITHIN 7 YEARS.]» زیرِ پنجرهٔ
+        # [CLEAR OBJECTIVE…]) — بدونِ این نجات نه ترجمه میشد نه پاکسازی.
+        try:
+            regions = self._rescue_orphan_lines(image, regions)
+        except Exception:
+            pass
+        return regions
+
+    @staticmethod
+    def _dedup_duplicate_text_regions(
+            regions: List["TextRegion"]) -> List["TextRegion"]:
+        """v1.14.225 — حذفِ نواحیِ «هممتنِ همپوشان» (ضدِ رندرِ دوباره).
+
+        گزارشِ سازنده: «وقتی یک قسمت ترجمه کرده مجدد رو همون قسمت
+        ترجمه میکنه بالای جای قبلی مینویسه». ریشه: دو باکسِ detectorِ
+        همپوشان (IoU < آستانهٔ NMS ولی همپوشانیِ واقعیِ ۵۰٪+) هر دو
+        زنده میمانند، OCRِ هر دو همان متنِ فیزیکی را میخواند → دو ناحیه
+        با متنِ یکسان و مستطیلهای همپوشان → دو ترجمه → دو رندرِ
+        بالای هم (لاگِ گوشی: #07/#08 «GO! EVEN FASTER…»). همینطور
+        خطِ یتیمِ نجات‌یافته (216) که در نوارِ مجاورِ ناحیهٔ موجود،
+        خطِ «همان» ناحیه را دوباره پیدا میکند.
+
+        قواعد (محافظهکار — متنِ متفاوت هرگز حذف نمیشود):
+          ۱) نرمالسازی: حروف کوچک + حذفِ نویسههای غیرِ واژه (علائم/
+             فاصله) — برایِ همهٔ خطها (لاتین/فارسی/ja/ko/zh).
+          ۲) جفتِ «متنِ یکسان» (یا جابهجاییِ واژهها — همانِ چندمجموعهٔ
+             نویسهها؛ نمونهٔ واقعیِ img6: «EVEN GO! FASTER...» در برابر
+             «GO! FASTER... EVEN»): همپوشانی ≥۱۸٪ مساحتِ کوچکتر یا
+             احتوای ≥۴۵٪ → نسخهٔ کوچکتر (خط/مساحتِ کمتر) حذف.
+          ۳) جفتِ «شبیهِ هم» (بازخوانیِ کج‌وکولهٔ OCRِ همان متن —
+             نسبتهایِ difflib ≥۰٫۶۲ با طولِ ≥۶): مثلِ ۲.
+          ۴) جفتِ «زیررشته»: متنِ یکی داخلِ دیگری + احتوای ≥۶۰٪ →
+             ناحیهٔ درونی (بخشی) حذف — بازخوانیِ نصفهٔ همان متن.
+        متنِ تکراریِ واقعی در دو حبابِ جدا = بدونِ همپوشانی → دست‌نخورده.
+        یتیمِ واقعی (خطِ نو با متنِ تازه، بیرونِ مستطیلِ والد) =
+        بدونِ همپوشانی → دست‌نخورده (سناریوی «OUTER GOD…»).
+        """
+        if not regions or len(regions) < 2:
+            return regions
+
+        def _norm225(t) -> str:
+            try:
+                return re.sub(r"[\W_]+", "", str(t or "").lower())
+            except Exception:
+                return str(t or "").lower()
+
+        def _sim225(a: str, b: str) -> float:
+            """شباهتِ دو متنِ نرمال — ۱٫۰ = یکی."""
+            if a == b:
+                return 1.0
+            try:
+                import difflib as _dl225
+                return _dl225.SequenceMatcher(None, a, b).ratio()
+            except Exception:
+                return 0.0
+
+        def _xyxy225(r):
+            try:
+                x, y, w, h = [float(v) for v in r.rect]
+                return (x, y, x + w, y + h)
+            except Exception:
+                return (0.0, 0.0, 0.0, 0.0)
+
+        def _inter225(a, b):
+            ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+            iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+            return max(0.0, ix) * max(0.0, iy)
+
+        def _area225(a):
+            return max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+
+        infos = []
+        for r in regions:
+            try:
+                n = _norm225(getattr(r, "source_text", ""))
+            except Exception:
+                n = ""
+            if not n:
+                continue  # بی‌متن (ocr_empty و…) هرگز اینجا حذف نمیشود
+            try:
+                npol = len(getattr(r, "ocr_polys", None) or [])
+            except Exception:
+                npol = 0
+            infos.append((r, n, _xyxy225(r), _area225(_xyxy225(r)), npol))
+        if len(infos) < 2:
+            return regions
+
+        drop_ids: set = set()
+        n_eq = n_sub = 0
+        for i in range(len(infos)):
+            ra, na, ba, aa, pa = infos[i]
+            if id(ra) in drop_ids:
+                continue
+            for j in range(i + 1, len(infos)):
+                rb, nb, bb, ab, pb = infos[j]
+                if id(rb) in drop_ids:
+                    continue
+                if getattr(rb, "kind", "") != getattr(ra, "kind", ""):
+                    continue
+                inter = _inter225(ba, bb)
+                if inter <= 0.0:
+                    continue
+                amin = min(aa, ab) or 1.0
+                ov_min = inter / amin
+                # احتوای bb در ba و برعکس
+                cont_ba = inter / (ab or 1.0)
+                cont_ab = inter / (aa or 1.0)
+                _kill = None
+                # «یکسان» = متنِ برابر یا جابهجاییِ واژهها (چندمجموعهٔ
+                # نویسهها)؛ «شبیه» = بازخوانیِ کج‌وکولهٔ OCR (≥۰٫۶۲)
+                _same_txt = (na == nb) or (
+                    len(na) >= 6 and len(nb) >= 6
+                    and sorted(na) == sorted(nb))
+                if not _same_txt and len(na) >= 6 and len(nb) >= 6:
+                    _same_txt = _sim225(na, nb) >= 0.62
+                if _same_txt:
+                    if ov_min >= 0.18 or max(cont_ba, cont_ab) >= 0.45:
+                        # بزرگتر/پرخطتر میماند؛ کوچکتر حذف میشود
+                        _kill = ra if (pa, aa) <= (pb, ab) else rb
+                        n_eq += 1
+                elif nb in na and cont_ba >= 0.60:
+                    _kill = rb
+                    n_sub += 1
+                elif na in nb and cont_ab >= 0.60:
+                    _kill = ra
+                    n_sub += 1
+                if _kill is not None:
+                    drop_ids.add(id(_kill))
+        if not drop_ids:
+            return regions
+        out = [r for r in regions if id(r) not in drop_ids]
+        try:
+            print(f"    [*] {len(drop_ids)} ناحیهٔ هممتنِ همپوشان حذف شد "
+                  f"(ضدِ رندرِ دوباره — {n_eq} یکسان / {n_sub} بخشی)",
+                  flush=True)
+        except Exception:
+            pass
+        return out
+
+    def _rescue_orphan_lines(self, image: np.ndarray,
+                             regions: List["TextRegion"]) -> List["TextRegion"]:
+        """v1.14.216 — نجاتِ خطِ یتیمِ همسایهٔ ناحیهٔ متن.
+
+        ریشه (لاگِ واقعیِ strip_001ِ بچِ img4+4e2e77): پنجرهٔ سیستمِ
+        «[CLEAR OBJECTIVE: SLAY THE / OUTER GOD WITHIN 7 YEARS.]» دو خط
+        داشت؛ detector فقط باکسِ خطِ اول را داد (پایینِ آن، نزدیکِ لبهٔ
+        نوار) → خطِ دوم نه استخراج شد (متنش به خطِ اولِ کج‌وکوله چسبید)،
+        نه پاکسازی (بیرونِ هر ماسکی بود) → حروفِ سفیدِ کامل در خروجی
+        ماند («لگهٔ متنِ قبلی»). اینجا برایِ هر ناحیهٔ متنی، نوارِ
+        بالای/پایینِ مستطیلش (به پهنایِ همان ناحیه) برایِ «جوهرِ
+        خط‌مانندِ بی‌صاحب» اسکن میشود؛ اگر OCR رویِ آن متنِ لاتینِ
+        معتبر خواند → ناحیهٔ جدید ساخته میشود (ترجمه + پاکسازی).
+        MANGA_ORPHAN_RESCUE=0 برایِ خاموشیِ دستی."""
+        if os.environ.get("MANGA_ORPHAN_RESCUE", "1") == "0":
+            return regions
+        try:
+            h_img, w_img = image.shape[:2]
+        except Exception:
+            return regions
+        if self.ocr is None:
+            return regions
+        parents = [r for r in regions
+                   if (getattr(r, "source_text", "") or "").strip()
+                   and getattr(r, "kind", "") == "dialogue"]
+        if not parents:
+            return regions
+        try:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        except Exception:
+            return regions
+        # باکسهای اشغالشده (با حاشیه) — خطِ یتیم باید بیرونِ همه باشد
+        covered = []
+        for r in regions:
+            try:
+                rx, ry, rw_, rh_ = [int(v) for v in r.rect]
+                covered.append((rx - 12, ry - 12, rx + rw_ + 12, ry + rh_ + 12))
+            except Exception:
+                continue
+        _next_id = 900000
+        try:
+            _next_id = 900000 + max(
+                (int(getattr(r, "id", 0) or 0) for r in regions), default=0)
+        except Exception:
+            pass
+        rescued: List[TextRegion] = []
+        _seen_bands: List[Tuple[int, int, int, int]] = []
+        # v1.14.230 — بودجهٔ پاسهایِ OCRِ یتیم: حداکثرِ ۲ پاس به‌ازایِ هر
+        # ناحیهٔ والد (پروفایلِ img6: ۳۵ پاسِ تقریباً بی‌نتیجه). وقتیِ هنر
+        # از همهٔ گاردها رد شود، این سقف جلویِ «دومین استخراجِ کاملِ صفحه»
+        # را میگیرد؛ خطِ یتیمِ واقعی (≥۶ حرفِ خوانا) تقریباً همیشه در
+        # پاسهایِ اولِ همان ناحیه پیدا میشود.
+        _orphan_budget230 = max(12, 2 * len(parents))
+        for r in parents:
+            try:
+                x, y, rw_, rh_ = [int(v) for v in r.rect]
+            except Exception:
+                continue
+            # بلندیِ خط از پالیهای خودِ ناحیه (مستطیلِ چندخطی نه)
+            _lhs = []
+            for _p in (getattr(r, "ocr_polys", None) or []):
+                try:
+                    _pp = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                    _lhs.append(float(_pp[:, 1].max() - _pp[:, 1].min()))
+                except Exception:
+                    continue
+            lh = float(np.median(_lhs)) if _lhs else float(rh_)
+            lh = float(np.clip(lh, 12.0, 140.0))
+            # v1.14.216 — شروعِ نوار چسبیده به لبهٔ ناحیه: خطِ ادامه‌دار
+            # ممکن است فقط ۲۰-۳۰px بیرونِ مستطیل باشد (پنجرهٔ [CLEAR
+            # OBJECTIVE…]: خطِ دوم تا ۳۳۴۴ و مستطیل تا ۳۳۱۸) — شیارِ بزرگ
+            # (⅓ خط) از رویش میپرید. ۱۲٪ خط + ۴px کافی است؛ ردِ «پوشیده»
+            # با محتوای ≥۷۰٪ داخلِ باکس انجام میشود نه هر همپوشانی.
+            gap = max(4, int(round(lh * 0.12)))
+            reach = int(round(lh * 2.2))
+            for _b0, _b1 in ((y + rh_ + gap, y + rh_ + gap + reach),
+                             (y - gap - reach, y - gap)):
+                _b0 = max(0, int(_b0))
+                _b1 = min(h_img, int(_b1))
+                if _b1 - _b0 < int(lh * 0.6):
+                    continue
+                _x0 = max(0, x - int(rw_ * 0.25))
+                _x1 = min(w_img, x + rw_ + int(rw_ * 0.25))
+                if _x1 - _x0 < 40:
+                    continue
+                band = gray[_b0:_b1, _x0:_x1]
+                if band.size == 0:
+                    continue
+                med = float(np.median(band))
+                if med >= 128.0:
+                    ink = (band < med - 60.0)
+                else:
+                    ink = (band > med + 60.0)
+                _dens = float(ink.mean())
+                if _dens < 0.004 or _dens > 0.55:
+                    continue
+                # v1.14.216 — تفکیکِ «ردیفهایِ خط‌مانند»: نوارِ جستجو
+                # کلِ پنجره/لبه‌ها را دارد؛ bboxِ خامِ جوهر کلِ نوار را
+                # میگیرد و OCR رویِ هنر میافتد. ردیفها به اجراهایِ
+                # پیوستهٔ جوهرِدار شکسته میشوند؛ هر اجرا = یک خطِ
+                # کاندید (بلندیِ ۸..۲.۵×خط، نه خطِ نازکِ کادر/لبهٔ
+                # تمام-عرض، نه میلهٔ توپُر).
+                _rows = ink.sum(axis=1).astype(np.float32)
+                _row_thr = max(12.0, 0.08 * (_x1 - _x0))
+                _runs: List[Tuple[int, int]] = []
+                _in_run = False
+                _rs = 0
+                for _i in range(len(_rows)):
+                    if _rows[_i] >= _row_thr:
+                        if not _in_run:
+                            _rs = _i
+                            _in_run = True
+                    else:
+                        if _in_run:
+                            _runs.append((_rs, _i))
+                            _in_run = False
+                if _in_run:
+                    _runs.append((_rs, len(_rows)))
+                for (_r0, _r1) in _runs:
+                    _rhh = _r1 - _r0
+                    if _rhh < 8 or _rhh > max(30, int(lh * 2.5)):
+                        continue
+                    # v1.14.216 — پسکشِ هیسترزیسی: آستانهٔ هستهٔ خط فقط
+                    # تنهٔ پرپیکسلِ حروف را میگیرد؛ دُم/سرِ نازکِ خط
+                    # (نصفِ پایینیِ حروفِ رویِ نوارِ تیرهٔ پایینِ پنجره)
+                    # زیرِ آستانه ماند و برشِ OCR نصفه میشد («P»/«T»).
+                    # مرزهای اجرا تا جایی که ردیف هنوز ~۳۰٪ آستانه را
+                    # دارد کشیده میشوند (سقف: نصفِ بلندیِ خط هر طرف).
+                    _soft_thr = _row_thr * 0.30
+                    _ext_max = max(4, int(lh * 0.5))
+                    _e0 = 0
+                    while (_r0 - _e0 - 1 >= 0 and _e0 < _ext_max
+                           and _rows[_r0 - _e0 - 1] >= _soft_thr):
+                        _e0 += 1
+                    _e1 = 0
+                    while (_r1 + _e1 < len(_rows) and _e1 < _ext_max
+                           and _rows[_r1 + _e1] >= _soft_thr):
+                        _e1 += 1
+                    _r0 -= _e0
+                    _r1 += _e1
+                    _rhh = _r1 - _r0
+                    if _rhh > max(30, int(lh * 2.8)):
+                        continue
+                    _sub = ink[_r0:_r1, :]
+                    if float(_sub.mean()) > 0.55:
+                        continue
+                    # v1.14.230 — گیتِ «حرف‌مانندی» پیش از OCR: پروفایلِ
+                    # img6 نشان داد پاسهایِ یتیم گرانترین بخشِ استخراج
+                    # بعد از نردبان‌اند (~۳۵ فراخوانیِ OCR که تقریباً همه‌اش
+                    # هنر/کادر/بافت بود و ۰ خط داد — حسِ «دوبار استخراج
+                    # میزنه»). متنِ واقعی ≥۵ مؤلفهٔ پیوستهٔ حرف‌اندازه دارد
+                    # (هر حرف ~۱ مؤلفه)؛ خطِ کادر/هنر ۱-۲ مؤلفهٔ عظیم یا
+                    # خرده‌نویزهایِ ریز دارد. cv2.connectedComponents ~۱ms
+                    # است در برابرِ ~۱.۳s هر پاسِ OCR.
+                    try:
+                        _nlab230, _labs230, _stat230, _cent230 = \
+                            cv2.connectedComponentsWithStats(
+                                _sub.astype(np.uint8), connectivity=8)
+                        _letters230 = 0
+                        _bots230: List[int] = []
+                        for _li230 in range(1, _nlab230):
+                            _sx230, _sy230, _sw230, _sh230, _sa230 = \
+                                _stat230[_li230]
+                            if _sa230 < 8:
+                                continue
+                            if not (3 <= _sh230 <= max(12.0, lh * 1.6)):
+                                continue
+                            if _sw230 <= max(14.0, lh * 1.2):
+                                _letters230 += 1
+                                _bots230.append(int(_sy230 + _sh230))
+                            elif _sw230 <= max(30.0, lh * 3.5):
+                                _letters230 += 2  # حروفِ چسبیده (فونتِ ضخیم)
+                                _bots230.append(int(_sy230 + _sh230))
+                        if _letters230 < 5:
+                            continue
+                        # v1.14.230 — هم‌ترازیِ بیس‌لاین: حروفِ یک خطِ واقعی
+                        # پایینِ تقریباً یکسان دارند (واریانسِ کوچک)؛ لکهها/
+                        # بافتهایِ هنریِ حرف‌اندازه به‌طورِ تصادفی پخش‌اند.
+                        if len(_bots230) >= 5:
+                            _bstd230 = float(np.std(_bots230))
+                            if _bstd230 > max(6.0, 0.45 * lh):
+                                continue
+                    except Exception:
+                        pass
+                    try:
+                        _ys, _xs = np.nonzero(_sub)
+                    except Exception:
+                        continue
+                    _ix0, _ix1 = int(_xs.min()), int(_xs.max())
+                    if (_ix1 - _ix0) < 30:
+                        continue
+                    gx0 = max(0, _x0 + _ix0)
+                    gy0 = max(0, _b0 + _r0 - 3)
+                    gx1 = min(w_img, _x0 + _ix1 + 1)
+                    gy1 = min(h_img, _b0 + _r1 + 3)
+                    if gx1 - gx0 < 30 or gy1 - gy0 < 8:
+                        continue
+                    # v1.14.216 — گاردِ «لایهٔ خطِ همسایه»: لبهٔ بالایی/
+                    # پایینیِ خطِ «موجودِ» بعدی که مستطیلش دیرتر شروع
+                    # میشود، در نوارِ جستجو به‌صورتِ لایهٔ نازک ظاهر میشود
+                    # (لاگِ واقعی: «YAA»/«WAND»/«¿Thur» رویِ strip_007) —
+                    # خطِ واقعیِ بی‌صاحب بلندیِ کاملِ خط را دارد (≥۴۵٪
+                    # بلندیِ خطِ والد) و حروفِ کافی (≥۶ حرفِ لاتین). تنها
+                    # استثنا: اجرایِ چسبیده به «لبهٔ» نوار (بریدهٔ مرز) —
+                    # دُمِ خطی که به ناحیهٔ والد ادامه دارد (نمونهٔ واقعی:
+                    # دُمِ ۲۰pxیِ «OUTER GOD WITHIN 7 YEARS.]» در بندِ
+                    # ۳۳۲۹-۳۳۴۶) به‌طورِ طبیعی کوتاه است؛ برایش فقط
+                    # حداقلِ ۱۲px کافی است (فیلترِ حروف جلویِ لایههایِ
+                    # ناخواسته را میگیرد).
+                    _clipped_edge = (_r0 <= 0 or _r1 >= len(_rows))
+                    if not _clipped_edge \
+                            and (gy1 - gy0) < max(12, int(round(lh * 0.45))):
+                        continue
+                    if (gy1 - gy0) < 12:
+                        continue
+                    _ga = float(max(1, (gx1 - gx0) * (gy1 - gy0)))
+                    if any(not (gx1 < c[0] or gx0 > c[2]
+                                or gy1 < c[1] or gy0 > c[3])
+                           and (min(gx1, c[2]) - max(gx0, c[0]))
+                               * (min(gy1, c[3]) - max(gy0, c[1]))
+                               >= 0.70 * _ga
+                           for c in covered):
+                        continue  # تقریباً کامل داخلِ ناحیهٔ موجود
+                    if any(not (gx1 < s[0] or gx0 > s[2]
+                                or gy1 < s[1] or gy0 > s[3])
+                           and (min(gx1, s[2]) - max(gx0, s[0]))
+                               * (min(gy1, s[3]) - max(gy0, s[1]))
+                               >= 0.70 * _ga
+                           for s in _seen_bands):
+                        continue
+                    _seen_bands.append((gx0, gy0, gx1, gy1))
+                    # v1.14.226 — گیتِ پیش از OCR — «جوهرِ دارایِ صاحب»:
+                    # بازخوانیِ متنِ موجود، پرهزینهترین بخشِ استخراج بود
+                    # (پروفایلِ 4e2e77: ۲۶ فراخوانیِ OCRِ یتیم = ۳۲ثانیه
+                    # که اکثراً بعدش با گاردِ ۲۲۵ رد میشدند — «انگار
+                    # دوبار اون متن میخونه» درست بود). سنجشِ پیش از OCR:
+                    # چند درصدِ «پیکسلهایِ جوهرِ» این باند داخلِ
+                    # چندضلعیهایِ OCRِ نواحیِ موجود است؟ ≥۵۵٪ → متنِ
+                    # دارایِ صاحب → بدونِ OCR رد میشود (عینِ گاردِ ۲۲۵،
+                    # فقط این‌بار روی جوهرِ واقعی نه جعبهٔ خامِ هنر-آلود).
+                    try:
+                        _inkys226, _inkxs226 = np.nonzero(
+                            ink[_r0:_r1, :])
+                        if _inkys226.size >= 12:
+                            _gx226 = _inkxs226.astype(np.int32) + _x0
+                            _gy226 = _inkys226.astype(np.int32) + _b0
+                            _inany226 = np.zeros(
+                                _gx226.shape, bool)
+                            for _rp226 in regions:
+                                for _rpoly226 in (
+                                        getattr(_rp226, "ocr_polys", None)
+                                        or []):
+                                    try:
+                                        _pp226 = np.asarray(
+                                            _rpoly226,
+                                            np.float32).reshape(-1, 2)
+                                        _bx226a = int(_pp226[:, 0].min())
+                                        _by226a = int(_pp226[:, 1].min())
+                                        _bx226b = int(
+                                            _pp226[:, 0].max()) + 1
+                                        _by226b = int(
+                                            _pp226[:, 1].max()) + 1
+                                        _selb226 = (
+                                            (_gx226 >= _bx226a)
+                                            & (_gx226 < _bx226b)
+                                            & (_gy226 >= _by226a)
+                                            & (_gy226 < _by226b))
+                                        if not _selb226.any():
+                                            continue
+                                        _bw226 = max(
+                                            1, _bx226b - _bx226a)
+                                        _bh226 = max(
+                                            1, _by226b - _by226a)
+                                        _pm226 = np.zeros(
+                                            (_bh226, _bw226), np.uint8)
+                                        cv2.fillPoly(
+                                            _pm226,
+                                            [np.rint(
+                                                _pp226
+                                                - [_bx226a,
+                                                   _by226a]).astype(
+                                                np.int32)], 255)
+                                        _inany226[_selb226] |= (
+                                            _pm226[
+                                                _gy226[_selb226]
+                                                - _by226a,
+                                                _gx226[_selb226]
+                                                - _bx226a] > 0)
+                                    except Exception:
+                                        continue
+                                if float(
+                                        _inany226.mean()) >= 0.55:
+                                    break
+                            if float(_inany226.mean()) >= 0.55:
+                                continue
+                    except Exception:
+                        pass
+                    if _orphan_budget230 <= 0:
+                        continue
+                    try:
+                        _oc = self._ocr_crop(
+                            image, (max(0, gx0 - 6), max(0, gy0 - 6),
+                                    min(w_img, gx1 + 6), min(h_img, gy1 + 6)))
+                        _orphan_budget230 -= 1
+                        _txt = (_oc[0] or "").strip()
+                        _polys = list(_oc[1] or []) if len(_oc) > 1 else []
+                    except Exception:
+                        _txt, _polys = "", []
+                    _lt = sum(1 for _c in _txt
+                              if _c.isascii() and _c.isalpha())
+                    if not _txt or _lt < 6 \
+                            or _lt * 2 < len(_txt.replace(" ", "")):
+                        continue
+                    # v1.14.225 — پسگیرِ «بازخوانیِ متنِ پوشیدهشده»:
+                    # جعبهٔ خامِ جوهرِ نوار با هنرِ اطراف پهن میشود و
+                    # گاردِ ۷۰٪یِ بالای سر ردش میکند (لاگِ واقعیِ img6:
+                    # «attraction A» و «atfrach here.» — بازخوانیِ
+                    # کج‌وکولهٔ «You're the real attraction here.» از
+                    # نوارِ زیرِ حبابِ همسایه؛ ناحیهٔ ۶ با پسگیرِ جوهر
+                    # +1614px رویِ دُمِ حباب چسبید = خطِ حباب پاک شد).
+                    # سنجشِ درست = چندضلعیهایِ خودِ OCR (جعبهٔ واقعیِ
+                    # حروف): اگر ≥۶۰٪ حروف داخلِ ناحیههایِ موجودند،
+                    # این «همان متنِ دارایِ صاحب» است نه خطِ یتیم →
+                    # رد. یتیمِ واقعی (سناریوی «OUTER GOD…» — خطِ
+                    # دومی که detector ندید) بیرونِ همهٔ ناحیههاست
+                    # و زنده میماند.
+                    try:
+                        _ta225 = 0.0
+                        _ca225 = 0.0
+                        for _p225 in _polys:
+                            try:
+                                _pp225 = np.asarray(
+                                    _p225, np.float32).reshape(-1, 2)
+                                _pbx0 = float(_pp225[:, 0].min())
+                                _pby0 = float(_pp225[:, 1].min())
+                                _pbx1 = float(_pp225[:, 0].max())
+                                _pby1 = float(_pp225[:, 1].max())
+                                _pba = max(1.0, (_pbx1 - _pbx0)
+                                           * (_pby1 - _pby0))
+                                _pin = 0.0
+                                for _c225 in covered:
+                                    _ix225 = max(
+                                        0.0, min(_pbx1, _c225[2])
+                                        - max(_pbx0, _c225[0]))
+                                    _iy225 = max(
+                                        0.0, min(_pby1, _c225[3])
+                                        - max(_pby0, _c225[1]))
+                                    _pin = max(_pin, (_ix225 * _iy225)
+                                               / _pba)
+                                _ta225 += _pba
+                                _ca225 += _pba * min(1.0, _pin)
+                            except Exception:
+                                continue
+                        if _ta225 > 0.0 and \
+                                _ca225 / _ta225 >= 0.55:
+                            if self.debug:
+                                print(f"    [🔍225] یتیمِ بازخوانیِ "
+                                      f"متنِ پوشیدهشده رد شد: "
+                                      f"{_txt[:44]!r}", flush=True)
+                            continue
+                    except Exception:
+                        pass
+                    _boxes = []
+                    for _p in _polys:
+                        try:
+                            _pp = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                            _boxes.append(_pp.astype(np.int32))
+                        except Exception:
+                            continue
+                    nr = TextRegion(
+                        id=_next_id, boxes=_boxes or [np.array(
+                            [[gx0, gy0], [gx1, gy0], [gx1, gy1], [gx0, gy1]],
+                            dtype=np.int32)],
+                        source_text=_txt,
+                        rect=(gx0, gy0, gx1 - gx0, gy1 - gy0),
+                        kind="dialogue",
+                        bubble_style=str(getattr(r, "bubble_style", "normal")
+                                         or "normal"),
+                        det_class=str(getattr(r, "det_class", "") or ""),
+                        ocr_polys=_polys)
+                    _next_id += 1
+                    rescued.append(nr)
+                    covered.append((gx0 - 12, gy0 - 12, gx1 + 12, gy1 + 12))
+                    if self.debug:
+                        print(f"    [+] نجاتِ خطِ یتیم زیر/بالای "
+                              f"({x},{y},{x + rw_},{y + rh_}): {_txt[:56]!r}")
+        if rescued:
+            regions = list(regions) + rescued
+            print(f"    [+] {len(rescued)} خطِ یتیم (همسایهٔ نواحیِ متن) "
+                  f"نجات یافت → ترجمه و پاکسازی میشوند")
+        return regions
+
+    def _verify_angle_signs(self, image: np.ndarray,
+                            regions: List["TextRegion"]) -> None:
+        for r in regions:
+            ang = float(getattr(r, "angle", 0.0) or 0.0)
+            if abs(ang) > 45.0:
+                r.angle = 0.0
+                continue
+            if abs(ang) < 6.0:
+                _is_vert = self._polys_vertical(getattr(r, "ocr_polys", None))
+                try:
+                    _px = getattr(r, "ocr_polys", None) or []
+                    _vx1 = _vy1 = None
+                    if _px and not _is_vert:
+                        try:
+                            _vp = np.concatenate(
+                                [np.asarray(p).reshape(-1, 2) for p in _px])
+                            _vx1, _vy1 = float(_vp[:, 0].min()), float(_vp[:, 1].min())
+                            _vx2, _vy2 = float(_vp[:, 0].max()), float(_vp[:, 1].max())
+                        except Exception:
+                            _vx1 = _vy1 = None
+                    if _vx1 is None:
+                        _vx, _vy, _vw, _vh = [int(v) for v in r.rect]
+                        _vx1, _vy1 = float(_vx), float(_vy)
+                        _vx2, _vy2 = float(_vx + _vw), float(_vy + _vh)
+                    _uy1 = max(0, int(_vy1))
+                    _ux1 = max(0, int(_vx1))
+                    _ux2 = min(int(image.shape[1]), int(_vx2) + 1)
+                    _uy2 = min(int(image.shape[0]), int(_vy2) + 1)
+                    if _ux2 - _ux1 >= 40 and _uy2 - _uy1 >= 14:
+                        _ai = MangaTranslator._ink_slant_angle(
+                            image[_uy1:_uy2, _ux1:_ux2])
+                        if abs(_ai) >= (7.0 if _is_vert else 6.0):
+                            print(f"    [!] بازیابی کجی [{r.id}]: {ang:+.1f}° → "
+                                  f"{_ai:+.1f}° (جوهر؛ موتور از دست داده بود)")
+                            r.angle = _ai
+                except Exception:
+                    pass
+                continue
+            try:
+                x1 = y1 = None
+                polys = list(getattr(r, "ocr_polys", None) or [])
+                if polys:
+                    try:
+                        _pa = np.concatenate(
+                            [np.asarray(p).reshape(-1, 2) for p in polys])
+                        x1, y1 = float(_pa[:, 0].min()), float(_pa[:, 1].min())
+                        x2, y2 = float(_pa[:, 0].max()), float(_pa[:, 1].max())
+                    except Exception:
+                        x1 = y1 = None
+                if x1 is None:
+                    x, y, w_, h_ = [int(v) for v in r.rect]
+                    x1, y1 = max(0, x), max(0, y)
+                    x2 = min(int(image.shape[1]), x + max(8, w_))
+                    y2 = min(int(image.shape[0]), y + max(8, h_))
+                x1, y1 = max(0, int(x1)), max(0, int(y1))
+                x2 = min(int(image.shape[1]), int(x2) + 1)
+                y2 = min(int(image.shape[0]), int(y2) + 1)
+                if x2 - x1 < 40 or y2 - y1 < 14:
+                    continue
+                _a_ink, _a_ok = MangaTranslator._ink_slant_measure(
+                    image[y1:y2, x1:x2])
+                if os.environ.get("MANGA_DBG_VERIFY"):
+                    print(f"    [dbg-verify] {r.id} ang={ang:+.1f} "
+                          f"bbox=({x1},{y1},{x2},{y2}) ok={_a_ok} a={_a_ink:+.1f}")
+                if not _a_ok:
+                    continue
+                if abs(_a_ink) >= 6.0 and (_a_ink > 0.0) != (ang > 0.0):
+                    # v1.14.80 — عاقل‌نگه‌داشتِ مقدار: اگر جوهر با پالی فقط
+                    # «علامت» را عوض کند و مقدارشان نزدیک باشد، جایگزین؛
+                    # اما پرشِ فاحش (>15°) یعنی یکی‌شان خطا کرده (حروفِ
+                    # استایل‌دار) → امن‌ترین: رندرِ مسطح. ARTiCLE-2 واقعیِ
+                    # مسطح بود ولی ‎-7°→+39.8° رندر شد (باگِ «برعکس»)
+                    if abs(abs(_a_ink) - abs(ang)) > 15.0:
+                        print(f"    [!] وتوی کجیِ ناسازگار [{r.id}]: "
+                              f"{ang:+.1f}° ← جوهر {_a_ink:+.1f}° "
+                              "(پرشِ فاحش) → 0.0°")
+                        r.angle = 0.0
+                        r.angle_flat_veto = True
+                    else:
+                        print(f"    [!] اصلاح علامتِ چرخش [{r.id}]: {ang:+.1f}° → "
+                              f"{_a_ink:+.1f}° (راستی‌آزمایی جوهر)")
+                        r.angle = _a_ink
+                elif abs(_a_ink) < 6.0:
+                    # v1.14.79 — جوهر می‌گوید «مسطح» ولی زاویهٔ پالی‌ها
+                    # کجِ ±۶..۴۵° است (حروفِ استایل‌دارِ تیترها زاویهٔ
+                    # کاذب می‌سازند؛ BLUE MOON -15° در حالی‌که واقعی ~0°)
+                    # v1.14.213 — اما اول خودِ زاویهٔ ادعایی آزموده میشود:
+                    # اگر ردیفهایِ جوهر را واقعاً رویِ هم میاندازد (≥۱٫۱۰×)
+                    # کجی واقعی است و وتو نمیشود (img3: ‎-۶٫۷°/-۱۳٫۲°
+                    # واقعی بودند و به‌غلط صفر میشدند — «بعد چرخش همچین
+                    # بعضی متن ها درست نمیچرخه»).
+                    _sup213 = MangaTranslator._ink_slant_support(
+                        image[y1:y2, x1:x2], ang)
+                    if _sup213 is not None and _sup213 >= 1.10:
+                        if os.environ.get("MANGA_DBG_VERIFY"):
+                            print(f"    [dbg-verify] {r.id} ang={ang:+.1f}° "
+                                  f"تأییدِ جوهر (پشتیبانی={_sup213:.2f}) — "
+                                  f"وتو نشد")
+                        continue
+                    print(f"    [!] حذف کجیِ کاذب [{r.id}]: {ang:+.1f}° → 0.0° "
+                          f"(جوهرِ واقعیِ خط مسطح است)")
+                    r.angle = 0.0
+                    # v1.14.80 — رندر حقِ بازنویسی از پالی‌ها را ندارد
+                    r.angle_flat_veto = True
+            except Exception:
+                continue
+
+    def _discover_sfx_regions(self, image: np.ndarray,
+                              regions: List["TextRegion"]) -> List["TextRegion"]:
+        """v1.14.70 — افکتِ صوتی/متنِ استایل‌دارِ بیرونِ حباب (HAA، SFX
+        کره‌ای، پلاکِ اسم و…) با فیلترهایِ شل‌شده پیدا می‌شود تا در
+        «کپیِ اولِ تهاجمی» کامل پاک شود. فقط وقتی MANGA_CLEAN_SFX=1 یا
+        --clean-sfx."""
+        try:
+            out = self._discover_free_text_regions(image, regions,
+                                                   relaxed=True)
+        except Exception:
+            return []
+        # تکه‌های یک SFX (حروفِ دور از هم مثل HAA..) را به هم بچسبان
+        return self._merge_sfx_fragments(image, out)
+
+    def _merge_sfx_fragments(self, image: np.ndarray,
+                             regions: List["TextRegion"]) -> List["TextRegion"]:
+        """v1.14.70 — ناحیه‌های sfxِ نزدیکِ هم (تکه‌های یک افکت) را ادغام
+        می‌کند و rect را تا جوهرِ نزدیک گسترش می‌دهد تا ماسکِ توپر کلِ
+        کلمه (مثل HAA..) را بپوشاند."""
+        if not regions:
+            return regions
+        try:
+            h, w = image.shape[:2]
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            med = cv2.medianBlur(gray, 31)
+            ink = (np.abs(gray.astype(np.int16) - med.astype(np.int16))
+                   > 52).astype(np.uint8) * 255
+        except Exception:
+            ink = None
+        try:
+            rs = sorted(regions, key=lambda r: (r.rect[1], r.rect[0]))
+            merged: List["TextRegion"] = []
+            for r in rs:
+                placed = False
+                try:
+                    x, y, w_, h_ = [int(v) for v in r.rect]
+                except Exception:
+                    merged.append(r)
+                    continue
+                for m in merged:
+                    try:
+                        mx, my, mw, mh = [int(v) for v in m.rect]
+                    except Exception:
+                        continue
+                    if (x - 70 < mx + mw and mx - 70 < x + w_
+                            and y - 70 < my + mh and my - 70 < y + h_):
+                        nx0, ny0 = min(mx, x), min(my, y)
+                        nx1, ny1 = max(mx + mw, x + w_), max(my + mh, y + h_)
+                        m.rect = (nx0, ny0, nx1 - nx0, ny1 - ny0)
+                        try:
+                            m.boxes = list(m.boxes or []) + list(r.boxes or [])
+                            m.ocr_polys = (list(m.ocr_polys or [])
+                                           + list(r.ocr_polys or []))
+                        except Exception:
+                            pass
+                        try:
+                            _t1 = (m.source_text or "").strip()
+                            _t2 = (r.source_text or "").strip()
+                            if _t2 and _t2 not in _t1:
+                                m.source_text = (_t1 + " " + _t2).strip()
+                        except Exception:
+                            pass
+                        placed = True
+                        break
+                if not placed:
+                    merged.append(r)
+            if ink is not None:
+                for m in merged:
+                    try:
+                        mx, my, mw, mh = [int(v) for v in m.rect]
+                        # گسترشِ تکراری: تا ۳ بار، هر بار ۸۰px باز و به
+                        # مرزِ جوهر بچسبان (حالتِ تهاجمیِ SFX — سقفِ رشد
+                        # برداشته شد؛ کاربر گفته «بیشتر پاک شه» اشکال ندارد)
+                        for _ in range(3):
+                            ex0, ey0 = max(0, mx - 80), max(0, my - 80)
+                            ex1 = min(w, mx + mw + 80)
+                            ey1 = min(h, my + mh + 80)
+                            sub = ink[ey0:ey1, ex0:ex1]
+                            ys, xs = np.nonzero(sub)
+                            if len(xs) < 20:
+                                break
+                            nx0, ny0 = ex0 + int(xs.min()), ey0 + int(ys.min())
+                            nx1 = ex0 + int(xs.max()) + 1
+                            ny1 = ey0 + int(ys.max()) + 1
+                            if (nx0 == mx and ny0 == my
+                                    and nx1 == mx + mw and ny1 == my + mh):
+                                break
+                            mx, my, mw, mh = nx0, ny0, nx1 - nx0, ny1 - ny0
+                        m.rect = (mx, my, mw, mh)
+                    except Exception:
+                        pass
+            return merged
+        except Exception:
+            return regions
+
+    def extract_regions_phase(self, image: np.ndarray) -> Tuple[List[TextRegion], Optional[np.ndarray]]:
+        # v1.14.226 — عمرِ کشِ OCR = یک صفحه (کلید = مختصات؛ محتوا عوض
+        # میشود بین صفحات)
+        self._ocr_crop_cache226 = {}
+        h, w = image.shape[:2]
+        _t_ext150 = time.time()  # v1.14.150 — کرونومترِ استخراج (نمایشِ سرعت)
+        # v1.14.154 — نشانگرِ شروعِ فاز برایِ اعلان (فقط اندروید؛ PC بدونِ
+        # این خط = لاگِ PC بیت‌به‌بیت)
+        if _android_gate("MANGA_PHASE_PRINTS"):
+            print("[*] استخراج متن…", flush=True)
+        unique_regions: List[TextRegion] = []
+
+        _raise_if_stop()
+        if self.det is not None:
+            unique_regions = self._extract_regions_from_bubbles(image)
+        else:
+            # v1.14.163 — استخراج = فقط رویِ نواحیِ detector-v4-s؛ «جای
+            # دیگ پیگیر نشه» — بدونِ detector هیچ پاسِ تمامصفحه‌ای نیست.
+            print("    [!] detector-v4-s در دسترس نیست → ناحیهٔ متنی پیدا نشد")
+        _raise_if_stop()
+
+        # v1.14.225 — ضدِ «ترجمهٔ دوبارهٔ همان قسمت» (گزارشِ سازنده:
+        # «وقتی یک قسمت ترجمه کرده مجدد رو همون قسمت ترجمه میکنه
+        # بالای جای قبلی مینویسه») — دو باکسِ detectorِ همپوشان که
+        # NMS/merge نتوانست یکی کند (لاگِ واقعیِ گوشی: «GO! EVEN
+        # FASTER…» = ناحیهٔ ۷ با rect=(283,1919,296,178) و ناحیهٔ ۸ با
+        # rect=(445,1951,223,163) — همپوشانیِ ۵۴٪ ولی IoU=۰.۲۸<۰.۳۵)
+        # هر دو ترجمه و رندر میشدند → متنِ فارسی دوبار، بالای هم.
+        # همینطور خطِ یتیمِ نجات‌یافته که به ناحیهٔ موجود چسبیده بود.
+        # قاعدهٔ تازه: متنِ «یکسان» (بعد از نرمالسازی) + همپوشانیِ
+        # جعبه‌ها = همان متنِ فیزیکی است → فقط یکی (بزرگتر) میماند؛
+        # متنِ «محتوایِ» دیگری (زیررشته) با احتیاطِ بیشتر (۶۰٪ داخل).
+        # متنِ تکراریِ واقعی در حبابهایِ جدا = بدونِ همپوشانی → هر دو
+        # میمانند (رفتارِ قبلی).
+        try:
+            unique_regions = self._dedup_duplicate_text_regions(
+                unique_regions)
+        except Exception:
+            pass
+        _raise_if_stop()
+
+        # v1.14.230 — نشانه‌گذاریِ «فقط عدد/نماد» برایِ همهٔ فازها:
+        # متنِ بدونِ هیچ حرف ('....'، '123124') نه ترجمه میشود نه
+        # پاکسازی (فیلترِ ۲۲۹ فقط ترجمه را میبست؛ پاکسازی میماند و
+        # هنرِ عدد/نقطه را پاک میکرد — دستورِ سازنده: «نباید پاک کنه
+        # هیچ دستی بهش نزنه»). «hi...» حرف دارد → کاملاً عادی.
+        _nt_n230 = 0
+        for _r230 in unique_regions:
+            _t230 = (_r230.source_text or "").strip()
+            if _t230 and not source_has_letters(_t230):
+                _r230.no_touch230 = True
+                _nt_n230 += 1
+            else:
+                _r230.no_touch230 = False
+        if _nt_n230:
+            print(f"[*] {_nt_n230} ناحیهٔ فقط عدد/نماد → دست‌نخورده "
+                  f"(نه ترجمه، نه پاکسازی)")
+
+        # v1.14.70 — پاکسازیِ SFX: افکتِ صوتی/متنِ استایل‌دارِ بیرونِ حباب
+        # فقط وقتی --clean-sfx یا MANGA_CLEAN_SFX=1 (پیش‌فرض: SFX هنر
+        # است و دست‌نخورده می‌ماند)
+        if unique_regions and getattr(self, "clean_sfx", False):
+            _raise_if_stop()
+            try:
+                _sfx = self._discover_sfx_regions(image, unique_regions)
+                if _sfx:
+                    unique_regions.extend(_sfx)
+            except Exception:
+                pass
+        _raise_if_stop()
+        if unique_regions:
+            self._verify_angle_signs(image, unique_regions)
+
+        if self.reading_order == "rtl":
+            unique_regions.sort(key=lambda r: (r.rect[1] // 80, -(r.rect[0] + r.rect[2])))
+        else:
+            unique_regions.sort(key=lambda r: (r.rect[1] // 80, r.rect[0]))
+        for idx, r in enumerate(unique_regions):
+            r.id = idx
+
+        dbg = None
+        if self.debug and unique_regions:
+            dbg = self._draw_debug_regions(image, unique_regions)
+            # دیباگِ متنیِ کامل — متنِ استخراجی + مکان + زاویه + فاصلهٔ خط‌ها
+            try:
+                _vh, _vw = image.shape[:2]
+                _ob = getattr(self, "_ocr_backend_name", "") or "?"
+                print(f"    [🔍] دیباگِ استخراج — {len(unique_regions)} ناحیه | "
+                      f"تصویر {_vw}×{_vh} | ترتیب: {self.reading_order} | OCR: {_ob}")
+                for r in unique_regions:
+                    try:
+                        x, y, rw, rh = [int(v) for v in r.rect]
+                        polys = getattr(r, "ocr_polys", None) or []
+                        _lys = []
+                        for _p in polys:
+                            try:
+                                _pa = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                                _lys.append((float(_pa[:, 1].min()),
+                                             float(_pa[:, 1].max())))
+                            except Exception:
+                                pass
+                        _lys.sort()
+                        _hs = [int(_b - _a) for _a, _b in _lys]
+                        _gs = [int(_lys[_i + 1][0] - _lys[_i][1])
+                               for _i in range(len(_lys) - 1)]
+                        _txt = (r.source_text or "").replace("\n", " ⏎ ")
+                        print(f"      #{r.id:02d} {r.kind}/{r.bubble_style} | "
+                              f"rect=({x},{y},{rw},{rh}) | "
+                              f"زاویه={float(getattr(r, 'angle', 0.0) or 0.0):+.1f}° | "
+                              f"خط={len(_lys)} بلندی={_hs} فاصله={_gs}")
+                        if _txt:
+                            print(f"          متن: {_txt[:200]}"
+                                  f"{'…' if len(_txt) > 200 else ''}")
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # v1.14.64 — جارویِ بنرهایِ تبلیغاتیِ OCR‌نخوانده (واترمارکِ سایت)
+        try:
+            _ads = self._scan_watermark_banners(image, unique_regions)
+            if _ads:
+                print(f"[*] {len(_ads)} بنرِ تبلیغ شناسایی شد")
+                unique_regions = list(unique_regions) + _ads
+        except Exception:
+            pass
+
+        _ob150 = getattr(self, "_ocr_backend_name", "") or "?"
+        _dt150 = time.time() - _t_ext150
+        if unique_regions:
+            print(f"[+] متن استخراج شد: {len(unique_regions)} ناحیه | "
+                  f"زمانِ استخراج: {_dt150:.1f} ثانیه | موتور: {_ob150}")
+        else:
+            print("[!] هیچ متن/حبابی یافت نشد.")
+        return unique_regions, dbg
+
+    def _scan_watermark_banners(self, image: np.ndarray,
+                                regions: List[TextRegion]) -> List[TextRegion]:
+        """v1.14.64 — جارویِ «بنرهایِ تبلیغاتیِ سایت» (واترمارکِ دامنه) که
+        OCRِ عادیِ صفحه از آن‌ها چیزی نخوانده (نمونه: بنرِ ASURASCANS.COM
+        وسطِ نوارِ بلند). کاندید: بلابِ پهن‌وکوتاهِ پرتراکم از ضربه‌هایِ
+        متضاد با زمینهٔ محلی، بدونِ همپوشانی با نواحیِ موجود → کراپ ×۳ →
+        OCR → اگر متن با `_is_watermark_text` (دامنه/برند) خوانده شد →
+        ناحیهٔ promo ساخته می‌شود؛ ماسکِ سازنده کلِ بنر را توپر پاک
+        می‌کند (تبلیغ باید کامل فیلتر شود)."""
+        found: List[TextRegion] = []
+        try:
+            h, w = image.shape[:2]
+        except Exception:
+            return found
+        if getattr(self, "ocr", None) is None:
+            return found
+        try:
+            # v1.14.64b — جارویِ تمام‌رزولوشنِ کاشی‌شده: بنرهایِ کوچک در
+            # نوارهایِ بلند با downscale نابود می‌شدند (۴px!) → صفحه به
+            # کاشی‌هایِ ~۲۲۰۰px با هم‌پوشانی تقسیم می‌شود و هر کاشی در
+            # رزولوشنِ کامل جارو می‌شود.
+            _tile = 2200
+            _ovl = 120
+            _exist = []
+            for r in (regions or []):
+                try:
+                    _exist.append([int(v) for v in r.rect])
+                except Exception:
+                    continue
+            _kb = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
+            _kd = cv2.getStructuringElement(cv2.MORPH_RECT, (11, 5))
+            _found_rects: list = []
+            _cands: list = []
+            _cand_n = 0
+            _ty0 = 0
+            while _ty0 < h:
+                _y1 = min(h, _ty0 + _tile)
+                tile = image[_ty0:_y1]
+                _tnext = _y1 if _y1 >= h else _y1 - _ovl
+                g = cv2.cvtColor(tile, cv2.COLOR_BGR2GRAY)
+                _med = cv2.medianBlur(g, 21)
+                _stk = (np.abs(g.astype(np.int16)
+                               - _med.astype(np.int16)) > 42)
+                _blob = cv2.morphologyEx((_stk * 255).astype(np.uint8),
+                                         cv2.MORPH_CLOSE, _kb)
+                _blob = cv2.dilate(_blob, _kd)
+                n, lab, st, _ = cv2.connectedComponentsWithStats(_blob, 8)
+                for i in range(1, n):
+                    bx = int(st[i, cv2.CC_STAT_LEFT])
+                    by = int(st[i, cv2.CC_STAT_TOP])
+                    bw_ = int(st[i, cv2.CC_STAT_WIDTH])
+                    bh_ = int(st[i, cv2.CC_STAT_HEIGHT])
+                    if bw_ < 60 or bh_ < 12 or bh_ > 170 or bw_ > 1000:
+                        continue
+                    if bw_ < 2.2 * bh_:
+                        continue
+                    _fill = float(st[i, cv2.CC_STAT_AREA]) / float(bw_ * bh_)
+                    if _fill < 0.06 or _fill > 0.95:
+                        continue
+                    # v1.14.64b — بنرِ توپر (fillِ بالا؛ خودِ جعبهٔ رنگی هم
+                    # بلاب می‌شود): باید ضربهٔ متنیِ داخلش باشد وگرنه
+                    # تابلو/جعبهٔ هنر است. داورِ نهایی OCR + الگویِ دامنه است.
+                    if bw_ >= 60 and bh_ >= 12:
+                        _sub = _stk[by:by + bh_, bx:bx + bw_]
+                        _sr = float(_sub.mean()) if _sub.size else 0.0
+                        if _sr < 0.025 or _sr > 0.60:
+                            continue
+                    else:
+                        continue
+                    X0, X1 = bx, bx + bw_
+                    Y0, Y1 = by + _ty0, by + bh_ + _ty0
+                    _skip = False
+                    for (rx, ry, rw, rh) in _exist:
+                        if not (X1 < rx or X0 > rx + rw
+                                or Y1 < ry or Y0 > ry + rh):
+                            _skip = True
+                            break
+                    if _skip:
+                        continue
+                    _dup = False
+                    for (fx0, fy0, fx1, fy1) in _found_rects:
+                        ix0, iy0 = max(X0, fx0), max(Y0, fy0)
+                        ix1, iy1 = min(X1, fx1), min(Y1, fy1)
+                        if ix1 - ix0 > 0.5 * min(X1 - X0, fx1 - fx0) \
+                                and iy1 - iy0 > 0.5 * min(Y1 - Y0, fy1 - fy0):
+                            _dup = True
+                            break
+                    if _dup:
+                        continue
+                    cx0, cy0 = max(0, X0 - 8), max(0, Y0 - 8)
+                    cx1, cy1 = min(w, X1 + 8), min(h, Y1 + 8)
+                    if cx1 - cx0 < 30 or cy1 - cy0 < 12:
+                        continue
+                    # v1.14.67b — OCR فقط برایِ کاندیدهایِ منتخب. امتیاز:
+                    # (چسبیده‌به‌لبه اول — واترمارکِ سایت‌ها معمولاً در حاشیه
+                    # است، بعد تراکمِ ضربه = متن‌مانند، بعد پُری). کاندیدها
+                    # «گردشی» (round-robin) بینِ کاشی‌ها مصرف می‌شوند تا
+                    # بنرِ دورِ نوارِ بلند (img1: y≈11000) همیشه به نوبت
+                    # برسد — رتبه‌بندیِ سراسری بنرِ دور را قربانیِ بلاب‌هایِ
+                    # بالای صفحه می‌کرد (رگرسیونِ اکشن).
+                    _edge67 = 0 if min(int(X0), w - int(X1)) <= 40 else 1
+                    _cands.append((
+                        int(_ty0),
+                        _edge67,
+                        -float(_sr),
+                        -float(_fill),
+                        cx0, cy0, cx1, cy1))
+                _ty0 = _tnext
+            # v1.14.67 — بودجهٔ OCRِ جارو + مصرفِ گردشیِ بینِ کاشی‌ها.
+            try:
+                _max_calls = int(os.environ.get(
+                    "MANGA_BANNER_OCR_MAX", "0") or 0)
+            except Exception:
+                _max_calls = 0
+            if _max_calls <= 0:
+                _nt = max(1, int((h + _tile - 1) // max(1, _tile - _ovl)))
+                _max_calls = min(40, 24 + 6 * max(0, _nt - 2))
+            _buckets: dict = {}
+            for _c67 in _cands:
+                _buckets.setdefault(_c67[0], []).append(_c67)
+            for _b67 in _buckets.values():
+                _b67.sort(key=lambda t: (t[1], t[2], t[3]))
+            _ordered: list = []
+            while any(_buckets.values()):
+                for _tk in sorted(_buckets):
+                    if _buckets[_tk]:
+                        _ordered.append(_buckets[_tk].pop(0))
+            if self.debug:
+                try:
+                    _top67 = ", ".join(
+                        f"({c[4]},{c[5]},edge{c[1]},s{-c[2]:.2f})"
+                        for c in _ordered[:12])
+                    print(f"  [🔍] جارویِ بنر: {len(_cands)} کاندید | "
+                          f"بودجه {_max_calls} | ترتیبِ گردشی: {_top67}")
+                except Exception:
+                    pass
+            _ocr_calls = 0
+            _stop_all68 = False  # v1.14.68 — توقفِ زودهنگام
+            try:
+                _empty_max68 = int(os.environ.get(
+                    "MANGA_BANNER_EARLY_STOP", "8") or 0)
+            except Exception:
+                _empty_max68 = 8
+            _empty_streak68 = 0
+            # v1.14.69 — سقفِ زمانیِ جارو (MANGA_BANNER_TLIMIT ثانیه؛
+            # ‎0=خاموش). OCRِ خالی رویِ PC (RapidOCR) ~۲.۳s است و ۱۲+
+            # کاندید = ~۳۰s فقط جارو؛ موتورِ گوشی سریع است و سقف
+            # نمی‌خورد. کاندیدهایِ رتبهٔ بالا (لبه/تراکم) اول مصرف
+            # می‌شوند پس بنرِ واقعی همیشه در اولین‌هاست.
+            try:
+                _tlimit69 = float(os.environ.get(
+                    "MANGA_BANNER_TLIMIT", "0") or 0)
+            except Exception:
+                _tlimit69 = 0.0
+            if _tlimit69 <= 0:
+                try:
+                    if _on_android():
+                        _tlimit69 = 0.0
+                    else:
+                        # PC: کاندیدهایِ هر کاشی به نوبت مصرف می‌شوند؛ سقف
+                        # با تعدادِ کاشی‌ها می‌سد تا بنرِ دورِ نوارِ بلند
+                        # (نوبتِ کاشیِ آخر) قربانیِ نشود، ولی جارو هم
+                        # بی‌نهایت OCRِ خالی (RapidOCR ~۱.۹s/فراخوانی)
+                        # خرج نکند.
+                        _nt69 = max(1, int((h + _tile - 1)
+                                           // max(1, _tile - _ovl)))
+                        _tlimit69 = max(8.0, 3.0 * _nt69)
+                except Exception:
+                    _tlimit69 = 8.0
+            _t069 = time.time()
+            # v1.14.148 — کاندیدها بچهای (W=workerِ OCR) موازی OCR میشوند؛
+            # داوری/بودجه/streak در همان ترتیبِ قبل اعمال میشود → نتیجه
+            # همان (یا یادآوریِ بیشترِ محدود به W-1 کاندیدِ اضافه). پلّهٔ
+            # زومِ داخلِ هر کاندید ترتیبی میماند (برندهٔ همان واریانتِ اول).
+            _wm_pw = self._ocr_pool_workers(len(_ordered))
+            _wm_i = 0
+
+            def _wm_scan_one(_c148):
+                (_s0, _s1, _s2, _s3, cx0, cy0, cx1, cy1) = _c148
+                out = {"calls": 0, "empty": 0, "nonempty": False,
+                       "txt": "", "found": False}
+                try:
+                    crop = image[cy0:cy1, cx0:cx1]
+                    if crop.size == 0:
+                        return out
+                    _pad_h = max(0, 48 - crop.shape[0])
+                    _pad_w = max(0, 160 - crop.shape[1])
+                    if _pad_h or _pad_w:
+                        crop = cv2.copyMakeBorder(
+                            crop, _pad_h // 2, _pad_h - _pad_h // 2,
+                            _pad_w // 2, _pad_w - _pad_w // 2,
+                            cv2.BORDER_REPLICATE)
+                    _txt = ""
+                    # v1.14.230 — کاندیدِ خالی گران است (پروفایلِ img6: ۸
+                    # پاسِ OCR رویِ ۴ لکهٔ هنریِ بی‌متن). اگر در زومِ ۳
+                    # هیچ متنی نبود (هر دو واریانت)، زومِ ۲ هم نمیآید —
+                    # متنِ واقعیِ بنر در زومِ ۳ پیدا میشود.
+                    for _zm in (3, 2):
+                        _zm_empty230 = True
+                        _big = cv2.resize(
+                            crop, (crop.shape[1] * _zm,
+                                   crop.shape[0] * _zm),
+                            interpolation=cv2.INTER_CUBIC)
+                        for _var in (0, 1):
+                            _try = _big
+                            if _var == 1:
+                                try:
+                                    _lab2 = cv2.cvtColor(_big,
+                                                         cv2.COLOR_BGR2LAB)
+                                    _clahe = cv2.createCLAHE(
+                                        2.2, (8, 8))
+                                    _l2 = _clahe.apply(_lab2[..., 0])
+                                    _try = cv2.cvtColor(
+                                        cv2.merge([_l2, _l2, _l2]),
+                                        cv2.COLOR_BGR2GRAY)
+                                    _try = cv2.cvtColor(
+                                        _try, cv2.COLOR_GRAY2BGR)
+                                except Exception:
+                                    _try = _big
+                            try:
+                                _res = self.ocr.ocr(_try)
+                            except Exception:
+                                _res = None
+                            out["calls"] += 1
+                            _txts = []
+                            if _res:
+                                for _ln in (_res[0] or []):
+                                    try:
+                                        _tv = _ln[1]
+                                        if isinstance(_tv, (tuple, list)):
+                                            _tv = _tv[0]
+                                        if str(_tv).strip():
+                                            _txts.append(str(_tv).strip())
+                                    except Exception:
+                                        continue
+                            _txt = " ".join(_txts)
+                            if _txt:
+                                out["nonempty"] = True
+                                _zm_empty230 = False
+                            else:
+                                out["empty"] += 1
+                            if self._is_watermark_text(_txt):
+                                break
+                            if _txt:
+                                break
+                        if _zm_empty230 and _zm == 3:
+                            break  # v1.14.230 — زومِ ۲ هم خالی می‌مانَد
+                    if _txt and self._is_watermark_text(_txt):
+                        out["found"] = True
+                        out["txt"] = _txt
+                except Exception:
+                    pass
+                return out
+
+            _wm_results: list = []
+            while _wm_i < len(_ordered):
+                if _tlimit69 > 0 and time.time() - _t069 > _tlimit69:
+                    if self.debug:
+                        try:
+                            print(f"  [🔍] جارویِ بنر: سقفِ زمانیِ "
+                                  f"{_tlimit69:.0f}s — {_ocr_calls} "
+                                  f"فراخوانی از {len(_ordered)} کاندید",
+                                  flush=True)
+                        except Exception:
+                            pass
+                    break
+                if _stop_all68:
+                    if self.debug:
+                        try:
+                            print("  [🔍] جارویِ بنر: توقفِ زودهنگام — "
+                                  f"{_empty_streak68} فراخوانیِ خالیِ پیاپی "
+                                  f"(اکاندی‌هایِ بعدی هم بافتِ هنرند)",
+                                  flush=True)
+                        except Exception:
+                            pass
+                    break
+                if _ocr_calls >= _max_calls:
+                    if self.debug:
+                        try:
+                            print(f"  [🔍] جارویِ بنر: بودجهٔ OCR تمام شد "
+                                  f"({_max_calls} فراخوانی) — "
+                                  f"{len(_cands)} کاندید")
+                        except Exception:
+                            pass
+                    break
+                # v1.14.148 — یک بچِ W کاندید موازی OCR میشود
+                _batch148 = _ordered[_wm_i:_wm_i + max(1, _wm_pw)]
+                _wm_i += len(_batch148)
+                if _wm_pw > 1:
+                    try:
+                        with ThreadPoolExecutor(max_workers=_wm_pw) as _wmx:
+                            _wm_res148 = list(_wmx.map(_wm_scan_one, _batch148))
+                    except Exception:
+                        _wm_res148 = [_wm_scan_one(_c) for _c in _batch148]
+                else:
+                    _wm_res148 = [_wm_scan_one(_c) for _c in _batch148]
+                for (_c148, _r148) in zip(_batch148, _wm_res148):
+                    (_s0, _s1, _s2, _s3, cx0, cy0, cx1, cy1) = _c148
+                    _ocr_calls += int(_r148.get("calls", 0))
+                    _txt = str(_r148.get("txt", "") or "")
+                    # v1.14.68 — شمارِ فراخوانیِ بی‌متنِ پیاپی (به همان
+                    # ترتیبِ کاندیدها؛ بینِ بچها ارزیابی میشود)
+                    if _r148.get("nonempty"):
+                        _empty_streak68 = 0
+                    else:
+                        _empty_streak68 += int(_r148.get("empty", 0))
+                        if (_empty_max68 > 0
+                                and _empty_streak68 >= _empty_max68):
+                            _stop_all68 = True
+                    if _r148.get("found"):
+                        _tr = TextRegion(
+                            id=10000 + len(found),
+                            boxes=[np.array([[cx0, cy0], [cx1, cy0],
+                                             [cx1, cy1], [cx0, cy1]],
+                                            dtype=np.float32)],
+                            source_text=_txt,
+                            rect=(cx0, cy0, cx1 - cx0, cy1 - cy0),
+                            kind="promo")
+                        found.append(_tr)
+                        _found_rects.append((cx0, cy0, cx1, cy1))
+                        # v1.14.67b — بعد از اولین بنر، بودجهٔ باقی‌مانده
+                        # به یک‌سوم فشرده می‌شود (چند بنر در یک صفحه
+                        # نادر است؛ ادامه با بودجهٔ کامل فقط وقت می‌گیرد)
+                        try:
+                            _max_calls = min(
+                                _max_calls,
+                                _ocr_calls + max(6,
+                                                 (_max_calls - _ocr_calls) // 3))
+                        except Exception:
+                            pass
+                        if self.debug:
+                            try:
+                                print(f"  [🔍] بنرِ تبلیغ: rect={_tr.rect} "
+                                      f"متن: {_txt[:60]}")
+                            except Exception:
+                                pass
+            if self.debug:
+                try:
+                    print(f"  [🔍] جارویِ بنر: {len(found)} تبلیغ شناسایی شد")
+                except Exception:
+                    pass
+        except Exception:
+            import traceback as _tb67
+            if self.debug:
+                try:
+                    print("  [🔍] جارویِ بنر: خطا —")
+                    _tb67.print_exc()
+                except Exception:
+                    pass
+            return found
+        return found
+
+    def finish_page_phase(self, image: np.ndarray, regions: List[TextRegion],
+                          skip_translate: bool = False,
+                          precleaned: Optional[np.ndarray] = None,
+                          final: bool = False,
+                          ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        _raise_if_stop()
+        if not regions:
+            return image.copy(), None
+
+        page_debug: Optional[np.ndarray] = None
+
+        dialogue_regions = [r for r in regions if r.kind == "dialogue"]
+        promo_regions = [r for r in regions if r.kind == "promo"]
+        sfx_regions = [r for r in regions if r.kind == "sfx"]
+        junk_regions = [r for r in regions if r.kind == "junk"]
+        raw_image_copy = image.copy()
+
+        if getattr(self, "clean_only", False):
+            # v1.14.78 — درخواستِ کاربر: «متنِ تبلیغِ سایت (ASURASCANS.COM
+            # و…) و SFX نباید پاک شه یا حساب شه — ازش رد شه.» در حالتِ
+            # فقط-پاکسازی فقط دیالوگ (+junk: شمارهٔ صفحه) پاک می‌شود؛
+            # بنرِ تبلیغ و افکتِ صوتی دست‌نخورده می‌مانند.
+            clean_targets = [r for r in regions if r.kind in ("dialogue", "junk")]
+            # v1.14.140 — اندروید (MANGA_CLEAN_TEXTFREE): ناحیههایِ
+            # text_free در clean-only پاک نمیشدند (فیلترِ v1.14.78 فقط
+            # dialogue/junk) — ولی text_free = متنِ واقعیِ OCRشده
+            # (بنرِ تبلیغ جداگانه kind=promo میگیرد از جارویِ بنر) —
+            # لاگِ گوشیِ v1.14.139: ناحیهٔ نجاتخوردهٔ «PARAGRAPH 3
+            # WHEN THE EXERCISE…» (15,3256) بعد از ادغام با ناحیهٔ
+            # جارو kind=text_free گرفت → از پاکسازی رد شد = کلِ متن
+            # دستنخورده ماند؛ «THIS IS ONLY A DRAFT…» (0,10605) هم
+            # همیشه از v1.14.134 تاکنون پاک نشده بود. PC بیت‌به‌بیت.
+            if _android_gate("MANGA_CLEAN_TEXTFREE"):
+                _tf140 = [r for r in regions if r.kind == "text_free"]
+                if _tf140:
+                    clean_targets = clean_targets + _tf140
+                    if self.debug:
+                        try:
+                            print(f"  [*]text_free: +{len(_tf140)} "
+                                  f"ناحیه به پاکسازی اضافه شد "
+                                  f"(متنِ واقعی — نه تبلیغ)", flush=True)
+                        except Exception:
+                            pass
+            if self.debug and regions:
+                page_debug = self._draw_debug_regions(image, regions)
+                try:
+                    _kc = {}
+                    for _r in regions:
+                        if _r.kind not in ("dialogue", "junk"):
+                            _kc[_r.kind] = _kc.get(_r.kind, 0) + 1
+                    if _kc:
+                        print(f"  [*]{len(regions) - len(clean_targets)}"
+                              f" ناحیه رد شد (تبلیغ/SFX دست‌نخورده): {_kc}")
+                except Exception:
+                    pass
+            if clean_targets:
+                # v1.14.225 — ضدِ «دوبارِ پاکسازی در حالتِ فقط-پاکسازی»
+                # (دستورِ سازنده: «سریع هم بپاکه وقت نگیره زیاد»):
+                # فازِ پسزمینه (فاز ۱/۲) همین صفحه را از قبل پاک کرده
+                # و precleaned داده شده — قبلاً این شاخه آن را نادیده
+                # میگرفت و کلِ پاکسازی از نو اجرا میشد (لاگِ واقعیِ
+                # PC: clean=51.7s و بعدش clean+render=53.5s = دوبرابر).
+                # حالا نتیجهٔ فازِ پسزمینه همان لحظه استفاده میشود؛
+                # فاصلهٔ هدفها هم با افزودنِ junk به فازِ پسزمینه
+                # (بالا) همسان شد.
+                if precleaned is not None:
+                    final_image = precleaned
+                else:
+                    if _android_gate("MANGA_PHASE_PRINTS"):
+                        print("[*] پاکسازی متن…", flush=True)
+                    _t0 = time.time()
+                    final_image = self.clean_image(image, clean_targets)
+                    print(f"[+] پاکسازی: {time.time() - _t0:.1f} ثانیه با {self._clean_label()}")
+            else:
+                final_image = precleaned.copy() if precleaned is not None else image.copy()
+            return final_image, page_debug
+
+        # v1.14.149 — نجاتِ OCR: ناحیههایِ «حبابِ پیدا شده ولی
+        # متنِ نخوانده» یک تلاشِ دیگر میگیرند (متدِ مشترک — مسیرِ
+        # ترجمهٔ درونصفحهای؛ مسیرِ بچ هم قبل از صف فراخوانی میکند).
+        if (not skip_translate and dialogue_regions
+                and not getattr(self, "clean_only", False)):
+            self._rescue_empty_ocr_1149(image, dialogue_regions)
+
+        if skip_translate:
+            pass
+        elif dialogue_regions:
+            print(f"[*] ترجمه: {len(dialogue_regions)} حباب…")
+            self.translate_regions(dialogue_regions)
+
+        # v1.14.193 — «Ai وقتی خالی برمیگردونه عکسِ انگلیسیش نشون نده تا
+        # وقتی همشو ترجمه کنه … نمایش زنده کنه کم کم بذاره تو نمایش انگار
+        # داره لود بشه» (PC/لینوکس/اندروید). صفحهٔ نهایی با حبابِ بیترجمه
+        # تمام نمیشود: تا وقتی حبابِ بامتنِ بیجواب مانده، دوباره و دوباره
+        # از مدل پرسیده میشود (هر دورِ translate_regions خودش ۳ دورِ بچ
+        # + نجاتِ تکآیتمی دارد). فقط پیش‌نمایشِ زنده (final=False) بدونِ
+        # این سد کار میکند تا حبابها «کمکم» همان لحظه که ترجمهشان میرسد
+        # رویِ نمایش بنشینند (حبابِ هنوز بیترجمه = خالیِ روشن = لودینگ).
+        # v1.14.213 — سدِ دو-فازی: در فازِ استخراجِ بچ هیچ دورِ ترجمه‌ای
+        # زده نمیشود (دستور: «استخراج تموم شد بعدش بره ترجمه»)؛
+        # پسگیریِ خالیها بعد از اتمامِ کل، در run با بستههایِ ۳۰تایی است.
+        if (final and not getattr(self, "clean_only", False)
+                and not getattr(self, "fake_translate", False)
+                and getattr(self, "_extraction_done", True)):
+            for _g_round in range(1, 4):
+                if stop_requested():
+                    break
+                _g_missing = [r for r in dialogue_regions
+                              if not (r.translated_text or "").strip()
+                              and (r.source_text or "").strip()
+                              and source_has_letters(r.source_text)
+                              and not getattr(r, "ocr_empty", False)]
+                if not _g_missing:
+                    break
+                print(f"[193] دورِ {_g_round}/۳: {_g_missing.__len__()} حباب هنوز ترجمه نشده — "
+                      "تا ترجمهٔ کامل صبر میشود، انگلیسی نشان داده نمیشود…")
+                try:
+                    self.translate_regions(_g_missing)
+                except (GeminiQuotaExhausted, JobCancelled):
+                    raise
+                except Exception as _g_err:
+                    print(f"    [193] دورِ {_g_round} خطا: {str(_g_err)[:80]}")
+                    time.sleep(0.6)
+
+        translated_regions = [r for r in dialogue_regions if r.translated_text]
+        # v1.14.192 — مشکل۱ سازنده: «ai ترجمش برنمیگردونه … بعضی متنها رو
+        # خالی میده، ترجمه نشده رو عکس هم نمیزاره» (PC/لینوکس/اندروید).
+        # در مسیرِ بچ، پاکسازی همهٔ دیالوگها را از قبل پاک میکند
+        # (precleaned)؛ اگر ترجمهٔ مدل برای بعضی ناحیهها نرسیده باشد، آن
+        # ناحیه در translated_regions نیست → حبابِ سفیدِ «خالی» رویِ خروجی
+        # میماند. قانونِ 189 («هیچ حبابِ خالی») اینجا هم اجرا میشود:
+        # متنِ مبدأ رویِ حبابِ پاکشده رندر میشود — رویِ «کپی»، نه خودِ
+        # ناحیه، تا دورِ بعدیِ ترجمهٔ واقعی (بافرِ چندصفحهای/پیشنمایش)
+        # دستنخورده بماند. فقط وقتی متنِ اصلی از قبل پاک شده
+        # (precleaned)؛ در مسیرِ تکصفحهای متنِ اصلی سرِ جایش است.
+        # v1.14.193 — فقط در رندرِ «نهایی» (final=True): پیش‌نمایشِ زنده
+        # دیگر متنِ مبدأ (انگلیسی) را رویِ حبابهایِ درانتظار نمینشاند —
+        # آنها خالیِ روشن میمانند (= لودینگ) تا ترجمهٔ واقعی کمکم بنشیند.
+        # قبل از این رندر، سدِ [193] بالا تا ۳ دورِ دیگر از مدل پرسیده است.
+        _fb192: List[TextRegion] = []
+        if final and precleaned is not None:
+            for _r192 in dialogue_regions:
+                if (_r192.translated_text or "").strip() \
+                        or not (_r192.source_text or "").strip() \
+                        or not source_has_letters(_r192.source_text) \
+                        or getattr(_r192, "ocr_empty", False):
+                    continue
+                _c192 = copy.copy(_r192)
+                _c192.translated_text = _r192.source_text
+                _fb192.append(_c192)
+            if _fb192:
+                print(f"  [192] {len(_fb192)} حباب بدونِ ترجمه ولی پاکشده → "
+                      "متنِ مبدأ رندر شد (ضدِ حبابِ خالی)")
+                if self.debug:
+                    for _c192 in _fb192:
+                        try:
+                            print(f"    [192] حباب[{_c192.id}] rect="
+                                  f"{tuple(int(v) for v in _c192.rect)} → "
+                                  f"متنِ مبدأ: {(_c192.translated_text or '')[:60]}")
+                        except Exception:
+                            pass
+        # v1.14.209 — بازگشتِ «فقط پاکسازی» برایِ ناحیههایِ بی‌متن (دستورِ
+        # سازنده: «متن قبلی میمونه نمیپاکه»). v1.14.149 اینها را از
+        # پاکسازی بیرون کشیده بود (ترسِ حبابِ سیاه رویِ زمینهٔ تیره از
+        # ۰۱۲_p1) — ولی هر ناحیهٔ ocr_empty از گیتِ «زمینهٔ روشن + جوهرِ
+        # تیره» (گیتِ جوهرِ متنی در ساختِ ناحیه) گذشته و ماسکِ پاکسازی هم
+        # فقط جوهرِ متن را برمیدارد نه مستطیلِ توپر → حبابِ سیاه رخ
+        # نمیدهد؛ «متنِ قبلی میمونه» بدتر از هر لکهٔ احتمالی بود.
+        _oe149 = [r for r in dialogue_regions
+                  if not r.translated_text
+                  and getattr(r, "ocr_empty", False)]
+        _ocr_empty_regions = _oe149
+        if _oe149:
+            for _r in _oe149:
+                try:
+                    print(f"  [!] ناحیهٔ {_r.id} بدونِ متنِ OCR → فقط پاکسازی (rect={tuple(int(v) for v in _r.rect)}) — متنِ قبلی نمیماند")
+                except Exception:
+                    pass
+        # v1.14.95 — قانونِ نهاییِ کاربر: «متنِ تبلیغِ سایت حسابش نکن —
+        # ازش رد شه.» بنرِ تبلیغ/واترمارک دیگر در هیچ حالتی پاک نمی‌شود
+        # (قبلاً در حالتِ ترجمه‌دار کلِ بنر توپر ماسک و LaMa می‌شد که
+        # هم خودش ریسکِ لکّه داشت و هم خلافِ خواستهٔ تازهٔ کاربر بود).
+        # ترجمه/رندر هم رویش نمی‌نشیند (فقطِ dialogue ترجمه می‌شود).
+        _clean_regions = (translated_regions + _ocr_empty_regions)
+        # v1.14.70 — با --clean-sfx، افکت‌های صوتی هم پاک می‌شوند
+        # (ترجمه نمی‌شوند؛ فقط حذف)
+        if getattr(self, "clean_sfx", False) and sfx_regions:
+            _clean_regions = _clean_regions + sfx_regions
+        # v1.14.140 — اندروید (همان MANGA_CLEAN_TEXTFREEِ مسیرِ
+        # clean-only): در حالتِ ترجمه‌دار هم ناحیههایِ text_free فقط
+        # «پاک» میشوند (ترجمه نمیشوند — متنِ اصلی حذف میماند) وگرنه
+        # «PARAGRAPH 3…» و «THIS IS ONLY A DRAFT…» در خروجیِ ترجمهشده
+        # هم زنده میمانند. PC بیت‌به‌بیت.
+        if _android_gate("MANGA_CLEAN_TEXTFREE"):
+            _tf140t = [r for r in regions if r.kind == "text_free"]
+            if _tf140t:
+                _clean_regions = _clean_regions + _tf140t
+        # v1.14.192 — فقط ناحیههایِ «بامتنِ مبدأ ولی بیترجمه» «ترجمه نشد"
+        # حساب میشوند؛ ناحیهٔ بی‌متن (چرتِ فیلترشده) اصلاً ترجمه ندارد.
+        # v1.14.193 — فقط در رندرِ نهایی چاپ میشود؛ در پیش‌نمایشِ زنده
+        # حبابهایِ درانتظار طبیعیاند و نباید هر ۲ ثانیه هشدار بدهند.
+        missing_n = sum(1 for r in dialogue_regions
+                        if not r.translated_text
+                        and not getattr(r, "ocr_empty", False)
+                        and (r.source_text or "").strip()
+                        and source_has_letters(r.source_text))
+        if missing_n and final:
+            print(f"[!] {missing_n} حباب ترجمه نشد")
+        if self.debug:
+            if promo_regions:
+                print(f"  [*] {len(promo_regions)} تبلیغ → دست‌نخورده «ازش رد شه»")
+            if sfx_regions:
+                # v1.14.70 — با --clean-sfx پاک می‌شوند، وگرنه دست‌نخورده
+                _sfx70 = "پاک شدند" if getattr(self, "clean_sfx", False) else "دست‌نخورده"
+                print(f"  [*] {len(sfx_regions)} SFX → {_sfx70}")
+            if junk_regions:
+                print(f"  [*] {len(junk_regions)} junk → دست‌نخورده")
+
+
+        if self.debug and regions:
+            page_debug = self._draw_debug_regions(image, regions)
+
+        # v1.14.193 — «or _fb192»: وقتی «هیچ» حیابی ترجمه نشده (مدلِ کامل
+        # خالی)، _clean_regions خالی است و رندر کلاً رد میشد → صفحهٔ
+        # تمامسفیدِ حباب تحویل میگرفتی. با فال‌بکِ 192 باید رندر انجام
+        # شود تا لااقل متنِ مبدأ رویِ کپیها بنشیند (ضدِ حبابِ خالی).
+        if _clean_regions or _fb192:
+            if precleaned is not None:
+                cleaned_image = precleaned
+            else:
+                if _android_gate("MANGA_PHASE_PRINTS"):
+                    print("[*] پاکسازی متن…", flush=True)
+                _t0 = time.time()
+                cleaned_image = self.clean_image(image, _clean_regions)
+                print(f"[+] پاکسازی: {time.time() - _t0:.1f} ثانیه با {self._clean_label()}")
+            final_image = self.render_translations(
+                cleaned_image,
+                (translated_regions + _fb192) if _fb192 else translated_regions,
+                raw_image_copy)
+            if not self.debug:
+                for _r in translated_regions:
+                    _txt = (_r.translated_text or "").strip().replace("\n", " / ")
+                    if _txt:
+                        print(f"    {_txt[:150]}")
+        else:
+            final_image = precleaned.copy() if precleaned is not None else image.copy()
+        # v1.14.194 — «اون قسمتهایی که متن نداره خالیه — وقتی متن نباشه شکلِ
+        # لودینگ بیار جایِ متن؛ متنش ترجمه شد بذار سرجاش» (پیشنمایشِ زندهٔ
+        # کمکم). در مسیرِ بچ، متنِ همهٔ دیالوگها از قبل پاک شده (precleaned)؛
+        # حبابِ هنوز بیجواب = جایِ خالی. حالا بهجایِ خالی، نشانِ لودینگ
+        # (چرخِ چرخان) وسطِ حباب می‌نشیند؛ همین که ترجمهٔ واقعی برسد،
+        # رندرِ بعدیِ پیشنمایش متن را سرِ جایش میگذارد و نشانِ لودینگ از
+        # آن ناحیه حذف میشود. فقط پیشنمایش (final=False) — رندرِ نهایی
+        # یا متنِ مبدأ دارد (فالبکِ 192) یا سدِ 193 صفحه را کامل نگه میدارد.
+        if (not final and precleaned is not None
+                and not getattr(self, "clean_only", False)):
+            _wait_regions = [r for r in dialogue_regions
+                             if not (r.translated_text or "").strip()
+                             and not getattr(r, "ocr_empty", False)
+                             and (r.source_text or "").strip()]
+            if _wait_regions:
+                try:
+                    final_image = self._draw_loading_marks_1194(
+                        final_image, _wait_regions)
+                except Exception as _lg_err:
+                    if self.debug:
+                        try:
+                            print(f"    [194] نشانِ لودینگ: {str(_lg_err)[:80]}")
+                        except Exception:
+                            pass
+        return final_image, page_debug
+
+    def _draw_loading_marks_1194(self, image: np.ndarray,
+                                 regions: List[TextRegion]) -> np.ndarray:
+        """v1.14.194 — نشانِ «در حال ترجمه…» وسطِ حبابهایِ درانتظار.
+        یک قوسِ خاکستریِ نازک (چرخِ لودینگ) + سه نقطهٔ کوچک زیرش؛
+        قوس با هر رندرِ پیشنمایش کمی میچرخد تا حسِ «لود شدن» بدهد.
+        خاکستریِ ملایم رویِ حبابِ روشن = لودینگِ محسوس ولی مزاحمِ صفحه
+        نمیشود؛ در رندرِ نهایی هرگز صدا زده نمیشود."""
+        img = image
+        if img is None or img.size == 0 or not regions:
+            return img
+        h, w = img.shape[:2]
+        # v1.14.194 — چرخشِ نرم: هر رندرِ پیشنمایش زاویهٔ شروعِ قوس جلو
+        # میرود؛ چون پیشنمایش هر ۲+ ثانیه با رسیدنِ ترجمهٔ تازه رندر
+        # میشود، چرخ بهتدریج «میچرخد».
+        _spin = int((time.time() * 90.0) % 360.0)
+        for r in regions:
+            try:
+                # v1.14.194 — rect = (x, y, عرض، ارتفاع) است (قراردادِ
+                # TextRegion؛ rect=(x0, y0, x1-x0, y1-y0) در محلِ ساخت) —
+                # نه گوشه‌ها؛ با گوشه فرضکردن، نشان وسطِ جایِ غلط می‌نشست.
+                _rx, _ry, _rw, _rh = r.rect
+                x0, y0 = max(0, int(_rx)), max(0, int(_ry))
+                x1 = min(w - 1, int(_rx + _rw) - 1)
+                y1 = min(h - 1, int(_ry + _rh) - 1)
+                bw, bh = x1 - x0, y1 - y0
+                if bw < 26 or bh < 26:
+                    continue  # حبابِ خیلی ریز — جای نشان ندارد
+                cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+                rad = int(min(bw, bh) * 0.17)
+                rad = max(8, min(rad, 44))
+                th = max(2, rad // 5)
+                col = (150, 150, 150)  # خاکستریِ ملایم (BGR)
+                # قوسِ ناتمام = چرخِ لودینگ؛ زاویهٔ شروع با زمان میچرخد
+                cv2.ellipse(img, (cx, cy), (rad, rad), _spin % 360,
+                            0, 250, col, th, cv2.LINE_AA)
+                # سه نقطهٔ «…» زیرِ چرخ — داخلِ حباب میماند (خارجِ ناحیه نمیرود)
+                _d = max(2, th - 1)
+                _dy = min(cy + rad + th * 3, y1 - _d - 1)
+                if _dy > cy:
+                    for _k in (-1, 0, 1):
+                        _px = cx + _k * (rad // 2 + _d * 2)
+                        if x0 + _d < _px < x1 - _d:
+                            cv2.circle(img, (_px, _dy), _d, col, -1, cv2.LINE_AA)
+            except Exception:
+                continue
+        return img
+
+    def process_core(self, image: np.ndarray) -> np.ndarray:
+        # v1.14.66 — زمان‌گیریِ مراحل (درخواستِ کاربر: از استخراج تا آخرِ
+        # پاکسازی رویِ PC و اندروید زمان بگیر تا سریع‌سازیِ بدونِ افت بشود)
+        _t_all66 = time.time()
+        _t66 = time.time()
+        regions, dbg = self.extract_regions_phase(image)
+        _t_ext66 = time.time() - _t66
+        if dbg is not None:
+            self._last_debug_image = dbg
+        else:
+            self._last_debug_image = None
+        if not regions:
+            try:
+                print(f"[TIME] extract={_t_ext66:.1f}s | "
+                      f"total={time.time() - _t_all66:.1f}s (بدونِ متن)",
+                      flush=True)
+            except Exception:
+                pass
+            return image
+        _t66 = time.time()
+        try:
+            self._classify_balloon_tones(image, regions)
+        except Exception:
+            pass
+        _t_tone66 = time.time() - _t66
+        _t66 = time.time()
+        final_image, _ = self.finish_page_phase(image, regions, final=True)  # v1.14.193
+        _t_fin66 = time.time() - _t66
+        try:
+            print(f"[TIME] extract={_t_ext66:.1f}s tone={_t_tone66:.1f}s "
+                  f"translate+clean+render={_t_fin66:.1f}s "
+                  f"total={time.time() - _t_all66:.1f}s", flush=True)
+        except Exception:
+            pass
+        return final_image
+
+    def _classify_balloon_tones(self, image: np.ndarray,
+                                regions: List[TextRegion]) -> None:
+        clf = getattr(self, "_tone_clf", None)
+        if clf is None:
+            clf = BalloonToneClassifier()
+            self._tone_clf = clf
+        h, w = image.shape[:2]
+        for r in regions:
+            if getattr(r, "style_locked", False):
+                continue  # v1.14.31: سبکِ قفل‌شده (پنجرهٔ سیستم) دست‌نخورده می‌ماند
+            try:
+                x0, y0, x1, y1 = r.rect
+                x0, y0 = max(0, int(x0)), max(0, int(y0))
+                x1, y1 = min(w, int(x1)), min(h, int(y1))
+                if x1 - x0 < 10 or y1 - y0 < 10:
+                    continue
+                pad = 8
+                px0 = max(0, x0 - pad)
+                py0 = max(0, y0 - pad)
+                px1 = min(w, x1 + pad)
+                py1 = min(h, y1 + pad)
+                crop = image[py0:py1, px0:px1]
+                tone = clf.classify(crop)
+                if tone and tone in BalloonToneClassifier.TONES:
+                    r.bubble_style = tone
+            except Exception:
+                continue
+
+    @staticmethod
+    def _is_mostly_blank(image: np.ndarray, std_thresh: float = 12.0, unique_thresh: int = 24) -> bool:
+        if image is None or image.size == 0:
+            return True
+        h, w = image.shape[:2]
+        if h < 40 or w < 40:
+            return True
+        y0, y1 = int(h * 0.15), int(h * 0.85)
+        x0, x1 = int(w * 0.1), int(w * 0.9)
+        crop = image[y0:y1, x0:x1]
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
+        if float(np.std(gray)) < std_thresh:
+            return True
+        hist = cv2.calcHist([gray], [0], None, [64], [0, 256]).flatten()
+        if int(np.count_nonzero(hist > (gray.size * 0.002))) < unique_thresh and float(np.std(gray)) < 22:
+            return True
+        return False
+
+
+    @staticmethod
+    def _is_url(s: str) -> bool:
+        return s.lower().startswith("http://") or s.lower().startswith("https://")
+
