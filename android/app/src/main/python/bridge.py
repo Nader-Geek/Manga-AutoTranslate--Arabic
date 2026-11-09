@@ -620,6 +620,8 @@ _PROG_PHASES_1151 = (
     ("ترجمه:", "ترجمه"),
     ("فاز ۳", "ترجمه"),
     ("ترجمه با", "ترجمه"),
+    # v1.14.242 — استریمِ زندهٔ K3 (درخواستِ واحد): خطوطِ «← استریم: X/Y دیالوگ…»
+    ("استریم:", "ترجمه"),
     ("پاکسازی متن", "پاکسازی"),
     ("روش پاکسازی", "پاکسازی"),
     ("پاکسازی:", "پاکسازی"),
@@ -795,7 +797,7 @@ def _fulllog_params(job):
         p = job.get("params") or {}
         keys = ("provider", "model", "api_base", "fmt", "debug", "fake",
                 "two_pass", "tones", "font", "ocr", "langs", "readord",
-                "clean_method", "story_brief")
+                "clean_method")
         kvs = []
         for k in keys:
             v = p.get(k)
@@ -1083,7 +1085,7 @@ def _run(job):
                     two_pass_ocr=bool(p.get("two_pass", True)),
                     debug=bool(p.get("debug")),
                     glossary_path=glossary_path,
-                    story_brief=bool(p.get("story_brief", True)),
+                    # v1.14.242 — story_brief حذف شد (K3 بریف ندارد)
                     fake_translate=bool(p.get("fake")),
                     clean_only=bool(p.get("clean_only")),
                     max_workers=_i("workers", _def_workers()),

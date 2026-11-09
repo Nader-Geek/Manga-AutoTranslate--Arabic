@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.240"
+APP_VER = "1.14.242"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -79,6 +79,11 @@ _WEB_PROG_COUNT_RES = (
     (re.compile(r"پاکسازی متن[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*صفحه"),
      "پاکسازی", "صفحه"),
     (re.compile(r"ترجمه[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*ناحیه"),
+     "ترجمه", "ناحیه"),
+    # v1.14.242 — استریمِ زندهٔ K3: در درخواستِ واحد، پیشرفتِ لحظهای از
+    # خطوطِ «← استریم: X/Y دیالوگ…» خوانده میشود (همان پیشنمایشِ
+    # صفحهبهصفحهٔ K3)
+    (re.compile(r"استریم[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*دیالوگ"),
      "ترجمه", "ناحیه"),
 )
 
@@ -2977,9 +2982,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 lines=10, max_lines=25, interactive=True,
                 placeholder="خالی = پرامپتِ خودکارِ بر اساسِ سبک و مدل…",
                 value=_pp_body0)
-            story_brief = gr.Checkbox(
-                label="بریف داستان قبل از ترجمه (AI یک‌بار فصل را می‌خواند تا لحن شخصیت‌ها حفظ شود)",
-                value=bool(cfg.get("story_brief", True)))
+            # v1.14.242 — چکباکسِ «بریف داستان» حذف شد: دیکدِ K3 نشان داد
+            # پاسِ خلاصهٔ داستان وجود ندارد (دستورِ سازنده: «نداشته باشه
+            # مال منم حذف کن») — همهٔ متنها در همان یک درخواستِ ترجمه میروند.
 
         # ── v1.14.217/218 — بکاپ و بازیابی: «گرفتنِ بکاپ» فایلِ JSONِ همهٔ
         # چیزها را میدهد؛ «Import» همان فایل را کامل برمیگرداند ──
@@ -4143,7 +4148,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             batchw_v, maxre_v, reqdelay_v, temp_v, readord_v,
                             clean_method_v, two_pass_v,
                             fake_test_v, clean_only_v, web_debug_v, prompt_mode_v, prompt_body_v,
-                            glossary_text_v, story_brief_v, api_base_v,
+                            glossary_text_v, api_base_v,
                             models_v,
                             *tone_args):
             _t_prep68 = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
@@ -4396,8 +4401,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 with open(glos_path, "w", encoding="utf-8") as _gf:
                     _gf.write(glos_text + "\n")
                 cmd += ["--glossary", glos_path]
-            if not story_brief_v:
-                cmd += ["--no-brief"]
+            # v1.14.242 — بریف داستان حذف شد (K3 ندارد) — دیگر --no-brief فرستاده نمیشود
 
             t0 = time.time()
             try:
@@ -4969,7 +4973,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ("fake_test", fake_test), ("clean_only", clean_only),
             ("web_debug", web_debug), ("prompt_mode", prompt_mode),
             ("prompt_body", prompt_preview_body),
-            ("glossary_text", glossary_text), ("story_brief", story_brief),
+            ("glossary_text", glossary_text),
         ]
 
         def _do_backup(*args):
@@ -5148,7 +5152,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     batchw, maxre, reqdelay, temp, readord,
                     clean_method, two_pass,
                     fake_test, clean_only, web_debug, prompt_mode, prompt_preview_body,
-                    glossary_text, story_brief, api_base,
+                    glossary_text, api_base,
                     custom_models_state,
                 ] + tone_uploads + tone_enables,
             outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
