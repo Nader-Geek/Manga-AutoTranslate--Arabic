@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.244"
+APP_VER = "1.14.245"
 
 DEFAULT_SYSTEM_INSTRUCTION_STYLE = """
 تو مترجم حرفه‌ای مانگا، مانهوا، مانهوآ و کمیک برای چاپ هستی. خروجی‌ات عیناً داخل حباب می‌نشیند؛ باید مثل دیالوگ یک کتاب ترجمه‌شدهٔ خوب خوانده شود.
@@ -3988,25 +3988,49 @@ def _clamp_lines_to_det204(res, box, block_rects=None, tol: float = 10.0):
         return res
 
 
-def _latin_junk_line188(text) -> bool:
+def _latin_junk_line188(text, region_has_letters: Optional[bool] = None):
     """v1.14.188 — خطِ آشغالِ لاتین («چرت‌پرت») — فقط کلِ خط:
       • بدونِ هیچ حرفِ لاتین و کوتاه (≤۴ نویسه): «23»، «豊»، «H/»
       • همهٔ توکنها ≤۲ حرف و هیچ واکه‌ای ندارند: «FL»، «SS»، «Px»
     خطهایِ واقعی («GO!»، «Wha!?»، «OK») میمانند؛ فقط برایِ صفحاتِ
-    لاتین صدا زده میشود (_latin_lang188)."""
+    لاتین صدا زده میشود (_latin_lang188).
+
+    v1.14.245 — عدد/نماد دیگر «حذفِ خط» نیست (دستورِ سازنده:
+    «19 hi باید هردوشو بخونه حذف شه — اشتباه ک میکنه hi میخونه 19
+    میپاکه» و «1233 نباید حذف شه»): سیاستِ عدد/نماد در «سطحِ ناحیه»
+    تعیین میشود (source_has_letters + no_touch230)، نه در سطحِ خط.
+    در ناحیهٔ حرف‌دار، خطِ عدد = محتوای دیالوگ است («19 hi»)؛ در
+    ناحیهٔ بی‌حرف، ماندنِ خطها باعث میشود ناحیه «فقط-عدد/نماد» شناخته
+    شود (no_touch230 = دست‌نخورده) نه «OCR-خالی» که پاک میشود.
+    پارامترِ region_has_letters: متنِ کلِ ناحیه حرف دارد یا نه؛
+    None = رفتارِ قدیمی (برایِ فراخوانی‌های بدونِ متنِ ناحیه)."""
     s = str(text or "").strip()
     if not s:
         return True
     toks = re.findall(r"[A-Za-z]+", s)
     if not toks:
+        # v1.14.245 — خطِ عددِ خالص («19»، «10,000»، «۳:۳۰») محتواست:
+        # در ناحیهٔ حرف‌دار میماند (باید خوانده و پاک شود)؛ در ناحیهٔ
+        # بی‌حرف هم میماند (تا ناحیه no_touch شود). فقط سمبل/نویسهٔ
+        # بی‌حرفِ کوتاه (H/، ؟!) در ناحیهٔ حرف‌دار هنوز آشغال است.
+        if region_has_letters is False:
+            return False
+        if re.fullmatch(
+                r"[\d\u06F0-\u06F9\u0660-\u0669]"
+                r"[\d\u06F0-\u06F9\u0660-\u0669\s.,:'\-]*", s):
+            return False
         return len(s) <= 4
-    # «77,I» / «1,I» — دودigits + حرفِ تک؛ خوانشِ اشتباهِ حرفِ ایتالیک
+    # «77,I» / «1,I» — دو digits + حرفِ تک؛ خوانشِ اشتباهِ حرفِ ایتالیک
     _alpha188 = [c for c in s if c.isascii() and c.isalpha()]
     if sum(c.isdigit() for c in s) >= 2 and len(_alpha188) <= 2:
         # v1.14.189 — اگر حرفها فقط I/i/l باشند، خط حذف نمیشود؛
         # به «I» ترمیم میشود («77,I» = «I'll» ناخوانا — لاگ گوشی ۱۸۸).
         if _alpha188 and all(c in "Iil" for c in _alpha188):
             return "I"
+        # v1.14.245 — «19 hi» / «19th»: عدد در متنِ حرف‌دار محتواست؛
+        # در ناحیهٔ بی‌حرف هم خط میماند تا ناحیه no_touch شود.
+        if region_has_letters is not None:
+            return False
         return True
     if all(len(t) <= 2 for t in toks):
         _vow = "AEIOUaeiou"
@@ -8953,26 +8977,34 @@ class MangaTranslator:
             return "promo"
 
 
-        if stripped.isdigit() or re.fullmatch(r"[\d\s.%oO]+", stripped):
-            return "junk"
-        if re.fullmatch(r"[QOIl]?\d{2,}", stripped, re.I):
-            return "junk"
-        if re.fullmatch(r"[A-Za-z]{0,2}\d{3,}", stripped) and len(digits_only) >= 3:
-            return "junk"
-
-        if re.fullmatch(r"[A-Za-z]?\d{2,6}", stripped) and len(stripped) <= 7:
-            return "sfx"
-        if digits_only and len(stripped) <= 12:
-            non_digit_alpha = re.sub(r"[\d\s.%oOQIl]", "", stripped, flags=re.I)
-            non_digit_alpha = re.sub(r"[/()\[\]{}]", "", non_digit_alpha)
-            if len(non_digit_alpha) <= 2:
+        # v1.14.245 — «عدد در کنارِ حروفِ واقعی = دیالوگ است، نه آشغال»
+        # (دستورِ سازنده: «19 hi باید هردوشو بخونه حذف شه»): قوانینِ
+        # عددیِ junk فقط وقتی صدا میزنند که متن «هیچ حرفِ واقعی» نداشته
+        # باشد (source_has_letters) — آن‌وقت سیاست در سطحِ ناحیه
+        # (no_touch230) دست میگیرد و ناحیه دست‌نخورده میماند. «1233»
+        # همچنان junk میماند (بدونِ حرف) ولی «19 hi» / «19th» دیالوگ.
+        _has_letters245 = source_has_letters(stripped)
+        if not _has_letters245:
+            if stripped.isdigit() or re.fullmatch(r"[\d\s.%oO]+", stripped):
                 return "junk"
-        if not has_cjk and len(alpha_only) <= 1 and len(stripped) <= 3 and stripped.upper() != "I":
-            return "junk"
-        if not has_cjk and len(alpha_only) <= 2 and len(stripped) <= 5 and not any(
-            c.isalpha() and c.isascii() for c in stripped if len(stripped) > 3
-        ):
-            return "junk"
+            if re.fullmatch(r"[QOIl]?\d{2,}", stripped, re.I):
+                return "junk"
+            if re.fullmatch(r"[A-Za-z]{0,2}\d{3,}", stripped) and len(digits_only) >= 3:
+                return "junk"
+
+            if re.fullmatch(r"[A-Za-z]?\d{2,6}", stripped) and len(stripped) <= 7:
+                return "sfx"
+            if digits_only and len(stripped) <= 12:
+                non_digit_alpha = re.sub(r"[\d\s.%oOQIl]", "", stripped, flags=re.I)
+                non_digit_alpha = re.sub(r"[/()\[\]{}]", "", non_digit_alpha)
+                if len(non_digit_alpha) <= 2:
+                    return "junk"
+            if not has_cjk and len(alpha_only) <= 1 and len(stripped) <= 3 and stripped.upper() != "I":
+                return "junk"
+            if not has_cjk and len(alpha_only) <= 2 and len(stripped) <= 5 and not any(
+                c.isalpha() and c.isascii() for c in stripped if len(stripped) > 3
+            ):
+                return "junk"
 
         if getattr(MangaTranslator, "_title_skip_enabled", False):
             title_pats = getattr(MangaTranslator, "_title_skip_patterns", None) or []
@@ -28311,6 +28343,14 @@ class MangaTranslator:
             # هر دو رویِ مختصاتِ صفحه (بعد از جبرانِ inset) اعمال میشوند.
             _own188 = max(1.0, float((x2 - x1) * (y2 - y1)))
             if entries:
+                # v1.14.245 — سیاستِ عدد/سمبل در سطحِ ناحیه: متنِ «کلِ»
+                # کاندید (قبل از فیلتر) تعیین میکند که خطِ عدد محتواست
+                # («19 hi») یا ناحیهٔ فقط-عدد است (no_touch میشود).
+                try:
+                    _rhas245 = source_has_letters(
+                        " ".join(str(_e245[0]) for _e245 in entries))
+                except Exception:
+                    _rhas245 = None
                 _keep188 = []
                 _fix188 = False
                 for _e188 in entries:
@@ -28321,7 +28361,7 @@ class MangaTranslator:
                             print(f"    [🔍188] خطِ ناحیهٔ مجاور حذف شد: "
                                   f"{str(_e188[0])[:36]!r}")
                         continue
-                    _j188 = _latin_junk_line188(_e188[0]) \
+                    _j188 = _latin_junk_line188(_e188[0], _rhas245) \
                         if _latin_lang188(self) else False
                     if _j188:
                         if isinstance(_j188, str):
@@ -28494,7 +28534,15 @@ class MangaTranslator:
                                     if _line_is_foreign188(
                                             _bb2, block_rects, _own188):
                                         continue
-                                    _j189 = _latin_junk_line188(_e189[0]) \
+                                    # v1.14.245 — ناحیه = merged + نیمه‌ها
+                                    try:
+                                        _rhas189 = source_has_letters(
+                                            " ".join(
+                                                [str(_m245[0]) for _m245 in merged]
+                                                + [str(_e245[0]) for _e245 in (_e2 or [])]))
+                                    except Exception:
+                                        _rhas189 = None
+                                    _j189 = _latin_junk_line188(_e189[0], _rhas189) \
                                         if _latin_lang188(self) else False
                                     if _j189:
                                         if isinstance(_j189, str):
@@ -28597,7 +28645,15 @@ class MangaTranslator:
                         # v1.14.188 — همان دو فیلترِ ضدِ چرت‌پرت رویِ نجاتِ لبه
                         if _line_is_foreign188(_bE, block_rects, _own188):
                             continue
-                        _jE = _latin_junk_line188(_tE) \
+                        # v1.14.245 — ناحیه = merged + خطِ نجات‌یافته
+                        try:
+                            _rhasE = source_has_letters(
+                                " ".join(
+                                    [str(_m245[0]) for _m245 in merged]
+                                    + [_tE]))
+                        except Exception:
+                            _rhasE = None
+                        _jE = _latin_junk_line188(_tE, _rhasE) \
                             if _latin_lang188(self) else False
                         if _jE:
                             if isinstance(_jE, str):
@@ -28919,10 +28975,17 @@ class MangaTranslator:
                         if not _re230:
                             continue
                         _keep230 = []
+                        # v1.14.245 — سیاستِ عدد در سطحِ ناحیه برایِ نجاتِ ۹۰°
+                        try:
+                            _rhas230 = source_has_letters(
+                                " ".join(str(_e245[0])
+                                          for _e245 in (_re230 or [])))
+                        except Exception:
+                            _rhas230 = None
                         for _e230 in (_re230 or []):
                             if _e230[2] is None:
                                 continue
-                            _j230 = _latin_junk_line188(_e230[0]) \
+                            _j230 = _latin_junk_line188(_e230[0], _rhas230) \
                                 if _latin_lang188(self) else False
                             if _j230:
                                 if isinstance(_j230, str):
