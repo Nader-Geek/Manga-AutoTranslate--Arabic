@@ -585,6 +585,22 @@ class _MangaTranslatorBody_90:
                 cv2.putText(vis, st, (x + 2, y + 14),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1, cv2.LINE_AA)
 
+      # v1.14.252 — باکسهایِ خامِ detِ OCR (آبی) — درخواستِ سازنده: «یک
+      # متن استخراج نزده ببین det نتونسته پیدا کنه یا ret استخراج نزده
+      # بعد میخوام det هم تو دیباگ نشون بده با ابی». آبی = چیزی که detِ
+      # متن رویِ کراپِ حباب «دیده» است (پاسِ فقط-det؛ قبل ازِ rec و قبل ازِ
+      # فیلترهایِ امتیاز/188/225). تفسیر:
+      #   • خطی که جعبهٔ آبی دارد ولی قرمز/متن ندارد → det دید، rec/فیلتر حذف کرد
+      #   • خطی که اصلاً آبی ندارد → det آن را ندید (مقصرِ det)
+      # (جمعآوری: 70_extract._dbg_collect_det_quads_252 — فقط با --debug)
+      try:
+        _dq252 = getattr(self, "_dbg_det_quads_252", None) or []
+        for _q252 in _dq252:
+          _pts252 = np.asarray(_q252, dtype=np.int32).reshape(-1, 1, 2)
+          cv2.polylines(vis, [_pts252], True, (255, 0, 0), 2, cv2.LINE_AA)
+      except Exception:
+        pass
+
       # v1.14.173 — باکسهایِ خامِ detector-v4-s با رنگِ سبز رویِ همین
       # DEBUGِ صفحه — مقایسهٔ مستقیمِ detector در برابرِ OCR بدونِ عکسِ
       # جدا (دستورِ سازنده: «عکس جدا نشون نده رو همون عکس اصلی دیباگ

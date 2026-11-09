@@ -38,7 +38,7 @@ import sys as _sys
 
 # همگام با APP_VER در manga_sections/00_base.py —
 # «scripts/build_manga.py --check» ناهمخوانی را رد میکند.
-APP_VER = "1.14.251"
+APP_VER = "1.14.252"
 
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
 _SECTIONS_DIR = _os.path.join(_HERE, "manga_sections")

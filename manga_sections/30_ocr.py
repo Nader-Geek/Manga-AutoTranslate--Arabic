@@ -1313,6 +1313,76 @@ class RapidOCRBackend:
         except Exception:
             return txt
 
+    # v1.14.252 — موتورِ detِ جدا برایِ دیباگِ آبی (جعبههایِ خامِ تشخیصِ
+    # متن). چرا موتورِ جدا؟ فراخوانیِ use_rec=False رویِ «همان» موتورِ
+    # اصلی، use_rec آن را میچرخاند و کارگرِ موازی که همان لحظه OCRِ
+    # کامل میزند متنش را از دست میدهد (خرابیِ بیصدا) → موتورِ detِ
+    # اختصاصیِ تنبل: فقط کلیدهای Global/Det/EngineConfig از پارامترهایِ
+    # موتورِ اصلی کپی میشود (مدلِ det همان فایل) و چون use_rec=False
+    # است، مدلِ rec «هرگز» ساخته/لود نمیشود (~۱۰MB). EP = همیشه CPU
+    # (پرچمهایِ GPU حذف میشوند) تا قفلِ DML/سرعتِ کارگرها دست نخورد.
+    def _det_dbg_engine_252(self):
+        _e = getattr(self, "_det_dbg_eng252", None)
+        if _e is not None:
+            return _e
+        if getattr(self, "_det_dbg_tried252", False):
+            return None
+        self._det_dbg_tried252 = True
+        try:
+            from rapidocr import RapidOCR as NewRapidOCR
+            _p = {}
+            for _k, _v in (getattr(self, "_eng_params233", None) or {}).items():
+                if not str(_k).startswith(("Global.", "Det.", "EngineConfig.")):
+                    continue
+                # بدونِ EPهایِ GPU (use_cuda/use_dml/use_coreml/cuda_ep_cfg)
+                if "use_cuda" in _k or "use_dml" in _k or "use_coreml" in _k \
+                        or "cuda_ep_cfg" in _k:
+                    continue
+                _p[_k] = _v
+            self._det_dbg_eng252 = NewRapidOCR(params=_p)
+        except Exception as _e252:
+            print(f"[!] موتورِ detِ دیباگ ساخته نشد ({str(_e252)[:90]})")
+            self._det_dbg_eng252 = None
+        return self._det_dbg_eng252
+
+    def det_only(self, image_bgr: np.ndarray) -> List[np.ndarray]:
+        """v1.14.252 — پاسِ فقط-det (بدونِ rec) برایِ دیباگِ آبیِ صفحه:
+        جعبههایِ خامِ تشخیصِ متن — همان چیزی که det «دیده» است، قبل ازِ
+        اینکه rec بخواند یا فیلترِ امتیازِ موتور/188/225 حذف کند.
+        خروجی = فهرستِ کواردهای ۴نقطهای به مختصاتِ «همان تصویرِ ورودی».
+        [] = det چیزی پیدا نکرد (یا موتورِ قدیمی/گوشی — پشتیبانی فقط
+        rapidocrِ جدیدِ PC). فراخوانی فقط از دیباگ — هیچ اثری روی
+        استخراجِ اصلی ندارد."""
+        if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
+            return []
+        if not getattr(self, "_new_api", False):
+            return []
+        if getattr(self, "_mobile", None) is not None:
+            return []
+        eng = self._det_dbg_engine_252()
+        if eng is None:
+            return []
+        try:
+            out = eng(image_bgr, use_det=True, use_cls=False, use_rec=False)
+        except Exception:
+            return []
+        boxes = getattr(out, "boxes", None)
+        if boxes is None:
+            return []
+        quads: List[np.ndarray] = []
+        try:
+            for _b252 in np.asarray(boxes):
+                try:
+                    _q252 = np.asarray(_b252, dtype=np.float32).reshape(-1, 2)
+                    if _q252.shape[0] >= 4 and np.ptp(_q252[:, 0]) >= 2 \
+                            and np.ptp(_q252[:, 1]) >= 2:
+                        quads.append(_q252)
+                except Exception:
+                    continue
+        except Exception:
+            return []
+        return quads
+
     def _engine_run233_nolock(self, image_bgr):
         try:
             return self.engine(image_bgr, use_cls=False)

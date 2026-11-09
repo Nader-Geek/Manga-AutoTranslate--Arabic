@@ -2852,6 +2852,25 @@ class _MangaTranslatorBody_70:
                     continue
                 if getattr(rb, "kind", "") != getattr(ra, "kind", ""):
                     continue
+                # v1.14.252 — خواهرانِ پنجرهٔ سیستمِ هم‌والد هرگز «تکرارِ
+                # دوباره‌رندر» نیستند: خطوطِ split از «یک» پاسِ OCRِ والد
+                # در ردیفهایِ مجزا ساخته شدهاند (متنهایِ متفاوتِ فیزیکی).
+                # قربانیِ واقعی (فصلِ ۸۸، لاگِ 8e7dd2bc): «THE EAST WING
+                # AND» ≈ «THE WEST WING.» با شباهتِ فازیِ ۰٫۷۷ (آستانهٔ
+                # ۰٫۶۲) + ۱۰px همپوشانیِ عمودی → خطِ چهارمِ حباب، به‌عنوانِ
+                # «هممتن» حذف شد و متن رویِ خروجی ماند. خواهرِ هم‌والد
+                # (cover_rect یکسان + sys_split) از هر دو شاخهٔ «یکسان» و
+                # «بخشی» مستثناست؛ دوباره‌رندرِ واقعی = دو باکسِ detector
+                # (cover_rect متفاوت) — همان محافظتِ ۲۲۵ سرِ جایش میماند.
+                try:
+                    if getattr(ra, "sys_split", False) \
+                            and getattr(rb, "sys_split", False) \
+                            and getattr(ra, "cover_rect", None) is not None \
+                            and getattr(ra, "cover_rect", None) \
+                            == getattr(rb, "cover_rect", None):
+                        continue
+                except Exception:
+                    pass
                 inter = _inter225(ba, bb)
                 if inter <= 0.0:
                     continue
@@ -3486,10 +3505,163 @@ class _MangaTranslatorBody_70:
         except Exception:
             return regions
 
+    def _dbg_collect_det_quads_252(self, image: np.ndarray,
+                                   regions: List[TextRegion]) -> None:
+        """v1.14.252 — جعبههایِ خامِ detِ OCR برایِ دیباگِ آبیِ صفحه.
+
+        درخواستِ سازنده: «یک متن استخراج نزده ببین det نتونسته پیدا کنه
+        یا ret استخراج نزده بعد میخوام det هم تو دیباگ نشون بده با ابی» —
+        برایِ هر کراپِ detector (حباب)، یک پاسِ فقط-det (بدونِ rec، موتورِ
+        جدایِ 30_ocr.det_only) زده میشود؛ جعبهها به مختصاتِ صفحه میروند
+        و در self._dbg_det_quads_252 برایِ رسمِ آبی (90_render) می‌نشینند.
+
+        تفسیر (لاگِ [🔍252] + تصویر):
+          • جعبهٔ آبی هست ولی ناحیه/متن ندارد → det دید، rec/فیلتر حذف کرد
+          • جعبهٔ آبی هم ندارد → det اصلاً آن خط را ندید
+        فقط با self.debug — هیچ اثری روی استخراجِ اصلی ندارد (کراپ/نردبان
+        دستنخورده؛ پاسِ detِ جدا رویِ همان RECTهایِ detector)."""
+
+        self._dbg_det_quads_252 = []
+        _fn252 = getattr(self.ocr, "det_only", None)
+        if not callable(_fn252):
+            return
+        _bubbles252 = list(getattr(self, "_page_bubble_boxes", None) or [])
+        if not _bubbles252:
+            return
+        try:
+            _h252, _w252 = image.shape[:2]
+        except Exception:
+            return
+        _quads252: List[np.ndarray] = []
+        _t252 = time.time()
+        for _b252 in _bubbles252:
+            try:
+                _bx1, _by1, _bx2, _by2 = [int(v) for v in _b252[:4]]
+                _pad252 = 8
+                _x1252 = max(0, _bx1 - _pad252)
+                _y1252 = max(0, _by1 - _pad252)
+                _x2252 = min(_w252, _bx2 + _pad252)
+                _y2252 = min(_h252, _by2 + _pad252)
+                if _x2252 - _x1252 < 8 or _y2252 - _y1252 < 8:
+                    continue
+                _crop252 = image[_y1252:_y2252, _x1252:_x2252]
+                if _crop252 is None or _crop252.size == 0:
+                    continue
+                # همان بُستِ نردبانِ _ocr_crop برایِ متنِ ریز (کوچک = بُست)
+                _m252 = max(_crop252.shape[:2])
+                if _m252 < 200:
+                    _sc252 = 2.4
+                elif _m252 < 360:
+                    _sc252 = 1.8
+                elif _m252 < 600:
+                    _sc252 = 1.35
+                else:
+                    _sc252 = 1.0
+                _passes252 = [(_crop252, 1.0)]
+                if _sc252 > 1.01:
+                    _passes252.append(
+                        (cv2.resize(_crop252, None, fx=_sc252, fy=_sc252,
+                                    interpolation=cv2.INTER_CUBIC), _sc252))
+                for _cimg252, _cs252 in _passes252:
+                    for _q252 in (_fn252(_cimg252) or []):
+                        try:
+                            _qf252 = np.asarray(
+                                _q252, dtype=np.float32).reshape(-1, 2).copy()
+                            if _cs252 > 1.01:
+                                _qf252 = _qf252 / _cs252
+                            _qf252[:, 0] += _x1252
+                            _qf252[:, 1] += _y1252
+                            _quads252.append(_qf252)
+                        except Exception:
+                            continue
+            except Exception:
+                continue
+        # دداپ — پاسهایِ ۱×/بُست همان خط را دوبار میآورند (همپوشانیِ
+        # ≥۰٫۶ → یکی میماند)
+        try:
+            _keep252: List[np.ndarray] = []
+            _bb252 = []
+            for _q252 in _quads252:
+                _bx1_ = float(np.min(_q252[:, 0])); _by1_ = float(np.min(_q252[:, 1]))
+                _bx2_ = float(np.max(_q252[:, 0])); _by2_ = float(np.max(_q252[:, 1]))
+                _dup252 = False
+                for _kb in _bb252:
+                    _ix252 = max(0.0, min(_bx2_, _kb[2]) - max(_bx1_, _kb[0]))
+                    _iy252 = max(0.0, min(_by2_, _kb[3]) - max(_by1_, _kb[1]))
+                    _inter252 = _ix252 * _iy252
+                    if _inter252 <= 0:
+                        continue
+                    _aq252 = max(1e-6, (_bx2_ - _bx1_) * (_by2_ - _by1_))
+                    _bq252 = max(1e-6, (_kb[2] - _kb[0]) * (_kb[3] - _kb[1]))
+                    if _inter252 / min(_aq252, _bq252) >= 0.6:
+                        _dup252 = True
+                        break
+                if not _dup252:
+                    _keep252.append(_q252)
+                    _bb252.append((_bx1_, _by1_, _bx2_, _by2_))
+            _quads252 = _keep252
+        except Exception:
+            pass
+        self._dbg_det_quads_252 = _quads252
+        # لاگِ تشخیصی — پاسخِ مستقیمِ «det دید یا rec نگرفت؟»: جعبهٔ آبی
+        # که هیچ ناحیهٔ نهایی (rect یا پالیِ OCR) نپوشانده = دیدهشده توسطِ
+        # det ولی استخراج نشده
+        try:
+            _cov252 = []
+            for _r252 in (regions or []):
+                try:
+                    _rx252, _ry252, _rw252, _rh252 = [int(v) for v in _r252.rect]
+                    _cov252.append((_rx252, _ry252,
+                                    _rx252 + _rw252, _ry252 + _rh252))
+                except Exception:
+                    pass
+                for _p252 in (getattr(_r252, "ocr_polys", None) or []):
+                    try:
+                        _pp252 = np.asarray(_p252, dtype=np.float32).reshape(-1, 2)
+                        _cov252.append((float(np.min(_pp252[:, 0])),
+                                        float(np.min(_pp252[:, 1])),
+                                        float(np.max(_pp252[:, 0])),
+                                        float(np.max(_pp252[:, 1]))))
+                    except Exception:
+                        continue
+            _miss252 = []
+            for _q252 in _quads252:
+                try:
+                    _qx1_ = float(np.min(_q252[:, 0])); _qy1_ = float(np.min(_q252[:, 1]))
+                    _qx2_ = float(np.max(_q252[:, 0])); _qy2_ = float(np.max(_q252[:, 1]))
+                except Exception:
+                    continue
+                _hit252 = False
+                for _cb in _cov252:
+                    _ix252 = max(0.0, min(_qx2_, _cb[2]) - max(_qx1_, _cb[0]))
+                    _iy252 = max(0.0, min(_qy2_, _cb[3]) - max(_qy1_, _cb[1]))
+                    if _ix252 * _iy252 <= 0:
+                        continue
+                    _aq252 = max(1e-6, (_qx2_ - _qx1_) * (_qy2_ - _qy1_))
+                    if (_ix252 * _iy252) / _aq252 >= 0.35:
+                        _hit252 = True
+                        break
+                if not _hit252:
+                    _miss252.append((int(_qx1_), int(_qy1_),
+                                     int(_qx2_ - _qx1_), int(_qy2_ - _qy1_)))
+            if _quads252 or _miss252:
+                _ms252 = ""
+                if _miss252:
+                    _ms252 = (" | " + str(len(_miss252)) + " خط: det دید ولی "
+                              "rec/فیلتر نگرفت → " +
+                              ", ".join(f"({a},{b} {c}x{d})"
+                                        for a, b, c, d in _miss252[:8]))
+                print(f"    [🔍252] دیباگِ det (آبی): {len(_quads252)} جعبهٔ خام"
+                      f" در {time.time() - _t252:.1f}s{_ms252}")
+        except Exception:
+            pass
+
     def extract_regions_phase(self, image: np.ndarray) -> Tuple[List[TextRegion], Optional[np.ndarray]]:
         # v1.14.226 — عمرِ کشِ OCR = یک صفحه (کلید = مختصات؛ محتوا عوض
         # میشود بین صفحات)
         self._ocr_crop_cache226 = {}
+        # v1.14.252 — جعبههایِ خامِ det (دیباگِ آبی) هم هر صفحه از نو
+        self._dbg_det_quads_252 = []
         h, w = image.shape[:2]
         _t_ext150 = time.time()  # v1.14.150 — کرونومترِ استخراج (نمایشِ سرعت)
         # v1.14.154 — نشانگرِ شروعِ فاز برایِ اعلان (فقط اندروید؛ PC بدونِ
@@ -3567,6 +3739,13 @@ class _MangaTranslatorBody_70:
             r.id = idx
 
         dbg = None
+        if self.debug:
+            # v1.14.252 — پاسِ فقط-det رویِ کراپهایِ حباب → جعبههایِ آبی +
+            # لاگِ «det دید ولی rec/فیلتر نگرفت» (پاسخِ مستقیمِ سؤالِ سازنده)
+            try:
+                self._dbg_collect_det_quads_252(image, unique_regions)
+            except Exception:
+                self._dbg_det_quads_252 = []
         if self.debug and unique_regions:
             dbg = self._draw_debug_regions(image, unique_regions)
             # دیباگِ متنیِ کامل — متنِ استخراجی + مکان + زاویه + فاصلهٔ خط‌ها
