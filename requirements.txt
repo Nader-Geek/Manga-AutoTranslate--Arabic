@@ -14,9 +14,10 @@ pyyaml
 tqdm
 pymupdf>=1.24
 # OCR: the newer `rapidocr` (PP-OCRv6, ~25% faster, adapted from the amirwolf512k fork);
+# the legacy package has no wheels for Python 3.13+, so it is only a fallback below that.
 # manga.py falls back to rapidocr-onnxruntime if it is unavailable.
 rapidocr>=3.9.2
-rapidocr-onnxruntime>=1.3
+rapidocr-onnxruntime>=1.3; python_version < "3.13"
 # LLM client: the Ollama provider talks to Ollama through its OpenAI-compatible API
 openai
 google-genai
