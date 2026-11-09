@@ -1,0 +1,26 @@
+{
+ "tag": "ov238_openvino",
+ "question": "OpenVINO برای استخراج/پاکسازی سریع‌تر است؟",
+ "method": "onnxruntime-openvino 1.24.1 (تنها نسخهٔ موجود در PyPI — ۷ نسخه عقب‌تر از onnxruntime 1.31.1) در venv جدا؛ همان بیلد برای هر دو EP؛ ورودی‌های واقعی: rec = ۳۷۷ بچِ ضبط‌شده از ۱۰ عکسِ تست (۹۹۶ خط)، det = ۹ کراپِ واقعیِ ۹۶۰/max مضربِ ۳۲، LaMa = پچِ ۵۱۲×۵۱۲ با ماسکِ مرکزی؛ سندباکس ۲هسته",
+ "results": {
+  "rec_PP-OCRv6_medium": {
+   "cpu_ep_124": {"ms_per_batch": 222.7, "total_s": 83.95},
+   "openvino_ep": {"ms_per_batch": 273.7, "total_s": 103.2,
+                   "text_identical": "100.00% (996/996)"},
+   "verdict": "رد — ۲۳٪ کندتر از CPU EP همان بیلد؛ ۳۱٪ کندتر از ORT 1.31.1 جاری"
+  },
+  "det_PP-OCRv6_small": {
+   "cpu_ep_124": {"ms_per_input": 125.7},
+   "openvino_ep": {"ms_per_input": 51.5, "max_rel_dev": "3.98e-05"},
+   "verdict": "۲.۴ برابر سریع‌تر — ولی det فقط ~۱۸٪ زمانِ OCR است؛ با عوض‌کردنِ پکیج، rec و LaMa بیشتر ضرر می‌کنند تا det سود"
+  },
+  "lama_nofft_512": {
+   "cpu_ep_124": {"s_per_patch": 3.56},
+   "openvino_ep": {"s_per_patch": 4.12},
+   "verdict": "رد — ۱۶٪ کندتر"
+  }
+ },
+ "net_if_package_swapped": "img4 تخمین: det 5.7s→2.3s (-3.4) ولی rec 25.2s→31.0s (+5.8) و LaMa +۱۶٪ → جمع = کندتر + از‌دست‌رفتنِ ۷ نسخه بهینه‌سازیِ ORT",
+ "danger_found": "نکتهٔ ایمنی: کدِ فعلی در حالتِ --cpu اگر onnxruntime-openvino نصب باشد OpenVINOExecutionProvider را «ترجیح» میداد → با این داده rec ۲۳٪ کند می‌شد بی‌صدا",
+ "conclusion": "رد — پکیجِ رویه‌ای (۷ نسخه عقب) + کندتر روی گلوگاه‌ها (rec/LaMa). برتریِ ۲.۴× فقط روی det که سهمش کم است. گیتِ ترجیحِ OpenVINO از _best_providers_for حذف شد (فقط با MANGA_ALLOW_OV=1)"
+}

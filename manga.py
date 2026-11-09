@@ -1272,7 +1272,18 @@ def _best_providers_for(kind: str = "generic", prefer_gpu: bool = True):
             pass
     else:
         # --cpu: x86_64 → فقط CPU (همان EPِ همیشگی، نتیجهٔ بیت‌به‌بیت یکسان)
-        if "OpenVINOExecutionProvider" in avail:
+        # v1.14.238 — OpenVINO دیگر «به‌طورِ پیش‌فرض» ترجیح نمیشود:
+        # بنچمارکِ واقعی (scripts/bench_out/ov238_results.json) رویِ
+        # ورودیهایِ ضبطشده از ۱۰ عکسِ تست: onnxruntime-openvino (۱.۲۴.۱ —
+        # تنها نسخهٔ PyPI) در rec ۲۳٪ «کندتر» (۱۰۳s در برابرِ ۸۴s)، در
+        # LaMa ۱۶٪ کندتر و فقط در det ۲.۴× سریع‌تر است (سهمِ det از OCR
+        # ~۱۸٪) → سوییچِ بی‌صدا = ضررِ خالص. فقط با MANGA_ALLOW_OV=1.
+        try:
+            _allow_ov238 = str(os.environ.get(
+                "MANGA_ALLOW_OV", "")).strip().lower() == "1"
+        except Exception:
+            _allow_ov238 = False
+        if _allow_ov238 and "OpenVINOExecutionProvider" in avail:
             out.append("OpenVINOExecutionProvider")
         # v1.14.96-speed (SRV-G) — A/Bِ XNNPACK (فقط MANGA_CPU_EP=xnnpack):
         # سشن‌هایِ CPU-EP از XNNPACK+CPU می‌روند با کانفیگِ رسمی
@@ -11499,6 +11510,31 @@ class MangaTranslator:
             h, w = image.shape[:2]
         except Exception:
             return None
+        # v1.14.238 — نواحیِ چرخیده (|angle| ≥ ۳°): نوارها در فضای
+        # همسطح‌شده (مسیرِ مشترکِ کامپوز). MANGA_ROT_STRIPS=0 = خاموش.
+        try:
+            _ang238 = float(getattr(region, "angle", 0.0) or 0.0)
+        except Exception:
+            _ang238 = 0.0
+        if 3.0 <= abs(_ang238) <= 45.0 \
+                and os.environ.get("MANGA_ROT_STRIPS", "1") != "0":
+            try:
+                _rot238 = self._rotated_region_strips(
+                    image, polys_raw, _ang238)
+            except Exception:
+                _rot238 = None
+            if _rot238 is not None:
+                _m238 = _rot238[0]
+                _a238 = int(cv2.countNonZero(_m238))
+                try:
+                    _rw238 = float(region.rect[2])
+                    _rh238 = float(region.rect[3])
+                except Exception:
+                    _rw238 = float(w)
+                    _rh238 = float(h)
+                if 150 <= _a238 <= 0.95 * max(1.0, _rw238 * _rh238):
+                    return _m238
+                # بیرونِ دامنه → مسیرِ عادیِ محور-تراز
         lines = MangaTranslator._group_polys_to_lines(polys_raw)
         if not lines:
             return None
@@ -11883,7 +11919,8 @@ class MangaTranslator:
 
     @staticmethod
     def _panel_leftover_ink(image: np.ndarray, rect, excl: np.ndarray,
-                            ret_stats: bool = False):
+                            ret_stats: bool = False,
+                            med_h: float = 0.0):
         """v1.14.135 — ماسکِ «متنِ جامانده» در بلوک (فقطِ مصرفِ اندروید).
 
         وقتی OCRِ گوشی خطهایِ یک بلوکِ متراکم را هرز/ناقص خوانده، بینِ
@@ -11897,9 +11934,21 @@ class MangaTranslator:
         خاطرِ «خودِ متنِ جامانده» تا ۸۵ میرسد → تخت بودن روی «زمینهٔ
         روشنِ بیرونِ جوهر» سنجیده میشود. گلیف = قطعهٔ ۸..۲۶۰۰px با
         ارتفاعِ ۳..۶۴ و عرضِ ≤۱۸۰ (زیرخط/استروکِ هنریِ بلند رد میشود).
-        excl = ماسکِ نوارها/پالیها که از جستجو خارج میشود."""
+        excl = ماسکِ نوارها/پالیها که از جستجو خارج میشود.
+
+        v1.14.238 — سقفهایِ اندازهٔ گلیف سازگار با ارتفاعِ خطِ همان
+        ناحیه شدند (med_h): فونتِ درشتِ کمیک (img6 — بلندیِ خط ۶۹..۷۹)
+        با سقفِ ثابتِ ۶۴ رد میشد و گلیفهای جامانده هیچ‌وقت نجات
+        نمیافتادند. med_h=۰ = رفتارِ قبلی."""
         try:
             h, w = image.shape[:2]
+            # v1.14.238 — سقفهایِ سازگار با ارتفاعِ خط
+            _mh238 = float(med_h or 0.0)
+            _hh_max238 = max(64.0, 1.15 * _mh238 + 4.0) if _mh238 > 0 \
+                else 64.0
+            _a_max238 = max(2600.0, 0.60 * _mh238 * _mh238) if _mh238 > 0 \
+                else 2600.0
+            _ww_max238 = max(180.0, 2.6 * _mh238) if _mh238 > 0 else 180.0
             rx, ry, rw, rh = [int(v) for v in rect]
             x0, y0 = max(0, rx), max(0, ry)
             x1, y1 = min(w, rx + rw), min(h, ry + rh)
@@ -11937,7 +11986,8 @@ class MangaTranslator:
                 a = int(st[i, cv2.CC_STAT_AREA])
                 hh = int(st[i, cv2.CC_STAT_HEIGHT])
                 ww = int(st[i, cv2.CC_STAT_WIDTH])
-                if 8 <= a <= 2600 and 3 <= hh <= 64 and ww <= 180:
+                if 8 <= a <= _a_max238 and 3 <= hh <= _hh_max238 \
+                        and ww <= _ww_max238:
                     gm[lbl == i] = 255
                     n_g += 1
             if n_g < 10:
@@ -12704,7 +12754,10 @@ class MangaTranslator:
         # توهمِ متن/نویز میسازد — بازتولیدِ A/B). کامپوزِ همتا همان
         # گلیفها را از عکسِ پاکشده برمیگرداند. حبابِ کاملخوانده
         # (بینِ پالیهاش گلیفِ جامانده ندارد) هرگز تریگر نمیشود.
-        if _android_gate("MANGA_TEXTPANEL") and n_ok > 0:
+        # v1.14.238 — گیتِ پنلِ متنی پیشفرض رویِ «هر دو» پلتفرم روشن شد
+        # (env=0 خاموش): باقیماندهٔ گلیف بینِ نوارها رویِ PC هم «متنِ
+        # نیمه‌پاک» میسازد — همان گونه که فلسفهٔ v1.14.212 میگوید.
+        if _gate_default_on("MANGA_TEXTPANEL") and n_ok > 0:
             try:
                 _pg135 = float(max(1, w * h))
                 _n_tp = 0
@@ -12744,8 +12797,28 @@ class MangaTranslator:
                     if _cov135 > 0.90:
                         continue  # متن کامل خوانده شده — دست نمی‌زنیم
                     _pm135d = cv2.dilate(_pm135, np.ones((9, 9), np.uint8))
+                    # v1.14.238 — med_hِ ناحیه برایِ سقفهایِ سازگار با
+                    # فونتِ درشت (img6: بلندیِ خط ۶۹..۷۹)
+                    _mh135 = 0.0
+                    try:
+                        _pl135 = []
+                        for _p135 in _polys135:
+                            try:
+                                _pp135b = np.asarray(
+                                    _p135, dtype=np.float32).reshape(-1, 2)
+                                if _pp135b.shape[0] >= 3:
+                                    _pl135.append(_pp135b)
+                            except Exception:
+                                continue
+                        _ln135 = MangaTranslator._group_polys_to_lines(
+                            _pl135)
+                        if _ln135:
+                            _mh135 = float(np.median(
+                                [b[3] - b[1] for b in _ln135]))
+                    except Exception:
+                        _mh135 = 0.0
                     _ink135 = MangaTranslator._panel_leftover_ink(
-                        image, _rg135.rect, _pm135d)
+                        image, _rg135.rect, _pm135d, med_h=_mh135)
                     if _ink135 is None:
                         continue
                     _ink135 = cv2.dilate(
@@ -16417,6 +16490,104 @@ class MangaTranslator:
         except Exception:
             return None
 
+    def _rotated_region_strips(self, image: np.ndarray, polys: list,
+                               ang: float):
+        """v1.14.238 — نوارهایِ خط‌به‌خط برایِ نواحیِ «چرخیده».
+
+        ریشهٔ سه شکایتِ همزمان (حبابِ زردِ چپ‌بریدهٔ img6 با زاویهٔ
+        -۹.۵°، تابلوهایِ MINISTRYِ img4 با -۱۵/-۱۹.۳°، خطِ جاماندهٔ
+        10.jpg با -۱۵°): نوارِ محور-ترازِ متنِ کج (۱) از دیوارِ حباب
+        رد میشود → حلقهٔ رنگِ پر، داخل+بیرونِ حباب را قاطی میکند →
+        «لکهٔ سبز-خاکستری روی زرد»؛ (۲) لبهٔ نوار وسطِ حروف میگذرد و
+        گاردِ ساختار (v1.14.64) تکههایِ گلیفِ چسبیده به لبه را از
+        ماسک بیرون میکشد → «نقطه‌های سیاه»؛ (۳) خطوطِ کج در یک سطلِ
+        y می‌افتند → نوارِ چاق. راه‌حل: برشِ ناحیه با -angle همسطح
+        میشود (همان قراردادِ _tilted_ink_mask)، نوارها در فضای
+        چرخیده ساخته میشوند (خطوط افقند؛ لبه‌ها هرگز حروف را نمیبرند)
+        و ماسک با اینترپولیشنِ NEAREST به مختصاتِ اصلی برمیگردد.
+        خروجی: (strips, failed) یا None (فراخواننده به مسیرِ عادی
+        برمیگردد)."""
+        try:
+            h, w = image.shape[:2]
+            _all = np.concatenate(polys, axis=0)
+            bx0 = float(_all[:, 0].min())
+            bx1 = float(_all[:, 0].max())
+            by0 = float(_all[:, 1].min())
+            by1 = float(_all[:, 1].max())
+            cx, cy = (bx0 + bx1) / 2.0, (by0 + by1) / 2.0
+            pad = 30.0
+            M = cv2.getRotationMatrix2D((cx, cy), -float(ang), 1.0)
+            _cos, _sin = abs(M[0, 0]), abs(M[0, 1])
+            bw = (bx1 - bx0) + 2.0 * pad
+            bh = (by1 - by0) + 2.0 * pad
+            nw = int(bh * _sin + bw * _cos) + 4
+            nh = int(bh * _cos + bw * _sin) + 4
+            if nw < 16 or nh < 16 or nw > 4 * w or nh > 4 * h:
+                return None
+            M[0, 2] += (nw / 2.0) - cx
+            M[1, 2] += (nh / 2.0) - cy
+            rot_img = cv2.warpAffine(image, M, (nw, nh),
+                                     flags=cv2.INTER_LINEAR,
+                                     borderValue=(255, 255, 255))
+            rot_polys = []
+            for p in polys:
+                q = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                qh = np.hstack(
+                    [q, np.ones((q.shape[0], 1), np.float32)])
+                rq = (M @ qh.T).T
+                rot_polys.append(rq.astype(np.float32))
+            lines = MangaTranslator._group_polys_to_lines(rot_polys)
+            if not lines:
+                return None
+            m_rot = np.zeros((nh, nw), dtype=np.uint8)
+            f_rot = np.zeros((nh, nw), dtype=np.uint8)
+            for (lx0, ly0, lx1, ly1) in lines:
+                st = self._line_strip_ink(rot_img, lx0, ly0, lx1, ly1,
+                                          rot_polys)
+                if st is None:
+                    # پالیِ خودِ خط (اندازهٔ متن) — همان قراردادِ failed
+                    try:
+                        for _pa in rot_polys:
+                            _px0 = float(_pa[:, 0].min())
+                            _px1 = float(_pa[:, 0].max())
+                            _py0 = float(_pa[:, 1].min())
+                            _py1 = float(_pa[:, 1].max())
+                            if (_px1 >= lx0 - 2 and _px0 <= lx1 + 2
+                                    and _py1 >= ly0 - 2
+                                    and _py0 <= ly1 + 2):
+                                cv2.fillPoly(
+                                    f_rot,
+                                    [np.rint(_pa).astype(np.int32)], 255)
+                    except Exception:
+                        pass
+                    continue
+                sx0, sy0, sx1, sy1, kept = st
+                m_rot[sy0:sy1, sx0:sx1][kept] = 255
+            if not m_rot.any() and not f_rot.any():
+                return None
+            Minv = cv2.invertAffineTransform(M)
+            m = cv2.warpAffine(m_rot, Minv, (w, h),
+                               flags=cv2.INTER_NEAREST, borderValue=0)
+            f = cv2.warpAffine(f_rot, Minv, (w, h),
+                               flags=cv2.INTER_NEAREST, borderValue=0)
+            # ماسکِ برگشتی فقط تا پالی‌های اصلی + پد معتبر است؛ بیرونِ
+            # آن وارپ ممکن است نوچ بسازد
+            _valid = np.zeros((h, w), dtype=np.uint8)
+            for p in polys:
+                try:
+                    cv2.fillPoly(
+                        _valid,
+                        [np.rint(np.asarray(p, np.float32).reshape(-1, 2))
+                         .astype(np.int32)], 255)
+                except Exception:
+                    continue
+            _valid = cv2.dilate(_valid, np.ones((25, 25), np.uint8)) > 0
+            m = (m > 0) & _valid
+            f = (f > 0) & _valid
+            return (m.astype(np.uint8) * 255, f.astype(np.uint8) * 255)
+        except Exception:
+            return None
+
     def _compose_region_strips(self, image: np.ndarray,
                                region: "TextRegion") -> Optional[np.ndarray]:
         """v1.14.70 — نوارهایِ خط‌به‌خطِ «اندازهٔ دقیقِ متن» برایِ یک ناحیه.
@@ -16436,6 +16607,19 @@ class MangaTranslator:
                     polys.append(pp)
             if not polys:
                 return None, np.zeros((1, 1), dtype=np.uint8)
+            # v1.14.238 — نواحیِ چرخیده (|angle| ≥ ۳°): نوارها در فضای
+            # همسطح‌شده ساخته میشوند — نوارِ محور-ترازِ متنِ کج از دیوارِ
+            # حباب رد میشود (لکهٔ رنگِ قاطی) و لبه‌اش حروف را میبرد
+            # (نقطه‌های سیاه). MANGA_ROT_STRIPS=0 = خاموش.
+            try:
+                _ang238 = float(getattr(region, "angle", 0.0) or 0.0)
+            except Exception:
+                _ang238 = 0.0
+            if 3.0 <= abs(_ang238) <= 45.0 \
+                    and os.environ.get("MANGA_ROT_STRIPS", "1") != "0":
+                _rot238 = self._rotated_region_strips(image, polys, _ang238)
+                if _rot238 is not None:
+                    return _rot238
             lines = MangaTranslator._group_polys_to_lines(polys)
             if not lines:
                 return None, np.zeros((1, 1), dtype=np.uint8)
@@ -16768,18 +16952,43 @@ class MangaTranslator:
                             # عکسِ پاکشده میآید — وگرنه متنِ نیمهپاک +
                             # لکه در خروجی میماند. اگر donor آنجا پاک
                             # نشده باشد، پیکسلِ donor = اورجینال (بیضرر).
-                            elif _android_gate("MANGA_TEXTPANEL"):
+                            elif _gate_default_on("MANGA_TEXTPANEL"):
                                 try:
                                     _ex135 = cv2.dilate(
                                         ((_strips > 0) | (_failed > 0))
                                         .astype(np.uint8),
                                         np.ones((9, 9), np.uint8))
+                                    # v1.14.238 — med_hِ ناحیه (فونتِ
+                                    # درشتِ img6: بلندیِ خط ۶۹..۷۹)
+                                    _mh35 = 0.0
+                                    try:
+                                        _pl35 = []
+                                        for _p35 in (getattr(
+                                                _rg, "ocr_polys", None)
+                                                or []):
+                                            try:
+                                                _pp35 = np.asarray(
+                                                    _p35,
+                                                    dtype=np.float32
+                                                ).reshape(-1, 2)
+                                                if _pp35.shape[0] >= 3:
+                                                    _pl35.append(_pp35)
+                                            except Exception:
+                                                continue
+                                        _ln35 = MangaTranslator \
+                                            ._group_polys_to_lines(_pl35)
+                                        if _ln35:
+                                            _mh35 = float(np.median(
+                                                [b[3] - b[1]
+                                                 for b in _ln35]))
+                                    except Exception:
+                                        _mh35 = 0.0
                                     _ink35 = \
                                         MangaTranslator._panel_leftover_ink(
                                             image,
                                             (_bx0, _by0,
                                              _bx1 - _bx0, _by1 - _by0),
-                                            _ex135)
+                                            _ex135, med_h=_mh35)
                                     if _ink35 is not None:
                                         # فقط گلیفهای جامانده از donor —
                                         # نه کلِ بلوک (LaMaِ بلوکِ کامل
@@ -21443,7 +21652,188 @@ class MangaTranslator:
                 self._leftover_text_sweep(cleaned, image, _cmp2, regions)
             except Exception:
                 pass
+        # v1.14.238 — جارویِ خرده‌گلیف/نقطه‌هایِ جاماندهٔ داخلِ ناحیه
+        # (دستورِ سازنده: «وقتی میپاکه نقطه نقطه سیاه جا میزاره هر متن»).
+        if os.environ.get("MANGA_DOT_SWEEP", "1") != "1":
+            pass
+        else:
+            try:
+                self._compose_dot_sweep(cleaned, image, _cmp2, regions,
+                                        verbose=self.debug)
+            except Exception:
+                pass
         return cleaned
+
+    def _compose_dot_sweep(self, cleaned: np.ndarray,
+                           original: np.ndarray,
+                           zone: Optional[np.ndarray],
+                           regions: List[TextRegion],
+                           verbose: bool = True) -> int:
+        """v1.14.238 — جارویِ خرده‌گلیف/نقطه‌هایِ جاماندهٔ داخلِ ناحیه.
+
+        ریشه (img6 — حبابِ زردِ بالا + حباب‌هایِ سفید): تکههایِ
+        دورخط/ضدآلیاسِ حروف که بیرونِ نوارهایِ کامپوز ماندند =
+        «نقطه‌نقطهٔ سیاه جایِ هر متن». پسگیرِ جوهر گاردهایش (لبهٔ
+        پنجره/سقفِ جرم/باند) بعضی را رد میکند و جارویِ خوانا فقط
+        متنِ قابلِOCR را میگیرد. اینجا بعد از کامپوز، داخلِ مستطیلِ
+        هر ناحیهٔ متنی، قطعههایِ گلیف‌مانندِ «تیره روی زمینهٔ روشنِ
+        تخت» که در زونِ کامپوز نیستند و به مرزِ ناحیه نمیچسبند با
+        TELEA پاک میشوند — هنرِ بیرونِ ناحیه و دیوارِ حباب (مرز)
+        هرگز دستنخورده میمانند."""
+        n_fix = 0
+        n_px = 0
+        try:
+            if cleaned is None or original is None:
+                return 0
+            if cleaned.shape[:2] != original.shape[:2]:
+                return 0
+            h, w = cleaned.shape[:2]
+            _zm = None
+            if isinstance(zone, np.ndarray) and zone.shape == (h, w):
+                _zm = (zone > 0)
+            for r in (regions or []):
+                try:
+                    if getattr(r, "kind", "") in ("promo", "sfx"):
+                        continue
+                    _polys = getattr(r, "ocr_polys", None) or []
+                    if not _polys:
+                        continue
+                    rx, ry, rw, rh = [int(v) for v in r.rect]
+                    x0 = max(0, rx - 4)
+                    y0 = max(0, ry - 4)
+                    x1 = min(w, rx + rw + 5)
+                    y1 = min(h, ry + rh + 5)
+                    if x1 - x0 < 48 or y1 - y0 < 32:
+                        continue
+                    # بلندیِ میانهٔ خط برایِ سقفهایِ سازگار
+                    try:
+                        _pl = []
+                        for p in _polys:
+                            _pp = np.asarray(p, np.float32).reshape(-1, 2)
+                            if _pp.shape[0] >= 3:
+                                _pl.append(_pp)
+                        _ln = MangaTranslator._group_polys_to_lines(_pl)
+                        if not _ln:
+                            continue
+                        med_h = float(np.median([b[3] - b[1] for b in _ln]))
+                    except Exception:
+                        continue
+                    if med_h < 8.0:
+                        continue
+                    _hh_max = max(64.0, 1.15 * med_h + 4.0)
+                    _a_max = max(2600.0, 0.60 * med_h * med_h)
+                    _ww_max = max(180.0, 2.6 * med_h)
+                    sub = cleaned[y0:y1, x0:x1]
+                    g = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
+                    ex = np.zeros(g.shape, bool)
+                    if _zm is not None:
+                        ex = _zm[y0:y1, x0:x1]
+                    # آمارِ زمینه از «زونِ تمیز» (بیرونِ نوارها) — ولی
+                    # شکارِ جوهر رویِ «کلِ برش»: خرده‌لکه‌ها هم بیرونِ
+                    # نوار ماندند (نقطهٔ جامانده) هم داخلِ نوار (لکهٔ
+                    # خودِ پرکنندهٔ donor) — هر دو باید پاک شوند
+                    exd = cv2.dilate(
+                        ex.astype(np.uint8),
+                        np.ones((3, 3), np.uint8)) > 0
+                    bg = ~exd
+                    nbg = int(bg.sum())
+                    if nbg < 400:
+                        continue
+                    med = float(np.median(g[bg]))
+                    if med < 150.0:
+                        continue
+                    ink = (g.astype(np.int16) < (med - 40.0))
+                    ink_n = int((ink & bg).sum())
+                    if ink_n < 4 or ink_n > 0.20 * nbg:
+                        continue
+                    _lite = (bg & ~cv2.dilate(
+                        (ink & bg).astype(np.uint8),
+                        np.ones((13, 13), np.uint8)).astype(bool))
+                    if int(_lite.sum()) < 200:
+                        continue
+                    if float(np.std(g[_lite])) > 52.0:
+                        continue  # زمینهٔ بافت‌دار/هنر — دخالت ممنوع
+                    nl, lab, st, _ = cv2.connectedComponentsWithStats(
+                        ink.astype(np.uint8), 8)
+                    gm = np.zeros(g.shape, np.uint8)
+                    n_g = 0
+                    _sub_h, _sub_w = g.shape[:2]
+                    for i in range(1, nl):
+                        a = int(st[i, cv2.CC_STAT_AREA])
+                        hh = int(st[i, cv2.CC_STAT_HEIGHT])
+                        ww = int(st[i, cv2.CC_STAT_WIDTH])
+                        if a < 4 or a > _a_max or hh < 2 or hh > _hh_max \
+                                or ww > _ww_max:
+                            continue
+                        # چسبیده به مرزِ برش = دیوار/ساختور — دست نزن
+                        _cx = int(st[i, cv2.CC_STAT_LEFT])
+                        _cy = int(st[i, cv2.CC_STAT_TOP])
+                        if _cx <= 1 or _cy <= 1 \
+                                or _cx + ww >= _sub_w - 1 \
+                                or _cy + hh >= _sub_h - 1:
+                            continue
+                        _cm238 = (lab == i)
+                        # داخلِ نوارِ کامپوز = لکهٔ خودِ پرکننده — فقط
+                        # خرده‌لکهٔ ریز مجاز (نه تکهٔ بزرگِ احتمالیِ هنر)
+                        if bool((_cm238 & ex).any()):
+                            if a > 300 or ww > 64 or hh > 44:
+                                continue
+                        gm[_cm238] = 255
+                        n_g += 1
+                    if n_g <= 0:
+                        continue
+                    if int(cv2.countNonZero(gm)) < 4:
+                        continue
+                    # پاسِ دوم — فقط «داخلِ نوارها»: رگه‌های خاکستریِ
+                    # ملایمِ پرکنندهٔ donor (۲۵..۴۰ زیرِ زمینه) که با
+                    # آستانهٔ اصلی رد شدند («خطوطِ محو»)
+                    try:
+                        _ink2 = (g.astype(np.int16) < (med - 26.0)) \
+                            & ex & (~cv2.dilate(
+                                ink.astype(np.uint8),
+                                np.ones((3, 3), np.uint8)).astype(bool))
+                        n2, l2, s2, _ = cv2.connectedComponentsWithStats(
+                            _ink2.astype(np.uint8), 8)
+                        for i2 in range(1, n2):
+                            a2 = int(s2[i2, cv2.CC_STAT_AREA])
+                            h2 = int(s2[i2, cv2.CC_STAT_HEIGHT])
+                            w2 = int(s2[i2, cv2.CC_STAT_WIDTH])
+                            if a2 < 6 or a2 > 420 or h2 > 40 or w2 > 130:
+                                continue
+                            _c2x = int(s2[i2, cv2.CC_STAT_LEFT])
+                            _c2y = int(s2[i2, cv2.CC_STAT_TOP])
+                            if _c2x <= 1 or _c2y <= 1 \
+                                    or _c2x + w2 >= _sub_w - 1 \
+                                    or _c2y + h2 >= _sub_h - 1:
+                                continue
+                            gm[l2 == i2] = 255
+                            n_g += 1
+                    except Exception:
+                        pass
+                    gm = cv2.dilate(gm, np.ones((3, 3), np.uint8))
+                    sub_fix = cv2.inpaint(sub, gm, 3, cv2.INPAINT_TELEA)
+                    _m = gm > 0
+                    sub[_m] = sub_fix[_m]
+                    n_fix += n_g
+                    n_px += int(cv2.countNonZero(gm))
+                    if verbose:
+                        try:
+                            print(f"  [✓238] جارویِ خرده‌گلیف: ناحیهٔ "
+                                  f"{getattr(r, 'id', '?')} — {n_g} قطعه "
+                                  f"({int(cv2.countNonZero(gm))}px) TELEA شد")
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+            if verbose and n_fix:
+                try:
+                    print(f"  [✓238] جارویِ خرده‌گلیف: {n_fix} قطعه / "
+                          f"{n_px}px در {len(regions or [])} ناحیه")
+                except Exception:
+                    pass
+            return n_fix
+        except Exception:
+            return 0
 
     def _leftover_text_sweep(self, cleaned: np.ndarray,
                              original: np.ndarray,
