@@ -4634,6 +4634,58 @@ class MangaTranslator:
         except Exception:
             return None
 
+    @staticmethod
+    def _structural_protect_mask(image: np.ndarray, mask: np.ndarray,
+                                 min_len: int = 60, max_thick: int = 14,
+                                 near_px: int = 25) -> Optional[np.ndarray]:
+        """Adapted from the amirwolf512k fork (v1.14.48 idea): bubble walls and
+        panel frames (long, thin, dark lines near the text mask) must never be
+        painted over. Every fill step dilates/CLOSEs the mask by up to ~25px,
+        which swallows a 3-4px wall line. Returns a bool page-sized map of
+        protected pixels (None when nothing to protect). Pixels inside the raw
+        text mask are never protected so text removal is unaffected."""
+        try:
+            h, w = image.shape[:2]
+            raw = (mask > 0).astype(np.uint8)
+            if not raw.any():
+                return None
+            g = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            k = near_px if near_px % 2 == 1 else near_px + 1
+            near = cv2.dilate(raw, np.ones((k, k), np.uint8))
+            try:
+                bg = cv2.medianBlur(g, 31)
+                dark_rel = (bg.astype(np.int16) - g.astype(np.int16)) > 45
+                dark = (g < 120) | dark_rel
+            except Exception:
+                dark = g < 120
+            dark = dark.astype(np.uint8)
+            dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+            dark = (dark & near & (1 - raw)).astype(np.uint8)
+            n, lab, st, _ = cv2.connectedComponentsWithStats(dark, 8)
+            if n <= 1:
+                return None
+            out = np.zeros((h, w), dtype=bool)
+            for i in range(1, n):
+                bw = int(st[i, cv2.CC_STAT_WIDTH])
+                bh = int(st[i, cv2.CC_STAT_HEIGHT])
+                area = int(st[i, cv2.CC_STAT_AREA])
+                long_side = max(bw, bh)
+                if long_side < min_len:
+                    continue
+                if area / float(long_side) <= max_thick:
+                    out |= (lab == i)
+            return out if out.any() else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _fill_cap_mask(mask: np.ndarray, reach_px: int = 7) -> np.ndarray:
+        """Adapted from the fork's _mm_cap: no fill step may paint more than
+        ~reach_px outside the raw text mask (dilated fills leave smudges on the
+        surrounding artwork otherwise)."""
+        k = 2 * int(reach_px) + 1
+        return cv2.dilate((mask > 0).astype(np.uint8), np.ones((k, k), np.uint8)) > 0
+
     def clean_image(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
         mask = self._build_text_mask(image, regions)
         if not np.any(mask):
@@ -4779,6 +4831,13 @@ class MangaTranslator:
             else:
                 print("  [!] LaMa غير متاح → OpenCV للمجموعات المتبقية")
 
+        _protect = _cap = None
+        if os.environ.get("MANGA_WALL_PROTECT", "1") != "0":
+            _protect = self._structural_protect_mask(image, mask)
+            _cap = self._fill_cap_mask(mask)
+            if _protect is not None:
+                print(f"  [*] حماية جدران الفقاعات/الإطارات: {int(_protect.sum())} بكسل")
+
         for cx0, cy0, cx1, cy1, crop_msk, result, method in crops:
             if result is None:
                 crop_img = image[cy0:cy1, cx0:cx1]
@@ -4832,6 +4891,10 @@ class MangaTranslator:
                 except Exception:
                     pass
             mm = crop_msk > 0
+            if _cap is not None:
+                mm &= _cap[cy0:cy1, cx0:cx1]
+            if _protect is not None:
+                mm &= ~_protect[cy0:cy1, cx0:cx1]
             cleaned[cy0:cy1, cx0:cx1][mm] = result[mm]
             counts[method] += 1
 
