@@ -10070,6 +10070,121 @@ class MangaTranslator:
                         continue
                 except Exception:
                     pass
+                # v1.14.240 — «قوسِ دیواره از مرزِ جعبه می‌گذرد»:
+                # گزارشِ سازنده (صفحهٔ SHAN SHAN?!/DON'T TELL ME —
+                # 10.jpg): «جای پاک شده ک متن نیست … سمت چپ پایین …
+                # بخاطر همین میگم حباب خراب کرده». ریشهٔ یابی‌شده با
+                # دامپِ مرحله‌ای: قطعهٔ قوسِ دیوارهٔ حباب که جعبهٔ
+                # donor از میانش می‌گذرد (۴ نمونهٔ این صفحه: 49×93 و
+                # 97×26 و 44×82 و 43×77 — همه به ضلعِ «داخلیِ» جعبه
+                # چسبیده) «جوهرِ پوشش‌نداده‌شده» خوانده میشد → نوارِ
+                # نجات → ماسکِ کامپوز + دامنهٔ جارویِ بقایا → جارو آن
+                # را «بقایایِ متنِ پاک‌نشده» می‌پنداشت و با TELEA
+                # پاکش میکرد → دیوارِ پایینِ حباب ناپدید میشد و
+                # کامپوزِ گارانتیِ نهایی هم (چون دیوار داخلِ ماسکِ
+                # کامپوز بود) نسخهٔ خراب را نگه میداشت. متنِ جاماندهٔ
+                # واقعی همیشه «داخلِ» جعبه شناور است؛ ساختار
+                # (دیوار/قاب/قوس) از مرزِ برش عبور میکند و در سمتِ
+                # دیگر هم ادامه دارد. گارد: اگر همان خطِ جوهر در
+                # ≤۶px بیرونِ جعبه — در ستونهایِ تماسِ کامپوننت با
+                # آن ضلع — ادامه داشته باشد (≥۳۵٪ ستونها)، کامپوننت
+                # دیوار/ساختار است، نه تکه‌متن → از نجات خارج.
+                # ضلعِ «لبهٔ تصویر» (وبتونِ بریده — v1.14.165) مشمولِ
+                # این گارد نیست؛ فقط ضلعِ داخلیِ جعبه.
+                try:
+                    _cmc240 = (lal == ci)
+                    _sides240 = []
+                    if _cy0 <= 1:
+                        _sides240.append("t")
+                    if _cy0 + chg >= (by1 - by0) - 1:
+                        _sides240.append("b")
+                    if _cx0 <= 1:
+                        _sides240.append("l")
+                    if _cx0 + cwd >= (bx1 - bx0) - 1:
+                        _sides240.append("r")
+                    _interior240 = {"t": by0 > 0, "b": by1 < ih,
+                                    "l": bx0 > 0, "r": bx1 < iw}
+                    if any(_interior240[_s] for _s in _sides240):
+                        _bright240 = float(bright.mean()) > float(dark.mean())
+                        _cont240 = False
+                        for _sd240 in _sides240:
+                            if not _interior240[_sd240]:
+                                continue
+                            if _sd240 in ("t", "b"):
+                                _tr240 = (_cmc240[:2, :] if _sd240 == "t"
+                                          else _cmc240[-2:, :])
+                                _cols240 = np.nonzero(
+                                    _tr240.any(axis=0))[0]
+                                if _cols240.size == 0:
+                                    continue
+                                if _sd240 == "t":
+                                    _og240 = cv2.cvtColor(
+                                        image[max(0, by0 - 6):by0,
+                                              bx0:bx1],
+                                        cv2.COLOR_BGR2GRAY)
+                                    _ig240 = g[:2, :]
+                                else:
+                                    _og240 = cv2.cvtColor(
+                                        image[by1:min(ih, by1 + 6),
+                                              bx0:bx1],
+                                        cv2.COLOR_BGR2GRAY)
+                                    _ig240 = g[-2:, :]
+                                if _og240.shape[0] == 0:
+                                    continue
+                                _out240 = _og240.min(axis=0)
+                                _in240 = (_ig240.max(axis=0)
+                                          if _bright240
+                                          else _ig240.min(axis=0))
+                            else:
+                                _tc240 = (_cmc240[:, :2] if _sd240 == "l"
+                                          else _cmc240[:, -2:])
+                                _rows240 = np.nonzero(
+                                    _tc240.any(axis=1))[0]
+                                if _rows240.size == 0:
+                                    continue
+                                if _sd240 == "l":
+                                    _og240 = cv2.cvtColor(
+                                        image[by0:by1,
+                                              max(0, bx0 - 6):bx0],
+                                        cv2.COLOR_BGR2GRAY)
+                                    _ig240 = g[:, :2]
+                                else:
+                                    _og240 = cv2.cvtColor(
+                                        image[by0:by1,
+                                              bx1:min(iw, bx1 + 6)],
+                                        cv2.COLOR_BGR2GRAY)
+                                    _ig240 = g[:, -2:]
+                                if _og240.shape[1] == 0:
+                                    continue
+                                _out240 = _og240.min(axis=1)
+                                _in240 = (_ig240.max(axis=1)
+                                          if _bright240
+                                          else _ig240.min(axis=1))
+                            if _bright240:
+                                _hit240 = (
+                                    _out240[_cols240 if _sd240 in ("t", "b")
+                                            else _rows240]
+                                    >= np.minimum(
+                                        _in240[_cols240
+                                               if _sd240 in ("t", "b")
+                                               else _rows240] - 35.0,
+                                        105.0))
+                            else:
+                                _hit240 = (
+                                    _out240[_cols240 if _sd240 in ("t", "b")
+                                            else _rows240]
+                                    <= np.maximum(
+                                        _in240[_cols240
+                                               if _sd240 in ("t", "b")
+                                               else _rows240] + 35.0,
+                                        150.0))
+                            if float(_hit240.mean()) >= 0.35:
+                                _cont240 = True
+                                break
+                        if _cont240:
+                            continue
+                except Exception:
+                    pass
                 keep |= (lal == ci)
             # v1.14.165 — پاسِ ویژهٔ لبه: نیم‌خطِ بریدهٔ وبتون (صفحه‌ای که
             # از وسطِ حباب شروع/تمام می‌شود) هیچ پالیِ OCR ندارد و
