@@ -25,6 +25,7 @@ python -m bot
 
 ## للتجربة بدون جهاز
 - `notebooks/Manga_Bot_Kaggle.ipynb` — يجرّب كل الأوامر ويشغّل البوت (Ollama + PostgreSQL مضمّن).
+- `notebooks/Manga_Bot_Colab.ipynb` — نفس الشيء على Google Colab (T4 مجاني، أسرار من 🔑).
 - `notebooks/molab_manga.py` — واجهة marimo لتجربة الأوامر ومعاينة قبل/بعد.
 
 ## الاختبارات
