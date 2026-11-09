@@ -251,7 +251,6 @@ def _defaults(mf):
             "auto": _auto_prompt,
             "professional": str(_mg.PROMPT_PRESETS.get("professional") or ""),
             "lite": str(_mg.PROMPT_PRESETS.get("lite") or ""),
-            "classic": str(_mg.PROMPT_PRESETS.get("classic") or ""),
         }
     except Exception:
         try:
@@ -273,7 +272,7 @@ def _defaults(mf):
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()
-                        in ("auto", "professional", "lite", "classic")):
+                        in ("auto", "professional", "lite")):
                     f["default"] = "auto"
             elif f.get("id") in ("prompt_preview_body", "prompt_body"):
                 cur = f.get("default")
@@ -487,7 +486,7 @@ def _prompt_params(p):
     instruction: متنِ کادرِ پرامپتِ گوشی — اگر برابرِ پیشفرضهایِ شناختهشده
     باشد سفارشی حساب نمیشود (خودِ MangaTranslator هم نرمالایز میکند)."""
     _pm = str(p.get("prompt_mode") or "").strip().lower()
-    if _pm not in ("auto", "professional", "lite", "classic"):
+    if _pm not in ("auto", "professional", "lite"):
         _pm = "auto"
     _body = ""
     for _k in ("prompt_body", "prompt_preview_body", "instruction", "instruction_text"):
@@ -1011,11 +1010,6 @@ def _run(job):
                 job["done"] = True
                 job["error"] = True
             return
-        glossary_path = None
-        if p.get("glossary"):
-            glossary_path = os.path.join(job["out"], "glossary.txt")
-            with open(glossary_path, "w", encoding="utf-8") as f:
-                f.write(str(p["glossary"]))
 
         fp = _resolve_main_font(job)
         if not fp:
@@ -1084,8 +1078,6 @@ def _run(job):
                     clean_method=_clean_method_of(p),
                     two_pass_ocr=bool(p.get("two_pass", True)),
                     debug=bool(p.get("debug")),
-                    glossary_path=glossary_path,
-                    # v1.14.242 — story_brief حذف شد (K3 بریف ندارد)
                     fake_translate=bool(p.get("fake")),
                     clean_only=bool(p.get("clean_only")),
                     max_workers=_i("workers", _def_workers()),

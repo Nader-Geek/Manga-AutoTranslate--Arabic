@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.245"
+APP_VER = "1.14.246"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -261,66 +261,6 @@ FONT_BUNDLES = [
     ]),
 ]
 
-def _read_py_triple_string(src: str, name: str) -> str:
-    m = re.search(
-        rf'{re.escape(name)}\s*=\s*"""(.*?)"""',
-        src,
-        flags=re.DOTALL,
-    )
-    if not m:
-        m = re.search(
-            rf"{re.escape(name)}\s*=\s*'''(.*?)'''",
-            src,
-            flags=re.DOTALL,
-        )
-    if not m:
-        return ""
-    text = m.group(1)
-    if text.startswith("\n"):
-        text = text[1:]
-    if text.endswith("\n"):
-        text = text[:-1]
-    return text.strip()
-
-
-def strip_locked_instruction_tail(text: str) -> str:
-    t = (text or "").strip()
-    if not t:
-        return ""
-    for marker in ("۷) ورودی و خروجی", "7) ورودی و خروجی", "{TONE_RULE}", "فقط آرایه JSON معتبر"):
-        idx = t.find(marker)
-        if idx > 0:
-            t = t[:idx].rstrip()
-            break
-    return t.strip()
-
-
-def load_default_system_instruction(tone_list=None) -> str:
-    path = MANGA_PY
-    if not os.path.isfile(path):
-        return ""
-    try:
-        with open(path, encoding="utf-8") as f:
-            src = f.read()
-    except Exception:
-        return ""
-    text = _read_py_triple_string(src, "DEFAULT_SYSTEM_INSTRUCTION_STYLE")
-    if text:
-        return text
-    full = _read_py_triple_string(src, "DEFAULT_SYSTEM_INSTRUCTION")
-    return strip_locked_instruction_tail(full)
-
-
-_DEFAULT_INSTR_CACHE = None
-
-
-def default_system_instruction() -> str:
-    global _DEFAULT_INSTR_CACHE
-    if _DEFAULT_INSTR_CACHE is None:
-        _DEFAULT_INSTR_CACHE = load_default_system_instruction() or ""
-    return _DEFAULT_INSTR_CACHE
-
-
 def _norm_instr(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip())
 
@@ -336,16 +276,12 @@ def is_custom_instruction(text: str) -> bool:
 
 
 def _known_default_instruction_texts() -> list:
-    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند:
-    دستورِ کلاسیکِ فارسی + پرامپتهایِ سبکیِ انگلیسیِ v1.14.144."""
-    outs = [default_system_instruction()]
+    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند (فقط K3 — v1.14.246)."""
     try:
         from manga import PROMPT_PRESETS  # ایمپورتِ سنگین — فقط همین‌جا
-        outs += [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]
+        return [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]
     except Exception:
-        pass
-    return [t for t in outs if t]
-
+        return []
 
 def normalize_api_base(url: str) -> str:
     if not url:
@@ -376,17 +312,12 @@ def _cli_ask(prompt: str) -> str:
         return ""
 
 
-def instruction_for_config(text: str) -> str:
-    t = (text or "").strip()
-    return t if is_custom_instruction(t) else ""
-
 PROMPT_MODE_DEFAULT = "auto"  # v1.14.146 — پیشفرضِ مشترکِ وب و فرمِ گوشی
 
 PROMPT_MODE_LABELS = {
     "auto": "خودکار (بر اساس سرویس و مدل)",
     "professional": "حرفه‌ای — مخصوص Gemini Flash و Pro",
     "lite": "سبک — مخصوص Flash Lite و سرویس‌های غیر Gemini",
-    "classic": "کلاسیک — دستور فارسی قدیمی",
 }
 
 
@@ -395,15 +326,14 @@ _PROMPT_MODE_LEGACY_LABELS = {
     "خودکار (بر اساس سرویس و مدل)": "auto",
     "حرفه‌ای — Flash و Pro": "professional",
     "سبک — Flash Lite و غیرِ Gemini": "lite",
-    "کلاسیک (فارسیِ قدیمی)": "classic",
 }
 
 
 def sanitize_prompt_mode(v) -> str:
-    """هر ورودیِ (مقدار یا برچسبِ قدیمی) به یکی از auto/professional/lite/classic —
+    """هر ورودیِ (مقدار یا برچسبِ قدیمی) به یکی از auto/professional/lite —
     v1.14.145: پیشفرضِ همیشه auto (فیکسِ ارورِ invalid choice در manga.py)."""
     s = str(v or "").strip()
-    if s in ("auto", "professional", "lite", "classic"):
+    if s in ("auto", "professional", "lite"):
         return s
     if s in _PROMPT_MODE_LEGACY_LABELS:
         return _PROMPT_MODE_LEGACY_LABELS[s]
@@ -427,7 +357,7 @@ def resolve_prompt_preview(mode_v, provider_v, model_v, instr_v):
         resolved = _rpm(m, prov, mdl)
         txt = _PP[resolved]
     except Exception:
-        resolved, txt = "classic", default_system_instruction()
+        resolved, txt = "professional", ""
     return txt
 
 def ensure_dirs():
@@ -3002,15 +2932,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     value=bool(cfg.get("clean_only", False)))
                 web_debug = gr.Checkbox(label="حالت دیباگ",
                                         value=bool(cfg.get("web_debug", False)))
-            glossary_text = gr.Textbox(
-                label="واژه‌نامهٔ اسامی و اصطلاحات (هر خط: English=فارسی)",
-                placeholder="Raphdonia=رافدونیا\nBarbarian=باربارین",
-                lines=3, value=str(cfg.get("glossary_text", "") or ""))
-            # v1.14.145: چهار گزینه جمع شد در یک دروپ‌داون (کلیک → گزینه‌ها می‌آید)؛
+            # v1.14.145: گزینهها جمع شد در یک دروپ‌داون (کلیک → گزینهها میآید)؛
             # مقادیرِ انگلیسیِ خالص — دقیقاً همان که manga.py میپذیرد (فیکسِ invalid choice).
             # مقدارِ literal «auto» تا استخراجِ فرمِ گوشی (APK قدیمی) هم پیشفرض را ببیند — v1.14.146
+            # v1.14.246 — classic حذف شد (دستورِ سازنده) — فقط auto/professional/lite
             prompt_mode = gr.Dropdown(
-                choices=["auto", "professional", "lite", "classic"],
+                choices=["auto", "professional", "lite"],
                 value=PROMPT_MODE_DEFAULT,
                 label="سبک پرامپت مترجم", scale=1)
             # v1.14.145: پرامپتِ دستیِ جدا حذف شد — خودِ پرامپتِ اصلی قابلِ ویرایش است.
@@ -4190,7 +4117,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             batchw_v, maxre_v, reqdelay_v, temp_v, top_p_v, readord_v,
                             clean_method_v, two_pass_v,
                             fake_test_v, clean_only_v, web_debug_v, prompt_mode_v, prompt_body_v,
-                            glossary_text_v, api_base_v,
+                            api_base_v,
                             models_v,
                             *tone_args):
             _t_prep68 = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
@@ -4438,14 +4365,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     _inf.write(instr_text + "\n")
                 cmd += ["--instruction", instr_path]
             cmd += ["--prompt-mode", sanitize_prompt_mode(prompt_mode_v)]
-            glos_text = str(glossary_text_v or "").strip()
-            if glos_text:
-                glos_path = os.path.join(user_out_dir, "glossary_user.txt")
-                with open(glos_path, "w", encoding="utf-8") as _gf:
-                    _gf.write(glos_text + "\n")
-                cmd += ["--glossary", glos_path]
-            # v1.14.242 — بریف داستان حذف شد (K3 ندارد) — دیگر --no-brief فرستاده نمیشود
-
             t0 = time.time()
             try:
                 print(f"[TIME] app-prep={time.time() - _t_prep68:.1f}s",
@@ -5016,7 +4935,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ("fake_test", fake_test), ("clean_only", clean_only),
             ("web_debug", web_debug), ("prompt_mode", prompt_mode),
             ("prompt_body", prompt_preview_body),
-            ("glossary_text", glossary_text),
         ]
 
         def _do_backup(*args):
@@ -5195,7 +5113,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     batchw, maxre, reqdelay, temp, top_p, readord,
                     clean_method, two_pass,
                     fake_test, clean_only, web_debug, prompt_mode, prompt_preview_body,
-                    glossary_text, api_base,
+                    api_base,
                     custom_models_state,
                 ] + tone_uploads + tone_enables,
             outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,

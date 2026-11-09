@@ -3,7 +3,7 @@
 > این فایل بعد از «هر» کامیتِ مرحله‌ای آپدیت و پوش میشود.
 > اگر سشن ترکید: آخرین کامیتِ origin/main + همین فایل = نقطهٔ ادامه.
 
-## وضعیت فعلی: مرحلهٔ ۴ تمام شد (v1.14.245) — نوبتِ مرحلهٔ ۵ (حذف classic)
+## وضعیت فعلی: مرحلهٔ ۵ تمام شد (v1.14.246) — نوبتِ مرحلهٔ ۶ (برشِ امنِ سریع)
 
 | # | مرحله | وضعیت | کامیت |
 |---|---|---|---|
@@ -11,11 +11,20 @@
 | ۲ | دکمهٔ کم/زیاد temperature (۰.۷) و top_p (۰.۹) — وب + اندروید + CLI + موتور | ✅ انجام+پوش | 262f0e1 (v1.14.243) |
 | ۳ | فیکس چرخش برعکس متن کج (`_rotated_region_strips` و `_tilted_ink_mask`: علامت −ang→+ang) + پیشفرض temp=۰.۷ | ✅ انجام+پوش | 4d80b5e (v1.14.244) |
 | ۴ | عدد/سمبل: «1233» دست‌نخورده؛ «19 hi» کامل خوانده+پاک شود | ✅ انجام+پوش | این کامیت (v1.14.245) |
-| ۵ | حذف کامل حالت classic (فقط auto/professional/lite بماند) + حذف میراث AI خودم | ⏳ نوبت بعد | — |
+| ۵ | حذف کامل حالت classic (فقط auto/professional/lite بماند) + حذف میراث AI خودم | ✅ انجام+پوش | این کامیت (v1.14.246) |
 | ۶ | سرعت برش امن به سبک K3 (پنجرهٔ کوچک probe + خروج زودهنگام) | ⏳ | — |
 | ۷ | تغییر نام k3 → نام خنثی در همهٔ کد + حذف کد مرده (manga_app.py و manga.py) | ⏳ | — |
 
 ## جزئیاتِ فنیِ هر مرحلهٔ تمام‌شده
+
+### مرحلهٔ ۵ (v1.14.246) — حذفِ کاملِ classic + میراثِ AI خودِ سازنده
+- دستورِ سازنده: «classic پرامپتش کلا حذف کنی و هرجا بهش وصله حذف کن فقط auto/professional/lite بمونه … هرچی مال من بود حذف کن تو قسمت ai درخواست هرچیش مال اون بمونه»
+- manga.py (۴۳۱ خط کم شد): پرامپتِ فارسیِ ۸۴خطی (DEFAULT_SYSTEM_INSTRUCTION_STYLE) + DEFAULT_SYSTEM_INSTRUCTION + SYSTEM_INSTRUCTION_PROTOCOL (مرده) حذف؛ PROMPT_PRESETS/PROMPT_MODES = auto/professional/lite؛ شاخهٔ classic در _get_system_instruction و _make_prompt حذف؛ مقدارِ ذخیره‌شدهٔ قدیمیِ classic خودکار → auto (resolve بر اساسِ مدل)؛ پارسرِ پاسخ فقط قالبِ K3 [{filename, translations}] — فال‌بکِ {id, translation} حذف؛ _salvage_stream_items (صفر فراخوان) حذف؛ گامِ B نجاتِ 1189 → قالبِ K3 (rescue_N.png)؛ زنجیرهٔ glossary کلاً حذف (state + ۵ تابع + names-parsing + CLI --glossary + ۲ فراخوانِ save)؛ CLI --no-brief حذف؛ TONE_LABELS مرده + _allowed_tones مرده حذف (TONE_NAMES ماند — استفاده در main)
+- manga_app.py: زنجیرهٔ خواندنِ متنِ classic از سورس (۴ تابع) حذف؛ _known_default_instruction_texts فقط پرامپتهای K3؛ instruction_for_config مرده حذف؛ لیبلها/دروپ‌داون بدون classic؛ فال‌بکِ preview → professional؛ تکست‌باکسِ glossary + --glossary + بکاپِ glossary_text حذف
+- bridge.py: نقشهٔ preset و اعتبارسنجیها بدون classic؛ glossary_path حذف
+- MainActivity.kt: backupKeys و جاب بدون glossary_text/story_brief
+- تست: py_compile ×۳؛ ۸ چکِ واحدِ AI (سازنده، classic→auto، system=K3، user=صفحه‌ای خالص، پارسر K3، ردِ قالبِ قدیمی، استریم، گامِ B)؛ فرمِ اندروید (extract_ui) = فقط ۳ گزینه و بدون glossary؛ A/B با worktreeِ ۲۴۵: clean-only و fake-translate روی dxa_10 هر دو بیت‌به‌بیت یکسان (md5)؛ --help سالم
+
 
 ### مرحلهٔ ۴ (v1.14.245) — سیاستِ عدد/سمبل در سطحِ ناحیه
 - ریشه: (۱) فیلترِ خطیِ `_latin_junk_line188` (v1.14.188) عدد را «در سطحِ خط»
@@ -57,17 +66,9 @@
   فقط rewrite های رشته‌ای («77,I»→«I») بمانند
 - no_touch230 (~L31195) و `_clean_image_page` (~L19203) برای ناحیهٔ تمام‌عدد
 
-### مرحلهٔ ۵ (حذف classic) — لیست کامل:
-- manga.py: L8-91 (DEFAULT_SYSTEM_INSTRUCTION_STYLE)، L94، L159-164 (PROMPT_PRESETS/PROMPT_MODES)،
-  L170، L193-211، L25238-25264، L25783-25799، L26436-26481، L35914-35918، L7184-7186
-- manga_app.py: L385-390، L394-399، L402-413، L416-431 (fallback)، L3013-3016 (دراپ‌داون)
-- bridge.py: L250-255، L272-277، L484-491
-- MainActivity.kt: L2870-2871 (مقدار دراپ‌داون اندروید از extract_ui از وب میآید — فقط ذخیره)
-- مرده‌های مرتبط: story_brief در MainActivity.kt L2873+L1890؛ --no-brief در manga.py L35878؛
-  self._chapter_brief L7347؛ زنجیرهٔ glossary (manga.py `_glossary_prompt_block` L26213 صفر فراخوان؛
-  UI: manga_app L3006-3009/L4442-4447/L5020، bridge L1014-1018/L1087، MainActivity L2868)
-- نکته: salvage پارسر {id,translation} قدیمی (L25783) برای پشتیبانیِ جوابهای قدیمی فعلاً بماند
-  چون پشتیبانِ مسیرِ جاری است — فقط شاخهٔ classic پرامپتش حذف شود
+### مرحلهٔ ۵ (حذف classic) — ✅ انجام شد (v1.14.246)؛ همهٔ مکانهای لیستِ قبل پاکسازی شد؛
+salvage پارسر {id,translation} هم حذف شد (دستورِ سازنده: «بقیه چیزا ک ai ربط
+داره مال خودم باشه حذف کن») — گامِ B نجاتِ 1189 به قالبِ K3 بازنویسی شد
 
 ### مرحلهٔ ۶ (برش امن سریع K3):
 - K3 فقط پنجرهٔ ±400px دورِ نقطهٔ برش را چک می‌کند (نه کل نوار 1000px)؛

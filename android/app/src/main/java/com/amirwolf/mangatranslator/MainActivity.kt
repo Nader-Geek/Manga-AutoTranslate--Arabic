@@ -1887,7 +1887,7 @@ class MainActivity : AppCompatActivity() {
         "quality", "workers", "bubbles", "timeout", "batchw", "maxre",
         "reqdelay", "temp", "top_p", "readord", "clean_method", "two_pass",
         "fake_test", "clean_only", "web_debug", "prompt_mode",
-        "prompt_body", "glossary_text", "story_brief")
+        "prompt_body")
 
     // v1.14.220 — همارزِ شناسهها (کلیدِ بکاپِ وب ↔ فیلدِ اندروید):
     // prompt_body در وب از کامپوننتِ prompt_preview_body میآید
@@ -2865,12 +2865,10 @@ class MainActivity : AppCompatActivity() {
         map.put("clean_method", firstNonEmpty(o, "clean_method") ?: "lama-manga")
         map.put("two_pass", optBoolD(o, true, "two_pass"))
         map.put("readord", firstNonEmpty(o, "readord") ?: "rtl")
-        map.put("glossary", firstNonEmpty(o, "glossary_text", "glossary") ?: "")
         map.put("instruction", firstNonEmpty(o, "instruction_text", "instruction") ?: "")
-        // v1.14.146 — سبکِ پرامپت (auto/professional/lite/classic) + متنِ کادرِ پرامپتِ قابلِ ویرایش
+        // v1.14.146 — سبکِ پرامپت (auto/professional/lite) + متنِ کادرِ پرامپتِ قابلِ ویرایش
         map.put("prompt_mode", firstNonEmpty(o, "prompt_mode") ?: "auto")
         map.put("prompt_body", firstNonEmpty(o, "prompt_preview_body", "prompt_body") ?: "")
-        map.put("story_brief", optBoolD(o, true, "story_brief"))
 
         for (k in listOf("workers", "bubbles", "batchw", "timeout", "maxre", "reqdelay", "temp", "top_p")) {
             if (o.has(k) && !o.isNull(k)) map.put(k, o.get(k))
