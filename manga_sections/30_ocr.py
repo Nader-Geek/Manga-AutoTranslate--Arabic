@@ -1,7 +1,8 @@
 # BUILD-STRIP-START
 # ─────────────────────────────────────────────────────────────
-# 📦 موتورهای OCR — PaddleAndroidOCR، MtLadderOCR، RapidOCRBackend، PaddleOCRWrapper + آزمایشگاهِ سرعت
-# (متنِ بالا فقط راهنمای همین فایل است؛ در بیلدِ manga.py حذف میشود)
+# 📦 OCR — موتورهای متن‌خوانی (Paddle/RapidOCR/نردبان) + تستِ سرعت
+# PaddleAndroidOCR، MtLadderOCR و لولهٔ سنجشِ سرعتِ OCR.
+# (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 def _cjk_dominant_154(t: str) -> bool:
     """v1.14.154 — «بعد فارسی بحرف چرا چینی میحرفی» — ریشهٔ واقعی:

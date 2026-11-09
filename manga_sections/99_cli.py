@@ -1,7 +1,8 @@
 # BUILD-STRIP-START
 # ─────────────────────────────────────────────────────────────
 # 📦 CLI — build_arg_parser و main()
-# (متنِ بالا فقط راهنمای همین فایل است؛ در بیلدِ manga.py حذف میشود)
+# None
+# (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(

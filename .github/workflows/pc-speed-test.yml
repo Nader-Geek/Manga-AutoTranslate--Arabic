@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['manga.py', 'scripts/bench_speed.py', '.github/workflows/pc-speed-test.yml']
+    paths: ['manga.py', 'manga_sections/**', 'scripts/bench_speed.py', '.github/workflows/pc-speed-test.yml']
   schedule:
     - cron: '0 4 * * 1'   # هر دوشنبه ۰۴:۰۰ UTC — ردیابیِ رگرسیونِ سرعت
 

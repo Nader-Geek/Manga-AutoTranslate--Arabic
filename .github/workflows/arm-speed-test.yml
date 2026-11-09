@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['manga.py', '.github/workflows/arm-speed-test.yml']
+    paths: ['manga.py', 'manga_sections/**', '.github/workflows/arm-speed-test.yml']
 
 permissions:
   contents: read

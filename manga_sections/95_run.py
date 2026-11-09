@@ -1,11 +1,12 @@
 # BUILD-STRIP-START
 # ─────────────────────────────────────────────────────────────
-# ⚠️ MangaTranslator (۱۳ از ۱۳) — اجرا: run() (۱۴۵۳ خط) و _render_one_region — پایانِ کلاس
+# ⚠️ MangaTranslator (۷ از ۷) — run(): خطِ لولهٔ اصلی — پایانِ کلاس
 # این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
-# اجرا نمیشود — scripts/build_manga.py این محتوا را بههمان ترتیبِ
-# شمارهٔ فایل، داخلِ کلاس در manga.py میچسباند. کلاسِ پوششیِ زیر فقط
-# برای معتبر بودنِ سینتکسِ این فایلِ تکی است و موقعِ بیلد حذف میشود.
-class _MangaTranslatorBody_220:
+# اجرا نمیشود — لودرِ manga.py این محتوا را بههمان ترتیبِ شمارهٔ
+# فایل، داخلِ کلاس میچسباند. کلاسِ پوششیِ زیر فقط برایِ معتبر
+# بودنِ سینتکسِ این فایلِ تکی است و موقعِ بارگذاری حذف میشود.
+# (ترکیب از: 220_translator_run.py)
+class _MangaTranslatorBody_95:
 # BUILD-STRIP-END
     def run(self, input_path: str, output_path: str, resume: bool = True,
             clean_old: bool = True) -> None:

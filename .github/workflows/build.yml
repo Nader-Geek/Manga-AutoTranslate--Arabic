@@ -19,6 +19,7 @@ on:
     branches: [main]
     paths:
       - "manga.py"
+      - "manga_sections/**"
       - "manga_app.py"
       - "VERSION"
       - "android/**"

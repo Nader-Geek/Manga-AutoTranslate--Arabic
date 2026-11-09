@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['manga.py', 'manga_app.py', '.github/workflows/web-batch-test.yml', 'scripts/webbatch_check.py']
+    paths: ['manga.py', 'manga_sections/**', 'manga_app.py', '.github/workflows/web-batch-test.yml', 'scripts/webbatch_check.py']
 
 permissions:
   contents: read

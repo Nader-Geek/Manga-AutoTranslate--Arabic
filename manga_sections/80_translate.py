@@ -1,11 +1,12 @@
 # BUILD-STRIP-START
 # ─────────────────────────────────────────────────────────────
-# ⚠️ MangaTranslator (۷ از ۱۳) — ترجمهٔ AI: سیستماینستراکشن، پارسِ پاسخ، translate_with_* (gemini/openai/anthropic/google)
+# ⚠️ MangaTranslator (۴ از ۷) — ترجمهٔ AI: سیستماینستراکشن، پارسِ پاسخ، ارائهدهندهها
 # این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
-# اجرا نمیشود — scripts/build_manga.py این محتوا را بههمان ترتیبِ
-# شمارهٔ فایل، داخلِ کلاس در manga.py میچسباند. کلاسِ پوششیِ زیر فقط
-# برای معتبر بودنِ سینتکسِ این فایلِ تکی است و موقعِ بیلد حذف میشود.
-class _MangaTranslatorBody_160:
+# اجرا نمیشود — لودرِ manga.py این محتوا را بههمان ترتیبِ شمارهٔ
+# فایل، داخلِ کلاس میچسباند. کلاسِ پوششیِ زیر فقط برایِ معتبر
+# بودنِ سینتکسِ این فایلِ تکی است و موقعِ بارگذاری حذف میشود.
+# (ترکیب از: 160_translator_ai.py)
+class _MangaTranslatorBody_80:
 # BUILD-STRIP-END
     @staticmethod
     def _is_rate_or_model_quota_error(err: Exception) -> bool:

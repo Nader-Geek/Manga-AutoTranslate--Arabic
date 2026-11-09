@@ -9,7 +9,7 @@ on:
         default: true
   push:
     branches: [test, main, mail]
-    paths: ['manga.py', '.github/workflows/engine-test.yml']
+    paths: ['manga.py', 'manga_sections/**', '.github/workflows/engine-test.yml']
 
 permissions:
   contents: read

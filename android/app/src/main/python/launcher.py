@@ -120,9 +120,78 @@ def check_bundled(files_dir):
                 pass
 
 
+def _fetch_mirrors(name, min_size=8, timeout=20):
+    """v1.14.251 — دانلود از زنجیرهٔ میرورها (برای فایلهای کوچک مثل
+    MANIFEST که چکِ «فایل ناقص»ِ _download با حداقلِ ۱۰۰۰۰ بایت ردشان میکند)."""
+    last_err = None
+    for base in _UPDATE_MIRRORS:
+        try:
+            data = _fetch_bytes(base + name, timeout=timeout)
+            if len(data) < min_size:
+                raise RuntimeError("فایل ناقص (%d بایت)" % len(data))
+            return data
+        except Exception as e:
+            last_err = e
+    raise last_err if last_err else RuntimeError("همهٔ منابع ناموفق")
+
+
+def _update_engine_sections(upd_dir, engine_ver):
+    """v1.14.251 — بخشهایِ پلاگینیِ موتور (manga_sections/) را همگام میکند.
+
+    از v1.14.251 فایلِ manga.py «لودر» است و بدنهٔ موتور از پوشهٔ
+    manga_sections/ خوانده میشود. این تابع MANIFEST ریپو را میگیرد و
+    فایلهایِ فهرستشده را در updates/manga_sections/ میگذارد. فقط وقتی
+    دانلود میکند که نسخهٔ مهرشده با نسخهٔ موتورِ دانلودشده فرق کند
+    (هر تغییرِ موتور با بامپِ APP_VER همراه است). فایلهایِ زامبیِ
+    آپدیتِ قبلی هم پاک میشوند تا لودر فایلِ تکراری/مرده نبیند."""
+    sec_dir = os.path.join(upd_dir, "manga_sections")
+    stamp = os.path.join(upd_dir, ".ver_manga_sections")
+    if engine_ver and engine_ver != "0":
+        try:
+            with open(stamp, encoding="utf-8") as f:
+                if f.read().strip() == engine_ver and os.path.isdir(sec_dir):
+                    return  # همگام است — دانلودی لازم نیست
+        except Exception:
+            pass
+    elif os.path.isdir(sec_dir):
+        return  # نسخهٔ موتور نامعلوم و پوشهٔ بخشها هست — دست نزن
+    man = _fetch_mirrors("manga_sections/MANIFEST", min_size=8, timeout=12)
+    names = [ln.strip() for ln in man.decode("utf-8", "ignore").split("\n")
+             if ln.strip() and not ln.strip().startswith("#")
+             and ln.strip().endswith(".py")]
+    if not names:
+        _log("MANIFEST خالی بود — بخشها دستنخورده ماندند.")
+        return
+    os.makedirs(sec_dir, exist_ok=True)
+    for n in names:
+        try:
+            data = _fetch_mirrors("manga_sections/" + n, min_size=64)
+            with open(os.path.join(sec_dir, n + ".new"), "wb") as f:
+                f.write(data)
+            os.replace(os.path.join(sec_dir, n + ".new"),
+                       os.path.join(sec_dir, n))
+        except Exception as e:
+            _log("بخش %s ناموفق: %s" % (n, str(e)[:60]))
+    # زامبیها: فایلهایِ عددیِ خارج از MANIFESTِ جدید
+    for n in os.listdir(sec_dir):
+        if n.endswith(".py") and n[:1].isdigit() and n not in names:
+            try:
+                os.remove(os.path.join(sec_dir, n))
+                _log("بخشِ زامبی حذف شد: %s" % n)
+            except Exception:
+                pass
+    try:
+        with open(stamp, "w", encoding="utf-8") as f:
+            f.write(engine_ver or "?")
+    except Exception:
+        pass
+    _log("بخشهایِ موتور همگام شد (%d فایل، v%s)." % (len(names), engine_ver))
+
+
 def apply_updates(files_dir):
 
     upd_dir = os.path.join(files_dir, "updates")
+    engine_remote_ver = None
     os.makedirs(upd_dir, exist_ok=True)
     check_bundled(files_dir)
     if os.path.isdir(upd_dir) and upd_dir not in sys.path:
@@ -147,6 +216,12 @@ def apply_updates(files_dir):
 
     for name in _UPDATE_FILES:
         new_p = os.path.join(upd_dir, name + ".new")
+        if name == "manga.py":
+            try:
+                engine_remote_ver = _read_ver_from_str(
+                    open(new_p, "rb").read(8192).decode("utf-8", "ignore"))
+            except Exception:
+                pass
         try:
             data = _download(name, new_p)
         except Exception as e:
@@ -192,6 +267,12 @@ def apply_updates(files_dir):
                 _log("%s به‌روز است (v%s)." % (name, cur))
         except Exception:
             traceback.print_exc()
+
+    # v1.14.251 — بخشهایِ پلاگینیِ موتور: همراهِ آپدیتِ موتور همگام شوند
+    try:
+        _update_engine_sections(upd_dir, engine_remote_ver)
+    except Exception:
+        traceback.print_exc()
     return upd_dir
 
 

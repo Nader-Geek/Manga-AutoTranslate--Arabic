@@ -713,6 +713,22 @@ def _local_app_ver() -> str:
     return _local_file_ver("manga_app.py")
 
 
+def _remote_section_names(log=print):
+    """v1.14.251 — فهرستِ بخشهایِ پلاگینیِ موتور از MANIFEST ریپو.
+    (موتور از manga_sections/ خوانده میشود؛ آپدیتِ manga.py باید
+    بخشها را هم همراه بیاورد وگرنه لودر چیزی برای اجرا ندارد.)"""
+    try:
+        txt = _http_get(GITHUB_RAW_BASE + "manga_sections/MANIFEST?cb="
+                        + str(int(time.time() // 300)),
+                        timeout=12).decode("utf-8", "ignore")
+        return [ln.strip() for ln in txt.split("\n")
+                if ln.strip() and not ln.strip().startswith("#")
+                and ln.strip().endswith(".py")]
+    except Exception as e:
+        log(f"[!] گرفتنِ MANIFEST ناموفق: {str(e)[:80]}")
+        return None
+
+
 def _stage_update_file(name: str, log=print) -> dict:
     """یک فایل آپدیت را می‌گیرد و کنار بقیه stage می‌کند (برای apply)."""
     info = {"local": "", "remote": "", "newer": False}
@@ -721,8 +737,10 @@ def _stage_update_file(name: str, log=print) -> dict:
                         + str(int(time.time() // 300)), timeout=60).decode("utf-8", "ignore")
         info["remote"] = _read_ver_from_src(src[:8192])
         info["local"] = _local_file_ver(name)
-        os.makedirs(UPD_DIR, exist_ok=True)
-        with open(os.path.join(UPD_DIR, name + ".staged"), "w", encoding="utf-8") as f:
+        # v1.14.251: نام میتواند تو در تو باشد (manga_sections/00_base.py)
+        staged = os.path.join(UPD_DIR, name + ".staged")
+        os.makedirs(os.path.dirname(staged) or UPD_DIR, exist_ok=True)
+        with open(staged, "w", encoding="utf-8") as f:
             f.write(src)
         info["newer"] = True
     except Exception as e:
@@ -747,6 +765,12 @@ def check_updates(force: bool = False, log=print) -> dict:
     if newer_global:
         # v1.14.33: فقط وقتی نسخهٔ جدید واقعاً هست، فایل‌ها دانلود می‌شوند —
         # و به‌صورت موازی (۴ فایل همزمان) تا آپدیت خیلی سریع‌تر بیاید.
+        # v1.14.251: بخشهایِ پلاگینیِ موتور (manga_sections/) هم همراهِ
+        # آپدیتِ manga.py دانلود و نصب میشوند — بدونِ آنها لودر اجرا نمیشود.
+        files = list(UPDATE_FILES)
+        sections = _remote_section_names(log=log)
+        if sections:
+            files += [f"manga_sections/{s}" for s in sections]
         log(f"🔄 آپدیت جدید پیدا شد: v{local_ver} → v{remote_ver} — در حال گرفتن…")
         results: dict = {}
         threads = []
@@ -754,13 +778,13 @@ def check_updates(force: bool = False, log=print) -> dict:
         def _worker(n):
             results[n] = _stage_update_file(n, log=log)
 
-        for name in UPDATE_FILES:
+        for name in files:
             th = threading.Thread(target=_worker, args=(name,), daemon=True)
             th.start()
             threads.append(th)
         for th in threads:
             th.join(timeout=180)
-        for name in UPDATE_FILES:
+        for name in files:
             info = results.get(name) or {"local": "", "remote": remote_ver,
                                          "newer": False, "error": "timeout"}
             rep["files"][name] = info
@@ -791,6 +815,8 @@ def apply_updates(report: Optional[dict] = None, log=print) -> list:
             continue
         try:
             dst = os.path.join(HERE, name)
+            # v1.14.251: نام میتواند تو در تو باشد (manga_sections/00_base.py)
+            os.makedirs(os.path.dirname(dst) or HERE, exist_ok=True)
             bak = dst + ".bak"
             if os.path.isfile(dst):
                 shutil.copyfile(dst, bak)
@@ -800,6 +826,21 @@ def apply_updates(report: Optional[dict] = None, log=print) -> list:
             log(f"✔ نصب شد: {name} v{v} (بکاپ: {os.path.basename(bak)})")
         except Exception as e:
             log(f"✖ نصب {name} ناموفق: {e}")
+
+    # v1.14.251 — بخشهایِ زامبیِ آپدیتِ قبلی را پاک کن (مثلاً وقتی فایلی در
+    # MANIFEST جدید حذف شده باشد). فقط وقتی این آپدیت خودش بخشها آورده.
+    sec_dir = os.path.join(HERE, "manga_sections")
+    keep = {os.path.basename(n) for n in (rep.get("files") or {})
+            if n.startswith("manga_sections/")}
+    if keep and os.path.isdir(sec_dir):
+        for n in os.listdir(sec_dir):
+            if n.endswith(".py") and n[:1].isdigit() and n not in keep:
+                try:
+                    os.remove(os.path.join(sec_dir, n))
+                    log(f"🧹 بخشِ زامبیِ آپدیتِ قبلی حذف شد: {n}")
+                except Exception:
+                    pass
+
     if installed:
         log("🔁 برای فعال‌شدن کامل، برنامه را ببندید و دوباره باز کنید.")
     return installed
@@ -991,35 +1032,6 @@ MANGA_MIXED_MSG = (
     "فایل manga.py اصلی (مترجم) را کنار manga_app.py بگذارید و دوباره اجرا کنید."
 )
 
-
-def manga_build_stale() -> bool:
-    """v1.14.250 — چکِ تازگیِ بیلد (فقط محیطِ توسعه):
-    اگر پوشهٔ manga_sections/ کنار برنامه باشد (ریپویِ کامل)، بررسی
-    میکند که manga.py بعد از آخرین ویرایشِ بخشها ساخته شده باشد.
-    روی سیستمِ کاربرِ نهایی این پوشه نیست → همیشه False و بی‌هزینه."""
-    try:
-        sec_dir = os.path.join(HERE, "manga_sections")
-        if not os.path.isdir(sec_dir):
-            return False
-        mp = os.path.join(HERE, "manga.py")
-        if not os.path.isfile(mp):
-            return False
-        built = os.path.getmtime(mp)
-        newest = 0.0
-        for name in os.listdir(sec_dir):
-            if name.endswith(".py"):
-                newest = max(newest,
-                             os.path.getmtime(os.path.join(sec_dir, name)))
-        return newest > built + 1.0
-    except Exception:
-        return False
-
-
-MANGA_BUILD_STALE_MSG = (
-    "⚠️  فایلهایِ manga_sections/ از manga.py جدیدترند — تغییرات هنوز"
-    "    در manga.py بیلد نشدهاند. قبل از تست/کامیت اجرا کن: "
-    "python scripts/build_manga.py"
-)
 
 
 
@@ -6015,8 +6027,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
 def main():
     ensure_dirs()
-    if manga_build_stale():
-        print(MANGA_BUILD_STALE_MSG)
     args = sys.argv[1:]
 
     if not any(a in ("--web", "-h", "--help") for a in args):

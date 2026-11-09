@@ -1,140 +1,232 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""build_manga.py — ساختِ تکفایلِ manga.py از پوشهٔ manga_sections/
+"""build_manga.py — نگهبانِ بخشها + ساختِ توزیعِ تک‌فایلی (v1.14.251+)
 
-از v1.14.250 منبعِ اصلیِ کدِ موتور، فایلهایِ manga_sections/ هستند
-(هر موضوع یک فایل: نصب، سختافزار، LaMa، تشخیص، OCR، API، ترجمه،
-پاکسازی، رندر، استخراج، خروجی، ...). این اسکریپت همهٔ آنها را بهترتیبِ
-شمارهٔ فایل بههم میچسباند و «manga.py»یِ تکی میسازد.
+«manga.py» از v1.14.251 یک «لودرِ پلاگینی» است: کدِ اصلی در
+manga_sections/ است و در زمانِ اجرا بههم چسبانده و اجرا میشود.
+این اسکریپت نگهبانِ سلامتِ همان پوشه است:
 
-چرا تکفایل؟ چون همهٔ مسیرهایِ توزیع (آپدیترِ خودکارِ دسکتاپ، لانچرِ
-اندروید، APK و دانلودِ مستقیم از GitHub) فقط «یک فایلِ» manga.py
-میگیرند — تکفایل ماندنِ خروجی یعنی هیچ نصبِ قدیمیای نمیشکند.
+    python scripts/build_manga.py            # MANIFEST + چکِ کامل
+    python scripts/build_manga.py --check    # فقط چک (CI — بدون نوشتن)
+    python scripts/build_manga.py --single   # + manga_single.py (توزیعِ تک‌فایلی)
+    python scripts/build_manga.py --list     # فهرستِ بخشها
 
-قواعد:
-  • فایلهایِ بخش با پیشوندِ عددی مرتب میشوند (00، 10، ...، 300) —
-    ترتیبِ چسباندن = ترتیبِ عددِ ابتدایِ نام.
-  • خطهای بینِ «# BUILD-STRIP-START» و «# BUILD-STRIP-END» (سربرگهایِ
-    راهنما و کلاسِ پوششیِ قطعههایِ کلاس) در بیلد حذف میشوند.
-  • ویرایش فقط در manga_sections/ — manga.py ساخته میشود، دست نزنید!
+چکها:
+  • هر بخش بهتنهایی py_compile میشود (سینتکسِ سالم)
+  • MANIFEST دقیقاً همان فایلهایِ عددیِ پوشه است (نه کم، نه اضافه)
+  • APP_VER لودرِ manga.py == APP_VER بخشِ 00_base
+  • خروجیِ ترکیبیِ همهٔ بخشها (همان که لودر اجرا میکند) کامپایل میشود
 
-استفاده:
-  python scripts/build_manga.py           # ساختِ manga.py
-  python scripts/build_manga.py --check   # فقط چکِ همخوانی (برای CI)
-  python scripts/build_manga.py --list    # فهرستِ بخشها
+«--single» همان تک‌فایلِ قدیمی را میسازد (manga_single.py) — برایِ
+مسیرهایی که هنوز فقط «یک فایلِ» موتور میگیرند؛ خروجیِ اجراییِ
+لودر و این فایل بایت‌به‌بایت یک محتوای ترکیبی دارند.
 """
 import os
+import py_compile
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SEC_DIR = os.path.join(ROOT, "manga_sections")
-OUT_PATH = os.path.join(ROOT, "manga.py")
+MANIFEST_PATH = os.path.join(SEC_DIR, "MANIFEST")
+OUT_SINGLE = os.path.join(ROOT, "manga_single.py")
+LOADER_PATH = os.path.join(ROOT, "manga.py")
 
 STRIP_START = "# BUILD-STRIP-START"
 STRIP_END = "# BUILD-STRIP-END"
 
+VER_RE = re.compile(r'APP_VER\s*=\s*"([0-9][0-9.]*)"')
 
-def _section_sort_key(name: str):
+
+def _sort_key(name: str):
     i = 0
     while i < len(name) and name[i].isdigit():
         i += 1
     return (int(name[:i]) if i else 10 ** 9, name)
 
 
-def section_files():
+def disk_sections():
     if not os.path.isdir(SEC_DIR):
         return []
-    names = [n for n in os.listdir(SEC_DIR)
-             if n.endswith(".py") and n[:1].isdigit()]
-    return sorted(names, key=_section_sort_key)
+    return sorted((n for n in os.listdir(SEC_DIR)
+                   if n.endswith(".py") and n[:1].isdigit()),
+                  key=_sort_key)
 
 
-def _read_section(path: str):
-    """محتوایِ یک بخش را میخواند و بلاکهایِ STRIP را حذف میکند."""
+def manifest_sections():
+    try:
+        with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
+            names = [ln.strip() for ln in f.read().split("\n")]
+    except OSError:
+        return None
+    return [n for n in names
+            if n and not n.startswith("#") and n.endswith(".py")]
+
+
+def write_manifest(names):
+    body = [
+        "# manga_sections/MANIFEST — فهرستِ بخشها بهترتیبِ بارگذاری",
+        "# (تولید/نگهداری: scripts/build_manga.py — لودرِ manga.py"
+        " فقط همین لیست را میخواند)",
+        "",
+    ] + list(names) + [""]
+    with open(MANIFEST_PATH, "w", encoding="utf-8", newline="") as f:
+        f.write("\n".join(body))
+
+
+def read_stripped(path: str):
+    """محتوای بخش بدونِ بلاکهایِ BUILD-STRIP — عینِ منطقِ لودر."""
     with open(path, "r", encoding="utf-8", newline="") as f:
         lines = f.read().split("\n")
-    if lines and lines[-1] == "":
-        lines = lines[:-1]
     out, stripping = [], False
-    saw_marker = False
     for ln in lines:
         if ln.strip() == STRIP_START:
-            stripping, saw_marker = True, True
+            stripping = True
             continue
         if stripping:
             if ln.strip() == STRIP_END:
                 stripping = False
             continue
         out.append(ln)
-    if stripping:
-        raise ValueError("بلاکِ STRIP بسته نشد: %s" % path)
-    if out and not out[-1].endswith("\n"):
-        pass  # خطهای بدونِ \\n در join نهایی مدیریت میشود
-    return out, saw_marker
+    if out and out[-1] == "":
+        out = out[:-1]
+    return out
 
 
-def build_source(stats=None):
+def combined(names):
     parts = []
-    for name in section_files():
-        lines, _ = _read_section(os.path.join(SEC_DIR, name))
-        if stats is not None:
-            stats.append((name, len(lines)))
+    for n in names:
+        lines = read_stripped(os.path.join(SEC_DIR, n))
         if lines:
             parts.append("\n".join(lines) + "\n")
     return "".join(parts)
 
 
+def _ver_of_source(src: str):
+    m = VER_RE.search(src[:8192])
+    return m.group(1) if m else None
+
+
+def run_checks(names, fix_manifest: bool):
+    """همهٔ چکها — پیامهای شماره‌دار؛ True = سبز."""
+    ok = True
+
+    # ۱) پوشه و حداقلِ یک بخش
+    if not names:
+        print("❌ ۱) هیچ بخشی در manga_sections/ نیست.")
+        return False
+
+    # ۲) MANIFEST همخوان
+    listed = manifest_sections()
+    if listed is None:
+        if fix_manifest:
+            write_manifest(names)
+            print("✔ ۲) MANIFEST نبود — ساخته شد (%d بخش)." % len(names))
+        else:
+            print("❌ ۲) MANIFEST نیست — python scripts/build_manga.py را اجرا کن.")
+            ok = False
+    elif listed != names:
+        miss = [n for n in names if n not in listed]
+        extra = [n for n in listed if n not in names]
+        if fix_manifest:
+            write_manifest(names)
+            why = []
+            if miss:
+                why.append("فایلِ جدید: %s" % ", ".join(miss))
+            if extra:
+                why.append("فایلِ حذفشده: %s" % ", ".join(extra))
+            print("✔ ۲) MANIFEST بازنویسی شد (%s)." % "؛ ".join(why))
+        else:
+            print("❌ ۲) MANIFEST ناهمخوان — فایلهایِ بدونِ MANIFEST یا زامبی: %s"
+                  % ", ".join(sorted(set(miss) | set(extra))))
+            ok = False
+    else:
+        print("✔ ۲) MANIFEST همخوان (%d بخش)." % len(names))
+
+    # ۳) py_compile تک‌تکِ بخشها
+    bad = []
+    for n in names:
+        try:
+            py_compile.compile(os.path.join(SEC_DIR, n), doraise=True)
+        except Exception as e:
+            bad.append("%s: %s" % (n, e))
+    if bad:
+        print("❌ ۳) سینتکسِ خراب:")
+        for b in bad:
+            print("      • %s" % b)
+        ok = False
+    else:
+        print("✔ ۳) هر %d بخش py_compile شد." % len(names))
+
+    # ۴) همخوانیِ نسخهٔ لودر و 00_base
+    base_ver = _ver_of_source(
+        "\n".join(read_stripped(os.path.join(SEC_DIR, names[0]))))
+    loader_src = ""
+    try:
+        with open(LOADER_PATH, "r", encoding="utf-8") as f:
+            loader_src = f.read()
+    except OSError:
+        pass
+    loader_ver = _ver_of_source(loader_src)
+    if not base_ver:
+        print("❌ ۴) APP_VER در %s پیدا نشد." % names[0])
+        ok = False
+    elif not loader_ver:
+        print("❌ ۴) APP_VER در manga.py (لودر) پیدا نشد.")
+        ok = False
+    elif base_ver != loader_ver:
+        print("❌ ۴) APP_VER ناهمخوان: بخشِ %s=%s ولی لودر=%s — یکی کن."
+              % (names[0], base_ver, loader_ver))
+        ok = False
+    else:
+        print("✔ ۴) APP_VER=%s در لودر و %s همخوان." % (loader_ver, names[0]))
+
+    # ۵) خروجیِ ترکیبی کامپایل میشود (همان که لودر اجرا میکند)
+    src = combined(names)
+    try:
+        compile(src, "manga_combined", "exec")
+        print("✔ ۵) خروجیِ ترکیبی کامپایل شد (%d خط، %d بایت)."
+              % (src.count("\n"), len(src.encode("utf-8"))))
+    except SyntaxError as e:
+        print("❌ ۵) خروجیِ ترکیبی سینتکسِ خراب دارد: خط %s: %s"
+              % (e.lineno, e.msg))
+        ok = False
+
+    return ok
+
+
 def main(argv):
+    names = disk_sections()
+
     if "--list" in argv:
-        stats = []
-        build_source(stats)
-        if not stats:
+        if not names:
             print("پوشهٔ manga_sections/ خالی است یا وجود ندارد.")
             return 1
         total = 0
-        for name, n in stats:
-            print(f"  {name:38s} {n:6d} خط")
-            total += n
-        print(f"  {'— مجموع':38s} {total:6d} خط")
+        for n in names:
+            ln = len(read_stripped(os.path.join(SEC_DIR, n)))
+            print("  %-20s %6d خط" % (n, ln))
+            total += ln
+        print("  %s" % ("─" * 30))
+        print("  %-20s %6d خط" % ("مجموع", total))
         return 0
 
-    stats = []
-    src = build_source(stats)
-    if not src:
-        print("❌ هیچ بخشی برایِ بیلد پیدا نشد (manga_sections/ ؟)")
+    fix = "--check" not in argv
+    ok = run_checks(names, fix_manifest=fix)
+    if not ok:
         return 1
 
-    if "--check" in argv:
-        try:
-            with open(OUT_PATH, "r", encoding="utf-8", newline="") as f:
-                cur = f.read()
-        except OSError:
-            print("❌ manga.py وجود ندارد — اول یک بار بدونِ --check بیلد کنید.")
-            return 1
-        if cur == src:
-            print("✔ manga.py با بخشها همخوان است (%d خط، %d بایت)."
-                  % (src.count("\n"), len(src.encode('utf-8'))))
-            return 0
-        print("❌ manga.py با manga_sections/ همخوان نیست — دوباره بیلد کنید:")
-        print("   python scripts/build_manga.py")
-        return 1
+    if "--single" in argv:
+        src = combined(names)
+        with open(OUT_SINGLE, "w", encoding="utf-8", newline="") as f:
+            f.write(src)
+        py_compile.compile(OUT_SINGLE, doraise=True)
+        print("✔ manga_single.py ساخته شد (%d خط، %d بایت) — توزیعِ تک‌فایلی."
+              % (src.count("\n"), len(src.encode("utf-8"))))
 
-    # کامپایلِ سریعِ سینتکس قبل از نوشتن — manga.py خراب تحویل ندهیم
-    try:
-        compile(src, "manga.py", "exec")
-    except SyntaxError as e:
-        print("❌ سینتکسِ بیلدشده خراب است — نوشتن لغو شد: خط %s: %s"
-              % (e.lineno, e.msg))
-        return 1
-
-    with open(OUT_PATH, "w", encoding="utf-8", newline="") as f:
-        f.write(src)
-    print("✔ manga.py ساخته شد — %d بخش، %d خط، %d بایت."
-          % (len(stats), src.count("\n"), len(src.encode('utf-8'))))
-    for name, n in stats:
-        print(f"    {name:38s} {n:6d} خط")
-    return 0
+    print("✔ همهٔ چکها سبز است." if ok else "❌ — بالاتر را ببین.")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

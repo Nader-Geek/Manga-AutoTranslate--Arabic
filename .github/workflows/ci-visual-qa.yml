@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['manga.py', 'scripts/ci_qa_check.py', '.github/workflows/ci-visual-qa.yml', 'ci_imgs/**']
+    paths: ['manga.py', 'manga_sections/**', 'scripts/ci_qa_check.py', '.github/workflows/ci-visual-qa.yml', 'ci_imgs/**']
 
 permissions:
   contents: read

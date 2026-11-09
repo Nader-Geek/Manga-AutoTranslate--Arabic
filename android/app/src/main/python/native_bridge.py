@@ -105,6 +105,18 @@ def health():
         else:
             lines.append("  • %s — ✔ سالم (%.1f KB)" % (n, size / 1024.0))
 
+    # v1.14.251 — موتور پلاگینی است: بدنه از manga_sections/ میآید
+    sec_dir = os.path.join(upd, "manga_sections")
+    if os.path.isdir(sec_dir):
+        n_sec = len([x for x in os.listdir(sec_dir) if x.endswith(".py")])
+        lines.append("  • manga_sections/ — %d فایلِ بخش" % n_sec)
+        if n_sec < 5:
+            ok = False
+            lines.append("  • manga_sections/ — ❌ ناقص (حداقل ۱۳ فایل لازم است)")
+    else:
+        ok = False
+        lines.append("  • manga_sections/ — ❌ نیست (لودر بدونِ آن اجرا نمیشود)")
+
     culprit = None
     tb_full = ""
     try:

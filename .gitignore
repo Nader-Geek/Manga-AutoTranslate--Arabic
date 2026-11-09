@@ -24,3 +24,10 @@ android/app/src/main/assets/models/
 # v1.14.238 — دادهٔ کالیبراسیون/مدلهایِ آزمایشیِ کوانتیزاسیونِ int8
 # (۲۳۳MB ورودیِ ضبطشده + مدلهایِ ساخته‌شده — فقط اسکریپتها و نتیجه در گیت)
 scripts/quant_calib/
+
+# v1.14.251 — کشِ marshalِ لودرِ manga.py (بازتولیدِ خودکار — کامیت نشود)
+manga_sections/__pycache__/
+*.marshal
+
+# v1.14.251 — خروجیِ توزیعِ تک‌فایلی (تولید: scripts/build_manga.py --single)
+manga_single.py

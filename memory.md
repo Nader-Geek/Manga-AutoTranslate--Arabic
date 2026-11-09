@@ -1233,3 +1233,25 @@
 **(۵) اندروید — resolveِ auto/مدلِ نامی (bridge.py):** تابعِ جدیدِ `_resolve_auto_or_named(p, keys, log)` قبل از ساختِ MangaTranslator در `_run`: مدلِ نامی → `manga_app.resolve_ai_named` (provider/api_base/keys/model واقعی)؛ auto → `manga_app.resolve_ai_auto` با probeِ `manga.test_api_keys` و لاگِ خطبهخطِ انتخاب در لاگِ زنده؛ مدلِ نامیِ غایب/لیستِ خالی → فالبکِ gemini (providerِ «ناموجود» هرگز به موتور نمیرود). manga.py دستنخورده. `collect()` اندروید حالا `custom_models` (JSON) را هم به start_job میدهد. `bridge.manifest` گزینههایِ provider را `auto|gemini|custom` میدهد (مدلها را MainActivity اضافه میکند).
 
 **(۶) تست:** scripts/test_v114220_chips_import.py = ۲۳/۲۳ سبز (بوتِ واقعیِ وب + چیپها/cm-x/data-name در HTML + نبودنِ cm-table + منوی AI + Importِ UploadButton + apiهایِ cm_add/cm_del_row با پاسخِ SSEِ پارسشده + ترتیبِ auto|gemini|مدلها|custom + resolveِ نامی + ترتیبِ نام<✖ در چیپ) + مرورگرِ واقعی (Chromium/agent-browser): چیپهایِ «۱. Kk ✖» زیرِ منو، حذفِ ✖ → localStorage و لیست، آکاردئونِ بکاپ = دو دکمهٔ برابر، بکاپ → «پشتیبان ساخته شد… ۱ مدل + ۲۴ تنظیم» + فایلِ ۲.۳KB آماده + JSِ دانلودِ خودکار. scripts/test_v114220_android_bridge.py = ۱۴/۱۴ سبز (resolveِ نامی/auto/خالی/غایب با probeِ ساختگی + manifest: auto اول، ترتیب، visible_if، نبودنِ import_file). node --check رویِ cm_add.js + ۲ بلوکِ js. رگرسیون: ۲۱۹ = ۵۸ سبز / ۷ قرمزِ عمدی (پینِ نسخه ×۳ + گیتهایِ ساختاریِ عوضشده ×۳ + متنِ حالتِ خالی) — گیتهایِ B/C با safe_gate ضدِ کرش شدند؛ ۲۱۸ = ۵۴/۳ عمدی؛ ۲۱۷ = ۲۳/۲ عمدی. نسخه: 1.14.220 / versionCode=224 (build.yml خودش از VERSION تزریق میکند؛ APKها رویِ push خودکار ساخته میشوند).
+
+## v1.14.251 (versionCode=255) — معماریِ پلاگینی: manga.py لودرِ خالی + ادغامِ ۲۵→۱۳ فایلِ موضوعی — دستورِ سازنده: «مثل فایل های پلاگینی»
+
+**دستورِ سازنده:** «manga.py میگم بخش بخش کنی بخاطر این ک حجمش کم شه بقیه چیزاش خودش از manga_sections بگیرع بعد چند تا چندتا قسمت جدا نکن قسمت استخراج ها یک فایل باشین چند فایل ساختی قسمت پاکسازیش یک جا باشین قسمت نصب کجا قسمت ترجمه یک جا و... میخوام manga.py توش خالی شه بخش بخش جدا شه از manga_sections بخونه مثل فایل های پلاگینی» — یعنی: (۱) manga.py عملاً خالی/لودر شود، (۲) فایلها به موضوعِ درشت ادغام شوند (۲۵ تا زیاد بود)، (۳) بارگذاری در زمانِ اجرا از پوشه.
+
+**معماریِ نهایی:** manga.py = لودرِ ~۲۱۰خطی: فایلهایِ manga_sections/ را بهترتیبِ پیشوندِ عددی میخواند، بلاکهایِ BUILD-STRIP (سربرگها + کلاسِ پوششیِ قطعه‌ها) را حذف و همه را در «یک» فضایِ نام exec میکند — عینِ تک‌فایلِ قدیمی؛ `import manga` و CLI (`python manga.py …`) بی‌تغییر. خطایِ لودر = RuntimeError تا `except Exception`های bridge/health بگیرندش.
+
+**۱۳ فایلِ نهایی:** 00_base (هدر+پرامپتها)، 10_install (نصب+توقف)، 20_models (ORT+LaMa+تشخیص+دانلود)، 30_ocr، 40_api_text (سرویس‌ها+TextRegion)، 50_translator (شروعِ کلاس)، 60_input، 70_extract (استخراج+دوخت)، 80_translate، 85_cleanup (هر ۵ فایلِ پاکسازی — ۱۵.۷هزار خط)، 90_render (رندر+قالبهای خروجی)، 95_run، 99_cli. ترتیبِ قطعه‌های کلاس = ترتیبِ خطِ لوله.
+
+**ایمنیِ بازچینشِ قطعه‌های کلاس (اثباتِ AST):** تنها متدِ تکراریِ بینِ فایلها `_is_daily_quota_error` (100_core و 150_clean_verify — نسخهٔ 150 برنده) → ترتیب حفظ شد؛ تنها statementهایِ اجراییِ سطحِ کلاس در 160_aiاند (`_MT_PAGE_BLOCK_RE = re.compile` + دو AnnAssign) که فقط نامِ ماژول میخوانند؛ decoratorها فقط staticmethod/property. پس جابه‌جاییِ کلِ فایلهایِ قطعه بینِ خودشان بی‌خطر است.
+
+**کشِ marshal:** کلید = sha256(cache_tag پایتون + فهرستِ نامها + سورسِ ترکیبی)؛ کش در manga_sections/__pycache__/manga_loader_<hash>.marshal — نوشتنِ اتمیک، GC کشهای کهنه، خطا = کامپایلِ تازه. بارگذاریِ دوم ~۵ms.
+
+**MANIFEST (سفیدنامهٔ ضدِ زامبی):** لودر فقط فایلهایِ MANIFEST را میخواند؛ فایلِ عددیِ خارجِ لیست = نادیده + هشدار (تست شد: زامبی 66_zombie_test.py متدش در کلاس ظاهر نشد). تولید/چک: scripts/build_manga.py (بازنویسی شد: پیشفرض = MANIFEST+چکِ کامل؛ --check برای CI؛ --single = manga_single.py توزیعِ تک‌فایلی).
+
+**اثباتِ چهارلایهٔ صفر-تغییر:** (۱) بدنههایِ ۱۳ فایل = sha256-عینِ بدنههایِ قدیمی (فقط ۳→۲ خطِ کامنتِ 00_header و APP_VER عمداً عوض شد)؛ (۲) اثرانگشتِ بایت‌کدِ هر ۲۲۳ نامِ ماژول + ۲۶۳ عضوِ کلاس (اسکریپتِ scripts/dump_fingerprint.py — co_code+co_names+co_varnames+co_constsِ بازگشتی؛ قفل/ست با canonical repr) — تنها تفاوت: APP_VER و _T0_IMPORT (timestamp)؛ (۳) clean-only واقعی روی dxa_10: md5 خروجی c66db7c72eab18ff5af1f686cb5b3cfa در هر دو، 16.3s؛ (۴) وبِ گرادیو + مرورگرِ هدلس: صفر خطا.
+
+**آپدیترها:** دسکتاپ: `_remote_section_names` + stageِ موازیِ بخشها + applyِ تودرتو + پاکسازیِ زامبی. اندروید: `_update_engine_sections` (مهرِ .ver_manga_sections = نسخهٔ موتور → دانلود فقط همراهِ آپدیتِ موتور؛ `_fetch_mirrors` برای فایلهایِ کوچک — چکِ ۱۰۰۰۰بایتیِ _download مانيفست را رد میکند) + native_bridge.health گزارشِ manga_sections/. `manga_build_stale` حذف شد (منسوخ). CI: manga_sections/** به pathsِ ۷ ورکفلو.
+
+**نکتهٔ توزیع:** raw-دانلودِ تنها manga.py دیگر کافی نیست (پیامِ روشنِ لودر → ریپو)؛ رسمیها همه پوشه را میگیرند.
+
+**تست:** py_compile همهٔ ۱۳ بخش + لودر + manga_app + bridge + launcher + native_bridge؛ import دوبار (سرد ۴.۵s/کش ۳.۹s — باقی = بوت‌استرپِ وابستگیها، عینِ قبل)؛ --help؛ زامبی‌تست؛ build --check/--single؛ clean-onlyِ A/B با worktreeِ HEAD؛ وب + هدلس.

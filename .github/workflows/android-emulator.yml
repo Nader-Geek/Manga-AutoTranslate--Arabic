@@ -30,6 +30,7 @@ on:
     branches: [test, main, mail]
     paths:
       - "manga.py"
+      - "manga_sections/**"
       - "android/**"
       - ".ci_scripts/**"
       - ".github/workflows/android-emulator.yml"
