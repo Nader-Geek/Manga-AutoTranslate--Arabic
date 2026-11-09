@@ -6797,6 +6797,12 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
         img = cv2.resize(img, (tw, max(1, round(h * tw / w))),
                          interpolation=cv2.INTER_AREA)
     out_name = os.path.join(d, f"live_{slot:04d}.jpg")
+    # v1.14.239 — اولین نوشتنِ اسلات = «صفحهٔ N آماده شد»: در سبکِ K3 همهٔ
+    # dumpها slotِ صریح دارند و slot_new همیشه False میماند → این خط هرگز
+    # چاپ نمیشد و نوارِ پیشرفتِ وب هیچ «رندرِ نهایی»ای نمیدید (ریشهٔ
+    # «صفحهٔ 1 از 105 (0٪)» گیرکرده). به‌روزرسانیِ پیش‌نمایشِ همان اسلات
+    # (فایلِ موجود) بی‌سروصدا میماند.
+    _first_write239 = not os.path.isfile(out_name)
     cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
     # شمارندهٔ پوشه نباید عقبتر از اسلاتهایِ تخصیصی بماند (رفتارِ سابق)
     with open(_sent, "w", encoding="utf-8") as f:
@@ -6807,7 +6813,7 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
             f.write(f"{slot} {int(time.time() * 1000)}\n")
     except Exception:
         pass
-    if not dbg and (key is None or slot_new):
+    if not dbg and (key is None or slot_new or _first_write239):
         print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
     # به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
 
@@ -28881,6 +28887,127 @@ class MangaTranslator:
             except Exception:
                 return [rect]
 
+    def _ocr_guard_line_boxes_239(self, crop: np.ndarray):
+        """v1.14.239 — جعبههایِ خطِ متنِ داخلِ کراپ (برایِ گاردِ برش).
+
+        از همان فراخوانیِ عادیِ ocr() استفاده میکند (مثلِ کارگرهایِ
+        موازی) — نه از حالتِ det-only: rapidocr نسخهٔ ۳ در __call__
+        پارامترها را با update_params «دائمی» رویِ موتورِ مشترک
+        میگذارد (use_rec=False → همهٔ پاسهایِ بعدیِ همهٔ کارگرها بی‌متن
+        میشدند!) پس مسیرِ عادیِ بدونِ تغییرِ وضعیتِ موتور تنها راهِ
+        امن است. خروجی: [(x0,y0,x1,y1,h), …] در مختصاتِ کراپ."""
+        try:
+            try:
+                _res239 = self.ocr.ocr(crop, crop_mode=True)
+            except TypeError:
+                # PaddleOCRWrapper امضایِ crop_mode ندارد (بدونِ تغییرِ
+                # رفتار — همان پاسِ عادی کافی است)
+                _res239 = self.ocr.ocr(crop)
+            boxes = []
+            for _pg239 in (_res239 or []):
+                for _it239 in (_pg239 or []):
+                    try:
+                        boxes.append(np.asarray(
+                            _it239[0], dtype=np.float32).reshape(-1, 2))
+                    except Exception:
+                        continue
+        except Exception:
+            return []
+        out = []
+        for _p239 in (boxes or []):
+            try:
+                _pp239 = np.asarray(_p239, dtype=np.float32).reshape(-1, 2)
+                if _pp239.shape[0] < 4:
+                    continue
+                _w239 = float(_pp239[:, 0].max() - _pp239[:, 0].min())
+                _h239 = float(_pp239[:, 1].max() - _pp239[:, 1].min())
+                if _w239 >= 12.0 and _h239 >= 6.0:
+                    out.append((float(_pp239[:, 0].min()),
+                                float(_pp239[:, 1].min()),
+                                float(_pp239[:, 0].max()),
+                                float(_pp239[:, 1].max()), _h239))
+            except Exception:
+                continue
+        return out
+
+    def _split_cuts_text_239(self, image: np.ndarray, full_rect, parts) -> bool:
+        """v1.14.239 — آیا برشِ حبابهایِ چسبیده از وسطِ «خطِ متن» میگذرد؟
+
+        ریشهٔ باگِ فصلِ Green-Skin 22 (لاگِ سازنده): کپشنِ یک‌خطیِ
+        «HELLO, I AM JANG HA-YEON.» با باکسِ درستِ (41,4607,723,4745)
+        پیدا شده بود ولی _split_adjacent_balloons آن را به دو نیمه برید
+        (خوشههایِ روشنِ پسزمینه دو «حباب» تصور شدند) → دو ناحیهٔ
+        «HELLO, I AM JANG HA» + «HA-YEON.» با ترجمههایِ جدا و «HA»
+        دوبار. حالا: قبل از پذیرشِ برش، detِ OCR رویِ کراپِ باکسِ کامل
+        اجرا میشود؛ اگر خطی از مرزِ بینِ دو پارت (با حاشیهٔ امنِ
+        متناسبِ بلندیِ خط — جبرانِ گسترشِ unclip) دو طرف عبور کند، برش
+        لغو و باکسِ کامل حفظ میشود. خطی که کامل داخلِ یک پارت است
+        (حبابهایِ واقعیِ چسبیده با متنِ جدا) برش را بازنمیگرداند."""
+        try:
+            _ocr239 = getattr(self, "ocr", None)
+            if _ocr239 is None:
+                return False
+            x1, y1, x2, y2 = [int(v) for v in full_rect[:4]]
+            _pad239 = 6
+            _cx1 = max(0, x1 - _pad239)
+            _cy1 = max(0, y1 - _pad239)
+            _cx2 = min(int(image.shape[1]), x2 + _pad239)
+            _cy2 = min(int(image.shape[0]), y2 + _pad239)
+            if _cx2 - _cx1 < 24 or _cy2 - _cy1 < 24:
+                return False
+            crop = image[_cy1:_cy2, _cx1:_cx2]
+            if crop is None or crop.size == 0:
+                return False
+            lines = self._ocr_guard_line_boxes_239(crop)
+            if not lines:
+                return False
+            # خطهای عمدتاً داخلِ باکس (نه لکهٔ لبهٔ کراپِ همسایه)
+            _bx0, _by0 = float(x1 - _cx1), float(y1 - _cy1)
+            _bx1, _by1 = float(x2 - _cx1), float(y2 - _cy1)
+            _good = []
+            for _L239 in lines:
+                _lx0, _ly0, _lx1, _ly1, _lh = _L239
+                _mxc = (_lx0 + _lx1) * 0.5
+                _myc = (_ly0 + _ly1) * 0.5
+                if _bx0 - 2 <= _mxc <= _bx1 + 2 and _by0 - 2 <= _myc <= _by1 + 2:
+                    _good.append(_L239)
+            if not _good:
+                return False
+            _parts239 = sorted(
+                [[int(v) for v in p[:4]] for p in parts],
+                key=lambda p: (p[0], p[1]))
+            for _a239, _b239 in zip(_parts239, _parts239[1:]):
+                # کنارهم (درزِ عمودی) یا رویهم (درزِ افقی)؟
+                _ovx = min(_a239[2], _b239[2]) - max(_a239[0], _b239[0])
+                _ovy = min(_a239[3], _b239[3]) - max(_a239[1], _b239[1])
+                _wa = max(1, _a239[2] - _a239[0])
+                _ha = max(1, _a239[3] - _a239[1])
+                _side = (_ovy >= 0.5 * min(_ha, max(1, _b239[3] - _b239[1])))
+                _stack = (_ovx >= 0.5 * min(_wa, max(1, _b239[2] - _b239[0])))
+                if not _side and not _stack:
+                    continue
+                if _side:
+                    _lo = max(_a239[0], _b239[0])
+                    _hi = min(_a239[2], _b239[2])
+                    if _hi <= _lo:            # دو پارتِ جدا از هم → درز = فاصله
+                        _lo, _hi = min(_a239[2], _b239[2]), max(_a239[0], _b239[0])
+                    for _lx0, _ly0, _lx1, _ly1, _lh in _good:
+                        _tol = min(24.0, max(4.0, 0.12 * max(1.0, _lh)))
+                        if (_lo - _lx0) >= _tol and (_lx1 - _hi) >= _tol:
+                            return True
+                if _stack:
+                    _lo = max(_a239[1], _b239[1])
+                    _hi = min(_a239[3], _b239[3])
+                    if _hi <= _lo:
+                        _lo, _hi = min(_a239[3], _b239[3]), max(_a239[1], _b239[1])
+                    for _lx0, _ly0, _lx1, _ly1, _lh in _good:
+                        _tol = min(24.0, max(4.0, 0.12 * max(1.0, _lh)))
+                        if (_lo - _ly0) >= _tol and (_ly1 - _hi) >= _tol:
+                            return True
+            return False
+        except Exception:
+            return False
+
     @staticmethod
     def _merge_overlapping_regions(regions: List[TextRegion],
                                    iou_thresh: float = 0.35,
@@ -29543,6 +29670,17 @@ class MangaTranslator:
             except Exception:
                 parts = [b["rect"]]
             if len(parts) > 1:
+                # v1.14.239 — گاردِ «برش، خط را نبُرد»: اگر خطی از مرزِ
+                # بینِ پارتها عبور کند، باکسِ کامل حفظ میشود (کپشنِ
+                # یک‌خطیِ Green-Skin 22 دیگر نصف نمیشود).
+                try:
+                    if self._split_cuts_text_239(image, b["rect"], parts):
+                        print(f"    [*] برشِ باکس {b['rect']} به {len(parts)} "
+                              f"حباب لغو شد — خطِ متن از مرز میگذشت (باکس کامل حفظ شد)")
+                        parts = [[int(v) for v in b["rect"][:4]]]
+                except Exception:
+                    pass
+            if len(parts) > 1:
                 print(f"    [*] باکس {b['rect']} شامل {len(parts)} حباب چسبیده → جدا شدند")
                 idxs: List[int] = []
                 for p in parts:
@@ -29692,6 +29830,50 @@ class MangaTranslator:
                 except Exception:
                     _gink = 0.0
                 if 0.008 <= _gink <= 0.50:
+                    # v1.14.239 — باکسِ تکراریِ حبابِ متن‌دار: ناحیهٔ
+                    # بی‌متنِ هم‌پوشان با ناحیه‌ای که «متن» دارد = دو
+                    # تشخیصِ همان یک حباب (فصلِ Green-Skin 22: باکسِ
+                    # خالیِ 142,5443,740,5680 رویِ باکسِ 200,5602,646,5789
+                    # با متنِ «AHHH!!! AREN'T YOU MY MAN'S PRIZE?» — هر
+                    # دو مالِ یک حبابِ جگ‌دارند؛ خطهایِ باکسِ خالی همه
+                    # به «ناحیهٔ مجاور» (فیلترِ 188) واگذار شده بودند).
+                    # ناحیهٔ خالی حذف میشود: نه پاکسازیِ دوباره، نه
+                    # نجاتِ OCR با متنِ همسایه (ریشهٔ «AHHH!!!» دوبار).
+                    try:
+                        _dupe239 = None
+                        for _j239 in range(len(cand)):
+                            if _j239 == i:
+                                continue
+                            _jt239 = ""
+                            if _j239 < len(ocr_results):
+                                _jt239 = str(
+                                    (ocr_results[_j239][0] if ocr_results[_j239]
+                                     else "") or "").strip()
+                            if not _jt239:
+                                continue
+                            _jc239 = cand[_j239]
+                            _jx1, _jy1 = float(_jc239[2]), float(_jc239[3])
+                            _jx2, _jy2 = float(_jc239[4]), float(_jc239[5])
+                            _ix239 = max(0.0, min(x2, _jx2) - max(x1, _jx1))
+                            _iy239 = max(0.0, min(y2, _jy2) - max(y1, _jy1))
+                            _inter239 = _ix239 * _iy239
+                            if _inter239 <= 0:
+                                continue
+                            _aA239 = max(1e-6, float((x2 - x1) * (y2 - y1)))
+                            _aB239 = max(1e-6, (_jx2 - _jx1) * (_jy2 - _jy1))
+                            _iom239 = _inter239 / min(_aA239, _aB239)
+                            if _iom239 >= 0.28:
+                                _dupe239 = (_j239, _iom239)
+                                break
+                        if _dupe239 is not None:
+                            if self.debug:
+                                print(f"    [*] Region [{i}] باکسِ تکراریِ "
+                                      f"حبابِ متن‌دار (هم‌پوشانیِ "
+                                      f"{_dupe239[1]*100:.0f}% با کاندیدِ "
+                                      f"{_dupe239[0]}) → حذف شد")
+                            continue
+                    except Exception:
+                        pass
                     # v1.14.230 — گاردِ «نقطه/نمادِ بی‌متن»: اگر جوهرِ
                     # ناحیه فقط چند لکهٔ ریز است (مثلِ «....» که det خطی
                     # برایش نمیسازد؛ بزرگترین مؤلفهٔ جوهر < ۱۸٪ بلندیِ
@@ -34317,6 +34499,10 @@ html, body { background: #0a0a0b; }
 
         quota_flag = {"dead": False}
         trans_futures: list = []
+        # v1.14.239 — شمارندهٔ پیشرفتِ ترجمه (نوارِ وب): بعد از هر بستهٔ
+        # ۴۰تایی «ترجمه: n/N ناحیه» — N همان شمارندهٔ صفِ دیالوگ است.
+        _tr_prog239 = {"n": 0}
+        _tr_prog239_lock = threading.Lock()
 
         def _translate_chunk_bg(chunk: List[TextRegion]) -> None:
             if not chunk:
@@ -34337,6 +34523,16 @@ html, body { background: #0a0a0b; }
                     print(f"    [!] خطای ترجمه در پس‌زمینه: {e}", file=sys.stderr)
                 finally:
                     _account_chunk(chunk)
+                    # v1.14.239 — نوارِ پیشرفتِ وب
+                    try:
+                        with _tr_prog239_lock:
+                            _tr_prog239["n"] += len(chunk)
+                            _n239 = _tr_prog239["n"]
+                            _t239 = max(int(global_id or 0), _n239)
+                        print(f"[*] ترجمه: {_n239}/{_t239} ناحیه",
+                              flush=True)
+                    except Exception:
+                        pass
 
             trans_futures.append(trans_pool.submit(_job))
             # v1.14.196 — پاکسازی دیگر وابستهٔ ترجمه نیست؛ از همان لحظهٔ
@@ -34359,6 +34555,9 @@ html, body { background: #0a0a0b; }
         clean_all_futs: list = []     # آیندههایِ پاکسازی برایِ حلقهٔ انتظار
         clean_started: set = set()
         clean_claimed: set = set()   # v1.14.227 — ادعایِ اتمیکِ «در حالِ پاکسازیِ همین صفحه»
+        # v1.14.239 — شمارندهٔ پیشرفتِ پاکسازی (نوارِ وب): هر صفحهٔ
+        # «پردازش‌شده» (پاک‌شده یا بدونِ چیزیِ برایِ پاک‌کردن) یک بار.
+        clean_counted239: set = set()
         clean_done_ev: Dict[int, threading.Event] = {}
         pending_clean: set = set()    # صفِ فاز ۱
         extraction_done = {"v": False}
@@ -34480,6 +34679,19 @@ html, body { background: #0a0a0b; }
                 if _did227:
                     with _clean_cond:
                         clean_claimed.discard(_p)
+                        # v1.14.239 — نوارِ پیشرفتِ وب: صفحهٔ پردازش‌شده
+                        if _p not in clean_counted239:
+                            clean_counted239.add(_p)
+                            _cn239 = len(clean_counted239)
+                            _ctot239 = len(pending)
+                        else:
+                            _cn239 = None
+                    if _cn239 is not None:
+                        try:
+                            print(f"[*] پاکسازی متن: {_cn239}/{_ctot239} صفحه",
+                                  flush=True)
+                        except Exception:
+                            pass
             return _did227
 
         def _clean_done_mark(_p: int) -> None:
@@ -34584,6 +34796,22 @@ html, body { background: #0a0a0b; }
         # _qd_inflight علامت میخورد و تا پایانِ صف‌شدن تمام/نهایی نمیشود.
         _qd_inflight: set = set()
 
+        # v1.14.239 — شمارندهٔ پیشرفتِ استخراج (نوارِ وب — مثل اپ اندروید):
+        # «استخراج متن: n/N صفحه» بعد از هر صفحه؛ موتورِ وب از همین خط
+        # درصدِ زنده میسازد (قبلاً در سبکِ K3 تا پایانِ کلِ استخراج هیچ
+        # «صفحهٔ n آماده شد»ای چاپ نمیشد و درصد روی 0٪ گیر میکرد).
+        _ext_prog239 = {"n": 0}
+
+        def _ext_prog_tick() -> None:
+            try:
+                with _ext_lock:
+                    _ext_prog239["n"] += 1
+                    _n239 = _ext_prog239["n"]
+                print(f"[*] استخراج متن: {_n239}/{len(pending)} صفحه",
+                      flush=True)
+            except Exception:
+                pass
+
         def _claim_ext(role: str):
             with _ext_lock:
                 f, b = _ext_fwd["v"], _ext_bwd["v"]
@@ -34618,7 +34846,9 @@ html, body { background: #0a0a0b; }
                 except Exception as e:  # محافظت — کارگر هرگز نباید بمیرد
                     print(f"    [!] خطای کارگرِ استخراج({role}): {e}",
                           file=sys.stderr)
+                    _ext_prog_tick()  # v1.14.239 — صفحهٔ خطاخورده هم «انجام‌شده» است
                     continue
+                _ext_prog_tick()  # v1.14.239 — نوارِ پیشرفتِ وب
                 with _qd_lock:
                     _qd_inflight.add(page_i)
                 extracted_map[page_i] = (out_file, image, None, regions, dbg)
@@ -34708,6 +34938,11 @@ html, body { background: #0a0a0b; }
                 f"{_n_dlg_total} دیالوگ جمع شد؛ حالا ترجمهٔ "
                 f"{_cap_n213}تا{_cap_n213}تا شروع میشود…"
             )
+        else:
+            # v1.14.239 — نشانِ پایانِ استخراج در clean-only هم لازم است
+            # (نوارِ پیشرفتِ وب از «صفحه کامل شد» مرزِ فازها را میفهمد).
+            print(f"[✓] استخراجِ همهٔ {len(pending)} صفحه کامل شد "
+                  f"(حالتِ فقط-پاکسازی).")
         if dialogue_buffer and not getattr(self, "clean_only", False):
             _flush_translate_buffer(force=True)
         _t_trw67 = time.time()  # v1.14.67 — انتظارِ ترجمه

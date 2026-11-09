@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.238"
+APP_VER = "1.14.239"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -70,10 +70,69 @@ _WEB_PROG_PHASES = (
     ("پدلِ اندروید", "استخراج متن"),
 )
 
+# v1.14.239 — شمارنده‌های صریحِ موتور (manga.py — پایپ‌لاینِ K3):
+# «استخراج متن: n/N صفحه»، «پاکسازی متن: n/N صفحه»، «ترجمه: n/N ناحیه».
+# n/N از خودِ خط خوانده میشود (کلِ همراه، مستقل از total.txt).
+_WEB_PROG_COUNT_RES = (
+    (re.compile(r"استخراج متن[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*صفحه"),
+     "استخراج متن", "صفحه"),
+    (re.compile(r"پاکسازی متن[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*صفحه"),
+     "پاکسازی", "صفحه"),
+    (re.compile(r"ترجمه[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*ناحیه"),
+     "ترجمه", "ناحیه"),
+)
+
 
 def _web_prog_parse(log: str):
-    """(فاز، شمارهٔ صفحهٔ آماده) از انتهای لاگ — آخرین نشانه ملاک است."""
-    tail = (log or "").splitlines()[-160:]
+    """(فاز، مقدارِ فعلی، کلِ همراهِ خط، واحد) از انتهای لاگ — آخرین رخداد ملاک است.
+
+    v1.14.239 — موتور (manga.py) حالا در سبکِ K3 بعد از «هر» صفحهٔ
+    استخراج‌شده «استخراج متن: n/N صفحه»، بعد از هر صفحهٔ پاک‌شده
+    «پاکسازی متن: n/N صفحه» و بعد از هر بستهٔ ترجمه «ترجمه: n/N ناحیه»
+    چاپ میکند (قبلاً تا پایانِ کلِ استخراج هیچ «N آماده شد»ای نبود و
+    درصدِ نوار روی 0٪ گیر میکرد — گزارشِ سازنده). اینجا آخرینِ این
+    خطها + «N آماده شد» (رندرِ نهایی) و نشانگرهایِ پایان/خطا با هم
+    مقایسه میشوند؛ برنده = آخرین رخداد. tot=0 یعنی کل از total.txt
+    پوشهٔ live خوانده شود."""
+    tail = (log or "").splitlines()[-400:]
+    # ۱) شمارنده‌های صریح — آخرین خطِ هر فاز
+    marks = {}
+    for idx, ln in enumerate(tail):
+        for rx, kind, unit in _WEB_PROG_COUNT_RES:
+            m = rx.search(ln)
+            if m:
+                marks[kind] = (idx, int(m.group(1)), int(m.group(2)), unit)
+    _ext_done_idx = None
+    _ready_idx, _ready_page = None, 0
+    _term_idx, _term_phase = -1, ""
+    for idx, ln in enumerate(tail):
+        if _ext_done_idx is None and "صفحه کامل شد" in ln:
+            _ext_done_idx = idx
+        m = re.search(r"(\d{1,4})\s+آماده شد", ln)
+        if m:
+            _ready_idx, _ready_page = idx, int(m.group(1))
+        for _k, _v in _WEB_PROG_PHASES:
+            if _k in ln and _v in ("تمام شد", "خطا", "لغو شد"):
+                _term_idx, _term_phase = idx, _v
+    # صفحهٔ آمادهٔ آخر (برای حالتِ خطا)
+    _page_legacy = _ready_page
+    # ۲) رویدادها: (idx، فاز، cur، tot، unit) — آخرینِشان برنده
+    events = []
+    for kind, (idx, cur, tot, unit) in marks.items():
+        # شمارندهٔ استخراج بعد از «صفحه کامل شد» بازنشسته میشود
+        if (kind == "استخراج متن" and _ext_done_idx is not None
+                and idx < _ext_done_idx):
+            continue
+        events.append((idx, kind, cur, tot, unit))
+    if _ready_idx is not None:
+        events.append((_ready_idx, "رندر و ذخیره", _ready_page + 1, 0, "صفحهٔ"))
+    if _term_idx >= 0:
+        events.append((_term_idx, _term_phase, _page_legacy, 0, ""))
+    if events:
+        events.sort(key=lambda e: e[0])
+        _, ph, cur, tot, unit = events[-1]
+        return ph, cur, tot, unit
+    # ۳) فازِ قدیمیِ بدونِ شمارنده (اولین تطبیقِ آخرین خطِ شناختهشده)
     phase = ""
     for ln in reversed(tail):
         for _k, _v in _WEB_PROG_PHASES:
@@ -82,39 +141,39 @@ def _web_prog_parse(log: str):
                 break
         if phase:
             break
-    page = 0
-    for ln in reversed(tail):
-        m = re.search(r"(\d{1,4})\s+آماده شد", ln)
-        if m:
-            page = int(m.group(1))
-            break
-    return phase, page
+    return phase, _page_legacy, 0, ""
 
 
-def _web_prog_html(phase: str, page: int, total: int, running: bool,
-                   done: bool) -> str:
-    """HTML نوار پیشرفت: میله + «فاز — صفحهٔ n از N (p٪)» مثل گوشی."""
+def _web_prog_html(phase: str, cur: int, total: int, running: bool,
+                   done: bool, unit: str = "") -> str:
+    """HTML نوار پیشرفت: میله + «فاز — n از N (p٪)» مثل گوشی."""
     cls = ""
     if done:
         cls = " done"
         pct, now = 100, total
     elif not running and phase == "خطا":
         cls = " err"
-        pct = min(100, int(page * 100 / total)) if total > 0 else 0
-        now = page
+        pct = min(100, int(cur * 100 / total)) if total > 0 else 0
+        now = cur
     else:
-        now = min(page + 1, total) if total > 0 else page
+        now = min(cur, total) if total > 0 else cur
         pct = int(now * 100 / total) if total > 0 else 0
     txt = ""
     if done:
-        txt = (f"✅ تمام شد — {total if total > 0 else page} صفحه"
+        txt = (f"✅ تمام شد — {total if total > 0 else cur} صفحه"
                + (f" ({total}/{total})" if total > 0 else ""))
     elif not running and phase == "خطا":
-        txt = f"❌ خطا — آخرین صفحهٔ آماده: {page}" + (
+        txt = f"❌ خطا — آخرین صفحهٔ آماده: {cur}" + (
             f" از {total}" if total > 0 else "")
     elif phase:
-        txt = f"📊 {phase} — صفحهٔ {now} از {total} ({pct}٪)" \
-            if total > 0 else f"📊 {phase}…"
+        if total > 0:
+            if unit == "صفحهٔ":
+                txt = f"📊 {phase} — صفحهٔ {now} از {total} ({pct}٪)"
+            else:
+                _u = f" {unit}" if unit else ""
+                txt = f"📊 {phase} — {now} از {total}{_u} ({pct}٪)"
+        else:
+            txt = f"📊 {phase}…"
     else:
         txt = "📊 در حال شروع…"
     return (
@@ -4546,7 +4605,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             idx = next((i for i, x in enumerate(new_models)
                         if str(x.get("name") or "").strip() == nm), -1)
             if idx < 0 or not nm:
-                return (gr.update(),) * 14
+                # v1.14.239 — فیکسِ همان رده: فهرستِ خروجیها ۱۵ مؤلفه
+                # دارد (پایین: cm_save_btn.click) ولی این شاخه ۱۴ برمیگرداند.
+                return (gr.update(),) * 15
             entry = {"name": nm,
                      "api_base": str(base or "").strip(),
                      "api_key": str(key or "").strip(),
@@ -5504,12 +5565,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             try:
                 if (running or vis) and log:
                     _ld = job.get("live_dir")
-                    _tot = _live_total_of(_ld) if _ld else 0
-                    _ph, _pg = _web_prog_parse(log)
+                    _ph, _cur, _ltot, _unit = _web_prog_parse(log)
+                    _tot = _ltot or (_live_total_of(_ld) if _ld else 0)
                     _done = (not running) and ("✅" in log or "تمام شد" in log)
                     if _done or _ph or running:
                         _prog_upd = gr.update(
-                            value=_web_prog_html(_ph, _pg, _tot, running, _done),
+                            value=_web_prog_html(_ph, _cur, _tot, running,
+                                                 _done, _unit),
                             visible=True)
             except Exception:
                 _prog_upd = gr.update()
@@ -5740,7 +5802,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         def _sid_box_sync(sid_v, sid_box_v):
             preferred = (sid_v or sid_box_v or "").strip()
             if not preferred:
-                return (gr.update(),) * 14
+                # v1.14.239 — فیکسِ ارورِ «needed: 15, returned: 14»:
+                # _poll_outputs از v1.14.236 پانزده مؤلفه دارد (با
+                # prog_html) ولی این شاخهٔ خالی هنوز ۱۴تایی بود.
+                return (gr.update(),) * 15
             return _poll_job_status(preferred, preferred)
 
         try:
@@ -5831,7 +5896,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         def _hydrate_after_js(sid, holder):
             preferred = (sid or holder or "").strip()
             if not preferred:
-                return (gr.update(),) * 14
+                # v1.14.239 — همان فیکسِ ۱۵-خروجی (ارورِ گوشی روی
+                # بارگذاریِ صفحهٔ وب — needed: 15, returned: 14).
+                return (gr.update(),) * 15
             return _poll_job_status(preferred, preferred)
 
         try:
