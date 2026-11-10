@@ -1734,11 +1734,40 @@ class _MangaTranslatorBody_70:
         return best_a
 
     @staticmethod
-    def _ink_slant_angle(crop_bgr) -> float:
-        return MangaTranslator._ink_slant_measure(crop_bgr)[0]
+    def _ocr_poly_mask(shape_hw, polys, off_x: float = 0.0,
+                       off_y: float = 0.0) -> Optional[np.ndarray]:
+        """ماسکِ «فقط متن» برای سنجشِ جوهر — چندضلعیهایِ OCR
+        (خطوطِ واقعیِ متن) با کمی اتساع. سنجشِ کجا-به-کجا روی
+        کراپِ آمیخته با هنر، جوهرِ افقیِ هنر را هم میبیند و کجیِ
+        واقعیِ متن را به‌غلط «مسطح» میخواند؛ با این ماسک فقط خودِ
+        حروف میمانند."""
+        try:
+            m = np.zeros((int(shape_hw[0]), int(shape_hw[1])), np.uint8)
+            drew = 0
+            for p in polys or []:
+                try:
+                    pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                    pp = pp - np.array([off_x, off_y], np.float32)
+                    cv2.fillPoly(m, [np.round(pp).astype(np.int32)], 255)
+                    drew += 1
+                except Exception:
+                    continue
+            if not drew:
+                return None
+            m = cv2.dilate(m, np.ones((3, 3), np.uint8), iterations=3)
+            if int((m > 0).sum()) < 60:
+                return None
+            return m
+        except Exception:
+            return None
 
     @staticmethod
-    def _ink_slant_support(crop_bgr, angle_deg: float) -> Optional[float]:
+    def _ink_slant_angle(crop_bgr, poly_mask=None) -> float:
+        return MangaTranslator._ink_slant_measure(crop_bgr, poly_mask)[0]
+
+    @staticmethod
+    def _ink_slant_support(crop_bgr, angle_deg: float,
+                           poly_mask=None) -> Optional[float]:
         """ — آیا زاویهٔ «ادعاشده» جوهرِ این کراپ را واقعاً رویِ
         هم میاندازد؟ نسبتِ شکستِ ردیفها در زاویهٔ ادعایی بر افقی:
         score(angle)/score(0). ≥~۱٫۱۰ یعنی خطِ واقعاً کج است (وتو نکن)؛
@@ -1759,6 +1788,10 @@ class _MangaTranslatorBody_70:
             med = float(np.median(g))
             _dark = (g < max(60.0, med - 45.0))
             _bright = (g > min(195.0, max(med + 45.0, 150.0)))
+            if poly_mask is not None:
+                _keep = (poly_mask > 0)
+                _dark = _dark & _keep
+                _bright = _bright & _keep
             _fd = float(_dark.mean())
             _fb = float(_bright.mean())
             _cands = []
@@ -1805,7 +1838,7 @@ class _MangaTranslatorBody_70:
         except Exception:
             return None
 
-    def _ink_slant_measure(crop_bgr) -> Tuple[float, bool]:
+    def _ink_slant_measure(crop_bgr, poly_mask=None) -> Tuple[float, bool]:
         """ — (زاویه، قابل‌اتکا) + قطب‌آگاهیِ تیره/روشن.
 
         قبلاً فقط جوهرِ تیره سنجیده می‌شد؛ متنِ روشن/درخشان روی زمینهٔ
@@ -1831,6 +1864,10 @@ class _MangaTranslatorBody_70:
 # جرم از بازهٔ مجاز بیرون می‌زد → سنجش شکست → کجیِ کاذبِ
 # عنوان‌های درخشان (BLUE/RED/PURPLE MOON) وتو نمی‌شد
             _bright = (g > min(195.0, max(med + 45.0, 150.0)))
+            if poly_mask is not None:
+                _keep = (poly_mask > 0)
+                _dark = _dark & _keep
+                _bright = _bright & _keep
             _fd = float(_dark.mean())
             _fb = float(_bright.mean())
             _cands = []
@@ -2635,8 +2672,11 @@ class _MangaTranslatorBody_70:
                     _iy1, _iy2 = max(0, int(_ty1)), min(image.shape[0], int(_ty2) + 1)
                     _ix1, _ix2 = max(0, int(_tx1)), min(image.shape[1], int(_tx2) + 1)
                     if _ix2 - _ix1 >= 40 and _iy2 - _iy1 >= 14:
+                        _lmk = MangaTranslator._ocr_poly_mask(
+                            (_iy2 - _iy1, _ix2 - _ix1), line_polys,
+                            _ix1, _iy1)
                         a_ink2 = MangaTranslator._ink_slant_angle(
-                            image[_iy1:_iy2, _ix1:_ix2])
+                            image[_iy1:_iy2, _ix1:_ix2], _lmk)
                         _thr_ink = 7.0 if _is_vert else 5.0
                         if abs(a_ink2) >= _thr_ink and abs(a_ink2) > abs(ang_) + 1.0:
                             ang_ = a_ink2
@@ -3344,8 +3384,11 @@ class _MangaTranslatorBody_70:
                     _ux2 = min(int(image.shape[1]), int(_vx2) + 1)
                     _uy2 = min(int(image.shape[0]), int(_vy2) + 1)
                     if _ux2 - _ux1 >= 40 and _uy2 - _uy1 >= 14:
+                        _umk = MangaTranslator._ocr_poly_mask(
+                            (_uy2 - _uy1, _ux2 - _ux1), _px,
+                            _ux1, _uy1)
                         _ai = MangaTranslator._ink_slant_angle(
-                            image[_uy1:_uy2, _ux1:_ux2])
+                            image[_uy1:_uy2, _ux1:_ux2], _umk)
                         if abs(_ai) >= (7.0 if _is_vert else 6.0):
                             print(f"    [!] بازیابی کجی [{r.id}]: {ang:+.1f}° → "
                                   f"{_ai:+.1f}° (جوهر؛ موتور از دست داده بود)")
@@ -3374,8 +3417,10 @@ class _MangaTranslatorBody_70:
                 y2 = min(int(image.shape[0]), int(y2) + 1)
                 if x2 - x1 < 40 or y2 - y1 < 14:
                     continue
+                _vmk = MangaTranslator._ocr_poly_mask(
+                    (y2 - y1, x2 - x1), polys, x1, y1)
                 _a_ink, _a_ok = MangaTranslator._ink_slant_measure(
-                    image[y1:y2, x1:x2])
+                    image[y1:y2, x1:x2], _vmk)
                 if os.environ.get("MANGA_DBG_VERIFY"):
                     print(f"    [dbg-verify] {r.id} ang={ang:+.1f} "
                           f"bbox=({x1},{y1},{x2},{y2}) ok={_a_ok} a={_a_ink:+.1f}")
@@ -3407,7 +3452,7 @@ class _MangaTranslatorBody_70:
 # واقعی بودند و به‌غلط صفر میشدند — «بعد چرخش همچین
 # بعضی متن ها درست نمیچرخه»).
                     _sup = MangaTranslator._ink_slant_support(
-                        image[y1:y2, x1:x2], ang)
+                        image[y1:y2, x1:x2], ang, _vmk)
                     if _sup is not None and _sup >= 1.10:
                         if os.environ.get("MANGA_DBG_VERIFY"):
                             print(f"    [dbg-verify] {r.id} ang={ang:+.1f}° "

@@ -1607,8 +1607,12 @@ class _MangaTranslatorBody_95:
                     _polys_agree = False
                 if (not _polys_agree) \
                         and _vx1 - _vx0 >= 40 and _vy1 - _vy0 >= 14:
+                    _rmk = MangaTranslator._ocr_poly_mask(
+                        (_vy1 - _vy0, _vx1 - _vx0),
+                        getattr(region, "ocr_polys", None) or [],
+                        _vx0, _vy0)
                     _a_ink, _a_ok = MangaTranslator._ink_slant_measure(
-                        original_image[_vy0:_vy1, _vx0:_vx1])
+                        original_image[_vy0:_vy1, _vx0:_vx1], _rmk)
                     if _a_ok and abs(_a_ink) < 6.0:
 # وتویِ جوهرِ مسطح؛ — اول خودِ
 # زاویهٔ ادعایی آزموده می‌شود: اگر ردیفهایِ جوهر را
@@ -1616,7 +1620,8 @@ class _MangaTranslatorBody_95:
 # وتو نمی‌شود (img3: ‎-۶٫۷°/-۱۳٫۲° به‌غلط صفر می‌شدند
 # «بعد چرخش همچین بعضی متن ها درست نمیچرخه»).
                         _sup213r = MangaTranslator._ink_slant_support(
-                            original_image[_vy0:_vy1, _vx0:_vx1], angle)
+                            original_image[_vy0:_vy1, _vx0:_vx1],
+                            angle, _rmk)
                         if _sup213r is not None and _sup213r >= 1.10:
                             pass  # کجیِ واقعی — رندر با همان زاویه
                         else:
@@ -1737,6 +1742,12 @@ class _MangaTranslatorBody_95:
             try:
                 _pln = MangaTranslator._group_polys_to_lines(
                     getattr(region, "ocr_polys", None) or [])
+                if os.environ.get("MANGA_DEBUG_ROT"):
+                    _pang = [round(self._poly_long_side_angle(p), 1)
+                             for p in (getattr(region, "ocr_polys", None) or [])]
+                    print(f"    [dbg-lines] r{region.id} "
+                          f"polys={len(_pang)} pangs={_pang} "
+                          f"lines={len(_pln)}")
                 if _pln and len(_pln) >= 2:
                     _allp = [np.asarray(p, dtype=np.float32).reshape(-1, 2)
                              for p in (getattr(region, "ocr_polys", None) or [])
@@ -1759,6 +1770,11 @@ class _MangaTranslatorBody_95:
                                     _aa.append(_va)
                         _ln_ang.append(float(np.median(_aa)) if _aa else 0.0)
                     _spr = float(np.max(_ln_ang) - np.min(_ln_ang))
+                    if os.environ.get("MANGA_DEBUG_ROT"):
+                        print(f"    [dbg-curve] r{region.id} "
+                              f"lines={len(_pln)} "
+                              f"angs={[round(a, 1) for a in _ln_ang]} "
+                              f"spr={_spr:.1f}")
                     if _spr >= 8.0 and all(abs(a) <= 45.0 for a in _ln_ang):
                         self._render_curved_lines(
                             pil_img, draw, region, _pln, _ln_ang,
