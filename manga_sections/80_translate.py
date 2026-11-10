@@ -921,6 +921,10 @@ class _MangaTranslatorBody_80:
                 batches.append(cur)
             return batches
 
+# ادامهٔ کار (توقف/ادامهٔ با کش): ترجمه‌هایِ ازقبلِ این فصل را
+# همین اول بردار تا «نخستین» درخواستِ ادامه هم لنگرِ سبک داشته
+# باشد (مدل/توکنِ دیگر → همان لحنِ فصل)
+        self._note_style_samples(regions)
         pending = list(regions)
         import concurrent.futures as _cf
         for round_i in range(1, 4):

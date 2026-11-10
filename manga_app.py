@@ -4234,7 +4234,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 # تازه است و کشِ کهنه در آن معنا ندارد؛ بقیهٔ زیرپوشه‌ها
 # (کشِ resume/خروجی/…) مثل قبل کامل پاک میشوند =
 # سرِ جایش میماند.
-            if up_files or (_prev_src and _prev_src != str(src)):
+# توقف/ادامه: آپلودِ دوبارهٔ «همان» فایل دیگر کش را نمیپاکد —
+# موتور با اثرانگشتِ محتوا (نام+حجم+هاش) تشخیص میدهد که ورودی
+# عوض شده (→ از اول) یا نه (→ ادامه از همان‌جا). فقط عوض‌شدنِ
+# src (لینکِ دیگر) پاک‌سازی میآورد.
+            if _prev_src and _prev_src != str(src):
                 try:
                     for _n in os.listdir(user_out_dir):
                         if _n == "input_batch":

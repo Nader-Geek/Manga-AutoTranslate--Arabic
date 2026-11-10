@@ -7,6 +7,82 @@
 # (ترکیب از: 220_translator_run.py)
 class _MangaTranslatorBody_95:
 # BUILD-STRIP-END
+    def _cache_jsonable(v):
+        import numpy as _np
+        if isinstance(v, _np.ndarray):
+            return {"__nd": v.tolist(), "dt": str(v.dtype)}
+        if isinstance(v, (_np.floating, _np.integer)):
+            return float(v)
+        if isinstance(v, (list, tuple)):
+            return [MangaTranslator._cache_jsonable(x) for x in v]
+        if isinstance(v, dict):
+            return {str(k): MangaTranslator._cache_jsonable(x)
+                    for k, x in v.items()}
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            return v
+        return None
+
+    @staticmethod
+    def _region_to_cache(r) -> dict:
+        d = {}
+        try:
+            for k, v in vars(r).items():
+                j = MangaTranslator._cache_jsonable(v)
+                if j is None and v is not None:
+                    continue
+                d[k] = j
+        except Exception:
+            return {}
+        return d
+
+    @staticmethod
+    def _region_from_cache(d):
+        import numpy as _np
+
+        def _und(v):
+            # بازکردنِ پیچِ {"__nd": …} به آرایه — با نوعِ خودش
+            def _one(x):
+                a = _np.asarray(x["__nd"])
+                try:
+                    if x.get("dt"):
+                        a = a.astype(_np.dtype(str(x["dt"])))
+                except Exception:
+                    pass
+                return a
+            if isinstance(v, dict) and "__nd" in v:
+                return _one(v)
+            if isinstance(v, list) and v and all(
+                    isinstance(x, dict) and "__nd" in x for x in v):
+                return [_one(x) for x in v]
+            return v
+        r = TextRegion(id=int(d.get("id", 0) or 0), boxes=[])
+        for k, v in d.items():
+            try:
+                setattr(r, k, _und(v))
+            except Exception:
+                continue
+        def _isarrlist(v):
+            return isinstance(v, list) and (
+                not v or all(hasattr(x, "shape") for x in v))
+        if not _isarrlist(getattr(r, "boxes", None)):
+            try:
+                r.boxes = [_np.asarray(_und(b), dtype=_np.int32)
+                           for b in (d.get("boxes") or [])]
+            except Exception:
+                r.boxes = []
+        if not _isarrlist(getattr(r, "ocr_polys", None)):
+            try:
+                r.ocr_polys = [_np.asarray(_und(p), dtype=_np.float32)
+                               for p in (d.get("ocr_polys") or [])]
+            except Exception:
+                r.ocr_polys = []
+        try:
+            if isinstance(getattr(r, "rect", None), list):
+                r.rect = tuple(r.rect)
+        except Exception:
+            pass
+        return r
+
     def run(self, input_path: str, output_path: str, resume: bool = True,
             clean_old: bool = True) -> None:
 # بریف داستان حذف شد (مرجع ندارد) — اینجا فقط ریستِ قدیمی بود
@@ -35,7 +111,32 @@ class _MangaTranslatorBody_95:
         src_dir = os.path.join(cache_dir, "src")
 
         cache_tag = "_safe_v3" if (self.stitch_max_height > 0 or getattr(self, "repair_page_seams", True)) else ""
-        out_dir = os.path.join(cache_dir, "out" + cache_tag)
+# برچسبِ سبکِ پاکسازی/خروجی: عوض‌شدنِ روش یا پارامترهای پاکسازی
+# → پوشهٔ خروجیِ دیگر → صفحهها دوباره پاک میشوند؛ سبکِ همان →
+# صفحههایِ تمامشده از کش رد میشوند (خواستهٔ سازنده). استخراج
+# (OCR) مستقل از این برچسب است و از نو نمیگردد.
+        def _clean_style_tag() -> str:
+            import hashlib as _hl
+            try:
+                parts = [
+                    str(getattr(self, "clean_method", "") or "").strip().lower(),
+                    1 if getattr(self, "force_lama", False) else 0,
+                    1 if getattr(self, "clean_sfx", False) else 0,
+                    int(getattr(self, "mask_padding", 3) or 0),
+                    round(float(getattr(self, "pad_ratio", 0.06) or 0), 4),
+                    int(getattr(self, "inpaint_radius", 3) or 0),
+                    round(float(getattr(self, "mag_ratio", 1.35) or 0), 4),
+                    str(getattr(self, "img_format", "jpg") or "jpg").lower(),
+                    int(getattr(self, "img_quality", 90) or 90),
+                    int(getattr(self, "max_width", 0) or 0),
+                ]
+                return _hl.sha256(
+                    "|".join(str(p) for p in parts).encode()).hexdigest()[:8]
+            except Exception:
+                return ""
+        style_tag = _clean_style_tag()
+        out_dir = os.path.join(cache_dir, "out" + cache_tag
+                               + (("_style-" + style_tag) if style_tag else ""))
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
 
@@ -399,6 +500,71 @@ class _MangaTranslatorBody_95:
         except Exception:
             pass
 
+# ——— اثرانگشتِ ورودی (توقف/ادامه) ———
+# لینک یا فایل یا تنظیماتِ استخراج یا نسخهٔ موتور عوض شده؟ فقط
+# آنگاه استخراج از اول میشود؛ وگرنه صفحههایِ استخراجشده از کش
+# میآیند و کار از همان‌جا ادامه مییابد (خواستهٔ سازنده).
+        extract_dir = os.path.join(cache_dir, "extract")
+
+        def _files_fingerprint(files):
+            import hashlib as _hl
+            try:
+                h = _hl.sha256()
+                h.update(("ver=" + str(APP_VER) + "\n").encode("utf-8", "ignore"))
+                try:
+                    h.update(("langs=" + ",".join(sorted(str(x) for x in (
+                        getattr(self, "ocr_langs", None) or []))) + "\n"
+                    ).encode("utf-8", "ignore"))
+                except Exception:
+                    pass
+                h.update(("detconf=%.3f\n" % float(
+                    getattr(self, "det_confidence", 0.16) or 0.16)).encode())
+                h.update(("twopass=%d\n" % (
+                    1 if getattr(self, "two_pass_ocr", True) else 0)).encode())
+                for f in sorted(files, key=lambda x: os.path.basename(x).lower()):
+                    try:
+                        st = os.stat(f)
+                        h.update(("%s|%d|" % (
+                            os.path.basename(f), st.st_size)
+                        ).encode("utf-8", "ignore"))
+                        with open(f, "rb") as _fh:
+                            h.update(_fh.read(524288))
+                        h.update(b"\n")
+                    except Exception:
+                        h.update((os.path.basename(f) + "|?\n"
+                        ).encode("utf-8", "ignore"))
+                return h.hexdigest()[:16]
+            except Exception:
+                return ""
+
+        _fp_new = _files_fingerprint(image_files)
+        _fp_path = os.path.join(cache_dir, "input.json")
+        _fp_old = ""
+        try:
+            with open(_fp_path, encoding="utf-8") as _fh:
+                _fp_old = str(json.load(_fh).get("fp") or "")
+        except Exception:
+            _fp_old = ""
+        if _fp_new and _fp_old and _fp_new != _fp_old:
+            print("[*] ورودی/تنظیمات تغییر کرد — استخراج از اول.")
+# فقط کشهایی که «این» اجرا بازسازی نمیکند پاک میشوند —
+# src/normalized/stitched همین بالا از ورودیِ تازه ساخته شدهاند
+            shutil.rmtree(os.path.join(cache_dir, "extract"),
+                          ignore_errors=True)
+            try:
+                for _n in os.listdir(cache_dir):
+                    if _n == "out" or _n.startswith("out_"):
+                        shutil.rmtree(os.path.join(cache_dir, _n),
+                                      ignore_errors=True)
+            except Exception:
+                pass
+        if _fp_new:
+            try:
+                with open(_fp_path, "w", encoding="utf-8") as _fh:
+                    json.dump({"fp": _fp_new}, _fh)
+            except Exception:
+                pass
+
         processed_files = []
         skipped = 0
         page_ext = "." + (self.img_format or "webp").lstrip(".")
@@ -445,6 +611,39 @@ class _MangaTranslatorBody_95:
 # دوطرفه کارگرِ دیگر نباید پرچمِ صفحهٔ ۰ را بینِ راه پاک کند.
             if page_i == 0:
                 MangaTranslator._title_skip_enabled = True
+            _ex_cache = os.path.join(extract_dir, f"page_{page_i:04d}.json")
+            _ex_size = -1
+            try:
+                _ex_size = os.path.getsize(f)
+            except Exception:
+                _ex_size = -1
+# کشِ استخراج (توقف/ادامه): صفحهٔ قبلاً-استخراجشده بدونِ
+# detector/OCR از کش برمیگردد — حتی متنِ ترجمه‌شدهٔ همراهش
+            if resume and os.path.isfile(_ex_cache):
+                try:
+                    with open(_ex_cache, encoding="utf-8") as _fh:
+                        _cdata = json.load(_fh)
+                    if int(_cdata.get("src_size") or -2) == _ex_size:
+                        image = MangaTranslator._imread_any(f)
+                        if image is not None:
+                            regions = [
+                                MangaTranslator._region_from_cache(d)
+                                for d in (_cdata.get("regions") or [])
+                            ]
+                            _dbg = None
+                            _ovl = _cdata.get("ovl")
+                            if _ovl:
+                                try:
+                                    _dbg = image.view(_DebugPageVis)
+                                    _dbg.ovl = _ovl
+                                    _dbg.base = image
+                                except Exception:
+                                    _dbg = None
+                            print(f"[*] {os.path.basename(f)} — از کشِ "
+                                  f"استخراج (ادامه)")
+                            return page_i, out_file, image, regions, _dbg
+                except Exception:
+                    pass
             try:
                 image = MangaTranslator._imread_any(f)
                 if image is None:
@@ -455,6 +654,22 @@ class _MangaTranslatorBody_95:
                     return page_i, out_file, None, None, None
                 print(f"[*] {basename}")
                 regions, dbg = self.extract_regions_phase(image)
+# نوشتنِ کشِ استخراج: بعد از هر صفحهٔ کامل‌استخراجشده تا توقفِ
+# بعدی از همین‌جا ادامه بیفتد (خواستهٔ سازنده)
+                try:
+                    _ovl_w = getattr(dbg, "ovl", None)
+                    _cdata_w = {
+                        "src_size": _ex_size,
+                        "regions": [MangaTranslator._region_to_cache(r)
+                                    for r in (regions or [])],
+                        "ovl": (MangaTranslator._cache_jsonable(_ovl_w)
+                                if _ovl_w is not None else None),
+                    }
+                    os.makedirs(extract_dir, exist_ok=True)
+                    with open(_ex_cache, "w", encoding="utf-8") as _fh:
+                        json.dump(_cdata_w, _fh, ensure_ascii=False)
+                except Exception:
+                    pass
                 try:
                     print(f"[TIME] page#{page_i + 1} "
                           f"load+extract={time.time() - _t_ext:.1f}s",

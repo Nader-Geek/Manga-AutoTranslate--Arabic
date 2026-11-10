@@ -896,8 +896,18 @@ def _run(job):
     _FULLLOG.write(_fulllog_params(job) + "\n")
     try:
         os.makedirs(job["out"], exist_ok=True)
+# توقف/ادامه: خروجی و کشِ «همین فصل» نگه داشته میشوند تا کار
+# از همان‌جا ادامه یابد؛ موتور با اثرانگشتِ ورودی تشخیص میدهد
+# که لینک/فایل عوض شده (→ از اول) یا نه (→ ادامه). فصلهایِ
+# دیگر مثل قبل پاک میشوند.
+        _stem_cur = os.path.splitext(
+            os.path.basename(job["out_file_path"]))[0]
         for old in os.listdir(job["out"]):
+            if old == "input_batch":
+                continue
             try:
+                if _stem_cur and old.startswith(_stem_cur):
+                    continue
                 _p = os.path.join(job["out"], old)
                 if os.path.isdir(_p):
                     shutil.rmtree(_p, ignore_errors=True)
@@ -1073,7 +1083,7 @@ def _run(job):
                 if font_by_style:
                     tr.font_by_style = font_by_style
                     tr.style_fonts = True
-                tr.run(str(p.get("src")), job["out_file_path"], resume=False)
+                tr.run(str(p.get("src")), job["out_file_path"], resume=True)
         finally:
             _detach_log_handlers(handlers)
 # خطا/لغو وسطِ کار: صفحه‌هایِ در انتظارِ گیتِ ترتیبِ
