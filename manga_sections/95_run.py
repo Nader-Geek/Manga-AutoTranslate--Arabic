@@ -1372,6 +1372,25 @@ class _MangaTranslatorBody_95:
                 self._write_image(dbg, dbg_path)
                 debug_files.append(dbg_path)
                 print(f"  [*] DEBUG صفحه ذخیره شد: {dbg_path}")
+# پایه + jsonِ روکش — نمایشگرِ دیباگ با کلیدهایِ روشن/خاموش
+# هر موتور (detector.onnx / پدل-det / پدل-rec) جعبهها را جدا
+# میکشد؛ صفحهٔ پایه = عکسِ اصلِ بی‌روکش.
+                try:
+                    _ov = getattr(dbg, "ovl", None)
+                    _bs = getattr(dbg, "base", None)
+                    if _ov is not None and _bs is not None:
+                        _base_name = (os.path.splitext(
+                            os.path.basename(out_file))[0]
+                            + "_base" + dbg_ext)
+                        self._write_image(_bs,
+                                          os.path.join(debug_dir,
+                                                       _base_name))
+                        import json as _json
+                        with open(os.path.splitext(dbg_path)[0] + ".json",
+                                  "w", encoding="utf-8") as f:
+                            _json.dump(_ov, f, ensure_ascii=False)
+                except Exception:
+                    pass
 
         if not processed_files:
             print("[!] هیچ خروجی‌ای تولید نشد.", file=sys.stderr)
@@ -1546,15 +1565,15 @@ class _MangaTranslatorBody_95:
                 if len(_angs) >= 2:
                     _med = float(np.median(_angs))
                     _spread = float(np.max(np.abs(np.asarray(_angs) - _med)))
-# کجیِ کوچک (زیر ۵ درجه) نویزِ OCR است نه شیبِ
-# واقعی؛ فقط شیبِ واضح اعمال می‌شود تا متن «کج» نچسبد
-                    if _spread <= 4.0 and abs(_med) >= 5.0:
+# کجیِ کوچک (زیر ۳ درجه) نویزِ OCR است نه شیبِ
+# واقعی؛ فقط شیبِ واضح اعمال میشود تا متن «کج» نچسبد
+                    if _spread <= 5.0 and abs(_med) >= 3.0:
                         angle = _med
             except Exception:
                 pass
 
         try:
-            if abs(angle) >= 6.0 and original_image is not None:
+            if abs(angle) >= 3.0 and original_image is not None:
                 _vpts = None
                 for _p in (getattr(region, "ocr_polys", None) or []):
                     try:
@@ -1571,7 +1590,23 @@ class _MangaTranslatorBody_95:
                 _vy0 = max(0, int(_vpts[:, 1].min()) - 2)
                 _vx1 = min(int(original_image.shape[1]), int(_vpts[:, 0].max()) + 3)
                 _vy1 = min(int(original_image.shape[0]), int(_vpts[:, 1].max()) + 3)
-                if _vx1 - _vx0 >= 40 and _vy1 - _vy0 >= 14:
+# پالی‌های هم‌رأی (شیبِ همه یکی و نزدیکِ زاویهٔ ناحیه) =
+# متنِ واقعاً کج — سنجشِ جوهر رویِ کراپِ آمیخته با هنرِ اطراف
+# خطا میرود و «وتویِ مسطحِ» کاذب میزد؛ وتو فقط وقتی معتبر
+# است که پالی‌ها خودشان مطمئن نباشند (پراکنده).
+                _polys_agree = False
+                try:
+                    _pa = [float(self._poly_long_side_angle(_p))
+                           for _p in (getattr(region, "ocr_polys", None) or [])]
+                    _pa = [a for a in _pa if abs(a) >= 1.0]
+                    if len(_pa) >= 2 \
+                            and float(np.std(_pa)) <= 2.5 \
+                            and abs(float(np.mean(_pa)) - angle) <= 3.0:
+                        _polys_agree = True
+                except Exception:
+                    _polys_agree = False
+                if (not _polys_agree) \
+                        and _vx1 - _vx0 >= 40 and _vy1 - _vy0 >= 14:
                     _a_ink, _a_ok = MangaTranslator._ink_slant_measure(
                         original_image[_vy0:_vy1, _vx0:_vx1])
                     if _a_ok and abs(_a_ink) < 6.0:
@@ -1608,7 +1643,7 @@ class _MangaTranslatorBody_95:
         if abs(angle) > 45.0:
             angle = 0.0
 
-        if abs(angle) < 5:
+        if abs(angle) < 3:
             bb = font.getbbox("آیگچ", stroke_width=sw)
             glyph_h = bb[3] - bb[1]
             _dbg_pos = bool(os.environ.get("MANGA_DEBUG_POS"))
@@ -1693,6 +1728,44 @@ class _MangaTranslatorBody_95:
                         stroke_fill=stroke_rgb,
                     )
         else:
+
+# خمیده/آبشاری — هر خطِ متنِ اصلی شیبِ خودش را دارد (SFXِ
+# پلکانی مثلِ ROOOOAAAR یا متنِ قوسی): اگر شیبِ خطها با هم
+# ≥۸° اختلاف دارد، هر تکهٔ ترجمه جدا با «زاویهٔ همان خط» و
+# وسطِ همان نوار رندر میشود — سبکِ نوشتاری هم مثلِ اصل کج
+# میماند، نه یک تختِ یکنواخت.
+            try:
+                _pln = MangaTranslator._group_polys_to_lines(
+                    getattr(region, "ocr_polys", None) or [])
+                if _pln and len(_pln) >= 2:
+                    _allp = [np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                             for p in (getattr(region, "ocr_polys", None) or [])
+                             if np.asarray(p).size >= 6]
+                    _ln_ang = []
+                    for _lb in _pln:
+                        _cx0, _cy0, _cx1, _cy1 = _lb
+                        _cxs = (_cx0 + _cx1) / 2.0
+                        _cys = (_cy0 + _cy1) / 2.0
+                        _pw = max(8.0, float(_cx1 - _cx0))
+                        _ph = max(8.0, float(_cy1 - _cy0))
+                        _aa = []
+                        for _pp in _allp:
+                            _px = float(_pp[:, 0].mean())
+                            _py = float(_pp[:, 1].mean())
+                            if abs(_px - _cxs) <= _pw * 0.75 \
+                                    and abs(_py - _cys) <= _ph * 0.9:
+                                _va = float(self._poly_long_side_angle(_pp))
+                                if abs(_va) >= 1.0:
+                                    _aa.append(_va)
+                        _ln_ang.append(float(np.median(_aa)) if _aa else 0.0)
+                    _spr = float(np.max(_ln_ang) - np.min(_ln_ang))
+                    if _spr >= 8.0 and all(abs(a) <= 45.0 for a in _ln_ang):
+                        self._render_curved_lines(
+                            pil_img, draw, region, _pln, _ln_ang,
+                            text_rgb, stroke_rgb, style, max_font)
+                        return
+            except Exception:
+                pass
 
 # کجی — مختصاتِ «متن» نه کلِ حباب. rect معمولاً باکسِ
 # حباب است؛ فرمولِ مستطیلِ محاطی روی باکسِ حباب نوارِ قطریِ باریک
@@ -1792,3 +1865,89 @@ class _MangaTranslatorBody_95:
             paste_y = int(cy - rh / 2)
 
             pil_img.paste(rotated, (paste_x, paste_y), rotated)
+
+    def _render_curved_lines(self, pil_img, draw, region, line_boxes,
+                             line_angles, text_rgb, stroke_rgb,
+                             style, max_font) -> None:
+        """ — رندرِ خمیده/آبشاری: هر تکهٔ ترجمه با «زاویهٔ خودِ
+        همان خطِ اصلی» وسطِ همان نوار می‌نشیند — سبکِ نوشتاریِ
+        خروجی هم مثلِ اصل کج/خمیده میماند (ROOOOAAARِ پلکانی،
+        متنِ قوسی). فقط وقتی صدا زده میشود که شیبِ خطها با هم
+        ≥۸° اختلاف داشته باشد."""
+        txt = str(getattr(region, "translated_text", "") or "").strip()
+        if not txt or not line_boxes:
+            return
+        try:
+            n = len(line_boxes)
+            words = txt.split()
+            if not words:
+                return
+            widths = [max(14.0, float(b[2] - b[0])) for b in line_boxes]
+            heights = [max(7.0, float(b[3] - b[1])) for b in line_boxes]
+            med_h = float(np.median(heights))
+            fsize = int(np.clip(round(med_h * 0.92), 10,
+                                max(11, int(max_font or 48))))
+            sw = self._stroke_width_for(fsize)
+# پخشِ واژهها بینِ خطها به نسبتِ عرضِ هر خط؛ واژههایِ
+# کمتر از تعدادِ خطها از «اولین» خطها یک-به-یک میگیرند
+            if n == 1:
+                chunks = [" ".join(words)]
+            elif len(words) <= n:
+                chunks = [words[i] if i < len(words) else ""
+                          for i in range(n)]
+            else:
+                total_w = sum(widths)
+                chunks = []
+                wi = 0
+                for li in range(n):
+                    if li == n - 1:
+                        chunks.append(" ".join(words[wi:]))
+                        break
+                    _share = (widths[li] / total_w) * (len(words))
+                    _take = max(1, int(round(_share)))
+                    _take = min(_take, len(words) - wi - (n - li - 1))
+                    if _take <= 0 or wi >= len(words):
+                        chunks.append("")
+                        continue
+                    chunks.append(" ".join(words[wi:wi + _take]))
+                    wi += _take
+                while len(chunks) < n:
+                    chunks.append("")
+            for li, chunk in enumerate(chunks):
+                if not chunk:
+                    continue
+                _lb = line_boxes[li]
+                _ang = float(line_angles[li]) if li < len(line_angles) else 0.0
+                if abs(_ang) > 45.0:
+                    _ang = 0.0
+                _f = self._load_font(fsize, style=style)
+                _sh = self._shape_farsi(chunk)
+                _lw = draw.textbbox((0, 0), _sh, font=_f,
+                                    stroke_width=sw)[2]
+                _fit = max(14.0, widths[li] * 1.12)
+                _tries = 0
+                while _lw > _fit and fsize - _tries > 10 and _tries < 6:
+                    _tries += 1
+                    _f = self._load_font(fsize - _tries, style=style)
+                    _lw = draw.textbbox((0, 0), _sh, font=_f,
+                                        stroke_width=sw)[2]
+                _fsize = fsize - _tries
+                _sw2 = self._stroke_width_for(_fsize)
+                _lh = max(10, int(_fsize * 1.35))
+                _tmp_w = max(24, _lw + 12)
+                _tmp = Image.new("RGBA", (_tmp_w, _lh + 8), (0, 0, 0, 0))
+                _td = ImageDraw.Draw(_tmp)
+                _tx = (_tmp_w - _lw) // 2
+                _td.text((_tx, 2), _sh, font=_f,
+                         fill=tuple(text_rgb)[:3] + (255,),
+                         stroke_width=_sw2,
+                         stroke_fill=tuple(stroke_rgb)[:3] + (255,))
+                _rot = _tmp.rotate(-_ang, expand=True,
+                                   resample=Image.BICUBIC)
+                _cx = (_lb[0] + _lb[2]) / 2.0
+                _cy = (_lb[1] + _lb[3]) / 2.0
+                _rw, _rh = _rot.size
+                pil_img.paste(_rot, (int(_cx - _rw / 2),
+                                     int(_cy - _rh / 2)), _rot)
+        except Exception:
+            return

@@ -910,6 +910,10 @@ def _live_payload_load(pl: dict):
 def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
                     dbg: bool) -> None:
     """نوشتنِ یک اسلاتِ live روی دیسک (قبلاً بدنهٔ دومِ _live_dump بود)."""
+# دادهٔ روکشِ دیباگ قبل از هر resize برداشته میشود (بعد از
+# resize، آرایهٔ تازه ویژگیهایش را از دست میدهد)
+    _ovl = getattr(img, "ovl", None)
+    _base = getattr(img, "base", None)
     _sent = os.path.join(d, ".count")
     try:
         with open(_sent, encoding="utf-8") as f:
@@ -918,7 +922,9 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
         n = 0
     h, w = img.shape[:2]
     tw = 900
+    _sc = 1.0
     if w > tw:
+        _sc = float(tw) / float(w)
         img = cv2.resize(img, (tw, max(1, round(h * tw / w))),
                          interpolation=cv2.INTER_AREA)
     out_name = os.path.join(d, f"live_{slot:04d}.jpg")
@@ -929,6 +935,36 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
 # (فایلِ موجود) بی‌سروصدا میماند.
     _first_write = not os.path.isfile(out_name)
     cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
+# دیباگِ روکشدار: پایهٔ بی‌روکش + jsonِ جعبهها با همان مقیاسِ
+# live کنارش مینشینند — نمایشگر با کلیدهای جدا جدا میکشدشان
+    if dbg and _ovl is not None and _base is not None:
+        try:
+            import json as _json
+            _bimg = _base
+            if _bimg.shape[1] != img.shape[1]:
+                _bimg = cv2.resize(
+                    _base, (img.shape[1],
+                            max(1, round(_base.shape[0] * _sc))),
+                    interpolation=cv2.INTER_AREA)
+            cv2.imwrite(os.path.join(d, f"live_{slot:04d}_base.jpg"),
+                        _bimg, [cv2.IMWRITE_JPEG_QUALITY, 86])
+            _oj = {
+                "size": [int(img.shape[1]), int(img.shape[0])],
+                "det": [[round(float(v) * _sc, 1) for v in b[:4]]
+                        + [str(b[4] if len(b) > 4 else "")]
+                        for b in (_ovl.get("det") or [])],
+                "pdet": [[[round(float(x) * _sc, 1),
+                           round(float(y) * _sc, 1)] for x, y in q]
+                         for q in (_ovl.get("pdet") or [])],
+                "rec": [[round(float(v) * _sc, 1) for v in r[:4]]
+                        + [str(v) for v in r[4:]]
+                        for r in (_ovl.get("rec") or [])],
+            }
+            with open(os.path.join(d, f"live_{slot:04d}.json"), "w",
+                      encoding="utf-8") as f:
+                _json.dump(_oj, f, ensure_ascii=False)
+        except Exception:
+            pass
 # شمارندهٔ پوشه نباید عقبتر از اسلاتهایِ تخصیصی بماند (رفتارِ سابق)
     with open(_sent, "w", encoding="utf-8") as f:
         f.write(str(max(n, slot)))
@@ -941,6 +977,16 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
     if not dbg and (key is None or slot_new or _first_write):
         print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
 # به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
+
+class _DebugPageVis(np.ndarray):
+    """ — تصویرِ دیباگ + دادهٔ روکش: پایه (صفحهٔ بی‌روکش) و
+    فهرستِ جعبه‌های هر موتور (detector.onnx / پدل-det / پدل-rec)
+    به خودِ آرایه چسبیده میآیند تا در جایِ ذخیره، live_XX_base و
+    live_XX.json کنارِ تصویرِ سوخته بنشینند — نمایشگر با کلیدهایِ
+    روشن/خاموش، روکشها را جدا جدا میکشد."""
+    ovl = None
+    base = None
+
 
 def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
                slot: Optional[int] = None) -> None:

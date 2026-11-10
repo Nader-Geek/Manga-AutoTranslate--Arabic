@@ -1111,6 +1111,8 @@ def _run(job):
                     continue
                 lp = os.path.join(root, f)
                 if is_dbg or "debug" in f.lower():
+                    if "_base." in f.lower():
+                        continue  # پایهٔ روکش — فقط برای کلیدهای نمایشگر
                     dbg.append(lp)
                 else:
                     imgs.append(lp)
@@ -1139,6 +1141,8 @@ def _run(job):
                 for f in sorted(files):
                     lp = os.path.join(root, f)
                     if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                        if "_base." in f.lower():
+                            continue  # پایهٔ روکش (live/debug) — فقط نمایشگرِ تعاملی
                         (dbg if "debug" in f.lower() else imgs).append(lp)
         if not imgs:
             imgs = _live_pages(job)
@@ -1211,7 +1215,8 @@ def _live_pages(job, dbg: bool = False):
     try:
         import re as _re
         files = [os.path.join(d, f) for f in os.listdir(d)
-                 if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))]
+                 if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+                 and "_base" not in f.lower()]  # پایهٔ روکش — فقط نمایشگرِ تعاملی
         files.sort(key=lambda s: [int(t) if t.isdigit() else t
                                   for t in _re.split(r"(\d+)", s)])
         return files

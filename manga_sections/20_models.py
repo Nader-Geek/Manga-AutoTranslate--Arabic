@@ -2842,19 +2842,16 @@ def _line_is_foreign(bb, block_rects, own_area: float) -> bool:
             continue
     return False
 
-def _clamp_lines_to_det(res, box, block_rects=None, tol: float = 10.0):
-    """ — استخراج نباید از باکسِ detector بیرون بزند (). دو قاعدهٔ مالکیتِ خط:
-      ۱) مرکزِ خط داخلِ باکسِ detectorِ خودِ ناحیه نیست → مالِ این ناحیه
-         نیست (کراپِ گسترشیافتهٔ متنِ کج تا ۱۲۰px خطِ مجاور را میخواند؛
-         فیلترِ ۱۸۸ فقط «همسایهٔ کوچکتر» را حذف میکند — خطِ همسایهٔ
-         بزرگتر مثلِ تایتلِ کجِ کاغذ در ناحیهٔ حبابِ کوچک میماند →
-         گسترشِ angle مستطیل را منفجر میکند و mergeِ همپوشانی سه حباب
-         را یکجا میگیرد).
-      ۲) اگر مرکزِ خط داخلِ باکسِ «کوچکتری» از همسایهها هم هست، خط مالِ
-         همان است — دوباره‌پردازیِ deskewِ _ocr_crop از فیلترِ ۱۸۸ رد
-         میشود و ناحیهٔ بزرگ (تایتل) خطِ حبابهایِ کوچکِ داخلِ باکسش را
-         نگه میدارد → باز همان انفجارِ مستطیل. این قفل بعد ازِ خروجیِ
-         نهاییِ _ocr_crop اجرا میشود → همهٔ مسیرها پوشش داده میشوند.
+def _clamp_lines_to_det(res, box, block_rects=None, tol: float = 6.0):
+    """ — استخراج نباید از باکسِ detector بیرون بزند. مالکیتِ خط با
+    «مساحت» سنجیده میشود نه مرکز — خطی که نصفِ مساحتش داخلِ باکس
+    نیست، مالِ این ناحیه نیست (حتی اگر مرکزش داخل باشد) و برعکس
+    خطِ لبه‌ای که ۹۰٪ داخل است ولی مرکزش ۲px بیرون افتاده نگه
+    داشته میشود (قبلاً با قاعدهٔ مرکز می‌افتاد).
+      ۱) کمتر از نصفِ مساحتِ خط داخلِ باکسِ detectorِ خودِ ناحیه →
+         خطِ بیگانه (کراپِ پد/کج تا ۱۲۰px خطِ مجاور را میخواند).
+      ۲) بیشترِ از ۶۰٪ مساحتِ خط داخلِ باکسِ همسایهٔ «کوچکتر» →
+         مالِ همان همسایه است (دوباره‌خوانیِ مرکزِ مشترک).
     خط/متن/زاویه/بلوکِ همترازِ خطِ حذفشده با هم میروند."""
     try:
         txt, polys, angs, texts, blks = res
@@ -2877,19 +2874,36 @@ def _clamp_lines_to_det(res, box, block_rects=None, tol: float = 10.0):
         for p in polys:
             try:
                 pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+            except Exception:
+                keep.append(True)
+                continue
+            try:
+                _qx1 = float(pp[:, 0].min()); _qy1 = float(pp[:, 1].min())
+                _qx2 = float(pp[:, 0].max()); _qy2 = float(pp[:, 1].max())
+                _qa = max(1e-6, (_qx2 - _qx1) * (_qy2 - _qy1))
+                ix = max(0.0, min(_qx2, bx2 + tol) - max(_qx1, bx1 - tol))
+                iy = max(0.0, min(_qy2, by2 + tol) - max(_qy1, by1 - tol))
+                if (ix * iy) / _qa < 0.5:
+                    keep.append(False)  # قاعدهٔ ۱ — بیشترش بیرونِ باکس است
+                    continue
+            except Exception:
+                keep.append(True)
+                continue
+            try:
                 cx = float(pp[:, 0].mean())
                 cy = float(pp[:, 1].mean())
             except Exception:
                 keep.append(True)
                 continue
-            if not ((bx1 - tol) <= cx <= (bx2 + tol)
-                    and (by1 - tol) <= cy <= (by2 + tol)):
-                keep.append(False)  # قاعدهٔ ۱ — بیرونِ باکسِ خودِ ناحیه
-                continue
             _stolen = False
             for (ox1, oy1, ox2, oy2, oa) in _others:
                 if oa >= own_area:
                     continue  # فقط همسایهٔ کوچکتر مالکیت را میگیرد
+                iox = max(0.0, min(_qx2, ox2) - max(_qx1, ox1))
+                ioy = max(0.0, min(_qy2, oy2) - max(_qy1, oy1))
+                if (iox * ioy) / max(1e-6, _qa) >= 0.6:
+                    _stolen = True
+                    break
                 if ((ox1 - tol) <= cx <= (ox2 + tol)
                         and (oy1 - tol) <= cy <= (oy2 + tol)):
                     _stolen = True

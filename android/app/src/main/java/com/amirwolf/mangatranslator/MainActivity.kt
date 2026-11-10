@@ -3361,6 +3361,10 @@ class MainActivity : AppCompatActivity() {
 
         val imgRx = Regex("/i/(\\d+)(?:\\?.*)?$")  // ?r= برایِ بهروزرسانیِ ۱۵تایی
         val dbgRx = Regex("/d/(\\d+)/?$")
+// روکشِ دیباگ: پایهٔ بی‌روکش (db/N) و jsonِ جعبهها (dj/N) —
+// خواهرهایِ فایلِ دیباگ (X_debug.jpg → X_base.jpg + X_debug.json)
+        val dbgBaseRx = Regex("/db/(\\d+)/?$")
+        val dbgJsonRx = Regex("/dj/(\\d+)/?$")
         val mimeMap = mapOf(
             "png" to "image/png", "jpg" to "image/jpeg", "jpeg" to "image/jpeg",
             "webp" to "image/webp", "bmp" to "image/bmp", "gif" to "image/gif")
@@ -3435,6 +3439,36 @@ class MainActivity : AppCompatActivity() {
                         android.webkit.WebResourceResponse(
                             mimeMap[df.extension.lowercase()] ?: "image/png", null,
                             df.inputStream())
+                    } catch (_: Exception) { null }
+                }
+// پایهٔ بی‌روکشِ همان صفحهٔ دیباگ (X_debug.* → X_base.*)
+                val bm = dbgBaseRx.find(request.url.toString())
+                if (bm != null) {
+                    val bi = bm.groupValues[1].toIntOrNull() ?: return null
+                    if (bi < 0 || bi >= dpaths.size) return null
+                    val df = File(dpaths[bi])
+                    val bf = File(df.parentFile ?: File("."),
+                        df.nameWithoutExtension.removeSuffix("_debug")
+                            + "_base." + df.extension)
+                    if (!bf.isFile) return null
+                    return try {
+                        android.webkit.WebResourceResponse(
+                            mimeMap[bf.extension.lowercase()] ?: "image/jpeg", null,
+                            bf.inputStream())
+                    } catch (_: Exception) { null }
+                }
+// jsonِ روکش (X_debug.* → X_debug.json)
+                val jm = dbgJsonRx.find(request.url.toString())
+                if (jm != null) {
+                    val ji = jm.groupValues[1].toIntOrNull() ?: return null
+                    if (ji < 0 || ji >= dpaths.size) return null
+                    val df = File(dpaths[ji])
+                    val jf = File(df.parentFile ?: File("."),
+                        df.nameWithoutExtension + ".json")
+                    if (!jf.isFile) return null
+                    return try {
+                        android.webkit.WebResourceResponse(
+                            "application/json", "utf-8", jf.inputStream())
                     } catch (_: Exception) { null }
                 }
 // mtimes.txt (زمانِ بهروزرسانیِ هر اسلات) برایِ

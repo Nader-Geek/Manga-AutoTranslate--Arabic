@@ -9151,7 +9151,8 @@ class _MangaTranslatorBody_85:
 
                            mask: np.ndarray,
                            verbose: bool = True,
-                           refill: bool = False) -> np.ndarray:
+                           refill: bool = False,
+                           extra: Optional[np.ndarray] = None) -> np.ndarray:
 # نقشهٔ «چه چیزی واقعاً منتقل شد» برایِ گاردهایِ
 # پساکامپوز (وارسیِ نهایی/جارویِ بازمانده): هیچ ترمیمی بعد از
 # کامپوز حقِ نوشتن بیرونِ این مجموعه را ندارد — قراردادِ
@@ -9248,6 +9249,16 @@ class _MangaTranslatorBody_85:
                         _cmp &= ((_pcC == 0) | (_anC > 0))
                     else:
                         _cmp &= (_pcC == 0)
+            except Exception:
+                pass
+# جاهای پاک‌شدهٔ جاروهایِ پساکامپوز (متنِ جامانده/خرده‌گلیف):
+# آنها هم «منتقل‌شده» حساب میشوند و از قفلِ دیوار/protect
+# معافند — جارو خودش مراقبِ دیوار بوده؛ قفل، متنِ جامانده را
+# زنده نگه میداشت (خلافِ قانونِ «هیچ متنی نمیماند»).
+            try:
+                if extra is not None and extra.shape == _cmp.shape \
+                        and int(cv2.countNonZero(extra)) > 0:
+                    _cmp = _cmp | (extra > 0)
             except Exception:
                 pass
             try:
@@ -9680,6 +9691,24 @@ class _MangaTranslatorBody_85:
         except Exception:
             return mask
 
+    def _sweep_fix_record(self, fix_mask) -> None:
+        """ — ثبتِ جاهایی که جاروهایِ پساکامپوز پاک کردهاند —
+        کامپوزِ نهایی این جاها را مثلِ نوارِ متن «منتقل‌شده"
+        حساب میکند (عکسِ دوم فقط همین‌جا + نوارها عوض میشود)."""
+        try:
+            if fix_mask is None:
+                return
+            _m = np.asarray(fix_mask)
+            if _m.dtype != bool:
+                _m = _m > 0
+            _cur = getattr(self, "_sweep_fix_mask", None)
+            if _cur is None or _cur.shape != _m.shape:
+                self._sweep_fix_mask = _m.copy()
+            else:
+                self._sweep_fix_mask |= _m
+        except Exception:
+            pass
+
     def clean_image(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
 # پوستهٔ قفل‌دار: بدنهٔ اصلی در _clean_image_page زیرِ
 # قفلِ سریالِ کلاس اجرا میشود تا پاکسازیِ همزمانِ دو صفحهٔ بچ
@@ -9696,6 +9725,10 @@ class _MangaTranslatorBody_85:
 # نواحیِ صفحه نگه داشته می‌شوند تا «کامپوزِ دو-عکسی»
 # بتواند نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ متن) را بسازد.
         self._page_regions = list(regions or [])
+# نقشهٔ «جاهای پاک‌شدهٔ» جاروهایِ پساکامپوز — قراردادِ
+# دو-عکسی: عکسِ دوم فقط در «نوارهایِ متن + همین جاها»
+# پیکسل عوض میکند، هر جایِ دیگر همیشه اورجینال است.
+        self._sweep_fix_mask = None
 # «متنِ فقط عدد/نماد دست‌نخورده بماند»: ناحیه‌ای که متنِ OCRشدهاش «هیچ حرفی»
 # ندارد ('....'، '123124'، ' ,./???!?~') نه ترجمه میشود
 # (فیلترِ ۲۲۹ در translate_regions) و نه پاکسازی — هنر/عدتِ
@@ -12354,6 +12387,29 @@ class _MangaTranslatorBody_85:
                                         verbose=self.debug)
             except Exception:
                 pass
+# قراردادِ دو-عکسی — تضمینِ نهایی: عکسِ دوم (خروجی) فقط درِ
+# «نوارهایِ خط‌به‌خطِ پاک‌شده + جاهایی که جاروها پاک کردند»
+# پیکسلِ عوض‌شده دارد؛ هر پیکسلِ دیگر، حتی اگر پرکننده/سویپی
+# اشتباهاً نوشته باشد، از عکسِ اصلی برمیگردد. جاروها هم فقط
+# داخلِ همین مجموعه اثر میگذارند (مسیرِ دیگری برای ویرایشِ
+# عکسِ دوم باز نیست).
+        try:
+            if _cmp2 is not None:
+                _extras = getattr(self, "_sweep_fix_mask", None)
+                _extra_u8 = None
+                _m_final = _cmp2
+                if _extras is not None and _extras.shape == _cmp2.shape \
+                        and bool(_extras.any()):
+                    _extra_u8 = _extras.astype(np.uint8) * 255
+                    _m_final = ((_cmp2 > 0) | _extras).astype(np.uint8) * 255
+                cleaned = self._compose_two_image(
+                    cleaned, image, _m_final, verbose=False, refill=True,
+                    extra=_extra_u8)
+                if self.debug:
+                    print("  [✓] قراردادِ دو-عکسی: بیرونِ نوارهایِ "
+                          "پاک‌شده = پیکسلِ اورجینال (تضمینِ نهایی)")
+        except Exception:
+            pass
         return cleaned
 
     def _compose_dot_sweep(self, cleaned: np.ndarray,
@@ -12506,6 +12562,12 @@ class _MangaTranslatorBody_85:
                     sub_fix = cv2.inpaint(sub, gm, 3, cv2.INPAINT_TELEA)
                     _m = gm > 0
                     sub[_m] = sub_fix[_m]
+                    try:
+                        _fm = np.zeros((h, w), bool)
+                        _fm[y0:y1, x0:x1] = _m
+                        self._sweep_fix_record(_fm)
+                    except Exception:
+                        pass
                     n_fix += n_g
                     n_px += int(cv2.countNonZero(gm))
                     if verbose:
@@ -12623,6 +12685,7 @@ class _MangaTranslatorBody_85:
                 _m[by0:by1, bx0:bx1] = resid.astype(np.uint8) * 255
                 _patch = cv2.inpaint(cleaned, _m, 4, cv2.INPAINT_TELEA)
                 cleaned[resid] = _patch[resid]
+                self._sweep_fix_record(resid)
                 n_fix += 1
                 n_px += _np
             if n_fix and verbose:

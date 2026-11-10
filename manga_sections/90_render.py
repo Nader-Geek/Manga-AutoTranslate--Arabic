@@ -622,7 +622,36 @@ class _MangaTranslatorBody_90:
         except Exception:
           pass
 
-      return vis
+# دادهٔ روکش برای نمایشگرِ تعاملی (کلیدهایِ detector/paddle-det/
+# paddle-rec): جعبههایِ هر موتور + متنها، جدا از تصویرِ سوخته؛
+# همراهِ پایه (صفحهٔ اصل) به خودِ آرایه میچسبد.
+      try:
+        _ovl = {"size": [int(vis.shape[1]), int(vis.shape[0])],
+                "det": [], "pdet": [], "rec": []}
+        for _dbox, _dcls in (_det_raw0 or []):
+          _ovl["det"].append([int(_dbox[0]), int(_dbox[1]),
+                              int(_dbox[2]), int(_dbox[3]),
+                              str(_dcls or "")])
+        for _q in (getattr(self, "_dbg_det_quads", None) or []):
+          _qq = np.asarray(_q, dtype=np.float32).reshape(-1, 2)
+          _ovl["pdet"].append([[round(float(_x), 1), round(float(_y), 1)]
+                               for _x, _y in _qq])
+        for _r in (regions or []):
+          try:
+            _ovl["rec"].append([
+              int(_r.rect[0]), int(_r.rect[1]),
+              int(_r.rect[2]), int(_r.rect[3]),
+              str(getattr(_r, "kind", "") or ""),
+              (str(getattr(_r, "source_text", "") or ""))[:80],
+              (str(getattr(_r, "translated_text", "") or ""))[:80]])
+          except Exception:
+            continue
+        _vis2 = vis.view(_DebugPageVis)
+        _vis2.ovl = _ovl
+        _vis2.base = image
+        return _vis2
+      except Exception:
+        return vis
 
     @staticmethod
     def _skew_from_quads(core_bgr: np.ndarray, quads, ox: int, oy: int, inset: int) -> float:

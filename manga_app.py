@@ -1893,7 +1893,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .pbar{position:fixed;bottom:0;left:0;right:0;height:4px;background:#1a1a1c;z-index:4}
 .pfill{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}
 </style></head><body>
-<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><button type="button" class="dbtn" id="db">🔍 دیباگ</button><div class="n" id="n">0</div></div>
+<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><button type="button" class="dbtn" id="db">🔍 دیباگ</button><button type="button" class="dbtn on" id="od" title="detector.onnx">detector.onnx</button><button type="button" class="dbtn on" id="opd" title="paddle det">paddle det</button><button type="button" class="dbtn on" id="opr" title="paddle rec">paddle rec</button><div class="n" id="n">0</div></div>
 <main class="c" id="c"><div class="hint" id="h">در انتظار اولین صفحه…</div></main>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
 <script>
@@ -1905,6 +1905,116 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       b = document.getElementById('n'), dot = document.getElementById('dot'),
       db = document.getElementById('db');
   var haveDbg = !!DBG, dbgTotal = -1;
+  // ——— کلیدهایِ روکشِ دیباگ: هر موتور جدا روشن/خاموش ———
+  var ov = { det: 1, pdet: 1, rec: 1 };
+  var od = document.getElementById('od'), opd = document.getElementById('opd'),
+      opr = document.getElementById('opr');
+  var ovlCache = {};
+  function ovlActive(){ return dbgMode && !(ov.det && ov.pdet && ov.rec); }
+  function fetchSlotOvl(slot){
+    var cc = ovlCache[slot];
+    // شکستِ تازه (۵ ثانیه) دوباره امتحان میشود — json ممکن است در
+    // اجرایِ زنده کمی دیرتر بنشیند
+    if (cc && cc.ok) return Promise.resolve(cc.v);
+    if (cc && !cc.ok && (Date.now() - cc.t) < 5000) return Promise.resolve(null);
+    return fetch(P + DBG + 'live_' + pad(slot) + '.json?r=' + Date.now(), { cache: 'no-store' })
+      .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+      .then(function(j){
+        return new Promise(function(res){
+          var im = new Image();
+          im.onload = function(){ ovlCache[slot] = { ok: 1, v: { json: j, base: im } }; res(ovlCache[slot].v); };
+          im.onerror = function(){ ovlCache[slot] = { ok: 0, t: Date.now() }; res(null); };
+          im.src = P + DBG + 'live_' + pad(slot) + '_base.jpg?r=' + STAMP;
+        });
+      })
+      .catch(function(){ ovlCache[slot] = { ok: 0, t: Date.now() }; return null; });
+  }
+  function drawOvl(cv, data){
+    var j = data.json;
+    var W = (j.size && j.size[0]) || data.base.naturalWidth || 900;
+    var H = (j.size && j.size[1]) || data.base.naturalHeight || 1200;
+    cv.width = W; cv.height = H;
+    var x = cv.getContext('2d');
+    x.drawImage(data.base, 0, 0, W, H);
+    x.textBaseline = 'top';
+    if (ov.det && j.det) {
+      x.lineWidth = Math.max(2, W / 300);
+      x.font = 'bold ' + Math.max(12, Math.round(W / 45)) + 'px sans-serif';
+      for (var i = 0; i < j.det.length; i++) {
+        var d = j.det[i];
+        x.strokeStyle = '#00e640'; x.fillStyle = '#00e640';
+        x.strokeRect(d[0], d[1], d[2] - d[0], d[3] - d[1]);
+        x.fillText('D' + ('0' + i).slice(-2) + ' ' + (d[4] || ''), d[0] + 4, d[1] + 3);
+      }
+    }
+    if (ov.pdet && j.pdet) {
+      x.strokeStyle = '#3a8bff'; x.lineWidth = Math.max(2, W / 340);
+      for (var k = 0; k < j.pdet.length; k++) {
+        var q = j.pdet[k];
+        if (!q || q.length < 2) continue;
+        x.beginPath();
+        x.moveTo(q[0][0], q[0][1]);
+        for (var p2 = 1; p2 < q.length; p2++) x.lineTo(q[p2][0], q[p2][1]);
+        x.closePath(); x.stroke();
+      }
+    }
+    if (ov.rec && j.rec) {
+      x.lineWidth = Math.max(1.5, W / 380);
+      x.font = Math.max(11, Math.round(W / 50)) + 'px sans-serif';
+      for (var m = 0; m < j.rec.length; m++) {
+        var rr = j.rec[m];
+        x.strokeStyle = (rr[4] === 'promo') ? '#ff9f0a' : '#ff3b30';
+        x.strokeRect(rr[0], rr[1], rr[2], rr[3]);
+        if (rr[5]) {
+          x.fillStyle = (rr[4] === 'promo') ? '#ff9f0a' : '#ffd60a';
+          x.fillText(('[' + m + '] ' + rr[5]).slice(0, 44), rr[0], Math.max(0, rr[1] - Math.round(W / 42)));
+        }
+      }
+    }
+  }
+  function applyOvl(){
+    if (!haveDbg) return;
+    var kids = c.children;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      if (el.tagName !== 'IMG') continue;
+      (function(el, slot){
+        if (!ovlActive()) {
+          if (el.getAttribute('data-ovl') === '1') {
+            el.removeAttribute('data-ovl');
+            hotSwap(el, imgSrc(slot - 1));
+          }
+          return;
+        }
+        if (el.getAttribute('data-ovl') === '1') return;
+        fetchSlotOvl(slot).then(function(data){
+          if (!data || !ovlActive() || el.parentNode !== c) return;
+          if (el.getAttribute('data-ovl') === '1') return;
+          try {
+            var cv = document.createElement('canvas');
+            drawOvl(cv, data);
+            el.setAttribute('data-ovl', '1');
+            el.src = cv.toDataURL('image/jpeg', 0.87);
+          } catch (e) {}
+        });
+      })(el, i + 1);
+    }
+  }
+  function setOvlBtns(){
+    var on = dbgMode ? 'inline-block' : 'none';
+    if (od) od.style.display = on;
+    if (opd) opd.style.display = on;
+    if (opr) opr.style.display = on;
+  }
+  function bindOvl(btn, key){
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      ov[key] = ov[key] ? 0 : 1;
+      btn.classList.toggle('on', !!ov[key]);
+      applyOvl();
+    });
+  }
+  bindOvl(od, 'det'); bindOvl(opd, 'pdet'); bindOvl(opr, 'rec');
   // دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
   // صفحهٔ دیباگ واقعاً وجود دارد (قبلاً فقط وجودِ پوشه کافی بود → دکمه
   // میآمد ولی فعال نبود). total.txt پوشهٔ دیباگ هر ۴ ثانیه چک میشود.
@@ -1973,6 +2083,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     b.className = 'n' + (fin ? ' done' : '');
     dot.className = 'dot' + (fin ? ' off' : '');
     if (haveDbg) db.style.display = ((dbgTotal > 0 || dbgArrived > 0) && (arrived > 0 || dbgArrived > 0 || total > 0)) ? 'inline-block' : 'none';
+    if (haveDbg) {
+      var _ov = (dbgTotal > 0 || dbgArrived > 0) && dbgMode ? 'inline-block' : 'none';
+      if (od) od.style.display = _ov;
+      if (opd) opd.style.display = _ov;
+      if (opr) opr.style.display = _ov;
+      if (ovlActive()) applyOvl();
+    }
   }
   function probe(){
     if (busy) return;
@@ -2003,8 +2120,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       h.className = 'hint';
       h.textContent = dbgMode ? 'در انتظار دیباگ…' : 'در انتظار صفحه…';
       c.appendChild(h);
+      setOvlBtns();
       render();
       probe();
+      if (ovlActive()) applyOvl();
     });
   }
   // progressive 15-by-15 refresh: the engine rewrites the same
@@ -2088,8 +2207,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
           if (mtimes[slot] === mt) continue;
           mtimes[slot] = mt;
           var el = c.children[slot - 1];
-          if (el && el.tagName === 'IMG')
+          if (el && el.tagName === 'IMG') {
             hotSwap(el, P + curDir() + 'live_' + pad(slot) + '.jpg?r=' + Date.now());
+            if (ovlActive()) setTimeout(applyOvl, 450);
+          }
         }
       })
       .catch(function(){ mtimeBusy = false; });
@@ -3014,6 +3135,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         if f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
                             if exclude_debug and ("debug" in f.lower() or "debug" in root.lower()):
                                 continue
+                            if "_base." in f.lower():
+                                continue  # پایهٔ روکش — فقط برای کلیدهای نمایشگر
                             p = os.path.join(root, f)
                             if p not in seen:
                                 seen.add(p)

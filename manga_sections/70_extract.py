@@ -2338,6 +2338,41 @@ class _MangaTranslatorBody_70:
                 ocr_results.append((full_txt, full_polys, full_angs,
                                     _full_lts, _full_blks))
 
+# نجاتِ rec — ناحیههایِ بی‌متن (det جعبه دیده، recِ نردبان نخوانده):
+# هر کوارِ نجات‌یافته جدا برش و خوانده میشود؛ متن + پالیِ تازه به
+# نتیجهٔ همان ناحیه میچسبد (پالیها ماسکِ پاکسازیِ خط‌به‌خط را هم
+# درست میکنند). فقط RapidOCRِ جدیدِ PC — گوشی بی‌تغییر.
+        if cand:
+            for _k in range(len(cand)):
+                try:
+                    if str(ocr_results[_k][0] or "").strip():
+                        continue
+                    _tk = cand[_k]
+                    _blk = [(_all_rects[j] if j < len(_all_rects)
+                             else (cand[j][2], cand[j][3],
+                                   cand[j][4], cand[j][5]))
+                            for j in range(len(cand)) if j != _k]
+                    _hits = self._rec_rescue_missed_quads(
+                        image, (_tk[2], _tk[3], _tk[4], _tk[5]),
+                        _blk, ocr_results[_k][1] or [])
+                    if not _hits:
+                        continue
+                    _txt, _polys, _angs, _lts, _blks = ocr_results[_k]
+                    for _ht, _hp, _hc in _hits:
+                        _polys = list(_polys or []) + [_hp]
+                        _lts = list(_lts or []) + [_ht]
+                        _blks = list(_blks or []) + [-1]
+                        _angs = list(_angs or []) + [
+                            float(MangaTranslator._poly_long_side_angle(_hp))]
+                    _nt = " ".join(str(_t or "").strip()
+                                   for _t in _lts if str(_t or "").strip())
+                    ocr_results[_k] = (_nt, _polys, _angs, _lts, _blks)
+                    print(f"    [✓] نجاتِ rec: ناحیهٔ {_tk[0]} — "
+                          f"{len(_hits)} کوار دوباره خوانده شد "
+                          f"→ «{_nt[:60]}»")
+                except Exception:
+                    continue
+
         for (i, b, x1, y1, x2, y2, bw, bh), (text, line_polys, line_angs,
                                              line_texts, line_blks) in zip(
                 cand, ocr_results):
@@ -3546,13 +3581,31 @@ class _MangaTranslatorBody_70:
                                 _qf = _qf / _cs
                             _qf[:, 0] += _x1
                             _qf[:, 1] += _y1
-                            _quads.append(_qf)
                         except Exception:
                             continue
+# مالکیتِ کوار = جعبهٔ detectorِ همان حباب: نصفِ مساحتِ کوار
+# باید داخلِ باکسِ خامِ detector باشد — کوارِ بیرون (متنِ حبابِ
+# مجاور/هنر) متعلق به این detector نیست و رویِ دیباگِ آبی هم
+# کشیده نمیشود
+                        try:
+                            _qx1 = float(np.min(_qf[:, 0]))
+                            _qy1 = float(np.min(_qf[:, 1]))
+                            _qx2 = float(np.max(_qf[:, 0]))
+                            _qy2 = float(np.max(_qf[:, 1]))
+                            _qa = max(1e-6, (_qx2 - _qx1) * (_qy2 - _qy1))
+                            _ix = max(0.0, min(_qx2, float(_bx2))
+                                      - max(_qx1, float(_bx1)))
+                            _iy = max(0.0, min(_qy2, float(_by2))
+                                      - max(_qy1, float(_by1)))
+                            if (_ix * _iy) / _qa < 0.5:
+                                continue
+                        except Exception:
+                            continue
+                        _quads.append(_qf)
             except Exception:
                 continue
-# دداپ — پاسهایِ ۱×/بُست همان خط را دوبار میآورند (همپوشانیِ
-# ≥۰٫۶ → یکی میماند)
+# دداپ — پاسهایِ ۱×/بُست همان خط را دوباره میآورند (همپوشانیِ
+# ≥۰٫۶ مساحتِ کوچکتر — تودهِ داخلِ دیگری را هم میگیرد) → یکی میماند
         try:
             _keep: List[np.ndarray] = []
             _bb = []
@@ -3568,7 +3621,8 @@ class _MangaTranslatorBody_70:
                         continue
                     _aq = max(1e-6, (_bx2_ - _bx1_) * (_by2_ - _by1_))
                     _bq = max(1e-6, (_kb[2] - _kb[0]) * (_kb[3] - _kb[1]))
-                    if _inter / min(_aq, _bq) >= 0.6:
+                    _iov = _inter / min(_aq, _bq)
+                    if _iov >= 0.6:
                         _dup = True
                         break
                 if not _dup:
@@ -3630,6 +3684,157 @@ class _MangaTranslatorBody_70:
                       f" در {time.time() - _t:.1f}s{_ms}")
         except Exception:
             pass
+
+    def _rec_rescue_missed_quads(self, image: np.ndarray, rect,
+                                 block_rects, cur_polys):
+        """ — نجاتِ «det دید ولی rec نگرفت» (ریشهٔ متنِ استخراج‌نشده):
+        رویِ کراپِ ناحیه یک پاسِ فقط-det زده میشود؛ هر کوار که هیچ
+        خطِ موجودی نمیپوشاند، جدا برش میخورد (تخت‌شده با پرسپکتیو +
+        بُستِ ×۲) و rec «فقط همان برشِ det» را میخواند — rec هرگز
+        بیرون از چیزی که det پیدا کرده نمی‌رود. خروجی = فهرستِ
+        (text, poly, conf) به مختصاتِ صفحه؛ خالی = نجات نداشت."""
+        out: List[Tuple[str, np.ndarray, float]] = []
+        try:
+            _fn_det = getattr(self.ocr, "det_only", None)
+            _fn_rec = getattr(self.ocr, "rec_only", None)
+            if not callable(_fn_det) or not callable(_fn_rec):
+                return out
+            h_img, w_img = image.shape[:2]
+            x1, y1, x2, y2 = [int(v) for v in rect[:4]]
+            _pad = 8
+            _cx1 = max(0, x1 - _pad)
+            _cy1 = max(0, y1 - _pad)
+            _cx2 = min(w_img, x2 + _pad)
+            _cy2 = min(h_img, y2 + _pad)
+            if _cx2 - _cx1 < 12 or _cy2 - _cy1 < 12:
+                return out
+            crop = image[_cy1:_cy2, _cx1:_cx2]
+            quads = _fn_det(crop) or []
+            if not quads:
+                return out
+            _own = max(1.0, float((x2 - x1) * (y2 - y1)))
+            _cov = []
+            for _p in (cur_polys or []):
+                try:
+                    _pp = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                    _cov.append((float(_pp[:, 0].min()), float(_pp[:, 1].min()),
+                                 float(_pp[:, 0].max()), float(_pp[:, 1].max())))
+                except Exception:
+                    continue
+            for _q in quads:
+                try:
+                    _qf = np.asarray(_q, dtype=np.float32).reshape(-1, 2).copy()
+                    _qf[:, 0] += _cx1
+                    _qf[:, 1] += _cy1
+                    _qx1 = float(np.min(_qf[:, 0])); _qy1 = float(np.min(_qf[:, 1]))
+                    _qx2 = float(np.max(_qf[:, 0])); _qy2 = float(np.max(_qf[:, 1]))
+                    _qa = max(1e-6, (_qx2 - _qx1) * (_qy2 - _qy1))
+# مالکیتِ کوار با باکسِ detector (همان قاعدهٔ clamp): نصفِ
+# مساحت داخلِ باکسِ خود + غرق‌شدن در همسایهٔ کوچکتر ممنوع
+                    _ix = max(0.0, min(_qx2, float(x2)) - max(_qx1, float(x1)))
+                    _iy = max(0.0, min(_qy2, float(y2)) - max(_qy1, float(y1)))
+                    if (_ix * _iy) / _qa < 0.5:
+                        continue
+                    _foreign = False
+                    for _r in (block_rects or []):
+                        try:
+                            _ox1, _oy1, _ox2, _oy2 = [float(v) for v in _r[:4]]
+                            _oa = max(1.0, (_ox2 - _ox1) * (_oy2 - _oy1))
+                            if _oa >= _own:
+                                continue
+                            _jx = max(0.0, min(_qx2, _ox2) - max(_qx1, _ox1))
+                            _jy = max(0.0, min(_qy2, _oy2) - max(_qy1, _oy1))
+                            if (_jx * _jy) / _qa >= 0.6:
+                                _foreign = True
+                                break
+                        except Exception:
+                            continue
+                    if _foreign:
+                        continue
+# خطِ موجود همین کوار را میپوشاند → recِ اصلی خوانده
+                    _hit = False
+                    for _cb in _cov:
+                        _hx = max(0.0, min(_qx2, _cb[2]) - max(_qx1, _cb[0]))
+                        _hy = max(0.0, min(_qy2, _cb[3]) - max(_qy1, _cb[1]))
+                        if (_hx * _hy) / _qa >= 0.4:
+                            _hit = True
+                            break
+                    if _hit:
+                        continue
+# برشِ تختِ کوار (همان کاری که موتور داخلش میکند) + بُست
+                    _pts = _qf.astype(np.float32)
+                    _rect = cv2.minAreaRect(_pts)
+                    (_rc, _rs, _ra) = _rect
+                    if _ra < -45.0:
+                        _ra += 90.0
+                    elif _ra > 45.0:
+                        _ra -= 90.0
+                    _rw = max(8.0, _rs[0] if abs(_ra) < 45.0 else _rs[1])
+                    _rh = max(8.0, _rs[1] if abs(_ra) < 45.0 else _rs[0])
+                except Exception:
+                    continue
+                try:
+                    _poly4 = MangaTranslator._order_quad_pts(_qf)
+                    if _poly4 is None:
+                        continue
+                    _M = cv2.getPerspectiveTransform(
+                        _poly4,
+                        np.array([[0, 0], [_rw - 1, 0],
+                                  [_rw - 1, _rh - 1], [0, _rh - 1]],
+                                 dtype=np.float32))
+                    strip = cv2.warpPerspective(
+                        image, _M, (int(_rw), int(_rh)),
+                        flags=cv2.INTER_CUBIC, borderValue=(255, 255, 255))
+                    best = None
+                    _tries = [strip]
+                    if _rh < 56:
+                        _tries.append(cv2.resize(
+                            strip, None, fx=2.0, fy=2.0,
+                            interpolation=cv2.INTER_CUBIC))
+                    for _st in _tries:
+                        _rr = _fn_rec(_st)
+                        if _rr is None:
+                            continue
+                        _t, _s = _rr
+                        if not _t or _s < 0.5:
+                            continue
+                        if best is None or _s > best[1]:
+                            best = (_t, _s)
+                        if _s >= 0.8:
+                            break
+                    if best is None:
+                        continue
+                    _t, _s = best
+                    if self._is_non_english_script(_t):
+                        continue
+                    if _latin_lang(self) and _latin_junk_line(_t, True):
+                        continue
+                    if not _t.strip():
+                        continue
+                    out.append((_t.strip(), _poly4.astype(np.int32), float(_s)))
+                except Exception:
+                    continue
+            return out
+        except Exception:
+            return out
+
+    @staticmethod
+    def _order_quad_pts(pts):
+        """ — چهار گوشهٔ کوار به ترتیبِ tl/tr/br/bl (برایِ برشِ
+        پرسپکتیوِ خطِ کج)."""
+        try:
+            p = np.asarray(pts, dtype=np.float32).reshape(-1, 2)
+            if p.shape[0] != 4:
+                return None
+            _s = p.sum(axis=1)
+            tl = p[int(np.argmin(_s))]
+            br = p[int(np.argmax(_s))]
+            _d = p[:, 1] - p[:, 0]
+            tr = p[int(np.argmin(_d))]
+            bl = p[int(np.argmax(_d))]
+            return np.array([tl, tr, br, bl], dtype=np.float32)
+        except Exception:
+            return None
 
     def extract_regions_phase(self, image: np.ndarray) -> Tuple[List[TextRegion], Optional[np.ndarray]]:
 # عمرِ کشِ OCR = یک صفحه (کلید = مختصات؛ محتوا عوض

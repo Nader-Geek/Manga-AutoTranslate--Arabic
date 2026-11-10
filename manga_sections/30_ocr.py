@@ -1336,6 +1336,37 @@ class RapidOCRBackend:
             return []
         return quads
 
+    def rec_only(self, image_bgr: np.ndarray):
+        """ — پاسِ فقط-rec رویِ «همان برشِ خط» — rec فقط همان چیزی را
+        میخواند که det پیدا کرده (برشِ دقیقِ کوارِ det + پدِ کوچک)،
+        نه یک جوابِ سراسری. برایِ نجاتِ خطی که det دید ولی recِ
+        اصلیِ موتور نتوانست بخواند (دست‌خط/SFX). خروجی = (text, score)
+        یا None."""
+        if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
+            return None
+        if not getattr(self, "_new_api", False):
+            return None
+        if getattr(self, "_mobile", None) is not None:
+            return None
+        try:
+            out = self.engine(image_bgr, use_det=False, use_cls=False,
+                              use_rec=True)
+        except Exception:
+            return None
+        try:
+            txts = getattr(out, "txts", None)
+            scores = getattr(out, "scores", None)
+            if txts is None:
+                return None
+            _t = " ".join(str(t) for t in (txts or [])).strip()
+            _s = float(np.mean([float(s) for s in (scores or [0.0])])) \
+                if scores is not None else 0.0
+            if not _t:
+                return None
+            return _t, _s
+        except Exception:
+            return None
+
     def _engine_run233_nolock(self, image_bgr):
         try:
             return self.engine(image_bgr, use_cls=False)
