@@ -177,6 +177,43 @@ async def main():
     assert r["status"] == "failed" and "JPG" in r["error"], r["error"]
     nt.limit = 10 * 1024 * 1024
 
+    # ------------------------------------------------------------- external host (gofile)
+    import dataclasses, bot.worker as bw
+    from bot.hosting import Uploaded, UploadFailed
+    ups = []
+    async def fake_up(path, **kw):
+        ups.append((Path(path).name, Path(path).stat().st_size, kw.get("token")))
+        return Uploaded(Path(path).name, "https://gofile.io/d/xyz", Path(path).stat().st_size)
+    real_up = bw.upload_gofile; bw.upload_gofile = fake_up
+    cfg_ext = dataclasses.replace(cfg, external_host="gofile", gofile_token="T")
+    wx = Worker(cfg_ext, db, nt)
+    async def run_x(job):
+        c = await db.claim_job(); assert c["id"] == job["id"]
+        await wx.process(c); return await db.get_job(job["id"])
+    # typer export of ~170MB-like size > limit: one full, unmodified zip is uploaded, nothing sent to Discord
+    os.environ["FAKE_MODE"] = "huge"; nt.limit = 300_000
+    j = await mkjob("typer", pages=3, img_format="png"); r = await run_x(j)
+    assert r["status"] == "done", r["error"]
+    ev = nt.last("done"); assert ev[3] == [], "files should not go to Discord"
+    L = r["stats"]["external_links"]; assert L and L[0]["url"].startswith("https://gofile.io/"), L
+    assert ups[-1][2] == "T" and ups[-1][1] > 300_000 and r["stats"]["pages"] == 3
+    # fits Discord -> no external upload
+    os.environ["FAKE_MODE"] = "ok"; nt.limit = 10 * 1024 * 1024; n = len(ups)
+    j = await mkjob("clean"); r = await run_x(j)
+    assert r["status"] == "done" and len(ups) == n and "external_links" not in r["stats"]
+    # too big + clean zip -> external link of the original result
+    os.environ["FAKE_MODE"] = "hugeimg"; nt.limit = 1_000_000
+    j = await mkjob("clean", pages=2, img_format="png"); r = await run_x(j)
+    assert r["status"] == "done" and r["stats"].get("external_links") and nt.last("done")[3] == []
+    # upload failure -> falls back to shrink/split over Discord, with a note, job still succeeds
+    async def bad_up(path, **kw): raise UploadFailed("boom")
+    bw.upload_gofile = bad_up
+    j = await mkjob("clean", pages=2, img_format="png"); r = await run_x(j)
+    ev = nt.last("done")
+    assert r["status"] == "done" and ev[3] and any("تعذّر الرفع" in x for x in ev[4]), ev[4]
+    assert all(f.stat().st_size <= 1_000_000 for f in ev[3])
+    bw.upload_gofile = real_up; nt.limit = 10 * 1024 * 1024
+
     # ------------------------------------------------------------- cleanup
     os.environ["FAKE_MODE"] = "ok"
     j = await mkjob("clean"); r = await run_one(j); wd = Path(j["workdir"]); assert wd.exists()

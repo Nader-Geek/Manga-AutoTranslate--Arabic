@@ -67,6 +67,10 @@ class Config:
     allowed_guild_ids: Tuple[int, ...] = ()
     admin_user_ids: Tuple[int, ...] = ()
 
+    # external host for results that do not fit Discord ("" = off, "gofile")
+    external_host: str = ""
+    gofile_token: str = ""
+    gofile_upload_url: str = "https://upload.gofile.io/uploadfile"
     purge_old_commands: bool = False    # drop stale per-server slash commands at startup
     poll_seconds: float = 5.0
     progress_interval: float = 8.0
@@ -109,5 +113,8 @@ def load_config() -> Config:
         allowed_guild_ids=tuple(int(x) for x in _csv("ALLOWED_GUILD_IDS")),
         admin_user_ids=tuple(int(x) for x in _csv("ADMIN_USER_IDS")),
         purge_old_commands=_bool("PURGE_OLD_COMMANDS"),
+        external_host=os.environ.get("EXTERNAL_HOST", "").strip().lower(),
+        gofile_token=os.environ.get("GOFILE_TOKEN", "").strip(),
+        gofile_upload_url=os.environ.get("GOFILE_UPLOAD_URL", "").strip() or Config.gofile_upload_url,
         heartbeat_seconds=float(os.environ.get("HEARTBEAT_SECONDS", "30") or 30),
     )

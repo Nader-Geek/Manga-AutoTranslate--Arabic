@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
 from . import stats as st
+from .hosting import UploadFailed, upload_gofile
 from .config import Config
 from .db import Database, Job
 from .runner import (ProcessHandle, UploadError, build_plan, build_typer_parts, run_plan,
@@ -185,6 +186,16 @@ class Worker:
             log.warning("job %s: no usable typer_job.json (%s)", job["id"], e)
             base = None
 
+        # Too big for Discord? Upload the ORIGINAL, full-quality result to the external host
+        # and send a link; if that is off or fails, fall through to compress/split below.
+        limit = self.notifier.upload_limit(job)
+        if self.cfg.external_host == "gofile" and job["kind"] in ("clean", "translate", "typer") \
+                and (job["kind"] != "typer" or base is not None):
+            links, ext_notes = await self._try_external(job, plan, wd, lp, elapsed, limit)
+            notes.extend(ext_notes)
+            if links:
+                return await self._complete(job, base, lp, elapsed, [], notes, links)
+
         if job["kind"] == "extract":
             if base is None:
                 return await self._fail(job, "لم يُنتج الاستخراج أي نتيجة (لا يوجد typer_job.json).", tail)
@@ -206,7 +217,6 @@ class Worker:
                 job, f"المخرجات غير موجودة: {', '.join(missing) or 'لا شيء'}", tail)
 
         # fit under the platform upload limit
-        limit = self.notifier.upload_limit(job)
         final: List[Path] = []
         for f in files:
             if f.stat().st_size <= limit:
@@ -230,9 +240,46 @@ class Worker:
                     job, f"الناتج ({mb:.1f}MB) أكبر من حد الرفع ({limit / 1024 ** 2:.0f}MB). {hint}",
                     tail)
 
-        size = sum(f.stat().st_size for f in final)
+        await self._complete(job, base, lp, elapsed, final, notes, [])
+
+    async def _try_external(self, job: Job, plan, wd: Path, lp: st.LogProgress, elapsed: float,
+                            limit: int):
+        """Returns ([{"name","url","size"}...], notes). Empty links = use the Discord path."""
+        notes: List[str] = []
+        try:
+            if job["kind"] == "typer":   # one complete, unmodified export (no size limit)
+                raw, _ = await asyncio.to_thread(
+                    build_typer_parts, plan.typer_dir, wd / "typer_full", 10 ** 12)
+            else:
+                raw = list(plan.deliver)
+            raw = [f for f in raw if f.is_file()]
+            if not raw or all(f.stat().st_size <= limit for f in raw):
+                return [], notes                      # fits Discord as it is
+            links: List[Dict[str, Any]] = []
+            for i, f in enumerate(raw, 1):
+                try:
+                    await self.notifier.progress(
+                        job, f"⬆️ رفع {f.name} ({f.stat().st_size / 1024 ** 2:.0f}MB) "
+                             f"إلى gofile ({i}/{len(raw)})", lp, elapsed, 0.0)
+                except Exception:
+                    pass
+                up = await upload_gofile(f, url=self.cfg.gofile_upload_url,
+                                         token=self.cfg.gofile_token)
+                links.append({"name": f.name, "url": up.url, "size": up.size})
+            return links, notes
+        except Exception as e:   # UploadFailed or anything unexpected: never lose the job
+            log.warning("job %s: external upload failed: %s", job["id"], e)
+            notes.append(f"⚠️ تعذّر الرفع الخارجي ({str(e)[:120]}) — سأرسل عبر ديسكورد "
+                         f"بعد الضغط/التقسيم.")
+            return [], notes
+
+    async def _complete(self, job: Job, base, lp: st.LogProgress, elapsed: float,
+                        final: List[Path], notes: List[str], links: List[Dict[str, Any]]) -> None:
+        size = sum(f.stat().st_size for f in final) + sum(l["size"] for l in links)
         stats = (st.combine(base, lp, elapsed_s=elapsed, output_bytes=size) if base
                  else st.fallback_from_log(lp, elapsed_s=elapsed, output_bytes=size))
+        if links:
+            stats["external_links"] = links
 
         if job["kind"] == "translate" and stats.get("dialogue") and \
                 stats.get("translated", 0) < stats["dialogue"]:

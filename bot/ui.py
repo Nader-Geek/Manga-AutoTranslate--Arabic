@@ -86,11 +86,16 @@ def running_embed(job: Dict[str, Any], text: str, lp: Optional[st.LogProgress] =
         e.add_field(name="⏳ المتبقي تقريباً", value=left, inline=True)
     if idle is not None:
         e.add_field(name="🕐 آخر نشاط", value=f"<t:{int(time.time() - idle)}:R>", inline=True)
-    stage = (lp.last_stage if lp else "") or ""
+    stage = text if text.startswith("⬆️") else ((lp.last_stage if lp else "") or "")
     if stage:
         e.add_field(name="المرحلة الحالية", value=f"`{_safe(stage, 100)}`", inline=False)
     e.timestamp = discord.utils.utcnow()   # footer shows when the bot last refreshed this message
     return e
+
+
+def links_text(links: List[Dict[str, Any]]) -> str:
+    lines = [f"[{_safe(l['name'], 40)} — {l['size'] / 1024 ** 2:.1f}MB]({l['url']})" for l in links]
+    return "\n".join(lines)[:1000]
 
 
 def done_embed(job: Dict[str, Any], stats: Dict[str, Any], notes: List[str],
@@ -99,9 +104,14 @@ def done_embed(job: Dict[str, Any], stats: Dict[str, Any], notes: List[str],
                       description=f"📎 `{_safe(job['source_name'])}`\n{STATUS_LABELS['done']}")
     for name, value, inline in st.stats_fields(job["kind"], stats):
         e.add_field(name=name, value=value[:1000] or "—", inline=inline)
+    links = stats.get("external_links") or []
+    if links:
+        e.add_field(name="🔗 تحميل (الجودة الأصلية)", value=links_text(links), inline=False)
     if notes:
         e.add_field(name="ملاحظات", value="\n".join(notes)[:1000], inline=False)
-    e.set_footer(text=f"الملفات تُحذف من السيرفر بعد {ttl_minutes} دقيقة")
+    e.set_footer(text=(f"الملفات المحلية تُحذف بعد {ttl_minutes} دقيقة — الرابط على gofile "
+                       f"(قد تنتهي صلاحيته حسب سياسة الخدمة)") if links
+                 else f"الملفات تُحذف من السيرفر بعد {ttl_minutes} دقيقة")
     return e
 
 
@@ -142,6 +152,9 @@ def status_embed(job: Dict[str, Any], position: int = 0) -> discord.Embed:
     elif status == "done" and job.get("stats"):
         for name, value, inline in st.stats_fields(job["kind"], job["stats"]):
             e.add_field(name=name, value=value[:1000] or "—", inline=inline)
+        if job["stats"].get("external_links"):
+            e.add_field(name="🔗 تحميل (الجودة الأصلية)",
+                        value=links_text(job["stats"]["external_links"]), inline=False)
         if job.get("workdir") is None:
             e.set_footer(text="ملفات هذه المهمة حُذفت من السيرفر")
     elif status == "failed" and job.get("error"):

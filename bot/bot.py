@@ -116,6 +116,10 @@ class DiscordNotifier:
         embed = ui.done_embed(job, stats, notes, self.client.cfg.file_ttl_minutes)
         await self._edit(job, embed)
         # ≤10 attachments per message and the combined size of a message must fit the limit too
+        if not files:   # delivered as external link(s): just ping the user with the embed
+            await self._send(job, content=f"<@{job['user_id']}> مهمتك #{job['id']} جاهزة ✅ — "
+                                          f"رابط التحميل في الرسالة", embed=embed, files=[])
+            return
         for i, chunk in enumerate(batch_by_size(files, self.upload_limit(job))):
             await self._send(
                 job,
