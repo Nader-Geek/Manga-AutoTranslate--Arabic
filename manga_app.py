@@ -1865,7 +1865,7 @@ def run_web():
         return "⬇ دانلود"
 
 # صفحهٔ خواندن زندهٔ وب — داخل پوشهٔ live نوشته می‌شود و صفحه‌های جدید خودکار به آن اضافه می‌شوند
-    _LIVE_READER_TMPL = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+    _LIVE_READER_TMPL = r"""<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>نمایش</title>
 <style>
@@ -1882,6 +1882,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .dbtn.on{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}
 .c{max-width:min(100%,900px);margin:0 auto;width:100%;position:relative}
 .c img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;pointer-events:none;content-visibility:auto;contain-intrinsic-size:auto 1200px}
+.dslot{position:relative;width:100%}
+.dslot>img{display:block;width:100%;height:auto}
+.dslot>svg.dovl{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:block}
+.c.no-det .g-det{display:none}
+.c.no-pdet .g-pdet{display:none}
+.c.no-rec .g-rec{display:none}
 .ph{width:100%;aspect-ratio:2/3;background:linear-gradient(100deg,#101012 40%,#17171a 50%,#101012 60%);background-size:200% 100%;animation:sh 1.6s infinite;border-radius:10px;margin:0 0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#5d5b55;font-size:.8rem}
 @keyframes sh{0%{background-position:120% 0}100%{background-position:-80% 0}}
 .sp{width:26px;height:26px;border-radius:50%;border:3px solid #26262a;border-top-color:#ff4a3d;animation:spin 1s linear infinite}
@@ -1893,154 +1899,136 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .pbar{position:fixed;bottom:0;left:0;right:0;height:4px;background:#1a1a1c;z-index:4}
 .pfill{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}
 </style></head><body>
-<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><button type="button" class="dbtn" id="db">🔍 دیباگ</button><button type="button" class="dbtn on" id="od" title="detector.onnx">detector.onnx</button><button type="button" class="dbtn on" id="opd" title="paddle det">paddle det</button><button type="button" class="dbtn on" id="opr" title="paddle rec">paddle rec</button><div class="n" id="n">0</div></div>
+<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><button type="button" class="dbtn" id="db">🔍 دیباگ</button><button type="button" class="dbtn on" id="od" title="detector.onnx">det</button><button type="button" class="dbtn on" id="opd" title="paddle det">p-det</button><button type="button" class="dbtn on" id="opr" title="paddle rec">rec</button><div class="n" id="n">0</div></div>
 <main class="c" id="c"><div class="hint" id="h">در انتظار اولین صفحه…</div></main>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
 <script>
 (function(){
-  var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__", STAMP = Date.now();
+  var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__";
   var arrived = 0, total = 0, dbgArrived = 0, dbgMode = false, busy = false;
-  var mtimes = {};  // slot → mtime of last image update
   var c = document.getElementById('c'), h = document.getElementById('h'),
       b = document.getElementById('n'), dot = document.getElementById('dot'),
       db = document.getElementById('db');
   var haveDbg = !!DBG, dbgTotal = -1;
-  // ——— کلیدهایِ روکشِ دیباگ: هر موتور جدا روشن/خاموش ———
+  // ——— کلیدهایِ روکشِ دیباگ ———
+  // عکسِ پایه (بی‌روکش) همیشه سرِ جایش میماند؛ جعبهها «SVG»
+  // رویِ خودش کشیده میشوند. روشن/خاموشکردنِ هر کلید فقط یک
+  // کلاسِ CSS رویِ ظرف عوض میکند — نه رفرش، نه لودِ دوباره،
+  // نه تعویضِ عکس. لحظه‌ای است.
   var ov = { det: 1, pdet: 1, rec: 1 };
   var od = document.getElementById('od'), opd = document.getElementById('opd'),
       opr = document.getElementById('opr');
-  var ovlCache = {};
-  function ovlActive(){ return dbgMode && !(ov.det && ov.pdet && ov.rec); }
-  function fetchSlotOvl(slot){
-    var cc = ovlCache[slot];
-    // شکستِ تازه (۵ ثانیه) دوباره امتحان میشود — json ممکن است در
-    // اجرایِ زنده کمی دیرتر بنشیند
-    if (cc && cc.ok) return Promise.resolve(cc.v);
-    if (cc && !cc.ok && (Date.now() - cc.t) < 5000) return Promise.resolve(null);
-    return fetch(P + DBG + 'live_' + pad(slot) + '.json?r=' + Date.now(), { cache: 'no-store' })
-      .then(function(r){ if (!r.ok) throw 0; return r.json(); })
-      .then(function(j){
-        return new Promise(function(res){
-          var im = new Image();
-          im.onload = function(){ ovlCache[slot] = { ok: 1, v: { json: j, base: im } }; res(ovlCache[slot].v); };
-          im.onerror = function(){ ovlCache[slot] = { ok: 0, t: Date.now() }; res(null); };
-          im.src = P + DBG + 'live_' + pad(slot) + '_base.jpg?r=' + STAMP;
-        });
-      })
-      .catch(function(){ ovlCache[slot] = { ok: 0, t: Date.now() }; return null; });
-  }
-  function drawOvl(cv, data){
-    var j = data.json;
-    var W = (j.size && j.size[0]) || data.base.naturalWidth || 900;
-    var H = (j.size && j.size[1]) || data.base.naturalHeight || 1200;
-    cv.width = W; cv.height = H;
-    var x = cv.getContext('2d');
-    x.drawImage(data.base, 0, 0, W, H);
-    x.textBaseline = 'top';
-    if (ov.det && j.det) {
-      x.lineWidth = Math.max(2, W / 300);
-      x.font = 'bold ' + Math.max(12, Math.round(W / 45)) + 'px sans-serif';
-      for (var i = 0; i < j.det.length; i++) {
-        var d = j.det[i];
-        x.strokeStyle = '#00e640'; x.fillStyle = '#00e640';
-        x.strokeRect(d[0], d[1], d[2] - d[0], d[3] - d[1]);
-        x.fillText('D' + ('0' + i).slice(-2) + ' ' + (d[4] || ''), d[0] + 4, d[1] + 3);
-      }
-    }
-    if (ov.pdet && j.pdet) {
-      x.strokeStyle = '#3a8bff'; x.lineWidth = Math.max(2, W / 340);
-      for (var k = 0; k < j.pdet.length; k++) {
-        var q = j.pdet[k];
-        if (!q || q.length < 2) continue;
-        x.beginPath();
-        x.moveTo(q[0][0], q[0][1]);
-        for (var p2 = 1; p2 < q.length; p2++) x.lineTo(q[p2][0], q[p2][1]);
-        x.closePath(); x.stroke();
-      }
-    }
-    if (ov.rec && j.rec) {
-      x.lineWidth = Math.max(1.5, W / 380);
-      x.font = Math.max(11, Math.round(W / 50)) + 'px sans-serif';
-      for (var m = 0; m < j.rec.length; m++) {
-        var rr = j.rec[m];
-        x.strokeStyle = (rr[4] === 'promo') ? '#ff9f0a' : '#ff3b30';
-        x.strokeRect(rr[0], rr[1], rr[2], rr[3]);
-        if (rr[5]) {
-          x.fillStyle = (rr[4] === 'promo') ? '#ff9f0a' : '#ffd60a';
-          x.fillText(('[' + m + '] ' + rr[5]).slice(0, 44), rr[0], Math.max(0, rr[1] - Math.round(W / 42)));
-        }
-      }
-    }
-  }
-  function applyOvl(){
-    if (!haveDbg) return;
-    var kids = c.children;
-    for (var i = 0; i < kids.length; i++) {
-      var el = kids[i];
-      if (el.tagName !== 'IMG') continue;
-      (function(el, slot){
-        if (!ovlActive()) {
-          if (el.getAttribute('data-ovl') === '1') {
-            el.removeAttribute('data-ovl');
-            hotSwap(el, imgSrc(slot - 1));
-          }
-          return;
-        }
-        if (el.getAttribute('data-ovl') === '1') return;
-        fetchSlotOvl(slot).then(function(data){
-          if (!data || !ovlActive() || el.parentNode !== c) return;
-          if (el.getAttribute('data-ovl') === '1') return;
-          try {
-            var cv = document.createElement('canvas');
-            drawOvl(cv, data);
-            el.setAttribute('data-ovl', '1');
-            el.src = cv.toDataURL('image/jpeg', 0.87);
-          } catch (e) {}
-        });
-      })(el, i + 1);
-    }
-  }
-  function setOvlBtns(){
-    var on = dbgMode ? 'inline-block' : 'none';
-    if (od) od.style.display = on;
-    if (opd) opd.style.display = on;
-    if (opr) opr.style.display = on;
-  }
-  function bindOvl(btn, key){
-    if (!btn) return;
-    btn.addEventListener('click', function(){
-      ov[key] = ov[key] ? 0 : 1;
-      btn.classList.toggle('on', !!ov[key]);
-      applyOvl();
-    });
-  }
-  bindOvl(od, 'det'); bindOvl(opd, 'pdet'); bindOvl(opr, 'rec');
-  // دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
-  // صفحهٔ دیباگ واقعاً وجود دارد (قبلاً فقط وجودِ پوشه کافی بود → دکمه
-  // میآمد ولی فعال نبود). total.txt پوشهٔ دیباگ هر ۴ ثانیه چک میشود.
-  function pollDbgTotal(){
-    if (!haveDbg || dbgTotal > 0) return;
-    fetch(P + DBG + 'total.txt?r=' + STAMP, { cache: 'no-store' })
-      .then(function(r){ return r.ok ? r.text() : ''; })
-      .then(function(t){
-        var v = parseInt((t || '').trim(), 10);
-        if (v > 0) { dbgTotal = v; render(); }
-      })
-      .catch(function(){});
-  }
-  setInterval(pollDbgTotal, 4000);
-  pollDbgTotal();
+  var ovlCache = {};   // slot → {ok, j}
   function pad(i){ return ('000' + i).slice(-4); }
   function curDir(){ return dbgMode ? DBG : D; }
   function curArrived(){ return dbgMode ? dbgArrived : arrived; }
-  function imgSrc(i){ return P + curDir() + 'live_' + pad(i + 1) + '.jpg?r=' + STAMP; }
-  function nearBottom(){ return (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 260); }
+  // آدرسِ پایدار (بدونِ r=): بازکردنِ دوبارهٔ نمایشگر از کشِ
+  // HTTP مرورگر میخواند (304) — «هی از اول لود میشه» دیگر
+  // اتفاق نمیافتد؛ فقط اسلاتِ عوضشده (mtimes) تازه میشود.
+  function imgSrc(i){ return P + curDir() + 'live_' + pad(i + 1)
+                      + (dbgMode ? '_base.jpg' : '.jpg'); }
+  function bakedSrc(i){ return P + curDir() + 'live_' + pad(i + 1) + '.jpg'; }
+  function probeSrc(i){ return dbgMode ? bakedSrc(i) : imgSrc(i); }
   function mkPh(){
     var d = document.createElement('div');
     d.className = 'ph';
     d.innerHTML = '<span class="sp"></span>در حال ترجمه…';
     return d;
   }
+  // ——— سازندهٔ SVG روکش ———
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function svgEl(t, at){
+    var e = document.createElementNS(SVGNS, t);
+    for (var k in at) e.setAttribute(k, at[k]);
+    return e;
+  }
+  function buildOvlSvg(j){
+    var W = (j.size && j.size[0]) || 900, H = (j.size && j.size[1]) || 1200;
+    var svg = svgEl('svg', {'class': 'dovl', 'viewBox': '0 0 ' + W + ' ' + H,
+                            'preserveAspectRatio': 'none'});
+    var gDet = svgEl('g', {'class': 'g-det'});
+    var gPdet = svgEl('g', {'class': 'g-pdet'});
+    var gRec = svgEl('g', {'class': 'g-rec'});
+    if (j.det) {
+      var sw = Math.max(2, W / 300), fs = Math.max(12, Math.round(W / 45));
+      for (var i = 0; i < j.det.length; i++) {
+        var d = j.det[i];
+        gDet.appendChild(svgEl('rect', {
+          x: d[0], y: d[1], width: Math.max(1, d[2] - d[0]),
+          height: Math.max(1, d[3] - d[1]),
+          fill: 'none', stroke: '#00e640', 'stroke-width': sw}));
+        var t = svgEl('text', {x: d[0] + 4, y: d[1] + Math.max(12, fs),
+                               fill: '#00e640', 'font-size': fs,
+                               'font-weight': 'bold',
+                               'font-family': 'sans-serif'});
+        t.textContent = 'D' + ('0' + i).slice(-2) + ' ' + (d[4] || '');
+        gDet.appendChild(t);
+      }
+    }
+    if (j.pdet) {
+      var sw2 = Math.max(2, W / 340);
+      for (var k = 0; k < j.pdet.length; k++) {
+        var q = j.pdet[k];
+        if (!q || q.length < 2) continue;
+        var pts = [];
+        for (var p2 = 0; p2 < q.length; p2++) pts.push(q[p2][0] + ',' + q[p2][1]);
+        gPdet.appendChild(svgEl('polygon', {points: pts.join(' '),
+                                            fill: 'none', stroke: '#3a8bff',
+                                            'stroke-width': sw2}));
+      }
+    }
+    if (j.rec) {
+      var sw3 = Math.max(1.5, W / 380), fs2 = Math.max(11, Math.round(W / 50));
+      for (var m = 0; m < j.rec.length; m++) {
+        var r = j.rec[m];
+        var col = (r[4] === 'promo') ? '#ff9f0a' : '#ff3b30';
+        gRec.appendChild(svgEl('rect', {x: r[0], y: r[1],
+                                        width: Math.max(1, r[2]),
+                                        height: Math.max(1, r[3]),
+                                        fill: 'none', stroke: col,
+                                        'stroke-width': sw3}));
+        if (r[5]) {
+          var t2 = svgEl('text', {x: r[0],
+                                  y: Math.max(fs2, r[1] - Math.round(W / 42)),
+                                  fill: (r[4] === 'promo') ? '#ff9f0a' : '#ffd60a',
+                                  'font-size': fs2,
+                                  'font-family': 'sans-serif'});
+          t2.textContent = ('[' + m + '] ' + r[5]).slice(0, 44);
+          gRec.appendChild(t2);
+        }
+      }
+    }
+    svg.appendChild(gDet); svg.appendChild(gPdet); svg.appendChild(gRec);
+    return svg;
+  }
+  function putOvl(el, j){
+    try {
+      var old = el.querySelectorAll('svg.dovl');
+      for (var i = 0; i < old.length; i++) {
+        if (old[i].parentNode === el) el.removeChild(old[i]);
+      }
+      el.appendChild(buildOvlSvg(j));
+    } catch (e) {}
+  }
+  function ensureOvl(slot){
+    var el = c.children[slot - 1];
+    if (!el || !el.classList || !el.classList.contains('dslot')) return;
+    var cc = ovlCache[slot];
+    if (cc && cc.ok) {
+      if (!el.querySelector('svg.dovl')) putOvl(el, cc.j);
+      return;
+    }
+    if (cc && !cc.ok && (Date.now() - cc.t) < 5000) return;
+    if (el.__ovlBusy) return;
+    el.__ovlBusy = 1;
+    fetch(P + DBG + 'live_' + pad(slot) + '.json?r=' + Date.now(),
+          { cache: 'no-store' })
+      .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+      .then(function(j){ ovlCache[slot] = { ok: 1, j: j }; putOvl(el, j); })
+      .catch(function(){ ovlCache[slot] = { ok: 0, t: Date.now() }; })
+      .then(function(){ el.__ovlBusy = 0; });
+  }
+  // ——— اسلات‌ها ———
   function mkImg(i){
     var el = document.createElement('img');
     el.src = imgSrc(i);
@@ -2048,30 +2036,50 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     el.loading = 'lazy'; el.decoding = 'async';
     return el;
   }
-  // رندر پایدار: اسلات‌ها سر جایشان می‌مانند، فقط جای خالی با تصویر پر می‌شود.
-  // هیچ اسکرول خودکاری انجام نمی‌شود — خواندنِ کاربر نمی‌پرد.
+  function mkDbgSlot(i){
+    var w = document.createElement('div');
+    w.className = 'dslot';
+    var im = document.createElement('img');
+    im.alt = 'صفحهٔ ' + (i + 1);
+    im.decoding = 'async';
+    // پایه نبود (دادهٔ روکش نبود) → تصویرِ سوختهٔ دیباگ
+    im.onerror = function(){
+      if (String(im.getAttribute('src') || '').indexOf('_base') >= 0)
+        im.src = bakedSrc(i);
+      try { w.dataset.baked = '1'; } catch (e) {}
+    };
+    im.src = imgSrc(i);
+    w.appendChild(im);
+    return w;
+  }
+  function slotFilled(el){
+    return !!el && (el.tagName === 'IMG' ||
+           (el.classList && el.classList.contains('dslot') &&
+            el.firstChild && el.firstChild.tagName === 'IMG'));
+  }
+  // رندر پایدار: اسلات‌ها سر جایشان می‌مانند، فقط جای خالی پر می‌شود.
   function render(){
     var a = curArrived(), want = Math.max(total, a);
     if (h && h.parentNode === c) { c.removeChild(h); h = null; }
     while (c.children.length < want) c.appendChild(mkPh());
     for (var i = 0; i < want; i++) {
       var el = c.children[i];
-      // ضدِ چشمکِ اسلاتِ تازه: تصویر اول کامل دیکود میشود
-      // placeholderِ «در حال ترجمه…» تا آخرین لحظه سرِ جایش میماند و بعد
-      // عوض میشود — زمینهٔ تیرهٔ خالی هرگز دیده نمیشود.
-      if (i < a && el.tagName !== 'IMG' && !el.__pend) {
+      // ضدِ چشمک: تصویرِ نو بیرون از DOM دیکود میشود و بعد
+      // جای placeholder مینشیند — زمینهٔ خالی دیده نمیشود.
+      if (i < a && !slotFilled(el) && !el.__pend) {
         el.__pend = 1;
-        // IIFE: idx/imِ مخصوصِ همین اسلات — varِ بیرونی بینِ تکرارها مشترک است
         (function(idx){
-          var im = document.createElement('img');
-          im.src = imgSrc(idx);
-          im.loading = 'eager';   // تصویرِ جدا از DOM: lazy هرگز نمیآید
-          im.decoding = 'async';
-          im.alt = 'صفحهٔ ' + (idx + 1);
+          var node = dbgMode ? mkDbgSlot(idx) : mkImg(idx);
+          var im = dbgMode ? node.firstChild : node;
+          if (dbgMode) im.loading = 'eager';
           var put = function(){
-            if (im.parentNode) return;
+            if (node.parentNode) return;
             var cur = c.children[idx];
-            if (cur && cur.tagName !== 'IMG' && cur.__pend) c.replaceChild(im, cur);
+            if (cur && !slotFilled(cur) && cur.__pend) {
+              c.replaceChild(node, cur);
+              // روکشِ SVG بعد از نشستنِ اسلات وصل میشود
+              if (dbgMode) ensureOvl(idx + 1);
+            }
           };
           if (im.decode) { im.decode().then(put, put); }
           else { im.onload = put; im.onerror = put; }
@@ -2088,9 +2096,40 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       if (od) od.style.display = _ov;
       if (opd) opd.style.display = _ov;
       if (opr) opr.style.display = _ov;
-      if (ovlActive()) applyOvl();
+      if (dbgMode) for (var s = 1; s <= dbgArrived; s++) ensureOvl(s);
     }
   }
+  function setOvlBtns(){
+    var on = dbgMode ? 'inline-block' : 'none';
+    if (od) od.style.display = on;
+    if (opd) opd.style.display = on;
+    if (opr) opr.style.display = on;
+  }
+  function bindOvl(btn, key, cls){
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      ov[key] = ov[key] ? 0 : 1;
+      btn.classList.toggle('on', !!ov[key]);
+      c.classList.toggle(cls, !ov[key]);
+    });
+  }
+  bindOvl(od, 'det', 'no-det');
+  bindOvl(opd, 'pdet', 'no-pdet');
+  bindOvl(opr, 'rec', 'no-rec');
+  // دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
+  // صفحهٔ دیباگ واقعاً وجود دارد. total.txt دیباگ هر ۴ ثانیه چک میشود.
+  function pollDbgTotal(){
+    if (!haveDbg || dbgTotal > 0) return;
+    fetch(P + DBG + 'total.txt', { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.text() : ''; })
+      .then(function(t){
+        var v = parseInt((t || '').trim(), 10);
+        if (v > 0) { dbgTotal = v; render(); }
+      })
+      .catch(function(){});
+  }
+  setInterval(pollDbgTotal, 4000);
+  pollDbgTotal();
   function probe(){
     if (busy) return;
     var a = curArrived(), mode = dbgMode;
@@ -2107,7 +2146,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       }
     };
     im.onerror = function(){ busy = false; };
-    im.src = imgSrc(a);
+    im.src = probeSrc(a);
   }
   if (haveDbg) {
     db.addEventListener('click', function(){
@@ -2115,7 +2154,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       db.classList.toggle('on', dbgMode);
       db.textContent = dbgMode ? '📖 نهایی' : '🔍 دیباگ';
       c.innerHTML = '';
-      mtimes = {};  // folder switched, reset stamps
       h = document.createElement('div');
       h.className = 'hint';
       h.textContent = dbgMode ? 'در انتظار دیباگ…' : 'در انتظار صفحه…';
@@ -2123,24 +2161,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       setOvlBtns();
       render();
       probe();
-      if (ovlActive()) applyOvl();
     });
   }
-  // progressive 15-by-15 refresh: the engine rewrites the same
-  // slot file after every translated batch and logs 'slot mtime' into
-  // mtimes.txt; here only the changed slot is re-fetched (no scroll jump).
-  // گامِ اولِ تعویضِ بیفلاش: تصویرِ نو قبل از تعویضِ src کامل
-  // دیکود میشد. ولی جوابِ سرورِ داخلی در کشِ حافظهٔ مرورگر نمیماند —
-  // درخواستِ دومِ همان URL دوباره گرفته و دیکود میشد؛ ضمنِ آن چند صدم
-  // ثانیه، عنصرِ img فریمِ قبلی را میریزد و زمینهٔ سیاه نشان میداد
-  // («هر متنِ جدید صفحه سیاه میکنه انگار عکس کامل از اول لود میشه»).
-  // گامِ دوم: پوشانهٔ دوبل. تصویرِ نو در یک imgِ روییِ همجایِ
-  // اسلات (position:absolute رویِ همان مختصات) دیکود و «رویِ» تصویرِ قدیم
-  // می‌نشیند؛ پیکسلهایِ قدیم تا این لحظه هرگز دور نمیشوند. فقط بعدِ
-  // نقشدنِ پوشانه، srcِ اسلاتِ اصلی زیرِ پوشانه عوض میشود (نامرئی است) و
-  // بعد از دیکودِ کاملِ اسلاتِ اصلی، پوشانه برداشته میشود. در هیچ فریمی
-  // تصویرِ خالی/سیاه دیده نمیشود — نه چراغِ خاموش، نه پرشِ چیدمان.
-  // اگر بهروزرسانیِ بعدیِ همان اسلات وسطِ تعویض برسد، صف میشود.
+  // تعویضِ بیفلاش: تصویرِ نو کامل دیکود میشود و «رویِ» تصویرِ
+  // قدیم می‌نشیند؛ پیکسلهایِ قدیم هرگز دور نمیشوند.
   function hotSwap(el, url){
     try {
       if (!el || el.tagName !== 'IMG') return;
@@ -2149,25 +2173,24 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       el.__swapBusy = 1;
       var par = el.parentNode;
       if (!par) { el.__swapBusy = 0; return; }
-      var ov = document.createElement('img');
-      ov.alt = ''; ov.draggable = false;
-      ov.style.cssText = 'position:absolute;z-index:6;pointer-events:none;user-select:none;-webkit-user-drag:none;margin:0;content-visibility:visible;';
+      var cov = document.createElement('img');
+      cov.alt = ''; cov.draggable = false;
+      cov.style.cssText = 'position:absolute;z-index:6;pointer-events:none;user-select:none;-webkit-user-drag:none;margin:0;content-visibility:visible;';
       var place = function(){
         try {
-          ov.style.left = el.offsetLeft + 'px';
-          ov.style.top = el.offsetTop + 'px';
-          ov.style.width = el.offsetWidth + 'px';
-          ov.style.height = el.offsetHeight + 'px';
+          cov.style.left = el.offsetLeft + 'px';
+          cov.style.top = el.offsetTop + 'px';
+          cov.style.width = el.offsetWidth + 'px';
+          cov.style.height = el.offsetHeight + 'px';
         } catch (e0) {}
       };
       var cleanup = function(){
-        try { ov.remove(); } catch (e4) { try { par.removeChild(ov); } catch (e6) {} }
+        try { cov.remove(); } catch (e4) { try { par.removeChild(cov); } catch (e6) {} }
         el.__swapBusy = 0;
         var nx = el.__swapNext; el.__swapNext = null;
         if (nx) hotSwap(el, nx);
       };
       var step2 = function(){
-        // پوشانه نقشید → srcِ واقعی زیرِ آن عوض میشود (هیچکس نمیبیند)
         try { el.onerror = function(){ cleanup(); }; } catch (e5) {}
         try { el.src = url; } catch (e3) { cleanup(); return; }
         var fin = function(){ requestAnimationFrame(cleanup); };
@@ -2175,50 +2198,77 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       };
       var cover = function(){
         try {
-          if (ov.naturalWidth > 1 && ov.naturalHeight > 1)
-            el.style.aspectRatio = ov.naturalWidth + '/' + ov.naturalHeight;
+          if (cov.naturalWidth > 1 && cov.naturalHeight > 1)
+            el.style.aspectRatio = cov.naturalWidth + '/' + cov.naturalHeight;
         } catch (e2) {}
         place();
-        par.appendChild(ov);
+        par.appendChild(cov);
         requestAnimationFrame(step2);
       };
-      ov.src = url;
-      if (ov.decode) { ov.decode().then(cover, cover); }
-      else { ov.onload = cover; ov.onerror = cover; }
+      cov.src = url;
+      if (cov.decode) { cov.decode().then(cover, cover); }
+      else { cov.onload = cover; cov.onerror = cover; }
     } catch (err) {
       try { el.src = url; } catch (e2) {}
     }
   }
+  // mtimes هر پوشه جدا حفظ میشود: اولین poll هر پوشه فقط
+  // «ثبت» است (تصاویرِ تازه‌لودشده همین حالا تازهاند)؛ بعد از
+  // آن فقط اسلاتی که واقعاً عوض شده دوباره گرفته میشود —
+  // برگشت از دیباگ به نهایی هیچ لودِ دسته‌ای نمیسازد.
+  var mtimesByDir = {};
+  function dirMtimes(){
+    var k = curDir();
+    return mtimesByDir[k] || (mtimesByDir[k] = {});
+  }
   var mtimeBusy = false;
   function pollMtimes(){
-    if (mtimeBusy || arrived <= 0) return;
+    if (mtimeBusy || curArrived() <= 0) return;
     mtimeBusy = true;
     fetch(P + curDir() + 'mtimes.txt?r=' + Date.now(), { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.text() : ''; })
       .then(function(t){
         mtimeBusy = false;
         if (!t) return;
-        var lines = t.split('\\n');
+        var mm = dirMtimes();
+        var firstPass = !mm.__init;
+        var lines = t.split('\n');
         for (var k = 0; k < lines.length; k++) {
-          var m = lines[k].trim().split(/\\s+/);
+          var m = lines[k].trim().split(/\s+/);
           if (m.length < 2) continue;
           var slot = parseInt(m[0], 10), mt = m[1];
-          if (!(slot >= 1 && slot <= arrived)) continue;
-          if (mtimes[slot] === mt) continue;
-          mtimes[slot] = mt;
+          if (!(slot >= 1 && slot <= curArrived())) continue;
+          if (mm[slot] === mt) continue;
+          mm[slot] = mt;
+          if (firstPass) continue;
           var el = c.children[slot - 1];
-          if (el && el.tagName === 'IMG') {
-            hotSwap(el, P + curDir() + 'live_' + pad(slot) + '.jpg?r=' + Date.now());
-            if (ovlActive()) setTimeout(applyOvl, 450);
+          var im = null;
+          if (el && el.tagName === 'IMG') im = el;
+          else if (el && el.querySelector) im = el.querySelector('img');
+          if (!im) continue;
+          var nu;
+          if (dbgMode) {
+            var baked = false;
+            try { baked = (el.dataset && el.dataset.baked === '1'); } catch (e1) {}
+            nu = baked ? bakedSrc(slot) + '?r=' + Date.now()
+                       : P + DBG + 'live_' + pad(slot) + '_base.jpg?r=' + Date.now();
+            delete ovlCache[slot];   // جعبهها هم با ترجمه عوض میشوند
+          } else {
+            nu = P + D + 'live_' + pad(slot) + '.jpg?r=' + Date.now();
+          }
+          hotSwap(im, nu);
+          if (dbgMode) {
+            (function(s2){ setTimeout(function(){ ensureOvl(s2); }, 450); })(slot);
           }
         }
+        mm.__init = 1;
       })
       .catch(function(){ mtimeBusy = false; });
   }
-  // total.txt: تعداد کل صفحه‌ها → از اول اسلات لودینگ برای همه گذاشته می‌شود
+  // total.txt: تعداد کل صفحه‌ها → اسلاتِ لودینگ برای همه
   function pollTotal(){
     if (total > 0) return;
-    fetch(P + curDir() + 'total.txt?r=' + STAMP, { cache: 'no-store' })
+    fetch(P + D + 'total.txt', { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.text() : ''; })
       .then(function(t){
         var v = parseInt((t || '').trim(), 10);
@@ -2226,14 +2276,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       })
       .catch(function(){});
   }
-  // چیپِ «↓ صفحه‌های جدید» پایین-چپ حذف شد — اسکرولِ خودکار و پرشِ صفحه از قبل ممنوع بود؛ چیپ فقط
-  // اعلانِ «صفحهٔ تازه آمده» بود.
   setInterval(function(){
     pollTotal();
     pollMtimes();
     probe();
   }, 1800);
-  // ——— زوم پهنا (بزرگ/کوچک) + نوار پیشرفت پایین — همان سبکِ نمایشگر نهایی ———
+  // ——— زوم پهنا + نوار پیشرفت ———
   var zv = document.getElementById('zv'), pf = document.getElementById('pf');
   var z = 1;
   var baseW = function(){ return Math.max(200, Math.min(900, window.innerWidth || 360)); };
@@ -2256,7 +2304,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   window.addEventListener('wheel', function(e){
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    applyZoom(e.deltaY < 0 ? z * 1.12 : z / 1.12);
+    applyZoom(z * (e.deltaY < 0 ? 1.12 : 1 / 1.12));
   }, { passive: false });
   document.addEventListener('keydown', function(e){
     if (e.key === '+' || e.key === '=') applyZoom(z * 1.15);
@@ -5463,8 +5511,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
         def _scan_live_dir(live_dir):
             try:
+# _base.jpgهایِ خواهرِ روکشِ دیباگ صفحه حساب نمیشوند
                 fs = [f for f in os.listdir(live_dir)
-                      if f.lower().endswith(".jpg") and f.startswith("live_")]
+                      if f.lower().endswith(".jpg") and f.startswith("live_")
+                      and not f.lower().endswith("_base.jpg")]
             except Exception:
                 return []
             fs.sort()
