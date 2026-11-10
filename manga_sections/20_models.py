@@ -1,6 +1,5 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# 📦 مدلها و سختافزار — ORT/CUDA/DML، LaMa، تشخیصِ متن، دانلودِ مدلها
+# مدلها و سختافزار — ORT/CUDA/DML، LaMa، تشخیصِ متن، دانلودِ مدلها
 # ساختِ sessionهای ONNX (DML/CUDA/CPU + کشها)، مدلهای LaMa (ONNX/Torch)، ردیابِ متن RTDetrV2 و دانلودِ آینهایِ مدلهای OCR.
 # (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
@@ -14,9 +13,8 @@ def _sys_avail_ram_gb():
         pass
     return None
 
-
 def _android_x86_emulator() -> bool:
-    """v1.14.96-speed (SRV-G) — «امولاتورِ» واقعی: محیطِ اندروید + CPU
+    """-speed (SRV-G) — «امولاتورِ» واقعی: محیطِ اندروید + CPU
     x86_64. همان قراردادِ SRV-F: ANDROID_ROOT/ANDROID_DATA یا import java
     رویِ x86_64 → True (نخ = ۱). رویِ گوشیِ واقعیِ arm64 و PC همیشه
     False."""
@@ -31,14 +29,10 @@ def _android_x86_emulator() -> bool:
     except Exception:
         return False
 
-
 _GPU_VENDOR_CACHE = None
 
-
-
-
 def _cpu_ep_xnnpack() -> bool:
-    """v1.14.96-speed (SRV-G) — A/Bِ XNNPACK: فقط با env
+    """-speed (SRV-G) — A/Bِ XNNPACK: فقط با env
     MANGA_CPU_EP=xnnpack (پیش‌فرض: خاموش). سشن‌هایِ CPU-EP به‌جای
     CPU-Only از ["XnnpackExecutionProvider","CPUExecutionProvider"]
     می‌روند با کانفیگِ رسمی: ORT intra=1 + XNNPACK intra=هسته‌هایِ
@@ -57,9 +51,8 @@ def _cpu_ep_xnnpack() -> bool:
         pass
     return True
 
-
 def _physical_core_count() -> int:
-    """v1.14.96-speed (SRV-G) — هسته‌هایِ فیزیکی (برایِ XNNPACK
+    """-speed (SRV-G) — هسته‌هایِ فیزیکی (برایِ XNNPACK
     threadpool). fallback: os.cpu_count()."""
     try:
         _phys = set()
@@ -85,25 +78,24 @@ def _physical_core_count() -> int:
     except Exception:
         return 1
 
-
 def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
                          prefer_gpu: Optional[bool] = None):
     so = ort.SessionOptions()
     so.log_severity_level = 3
     so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    # v1.14.96-speed — فیکسِ باگِ تک‌نخیِ x86_64: محدودیتِ «نخ=۱» فقط برایِ
-    # اندروید بود (ORT-androidِ x86_64 در زمان‌بندِ thread-pool تقسیم‌برِصفر
-    # /SIGFPE می‌دهد) ولی چون فقط machine را چک می‌کرد، رویِ «همهٔ»
-    # میزبان‌هایِ x86_64 (PC/سرورِ لینوکس/ویندوز) هم اعمال می‌شد → LaMa/
-    # دیتکتور/OCR رویِ PC تک‌نخ می‌شدند و چند برابر کند بودند. حالا فقط
-    # وقتی فعال است که واقعاً اندروید باشیم (Chaquopy یا نشانه‌هایِ محیطِ
-    # اندروید مثل /system/build.prop یا ANDROID_ROOT) و معماری x86_64
-    # (یعنی امولاتور).
-    # v1.14.99 (SRV-H4) — بازگشتِ دقیق به معنایِ e32bccf: مقدارِ «پاس‌شده»
-    # (پیش‌فرضِ ۴) رویِ همهٔ میزبان‌هایِ غیرِ امولاتور استفاده می‌شود؛
-    # «۰ = ORT auto»یِ SRV-G رویِ سرور کندتر بود (SRV-H2: +30..+67٪ CPU)
-    # و حذف شد. امولاتورِ x86_64 همان قراردادِ SRV-F (intra=1).
-    # MANGA_ORT_THREADS=N همچنان اوررایدِ صریح دارد (اولاً بعد از cap1).
+# speed — فیکسِ باگِ تک‌نخیِ x86_64: محدودیتِ «نخ=۱» فقط برایِ
+# اندروید بود (ORT-androidِ x86_64 در زمان‌بندِ thread-pool تقسیم‌برِصفر
+# /SIGFPE می‌دهد) ولی چون فقط machine را چک می‌کرد، رویِ «همهٔ»
+# میزبان‌هایِ x86_64 (PC/سرورِ لینوکس/ویندوز) هم اعمال می‌شد → LaMa/
+# دیتکتور/OCR رویِ PC تک‌نخ می‌شدند و چند برابر کند بودند. حالا فقط
+# وقتی فعال است که واقعاً اندروید باشیم (Chaquopy یا نشانه‌هایِ محیطِ
+# اندروید مثل /system/build.prop یا ANDROID_ROOT) و معماری x86_64
+# (یعنی امولاتور).
+# (SRV-H4) — بازگشتِ دقیق به معنایِ e32bccf: مقدارِ «پاس‌شده»
+# (پیش‌فرضِ ۴) رویِ همهٔ میزبان‌هایِ غیرِ امولاتور استفاده می‌شود
+# «۰ = ORT auto»یِ SRV-G رویِ سرور کندتر بود (SRV-H2: +30..+67٪ CPU)
+# و حذف شد. امولاتورِ x86_64 همان قراردادِ SRV-F (intra=1).
+# MANGA_ORT_THREADS=N همچنان اوررایدِ صریح دارد (اولاً بعد از cap1).
     _cap1 = _android_x86_emulator()
     _xnn = _cpu_ep_xnnpack()
     try:
@@ -115,24 +107,24 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
     elif _env_t > 0:
         threads = _env_t
     elif _xnn:
-        # کانفیگِ رسمیِ XNNPACK (فقط MANGA_CPU_EP=xnnpack): threadpoolِ ORT
-        # تک‌نخی؛ XNNPACK خودش threadpoolِ هسته‌هایِ فیزیکی را می‌سازد.
+# کانفیگِ رسمیِ XNNPACK (فقط MANGA_CPU_EP=xnnpack): threadpoolِ ORT
+# تک‌نخی؛ XNNPACK خودش threadpoolِ هسته‌هایِ فیزیکی را می‌سازد.
         threads = 1
     else:
-        # v1.14.99-speed (SRV-L) — هیوریستیکِ میزبان به‌جایِ مقدارِ ثابتِ
-        # «پاس‌شده»: رویِ PC/سرورِ واقعیِ x86_64 با ≥۸ هسته، برندهٔ سوییپِ
-        # SRV-K (t8: CPU ۳۲.۲s / GPU ۱۸.۷s) پیش‌فرضِ fastest-mode می‌شود؛
-        # رویِ میزبانِ ضعیف/کم‌هسته همان مقدارِ پاس‌شده (۴) می‌ماند.
-        # MANGA_ORT_THREADS همچنان اوررایدِ مطلق است (فقط cap1 امولاتور
-        # از آن بالاتر است).
-        # انحرافِ مستندشده از اسپک (SRV-L): رشتهٔ «gvisor» در
-        # uname.release دیگر سقفِ ۴ را رویِ میزبانِ بزرگ اعمال نمی‌کند —
-        # سرورِ ۲۰ هسته‌ایِ Azure هم «4.19.0-gvisor» گزارش می‌کند (SRV-K
-        # آن را با AVX512 «بدونِ gVisor» تشخیص داده بود) و سوییپِ خودِ
-        # همان میزبان t8 را برنده داد؛ در داده‌هایِ میزبانِ قبلیِ gVisor
-        # هم CPU با ۸ نخ بهتر بود (SRV-H3: c8nb 34.8s در برابرِ c4nb
-        # 39.0s). گاردِ میزبانِ ضعیف، شرطِ «≥۸ هسته» است (میزبان‌هایِ
-        # gVisorِ کوچک/CI → همان ۴).
+# speed (SRV-L) — هیوریستیکِ میزبان به‌جایِ مقدارِ ثابتِ
+# «پاس‌شده»: رویِ PC/سرورِ واقعیِ x86_64 با ≥۸ هسته، برندهٔ سوییپِ
+# SRV-K (t8: CPU ۳۲.۲s / GPU ۱۸.۷s) پیش‌فرضِ fastest-mode می‌شود
+# رویِ میزبانِ ضعیف/کم‌هسته همان مقدارِ پاس‌شده (۴) می‌ماند.
+# MANGA_ORT_THREADS همچنان اوررایدِ مطلق است (فقط cap1 امولاتور
+# از آن بالاتر است).
+# انحرافِ مستندشده از اسپک (SRV-L): رشتهٔ «gvisor» در
+# uname.release دیگر سقفِ ۴ را رویِ میزبانِ بزرگ اعمال نمی‌کند —
+# سرورِ ۲۰ هسته‌ایِ Azure هم «4.19.0-gvisor» گزارش می‌کند (SRV-K
+# آن را با AVX512 «بدونِ gVisor» تشخیص داده بود) و سوییپِ خودِ
+# همان میزبان t8 را برنده داد؛ در داده‌هایِ میزبانِ قبلیِ gVisor
+# هم CPU با ۸ نخ بهتر بود (SRV-H3: c8nb 34.8s در برابرِ c4nb
+# 39.0s). گاردِ میزبانِ ضعیف، شرطِ «≥۸ هسته» است (میزبان‌هایِ
+# gVisorِ کوچک/CI → همان ۴).
         try:
             import platform as _pfl
             _m_l = _pfl.machine().lower() in ("x86_64", "amd64")
@@ -142,17 +134,17 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
                 threads = 8
             elif _gv_l:
                 threads = 4  # میزبانِ gVisorِ کوچک → صریحاً ۴
-            # else: همان threadsِ پاس‌شده — بدونِ auto
+# else: همان threadsِ پاس‌شده — بدونِ auto
         except Exception:
             pass
     try:
         _t = int(threads)
     except Exception:
         _t = 4
-    # v1.14.99-speed (SRV-L) — گاردِ SIGABRTِ مسیرِ CUDA: با نخِ ۲۰ رویِ
-    # سشن‌هایِ CUDA/TRT، per-patchِ LaMa رویِ سرورِ تازه ORT را با
-    # SIGABRT (exit=134) می‌کشد (SRV-K g20). سقفِ سختِ ۱۶ فقط وقتی
-    # سشنِ GPU خواسته شده؛ مسیرِ CPU دست‌نخورده می‌ماند.
+# speed (SRV-L) — گاردِ SIGABRTِ مسیرِ CUDA: با نخِ ۲۰ رویِ
+# سشن‌هایِ CUDA/TRT، per-patchِ LaMa رویِ سرورِ تازه ORT را با
+# SIGABRT (exit=134) می‌کشد (SRV-K g20). سقفِ سختِ ۱۶ فقط وقتی
+# سشنِ GPU خواسته شده؛ مسیرِ CPU دست‌نخورده می‌ماند.
     try:
         if prefer_gpu and _t > 16:
             _t = 16
@@ -161,21 +153,21 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
     so.intra_op_num_threads = _t if _t > 0 else 0
     so.inter_op_num_threads = 1
     so.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-    # پچ‌های موازی LaMa + OCR هم‌زمان اجرا می‌شوند؛ spin-wait هسته‌ها را می‌سوزاند
-    # v1.14.67 — رویِ x86_64 این کانفیگ SIGFPE می‌دهد (حدس: شمارشِ spin=۰
-    # → تقسیم بر صفر در مسیرِ x86) — فقط رویِ arm خاموش می‌شود
+# پچ‌های موازی LaMa + OCR هم‌زمان اجرا می‌شوند؛ spin-wait هسته‌ها را می‌سوزاند
+# رویِ x86_64 این کانفیگ SIGFPE می‌دهد (حدس: شمارشِ spin=۰
+# → تقسیم بر صفر در مسیرِ x86) — فقط رویِ arm خاموش می‌شود
     if not _on_x86():
         try:
             so.add_session_config_entry(
                 "session.intra_op.allow_spinning", "0")
         except Exception:
             pass
-    # v1.14.96-speed (SRV-G phase2) — tuningِ spin برایِ threadpoolِ CPU
-    # چندنخی (کمبوِ رسمیِ مستنداتِ threadingِ onnxruntime):
-    #   spin_duration_us=1000 + spin_backoff_max=8
-    # v1.14.99 (SRV-H4) — پیش‌فرضِ خاموش (رویِ میزبانِ gVisor کندتر بود؛
-    # SRV-H2)؛ فقط با MANGA_SPIN=1 و وقتی pool چندنخی است (۰ یا >۱)،
-    # رویِ میزبانِ غیرِ اندروید و خارج از XNNPACK فعال می‌شود.
+# speed (SRV-G phase2) — tuningِ spin برایِ threadpoolِ CPU
+# چندنخی (کمبوِ رسمیِ مستنداتِ threadingِ onnxruntime):
+# spin_duration_us=1000 + spin_backoff_max=8
+# (SRV-H4) — پیش‌فرضِ خاموش (رویِ میزبانِ gVisor کندتر بود
+# SRV-H2)؛ فقط با MANGA_SPIN=1 و وقتی pool چندنخی است (۰ یا >۱)
+# رویِ میزبانِ غیرِ اندروید و خارج از XNNPACK فعال می‌شود.
     try:
         _spin_h4 = str(os.environ.get("MANGA_SPIN", "")).strip() == "1"
     except Exception:
@@ -190,7 +182,7 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
         except Exception:
             pass
     if _xnn:
-        # کانفیگِ رسمیِ XNNPACK: spinning خاموش (نخِ ORT فقط هماهنگ می‌کند)
+# کانفیگِ رسمیِ XNNPACK: spinning خاموش (نخِ ORT فقط هماهنگ می‌کند)
         try:
             so.add_session_config_entry(
                 "session.intra_op.allow_spinning", "0")
@@ -198,9 +190,9 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
             pass
     if low_mem is None:
         _av = _sys_avail_ram_gb()
-        # v1.14.105 — MANGA_LOW_MEM=1: اجبارِ حالتِ کم‌رم (آرنا/الگوی
-        # حافظه خاموش) — برایِ دستگاه‌هایِ ۴GB و نوارهایِ بلندِ وبتون که
-        # به مرزِ OOM می‌رسند
+# MANGA_LOW_MEM=1: اجبارِ حالتِ کم‌رم (آرنا/الگوی
+# حافظه خاموش) — برایِ دستگاه‌هایِ ۴GB و نوارهایِ بلندِ وبتون که
+# به مرزِ OOM می‌رسند
         low_mem = bool(_on_android()
                        or (_av is not None and _av < 3.0)
                        or os.environ.get("MANGA_LOW_MEM", "") == "1")
@@ -208,9 +200,8 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
     so.enable_mem_pattern = (not low_mem)
     return so
 
-
 def _trt_ep_usable() -> bool:
-    """v1.14.96-speed — TensorrtExecutionProvider فقط وقتی «واقعاً» قابلِ
+    """-speed — TensorrtExecutionProvider فقط وقتی «واقعاً» قابلِ
     استفاده است. حضورش در get_available_providers کافی نیست؛ بدونِ
     کتابخانهٔ nvinfer ساختِ سشن یا شکست می‌خورد یا برایِ ساختِ engine
     گیر می‌کند → ماژولِ tensorrt لازم است یا اجباری با MANGA_ALLOW_TRT=1
@@ -230,9 +221,8 @@ def _trt_ep_usable() -> bool:
     except Exception:
         return False
 
-
 def _best_providers_for(kind: str = "generic", prefer_gpu: bool = True):
-    """v1.14.96-speed — انتخابگرِ مرکزیِ EP از آنچه واقعاً نصب/موجود است.
+    """-speed — انتخابگرِ مرکزیِ EP از آنچه واقعاً نصب/موجود است.
 
     خروجی: لیستِ مرتبِ providers برایِ ort.InferenceSession — سریع‌ترین
     EPِ موجود اول و همیشه CPU آخرِ لیست. اولویتِ GPU: TensorRT (فقط
@@ -266,13 +256,13 @@ def _best_providers_for(kind: str = "generic", prefer_gpu: bool = True):
         except Exception:
             pass
     else:
-        # --cpu: x86_64 → فقط CPU (همان EPِ همیشگی، نتیجهٔ بیت‌به‌بیت یکسان)
-        # v1.14.238 — OpenVINO دیگر «به‌طورِ پیش‌فرض» ترجیح نمیشود:
-        # بنچمارکِ واقعی (scripts/bench_out/ov238_results.json) رویِ
-        # ورودیهایِ ضبطشده از ۱۰ عکسِ تست: onnxruntime-openvino (۱.۲۴.۱ —
-        # تنها نسخهٔ PyPI) در rec ۲۳٪ «کندتر» (۱۰۳s در برابرِ ۸۴s)، در
-        # LaMa ۱۶٪ کندتر و فقط در det ۲.۴× سریع‌تر است (سهمِ det از OCR
-        # ~۱۸٪) → سوییچِ بی‌صدا = ضررِ خالص. فقط با MANGA_ALLOW_OV=1.
+# cpu: x86_64 → فقط CPU (همان EPِ همیشگی، نتیجهٔ بیت‌به‌بیت یکسان)
+# OpenVINO دیگر «به‌طورِ پیش‌فرض» ترجیح نمیشود:
+# بنچمارکِ واقعی (scripts/bench_out/ov238_results.json) رویِ
+# ورودیهایِ ضبطشده از ۱۰ عکسِ تست: onnxruntime-openvino (۱.۲۴.۱ —
+# تنها نسخهٔ PyPI) در rec ۲۳٪ «کندتر» (۱۰۳s در برابرِ ۸۴s)، در
+# LaMa ۱۶٪ کندتر و فقط در det ۲.۴× سریع‌تر است (سهمِ det از OCR
+# ~۱۸٪) → سوییچِ بی‌صدا = ضررِ خالص. فقط با MANGA_ALLOW_OV=1.
         try:
             _allow_ov = str(os.environ.get(
                 "MANGA_ALLOW_OV", "")).strip().lower() == "1"
@@ -280,13 +270,13 @@ def _best_providers_for(kind: str = "generic", prefer_gpu: bool = True):
             _allow_ov = False
         if _allow_ov and "OpenVINOExecutionProvider" in avail:
             out.append("OpenVINOExecutionProvider")
-        # v1.14.96-speed (SRV-G) — A/Bِ XNNPACK (فقط MANGA_CPU_EP=xnnpack):
-        # سشن‌هایِ CPU-EP از XNNPACK+CPU می‌روند با کانفیگِ رسمی
-        # (ORT intra=1 + XNNPACK intra=فیزیکی + spin خاموش) — پیش‌فرضِ خاموش.
+# speed (SRV-G) — A/Bِ XNNPACK (فقط MANGA_CPU_EP=xnnpack):
+# سشن‌هایِ CPU-EP از XNNPACK+CPU می‌روند با کانفیگِ رسمی
+# (ORT intra=1 + XNNPACK intra=فیزیکی + spin خاموش) — پیش‌فرضِ خاموش.
         if _cpu_ep_xnnpack() and "XnnpackExecutionProvider" in avail:
             out.append("XnnpackExecutionProvider")
-    # امولاتورِ اندرویدِ x86_64: CPU-EPِ ORT-android می‌میرد (SIGFPE)
-    # → XNNPACK اجباری (همان رفتارِ v1.14.67)
+# امولاتورِ اندرویدِ x86_64: CPU-EPِ ORT-android می‌میرد (SIGFPE)
+# → XNNPACK اجباری (همان رفتارِ )
     if _on_x86() and "XnnpackExecutionProvider" in avail:
         out.append("XnnpackExecutionProvider")
     out.append("CPUExecutionProvider")
@@ -297,9 +287,8 @@ def _best_providers_for(kind: str = "generic", prefer_gpu: bool = True):
             _res.append(_p)
     return _res or ["CPUExecutionProvider"]
 
-
 def _cudnn_algo_search() -> Optional[str]:
-    """v1.14.99 (SRV-H4) — الگوریتمِ جست‌وجویِ cudnn برایِ convها.
+    """ (SRV-H4) — الگوریتمِ جست‌وجویِ cudnn برایِ convها.
 
     پیش‌فرضِ «HEURISTIC» برایِ «همهٔ» سشن‌هایِ CUDA — تنها بردِ اثبات‌
     شدهٔ speed2 رویِ GPU (SRV-H3: 01.jpg GPU بدونِ batch = 21.3s در
@@ -315,16 +304,15 @@ def _cudnn_algo_search() -> Optional[str]:
         pass
     return "HEURISTIC"
 
-
 def _build_provider_options(providers):
-    """v1.14.96-speed (SRV-G phase2) — provider options برایِ سشن‌هایِ GPU:
+    """-speed (SRV-G phase2) — provider options برایِ سشن‌هایِ GPU:
     CUDA → {"cudnn_conv_use_max_workspace": "1"} (صریح؛ پیش‌فرضِ ORT هم 1
     است ولی این‌طور به آن اعتماد نمی‌کنیم). cudnn_conv_algo_search دست
     نمی‌خورد (EXHAUSTIVE می‌ماند) و CUDA graphs روشن نمی‌شود (شکل‌هایِ
     داینامیک). XNNPACK (فقط MANGA_CPU_EP=xnnpack) → intra_op_num_threads =
     هسته‌هایِ فیزیکی (کانفیگِ رسمی). خروجی None رویِ لیستِ بدونِ CUDA/XNNPACK
     → دقیقاً رفتارِ قبلی (سشنِ CPU خالص).
-    v1.14.99 (SRV-H4) — کلیدِ «cudnn_conv_algo_search»: "HEURISTIC"
+     (SRV-H4) — کلیدِ «cudnn_conv_algo_search»: "HEURISTIC"
     پیش‌فرض است (MANGA_CUDNN_ALGO=exhaustive حذفش می‌کند) — تکِ نقطهٔ
     مونتاژِ optionsِ CUDA برایِ همهٔ سشن‌ها از همین تابع می‌گذرد."""
     try:
@@ -338,9 +326,9 @@ def _build_provider_options(providers):
         for _i, _p in enumerate(providers):
             if _p == "CUDAExecutionProvider":
                 _opts[_i] = {"cudnn_conv_use_max_workspace": "1"}
-                # v1.14.99 (SRV-H4) — HEURISTIC پیش‌فرض (حذفِ re-searchِ
-                # EXHAUSTIVE برایِ هر شکلِ تازه)؛ MANGA_CUDNN_ALGO=exhaustive
-                # → None → بدونِ این کلید (رفتارِ قدیمی).
+# (SRV-H4) — HEURISTIC پیش‌فرض (حذفِ re-searchِ
+# EXHAUSTIVE برایِ هر شکلِ تازه)؛ MANGA_CUDNN_ALGO=exhaustive
+# → None → بدونِ این کلید (رفتارِ قدیمی).
                 _algo_h4 = _cudnn_algo_search()
                 if _algo_h4:
                     _opts[_i]["cudnn_conv_algo_search"] = _algo_h4
@@ -354,9 +342,8 @@ def _build_provider_options(providers):
     except Exception:
         return None
 
-
-# ── v1.14.69 — کشِ «مدلِ بهینه‌شده» برایِ LaMa ──────────────────────────
-# لاگِ POCO F4 (1.14.68): [TIME] lama-wait=67.3s → کلِ زمان در
+# کشِ «مدلِ بهینه‌شده» برایِ LaMa ──────────────────────────
+# لاگِ POCO F4 : [TIME] lama-wait=67.3s → کلِ زمان در
 # OrtEnvironment.createSession رویِ مدلِ ۲۰۶MB می‌رود؛ بهینه‌سازِ گرافِ
 # ORT تک‌نخی است و رویِ هسته‌هایِ ضعیف + رمِ آزادِ ~۳۵۵MB ده‌ها ثانیه
 # طول می‌کشد (رویِ PC/امولاتور <۱s — برایِ همین دیده نمی‌شد).
@@ -368,7 +355,6 @@ def _build_provider_options(providers):
 # استاندارد؛ مدلِ بهینه‌شده، گرافِ عمومیِ بهینه است) و بارگذاری با
 # هر EPِ درخواستی خودش دوباره EP را سوار می‌کند.
 _LAMA_OPT_LOCK = threading.Lock()
-
 
 def _lama_opt_cache_path(model_path: str, providers) -> str:
     _v = "x"
@@ -388,13 +374,12 @@ def _lama_opt_cache_path(model_path: str, providers) -> str:
     _stem = _f[:-5] if _f.lower().endswith(".onnx") else _f
     return os.path.join(_d, f"{_stem}.opt69-{_v}-{_ep}.onnx")
 
-
 def _lama_session_cached(model_path, so, providers, provider_options=None):
     """سشنِ LaMa با کشِ مدلِ بهینه‌شده + [TIME]ِ زمانِ ساخت.
 
     شکستِ هر مرحله = رفتارِ قبل (بدونِ کش) — هیچ مسیرِ تازه‌ای نباید
     بتواند ساختِ سشن را خراب کند.
-    v1.14.96-speed (SRV-G): provider_options اختیاری است (CUDA EP:
+    -speed (SRV-G): provider_options اختیاری است (CUDA EP:
     cudnn_conv_use_max_workspace=1). None = دقیقاً رفتارِ قبل."""
     _t = time.time()
     _opt = None
@@ -407,9 +392,9 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
     if _opt and os.path.isfile(_opt) \
             and os.path.getsize(_opt) > 1_000_000:
         try:
-            # v1.14.233 — ساختِ سشنِ DML هم زیرِ قفلِ سراسری: هم‌زمانیِ
-            # ساختِ سشن با runِ سشنِ دیگر رویِ درایورهایِ AMD همان
-            # 887A0006 را میدهد (سشن CPU بدونِ قفل — بی‌تغییر)
+# ساختِ سشنِ DML هم زیرِ قفلِ سراسری: هم‌زمانیِ
+# ساختِ سشن با runِ سشنِ دیگر رویِ درایورهایِ AMD همان
+# 887A0006 را میدهد (سشن CPU بدونِ قفل — بی‌تغییر)
             if "DmlExecutionProvider" in (providers or []):
                 with _DML_RUN_LOCK:
                     _s = ort.InferenceSession(_opt, sess_options=so,
@@ -430,11 +415,11 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
                 os.remove(_opt)
             except Exception:
                 pass
-    # بارِ اول: مدلِ بهینه‌شده ذخیره می‌شود (اگر ORT پشتیبانی نکرد،
-    # بی‌صدا مثلِ قبل). رویِ اندروید سطحِ بهینه‌سازی BASIC — بهینه‌سازِ
-    # ALLِ تک‌نخی بخشِ بزرگی از همان ۶۷s است و XNNPACKِ سنگین‌کارِ
-    # اصلی را خودش انجام می‌دهد (رویِ PC: ALL→BASIC فقط ‎+۴٪ زمانِ
-    # اجرا؛ ساخت ×۲.۵ سریع‌تر).
+# بارِ اول: مدلِ بهینه‌شده ذخیره می‌شود (اگر ORT پشتیبانی نکرد
+# بی‌صدا مثلِ قبل). رویِ اندروید سطحِ بهینه‌سازی BASIC — بهینه‌سازِ
+# ALLِ تک‌نخی بخشِ بزرگی از همان ۶۷s است و XNNPACKِ سنگین‌کارِ
+# اصلی را خودش انجام می‌دهد (رویِ PC: ALL→BASIC فقط ‎+۴٪ زمانِ
+# اجرا؛ ساخت ×۲.۵ سریع‌تر).
     _part = None
     try:
         _android = _on_android()
@@ -453,7 +438,7 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
         except Exception:
             _part = None
     try:
-        # v1.14.233 — ساختِ سشنِ DML زیرِ قفلِ سراسری (توضیح: بالا)
+# ساختِ سشنِ DML زیرِ قفلِ سراسری (توضیح: بالا)
         if "DmlExecutionProvider" in (providers or []):
             with _DML_RUN_LOCK:
                 _s = ort.InferenceSession(model_path, sess_options=so,
@@ -487,10 +472,9 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
         pass
     return _s
 
-
 _ORT_CUDA_OK = None
 
-# v1.14.233 — DirectML (AMD/Intel رویِ ویندوز): مستنداتِ رسمیِ ORT:
+# DirectML (AMD/Intel رویِ ویندوز): مستنداتِ رسمیِ ORT:
 # «EPِ DirectML از اجرایِ موازی پشتیبانی نمیکند؛ در هر لحظه فقط یک
 # نخ میتواند Run را رویِ سشن صدا بزند.» لاگِ 232 رویِ RX 5700 XT:
 # ۴ کارگرِ موازیِ OCR همزمان رویِ سشنهایِ rapidocr → 887A0006
@@ -503,18 +487,16 @@ _ORT_CUDA_OK = None
 # سریال میشوند.
 _DML_RUN_LOCK = threading.RLock()
 
-
 def _dml_sess(sess) -> bool:
-    """v1.14.233 — سرِ providersِ سشن DML است؟"""
+    """سرِ providersِ سشن DML است؟"""
     try:
         _p = list(sess.get_providers())
         return bool(_p) and _p[0] == "DmlExecutionProvider"
     except Exception:
         return False
 
-
 def _dml_run(sess, feeds):
-    """v1.14.233 — session.run رویِ سشنِ DML فقط زیرِ قفلِ سراسری
+    """ — session.run رویِ سشنِ DML فقط زیرِ قفلِ سراسری
     (اجرایِ موازیِ DML ممنوع است — 887A0006 رویِ AMD). سشنهایِ CPU/CUDA
     بدونِ قفل و بدونِ سربار میروند."""
     if _dml_sess(sess):
@@ -522,18 +504,16 @@ def _dml_run(sess, feeds):
             return sess.run(None, feeds)
     return sess.run(None, feeds)
 
-
 def _dml_run_outs(sess, outs, feeds):
-    """v1.14.233 — همان _dml_run ولی با لیستِ خروجیهایِ صریح (پروبهایِ
+    """ — همان _dml_run ولی با لیستِ خروجیهایِ صریح (پروبهایِ
     داخلی مثلِ _ort_probe_ok)."""
     if _dml_sess(sess):
         with _DML_RUN_LOCK:
             return sess.run(outs, feeds)
     return sess.run(outs, feeds)
 
-
 def _dml_probe_cache_get(model_path: str):
-    """v1.14.233 — کشِ دیسکِ نتیجهٔ پروبِ DML (کنارِ فایلِ مدل،
+    """ — کشِ دیسکِ نتیجهٔ پروبِ DML (کنارِ فایلِ مدل
     .dmlprobe). پروبِ هر مدل چند ثانیه ساختِ سشن رویِ GPU است؛ بدونِ
     کش هر استارت تکرار میشد. MANGA_ORT_EP_REPROBE=1 → بی‌اعتنا به کش
     (همان قراردادِ پروبِ LaMa). کلید: حجمِ فایل + نسخهٔ ORT."""
@@ -554,7 +534,6 @@ def _dml_probe_cache_get(model_path: str):
     except Exception:
         return None
 
-
 def _dml_probe_cache_set(model_path: str, ok: bool) -> None:
     try:
         import json as _json
@@ -567,9 +546,8 @@ def _dml_probe_cache_set(model_path: str, ok: bool) -> None:
     except Exception:
         pass
 
-
 def _dml_probe_model(model_path: str) -> bool:
-    """v1.14.233 — پروبِ واقعیِ DML رویِ یک فایلِ مدل: ساختِ سشن +
+    """ — پروبِ واقعیِ DML رویِ یک فایلِ مدل: ساختِ سشن +
     «یک اینفرنسِ واقعی» با فیدِ دامی از رویِ شکلِ ورودیها. «سشن ساخته
     شد» کافی نیست — لاگِ 232: سشنهایِ det/rec ساخته شدند ولی اولین
     Run با 887A0006 مرد. False = این مدل رویِ این GPU/DirectML کار
@@ -582,19 +560,18 @@ def _dml_probe_model(model_path: str) -> bool:
     _dml_probe_cache_set(model_path, _ok)
     return _ok
 
-
 def _dml_probe_model_live(model_path: str) -> bool:
     try:
         if not model_path or not os.path.isfile(model_path):
             return False
         _so = _ort_session_options(2, prefer_gpu=True)
         try:
-            # مستنداتِ DML: الگویِ حافظه باید خاموش باشد
+# مستنداتِ DML: الگویِ حافظه باید خاموش باشد
             _so.enable_mem_pattern = False
         except Exception:
             pass
-        # ساختِ سشن و run «هر دو» زیرِ قفل: در لحظهٔ پروب ممکن است
-        # پیش‌بارگذاریِ پس‌زمینهٔ LaMa همینجا سشنِ DML بسازد/اجرا کند
+# ساختِ سشن و run «هر دو» زیرِ قفل: در لحظهٔ پروب ممکن است
+# پیش‌بارگذاریِ پس‌زمینهٔ LaMa همینجا سشنِ DML بسازد/اجرا کند
         with _DML_RUN_LOCK:
             _ps = ort.InferenceSession(
                 model_path, sess_options=_so,
@@ -604,11 +581,11 @@ def _dml_probe_model_live(model_path: str) -> bool:
             _feed = _ep_ab_feed(_ps, side=320)
             if not _feed:
                 return False
-            # فیکسِ RT-DETR: ورودیِ int64ِ (B,2)ِ orig_target_sizes باید
-            # هم‌بُعدِ batchِ تصویر باشد — فیدِ خام (2,2) میسازد که با
-            # تصویرِ (1,...) mismatch میدهد و پروبِ سالم هم «مردود»
-            # میشود. batch همهٔ ورودیها را با بزرگ‌ترین batchِ 4بُعدی
-            # هم‌تراز میکنیم.
+# فیکسِ RT-DETR: ورودیِ int64ِ (B,2)ِ orig_target_sizes باید
+# هم‌بُعدِ batchِ تصویر باشد — فیدِ خام (2,2) میسازد که با
+# تصویرِ (1,...) mismatch میدهد و پروبِ سالم هم «مردود»
+# میشود. batch همهٔ ورودیها را با بزرگ‌ترین batchِ 4بُعدی
+# هم‌تراز میکنیم.
             _b = 1
             for _v in _feed.values():
                 if getattr(_v, "ndim", 0) == 4:
@@ -631,13 +608,12 @@ def _dml_probe_model_live(model_path: str) -> bool:
     except Exception:
         return False
 
-
 def _prepare_ort_cuda_dlls() -> None:
-    # v1.14.230 — ویندوز: DLLهایِ CUDA/cuDNN که pip در site-packages/nvidia
-    # میگذارد باید با add_dll_directory معرفی شوند تا سشنِ CUDA واقعاً
-    # بالا بیاید (ریشهٔ «GPU صفر درصد»: بیلدِ GPU نصب است ولی سشن
-    # بیصدا به CPU برمی‌گشت). لینوکس: LD_LIBRARY_PATH را خودِ pip-wheels
-    # هندل میکنند — این بلوک فقط ویندوز است.
+# ویندوز: DLLهایِ CUDA/cuDNN که pip در site-packages/nvidia
+# میگذارد باید با add_dll_directory معرفی شوند تا سشنِ CUDA واقعاً
+# بالا بیاید (ریشهٔ «GPU صفر درصد»: بیلدِ GPU نصب است ولی سشن
+# بیصدا به CPU برمی‌گشت). لینوکس: LD_LIBRARY_PATH را خودِ pip-wheels
+# هندل میکنند — این بلوک فقط ویندوز است.
     try:
         if os.name == "nt":
             import site as _site
@@ -680,9 +656,8 @@ def _prepare_ort_cuda_dlls() -> None:
     except Exception:
         pass
 
-
 def _on_x86() -> bool:
-    """v1.14.67 — فقط «امولاتورِ x86_64» (اندروید + x86): CPU-EPِ
+    """ — فقط «امولاتورِ x86_64» (اندروید + x86): CPU-EPِ
     libonnxruntimeِ x86_64 در sess.run تقسیم‌برصفر (SIGFPE) می‌دهد؛
     XNNPACK سالم است. PCِ لینوکسی x86 هم هست ولی اندروید نیست → False
     (وگرنه نخِ PC به ۱ محدود و مسیرِ XNNPACK خراب می‌شد)."""
@@ -694,14 +669,12 @@ def _on_x86() -> bool:
     except Exception:
         return False
 
-
 def _is_auto_ep() -> bool:
     try:
         v = (os.environ.get("MANGA_ORT_EP", "auto") or "auto").strip().lower()
     except Exception:
         return True
     return v in ("", "auto")
-
 
 def _resolve_lama_ep():
     try:
@@ -731,10 +704,8 @@ def _resolve_lama_ep():
             return cand
     return None
 
-
 def _lama_ep_cache_path(model_path: str) -> str:
     return str(model_path) + ".epab"
-
 
 def _lama_ep_cached(model_path: str):
     try:
@@ -750,7 +721,6 @@ def _lama_ep_cached(model_path: str):
         pass
     return None
 
-
 def _lama_ep_store(model_path: str, v: str):
     try:
         v = (v or "").strip().lower()
@@ -762,7 +732,6 @@ def _lama_ep_store(model_path: str, v: str):
             f.write(v)
     except Exception:
         pass
-
 
 def _ep_ab_feed(sess, side: int = 256) -> dict:
     feed = {}
@@ -819,12 +788,10 @@ def _ep_ab_feed(sess, side: int = 256) -> dict:
         feed[inp.name] = np.zeros(dims, dtype=np_dt)
     return feed
 
-
 _LAMA_STATIC_SIDE = None
 
-
 def _lama_static_side() -> int:
-    """v1.14.66 — شکلِ ثابتِ پچِ LaMa برایِ EPهایی که با شکلِ داینامیک
+    """ — شکلِ ثابتِ پچِ LaMa برایِ EPهایی که با شکلِ داینامیک
     می‌میرند (xnnpack رویِ اندروید: پروبِ ثابت پاس می‌شود ولی پچِ واقعیِ
     384×~200 ORT_FAIL می‌دهد — ریشهٔ مرگِ LaMa و فال‌بکِ OpenCV). وقتی
     فعال باشد، هر ورودیِ LaMa دقیقاً به (side×side) پد می‌شود → xnnpack
@@ -857,7 +824,6 @@ def _lama_static_side() -> int:
     _LAMA_STATIC_SIDE = int(side)
     return int(side)
 
-
 def _lama_probe_side(ab: bool = False) -> int:
     """شکلِ فیدِ پروب/AB — وقتی باکتِ ثابت فعال است، پروب باید با همان
     شکلِ واقعیِ پچ‌ها باشد تا کامپایلِ xnnpack از همان ابتدا درست باشد."""
@@ -865,7 +831,6 @@ def _lama_probe_side(ab: bool = False) -> int:
     if s > 0:
         return s
     return 256 if ab else 64
-
 
 def _ep_ab_time(sess) -> float:
     try:
@@ -884,10 +849,8 @@ def _ep_ab_time(sess) -> float:
     except Exception:
         return float("inf")
 
-
 def _lama_probeok_path(model_path: str) -> str:
     return str(model_path) + ".probeok"
-
 
 def _lama_probeok_key(model_path: str, ep_name: str) -> str:
     _v = "x"
@@ -906,7 +869,6 @@ def _lama_probeok_key(model_path: str, ep_name: str) -> str:
     _ep = str(ep_name or "").lower().replace("executionprovider", "")
     return f"{_ep}|{_v}|{_side}|{_sz}"
 
-
 def _lama_probeok_hit(model_path, ep_name) -> bool:
     try:
         if not model_path or not isinstance(model_path, str):
@@ -922,7 +884,6 @@ def _lama_probeok_hit(model_path, ep_name) -> bool:
     except Exception:
         return False
 
-
 def _lama_probeok_store(model_path, ep_name) -> None:
     try:
         if not model_path or not isinstance(model_path, str):
@@ -932,14 +893,13 @@ def _lama_probeok_store(model_path, ep_name) -> None:
     except Exception:
         pass
 
-
 def _ort_probe_ok(sess, threads: int, model_path=None,
                   ep_name: str = "") -> bool:
     _t = time.time()
-    # v1.14.70 — کشِ نتیجهٔ پروب: پروبِ سلامت/سریالی تا ۵ اینفرنسِ
-    # ۳۸۴² رویِ xnnpack انجام می‌دهد (رویِ گوشی ده‌ها ثانیه) و در هر
-    # استارت تکرار می‌شد؛ نتیجه برایِ (مدل، EP، نسخهٔ ORT، ساید، حجم)
-    # ماندگار می‌شود. MANGA_ORT_EP_REPROBE=1 → پروبِ دوباره.
+# کشِ نتیجهٔ پروب: پروبِ سلامت/سریالی تا ۵ اینفرنسِ
+# ۳۸۴² رویِ xnnpack انجام می‌دهد (رویِ گوشی ده‌ها ثانیه) و در هر
+# استارت تکرار می‌شد؛ نتیجه برایِ (مدل، EP، نسخهٔ ORT، ساید، حجم)
+# ماندگار می‌شود. MANGA_ORT_EP_REPROBE=1 → پروبِ دوباره.
     try:
         if _lama_probeok_hit(model_path, ep_name):
             try:
@@ -987,10 +947,10 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
         if t_ser <= 0.02:
             _lama_probeok_store(model_path, ep_name)
             return True
-        # v1.14.70 — اندروید: فقط اعتبارسنجی (۱ ران کافی است)؛
-        # مقایسهٔ سریال/موازی ۴ اینفرنسِ اضافه می‌خواهد و رویِ گوشیِ
-        # کم‌رم ده‌ها ثانیه به استارت اضافه می‌کند، درحالی‌که A/Bِ
-        # واقعی (.epab) جداگانه EP را با CPU مقایسه کرده است.
+# اندروید: فقط اعتبارسنجی (۱ ران کافی است)
+# مقایسهٔ سریال/موازی ۴ اینفرنسِ اضافه می‌خواهد و رویِ گوشیِ
+# کم‌رم ده‌ها ثانیه به استارت اضافه می‌کند، درحالی‌که A/Bِ
+# واقعی (.epab) جداگانه EP را با CPU مقایسه کرده است.
         try:
             _and = _on_android()
         except Exception:
@@ -1003,9 +963,9 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
                 pass
             _lama_probeok_store(model_path, ep_name)
             return True
-        # v1.14.67 — امولاتورِ x86_64: رانِ موازیِ همزمان در libonnxruntimeِ
-        # x86_64 SIGFPE می‌دهد (تقسیمِ صحیحِ صفر در زمان‌بندِ thread-pool) —
-        # پروبِ موازی رویِ x86 بی‌معناست (CI فقط درستی می‌سنجد) → پرش.
+# امولاتورِ x86_64: رانِ موازیِ همزمان در libonnxruntimeِ
+# x86_64 SIGFPE می‌دهد (تقسیمِ صحیحِ صفر در زمان‌بندِ thread-pool) —
+# پروبِ موازی رویِ x86 بی‌معناست (CI فقط درستی می‌سنجد) → پرش.
         try:
             import platform as _pf
             if _pf.machine().lower() in ("x86_64", "amd64"):
@@ -1039,11 +999,9 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
     except Exception:
         return False
 
-
 _AB_EPS = ["XnnpackExecutionProvider", "NnapiExecutionProvider",
            "WebGpuExecutionProvider", "CUDAExecutionProvider",
            "DmlExecutionProvider"]
-
 
 def _ep_tournament(model_path: str, threads: int, include_gpu: bool = True):
     t_all0 = time.time()
@@ -1071,8 +1029,8 @@ def _ep_tournament(model_path: str, threads: int, include_gpu: bool = True):
             continue
         s_c = None
         try:
-            # v1.14.99-speed (SRV-L) — کاندیدِ CUDA تورنمنت هم گاردِ سقفِ
-            # نخِ GPU را می‌گیرد (SIGABRTِ SRV-K g20 در per-patchِ LaMa)
+# speed (SRV-L) — کاندیدِ CUDA تورنمنت هم گاردِ سقفِ
+# نخِ GPU را می‌گیرد (SIGABRTِ SRV-K g20 در per-patchِ LaMa)
             so_c = _ort_session_options(
                 threads,
                 prefer_gpu=(cand == "CUDAExecutionProvider"))
@@ -1084,10 +1042,10 @@ def _ep_tournament(model_path: str, threads: int, include_gpu: bool = True):
                 except Exception:
                     pass
             t0 = time.time()
-            # v1.14.98-speed (SRV-H3) — کاندیدِ CUDA در تورنمنت هم همان
-            # optionsِ سشنِ نهایی را بگیرد (workspace + MANGA_CUDNN_ALGO)
-            # تا A/B با کانفیگِ نهایی قابلِ مقایسه باشد؛ برایِ بقیهٔ EPها
-            # None = دقیقاً رفتارِ قبل.
+# speed (SRV-H3) — کاندیدِ CUDA در تورنمنت هم همان
+# optionsِ سشنِ نهایی را بگیرد (workspace + MANGA_CUDNN_ALGO)
+# تا A/B با کانفیگِ نهایی قابلِ مقایسه باشد؛ برایِ بقیهٔ EPها
+# None = دقیقاً رفتارِ قبل.
             _po_h3 = (_build_provider_options(
                 [cand, "CPUExecutionProvider"])
                 if cand == "CUDAExecutionProvider" else None)
@@ -1118,8 +1076,8 @@ def _ep_tournament(model_path: str, threads: int, include_gpu: bool = True):
             continue
     s_cpu, t_cpu = None, float("inf")
     if _on_x86():
-        # v1.14.67 — سشنِ CPU رویِ x86 ساخته می‌شود ولی run نمی‌شود
-        # (SIGFPE)؛ فقط برایِ فال‌بکِ نهایی
+# سشنِ CPU رویِ x86 ساخته می‌شود ولی run نمی‌شود
+# (SIGFPE)؛ فقط برایِ فال‌بکِ نهایی
         try:
             s_cpu = ort.InferenceSession(model_path,
                                          sess_options=_ort_session_options(
@@ -1141,8 +1099,8 @@ def _ep_tournament(model_path: str, threads: int, include_gpu: bool = True):
         except Exception:
             pass
     rows.sort(key=lambda r: r[0])
-    # v1.14.67 — امولاتورِ x86_64: مقایسه با CPU (سشنِ CPU) خودش کرش
-    # می‌کند → برندهٔ سخت‌افزاریِ پروب‌شده را بی‌مقایسه بپذیر
+# امولاتورِ x86_64: مقایسه با CPU (سشنِ CPU) خودش کرش
+# می‌کند → برندهٔ سخت‌افزاریِ پروب‌شده را بی‌مقایسه بپذیر
     if _on_x86():
         if rows:
             winner = rows[0]
@@ -1173,17 +1131,16 @@ def _ep_tournament(model_path: str, threads: int, include_gpu: bool = True):
     _lama_ep_store(model_path, "cpu")
     return s_cpu
 
-
 def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4,
                       ep: Optional[str] = None, ep_ab: bool = False):
     global _ORT_CUDA_OK
     if ort is None:
         raise RuntimeError("onnxruntime نصب نیست")
-    # v1.14.67 — امولاتورِ x86_64 (CI): CPU-EPِ ORT-android در createSession
-    # SIGFPE می‌دهد و تورنمنت هم پروب را رد می‌کند → سشنِ دومِ fallback
-    # کرشِ نیتیو می‌دهد. تجربهٔ ران ۲۴: ساختِ اولینِ سشنِ XNNPACK سالم بود؛
-    # پس: هیچ تورنمنت، هیچ پروب، هیچ سشنِ دوم — فقط یک سشنِ مستقیمِ
-    # XNNPACK+CPU (گره‌هایِ پشتیبانی‌نشده خودکار به CPU برمی‌گردند).
+# امولاتورِ x86_64 (CI): CPU-EPِ ORT-android در createSession
+# SIGFPE می‌دهد و تورنمنت هم پروب را رد می‌کند → سشنِ دومِ fallback
+# کرشِ نیتیو می‌دهد. تجربهٔ ران ۲۴: ساختِ اولینِ سشنِ XNNPACK سالم بود
+# پس: هیچ تورنمنت، هیچ پروب، هیچ سشنِ دوم — فقط یک سشنِ مستقیمِ
+# XNNPACK+CPU (گره‌هایِ پشتیبانی‌نشده خودکار به CPU برمی‌گردند).
     try:
         import platform as _pf
         if _on_android() and _pf.machine().lower() in ("x86_64", "amd64"):
@@ -1208,9 +1165,9 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
             print(f"[!] x86_64 سشنِ مستقیمِ XNNPACK ناموفق: {str(e)[:110]}")
         except Exception:
             pass
-    # v1.14.99-speed (SRV-L) — «want» قبل از ساختِ سشن محاسبه می‌شود تا
-    # گاردِ سقفِ نخِ GPU (SIGABRT ≥۲۰ رویِ CUDA/TRT) رویِ سشنِ اصلی هم
-    # اعمال شود؛ مسیرِ CPU بدونِ clamp می‌ماند.
+# speed (SRV-L) — «want» قبل از ساختِ سشن محاسبه می‌شود تا
+# گاردِ سقفِ نخِ GPU (SIGABRT ≥۲۰ رویِ CUDA/TRT) رویِ سشنِ اصلی هم
+# اعمال شود؛ مسیرِ CPU بدونِ clamp می‌ماند.
     want = prefer_gpu and (_ORT_CUDA_OK is not False)
     so = _ort_session_options(threads, prefer_gpu=want)
 
@@ -1247,12 +1204,12 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
             except Exception:
                 pass
         elif ep in avail:
-            # v1.14.99-speed (SRV-L) — مسیرِ EPِ اجباری: اگر CUDA اجباری
-            # است، گاردِ سقفِ نخِ GPU اعمال شود
+# speed (SRV-L) — مسیرِ EPِ اجباری: اگر CUDA اجباری
+# است، گاردِ سقفِ نخِ GPU اعمال شود
             so_ep = _ort_session_options(
                 threads, prefer_gpu=(ep == "CUDAExecutionProvider"))
             if ep == "DmlExecutionProvider":
-                # v1.14.233 — مستنداتِ DML: الگویِ حافظه خاموش
+# مستنداتِ DML: الگویِ حافظه خاموش
                 try:
                     so_ep.enable_mem_pattern = False
                 except Exception:
@@ -1265,10 +1222,10 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
                 except Exception:
                     pass
             try:
-                # v1.14.98-speed (SRV-H3) — مسیرِ EPِ اجباری هم optionsِ
-                # CUDAِ مرکزی را می‌گیرد (workspace + MANGA_CUDNN_ALGO) تا
-                # «همهٔ» سشن‌هایِ CUDA یک کانفیگ داشته باشند؛ برایِ epهای
-                # غیرِ CUDA خروجیِ _build_provider_options None است.
+# speed (SRV-H3) — مسیرِ EPِ اجباری هم optionsِ
+# CUDAِ مرکزی را می‌گیرد (workspace + MANGA_CUDNN_ALGO) تا
+# «همهٔ» سشن‌هایِ CUDA یک کانفیگ داشته باشند؛ برایِ epهای
+# غیرِ CUDA خروجیِ _build_provider_options None است.
                 s_ep = _lama_session_cached(
                     model_path, so_ep, [ep, "CPUExecutionProvider"],
                     provider_options=_build_provider_options(
@@ -1301,35 +1258,35 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
             except Exception:
                 pass
 
-    # v1.14.96-speed — EPها از انتخابگرِ مرکزیِ _best_providers_for
-    # می‌آیند (TensorRT/CUDA/ROCm/MIGraphX/Dml/… بر اساسِ آنچه واقعاً
-    # نصب است + XNNPACKِ امولاتور + CPU همیشه آخر) — به‌جای چکِ
-    # هاردکدِ CUDA که بقیهٔ EPهایِ GPU را از قلم می‌انداخت.
+# speed — EPها از انتخابگرِ مرکزیِ _best_providers_for
+# می‌آیند (TensorRT/CUDA/ROCm/MIGraphX/Dml/… بر اساسِ آنچه واقعاً
+# نصب است + XNNPACKِ امولاتور + CPU همیشه آخر) — به‌جای چکِ
+# هاردکدِ CUDA که بقیهٔ EPهایِ GPU را از قلم می‌انداخت.
     providers = _best_providers_for("lama", prefer_gpu=want)
-    # v1.14.233 — مستنداتِ رسمیِ DirectML: «بهینه‌سازیِ الگویِ حافظه
-    # (enable_mem_pattern) برایِ سشنهایِ DML باید خاموش باشد» — پیشفرضِ
-    # PC روشن است و سشنِ DML را ناپایدار میکند.
+# مستنداتِ رسمیِ DirectML: «بهینه‌سازیِ الگویِ حافظه
+# (enable_mem_pattern) برایِ سشنهایِ DML باید خاموش باشد» — پیشفرضِ
+# PC روشن است و سشنِ DML را ناپایدار میکند.
     if "DmlExecutionProvider" in providers:
         try:
             so.enable_mem_pattern = False
         except Exception:
             pass
-    # v1.14.96-speed (SRV-G phase2) — CUDA EP options
-    # (cudnn_conv_use_max_workspace=1) + XNNPACKِ A/B (intra=فیزیکی)
+# speed (SRV-G phase2) — CUDA EP options
+# (cudnn_conv_use_max_workspace=1) + XNNPACKِ A/B (intra=فیزیکی)
     _popts = _build_provider_options(providers)
 
     try:
-        # v1.14.69 — کشِ مدلِ بهینه‌شده (گوشی: createSession تا 67s طول
-        # می‌کشد؛ بارهایِ بعدی از فایلِ بهینه‌شده ساخته می‌شوند)
+# کشِ مدلِ بهینه‌شده (گوشی: createSession تا 67s طول
+# می‌کشد؛ بارهایِ بعدی از فایلِ بهینه‌شده ساخته می‌شوند)
         sess = _lama_session_cached(model_path, so, providers,
                                     provider_options=_popts)
     except Exception as e:
         print(f"[!] InferenceSession GPU ناموفق ({e}) → CPU")
         if "DmlExecutionProvider" in (providers or []):
-            # v1.14.233 — شکستِ «همین مدل» رویِ DML نباید پرچمِ سراسری را
-            # مسموم کند (لاگِ 232: شکستِ دیتکتورِ int8 باعث شد LaMa هم
-            # بی‌دلیل CPU شود) — هر مدلی پشتیبانیِ اپراتورهایِ خودش را
-            # دارد. بازسازیِ CPU و خروجِ مستقیم.
+# شکستِ «همین مدل» رویِ DML نباید پرچمِ سراسری را
+# مسموم کند (لاگِ 232: شکستِ دیتکتورِ int8 باعث شد LaMa هم
+# بی‌دلیل CPU شود) — هر مدلی پشتیبانیِ اپراتورهایِ خودش را
+# دارد. بازسازیِ CPU و خروجِ مستقیم.
             _so233c = _ort_session_options(threads, prefer_gpu=False)
             return ort.InferenceSession(
                 model_path, sess_options=_so233c,
@@ -1340,11 +1297,11 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
         )
 
     active = list(sess.get_providers())
-    # v1.14.233 — پروبِ واقعیِ اینفرنس رویِ سشنِ DML: «ساخته‌شدنِ سشن»
-    # کافی نیست (لاگِ 232: سشنهایِ det/rec ساخته شدند ولی اولین Run با
-    # 887A0006 مرد). یک اینفرنسِ دامیِ کوچک (نتیجه در دیسک-کش:
-    # .dmlprobe)؛ شکست → «همین مدل» رویِ CPU بازساخته میشود بدونِ
-    # مسموم‌کردنِ بقیهٔ مدلها. CUDA/TRT/CPU دست‌نخورده.
+# پروبِ واقعیِ اینفرنس رویِ سشنِ DML: «ساخته‌شدنِ سشن»
+# کافی نیست (لاگِ 232: سشنهایِ det/rec ساخته شدند ولی اولین Run با
+# 887A0006 مرد). یک اینفرنسِ دامیِ کوچک (نتیجه در دیسک-کش:
+# .dmlprobe)؛ شکست → «همین مدل» رویِ CPU بازساخته میشود بدونِ
+# مسموم‌کردنِ بقیهٔ مدلها. CUDA/TRT/CPU دست‌نخورده.
     if "DmlExecutionProvider" in active:
         try:
             if not _dml_probe_model(model_path):
@@ -1356,17 +1313,17 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
                     providers=["CPUExecutionProvider"])
         except Exception:
             pass
-    # v1.14.232 — DML هم مثلِ CUDA «سشنِ GPUِ موفق» است (AMD/Intel رویِ
-    # ویندوز): قبلاً سشنِ سالمِ Dml باعثِ چاپِ «CUDA ساخته نشد» و
-    # قفلِ _ORT_CUDA_OK=False → همهٔ سشنهایِ بعدی CPU میشدند.
+# DML هم مثلِ CUDA «سشنِ GPUِ موفق» است (AMD/Intel رویِ
+# ویندوز): قبلاً سشنِ سالمِ Dml باعثِ چاپِ «CUDA ساخته نشد» و
+# قفلِ _ORT_CUDA_OK=False → همهٔ سشنهایِ بعدی CPU میشدند.
     if want and ("CUDAExecutionProvider" in active
                  or "DmlExecutionProvider" in active):
         _ORT_CUDA_OK = True
     elif want:
         _ORT_CUDA_OK = False
         if "DmlExecutionProvider" in (providers or []):
-            # v1.14.233 — پیامِ مخصوصِ DML (قبلاً راهنمایِ cuDNNِ CUDA
-            # چاپ میشد و کاربرِ AMD را گمراه میکرد)
+# پیامِ مخصوصِ DML (قبلاً راهنمایِ cuDNNِ CUDA
+# چاپ میشد و کاربرِ AMD را گمراه میکرد)
             print(
                 f"[!] session providers={active} (GPU ساخته نشد؛ DirectML "
                 f"این مدل را قبول نکرد — مدلهایِ int8/کوانتیزه رویِ DML "
@@ -1380,21 +1337,19 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
             )
     return sess
 
-
 def _cpu_thread_fallback(session, model_path: str, use_threads: int,
                          allow_bump: bool = True):
 
-
     try:
-        # v1.14.67 — x86_64: بازسازیِ سشنِ CPU = SIGFPE → دست‌نخورده برگرد
+# x86_64: بازسازیِ سشنِ CPU = SIGFPE → دست‌نخورده برگرد
         import platform as _pf
         if _on_android() and _pf.machine().lower() in ("x86_64", "amd64"):
             return session, use_threads
         provs = list(session.get_providers())
         _cap = 4 if _on_android() else 8
         cpu_n = max(1, min(_cap, os.cpu_count() or 4))
-        # v1.14.99 (SRV-H4) — شرطِ e32bccf بازگشت (گاردِ use_threads>0یِ
-        # SRV-G حذف شد؛ use_threads در تماس‌گیرنده‌ها همیشه ≥1 clamp شده)
+# (SRV-H4) — شرطِ e32bccf بازگشت (گاردِ use_threads>0یِ
+# SRV-G حذف شد؛ use_threads در تماس‌گیرنده‌ها همیشه ≥1 clamp شده)
         if (allow_bump and "CUDAExecutionProvider" not in provs
                 and use_threads < cpu_n):
             print(f"    [*] اینپینت روی CPU است → threads: {use_threads} → {cpu_n}")
@@ -1402,7 +1357,6 @@ def _cpu_thread_fallback(session, model_path: str, use_threads: int,
     except Exception:
         pass
     return session, use_threads
-
 
 class LamaONNX:
 
@@ -1416,7 +1370,6 @@ class LamaONNX:
         if not model_path or not os.path.isfile(model_path):
             model_path = self._download_model(cache_dir=cache_dir)
         self.model_path = model_path
-
 
         if not prefer_gpu:
             try:
@@ -1447,7 +1400,6 @@ class LamaONNX:
                 self._in_mask = n
             elif "image" in low or "img" in low:
                 self._in_image = n
-
 
         self._fixed_size = False
         try:
@@ -1538,7 +1490,7 @@ class LamaONNX:
         mask_in = msk.astype(np.float32)
         img_in = img_in.transpose(2, 0, 1)[None]
         mask_in = mask_in[None, None]
-        # v1.14.233 — رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع)
+# رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع)
         out = _dml_run(self.session,
                        {self._in_image: img_in, self._in_mask: mask_in})[0]
 
@@ -1555,18 +1507,16 @@ class LamaONNX:
         result[original_mask] = predicted[original_mask]
         return Image.fromarray(result)
 
-
 class LamaMangaONNX:
-
 
     URL = ("https://github.com/amirwolf512k/Manga-AutoTranslate/"
            "releases/download/models/lama-manga-dyn.onnx")
-    # v1.14.115 — واریانتِ «بدونِ DFT» (همان وزنهای big-lama؛ بلوکهایِ
-    # Fourier به ماتمولِ کسینوسی/سینوسی صادر شدهاند — فایلِ عمومیِ
-    # اپِ مرجع، وزنها Apache-2.0).
-    # وریفایِ عددی (scripts/lama_equiv.py): خروجی در برابرِ lama-manga-dyn
-    # رویِ ورودیِ تصادفی 384×384 → cosine=1.0000 MAE=0.002؛ سرعتِ CPU:
-    # 2.0s در برابرِ 8.2s (~۴×). DFT (144 نود) رویِ CPU/ARM گوشی سم است.
+# واریانتِ «بدونِ DFT» (همان وزنهای big-lama؛ بلوکهایِ
+# Fourier به ماتمولِ کسینوسی/سینوسی صادر شدهاند — فایلِ عمومیِ
+# اپِ مرجع، وزنها Apache-2.0).
+# وریفایِ عددی (scripts/lama_equiv.py): خروجی در برابرِ lama-manga-dyn
+# رویِ ورودیِ تصادفی 384×384 → cosine=1.0000 MAE=0.002؛ سرعتِ CPU:
+# 2.0s در برابرِ 8.2s (~۴×). DFT (144 نود) رویِ CPU/ARM گوشی سم است.
     NOFFT_URL = ("https://github.com/amirwolf512k/Manga-AutoTranslate/"
                  "releases/download/models/lama-manga-nofft.onnx")
     FALLBACK_URL = "https://huggingface.co/mayocream/lama-manga-onnx/resolve/main/lama-manga.onnx"
@@ -1574,7 +1524,7 @@ class LamaMangaONNX:
 
     @staticmethod
     def _want_nofft() -> bool:
-        """v1.14.147: پیشفرضِ همهجا «بدونِ DFT» — همان وزنهایِ big-lama با
+        """: پیشفرضِ همهجا «بدونِ DFT» — همان وزنهایِ big-lama با
         بلوکهایِ Fourier به ماتمولِ کسینوسی/سینوسی؛ وریفایِ عددیِ
         scripts/lama_equiv.py: cosine=1.0000 MAE=0.002 در برابرِ dyn →
         خروجی و سبکِ پاکسازی دستنخورده، CPU چند برابر سریعتر (8.2s→2.0s).
@@ -1599,13 +1549,13 @@ class LamaMangaONNX:
             except Exception:
                 use_threads = 0
             if use_threads <= 0:
-                # v1.14.45: نخِ صریحِ فراهم‌شده از _get_lama(threads=…) محترم است —
-                # وقتی پچِ موازی کم است باید هر پچ چندنخی شود (هسته‌های بیکار نماند)
+# نخِ صریحِ فراهم‌شده از _get_lama(threads=…) محترم است —
+# وقتی پچِ موازی کم است باید هر پچ چندنخی شود (هسته‌های بیکار نماند)
                 if threads and int(threads) > 0:
                     use_threads = max(1, min(int(threads), os.cpu_count() or 4))
                 else:
-                    # v1.14.147: PC تا ۴ نخ (با nofft چند برابر سریعتر میشود؛
-                    # اندروید مثلِ قبل ۱ — گاردِ رم/بزرگ.لیتلِ خودش را دارد)
+# PC تا ۴ نخ (با nofft چند برابر سریعتر میشود
+# اندروید مثلِ قبل ۱ — گاردِ رم/بزرگ.لیتلِ خودش را دارد)
                     _cap = 1 if _on_android() else 4
                     use_threads = max(1, min(_cap, os.cpu_count() or 4))
         else:
@@ -1621,12 +1571,12 @@ class LamaMangaONNX:
                                          ep_ab=_is_auto_ep())
         self.session, use_threads = _cpu_thread_fallback(
             self.session, model_path, use_threads, allow_bump=False)
-        # v1.14.52 — صداقتِ ep_used: رویِ اندروید _resolve_lama_ep مثلاً
-        # Xnnpack/Nnapi برمی‌گرداند ولی _make_ort_session با کشِ «cpu» به
-        # CPUExecutionProvider سقوط می‌کند و ep_used همان EPِ درخواستی
-        # می‌ماند → شرطِ سوئیچِ نخِ _get_lama («فقط رویِ CPU») برای همیشه
-        # رد می‌شد و زمان‌بند روی «۲ پچ × ۴ نخ»یِ کند می‌ماند (لاگِ POCO F4:
-        # strip ۸۲.۳s!). حالا EPِ واقعیِ سشن ملاک است.
+# صداقتِ ep_used: رویِ اندروید _resolve_lama_ep مثلاً
+# Xnnpack/Nnapi برمی‌گرداند ولی _make_ort_session با کشِ «cpu» به
+# CPUExecutionProvider سقوط می‌کند و ep_used همان EPِ درخواستی
+# می‌ماند → شرطِ سوئیچِ نخِ _get_lama («فقط رویِ CPU») برای همیشه
+# رد می‌شد و زمان‌بند روی «۲ پچ × ۴ نخ»یِ کند می‌ماند (لاگِ POCO F4:
+# strip ۸۲.۳s!). حالا EPِ واقعیِ سشن ملاک است.
         try:
             _aps = [str(p) for p in self.session.get_providers()]
             if _aps and all(p.lower().startswith("cpu") for p in _aps):
@@ -1637,17 +1587,17 @@ class LamaMangaONNX:
         names = [i.name for i in self.session.get_inputs()]
         self._in_image = names[0]
         self._in_mask = names[1] if len(names) > 1 else "mask"
-        # v1.14.66 — باکتِ شکلِ ثابت برایِ xnnpack: هر ورودیِ LaMa دقیقاً
-        # _static_bucket×_static_bucket پد می‌شود تا EPِ xnnpack که با
-        # شکلِ داینامیک ORT_FAIL می‌دهد واقعاً کار کند (پچِ LaMa زنده
-        # می‌ماند → بدونِ فال‌بکِ OpenCV → بدونِ لکهٔ قرمز + سریع‌تر).
+# باکتِ شکلِ ثابت برایِ xnnpack: هر ورودیِ LaMa دقیقاً
+# _static_bucket×_static_bucket پد می‌شود تا EPِ xnnpack که با
+# شکلِ داینامیک ORT_FAIL می‌دهد واقعاً کار کند (پچِ LaMa زنده
+# می‌ماند → بدونِ فال‌بکِ OpenCV → بدونِ لکهٔ قرمز + سریع‌تر).
         self._static_bucket = 0
-        # v1.14.135 — پچِ تطبیقیِ LaMa (فقط اندروید — MANGA_LAMA_PATCH512):
-        # پچِ 384 کلِ ورودی را به مقیاسِ ~0.5 (بلوکِ تمامعرض) و ~0.2
-        # (گروهِ پراکنده) له میکند → LaMa «متنِ قلابی» میسازد (لکهٔ
-        # کثیف). با رمِ آزادِ ≥1200MB و ≥۶ هسته، پچِ 512 (کیفیتِ
-        # بالاتر) امن است؛ گوشیِ کم‌رم مثلِ قبل 384 میماند. env دستی
-        # (MANGA_LAMA_PATCH_SIDE) همیشه حاکم است.
+# پچِ تطبیقیِ LaMa (فقط اندروید — MANGA_LAMA_PATCH512):
+# پچِ 384 کلِ ورودی را به مقیاسِ ~0.5 (بلوکِ تمامعرض) و ~0.2
+# (گروهِ پراکنده) له میکند → LaMa «متنِ قلابی» میسازد (لکهٔ
+# کثیف). با رمِ آزادِ ≥1200MB و ≥۶ هسته، پچِ 512 (کیفیتِ
+# بالاتر) امن است؛ گوشیِ کم‌رم مثلِ قبل 384 میماند. env دستی
+# (MANGA_LAMA_PATCH_SIDE) همیشه حاکم است.
         try:
             if (_on_android()
                     and not os.environ.get("MANGA_LAMA_PATCH_SIDE")
@@ -1702,21 +1652,21 @@ class LamaMangaONNX:
             f"[+] مدل پاکسازی آماده | threads={use_threads} | size={self.SIZE}" +
             (f" | سقفِ پچ: {self._input_cap}" if self._input_cap != self.SIZE else "")
         )
-        # v1.14.67 — A/B با شکلِ واقعیِ پچ (یک‌بار + کشِ .epab): پروبِ قدیمی
-        # با شکلِ کوچک بود؛ xnnpack ممکن است «کار کند» ولی از CPUِ چندنخی
-        # کندتر باشد (لاگِ POCO F4: 28.4s برایِ ۲ پچِ ۳۸۴²). برنده ماندگار
-        # می‌شود. گیتِ رم: با رمِ آزادِ کم (دو سشن همزمان) A/B نمی‌کنیم.
+# A/B با شکلِ واقعیِ پچ (یک‌بار + کشِ .epab): پروبِ قدیمی
+# با شکلِ کوچک بود؛ xnnpack ممکن است «کار کند» ولی از CPUِ چندنخی
+# کندتر باشد (لاگِ POCO F4: 28.4s برایِ ۲ پچِ ۳۸۴²). برنده ماندگار
+# می‌شود. گیتِ رم: با رمِ آزادِ کم (دو سشن همزمان) A/B نمی‌کنیم.
         try:
             self._ep_real_shape_ab(use_threads)
         except Exception:
             pass
-        # ══ v1.14.106 — dual-device (GPU + CPU همزمان) ══════════════════
-        # درخواستِ کاربر: «هم GPU هم CPU با هم استفاده کنه واسه پاکسازی
-        # سریع‌تر». وقتی EPِ سرِ سشن GPU-گونه است (CUDA/DML/NNAPI/XNNPACK)،
-        # یک سشنِ CPUِ دوم ساخته می‌شود و پچ‌هایِ موازیِ همزمان بینِ دو
-        # دستگاه می‌چرخند. رویِ ساختهٔ CPU-خالص هیچ تغییری نمی‌کند (سشنِ
-        # دوم ساخته نمی‌شود → رگرسیونِ بیت‌به‌بیت محفوظ). گیتِ رم رویِ
-        # اندروید: MemAvailable < 2.5GB → نه (دو سشن جا نمی‌شود).
+# ══ — dual-device (GPU + CPU همزمان) ══════════════════
+# درخواستِ کاربر: «هم GPU هم CPU با هم استفاده کنه واسه پاکسازی
+# سریع‌تر». وقتی EPِ سرِ سشن GPU-گونه است (CUDA/DML/NNAPI/XNNPACK)
+# یک سشنِ CPUِ دوم ساخته می‌شود و پچ‌هایِ موازیِ همزمان بینِ دو
+# دستگاه می‌چرخند. رویِ ساختهٔ CPU-خالص هیچ تغییری نمی‌کند (سشنِ
+# دوم ساخته نمی‌شود → رگرسیونِ بیت‌به‌بیت محفوظ). گیتِ رم رویِ
+# اندروید: MemAvailable < 2.5GB → نه (دو سشن جا نمی‌شود).
         self.session_cpu = None
         self._sess_rr = 0
         self._sess_rr_lock = threading.Lock()
@@ -1725,9 +1675,9 @@ class LamaMangaONNX:
             if _ghead and _dual_device_enabled() \
                     and (os.cpu_count() or 2) >= 4 \
                     and not _android_x86_emulator():
-                # v1.14.108 — رویِ شبیه‌سازِ x86_64 سشنِ CPU-خالص ممنوع است
-                # (CPU EPِ ORT-android آنجا می‌میرد — درسِ v1.14.67؛ هنگِ
-                # گیتِ شبیه‌ساز)؛ رویِ گوشیِ arm64 و PC مشکلی ندارد.
+# رویِ شبیه‌سازِ x86_64 سشنِ CPU-خالص ممنوع است
+# (CPU EPِ ORT-android آنجا می‌میرد — درسِ ؛ هنگِ
+# گیتِ شبیه‌ساز)؛ رویِ گوشیِ arm64 و PC مشکلی ندارد.
                 _free_mb = 0
                 try:
                     with open("/proc/meminfo", "r") as _mi:
@@ -1763,7 +1713,7 @@ class LamaMangaONNX:
                 return
             if _on_x86():
                 return  # A/B با سشنِ CPU رویِ x86 ممکن نیست (SIGFPEِ ORT)
-            # گیتِ رم: MemAvailable < 1.5GB → A/B نه (دو سشن جا نمی‌شود)
+# گیتِ رم: MemAvailable < 1.5GB → A/B نه (دو سشن جا نمی‌شود)
             _free_mb = 0
             try:
                 with open("/proc/meminfo", "r") as _mi:
@@ -1819,9 +1769,9 @@ class LamaMangaONNX:
         from pathlib import Path
         cache_root = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "manga_translator_models"
         cache_root.mkdir(parents=True, exist_ok=True)
-        # v1.14.147 — واریانتِ بدونِDFT همهجا (خروجیِ عددیِ یکسان با dyn —
-        # وریفایِ scripts/lama_equiv.py — و CPU چند برابر سریعتر)؛
-        # MANGA_LAMA_NOFFT=0 رویِ PC برایِ dynِ قدیمی.
+# واریانتِ بدونِDFT همهجا (خروجیِ عددیِ یکسان با dyn —
+# وریفایِ scripts/lama_equiv.py — و CPU چند برابر سریعتر)
+# MANGA_LAMA_NOFFT=0 رویِ PC برایِ dynِ قدیمی.
         _nofft = cls._want_nofft()
         dst = cache_root / ("lama-manga-nofft.onnx" if _nofft else "lama-manga-dyn.onnx")
         if dst.is_file() and dst.stat().st_size > 1_000_000:
@@ -1855,7 +1805,7 @@ class LamaMangaONNX:
         raise RuntimeError(f"دانلود مدل LaMa ناموفق: {last}")
 
     def _prep_sample(self, image, mask):
-        """v1.14.96-speed (SRV-G phase2) — آماده‌سازیِ ورودیِ LaMa-Manga:
+        """-speed (SRV-G phase2) — آماده‌سازیِ ورودیِ LaMa-Manga:
         همان کدِ __call__ تا قبل از session.run (بایت‌به‌بایت همان ریاضی).
         خروجی برایِ runِ تکی و batched مشترک است."""
         if isinstance(image, np.ndarray):
@@ -1882,10 +1832,10 @@ class LamaMangaONNX:
 
         _bucket = int(getattr(self, "_static_bucket", 0) or 0)
         if _bucket and not self._fixed_size:
-            # v1.14.66 — همهٔ ورودی‌ها دقیقاً _bucket66×_bucket66 → شکلِ
-            # ثابت برایِ xnnpack (یک کامپایل، بدونِ ORT_FAILِ شکلِ تازه).
-            # ماسک در ناحیهٔ پد صفر است و خروجی فقط داخلِ ناحیهٔ اصلی
-            # برش می‌خورد — ریاضیِ خروجی مثلِ مسیرِ fixed-size است.
+# همهٔ ورودی‌ها دقیقاً _bucket66×_bucket66 → شکلِ
+# ثابت برایِ xnnpack (یک کامپایل، بدونِ ORT_FAILِ شکلِ تازه).
+# ماسک در ناحیهٔ پد صفر است و خروجی فقط داخلِ ناحیهٔ اصلی
+# برش می‌خورد — ریاضیِ خروجی مثلِ مسیرِ fixed-size است.
             s = _bucket
             scale = s / _mx
             if scale < 1.0:
@@ -1949,7 +1899,7 @@ class LamaMangaONNX:
                 "has_mask": _has_mask}
 
     def _next_session(self):
-        """v1.14.106 — چرخشِ round-robin بینِ سشنِ اصلی (GPU) و سشنِ CPU
+        """ — چرخشِ round-robin بینِ سشنِ اصلی (GPU) و سشنِ CPU
         برایِ dual-device. وقتی سشنِ دوم نیست → همان سشنِ اصلی (بدونِ
         هیچ تغییرِ رفتار)."""
         _sc = getattr(self, "session_cpu", None)
@@ -1967,17 +1917,17 @@ class LamaMangaONNX:
         feeds = {self._in_image: img_in, self._in_mask: mask_in}
         _sess = self._next_session()
         try:
-            # v1.14.233 — رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع —
-            # پچهایِ موازیِ LaMa همه از همینجا میگذرند)
+# رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع —
+# پچهایِ موازیِ LaMa همه از همینجا میگذرند)
             return _dml_run(_sess, feeds)[0]
         except Exception:
             if _sess is not self.session:
-                # سشنِ CPU خراب شد → سشنِ اصلی (امن)
+# سشنِ CPU خراب شد → سشنِ اصلی (امن)
                 return _dml_run(self.session, feeds)[0]
             raise
 
     def run_batch_tensors(self, tensors):
-        """v1.14.96-speed (SRV-G phase2) — یک session.run برایِ N پچِ
+        """-speed (SRV-G phase2) — یک session.run برایِ N پچِ
         «هم‌شکل» (بعدِ batch=N؛ همان پدینگ/همان ترتیب). ورودی: لیستِ
         خروجیِ _prep_sample با tensorهایِ هم‌شکل. خروجی: outِ هر نمونه به
         ترتیبِ ورودی. شکست → exception (تماس‌گیرنده per-sample می‌رود)."""
@@ -2011,7 +1961,6 @@ class LamaMangaONNX:
             return Image.fromarray(t["img_rgb"].copy())
         out = self._run_tensors(t["img_in"], t["mask_in"])
         return self._finish_sample(t, out[0])
-
 
 class LamaTorch:
     FILE = "big-lama.pt"
@@ -2184,14 +2133,13 @@ class LamaTorch:
         result[m_full] = res[m_full]
         return Image.fromarray(result)
 
-
 class RTDetrV2ONNXDetector:
 
     DET_REPO = "ogkalu/comic-text-and-bubble-detector"
-    # v1.14.234 — «detector-v4.onnx» حذف شد: در «هیچ» منبعی وجود ندارد
-    # (ریلیزِ mirror: 404؛ APIِ ریپویِ HF هم فقط detector-v4-s_int8 و
-    # detector.onnx و detector_int8 را دارد) — امتحانِ آن در هر استارتِ
-    # تازه فقط دو 404ِ بی‌فایده میساخت.
+# «detector-v4.onnx» حذف شد: در «هیچ» منبعی وجود ندارد
+# (ریلیزِ mirror: 404؛ APIِ ریپویِ HF هم فقط detector-v4-s_int8 و
+# detector.onnx و detector_int8 را دارد) — امتحانِ آن در هر استارتِ
+# تازه فقط دو 404ِ بی‌فایده میساخت.
     DET_FILES = ("detector-v4-s_int8.onnx", "detector.onnx")
     CLASS_NAMES = {0: "bubble", 1: "text_bubble", 2: "text_free"}
     INPUT_SIZE = 640
@@ -2228,15 +2176,15 @@ class RTDetrV2ONNXDetector:
 
         _forced = (os.environ.get("MANGA_DET_MODEL") or "").strip()
 
-        # v1.14.233 — رویِ DirectML (AMD/Intel ویندوز): مدلِ int8 سشنِ DML
-        # نمیسازد (80070057 — اپراتورهایِ کوانتیزه؛ لاگِ 232 رویِ RX 5700
-        # XT). این بلوک در «هر دو» مسیر اجرا میشود (مدلِ کش‌شده و دانلودِ
-        # تازه — باگِ پیشین: فقط مسیرِ دانلود بود و مدلِ int8ِ کش‌شده اصلاً
-        # GPU امتحان نمیکرد): کاندیدها (مدلِ محلی + fp32هایِ ریپو) با
-        # «پروبِ واقعی» (سشن + یک اینفرنس؛ نتیجه دیسک-کش) امتحان میشوند و
-        # اولینِ سالم رویِ GPU میرود. هیچکدام؟ → دیتکتور رویِ CPU (int8
-        # سریعتر از fp32 رویِ CPU) تا تلاشِ خرابِ GPU پرچمِ «GPU ساخته نشد»
-        # را قفل نکند و LaMa/OCR آزاد بمانند.
+# رویِ DirectML (AMD/Intel ویندوز): مدلِ int8 سشنِ DML
+# نمیسازد (80070057 — اپراتورهایِ کوانتیزه؛ لاگِ 232 رویِ RX 5700
+# XT). این بلوک در «هر دو» مسیر اجرا میشود (مدلِ کش‌شده و دانلودِ
+# تازه — باگِ پیشین: فقط مسیرِ دانلود بود و مدلِ int8ِ کش‌شده اصلاً
+# GPU امتحان نمیکرد): کاندیدها (مدلِ محلی + fp32هایِ ریپو) با
+# «پروبِ واقعی» (سشن + یک اینفرنس؛ نتیجه دیسک-کش) امتحان میشوند و
+# اولینِ سالم رویِ GPU میرود. هیچکدام؟ → دیتکتور رویِ CPU (int8
+# سریعتر از fp32 رویِ CPU) تا تلاشِ خرابِ GPU پرچمِ «GPU ساخته نشد»
+# را قفل نکند و LaMa/OCR آزاد بمانند.
         _dml_skip = False
         try:
             _dml_head = (
@@ -2250,12 +2198,12 @@ class RTDetrV2ONNXDetector:
             if model_path and os.path.isfile(model_path) \
                     and os.path.getsize(model_path) > 1000:
                 _cand.append((os.path.basename(model_path), model_path))
-            # v1.14.234 — «detector-v4.onnx» از کاندیدها حذف شد: فایلِ
-            # مرده — نه در ریلیزِ mirror هست (404) نه در ریپویِ HF. هر
-            # استارت یک mirror+HFِ بی‌فایده را امتحان میکرد و «ساکت»
-            # میانداخت — ریشهٔ پرسشِ سازنده: «سیستمم داشتم چرا رفت
-            # detector.onnx گرفت؟». کاندیدِ fp32 فقط detector.onnx است
-            # (160.7MB — همان دیتکتور، بدونِ کوانتیزه).
+# «detector-v4.onnx» از کاندیدها حذف شد: فایلِ
+# مرده — نه در ریلیزِ mirror هست (404) نه در ریپویِ HF. هر
+# استارت یک mirror+HFِ بی‌فایده را امتحان میکرد و «ساکت»
+            #. کاندیدِ fp32 فقط detector.onnx است
+# میانداخت — ریشهٔ
+# (160.7MB — همان دیتکتور، بدونِ کوانتیزه).
             for _f in ("detector.onnx",):
                 _cand.append((_f, None))
             _seen = set()
@@ -2275,8 +2223,8 @@ class RTDetrV2ONNXDetector:
                         print(f"[*] دانلود {_fn} برایِ GPU (DirectML) ...")
                         _c = _hf_with_timeout(_fn)
                     except Exception as _e:
-                        # v1.14.234 — دیگر بی‌صدا قورت داده نمیشود؛ در لاگ
-                        # باید دیده شود چرا کاندید رد شد.
+# دیگر بی‌صدا قورت داده نمیشود؛ در لاگ
+# باید دیده شود چرا کاندید رد شد.
                         print(f"    [!] {_fn} از HF هم نیامد: {_e}")
                         _c = None
                 if not (_c and os.path.isfile(_c)
@@ -2363,8 +2311,8 @@ class RTDetrV2ONNXDetector:
                     f"نتوانست مدل RT-DETR را از {self.DET_REPO} دانلود کند: {last_err}"
                 )
         else:
-            # v1.14.233 — اگر پروبِ DML مردود شد (int8)، حتی امتحانِ GPU هم
-            # نکن (ارورِ 80070057 و پیامِ گمراه‌کننده نمیآید؛ مستقیم CPU)
+# اگر پروبِ DML مردود شد (int8)، حتی امتحانِ GPU هم
+# نکن (ارورِ 80070057 و پیامِ گمراه‌کننده نمیآید؛ مستقیم CPU)
             self.session = _make_ort_session(
                 model_path,
                 prefer_gpu=(False if _dml_skip else prefer_gpu),
@@ -2487,18 +2435,17 @@ class RTDetrV2ONNXDetector:
         feeds = {self._in_images: im_data}
         if self._in_sizes is not None:
             feeds[self._in_sizes] = orig_size
-        # v1.14.233 — رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع)
+# رویِ DML فقط زیرِ قفل (اجرایِ موازی ممنوع)
         outputs = _dml_run(self.session, feeds)
         return self._parse_outputs(outputs, h0, w0, threshold)
-
 
     TILE_HEIGHT = 1680
     TILE_OVERLAP = 520
     TILE_MIN_GAIN = 1.25
 
     def detect(self, image_bgr: np.ndarray, fast: bool = False):
-        # fast=True → فقط یک مقیاس (بدون پاس دوم multi_scale) — برای برش امن
-        # که فقط محل حباب‌ها را می‌خواهد؛ ~۲× سریع‌تر روی CPU.
+# fast=True → فقط یک مقیاس (بدون پاس دوم multi_scale) — برای برش امن
+# که فقط محل حباب‌ها را می‌خواهد؛ ~۲× سریع‌تر روی CPU.
         h = int(image_bgr.shape[0])
         if h > int(self.TILE_HEIGHT * self.TILE_MIN_GAIN):
             return self._detect_tiled(image_bgr, fast=fast)
@@ -2541,15 +2488,15 @@ class RTDetrV2ONNXDetector:
                         for (_cs, _ce, ys, ye) in tiles]
 
         all_boxes: List[dict] = []
-        # v1.14.214 — جعبههایِ «ردشدهٔ لبهٔ کاشی» جدا جمع میشوند تا در
-        # پایان، اگر هیچ کاشیِ دیگری همان ناحیه را نپوشانده باشد، نجات
-        # بیابند (ریشهٔ «یک متن نمیبینه رد میشه»: پاراگرافِ «1. AUTHORITY
-        # TO IMMEDIATELY SEPARATE…» در img4 فقط در کاشیِ [0,2200] دیده
-        # میشد (conf=0.65) ولی مرکزش ۱۶px بعد از قلمروِ ادعای آن کاشی
-        # (core_end+0.35×overlap) میفتاد و کاشیِ صاحبِ ناحیه هم چیزی
-        # تشخیص نمیداد → متن کلاً حذف میشد؛ حالتِ تکی (عکسِ برنده-نقطه)
-        # همان متن را پیدا میکرد و کاربر میگفت «تکی بدم همشو پیدا
-        # میکنه»).
+# جعبههایِ «ردشدهٔ لبهٔ کاشی» جدا جمع میشوند تا در
+# پایان، اگر هیچ کاشیِ دیگری همان ناحیه را نپوشانده باشد، نجات
+# بیابند (ریشهٔ «یک متن نمیبینه رد میشه»: پاراگرافِ «1. AUTHORITY
+# TO IMMEDIATELY SEPARATE…» در img4 فقط در کاشیِ [0,2200] دیده
+# میشد (conf=0.65) ولی مرکزش ۱۶px بعد از قلمروِ ادعای آن کاشی
+# (core_end+0.35×overlap) میفتاد و کاشیِ صاحبِ ناحیه هم چیزی
+# تشخیص نمیداد → متن کلاً حذف میشد؛ حالتِ تکی (عکسِ برنده-نقطه)
+# همان متن را پیدا میکرد و کاربر میگفت «تکی بدم همشو پیدا
+# میکنه»).
         _edge_rejects: List[dict] = []
         for (core_start, core_end, ys, ye), tile_boxes in zip(tiles, _results):
             for b in tile_boxes:
@@ -2564,11 +2511,11 @@ class RTDetrV2ONNXDetector:
                     _edge_rejects.append(nb)
 
         merged = self._nms(all_boxes, max(0.40, self.iou_thresh))
-        # v1.14.214 — نجاتِ جعبهٔ لبهٔ کاشی: جعبهٔ ردشده فقط وقتی زنده
-        # میماند که «هیچ» جعبهٔ نگه‌داشته‌شدهای مرکزش را نپوشاند و
-        # همپوشانیِ IoU≥۰.۲ هم با او نداشته باشد؛ یعنی بدونِ این نجات
-        # آن ناحیه کلاً بی‌جعبه میماند. جعبههایِ تکراریِ عادی از همین
-        # پوشش رد میشوند (NMSِ پایانی هم دوباره ضدِ تکرار است).
+# نجاتِ جعبهٔ لبهٔ کاشی: جعبهٔ ردشده فقط وقتی زنده
+# میماند که «هیچ» جعبهٔ نگه‌داشته‌شدهای مرکزش را نپوشاند و
+# همپوشانیِ IoU≥۰.۲ هم با او نداشته باشد؛ یعنی بدونِ این نجات
+# آن ناحیه کلاً بی‌جعبه میماند. جعبههایِ تکراریِ عادی از همین
+# پوشش رد میشوند (NMSِ پایانی هم دوباره ضدِ تکرار است).
         if _edge_rejects:
             _rescued = 0
             for _rb in _edge_rejects:
@@ -2602,7 +2549,6 @@ class RTDetrV2ONNXDetector:
             if _rescued:
                 merged = self._nms(merged, max(0.40, self.iou_thresh))
         return MangaTranslator._drop_contained_boxes(merged, contain_thresh=0.65)
-
 
     def _detect_plain(self, image_bgr: np.ndarray, fast: bool = False):
         h, w = image_bgr.shape[:2]
@@ -2642,12 +2588,11 @@ class RTDetrV2ONNXDetector:
         cleaned = self._nms(all_boxes, max(0.42, self.iou_thresh))
         return MangaTranslator._drop_contained_boxes(cleaned, contain_thresh=0.68)
 
-
-# v1.14.96-speed — منبعِ اصلیِ مدل‌هایِ OCR = ریلیزِ «models» رویِ GitHub
+# speed — منبعِ اصلیِ مدل‌هایِ OCR = ریلیزِ «models» رویِ GitHub
 # (همان amirwolf512k/Manga-AutoTranslate)؛ assetsها دقیقاً با همین نام‌ها
 # آنجاست: PP-OCRv6_det_small.onnx (det) / PP-OCRv6_rec_small.onnx (rec
 # en+ch) / korean_PP-OCRv5_rec_mobile.onnx / japan_PP-OCRv4_rec_mobile.onnx
-# v1.14.152 — مجموعهٔ مرجع اضافه شد (درخواست: «از همین نسخه که مرجع استفاده
+# مجموعهٔ مرجع اضافه شد (درخواست: «از همین نسخه که مرجع استفاده
 # میکنه استفاده کن»): PP-OCRv6_medium_det_onnx.onnx (59.16MiB) /
 # PP-OCRv6_medium_rec_onnx.onnx (73.01MiB) / PP-OCRv5_korean_rec.onnx
 # (12.80MiB) = عینِ فایلهایِ رسمیِ PaddlePaddle رویِ HuggingFace که خودِ
@@ -2671,8 +2616,8 @@ _RAPIDOCR_FILES = {
         _RAPIDOCR_MS + "/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx",
     "japan_PP-OCRv4_rec_mobile.onnx":
         _RAPIDOCR_MS + "/PP-OCRv4/rec/japan_PP-OCRv4_rec_mobile.onnx",
-    # v1.14.152 — مجموعهٔ مرجع (منبعِ فالبک = رسمیِ PaddlePaddle/modelscope؛
-    # منبعِ اصلی = ریلیزِ «models» خودمان با همین نامها)
+# مجموعهٔ مرجع (منبعِ فالبک = رسمیِ PaddlePaddle/modelscope
+# منبعِ اصلی = ریلیزِ «models» خودمان با همین نامها)
     "PP-OCRv6_medium_det_onnx.onnx":
         "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_det_onnx"
         "/resolve/main/inference.onnx",
@@ -2686,65 +2631,60 @@ _RAPIDOCR_FILES = {
         _RAPIDOCR_MS + "/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx",
     "ch_PP-OCRv4_rec_infer.onnx":
         _RAPIDOCR_MS + "/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx",
-    # v1.14.179 — موتورِ «فلاتر-پدل» (flutter-paddle-ocr) = PP-OCRv6 tiny
-    # (دستورِ سازنده: «flutter-paddle-ocr اینم اضافه کن واسه تست» —
-    # github.com/mencomao/flutter-paddle-ocr همان PP-OCRv6 tinyِ ONNXِ
-    # خالص رویِ ONNX Runtime است، نه Paddle-Lite). منبعِ اصلی = HFِ
-    # رسمیِ PaddlePaddle (همان الگویِ medium)؛ فالبک = ریلیزِ modelsِ
-    # خودمان. det 1.7MB + rec 4.3MB — سبکترین جفتِ خانوادهٔ v6.
+# موتورِ «فلاتر-پدل» (flutter-paddle-ocr) = PP-OCRv6 tiny
+# github.com/mencomao/flutter-paddle-ocr همان PP-OCRv6 tinyِ ONNXِ
+# خالص رویِ ONNX Runtime است، نه Paddle-Lite). منبعِ اصلی = HFِ
+# رسمیِ PaddlePaddle (همان الگویِ medium)؛ فالبک = ریلیزِ modelsِ
+# خودمان. det 1.7MB + rec 4.3MB — سبکترین جفتِ خانوادهٔ v6.
     "PP-OCRv6_tiny_det.onnx":
         "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_det_onnx"
         "/resolve/main/inference.onnx",
     "PP-OCRv6_tiny_rec.onnx":
         "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx"
         "/resolve/main/inference.onnx",
-    # dictِ مخصوصِ tiny (۶۹۰۴ نویسه — استخراجشده از inference.ymlِ مدلِ
-    # رسمی؛ جدا از medium ۱۸۷۰۷ی و small ۶۶۲۳ی) — فقط از ریلیزِ خودمان
+# dictِ مخصوصِ tiny (۶۹۰۴ نویسه — استخراجشده از inference.ymlِ مدلِ
+# رسمی؛ جدا از medium ۱۸۷۰۷ی و small ۶۶۲۳ی) — فقط از ریلیزِ خودمان
     "ppocr_keys_v6_tiny_utf8.txt":
         _RAPIDOCR_MIRROR + "ppocr_keys_v6_tiny_utf8.txt",
-    # v1.14.182 — charsetِ رسمیِ PP-OCRv6 medium rec (paddleocr.aiِ
-    # android_deployment: «rec = inference.onnx + inference.yml»)؛
-    # ۱۸۷۰۸ نویسه + فاصله. v1.14.184 — پلِ PaddleOcrBridge از
-    # inference.ymlِ باندلشده در assets میخواند (SDKِ رسمی) — این مدخل
-    # فقط برایِ سازگاریِ نگاشتِ URLهایِ قدیمی مانده است.
+# charsetِ رسمیِ PP-OCRv6 medium rec (paddleocr.aiِ
+# android_deployment: «rec = inference.onnx + inference.yml»)
+# ۱۸۷۰۸ نویسه + فاصله. — پلِ PaddleOcrBridge از
+# inference.ymlِ باندلشده در assets میخواند (SDKِ رسمی) — این مدخل
+# فقط برایِ سازگاریِ نگاشتِ URLهایِ قدیمی مانده است.
     "PP-OCRv6_medium_rec_inference.yml":
         "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx"
         "/resolve/main/inference.yml",
 }
 
-
 def _pc_det_medium() -> bool:
-    """v1.14.191 — سوئیچِ نجاتِ detِ سنگینِ قبلی رویِ PC.
+    """ — سوئیچِ نجاتِ detِ سنگینِ قبلی رویِ PC.
 
-    دستورِ سازنده: «نمیشه کاری کرد مثل گوشی پی سی لینوکس هم استخراجش
-    سریع باشه؟» → پیشفرضِ PC از v1.14.191 = عینِ ستِ گوشی (detِ
+    → پیشفرضِ PC از = عینِ ستِ گوشی (detِ
     PP-OCRv6_small ۱۰MB). با MANGA_OCR_DET_MEDIUM=1 رفتارِ
-    v1.14.188..190 (detِ mediumِ ۵۹MB — مرجع) برگردد (کسانی که detِ
+    ..190 (detِ mediumِ ۵۹MB — مرجع) برگردد (کسانی که detِ
     حداکثری میخواهند؛ CPUهایِ قوی).
     """
     _v = str(os.environ.get("MANGA_OCR_DET_MEDIUM", "") or "").strip().lower()
     return _v in ("1", "true", "yes", "on")
 
-
 def _rapidocr_model_pair(lang: str, small: bool = False,
                          tiny: bool = False):
-    """v1.14.152 — جفتِ (det, rec) بر اساسِ زبان.
+    """ — جفتِ (det, rec) بر اساسِ زبان.
 
-    v1.14.191 — پیشفرضِ PC = عینِ ستِ گوشی (دستورِ سازنده: «مثل گوشی
-    پی سی لینوکس هم استخراجش سریع باشه»):
+     — پیشفرضِ PC = عینِ ستِ گوشی ():
       det = PP-OCRv6_det_small.onnx (۱۰MB — همان detِ گوشی؛ بنچمارکِ
             کلاسِ PCِ قدیم/۲ هسته رویِ ۹ کراپِ lang_zh.jpg:
             detِ medium ۲۹.۷s → detِ small ۱۸.۴s با همان متن — #01 حتی
             تمیزتر: «6 DIALOGUE BUBBLES» کامل)
       recِ en/zh/ja = PP-OCRv6_medium_rec_onnx.onnx (73.01MiB)
       recِ ko = PP-OCRv5_korean_rec.onnx (رسمی، 12.80MiB)
-    v1.14.191 — zh هم عینِ گوشی شد: جفتِ قدیمیِ ch_PP-OCRv4 (v1.14.152)
+     — zh هم عینِ گوشی شد: جفتِ قدیمیِ ch_PP-OCRv4 ()
     فاصلههایِ لاتین را میبلعید («ONESOURCEART-3PANELS») و پسِ ویرگول
     تکراری میساخت («،自 自己»)؛ v6_medium مو به مو متنِ گوشی را میدهد.
-    MANGA_OCR_DET_MEDIUM=1 = detِ mediumِ قبلی (مرجع — v1.14.188..190).
+    MANGA_OCR_DET_MEDIUM=1 = detِ mediumِ قبلی (مرجع — ..190).
     small=True (فقط شبیهسازِ x86_64 در CI) = مجموعهٔ سبکِ قبلی تا
     بودجهٔ زمانی و گیتهایِ CI دستنخورده بمانند.
-    tiny=True = «فلاتر-پدل» (v1.14.179 — بدونِ تغییر).
+    tiny=True = «فلاتر-پدل» ( — بدونِ تغییر).
     """
     _low = str(lang).lower()
     if tiny:
@@ -2761,23 +2701,19 @@ def _rapidocr_model_pair(lang: str, small: bool = False,
         if _low in ("japan", "ja", "japanese"):
             return _det, "japan_PP-OCRv4_rec_mobile.onnx"
         return _det, "PP-OCRv6_rec_small.onnx"
-    # v1.14.191 — detِ PC = عینِ گوشی (small ۱۰MB؛ نه mediumِ ۵۹MB)
+# detِ PC = عینِ گوشی (small ۱۰MB؛ نه mediumِ ۵۹MB)
     _det = ("PP-OCRv6_medium_det_onnx.onnx" if _pc_det_medium()
             else "PP-OCRv6_det_small.onnx")
     if _low in ("korean", "ko"):
         return _det, "PP-OCRv5_korean_rec.onnx"
-    # v1.14.190 — ja هم از recِ mediumِ پیشفرض میخواند (بنچمارکِ صفحهٔ
-    # تستِ سازنده: v6_medium ژاپنیِ مانگا را کاملتر از japan v4 میخواند —
-    # عینِ تصمیمِ گوشی؛ recِ جداگانهیِ ja حذف شد)
-    # v1.14.191 — zh هم از همین rec (عینِ گوشی — جفتِ v4 حذف شد)
+# ja هم از recِ mediumِ پیشفرض میخواند (بنچمارکِ صفحهٔ
+# v6_medium ژاپنیِ مانگا را کاملتر از japan v4 میخواند —
+# عینِ تصمیمِ گوشی؛ recِ جداگانهیِ ja حذف شد)
+# zh هم از همین rec (عینِ گوشی — جفتِ v4 حذف شد)
     return _det, "PP-OCRv6_medium_rec_onnx.onnx"
 
-
 def _pc_ocr_small() -> bool:
-    """v1.14.188 — مجموعهٔ مدلِ OCRِ PC. دستورِ سازنده: «چرت پرت هم زیاد
-    استخراج میکنه نمیشه یک کاری کرد از نسخهٔ پی سی استخراج استفاده کنه
-    همون مدل onnx v6 ocr … مدل v6_medium استفاده کن بعد توجه ک کردم رو
-    پی سی هم ناقص استخراج میشه رو اونم چک کن هردوشو چک بزن» → PC هم از
+    """ — مجموعهٔ مدلِ OCRِ PC. → PC هم از
     مجموعهٔ کاملِ medium استفاده میکند (detِ medium + recِ medium —
     همان ستِ مرجع). MANGA_OCR_SMALL=1 یا شبیهسازِ x86_64 (CI) = ستِ سبک
     (small) تا بودجهٔ زمانیِ CI دستنخورده بماند."""
@@ -2788,13 +2724,10 @@ def _pc_ocr_small() -> bool:
         return False
     return bool(_android_x86_emulator())
 
-
 def _ocr_det_resize_policy(lang: str):
-    """v1.14.237 — سیاستِ تغییرِ اندازهٔ detِ داخلِ RapidOCR رویِ کراپها.
+    """ — سیاستِ تغییرِ اندازهٔ detِ داخلِ RapidOCR رویِ کراپها.
 
-    دستورِ سازنده: «میخوام یک کاری کنی استخراج خوب کار کنی … به پایین
-    ترین حد ممکن زمانش برسونی سریع استخراج کنه با cpu … مدل استخراج باید
-    همین paddleocr onnx باشه». ریشه‌یابی با بنچمارکِ واقعیِ img4
+    . ریشه‌یابی با بنچمارکِ واقعیِ img4
     (690×11200 — سندباکسِ ۲هسته، پایپ‌لاینِ کاملِ _extract_regions_from_
     bubbles): پیشفرضِ rapidocr پایتون یعنی Det.limit_type="min" با
     limit_side_len=736 — «هر» کراپی که ضلعِ کوتاهش <736 باشد قبل از det
@@ -2838,14 +2771,14 @@ def _ocr_det_resize_policy(lang: str):
     _cjk = _low in ("japan", "ja", "japanese", "ko", "korean",
                           "zh", "ch", "chinese", "ch_sim", "zh_hans",
                           "zh_hant", "zh-tw", "zh_tw", "multi")
-    # اوررایدهای صریحِ کاربر
+# اوررایدهای صریحِ کاربر
     try:
         _e_lim = int(os.environ.get("MANGA_OCR_DET_LIMIT", "0") or 0)
     except Exception:
         _e_lim = 0
     _e_typ = str(os.environ.get("MANGA_OCR_DET_TYPE", "") or "").strip().lower()
     if _cjk:
-        # CJK: پیشفرضِ rapidocr (736/min) + اوررایدِ صریحِ کاربر
+# CJK: پیشفرضِ rapidocr (736/min) + اوررایدِ صریحِ کاربر
         if _e_lim > 0 or _e_typ in ("min", "max"):
             out = {}
             if _e_lim > 0:
@@ -2854,7 +2787,7 @@ def _ocr_det_resize_policy(lang: str):
                 out["Det.limit_type"] = _e_typ
             return out or None
         return None
-    # لاتین: 960/maxِ رسمیِ PaddleOCR (اورراید بر آن هم اعمال میشود)
+# لاتین: 960/maxِ رسمیِ PaddleOCR (اورراید بر آن هم اعمال میشود)
     out = {"Det.limit_side_len": 960, "Det.limit_type": "max"}
     if _e_lim > 0:
         out["Det.limit_side_len"] = int(_e_lim)
@@ -2862,9 +2795,8 @@ def _ocr_det_resize_policy(lang: str):
         out["Det.limit_type"] = _e_typ
     return out
 
-
 def _latin_lang(tr) -> bool:
-    """v1.14.188 — زبانِ صفحه لاتین است؟ (برایِ فیلترِ آشغالِ لاتین؛
+    """ — زبانِ صفحه لاتین است؟ (برایِ فیلترِ آشغالِ لاتین
     صفحاتِ ja/ko/zh هرگز این فیلتر را نمیگیرند.)"""
     try:
         _lg = str(getattr(getattr(tr, "ocr", None), "lang", "") or "").lower()
@@ -2876,9 +2808,8 @@ def _latin_lang(tr) -> bool:
                        "zh", "ch", "chinese", "ch_sim", "zh_hans",
                        "zh_hant", "zh-tw", "zh_tw")
 
-
 def _line_is_foreign(bb, block_rects, own_area: float) -> bool:
-    """v1.14.188 — مالکیتِ خط. خطی که مرکزش داخلِ مستطیلِ «ناحیهٔ
+    """ — مالکیتِ خط. خطی که مرکزش داخلِ مستطیلِ «ناحیهٔ
     همسایهٔ» تنگتر است (مساحتِ همسایه < ۸۵٪ ناحیهٔ خودی) و حداقل ۴۵٪
     خط در آن افتاده، متعلق به همان همسایه است — نه این کراپ. ریشهٔ
     «چرت‌پرت» در img6: متنِ حبابِ کوچکِ «You're the real attraction
@@ -2911,11 +2842,8 @@ def _line_is_foreign(bb, block_rects, own_area: float) -> bool:
             continue
     return False
 
-
 def _clamp_lines_to_det(res, box, block_rects=None, tol: float = 10.0):
-    """v1.14.206 — استخراج نباید از باکسِ detector بیرون بزند (دستورِ
-    سازنده: «وقتی detector متن در اورد نباید استخراج از اون بیشتر بگیره —
-    الان میشه دید کل سه حباب گرفته»). دو قاعدهٔ مالکیتِ خط:
+    """ — استخراج نباید از باکسِ detector بیرون بزند (). دو قاعدهٔ مالکیتِ خط:
       ۱) مرکزِ خط داخلِ باکسِ detectorِ خودِ ناحیه نیست → مالِ این ناحیه
          نیست (کراپِ گسترشیافتهٔ متنِ کج تا ۱۲۰px خطِ مجاور را میخواند؛
          فیلترِ ۱۸۸ فقط «همسایهٔ کوچکتر» را حذف میکند — خطِ همسایهٔ
@@ -2979,17 +2907,14 @@ def _clamp_lines_to_det(res, box, block_rects=None, tol: float = 10.0):
     except Exception:
         return res
 
-
 def _latin_junk_line(text, region_has_letters: Optional[bool] = None):
-    """v1.14.188 — خطِ آشغالِ لاتین («چرت‌پرت») — فقط کلِ خط:
+    """ — خطِ آشغالِ لاتین («چرت‌پرت») — فقط کلِ خط:
       • بدونِ هیچ حرفِ لاتین و کوتاه (≤۴ نویسه): «23»، «豊»، «H/»
       • همهٔ توکنها ≤۲ حرف و هیچ واکه‌ای ندارند: «FL»، «SS»، «Px»
     خطهایِ واقعی («GO!»، «Wha!?»، «OK») میمانند؛ فقط برایِ صفحاتِ
     لاتین صدا زده میشود (_latin_lang188).
 
-    v1.14.245 — عدد/نماد دیگر «حذفِ خط» نیست (دستورِ سازنده:
-    «19 hi باید هردوشو بخونه حذف شه — اشتباه ک میکنه hi میخونه 19
-    میپاکه» و «1233 نباید حذف شه»): سیاستِ عدد/نماد در «سطحِ ناحیه»
+     — عدد/نماد دیگر «حذفِ خط» نیست (و «1233 نباید حذف شه»): سیاستِ عدد/نماد در «سطحِ ناحیه»
     تعیین میشود (source_has_letters + no_touch)، نه در سطحِ خط.
     در ناحیهٔ حرف‌دار، خطِ عدد = محتوای دیالوگ است («19 hi»)؛ در
     ناحیهٔ بی‌حرف، ماندنِ خطها باعث میشود ناحیه «فقط-عدد/نماد» شناخته
@@ -3001,17 +2926,17 @@ def _latin_junk_line(text, region_has_letters: Optional[bool] = None):
         return True
     toks = re.findall(r"[A-Za-z]+", s)
     if not toks:
-        # v1.14.245 — خطِ عددِ خالص («19»، «10,000»، «۳:۳۰») محتواست:
-        # در ناحیهٔ حرف‌دار میماند (باید خوانده و پاک شود)؛ در ناحیهٔ
-        # بی‌حرف هم میماند (تا ناحیه no_touch شود). فقط سمبل/نویسهٔ
-        # بی‌حرفِ کوتاه (H/، ؟!) در ناحیهٔ حرف‌دار هنوز آشغال است.
+# خطِ عددِ خالص («19»، «10,000»، «۳:۳۰») محتواست:
+# در ناحیهٔ حرف‌دار میماند (باید خوانده و پاک شود)؛ در ناحیهٔ
+# بی‌حرف هم میماند (تا ناحیه no_touch شود). فقط سمبل/نویسهٔ
+# بی‌حرفِ کوتاه (H/، ؟!) در ناحیهٔ حرف‌دار هنوز آشغال است.
         if region_has_letters is False:
             return False
-        # v1.14.253 — هر خطِ «دارایِ رقم» محتواست، حتی با نقطه/ویرگولِ
-        # چسبیده: «.85» (شمارهٔ صفحهٔ img7 روی گوشی — det جعبهٔ عدد و
-        # تیتر را یکی دیده بود، خطِ «.85» میافتاد ولی ناحیه پاک میشد =
-        # «میپاکید ولی نمیخواند»). عدد همیشه خوانده میشود؛ فقط خطِ
-        # بی‌رقمِ بیحرفِ کوتاه (سمبلِ خاموش) آشغال است.
+# هر خطِ «دارایِ رقم» محتواست، حتی با نقطه/ویرگولِ
+# چسبیده: «.85» (شمارهٔ صفحهٔ img7 روی گوشی — det جعبهٔ عدد و
+# تیتر را یکی دیده بود، خطِ «.85» میافتاد ولی ناحیه پاک میشد =
+# «میپاکید ولی نمیخواند»). عدد همیشه خوانده میشود؛ فقط خطِ
+# بی‌رقمِ بیحرفِ کوتاه (سمبلِ خاموش) آشغال است.
         if re.search(r"\d", s):
             return False
         if re.fullmatch(
@@ -3019,35 +2944,33 @@ def _latin_junk_line(text, region_has_letters: Optional[bool] = None):
                 r"[\d\u06F0-\u06F9\u0660-\u0669\s.,:'\-]*", s):
             return False
         return len(s) <= 4
-    # «77,I» / «1,I» — دو digits + حرفِ تک؛ خوانشِ اشتباهِ حرفِ ایتالیک
+# «77,I» / «1,I» — دو digits + حرفِ تک؛ خوانشِ اشتباهِ حرفِ ایتالیک
     _alpha = [c for c in s if c.isascii() and c.isalpha()]
     if sum(c.isdigit() for c in s) >= 2 and len(_alpha) <= 2:
-        # v1.14.189 — اگر حرفها فقط I/i/l باشند، خط حذف نمیشود؛
-        # به «I» ترمیم میشود («77,I» = «I'll» ناخوانا — لاگ گوشی ۱۸۸).
+# اگر حرفها فقط I/i/l باشند، خط حذف نمیشود
+# به «I» ترمیم میشود («77,I» = «I'll» ناخوانا — لاگ گوشی ۱۸۸).
         if _alpha and all(c in "Iil" for c in _alpha):
             return "I"
-        # v1.14.245 — «19 hi» / «19th»: عدد در متنِ حرف‌دار محتواست؛
-        # در ناحیهٔ بی‌حرف هم خط میماند تا ناحیه no_touch شود.
+# «19 hi» / «19th»: عدد در متنِ حرف‌دار محتواست
+# در ناحیهٔ بی‌حرف هم خط میماند تا ناحیه no_touch شود.
         if region_has_letters is not None:
             return False
         return True
     if all(len(t) <= 2 for t in toks):
         _vow = "AEIOUaeiou"
         if not any(any(c in _vow for c in t) for t in toks):
-            # v1.14.253 — در ناحیهٔ بیحرف خط نباید بیفتد: «2B» /
-            # «10,000G» (پسوندِ واحد — source_has_letters آنها را
-            # بیحرف میشمارد) باید بمانند تا ناحیه no_touch شود و
-            # دست‌نخورده بماند؛ در ناحیهٔ حرف‌دار همان آشغالِ
-            # قبلی است («FL»، «SS» — خوانشِ غلطِ هنر).
+# در ناحیهٔ بیحرف خط نباید بیفتد: «2B» /
+# «10,000G» (پسوندِ واحد — source_has_letters آنها را
+# بیحرف میشمارد) باید بمانند تا ناحیه no_touch شود و
+# دست‌نخورده بماند؛ در ناحیهٔ حرف‌دار همان آشغالِ
+# قبلی است («FL»، «SS» — خوانشِ غلطِ هنر).
             if region_has_letters is False:
                 return False
             return True
     return False
 
-
 def _fmt_mb(n: float) -> str:
     return f"{n / (1024 * 1024):.1f}MB"
-
 
 def _dl_progress(name: str, done: int, total: int, _last: list = [0.0, 0]) -> None:
     import time as _t
@@ -3065,9 +2988,8 @@ def _dl_progress(name: str, done: int, total: int, _last: list = [0.0, 0]) -> No
         _last[0] = now
         print(f"\r    دانلود {name}: {_fmt_mb(done)}", end="", flush=True)
 
-
 def _dl_to(url, dst, name: str = "", attempts: int = 3):
-    """v1.14.234 — دانلودِ مقاوم: (۱) ادامهٔ دانلودِ نیمه‌کاره با هدرِ
+    """ — دانلودِ مقاوم: (۱) ادامهٔ دانلودِ نیمه‌کاره با هدرِ
     Range — لاگِ کاربر: detector.onnx دو بار تا ~۷۵٪ (121MB از 160.7MB)
     آمد و ریستِ اتصالِ WinError 10054 هر دو بار همه چیز را دور ریخت چون
     .part بعد از شکست حذف میشد و دفعهٔ بعد از صفر شروع میشد؛ (۲) تا
@@ -3101,7 +3023,7 @@ def _dl_to(url, dst, name: str = "", attempts: int = 3):
                 if _same:
                     _start = os.path.getsize(_part)
                 else:
-                    # بی‌نشان یا از سرورِ دیگر → الحاق ممنوع
+# بی‌نشان یا از سرورِ دیگر → الحاق ممنوع
                     try:
                         os.remove(_part)
                     except Exception:
@@ -3113,18 +3035,18 @@ def _dl_to(url, dst, name: str = "", attempts: int = 3):
                 _code = int(r.getcode() or 200)
                 _clen = int(r.headers.get("Content-Length") or 0)
                 if _start > 0 and _code == 206:
-                    # ادامهٔ همان فایلِ نیمه‌کاره از همان سرور
+# ادامهٔ همان فایلِ نیمه‌کاره از همان سرور
                     total = _start + _clen
                     done = _start
                     _mode = "ab"
                 else:
-                    # .part نبود یا سرور Range را نگرفد (200) → از صفر
+# .part نبود یا سرور Range را نگرفد (200) → از صفر
                     total = _clen
                     done = 0
                     _mode = "wb"
                 with open(_part, _mode) as f:
-                    # نشانِ منبع — پیش از بایتهای بعدی بنویس تا شکستِ
-                    # میان‌راه نشان را با خود داشته باشد
+# نشانِ منبع — پیش از بایتهای بعدی بنویس تا شکستِ
+# میان‌راه نشان را با خود داشته باشد
                     try:
                         with open(_mark, "w", encoding="utf-8") as _mf:
                             _mf.write(url)
@@ -3144,7 +3066,7 @@ def _dl_to(url, dst, name: str = "", attempts: int = 3):
             if isinstance(_e, urllib.error.HTTPError) \
                     and int(getattr(_e, "code", 0) or 0) == 416 \
                     and os.path.isfile(_part):
-                # .part از قبل کامل/بی‌اعتبار است → دورش بریز و تازه بگیر
+# .part از قبل کامل/بی‌اعتبار است → دورش بریز و تازه بگیر
                 for _del in (_part, _mark):
                     try:
                         if os.path.isfile(_del):
@@ -3169,7 +3091,6 @@ def _dl_to(url, dst, name: str = "", attempts: int = 3):
         return dst
     raise RuntimeError("فایل ناقص")
 
-
 def _model_cache_dir(sub):
     d = os.path.join(os.environ.get("MANGA_FILES_DIR") or os.getcwd(), sub)
     try:
@@ -3177,7 +3098,6 @@ def _model_cache_dir(sub):
     except Exception:
         pass
     return d
-
 
 def _mirror_model(fname):
     loc = os.path.join(_model_cache_dir("det_models"), fname)
@@ -3189,15 +3109,12 @@ def _mirror_model(fname):
         return loc
     except Exception as e:
         print(f"    [!] mirror نشد: {e}")
-        # v1.14.234 — .part «حفظ» میشود تا دانلودِ بعدی با Range از
-        # همان‌جا ادامه یابد (قبلاً حذف میشد و 121MBِ نیمه‌کاره دور
-        # ریخته میشد).
+# .part «حفظ» میشود تا دانلودِ بعدی با Range از
+# همان‌جا ادامه یابد (قبلاً حذف میشد و 121MBِ نیمه‌کاره دور
+# ریخته میشد).
         return None
 
-
-
-
-# v1.14.162 — قفلِ تک‌نمونهٔ دانلودِ هر فایل: دو ورکرِ همزمان که همان
+# قفلِ تک‌نمونهٔ دانلودِ هر فایل: دو ورکرِ همزمان که همان
 # فایلِ مدل را میخواهند، هر دو «همان فایل را دانلود میکردند»؛ یکی تمام
 # میشد و .part را rename میکرد، دومی وسطِ نوشتن/rename با «[Errno 2] No such
 # file or directory … .part» میرفت و لاگِ «دانلود ناموفق — اینترنت/VPN
@@ -3205,7 +3122,6 @@ def _mirror_model(fname):
 # دارد؛ نفرِ دوم منتظر میماند و بعد داخلِ قفل «از قبل هست» را میبیند.
 _DL_FILE_LOCKS: Dict[str, threading.Lock] = {}
 _DL_FILE_LOCKS_GUARD = threading.Lock()
-
 
 def _dl_file_lock(dst: str) -> threading.Lock:
     with _DL_FILE_LOCKS_GUARD:
@@ -3215,21 +3131,20 @@ def _dl_file_lock(dst: str) -> threading.Lock:
             _DL_FILE_LOCKS[dst] = lk
         return lk
 
-
 def _ensure_rapidocr_models(mdir, files=None):
     wanted = files or list(_RAPIDOCR_FILES)
     for fname in wanted:
         dst = os.path.join(mdir, fname)
-        # v1.14.152 — فایلهایِ dict (txt) کوچکاند (47-75KB)؛ آستانهٔ
-        # 100KB فقط برایِ مدلهاست وگرنه dict هر بار دوباره دانلود میشد.
+# فایلهایِ dict (txt) کوچکاند (47-75KB)؛ آستانهٔ
+# 100KB فقط برایِ مدلهاست وگرنه dict هر بار دوباره دانلود میشد.
         _min_sz = 100 if fname.endswith(".txt") else 100_000
         if os.path.isfile(dst) and os.path.getsize(dst) > _min_sz:
             continue
         done = False
         _lk = _dl_file_lock(dst)
         with _lk:
-            # داخلِ قفلِ همان فایل دوباره چک کن — شاید ورکرِ دیگر همین
-            # حالا آن را دانلود کرده باشد (ریشهٔ ارورِ .part)
+# داخلِ قفلِ همان فایل دوباره چک کن — شاید ورکرِ دیگر همین
+# حالا آن را دانلود کرده باشد (ریشهٔ ارورِ .part)
             if os.path.isfile(dst) and os.path.getsize(dst) > _min_sz:
                 continue
             for url in (_RAPIDOCR_MIRROR + fname, _RAPIDOCR_FILES.get(fname)):
@@ -3241,7 +3156,7 @@ def _ensure_rapidocr_models(mdir, files=None):
                     done = True
                     break
                 except Exception as e:
-                    # اگر ورکرِ دیگر فایل را تمام کرده، این شکست نیست
+# اگر ورکرِ دیگر فایل را تمام کرده، این شکست نیست
                     if os.path.isfile(dst) and os.path.getsize(dst) > _min_sz:
                         done = True
                         break
@@ -3250,6 +3165,4 @@ def _ensure_rapidocr_models(mdir, files=None):
             if not done:
                 print(f"  [!] دانلود {fname} ناموفق — اینترنت/VPN را چک کن "
                       "(دانلودِ بعدی از همان‌جا ادامه مییابد)")
-            # v1.14.234 — .part حفظ میشود (ادامهٔ دانلود با Range)
-
-
+# .part حفظ میشود (ادامهٔ دانلود با Range)

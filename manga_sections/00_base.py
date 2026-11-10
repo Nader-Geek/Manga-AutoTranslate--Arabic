@@ -1,28 +1,27 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# 📦 پایه — هدرِ برنامه: نسخه، importها، زمانِ شروع + پرامپتهای ترجمه
+# پایه — هدرِ برنامه: نسخه، importها، زمانِ شروع + پرامپتهای ترجمه
 # APP_VER و importهای پایه + ثابتها و سازندههای پرامپتِ سبکهای auto/professional/lite (استخراجِ بایت‌به‌بایتِ مرجع).
 # (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# v1.14.251 — کدِ اصلی در manga_sections/ است؛ manga.py فقط لودر است
+# کدِ اصلی در manga_sections/ است؛ manga.py فقط لودر است
 # (ترکیبِ بخشها در زمانِ اجرا — نگهبانِ همخوانی: python scripts/build_manga.py --check)
 from __future__ import annotations
-import time as _time_t0  # v1.14.68 — سنجشِ زمانِ importها (باید اول باشد)
+import time as _time_t0  # سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
 APP_VER = "1.14.253"
 
-# v1.14.246 — پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
+# پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
-# ── v1.14.242 — پرامپتهای مرجع — استخراجِ بایت‌به‌بایت از APKِ اپِ مرجع ──
+# پرامپتهای مرجع — استخراجِ بایت‌به‌بایت از APKِ اپِ مرجع ──
 # (LibAssemblyStore → XALZ/LZ4 → اسمبلی → دیکدِ C#؛ سه کپچرِ واقعیِ ارسالیِ
 # سازنده [تک‌صفحه lite، تک‌صفحه pro، شش‌صفحه pro] با همین ثابتها بایت‌به‌بایت
 # بازسازی و تطبیق داده شدند — حتی `\n` لفظی + CRLF عیناً حفظ شده است.)
 # سبکِ درخواست (حالتِ نوشتاریِ مرجع = «عکسِ فیک»):
-#   system = SYSTEM BEHAVIOR PROTOCOL (۲..۶) [+ بلوکِ ژاپنی] [+ بندِ ۷: اسکیما]
-#   user   = TASK: Translate… + [بلوکِ ژاپنی] + TRANSLATION RULES: {pro|lite}
-#            + INPUT PAGES AND DIALOGUES (JSON): [{filename, dialogues}]
+# system = SYSTEM BEHAVIOR PROTOCOL (۲..۶) [+ بلوکِ ژاپنی] [+ بندِ ۷: اسکیما]
+# user = TASK: Translate… + [بلوکِ ژاپنی] + TRANSLATION RULES: {pro|lite}
+# + INPUT PAGES AND DIALOGUES (JSON): [{filename, dialogues}]
 # هیچ عکسی ارسال نمی‌شود — filename فقط شناسهٔ صفحه است (01.png / slice_0001.webp).
 # مرجع همهٔ متنها را در «یک» درخواست می‌فرستد و هیچ بریف/خلاصهٔ داستانی ندارد.
 # قوانینِ «حرفه‌ای» (پیشفرضِ مرجع — Prompts[0]: «پرامپت ترجمه حرفه‌ای (مدل های Flash, Pro)»)
@@ -41,9 +40,6 @@ MT_JP_SYSTEM_RULE = "\r\n1. MANDATORY FURIGANA & DEDUPLICATION PURGE (HIGHEST PR
 # اسکیمای پاسخ (عینِ JsonConvert.SerializeObject(…, Formatting.1) در مرجع)
 MT_RESPONSE_SCHEMA_TEXT = "{\n  \"type\": \"ARRAY\",\n  \"description\": \"List of processed manga pages with their translations.\",\n  \"items\": {\n    \"type\": \"OBJECT\",\n    \"properties\": {\n      \"filename\": {\n        \"type\": \"STRING\",\n        \"description\": \"The filename of the image as provided.\"\n      },\n      \"translations\": {\n        \"type\": \"ARRAY\",\n        \"description\": \"Extracted text blocks and their translations.\",\n        \"items\": {\n          \"type\": \"OBJECT\",\n          \"properties\": {\n            \"en_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Exact original text from the dialogue input.\"\n            },\n            \"fa_text\": {\n              \"type\": \"STRING\",\n              \"description\": \"Creative, natural Persian translation.\"\n            }\n          },\n          \"required\": [\n            \"en_text\",\n            \"fa_text\"\n          ]\n        }\n      }\n    },\n    \"required\": [\n      \"filename\",\n      \"translations\"\n    ]\n  }\n}"
 
-
-
-
 def mt_system_instruction(japanese: bool = False, with_schema: bool = False) -> str:
     """پروتکلِ سیستمیِ مرجع: بندهای ۲..۶؛ در مسیرِ OpenAI-compatible بندِ ۷ (اسکیما)
     هم پایینش می‌آید — در مسیرِ بومیِ Gemini اسکیما از response_schema می‌رود
@@ -55,7 +51,6 @@ def mt_system_instruction(japanese: bool = False, with_schema: bool = False) -> 
         out += ("\r\n7. RESPONSE SCHEMA: Output must strictly conform to "
                 "this JSON schema:\r\n" + MT_RESPONSE_SCHEMA_TEXT)
     return out
-
 
 def mt_user_prompt(rules: str, pages, japanese: bool = False) -> str:
     """user prompt دقیقِ مرجع (سازندهٔ درخواستِ متنیِ OpenAI در مرجع/سازندهٔ درخواستِ متنیِ بومیِ Gemini در مرجع).
@@ -71,16 +66,14 @@ def mt_user_prompt(rules: str, pages, japanese: bool = False) -> str:
             + "\r\n\r\nINPUT PAGES AND DIALOGUES (JSON):\r\n"
             + pages_json + "\r\n")
 
-
 PROMPT_PRESETS = {
     "professional": FLASH_PROMPT,
     "lite": FLASH_LITE_PROMPT,
 }
 PROMPT_MODES = ("auto", "professional", "lite")
 
-
 def resolve_prompt_mode(mode: str, provider: str = "gemini", model: str = "") -> str:
-    """انتخابِ سبکِ پرامپت — v1.14.242 عینِ مرجع: پیشفرض = حرفه‌ای
+    """انتخابِ سبکِ پرامپت — عینِ مرجع: پیشفرض = حرفه‌ای
     (Prompts[0] در APK)؛ فقط مدل‌های «lite» پرامپتِ سبک می‌گیرند.
     مقدارِ قدیمیِ classic → مسیرِ خودکار (بر اساسِ مدل)."""
     m = (mode or "auto").lower().strip()
@@ -96,19 +89,16 @@ def resolve_prompt_mode(mode: str, provider: str = "gemini", model: str = "") ->
         return "lite"
     return "professional"
 
-
 def prompt_preset_text(mode: str, provider: str = "gemini", model: str = "") -> str:
     return PROMPT_PRESETS[resolve_prompt_mode(mode, provider, model)]
-
 
 def _norm_prompt_text(t: str) -> str:
     return re.sub(r"\s+", " ", (t or "").strip())
 
-
 def is_known_default_instruction(text: str) -> bool:
     """آیا متنِ دستورِ دادهشده یکی از پیشفرضهایِ شناختهشده است؟
-    (فقط پرامپتهایِ مرجع: professional/lite — v1.14.246)
-    v1.14.146 — فیکسِ «رویِ گوشی پرامپت auto نمیشود»: فرمِ گوشی فیلدِ
+    (فقط پرامپتهایِ مرجع: professional/lite — )
+     — فیکسِ «رویِ گوشی پرامپت auto نمیشود»: فرمِ گوشی فیلدِ
     دستور را با متنِ پیشفرض پُر میفرستاد و موتور آن را «سفارشی» میگرفت؛
     حالا متنِ برابرِ پیشفرضها سفارشی حساب نمیشود و مسیرِ سبک (auto) میرود."""
     t = (text or "").strip()
@@ -133,11 +123,10 @@ os.environ.setdefault("FLAGS_onednn", "0")
 os.environ.setdefault("FLAGS_enable_pir_in_executor", "0")
 os.environ.setdefault("FLAGS_enable_pir_api", "0")
 os.environ.setdefault("FLAGS_pir_apply_shape_optimization_pass", "0")
-# v1.14.175 — نسخهٔ اپ برایِ نشانِ کرشِ NNAPI در rapidocr_mobile
+# نسخهٔ اپ برایِ نشانِ کرشِ NNAPI در rapidocr_mobile
 # (آپدیتِ اپ = فرصتِ تازه برایِ NNAPI؛ MANGA_APP_VER در _nnapi_guard_*)
 os.environ.setdefault("MANGA_APP_VER", APP_VER)
 os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
-
 
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -145,12 +134,9 @@ for _s in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-
-# v1.14.232 — باگِ تاریخی: `import platform as _platform` فقط داخلِ
+# باگِ تاریخی: `import platform as _platform` فقط داخلِ
 # _ensure_all_dependencies بود (محدودهٔ محلیِ تابع) ولی _nvidia_gpu_present
 # و _directx_gpu_present آن را در scopeِ ماژول میخوانند → NameError —
 # یعنی تشخیصِ DirectMLِ ویندوز هیچ‌وقت اجرا نمیشد (و رویِ ویندوزِ
 # بدونِ NVIDIA/DML کلِ بوت‌استرپ میمرد). حالا در سطحِ ماژول.
 import platform as _platform
-
-

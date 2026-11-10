@@ -1,6 +1,5 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# ⚠️ MangaTranslator (۵ از ۷) — پاکسازی (یکجا): ماسک، LaMa، پرکردن، صفحه، بازرسی
+# MangaTranslator (۵ از ۷) — پاکسازی (یکجا): ماسک، LaMa، پرکردن، صفحه، بازرسی
 # این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
 # اجرا نمیشود — لودرِ manga.py این محتوا را بههمان ترتیبِ شمارهٔ
 # فایل، داخلِ کلاس میچسباند. کلاسِ پوششیِ زیر فقط برایِ معتبر
@@ -28,7 +27,6 @@ class _MangaTranslatorBody_85:
                 has_kana = True
             elif (0x3400 <= o <= 0x9FFF) or (0xF900 <= o <= 0xFAFF) or (0x3000 <= o <= 0x303F):
                 has_han = True
-
 
         if has_hangul and not allow_ko:
             return True
@@ -68,11 +66,11 @@ class _MangaTranslatorBody_85:
     @staticmethod
     def _dialogue_despite_watermark(text: str) -> bool:
 
-        # v1.14.202 — واترمارکِ رویِ حباب: اگرِ بعدِ برداشتنِ دامنهها،
-        # باقیِ متن هنوز دیالوگِ واقعی باشد (≥۳ واژهٔ حرفدارِ مصوتدار و
-        # بدونِ نشانهٔ تبلیغِ باقی‌مانده) → promo نیست. فقطِ دامنه برداشته
-        # میشود تا عبارتِ تبلیغِ باقی‌مانده («DEAR READERS»، …) هنوز دیده
-        # شود و بنرِ واقعی promo بماند.
+# واترمارکِ رویِ حباب: اگرِ بعدِ برداشتنِ دامنهها
+# باقیِ متن هنوز دیالوگِ واقعی باشد (≥۳ واژهٔ حرفدارِ مصوتدار و
+# بدونِ نشانهٔ تبلیغِ باقی‌مانده) → promo نیست. فقطِ دامنه برداشته
+# میشود تا عبارتِ تبلیغِ باقی‌مانده («DEAR READERS»، …) هنوز دیده
+# شود و بنرِ واقعی promo بماند.
         residue = DOMAIN_RE.sub(" ", text or "")
         if not residue.strip() or MangaTranslator._is_watermark_text(residue):
             return False
@@ -87,23 +85,22 @@ class _MangaTranslatorBody_85:
         if not stripped:
             return "junk"
 
-
         latin_core = re.sub(r"[^A-Za-z]", "", stripped)
         _looks_promo = bool(DOMAIN_RE.search(stripped) or PROMO_RE.search(stripped))
-        # v1.14.159 — نامِ پلتفرم/واترمارک در متنِ کوتاه = کاندیدِ تبلیغ؛
-        # وگرنه شاخهٔ «شبیهِ جمله → دیالوگ» قبل از چکِ واترمارک برمی‌گشت
-        # و بنرهایِ «READ ON WEBTOON» / «NAVER WEBTOON» دیالوگ حساب میشدند.
+# نامِ پلتفرم/واترمارک در متنِ کوتاه = کاندیدِ تبلیغ
+# وگرنه شاخهٔ «شبیهِ جمله → دیالوگ» قبل از چکِ واترمارک برمی‌گشت
+# و بنرهایِ «READ ON WEBTOON» / «NAVER WEBTOON» دیالوگ حساب میشدند.
         if not _looks_promo and len(stripped) <= 40:
             _low_probe = stripped.lower()
             for _w in WATERMARK_PATTERNS:
                 if _w and _w in _low_probe:
                     _looks_promo = True
                     break
-        # v1.14.202 — واترمارکِ رویِ حباب: OCR واترمارک/دامنهٔ سایت را «داخلِ»
-        # متنِ حباب میخواند («IT'S EASY, LIKEMANGA.INK BECAUSE…» /
-        # «…DREAMS...LIKEMANGA.INK» — فصلِ ۱۱۰) و کلِ ناحیه promo میشد →
-        # ازش رد میشد (نه پاکسازی، نه ترجمه). اگرِ بعدِ برداشتنِ توکنها
-        # باقیِ متن هنوز دیالوگِ واقعی است → دیالوگ، نه promo.
+# واترمارکِ رویِ حباب: OCR واترمارک/دامنهٔ سایت را «داخلِ»
+# متنِ حباب میخواند («IT'S EASY, LIKEMANGA.INK BECAUSE…» /
+# «…DREAMS...LIKEMANGA.INK» — فصلِ ۱۱۰) و کلِ ناحیه promo میشد →
+# ازش رد میشد (نه پاکسازی، نه ترجمه). اگرِ بعدِ برداشتنِ توکنها
+# باقیِ متن هنوز دیالوگِ واقعی است → دیالوگ، نه promo.
         if _looks_promo and MangaTranslator._dialogue_despite_watermark(stripped):
             return "dialogue"
         if len(latin_core) >= 3 and not _looks_promo and re.fullmatch(r"[A-Za-z][A-Za-z\s.'\-]*[.!?…~]*", stripped.replace("...", ".").replace("…", ".")):
@@ -123,7 +120,6 @@ class _MangaTranslatorBody_85:
             or 0x3040 <= ord(c) <= 0x30FF or 0xAC00 <= ord(c) <= 0xD7A3
             for c in stripped
         )
-
 
         dialogue_short = {
             "i", "im", "i'm", "me", "my", "you", "u", "he", "she", "we", "they",
@@ -159,7 +155,6 @@ class _MangaTranslatorBody_85:
 
         core = re.sub(r"[!?.…~\-]+$", "", low_full).strip()
 
-
         _lonely_func = {
             "of", "to", "in", "on", "at", "a", "an", "the", "is", "it", "as",
             "or", "so", "be", "do", "if", "by",
@@ -184,7 +179,6 @@ class _MangaTranslatorBody_85:
         if is_progress:
             return "dialogue"
 
-
         if (
             re.search(r"\d+\s*화", stripped)
             or re.search(r"(?i)\b(?:ch(?:apter)?|ep(?:isode)?)\s*\.?\s*\d+", stripped)
@@ -194,13 +188,12 @@ class _MangaTranslatorBody_85:
         ):
             return "promo"
 
-
-        # v1.14.245 — «عدد در کنارِ حروفِ واقعی = دیالوگ است، نه آشغال»
-        # (دستورِ سازنده: «19 hi باید هردوشو بخونه حذف شه»): قوانینِ
-        # عددیِ junk فقط وقتی صدا میزنند که متن «هیچ حرفِ واقعی» نداشته
-        # باشد (source_has_letters) — آن‌وقت سیاست در سطحِ ناحیه
-        # (no_touch) دست میگیرد و ناحیه دست‌نخورده میماند. «1233»
-        # همچنان junk میماند (بدونِ حرف) ولی «19 hi» / «19th» دیالوگ.
+# «عدد در کنارِ حروفِ واقعی = دیالوگ است، نه آشغال»
+# : قوانینِ
+# عددیِ junk فقط وقتی صدا میزنند که متن «هیچ حرفِ واقعی» نداشته
+# باشد (source_has_letters) — آن‌وقت سیاست در سطحِ ناحیه
+# (no_touch) دست میگیرد و ناحیه دست‌نخورده میماند. «1233»
+# همچنان junk میماند (بدونِ حرف) ولی «19 hi» / «19th» دیالوگ.
         _has_letters = source_has_letters(stripped)
         if not _has_letters:
             if stripped.isdigit() or re.fullmatch(r"[\d\s.%oO]+", stripped):
@@ -250,17 +243,16 @@ class _MangaTranslatorBody_85:
             return "promo"
         if re.search(r"(?i)\.(?:com|org|net|io|ink)\b", stripped):
             return "promo"
-        # v1.14.159 — پسوند/پیشوندِ سایتِ «الزامی» شد؛ قبلاً هر متنی که
-        # فقط «manga» داشت (تا ۲۴ کاراکتر) promo میشد.
+# پسوند/پیشوندِ سایتِ «الزامی» شد؛ قبلاً هر متنی که
+# فقط «manga» داشت (تا ۲۴ کاراکتر) promo میشد.
         if re.search(r"(?i)((like|ike|vortex|kayn|asura|reaper)manga|manga[.\s]?(ink|unk|com|org))", stripped) and len(stripped) <= 24:
             return "promo"
-        # v1.14.159 — نشانهٔ دامنه لازم شد؛ قبلاً دیالوگِ کوتاهِ «DRUNK»/
-        # «BLINK»/«THINK» (پایانش unk/ink) promo میشد و رد میشد.
+# نشانهٔ دامنه لازم شد؛ قبلاً دیالوگِ کوتاهِ «DRUNK»/
+# «BLINK»/«THINK» (پایانش unk/ink) promo میشد و رد میشد.
         if low_compact.endswith(("com", "org", "net", "ink", "unk")) and (
             "." in stripped or "scan" in low_compact or "manga" in low_compact or "series" in low_full
         ):
             return "promo"
-
 
         if len(words) >= 2 or len(stripped) > 10:
             return "dialogue"
@@ -274,11 +266,9 @@ class _MangaTranslatorBody_85:
                 return "sfx"
             return "dialogue"
 
-
         if len(stripped) <= 12 and SFX_WORD_RE.match(stripped):
             if core not in dialogue_short and alpha_only.lower() not in dialogue_short:
                 return "sfx"
-
 
         if (
             3 <= len(stripped) <= 12
@@ -289,7 +279,6 @@ class _MangaTranslatorBody_85:
             upper_dialogue = {w.upper() for w in dialogue_short if w.isalpha()}
             if stripped in upper_dialogue:
                 return "dialogue"
-
 
             _common_upper = {
                 "CONTROL", "EVERYTHING", "ORDERS", "ORDER", "SOMETHING",
@@ -351,10 +340,9 @@ class _MangaTranslatorBody_85:
 
         return "dialogue"
 
-
     @staticmethod
     def _column_line_groups(idxs, bbs, rtl: bool = True):
-        """v1.14.90 — ستون‌بندیِ خط‌هایِ OCRِ یک ناحیه.
+        """ — ستون‌بندیِ خط‌هایِ OCRِ یک ناحیه.
 
         وقتی چند خطِ افقی در «دو ستونِ» کنارِ هم‌اند (مثلاً متنِ حباب +
         متنِ دست‌نویسِ کنارِ حباب در 01.jpg) مرتب‌سازیِ (y,x) آن‌ها را در
@@ -409,8 +397,6 @@ class _MangaTranslatorBody_85:
         except Exception:
             return None
 
-
-
     def _ink_mask_inside_bubble(self, gray: np.ndarray, x0: int, y0: int, x1: int, y1: int) -> np.ndarray:
 
         crop = gray[y0:y1, x0:x1]
@@ -426,13 +412,12 @@ class _MangaTranslatorBody_85:
                 flag = cv2.THRESH_BINARY_INV
             else:
 
-
                 if med < 128:
                     bright_t = max(150, med + 60)
                 else:
-                    # v1.14.72 — سقفِ ۱۸۰ برای زمینهٔ روشنِ رنگی (زرد با
-                    # مدین ~۲۰۰) کلِ زمینه را هم «متنِ روشن» می‌خواند؛
-                    # سقف برداشته شد تا فقط واقعاً روشن‌تر از زمینه بیاید.
+# سقفِ ۱۸۰ برای زمینهٔ روشنِ رنگی (زرد با
+# مدین ~۲۰۰) کلِ زمینه را هم «متنِ روشن» می‌خواند
+# سقف برداشته شد تا فقط واقعاً روشن‌تر از زمینه بیاید.
                     bright_t = med + 40
                 hard = (crop > bright_t).astype(np.uint8) * 255
                 flag = cv2.THRESH_BINARY
@@ -441,7 +426,6 @@ class _MangaTranslatorBody_85:
                     crop, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                     flag, 15, 11,
                 )
-
 
                 mean = cv2.boxFilter(crop, ddepth=cv2.CV_32F, ksize=(15, 15))
                 flat = np.abs(crop.astype(np.float32) - mean) < 12.0
@@ -456,10 +440,10 @@ class _MangaTranslatorBody_85:
         dark_ink = _mask(True)
         dark_cov = float(np.count_nonzero(dark_ink)) / float(max(1, ch * cw))
 
-        # v1.14.72 — متنِ روشن روی زمینهٔ رنگی (حبابِ زرد با متنِ سفید):
-        # وقتی dark_cov خیلی کم است (متنِ تیره‌ای نیست) هم باید bright را
-        # امتحان کرد؛ قبلاً فقط وقتی dark_cov > 0.45 بود bright چک می‌شد
-        # → متنِ سفید روی زرد هرگز ماسک نمی‌شد و «جا می‌ماند».
+# متنِ روشن روی زمینهٔ رنگی (حبابِ زرد با متنِ سفید):
+# وقتی dark_cov خیلی کم است (متنِ تیره‌ای نیست) هم باید bright را
+# امتحان کرد؛ قبلاً فقط وقتی dark_cov > 0.45 بود bright چک می‌شد
+# → متنِ سفید روی زرد هرگز ماسک نمی‌شد و «جا می‌ماند».
         if dark_cov > 0.45 or dark_cov < 0.08:
             bright_ink = _mask(False)
             bright_cov = float(np.count_nonzero(bright_ink)) / float(max(1, ch * cw))
@@ -505,7 +489,6 @@ class _MangaTranslatorBody_85:
         if zone.max() == 0:
             return None
 
-
         return zone
 
     @staticmethod
@@ -515,14 +498,12 @@ class _MangaTranslatorBody_85:
         if ch < 12 or cw < 12:
             return ink
 
-
         border = max(6, min(20, min(ch, cw) // 7))
         protected = ink.copy()
         protected[:border, :] = 0
         protected[-border:, :] = 0
         protected[:, :border] = 0
         protected[:, -border:] = 0
-
 
         try:
             edges = cv2.Canny(gray_crop, 50, 120)
@@ -543,7 +524,6 @@ class _MangaTranslatorBody_85:
             protected = cv2.bitwise_and(protected, cv2.bitwise_not(wall))
         except Exception:
             pass
-
 
         n2, lab2, st2, _ = cv2.connectedComponentsWithStats(protected, connectivity=8)
         keep = np.zeros_like(protected)
@@ -569,7 +549,6 @@ class _MangaTranslatorBody_85:
     @staticmethod
     def _drop_non_text_components(ink: np.ndarray, ch: int, cw: int) -> np.ndarray:
 
-
         try:
             n, lab, st, _ = cv2.connectedComponentsWithStats(ink, connectivity=8)
         except Exception:
@@ -591,7 +570,7 @@ class _MangaTranslatorBody_85:
 
     @staticmethod
     def _fill_holes_mask(m: np.ndarray) -> np.ndarray:
-        """v1.14.53 — حفره‌هایِ یک ماسکِ بولی را پر می‌کند (خروجی: بولی).
+        """ — حفره‌هایِ یک ماسکِ بولی را پر می‌کند (خروجی: بولی).
         برای «نسخهٔ پرشدهٔ» کامپوننتِ زمینهٔ روشن: جزیره‌هایِ تیرهٔ متنِ
         داخلش جزوِ آن می‌شوند؛ ساختارهایِ وصلِ به بیرون (دیوارِ حباب که
         شکاف دارد و به زمینه می‌رسد) هرگز حفره حساب نمی‌شوند."""
@@ -605,7 +584,7 @@ class _MangaTranslatorBody_85:
 
     def _bubble_interior_mask(self, gray_crop: np.ndarray, zone: np.ndarray,
                               erode_iters: int = 2) -> Optional[np.ndarray]:
-        """v1.14.53 — اینتریورِ «ضدِ نشت».
+        """ — اینتریورِ «ضدِ نشت».
         روشِ قدیم: کامپوننتِ روشنِ چسبیده به ماسک + پرکردنِ حفره — اگر دیوارِ
         حباب شکافِ JPEG داشت (۱-۳px)، کامپوننت از شکاف به زمینهٔ بیرون
         «نشت» می‌کرد → اینتریور = حباب + کلِ زمینه (b03: ۸۷٪ کراپ!) →
@@ -627,11 +606,11 @@ class _MangaTranslatorBody_85:
         else:
             fill_s = (gray_crop <= min(150, med + 60))
         wall = (~fill_s).astype(np.uint8) * 255
-        # v1.14.53: مهرِ شکاف‌هایِ دیوار — جایگزینِ CLOSE/erodeِ قدیمی
+# مهرِ شکاف‌هایِ دیوار — جایگزینِ CLOSE/erodeِ قدیمی
         wall = cv2.morphologyEx(wall, cv2.MORPH_CLOSE,
                                 np.ones((5, 5), np.uint8))
         fill_c = (wall == 0)
-        # سیلاب از مرزِ کراپ روی «پر» → بیرون؛ هرچه unreachable = جیبِ محصور
+# سیلاب از مرزِ کراپ روی «پر» → بیرون؛ هرچه unreachable = جیبِ محصور
         pad = cv2.copyMakeBorder(fill_c.astype(np.uint8) * 255, 1, 1, 1, 1,
                                  cv2.BORDER_CONSTANT, value=255)
         ffm = np.zeros((pad.shape[0] + 2, pad.shape[1] + 2), np.uint8)
@@ -650,8 +629,8 @@ class _MangaTranslatorBody_85:
         comp = (lab == vals[int(np.argmax(cnts))])
         if int(np.count_nonzero(comp)) < 0.10 * ch * cw:
             return None
-        # پر کردن جزیره‌هایِ متنِ داخلِ جیب — دیوار بیرونِ جیب است و هرگز
-        # داخلِ filled نمی‌آید (همین تضمینِ زنده‌ماندنِ دیوار است)
+# پر کردن جزیره‌هایِ متنِ داخلِ جیب — دیوار بیرونِ جیب است و هرگز
+# داخلِ filled نمی‌آید (همین تضمینِ زنده‌ماندنِ دیوار است)
         padc = cv2.copyMakeBorder(comp.astype(np.uint8) * 255, 1, 1, 1, 1,
                                   cv2.BORDER_CONSTANT, value=0)
         ff = padc.copy()
@@ -660,7 +639,7 @@ class _MangaTranslatorBody_85:
         filled = cv2.bitwise_or(padc, cv2.bitwise_not(ff))[1:-1, 1:-1]
         if float(np.count_nonzero(filled)) > 0.95 * ch * cw:
             return None
-        # erode_iters — مسیرِ limit/tighten/guard با ۱ (۳px)، بقیه ۲ (۶px)
+# erode_iters — مسیرِ limit/tighten/guard با ۱ (۳px)، بقیه ۲ (۶px)
         it = max(0, int(erode_iters))
         if it:
             filled = cv2.erode(filled, np.ones((3, 3), np.uint8),
@@ -670,7 +649,7 @@ class _MangaTranslatorBody_85:
     @staticmethod
     def _box_bg_stats(image: np.ndarray, bx0: int, by0: int,
                      bx1: int, by1: int):
-        """v1.14.73c — آمارِ «خوشهٔ رنگِ غالبِ» داخلِ باکس (بر مبنای
+        """ — آمارِ «خوشهٔ رنگِ غالبِ» داخلِ باکس (بر مبنای
         هیستوگرامِ سه‌کاناله، نه فقط خاکستری — باکسِ حبابِ بیضی گوشه‌هایش
         زمینهٔ پنل است و باستِ تک‌کاناله قاطی می‌شود).
         خروجی: (frac, cstd, hf, fillc) یا None."""
@@ -681,7 +660,7 @@ class _MangaTranslatorBody_85:
             if bx1 - bx0 < 24 or by1 - by0 < 24:
                 return None
             oc = image[by0:by1, bx0:bx1]
-            # خوشهٔ غالب: هیستوگرامِ درشتِ ۱۶×۱۶×۱۶
+# خوشهٔ غالب: هیستوگرامِ درشتِ ۱۶×۱۶×۱۶
             q = (oc.astype(np.int32) >> 4)  # 0..15
             flat = (q[..., 0] * 256 + q[..., 1] * 16 + q[..., 2]).ravel()
             hist = np.bincount(flat, minlength=4096)
@@ -707,23 +686,23 @@ class _MangaTranslatorBody_85:
     @staticmethod
     def _box_bg_textured(image: np.ndarray, bx0: int, by0: int,
                          bx1: int, by1: int) -> bool:
-        """v1.14.73b — آیا «زمینهٔ داخلِ جعبه/حباب» بافت‌مند است؟
+        """ — آیا «زمینهٔ داخلِ جعبه/حباب» بافت‌مند است؟
         (پرده/بوکه = LaMa بهتر؛ سیاهِ خالص/گرادیانِ صاف = پرِ فوریِ
         گرادیانیِ خودش تمیزتر است — نمونهٔ کارتِ Crimson Dragon).
-        v1.14.73c — با خوشهٔ غالبِ سه‌کاناله (باکسِ بیضی گوشه‌هایش
+         — با خوشهٔ غالبِ سه‌کاناله (باکسِ بیضی گوشه‌هایش
         زمینهٔ پنل است)."""
         st = MangaTranslator._box_bg_stats(image, bx0, by0, bx1, by1)
         if st is None:
             return True
         frac, cstd, hf, _fillc = st
-        # v1.14.73c — گرادیانِ صاف (کارتِ Crimson Dragon) cstd بالا ولی
-        # hf پایین دارد → «بافت‌مند» نیست؛ پرِ فوریِ گرادیانیِ خودش بهتر است.
-        # فقط بافتِ فرکانس‌بالا (پرده/بوکه/سکرین‌تون) LaMa می‌خواهد.
+# گرادیانِ صاف (کارتِ Crimson Dragon) cstd بالا ولی
+# hf پایین دارد → «بافت‌مند» نیست؛ پرِ فوریِ گرادیانیِ خودش بهتر است.
+# فقط بافتِ فرکانس‌بالا (پرده/بوکه/سکرین‌تون) LaMa می‌خواهد.
         return hf >= 0.05
 
     def _uncovered_ink_bands(self, image: np.ndarray, box,
                              known_mask: np.ndarray) -> Optional[np.ndarray]:
-        """v1.14.73d — «نجاتِ جوهرِ پوشش‌داده‌نشده»: OCR گاهی خطی را در
+        """ — «نجاتِ جوهرِ پوشش‌داده‌نشده»: OCR گاهی خطی را در
         پالی‌ها جا می‌اندازد یا پالی‌اش را جایِ غلط می‌گذارد (نمونه‌ها:
         خطِ «기회야…!» در تستِ کره‌ای، متنِ کوچکِ لبهٔ صفحه در 01.jpg،
         «段/子» ژاپنی). این جوهر نه در نوارهای کامپوز بود نه در ماسکِ
@@ -756,10 +735,10 @@ class _MangaTranslatorBody_85:
                 return None
             nz, lal, sts, _ = cv2.connectedComponentsWithStats(
                 fresh.astype(np.uint8), connectivity=8)
-            # v1.14.165 — اضلاعِ جعبه که به لبهٔ تصویر می‌خورند: تکه‌متنِ
-            # بریدهٔ لبه (نیم‌خطِ وبتون) ممکن است در یک کامپوننتِ پهن
-            # ادغام شده باشد؛ سقفِ معمولیِ 100px آن را رد می‌کرد →
-            # برایِ کامپوننت‌هایی که به ضلعِ لبه‌ای چسبیده‌اند سقف بزرگ‌تر.
+# اضلاعِ جعبه که به لبهٔ تصویر می‌خورند: تکه‌متنِ
+# بریدهٔ لبه (نیم‌خطِ وبتون) ممکن است در یک کامپوننتِ پهن
+# ادغام شده باشد؛ سقفِ معمولیِ 100px آن را رد می‌کرد →
+# برایِ کامپوننت‌هایی که به ضلعِ لبه‌ای چسبیده‌اند سقف بزرگ‌تر.
             _edge_sides = {"t": by0 <= 0, "b": by1 >= ih,
                            "l": bx0 <= 0, "r": bx1 >= iw}
             keep = np.zeros_like(cu)
@@ -776,17 +755,17 @@ class _MangaTranslatorBody_85:
                     or (_edge_sides["r"] and _cx0 + cwd >= (bx1 - bx0) - 1))
                 _max_dim = 240 if _on_edge else 100
                 _max_area = 2800 if _on_edge else 1600
-                # حروف: کوچک/کشیده؛ هنر: تودهٔ بزرگ یا مستطیلِ عظیم
+# حروف: کوچک/کشیده؛ هنر: تودهٔ بزرگ یا مستطیلِ عظیم
                 if a < 8 or a > _max_area or max(cwd, chg) > _max_dim:
                     continue
                 if _on_edge:
-                    # قوسِ دیوارِ حباب هم به لبه می‌چسبد ولی «بلند» است
-                    # (نیم‌خطِ حرف ≤ ~16px)؛ بلندیِ >40px یا >45٪ جعبه =
-                    # دیوار/قاب، نه تکه‌متن.
+# قوسِ دیوارِ حباب هم به لبه می‌چسبد ولی «بلند» است
+# (نیم‌خطِ حرف ≤ ~16px)؛ بلندیِ >40px یا >45٪ جعبه =
+# دیوار/قاب، نه تکه‌متن.
                     if chg > 40 or chg > 0.45 * max(24, by1 - by0):
                         continue
-                # v1.14.73d — فقط «قلمِ نازکِ متن» (ضخامت ≤۶px): خطِ
-                # دست‌کشیدهٔ ضخیمِ حبابِ کیمتسو/ژاپنی جوهر نیست — دیوار است
+# فقط «قلمِ نازکِ متن» (ضخامت ≤۶px): خطِ
+# دست‌کشیدهٔ ضخیمِ حبابِ کیمتسو/ژاپنی جوهر نیست — دیوار است
                 try:
                     _cmc = (lal == ci)
                     _dtc = cv2.distanceTransform(
@@ -795,27 +774,27 @@ class _MangaTranslatorBody_85:
                         continue
                 except Exception:
                     pass
-                # v1.14.240 — «قوسِ دیواره از مرزِ جعبه می‌گذرد»:
-                # گزارشِ سازنده (صفحهٔ SHAN SHAN?!/DON'T TELL ME —
-                # 10.jpg): «جای پاک شده ک متن نیست … سمت چپ پایین …
-                # بخاطر همین میگم حباب خراب کرده». ریشهٔ یابی‌شده با
-                # دامپِ مرحله‌ای: قطعهٔ قوسِ دیوارهٔ حباب که جعبهٔ
-                # donor از میانش می‌گذرد (۴ نمونهٔ این صفحه: 49×93 و
-                # 97×26 و 44×82 و 43×77 — همه به ضلعِ «داخلیِ» جعبه
-                # چسبیده) «جوهرِ پوشش‌نداده‌شده» خوانده میشد → نوارِ
-                # نجات → ماسکِ کامپوز + دامنهٔ جارویِ بقایا → جارو آن
-                # را «بقایایِ متنِ پاک‌نشده» می‌پنداشت و با TELEA
-                # پاکش میکرد → دیوارِ پایینِ حباب ناپدید میشد و
-                # کامپوزِ گارانتیِ نهایی هم (چون دیوار داخلِ ماسکِ
-                # کامپوز بود) نسخهٔ خراب را نگه میداشت. متنِ جاماندهٔ
-                # واقعی همیشه «داخلِ» جعبه شناور است؛ ساختار
-                # (دیوار/قاب/قوس) از مرزِ برش عبور میکند و در سمتِ
-                # دیگر هم ادامه دارد. گارد: اگر همان خطِ جوهر در
-                # ≤۶px بیرونِ جعبه — در ستونهایِ تماسِ کامپوننت با
-                # آن ضلع — ادامه داشته باشد (≥۳۵٪ ستونها)، کامپوننت
-                # دیوار/ساختار است، نه تکه‌متن → از نجات خارج.
-                # ضلعِ «لبهٔ تصویر» (وبتونِ بریده — v1.14.165) مشمولِ
-                # این گارد نیست؛ فقط ضلعِ داخلیِ جعبه.
+# «قوسِ دیواره از مرزِ جعبه می‌گذرد»:
+# گزارشِ سازنده (صفحهٔ SHAN SHAN?!/DON'T TELL ME —
+# 10.jpg): «جای پاک شده ک متن نیست … سمت چپ پایین …
+# بخاطر همین میگم حباب خراب کرده». ریشهٔ یابی‌شده با
+# دامپِ مرحله‌ای: قطعهٔ قوسِ دیوارهٔ حباب که جعبهٔ
+# donor از میانش می‌گذرد (۴ نمونهٔ این صفحه: 49×93 و
+# 97×26 و 44×82 و 43×77 — همه به ضلعِ «داخلیِ» جعبه
+# چسبیده) «جوهرِ پوشش‌نداده‌شده» خوانده میشد → نوارِ
+# نجات → ماسکِ کامپوز + دامنهٔ جارویِ بقایا → جارو آن
+# را «بقایایِ متنِ پاک‌نشده» می‌پنداشت و با TELEA
+# پاکش میکرد → دیوارِ پایینِ حباب ناپدید میشد و
+# کامپوزِ گارانتیِ نهایی هم (چون دیوار داخلِ ماسکِ
+# کامپوز بود) نسخهٔ خراب را نگه میداشت. متنِ جاماندهٔ
+# واقعی همیشه «داخلِ» جعبه شناور است؛ ساختار
+# (دیوار/قاب/قوس) از مرزِ برش عبور میکند و در سمتِ
+# دیگر هم ادامه دارد. گارد: اگر همان خطِ جوهر در
+# ≤۶px بیرونِ جعبه — در ستونهایِ تماسِ کامپوننت با
+# آن ضلع — ادامه داشته باشد (≥۳۵٪ ستونها)، کامپوننت
+# دیوار/ساختار است، نه تکه‌متن → از نجات خارج.
+# ضلعِ «لبهٔ تصویر» (وبتونِ بریده — ) مشمولِ
+# این گارد نیست؛ فقط ضلعِ داخلیِ جعبه.
                 try:
                     _cmc2 = (lal == ci)
                     _sides = []
@@ -911,13 +890,13 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
                 keep |= (lal == ci)
-            # v1.14.165 — پاسِ ویژهٔ لبه: نیم‌خطِ بریدهٔ وبتون (صفحه‌ای که
-            # از وسطِ حباب شروع/تمام می‌شود) هیچ پالیِ OCR ندارد و
-            # known_d (دیلیتِ ۷ ماسکِ خطِ بعدی) آن را «پوشش‌داده» جا
-            # می‌زند. اینجا CC رویِ جوهرِ کاملِ جعبه: فقط کامپوننت‌هایی که
-            # (۱) پیکسلِ تازه در نوارِ ۱۴px لبه دارند (۲) خودِ کامپوننتِ
-            # کامل به ضلعِ لبه‌ای چسبیده (۳) کوتاه‌اند (≤40px و ≤45٪ جعبه —
-            # قوسِ بلندِ دیوار رد می‌شود) (۴) قلمِ نازک‌اند → نجات.
+# پاسِ ویژهٔ لبه: نیم‌خطِ بریدهٔ وبتون (صفحه‌ای که
+# از وسطِ حباب شروع/تمام می‌شود) هیچ پالیِ OCR ندارد و
+# known_d (دیلیتِ ۷ ماسکِ خطِ بعدی) آن را «پوشش‌داده» جا
+# می‌زند. اینجا CC رویِ جوهرِ کاملِ جعبه: فقط کامپوننت‌هایی که
+# (۱) پیکسلِ تازه در نوارِ ۱۴px لبه دارند (۲) خودِ کامپوننتِ
+# کامل به ضلعِ لبه‌ای چسبیده (۳) کوتاه‌اند (≤40px و ≤45٪ جعبه —
+# قوسِ بلندِ دیوار رد می‌شود) (۴) قلمِ نازک‌اند → نجات.
             if any(_edge_sides.values()):
                 _eb = 14
                 _bandm = np.zeros_like(cu)
@@ -930,10 +909,10 @@ class _MangaTranslatorBody_85:
                 if _edge_sides["r"]:
                     _bandm[:, -_eb:] = 1
                 _fresh_edge = (cu > 0) & (_bandm > 0)
-                # نکته: «known» اینجا ماسکِ کارشده (نوارهای دیلیت‌شده) است
-                # و ردیف‌هایِ لبه را از قبل بلعیده؛ پس در نوارِ لبهِ ۱۴px
-                # همهٔ جوهرِ جعبه کاندید است — اجتماع با ماسکِ موجود
-                # بیضرر است و دیوار/محافظتها پایینتر فیلتر میشوند.
+# نکته: «known» اینجا ماسکِ کارشده (نوارهای دیلیت‌شده) است
+# و ردیف‌هایِ لبه را از قبل بلعیده؛ پس در نوارِ لبهِ ۱۴px
+# همهٔ جوهرِ جعبه کاندید است — اجتماع با ماسکِ موجود
+# بیضرر است و دیوار/محافظتها پایینتر فیلتر میشوند.
                 if _fresh_edge.any():
                     _nz2, _lal2, _sts2, _ = cv2.connectedComponentsWithStats(
                         cu.astype(np.uint8), connectivity=8)
@@ -955,7 +934,7 @@ class _MangaTranslatorBody_85:
                                 or (_edge_sides["r"] and
                                     _x2 + _w2 >= (bx1 - bx0) - 1)):
                             continue
-                        # قوسِ دیوار = بلند؛ تکه‌متنِ حرف = کوتاه
+# قوسِ دیوار = بلند؛ تکه‌متنِ حرف = کوتاه
                         if _h2 > 40 or _h2 > 0.45 * _bh:
                             continue
                         if _a2 < 8 or _a2 > 2800 or max(_w2, _h2) > 240:
@@ -967,14 +946,14 @@ class _MangaTranslatorBody_85:
                                 continue
                         except Exception:
                             pass
-                        # ~known نمیخواهیم: کامپوننتِ کوتاهِ نازکِ چسبیده
-                        # به لبه validated شده؛ اجتماع با ماسکِ موجود
-                        # idempotent است.
+# ~known نمیخواهیم: کامپوننتِ کوتاهِ نازکِ چسبیده
+# به لبه validated شده؛ اجتماع با ماسکِ موجود
+# idempotent است.
                         keep |= _comp
             if int(cv2.countNonZero(keep)) < 16:
                 return None
             bands = cv2.dilate(keep, _k7)
-            # دیوار/کادر هرگز داخلِ نجات نیاید
+# دیوار/کادر هرگز داخلِ نجات نیاید
             for _pm in (getattr(self, "_page_protect", None),
                         getattr(self, "_page_wall_band", None)):
                 if _pm is not None and _pm.shape == image.shape[:2]:
@@ -990,14 +969,14 @@ class _MangaTranslatorBody_85:
     def _expand_donor_text_strips(self, image: np.ndarray,
                                   mask: np.ndarray,
                                   regions) -> np.ndarray:
-        """v1.14.74 — ماسکِ donor (عکسِ اول) = «فقط نوارهایِ متن + پدِ
+        """ — ماسکِ donor (عکسِ اول) = «فقط نوارهایِ متن + پدِ
         سخاوتمندانه» — نه کلِ داخلِ حباب. درخواستِ صریحِ کاربر:
         «عکسِ اول متن‌هاش کامل بپاکه — اشکال نداره حباب خراب شه یا بیشتر
         پاک شه. بعد خط به خط برش بخوره به عکسِ دوم بچسونه» +
         «چرا کل حباب انتقال میدی؟ اگ یک کلمه کل حباب حساب میشه حروف به
         حروف برش بزنه انتقال بده».
 
-        چرا کلِ داخلِ حباب (v1.14.71/73) بد بود:
+        چرا کلِ داخلِ حباب (/73) بد بود:
         ۱) LaMa با ماسکِ عظیمِ اینتریور، داخلِ حبابِ رنگی را با خمیرِ
            خاکستریِ بی‌رنگ پر می‌کند (نمونهٔ 01.jpg: حبابِ زردِ
            [125,235,253] → خاکستریِ [220,227,220] = «لگه») چون مرزِ ماسک
@@ -1020,18 +999,18 @@ class _MangaTranslatorBody_85:
                 return mask
             h_img, w_img = image.shape[:2]
             _base_n = int(np.count_nonzero(mask))
-            # پدِ سخاوتمندانه دورِ نوارها: مرزِ ماسک رویِ زمینهٔ تمیز
-            # بیفتد نه رویِ هالهٔ جوهر → بازسازیِ LaMa شبح نمی‌گیرد.
-            # دیوار در donor آزاد است (بالا) ولی برای پرکننده‌هایِ فوری
-            # همان protect حفظ می‌شود تا پرِ تخت رویِ دیوار نسازد.
+# پدِ سخاوتمندانه دورِ نوارها: مرزِ ماسک رویِ زمینهٔ تمیز
+# بیفتد نه رویِ هالهٔ جوهر → بازسازیِ LaMa شبح نمی‌گیرد.
+# دیوار در donor آزاد است (بالا) ولی برای پرکننده‌هایِ فوری
+# همان protect حفظ می‌شود تا پرِ تخت رویِ دیوار نسازد.
             _pad = np.ones((9, 9), np.uint8)
             out = cv2.dilate(mask, _pad)
             _protect = getattr(self, "_page_protect", None)
             if _protect is not None and _protect.shape == out.shape:
-                # v1.14.206n — فقط «قابِ رنگیِ» 206j از donor آزاد میشود
-                # (رنگِ قاب نباید واردِ پرِ متن شود — لکهٔ سبزِ up0822)؛
-                # دیوارِ تیره مثلِ قبل در donor دستنخورده میماند تا پرِ
-                # LaMa سیاهیِ دیوار را داخلِ نوار نکشد (img6).
+# فقط «قابِ رنگیِ» 206j از donor آزاد میشود
+# (رنگِ قاب نباید واردِ پرِ متن شود — لکهٔ سبزِ up0822)
+# دیوارِ تیره مثلِ قبل در donor دستنخورده میماند تا پرِ
+# LaMa سیاهیِ دیوار را داخلِ نوار نکشد (img6).
                 _colj2 = getattr(self, "_page_colored_protect", None)
                 if _colj2 is not None and _colj2.shape == out.shape:
                     out = cv2.bitwise_and(out, cv2.bitwise_not(_colj2))
@@ -1040,14 +1019,14 @@ class _MangaTranslatorBody_85:
             if not np.any(out):
                 out = mask.copy()
             _added = int(np.count_nonzero(out)) - _base_n
-            # v1.14.74b — «اگ یک کلمه کل حباب حساب میشه حروف به حروف برش
-            # بزنه»: ناحیه‌هایِ «متنِ متراکم» (≥۳۴٪ پوششِ پالی‌ها — همان
-            # شرطِ _polys_denseِ سازندهٔ ماسک) در ماسکِ خام «مستطیلِ بلوک»
-            # می‌شوند که تقریباً کلِ داخلِ حباب است → LaMa با سوراخِ عظیم،
-            # داخلِ حبابِ زرد را خمیرِ خاکستری می‌کرد (نمونهٔ 01.jpg).
-            # در donor، بلوک با «نوارِ خط‌به‌خطِ جوهر + پد» جایگزین می‌شود
-            # (همان نوارهایی که کامپوز منتقل می‌کند) + جوهرِ واقعیِ اطراف
-            # (تیره یا روشن) تا هیچ مرکبِ جا‌مانده‌ای زنده نماند.
+# «اگ یک کلمه کل حباب حساب میشه حروف به حروف برش
+# بزنه»: ناحیه‌هایِ «متنِ متراکم» (≥۳۴٪ پوششِ پالی‌ها — همان
+# شرطِ _polys_denseِ سازندهٔ ماسک) در ماسکِ خام «مستطیلِ بلوک»
+# می‌شوند که تقریباً کلِ داخلِ حباب است → LaMa با سوراخِ عظیم
+# داخلِ حبابِ زرد را خمیرِ خاکستری می‌کرد (نمونهٔ 01.jpg).
+# در donor، بلوک با «نوارِ خط‌به‌خطِ جوهر + پد» جایگزین می‌شود
+# (همان نوارهایی که کامپوز منتقل می‌کند) + جوهرِ واقعیِ اطراف
+# (تیره یا روشن) تا هیچ مرکبِ جا‌مانده‌ای زنده نماند.
             try:
                 _k = np.ones((11, 11), np.uint8)
                 for region in (regions or []):
@@ -1081,7 +1060,7 @@ class _MangaTranslatorBody_85:
                             _pl, region.rect, False)
                         if not _bb:
                             continue
-                        # خروجیِ _text_block_box = (x, y, w, h)
+# خروجیِ _text_block_box = (x, y, w, h)
                         _zx0 = max(0, int(_bb[0]))
                         _zy0 = max(0, int(_bb[1]))
                         _zx1 = min(w_img, _zx0 + int(_bb[2]))
@@ -1090,29 +1069,28 @@ class _MangaTranslatorBody_85:
                             continue
                         _keep = cv2.dilate(
                             _st.astype(np.uint8), _k) > 0
-                        # جوهرِ واقعیِ داخلِ بلوک (تیره یا روشن) که نوارها
-                        # نپوشانده‌اند — نوارِ نجاتِ مکمل؛ دیوار (protect)
-                        # هرگز واردِ donor نمی‌شود.
-                        #
-                        # v1.14.95 — گاردِ «ساختار»: معیارِ «هرچه از میانه
-                        # دور است = جوهر» رویِ بلوک‌هایِ نیمه‌شفاف/قاب‌دار
-                        # فاجعه می‌ساخت: قابِ سفیدِ باکس (روشنِ واضح مقابلِ
-                        # میانهٔ تیره) و بافتِ پشتِ شیشه هر دو «جوهر» خوانده
-                        # می‌شدند → ماسکِ donor = کلِ بلوک + قاب → LaMa کلِ
-                        # باکس را بازسازی می‌کرد (لبهٔ دوبلِ قاب + لکهٔ تخت +
-                        # «MONSTERS..»). پس: فقط «قطعه‌هایِ حرفیِ» فشرده —
-                        # نه خط‌هایِ بلند/حلقه‌ای — و اگر باز هم بیش از
-                        # ~۴۵٪ بلوک شد، یعنی معیار جوهر نیست، بافت است →
-                        # کلِ نجاتِ جوهر رد می‌شود (فقط نوارها می‌مانند).
+# جوهرِ واقعیِ داخلِ بلوک (تیره یا روشن) که نوارها
+# نپوشانده‌اند — نوارِ نجاتِ مکمل؛ دیوار (protect)
+# هرگز واردِ donor نمی‌شود.
+# گاردِ «ساختار»: معیارِ «هرچه از میانه
+# دور است = جوهر» رویِ بلوک‌هایِ نیمه‌شفاف/قاب‌دار
+# فاجعه می‌ساخت: قابِ سفیدِ باکس (روشنِ واضح مقابلِ
+# میانهٔ تیره) و بافتِ پشتِ شیشه هر دو «جوهر» خوانده
+# می‌شدند → ماسکِ donor = کلِ بلوک + قاب → LaMa کلِ
+# باکس را بازسازی می‌کرد (لبهٔ دوبلِ قاب + لکهٔ تخت +
+# «MONSTERS..»). پس: فقط «قطعه‌هایِ حرفیِ» فشرده —
+# نه خط‌هایِ بلند/حلقه‌ای — و اگر باز هم بیش از
+# ~۴۵٪ بلوک شد، یعنی معیار جوهر نیست، بافت است →
+# کلِ نجاتِ جوهر رد می‌شود (فقط نوارها می‌مانند).
                         try:
                             _oc = image[_zy0:_zy1, _zx0:_zx1]
                             _g = cv2.cvtColor(_oc, cv2.COLOR_BGR2GRAY)
                             _med = float(np.median(_g))
-                            # v1.14.95b — فقط «بقایایِ پرکنتراست»: بازماندهٔ
-                            # واقعیِ جوهر (آپاستروف/خطِ جاافتاده) در برابر
-                            # زمینهٔ بلوک خیلی دور است (≥۹۰). بافتِ پشتِ
-                            # شیشه/گرادیانِ پلاک در همین بازه نیست → دیگر
-                            # واردِ ماسکِ LaMa نمی‌شود و لکهٔ سایه نمی‌سازد.
+# فقط «بقایایِ پرکنتراست»: بازماندهٔ
+# واقعیِ جوهر (آپاستروف/خطِ جاافتاده) در برابر
+# زمینهٔ بلوک خیلی دور است (≥۹۰). بافتِ پشتِ
+# شیشه/گرادیانِ پلاک در همین بازه نیست → دیگر
+# واردِ ماسکِ LaMa نمی‌شود و لکهٔ سایه نمی‌سازد.
                             _ink = ((_g < _med - 90.0)
                                       | (_g > _med + 90.0))
                             _ink_u8 = _ink.astype(np.uint8)
@@ -1120,7 +1098,7 @@ class _MangaTranslatorBody_85:
                             _blk_area = max(1, (_zx1 - _zx0) * (_zy1 - _zy0))
                             _wall_ok = True
                             if _nz >= max(400, int(0.45 * _blk_area)):
-                                # بافت/گرادیان — نه جوهر؛ کلِ نجات رد.
+# بافت/گرادیان — نه جوهر؛ کلِ نجات رد.
                                 _wall_ok = False
                             else:
                                 try:
@@ -1135,11 +1113,11 @@ class _MangaTranslatorBody_85:
                                                           cv2.CC_STAT_HEIGHT])
                                         _mx = max(_cw, _ch)
                                         _mn = max(1, min(_cw, _ch))
-                                        # خطِ بلندِ نازک = دیوار/قاب، نه حرف
+# خطِ بلندِ نازک = دیوار/قاب، نه حرف
                                         if _mx >= 64 and _mn <= max(
                                                 12, int(0.09 * _mx)):
                                             continue
-                                        # حلقه/قاب: کادرِ بزرگ با پرشدگیِ کم
+# حلقه/قاب: کادرِ بزرگ با پرشدگیِ کم
                                         _fa = _cw * _ch
                                         _px = int(_stt[_i,
                                                           cv2.CC_STAT_AREA])
@@ -1161,7 +1139,7 @@ class _MangaTranslatorBody_85:
                                 _keep[_zy0:_zy1, _zx0:_zx1] |= _ink
                         except Exception:
                             pass
-                        # جایگزینی: داخلِ بلوک فقط نوارها + جوهر می‌ماند
+# جایگزینی: داخلِ بلوک فقط نوارها + جوهر می‌ماند
                         out[_zy0:_zy1, _zx0:_zx1] = np.where(
                             _keep[_zy0:_zy1, _zx0:_zx1], 255, 0
                         ).astype(out.dtype)
@@ -1169,10 +1147,10 @@ class _MangaTranslatorBody_85:
                         continue
             except Exception:
                 pass
-            # v1.14.212 — روکشِ حاشیه‌نویسیِ ورودی (قابِ سبز + شستشویِ
-            # نیمه‌شفافِ up0822) هم در donor پاک میشود — بعد از جایگزینیِ
-            # بلوکهایِ متراکم میآید تا با np.where پاک نشود؛ دیوارها
-            # (protect) از قبل در نقشهٔ روکش حذف شدهاند.
+# روکشِ حاشیه‌نویسیِ ورودی (قابِ سبز + شستشویِ
+# نیمه‌شفافِ up0822) هم در donor پاک میشود — بعد از جایگزینیِ
+# بلوکهایِ متراکم میآید تا با np.where پاک نشود؛ دیوارها
+# (protect) از قبل در نقشهٔ روکش حذف شدهاند.
             try:
                 _anD = getattr(self, "_page_annotation_overlay", None)
                 if _anD is not None and _anD.shape == out.shape:
@@ -1182,8 +1160,8 @@ class _MangaTranslatorBody_85:
                         _added += int(np.count_nonzero(_addD))
             except Exception:
                 pass
-            # جعبه‌هایِ جستجو برایِ نجاتِ جوهرِ جا‌مانده (مثلِ قبل:
-            # ناحیه ∩ داخلِ حباب) — فقط دامنهٔ «جستجو»، نه افزودنِ ماسک.
+# جعبه‌هایِ جستجو برایِ نجاتِ جوهرِ جا‌مانده (مثلِ قبل:
+# ناحیه ∩ داخلِ حباب) — فقط دامنهٔ «جستجو»، نه افزودنِ ماسک.
             _stored = getattr(self, "_page_bubble_boxes", None) or []
             donor_boxes = []
             for region in (regions or []):
@@ -1221,12 +1199,12 @@ class _MangaTranslatorBody_85:
                     bx0, by0, bx1, by1 = box
                     bw, bh = bx1 - bx0, by1 - by0
                     _pad_b = int(np.clip(min(bw, bh) * 0.10, 4, 14))
-                    # v1.14.165 — وبتون‌هایی که صفحه‌شان از وسطِ حباب شروع
-                    # می‌شود (نمونهٔ واقعی: imgsrv5 chapter-264 صفحهٔ ۱ =
-                    # نیم‌خطِ بریده در y=0): جعبهٔ حباب به لبهٔ تصویر
-                    # می‌خورد و تکه‌متنِ بریده آن‌سویِ اینستِ ۴-۱۴px پنهان
-                    # می‌ماند → «متنِ قبلی جا می‌ماند». ضلعِ برخوردی با
-                    # لبهٔ تصویر اینست نمی‌گیرد تا نجاتِ جوهرِ لبه ببیندش.
+# وبتون‌هایی که صفحه‌شان از وسطِ حباب شروع
+# می‌شود (نمونهٔ واقعی: imgsrv5 chapter-264 صفحهٔ ۱ =
+# نیم‌خطِ بریده در y=0): جعبهٔ حباب به لبهٔ تصویر
+# می‌خورد و تکه‌متنِ بریده آن‌سویِ اینستِ ۴-۱۴px پنهان
+# می‌ماند → «متنِ قبلی جا می‌ماند». ضلعِ برخوردی با
+# لبهٔ تصویر اینست نمی‌گیرد تا نجاتِ جوهرِ لبه ببیندش.
                     _e_top = by0 <= 1
                     _e_bot = by1 >= h_img - 1
                     _e_lft = bx0 <= 1
@@ -1240,7 +1218,7 @@ class _MangaTranslatorBody_85:
                     if not (out[iy0:iy1, ix0:ix1] > 0).any():
                         continue
                     donor_boxes.append((ix0, iy0, ix1, iy1))
-                    # نجاتِ جوهرِ پوشش‌داده‌نشده — خطی که OCR ندیده
+# نجاتِ جوهرِ پوشش‌داده‌نشده — خطی که OCR ندیده
                     try:
                         _bands = self._uncovered_ink_bands(
                             image, (ix0, iy0, ix1, iy1), out)
@@ -1267,7 +1245,6 @@ class _MangaTranslatorBody_85:
             self._donor_skip_ids = set()
             self._donor_boxes = []
             return mask
-
 
     def _bubble_domain_local(self, bgr_crop: np.ndarray,
                              seed_mask: np.ndarray,
@@ -1494,7 +1471,7 @@ class _MangaTranslatorBody_85:
 
     def _limit_mask_to_bubble(self, image: np.ndarray, rm: np.ndarray,
                               region: "TextRegion") -> np.ndarray:
-        """v1.14.47 — بازنویسیِ کامل — درخواستِ کاربر: «حباب متن نباید بپاکه
+        """ — بازنویسیِ کامل — درخواستِ کاربر: «حباب متن نباید بپاکه
         و لگه نباید بزاره، متن نباید بمونه».
         قانونِ طلایی: این تابع فقط «کوچک» می‌کند، هرگز بزرگ نمی‌کند.
         ۱) اگر حبابِ واقعی (جزیرهٔ بسته با دیوارِ تیره) دورِ متن پیدا شود →
@@ -1503,7 +1480,7 @@ class _MangaTranslatorBody_85:
         ۲) اگر ماسک از قبل کاملاً داخلِ حباب است → دست نمی‌خورد.
         ۳) اگر حباب معتبر نبود → ماسک با پالی‌های تنگِ OCR «تقاطع» می‌شود —
            بلوکِ مستطیلی جمع می‌شود ولی هیچ پیکسلی بیرونِ ماسکِ قبلی اضافه
-           نمی‌شود (نسخهٔ ۱.۱۴.۴۶ این‌جا ماسک را با پالی‌های 1.18x «جایگزین»
+           نمی‌شود (نسخهٔ این‌جا ماسک را با پالی‌های 1.18x «جایگزین»
            می‌کرد و از دیوارِ حباب رد می‌شد → لگهٔ سیاه/سفید و حبابِ پاک‌شده)."""
         try:
             ys, xs = np.nonzero(rm)
@@ -1535,12 +1512,12 @@ class _MangaTranslatorBody_85:
                 _area = float(ch * cw)
                 _fa = float(cv2.countNonZero(interior))
                 if 0.10 * _area <= _fa <= 0.94 * _area:
-                    # v1.14.47: اعتبارسنجیِ «دیوار» — حلقهٔ دورِ اینتریور باید
-                    # به‌طورِ معناداری تیره‌تر از خودِ اینتریور باشد (خطِ حباب/
-                    # کادر). چکِ قبلیِ «تعدادِ لبه‌های کراپ که اینتریور لمس
-                    # می‌کند ≤ ۱» حباب‌های واقعی را وقتی متن به لبهٔ حباب
-                    # نزدیک بود (کراپ تنگ) رد می‌کرد و مسیرِ جایگزینیِ
-                    # بزرگ‌کننده فعال می‌شد.
+# اعتبارسنجیِ «دیوار» — حلقهٔ دورِ اینتریور باید
+# به‌طورِ معناداری تیره‌تر از خودِ اینتریور باشد (خطِ حباب/
+# کادر). چکِ قبلیِ «تعدادِ لبه‌های کراپ که اینتریور لمس
+# می‌کند ≤ ۱» حباب‌های واقعی را وقتی متن به لبهٔ حباب
+# نزدیک بود (کراپ تنگ) رد می‌کرد و مسیرِ جایگزینیِ
+# بزرگ‌کننده فعال می‌شد.
                     _wall_ok = False
                     try:
                         _ring = cv2.dilate(interior, np.ones((5, 5), np.uint8))
@@ -1549,8 +1526,8 @@ class _MangaTranslatorBody_85:
                         if _n_ring >= 30:
                             _g_in = float(np.median(gray[interior > 0]))
                             _g_rg = float(np.median(gray[_ring]))
-                            # v1.14.47d: دیوار باید واقعاً تیره باشد (خطِ
-                            # حباب/کادر) — سایهٔ ملایمِ هنر کافی نیست
+# دیوار باید واقعاً تیره باشد (خطِ
+# حباب/کادر) — سایهٔ ملایمِ هنر کافی نیست
                             _wall_ok = (_g_rg <= _g_in - 40.0)
                         else:
                             _wall_ok = True
@@ -1563,20 +1540,20 @@ class _MangaTranslatorBody_85:
                             return rm
                         clipped = cv2.bitwise_and(sub, interior)
                         _n_clip = int(cv2.countNonZero(clipped))
-                        # v1.14.47d: 0.75 — کلیپ فقط برای «سرریزِ کم»؛ اگر
-                        # بیش از ~۲۵٪ ماسک بیرونِ «حباب» است، این یک جزیرهٔ
-                        # کاذب روی هنر است (متنِ روشن روی زمینهٔ تیره) و
-                        # کلیپ، متنِ واقعی را قربانی می‌کند
+# 0.75 — کلیپ فقط برای «سرریزِ کم»؛ اگر
+# بیش از ~۲۵٪ ماسک بیرونِ «حباب» است، این یک جزیرهٔ
+# کاذب روی هنر است (متنِ روشن روی زمینهٔ تیره) و
+# کلیپ، متنِ واقعی را قربانی می‌کند
                         if _n_clip >= max(150, 0.75 * n_orig) and _n_clip < n_orig:
                             rm[y0:y1, x0:x1] = clipped
                             return rm
-            # ---- v1.14.47c: مسیرِ «جایگزینی با پالی‌هایِ تنگ» حذف شد ----
-            # این مسیر ماسکِ حاصل از جذبِ جوهر (که کلِ ستون/بلوکِ متن را
-            # دارد) را با پالی‌هایِ ناقصِ OCR قطعه‌قطعه می‌کرد و متنِ
-            # باقی‌مانده (شبح/متنِ ناپاک‌شده) می‌ساخت — مثالِ واقعی:
-            # region#1 در صفحهٔ چینی 2487→676 می‌شد و «木濑！电影很有趣»
-            # ناپاک می‌ماند. امنیتِ دیوارِ حباب با کلیپِ اینتریور (بالا)
-            # و پرکردنِ اختصاصیِ محفظه تأمین می‌شود.
+# : مسیرِ «جایگزینی با پالی‌هایِ تنگ» حذف شد ----
+# این مسیر ماسکِ حاصل از جذبِ جوهر (که کلِ ستون/بلوکِ متن را
+# دارد) را با پالی‌هایِ ناقصِ OCR قطعه‌قطعه می‌کرد و متنِ
+# باقی‌مانده (شبح/متنِ ناپاک‌شده) می‌ساخت — مثالِ واقعی:
+# region#1 در صفحهٔ چینی 2487→676 می‌شد و «木濑！电影很有趣»
+# ناپاک می‌ماند. امنیتِ دیوارِ حباب با کلیپِ اینتریور (بالا)
+# و پرکردنِ اختصاصیِ محفظه تأمین می‌شود.
             return rm
         except Exception:
             return rm
@@ -1584,17 +1561,16 @@ class _MangaTranslatorBody_85:
     def _pad_dilate_wall_safe(self, rm: np.ndarray, image: np.ndarray,
                               region: "TextRegion",
                               pad_k) -> np.ndarray:
-        """v1.14.171 — دیلیشنِ ماسک + گیردهِ دوباره به داخلِ حباب (فقطِ
-        اندروید — دستورِ سازنده: «حبابِ متن خراب نشه … خوده مرجع ببین چکار
-        کرده»). دیکدِ مرجع: اپِ مرجع هیچ مدلِ inpaintی ندارد و فقط پالیِ تنگِ
+        """ — دیلیشنِ ماسک + گیردهِ دوباره به داخلِ حباب (فقطِ
+        اندروید — ). دیکدِ مرجع: اپِ مرجع هیچ مدلِ inpaintی ندارد و فقط پالیِ تنگِ
         خطهایِ OCR را با رنگِ زمینه پر میکند — دیوارِ حباب هرگز لمس
         نمیشود. نزدیکترین معادلِ امنِ همین‌جا: پدِ ماسکِ اندروید (۸px —
-        درسِ 1.14.133 برایِ دورخطِ ضخیمِ حبابهایِ زرد) بعد از گیردهِ حباب
+        درسِ برایِ دورخطِ ضخیمِ حبابهایِ زرد) بعد از گیردهِ حباب
         اعمال میشود و میتواند ۸ پیکسل از دیوار را ببلعد؛ پس بعدِ دیلیشن
         دوباره به داخلِ حباب گیرده میکنیم. _limit_mask_to_bubble فقط
         کوچک میکند و فقط با «حبابِ واقعیِ تاییدشده» (دیوارِ تیرهٔ +۴۰
         گری + گیتِ سرریزِ ۰.۷۵) کلیپ میکند → متنِ آزادِ بیرونِ حباب
-        دستنخورده میماند و درسِ 1.14.133 (پوششِ دورخطِ داخلِ حباب) هم
+        دستنخورده میماند و درسِ (پوششِ دورخطِ داخلِ حباب) هم
         سرِ جایش است. PC/لینوکس هرگز این مسیر را نمیرود (گیتِ اندرویدِ
         MANGA_MASK_WALL_RECLIP) — رفتارِ PC بیت‌به‌بیتِ قبلی."""
         if pad_k is not None:
@@ -1608,7 +1584,7 @@ class _MangaTranslatorBody_85:
 
     def _ink_is_light(self, image: np.ndarray,
                       ink: Optional[np.ndarray]) -> bool:
-        """v1.14.59 — قطبیتِ متن: جوهرِ گلیف‌ها به‌وضوح روشن‌تر از زمینهٔ
+        """ — قطبیتِ متن: جوهرِ گلیف‌ها به‌وضوح روشن‌تر از زمینهٔ
         چسبیده است؟ (متنِ سفید/کرم روی بنر/کارتِ تیره — Crimson Dragon،
         بنرهایِ هدر). برای گاردهایِ کارو و اجبارِ LaMa."""
         try:
@@ -1629,9 +1605,9 @@ class _MangaTranslatorBody_85:
 
     def _block_bg_stats(self, image: np.ndarray, rect,
                         ink_b: Optional[np.ndarray]):
-        """v1.14.96 — آمارِ «زمینهٔ بیرونِ جوهر» داخلِ مستطیلِ بلوک.
+        """ — آمارِ «زمینهٔ بیرونِ جوهر» داخلِ مستطیلِ بلوک.
 
-        «متنِ روشن روی محفظهٔ تیره» (v1.14.59) فقط وقتی مستطیلِ کاملِ
+        «متنِ روشن روی محفظهٔ تیره» () فقط وقتی مستطیلِ کاملِ
         بلوک را برای LaMa می‌خواهد که زمینه یکدست باشد (بنرِ صاف). روی
         گرادیان/برف‌نوی/نقش‌ونگار (412e9e: EXEC + GREEN MOON — std≈۶۷/۵۸
         در برابرِ باندِ واقعیِ img4 با std≈۱۸) حفرهٔ بزرگِ LaMa پرِ تختِ
@@ -1664,7 +1640,7 @@ class _MangaTranslatorBody_85:
                                 region: "TextRegion",
                                 polys_raw: list,
                                 ink_mask: Optional[np.ndarray] = None) -> np.ndarray:
-        """v1.14.48 — باگِ «حبابِ پاک‌شده» (صفحهٔ LIKE A TIME BOMB — ناحیهٔ
+        """ — باگِ «حبابِ پاک‌شده» (صفحهٔ LIKE A TIME BOMB — ناحیهٔ
         «YOU'RE LEAVING THE COMPANY?»): ماسکِ بلوکِ متن تقریباً به‌اندازهٔ
         خودِ حباب می‌شود و تا دیوارِ حباب/کادرِ پنل پیش می‌رود؛ پرکننده
         (flat/TELEA/LaMa) دیوار را هم با رنگِ زمینه می‌پوشاند → کلِ بادکنک
@@ -1678,9 +1654,9 @@ class _MangaTranslatorBody_85:
             ys, xs = np.nonzero(rm)
             if xs.size == 0:
                 return rm
-            # v1.14.59 — متنِ روشن روی محفظهٔ تیره: «کامپوننتِ تیرهٔ ساختاری»
-            # اینجا خودِ زمینه است نه دیوار → کارو ماسک را پنیرِ سوری می‌کند
-            # (حروفِ سفید سالم می‌مانند = «متنِ قبلی سرِ جایش»). رها کن.
+# متنِ روشن روی محفظهٔ تیره: «کامپوننتِ تیرهٔ ساختاری»
+# اینجا خودِ زمینه است نه دیوار → کارو ماسک را پنیرِ سوری می‌کند
+# (حروفِ سفید سالم می‌مانند = «متنِ قبلی سرِ جایش»). رها کن.
             if ink_mask is not None and self._ink_is_light(image, ink_mask):
                 return rm
             M = 24
@@ -1701,7 +1677,7 @@ class _MangaTranslatorBody_85:
             dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE,
                                     np.ones((3, 3), np.uint8))
             n, lab, st, _ = cv2.connectedComponentsWithStats(dark, 8)
-            # ناحیهٔ متنِ OCR — برای اینکه گلیفِ چسبیده به دیوار قربانی نشود
+# ناحیهٔ متنِ OCR — برای اینکه گلیفِ چسبیده به دیوار قربانی نشود
             polyf = None
             try:
                 _pts = []
@@ -1722,13 +1698,13 @@ class _MangaTranslatorBody_85:
                     polyf = cv2.dilate(polyf, np.ones((5, 5), np.uint8))
             except Exception:
                 polyf = None
-            # v1.14.59 — گاردِ قطبیت (همه‌جایی): متنِ روشن روی محفظهٔ تیره
-            # (کارتِ عنوانِ Crimson Dragon، بنرهایِ هدر) — اینجا «کامپوننتِ
-            # تیرهٔ ساختاری» خودِ زمینه است نه دیوار؛ کارو آن را از ماسک
-            # بیرون می‌کشد = ماسکِ پنیرِ سوری = حروفِ قدیمی سالم می‌مانند.
-            # تشخیصِ قطبیت: فاصلهٔ صدکِ ۹۰ِ پیکسل‌هایِ داخلِ پالی‌ها تا
-            # میانهٔ زمینهٔ چسبیده، بیشتر از فاصلهٔ صدکِ ۱۰ باشد → جوهرِ
-            # روشن → کارو ممنوع.
+# گاردِ قطبیت (همه‌جایی): متنِ روشن روی محفظهٔ تیره
+# (کارتِ عنوانِ Crimson Dragon، بنرهایِ هدر) — اینجا «کامپوننتِ
+# تیرهٔ ساختاری» خودِ زمینه است نه دیوار؛ کارو آن را از ماسک
+# بیرون می‌کشد = ماسکِ پنیرِ سوری = حروفِ قدیمی سالم می‌مانند.
+# تشخیصِ قطبیت: فاصلهٔ صدکِ ۹۰ِ پیکسل‌هایِ داخلِ پالی‌ها تا
+# میانهٔ زمینهٔ چسبیده، بیشتر از فاصلهٔ صدکِ ۱۰ باشد → جوهرِ
+# روشن → کارو ممنوع.
             if polyf is not None and np.any(polyf):
                 try:
                     _pg = gray[polyf > 0].astype(np.float32)
@@ -1791,18 +1767,18 @@ class _MangaTranslatorBody_85:
 
     def _free_text_tight_ok(self, image: np.ndarray, rect_mask: np.ndarray,
                             ink: np.ndarray, polys_raw: list) -> bool:
-        """v1.14.48 — متنِ آزاد روی زمینهٔ هنری/گرادیانی (بدونِ حباب): نمونهٔ
+        """ — متنِ آزاد روی زمینهٔ هنری/گرادیانی (بدونِ حباب): نمونهٔ
         واقعی «SINCE WHEN WERE WE FRIENDS?» — ماسکِ مستطیلی روی گرادیانِ
         دیوار با یک رنگِ تخت پر می‌شود → لکهٔ بژِ واضح. ماسکِ جوهریِ تنگ
         (فقط گلیف‌ها) روی گرادیان تقریباً نامرئی است. شرط‌ها: حبابِ معتبر
         دورِ متن وجود ندارد + جوهر پوششِ کافی روی پالی‌ها دارد + جوهر
         به‌وضوح تیره‌ترِ زمینهٔ چسبیده است (متنِ تیره روی زمینهٔ روشن).
-        v1.14.50 — گیتِ بافت: فقط روی زمینهٔ «صاف/گرادیانی» (دیوارِ رنگی،
+         — گیتِ بافت: فقط روی زمینهٔ «صاف/گرادیانی» (دیوارِ رنگی
         کاغذ) تنگ می‌کنیم. لاگِ 9.jpg کاربر: پاراگراف‌های روی «عکس» (حصار/
         درخت/چوب/صورت) با ماسکِ تنگ فقط استوکِ تیرهٔ گلیف را می‌گرفتند و
         هالهٔ خاکستریِ Anti-Alias دورِ حروف (سطح ~med−۵۵ تا med) باقی
         می‌ماند → «متنِ قبلی جا گذاشته». LaMa روی عکس با مستطیلِ کامل
-        زمینه را عالی بازسازی می‌کند (خروجیِ v1.14.47 تأیید) → زمینهٔ
+        زمینه را عالی بازسازی می‌کند (خروجیِ تأیید) → زمینهٔ
         بافت‌دار = مستطیل (مسیرِ قبلی)، زمینهٔ صاف = تنگ."""
         try:
             ys, xs = np.nonzero(rect_mask)
@@ -1858,9 +1834,9 @@ class _MangaTranslatorBody_85:
             t_out = float(np.median(gray[ring]))
             if t_ink > t_out - 55.0:
                 return False
-            # v1.14.50: گیتِ بافتِ زمینه — هالهٔ دورِ گلیف فقط روی زمینهٔ
-            # صاف توسط پرکننده/LaMaِ تنگ پوشش داده می‌شود؛ روی عکس/بافت
-            # مستطیلِ کامل برمی‌گردیم تا LaMa کلِ زمینه را بازسازی کند
+# گیتِ بافتِ زمینه — هالهٔ دورِ گلیف فقط روی زمینهٔ
+# صاف توسط پرکننده/LaMaِ تنگ پوشش داده می‌شود؛ روی عکس/بافت
+# مستطیلِ کامل برمی‌گردیم تا LaMa کلِ زمینه را بازسازی کند
             try:
                 _ring_d = cv2.dilate(polyf, np.ones((21, 21), np.uint8))
                 _ring_band = ((_ring_d > 0) & (polyf == 0))
@@ -1878,7 +1854,7 @@ class _MangaTranslatorBody_85:
 
     def _ink_tight_ok(self, image: np.ndarray, rect_mask: np.ndarray,
                       ink: np.ndarray, polys_raw: list) -> bool:
-        """v1.14.47 — تشخیصِ «متن داخلِ محفظهٔ باکنتراست» (مثلاً متنِ سفید روی
+        """ — تشخیصِ «متن داخلِ محفظهٔ باکنتراست» (مثلاً متنِ سفید روی
         بنرِ سیاه که رنگِ متن با صفحهٔ بیرون یکی است). در این حالت مستطیلِ
         بلوک، زمینهٔ تیرهٔ بینِ حروف را هم قورت می‌دهد و پرکننده با رنگِ
         صفحه (روشن) آن را می‌پوشاند → لگهٔ سفید روی بنر. فقط در همین حالت
@@ -1926,13 +1902,13 @@ class _MangaTranslatorBody_85:
     def _enclosure_tight_mask(self, image: np.ndarray, polys_raw: list,
                               rect: Optional[Tuple[int, int, int, int]] = None
                               ) -> Optional[np.ndarray]:
-        """v1.14.47 — متن روی «محفظهٔ تیرهٔ یکدست» (بنرِ سیاهِ هدر، کادرِ
+        """ — متن روی «محفظهٔ تیرهٔ یکدست» (بنرِ سیاهِ هدر، کادرِ
         تیره، حبابِ سیاه): ماسکِ جوهریِ تنگ می‌سازد. مستطیلِ بلوک در این
         حالت زمینهٔ تیرهٔ بینِ حروف را می‌بلعد و پرکننده با رنگِ صفحهٔ
         بیرون آن را روشن می‌کند (لگهٔ سفید / بنرِ разруш شده). فقط وقتی
         فعال است که زمینهٔ چسبیده به متن تیره، یکدست و باکنتراست با
         دورتر باشد — بقیهٔ حالت‌ها (حبابِ روشن) مسیرِ قبلی می‌روند.
-        v1.14.47b: اگر پالی‌هایِ OCR فقط پاری از rect را پوشش می‌دهند
+        : اگر پالی‌هایِ OCR فقط پاری از rect را پوشش می‌دهند
         (تشخیصِ ناقص — مثلاً فقط «、» در یک ستونِ متن) این مسیر فعال
         نمی‌شود تا بقیهٔ متن بی‌ماسک نماند؛ مسیرِ معمولی با جذبِ جوهر
         کلِ ستون را می‌گیرد."""
@@ -1977,10 +1953,10 @@ class _MangaTranslatorBody_85:
                 cv2.fillPoly(polyf, [q], 255)
             if int(cv2.countNonZero(polyf)) < 120:
                 return None
-            # v1.14.47 (بازبینی): enclosure = «کامپوننتِ تیرهٔ یکدستی که متن
-            # روی آن نشسته و از متن بزرگ‌تر است» (بنرِ هدر، کادرِ تیره،
-            # حبابِ سیاه). حلقهٔ آماریِ ساده روی بنرهای نازک (که متن تقریباً
-            # تمامِ ارتفاعش را گرفته) به لبهٔ بنر می‌خورد و می‌شکند.
+# (بازبینی): enclosure = «کامپوننتِ تیرهٔ یکدستی که متن
+# روی آن نشسته و از متن بزرگ‌تر است» (بنرِ هدر، کادرِ تیره
+# حبابِ سیاه). حلقهٔ آماریِ ساده روی بنرهای نازک (که متن تقریباً
+# تمامِ ارتفاعش را گرفته) به لبهٔ بنر می‌خورد و می‌شکند.
             _ys, _xs = np.nonzero(polyf)
             px0, py0 = int(_xs.min()), int(_ys.min())
             px1, py1 = int(_xs.max()) + 1, int(_ys.max()) + 1
@@ -2006,9 +1982,9 @@ class _MangaTranslatorBody_85:
                     continue
                 if not (_cw > pbw + 8 or _ch > pbh + 8):
                     continue
-                # v1.14.47c: محفظهٔ واقعی (بنر/کادر/حبابِ سیاه) «توپُر» است؛
-                # شبکهٔ خطوطِ هنر و متنِ روی art پراکنده → رد شود وگرنه
-                # پرکننده روی هنر لکه می‌گذارد.
+# محفظهٔ واقعی (بنر/کادر/حبابِ سیاه) «توپُر» است
+# شبکهٔ خطوطِ هنر و متنِ روی art پراکنده → رد شود وگرنه
+# پرکننده روی هنر لکه می‌گذارد.
                 if _a / float(max(1, _cw * _ch)) < 0.35:
                     continue
                 if _a > best_a:
@@ -2039,15 +2015,15 @@ class _MangaTranslatorBody_85:
             out = np.zeros((h, w), dtype=np.uint8)
             out[wy0:wy1, wx0:wx1] = cv2.dilate(
                 ink, np.ones((3, 3), np.uint8), iterations=1)
-            # v1.14.59 — کلِ محفظهٔ تیره با «پر شدنِ حفره‌ها» (حروفِ روشن داخلِ
-            # comp سوراخ‌اند!) تا ماسکِ حالتِ LaMaِ کیفیت توپر باشد — نه پنیرِ
-            # سوری که حروفِ قدیمی را بیرون بگذارد (کارتِ عنوانِ Crimson Dragon)
+# کلِ محفظهٔ تیره با «پر شدنِ حفره‌ها» (حروفِ روشن داخلِ
+# comp سوراخ‌اند!) تا ماسکِ حالتِ LaMaِ کیفیت توپر باشد — نه پنیرِ
+# سوری که حروفِ قدیمی را بیرون بگذارد (کارتِ عنوانِ Crimson Dragon)
             _crop_c = comp.astype(np.uint8) * 255
-            # v1.14.80 — stroke/glow رنگی دورِ حروف (RED MOON: حروفِ سفید
-            # با stroke قرمز روی texture آبی): enclosure فقط کامپوننتِ
-            # «تیره» را می‌گیرد و strokeِ رنگیِ وسطِ روشن جا می‌ماند →
-            # بقایای قرمز در خروجی. پیکسل‌هایِ رنگیِ «غیرِ پس‌زمینه»
-            # (فاصلهٔ hue از رنگِ اطرافِ متن) به محفظه اضافه می‌شوند.
+# stroke/glow رنگی دورِ حروف (RED MOON: حروفِ سفید
+# با stroke قرمز روی texture آبی): enclosure فقط کامپوننتِ
+# «تیره» را می‌گیرد و strokeِ رنگیِ وسطِ روشن جا می‌ماند →
+# بقایای قرمز در خروجی. پیکسل‌هایِ رنگیِ «غیرِ پس‌زمینه»
+# (فاصلهٔ hue از رنگِ اطرافِ متن) به محفظه اضافه می‌شوند.
             try:
                 _hsv = cv2.cvtColor(image[wy0:wy1, wx0:wx1], cv2.COLOR_BGR2HSV)
                 _hue = _hsv[:, :, 0].astype(np.float32)
@@ -2085,7 +2061,7 @@ class _MangaTranslatorBody_85:
 
     def _white_bubble_tighten(self, image: np.ndarray, rm: np.ndarray,
                               ink: Optional[np.ndarray]) -> np.ndarray:
-        """v1.14.49 — باگِ «حبابِ کلاً عوض شده / سیاه شده» (لاگِ گوشیِ کاربر:
+        """ — باگِ «حبابِ کلاً عوض شده / سیاه شده» (لاگِ گوشیِ کاربر:
         حبابِ «YOU'RE LEAVING THE COMPANY?» با مدلِ LaMa-Manga به یک صورتِ
         خاکستری تبدیل شد). ریشه: وقتی پالی‌هایِ OCR متراکم‌اند یا پالی نیست،
         ماسکِ مستطیلی + جذبِ جوهر تقریباً «کلِ داخلِ حباب» را می‌گیرد؛
@@ -2117,12 +2093,12 @@ class _MangaTranslatorBody_85:
             _med_in = float(np.median(gray[interior > 0]))
             if _med_in < 185.0:
                 return rm  # حبابِ سفیدِ یکدست نیست (تیره/اسکرین‌تون) → دست نزن
-            # v1.14.50 — فقط «حبابِ واقعی». لاگِ 9.jpg: پاراگرافِ روی عکسِ
-            # (حصار/درخت/سکویِ بتنی) — ناحیهٔ روشنِ عکس «حبابِ سفید» خوانده
-            # می‌شد (med≥185) و ماسکِ ۱۸۰Kpxِ پاراگراف به جوهرِ ~۴Kpx جمع
-            # می‌شد → هالهٔ خاکستریِ متن می‌ماند. حبابِ واقعی دیوارِ تیرهٔ
-            # دورِ اینتریور دارد و اینتریورش یکنواخت است — همان دو گاردِ
-            # _bubble_interior_sweep؛ بدونِ دیوار (کاغذ/عکس) دست نزن.
+# فقط «حبابِ واقعی». لاگِ 9.jpg: پاراگرافِ روی عکسِ
+# (حصار/درخت/سکویِ بتنی) — ناحیهٔ روشنِ عکس «حبابِ سفید» خوانده
+# می‌شد (med≥185) و ماسکِ ۱۸۰Kpxِ پاراگراف به جوهرِ ~۴Kpx جمع
+# می‌شد → هالهٔ خاکستریِ متن می‌ماند. حبابِ واقعی دیوارِ تیرهٔ
+# دورِ اینتریور دارد و اینتریورش یکنواخت است — همان دو گاردِ
+# _bubble_interior_sweep؛ بدونِ دیوار (کاغذ/عکس) دست نزن.
             try:
                 _int_e = cv2.erode(interior, np.ones((5, 5), np.uint8))
                 _ne = int(cv2.countNonZero(_int_e))
@@ -2131,8 +2107,8 @@ class _MangaTranslatorBody_85:
                 _med_e = float(np.median(gray[_int_e > 0]))
                 _ring = (cv2.dilate(interior, np.ones((5, 5), np.uint8)) > 0) \
                     & (interior == 0)
-                # v1.14.53: countNonZero روی bool exception می‌داد → tighten
-                # از v1.14.50 همیشه بی‌صدا در همین گیت شکست می‌خورد!
+# countNonZero روی bool exception می‌داد → tighten
+# از همیشه بی‌صدا در همین گیت شکست می‌خورد!
                 if int(np.count_nonzero(_ring)) < 30:
                     return rm
                 if float(np.median(gray[_ring])) > _med_e - 40.0:
@@ -2148,7 +2124,7 @@ class _MangaTranslatorBody_85:
             cov = float(np.count_nonzero((sub > 0) & (interior > 0))) / _fa
             if cov < 0.45:
                 return rm  # حفره نسبت به حباب کوچک است → LaMa امن است
-            # ماسکِ تنگ: جوهرِ جذب‌شده (اگر هست) وگرنه پیکسل‌هایِ تیرهٔ داخلِ ناحیه
+# ماسکِ تنگ: جوهرِ جذب‌شده (اگر هست) وگرنه پیکسل‌هایِ تیرهٔ داخلِ ناحیه
             tight = None
             if ink is not None and ink.shape == rm.shape:
                 ink_c = ink[y0:y1, x0:x1]
@@ -2168,12 +2144,12 @@ class _MangaTranslatorBody_85:
                                          np.ones((5, 5), np.uint8))
                 tight = cv2.dilate(tight, np.ones((3, 3), np.uint8))
                 tight = cv2.bitwise_and(tight, interior)
-            # v1.14.53: اگر tightِ جوهرِ جذب‌شده عملاً هم‌اندازهٔ خودِ ماسک شد
-            # (پالی‌هایِ گشادِ OCR + جذبِ جوهر = تقریباً کلِ اینتریور)،
-            # با tightِ «پیکسلِ تیره» جایگزین کن — هدفِ tighten دقیقاً همین
-            # است: ماسکِ کل-حباب = حفرهٔ بزرگ = توهمِ LaMa-Manga و بعدش
-            # گارد/سویپ مجبور به مداخلهٔ خطرناک می‌شوند (chapter-264/8:
-            # ماسکِ ۱۵۴Kpxِ بیضیِ کامل → حبابِ کامل پاک‌شده)
+# اگر tightِ جوهرِ جذب‌شده عملاً هم‌اندازهٔ خودِ ماسک شد
+# (پالی‌هایِ گشادِ OCR + جذبِ جوهر = تقریباً کلِ اینتریور)
+# با tightِ «پیکسلِ تیره» جایگزین کن — هدفِ tighten دقیقاً همین
+# است: ماسکِ کل-حباب = حفرهٔ بزرگ = توهمِ LaMa-Manga و بعدش
+# گارد/سویپ مجبور به مداخلهٔ خطرناک می‌شوند (chapter-264/8:
+# ماسکِ ۱۵۴Kpxِ بیضیِ کامل → حبابِ کامل پاک‌شده)
             if int(cv2.countNonZero(tight)) >= max(
                     120, int(0.85 * int(cv2.countNonZero(sub)))):
                 _base = cv2.dilate(sub, np.ones((9, 9), np.uint8))
@@ -2189,11 +2165,11 @@ class _MangaTranslatorBody_85:
                     tight = _tk
             if int(cv2.countNonZero(tight)) < 120:
                 return rm
-            # v1.14.50: نوارِ هاله — ماسکِ تنگ فقط استوکِ تیره را می‌گرفت و
-            # Anti-Aliasِ خاکستریِ دورِ حروف (روی کاغذِ سفید ~سطح med−۲۵..۶۰)
-            # باقی می‌ماند → شبحِ متن. پیکسل‌هایِ «کم‌تر از med−۲۵» در
-            # همسایگیِ ~۵px جوهر را هم بگیر (فقط داخلِ اینتریور) و CLOSE کن؛
-            # حفرهٔ بینِ خط‌ها همچنان بزرگ می‌ماند → خطرِ توهمُ تغییر نمی‌کند.
+# نوارِ هاله — ماسکِ تنگ فقط استوکِ تیره را می‌گرفت و
+# Anti-Aliasِ خاکستریِ دورِ حروف (روی کاغذِ سفید ~سطح med−۲۵..۶۰)
+# باقی می‌ماند → شبحِ متن. پیکسل‌هایِ «کم‌تر از med−۲۵» در
+# همسایگیِ ~۵px جوهر را هم بگیر (فقط داخلِ اینتریور) و CLOSE کن
+# حفرهٔ بینِ خط‌ها همچنان بزرگ می‌ماند → خطرِ توهمُ تغییر نمی‌کند.
             try:
                 _halo_t = _med_in - 25.0
                 if _halo_t > 40.0:
@@ -2205,7 +2181,7 @@ class _MangaTranslatorBody_85:
                                              np.ones((3, 3), np.uint8))
                     _tight2 = cv2.bitwise_or(tight, _halo)
                     _tight2 = cv2.bitwise_and(_tight2, interior)
-                    # اگر نوارِ هاله ماسک را تا ~کلِ اینتریور باد کرد، رد
+# اگر نوارِ هاله ماسک را تا ~کلِ اینتریور باد کرد، رد
                     if (int(cv2.countNonZero(_tight2))
                             < 0.72 * int(cv2.countNonZero(interior))):
                         tight = _tight2
@@ -2221,7 +2197,7 @@ class _MangaTranslatorBody_85:
 
     @staticmethod
     def _group_polys_to_lines(polys_raw) -> list:
-        """v1.14.53 — پالی‌های OCR را «خط به خط» گروه می‌کند (ایدهٔ کاربر:
+        """ — پالی‌های OCR را «خط به خط» گروه می‌کند (ایدهٔ کاربر:
         «متنِ دقیق اندازه بگیره، یک خط کامل یک خط کامل»).
         خروجی: باکسِ هر خط [(x0, y0, x1, y1), …] مرتب از بالا به پایین."""
         items = []
@@ -2260,7 +2236,7 @@ class _MangaTranslatorBody_85:
 
     def _line_strips_mask(self, image: np.ndarray, polys_raw: list,
                           region: "TextRegion") -> Optional[np.ndarray]:
-        """v1.14.53 — ماسکِ «خط‌به‌خط» — پیاده‌سازیِ ایدهٔ دو-عکسیِ کاربر:
+        """ — ماسکِ «خط‌به‌خط» — پیاده‌سازیِ ایدهٔ دو-عکسیِ کاربر:
         «دو تا عکس شه؛ اولی همون ک متن کامل پاک میشه — به اندازهٔ همون متنِ
         استخراج‌شده برش شه خط به خط؛ بعد عکسِ دوم ک متنِ اصلی توش هست،
         خط به خط در جایِ دقیقِ خودش جایگزین بشه.»
@@ -2279,8 +2255,8 @@ class _MangaTranslatorBody_85:
             h, w = image.shape[:2]
         except Exception:
             return None
-        # v1.14.238 — نواحیِ چرخیده (|angle| ≥ ۳°): نوارها در فضای
-        # همسطح‌شده (مسیرِ مشترکِ کامپوز). MANGA_ROT_STRIPS=0 = خاموش.
+# نواحیِ چرخیده (|angle| ≥ ۳°): نوارها در فضای
+# همسطح‌شده (مسیرِ مشترکِ کامپوز). MANGA_ROT_STRIPS=0 = خاموش.
         try:
             _ang = float(getattr(region, "angle", 0.0) or 0.0)
         except Exception:
@@ -2303,7 +2279,7 @@ class _MangaTranslatorBody_85:
                     _rh = float(h)
                 if 150 <= _a <= 0.95 * max(1.0, _rw * _rh):
                     return _m
-                # بیرونِ دامنه → مسیرِ عادیِ محور-تراز
+# بیرونِ دامنه → مسیرِ عادیِ محور-تراز
         lines = MangaTranslator._group_polys_to_lines(polys_raw)
         if not lines:
             return None
@@ -2316,10 +2292,10 @@ class _MangaTranslatorBody_85:
         med_h = float(np.median(_hs))
         med_w = float(np.median(_ws))
         _lsm_dbg = bool(os.environ.get("MANGA_LSM_DBG"))
-        # متنِ افقی — نه عمودی/هنر: خطِ معقول + بلوکِ پهن‌تر از ارتفاعِ خط
-        # (v1.14.207: کفِ ۸px موقتاً ۵ شد ولی رویِ متنِ ریزِ ۷pxِ رویِ هنرِ
-        # شلوغ (up0929) نوارِ تنگ‌تر از فال‌بکِ block-rect∪ink نتیجهٔ
-        # بدتری داد → برگشت به ۸؛ متنِ ریز از فال‌بکِ پهن‌تر پاک میشود)
+# متنِ افقی — نه عمودی/هنر: خطِ معقول + بلوکِ پهن‌تر از ارتفاعِ خط
+# (: کفِ ۸px موقتاً ۵ شد ولی رویِ متنِ ریزِ ۷pxِ رویِ هنرِ
+# شلوغ (up0929) نوارِ تنگ‌تر از فال‌بکِ block-rect∪ink نتیجهٔ
+# بدتری داد → برگشت به ۸؛ متنِ ریز از فال‌بکِ پهن‌تر پاک میشود)
         if med_h < 8.0 or med_h > 0.45 * max(8.0, rh):
             if _lsm_dbg:
                 print(f"      [📐dbg] رد: med_h={med_h:.1f} rh={rh:.1f}",
@@ -2352,12 +2328,12 @@ class _MangaTranslatorBody_85:
                 print(f"      [📐dbg] رد: خیلی کوچک {total_area}",
                       flush=True)
             return None
-        # ماسکِ خط‌به‌خط نباید خودش «تقریباً کلِ ناحیه» شود — وگرنه هدف
-        # (نماندنِ حباب در ماسک) از بین می‌رود → فال‌بک
-        # v1.14.133 — اندروید: برایِ متنِ ضخیمِ دورخط‌دار (You're… در
-        # 01.jpg) نوارها تا ~۸۸٪ rect پر می‌شوند؛ فال‌بکِ block-rect∪ink
-        # «همیشه» بزرگ‌تر یا مساویِ strips است → آستانه ۰.۹۵ (فقط وقتی
-        # strips واقعاً از خودِ rect بدتر شوند رد).
+# ماسکِ خط‌به‌خط نباید خودش «تقریباً کلِ ناحیه» شود — وگرنه هدف
+# (نماندنِ حباب در ماسک) از بین می‌رود → فال‌بک
+# اندروید: برایِ متنِ ضخیمِ دورخط‌دار (You're… در
+# 01.jpg) نوارها تا ~۸۸٪ rect پر می‌شوند؛ فال‌بکِ block-rect∪ink
+# «همیشه» بزرگ‌تر یا مساویِ strips است → آستانه ۰.۹۵ (فقط وقتی
+# strips واقعاً از خودِ rect بدتر شوند رد).
         _rect_thr = 0.72
         if _android_gate("MANGA_LSM_POLY_RESCUE"):
             _rect_thr = 0.95
@@ -2371,7 +2347,7 @@ class _MangaTranslatorBody_85:
     def _line_strip_ink(self, image: np.ndarray, lx0: float, ly0: float,
                         lx1: float, ly1: float, polys_raw: list,
                         dbg: bool = False):
-        """v1.14.70 — جوهرِ یک خطِ متن (نوارِ خط‌به‌خط) — «اندازهٔ دقیقِ
+        """ — جوهرِ یک خطِ متن (نوارِ خط‌به‌خط) — «اندازهٔ دقیقِ
         متن».
 
         این همان هستهٔ محاسباتیِ `_line_strips_mask` است ولی جدا شد تا
@@ -2393,32 +2369,32 @@ class _MangaTranslatorBody_85:
                 return None
             g = cv2.cvtColor(image[sy0:sy1, sx0:sx1], cv2.COLOR_BGR2GRAY)
             med = float(np.median(g))
-            # v1.14.57: قطبِ جوهر با «جرم» انتخاب می‌شود نه با روشنیِ زمینه —
-            # متنِ سفید روی باکسِ آبیِ میانه (پنجرهٔ سیستمِ asura) قبلاً فقط
-            # دورخطِ تیره را ماسک می‌کرد و بدنهٔ سفیدِ حروف می‌ماند.
+# قطبِ جوهر با «جرم» انتخاب می‌شود نه با روشنیِ زمینه —
+# متنِ سفید روی باکسِ آبیِ میانه (پنجرهٔ سیستمِ asura) قبلاً فقط
+# دورخطِ تیره را ماسک می‌کرد و بدنهٔ سفیدِ حروف می‌ماند.
             _dark = (g < med - 30.0)
             _bright = (g > med + 30.0)
             _fd = float(_dark.mean())
             _fb = float(_bright.mean())
-            # v1.14.206c — پنلِ نیمهشفافِ روشنِ پشتِ متن (سبکِ webtoon —
-            # PARAGRAPHهایِ img4 رویِ حصار): پنجرهٔ نوار هم پنل دارد هم
-            # هنرِ اطراف → اکثریتِ روشن «خودِ پنل» است نه متن؛ متنِ واقعی
-            # اقلیتِ تیره است. جوهرِ متن همیشه تراکمِ کم دارد (≤~۵۰٪
-            # نوار) → اگر قطبِ انتخابیِ اکثریت از ۰٫۵۵ بیشتر شد، قطبِ
-            # اقلیت جوهرِ واقعی است (تا نوارِ سالمِ متن رد نشود و به
-            # failedِ چاق نیفتد).
+# پنلِ نیمهشفافِ روشنِ پشتِ متن (سبکِ webtoon —
+# PARAGRAPHهایِ img4 رویِ حصار): پنجرهٔ نوار هم پنل دارد هم
+# هنرِ اطراف → اکثریتِ روشن «خودِ پنل» است نه متن؛ متنِ واقعی
+# اقلیتِ تیره است. جوهرِ متن همیشه تراکمِ کم دارد (≤~۵۰٪
+# نوار) → اگر قطبِ انتخابیِ اکثریت از ۰٫۵۵ بیشتر شد، قطبِ
+# اقلیت جوهرِ واقعی است (تا نوارِ سالمِ متن رد نشود و به
+# failedِ چاق نیفتد).
             _sw = False
             if _fb > _fd:
                 core = _bright
                 if _fb > 0.55 and 0.015 <= _fd <= 0.45:
-                    # v1.14.207g — سوئیچِ 206c فقط وقتی معتبر است که قطبِ
-                    # اقلیت «متن» باشد. متنِ سفید رویِ بنرِ سیاه (CHAPTER
-                    # PAGE — img1018): اکثریتِ روشن = حروفِ سفید + حاشیهٔ
-                    # سفیدِ صفحه در پدِ نوار؛ اقلیتِ تیره = خودِ بنر (یک
-                    # تودهٔ عظیمِ پیوسته = زمینه) → سوئیچ، «زمینه» را
-                    # جوهر میگرفت و حروفِ سفید هرگز ماسک نمیشدند. پس اگر
-                    # قطبِ اقلیت یک تودهٔ عظیمِ سراسریِ پهنایِ نوار است،
-                    # سوئیچ نکن (اقلیت = زمینه، اکثریت = جوهرِ واقعی).
+# سوئیچِ 206c فقط وقتی معتبر است که قطبِ
+# اقلیت «متن» باشد. متنِ سفید رویِ بنرِ سیاه (CHAPTER
+# PAGE — img1018): اکثریتِ روشن = حروفِ سفید + حاشیهٔ
+# سفیدِ صفحه در پدِ نوار؛ اقلیتِ تیره = خودِ بنر (یک
+# تودهٔ عظیمِ پیوسته = زمینه) → سوئیچ، «زمینه» را
+# جوهر میگرفت و حروفِ سفید هرگز ماسک نمیشدند. پس اگر
+# قطبِ اقلیت یک تودهٔ عظیمِ سراسریِ پهنایِ نوار است
+# سوئیچ نکن (اقلیت = زمینه، اکثریت = جوهرِ واقعی).
                     _minc207g = _dark
                     _swg_ok = True
                     try:
@@ -2440,14 +2416,14 @@ class _MangaTranslatorBody_85:
                                             np.ones((5, 5), np.uint8)) > 0))
                         _sw = True
                 if not _sw and _fd > 0.004:
-                    # سایه/دورخطِ تیرهٔ چسبیده به حروفِ روشن هم جوهر است
+# سایه/دورخطِ تیرهٔ چسبیده به حروفِ روشن هم جوهر است
                     _nc = cv2.dilate(core.astype(np.uint8) * 255,
                                      np.ones((7, 7), np.uint8)) > 0
                     core = core | (_dark & _nc)
             else:
                 core = _dark
                 if _fd > 0.55 and 0.015 <= _fb <= 0.45:
-                    # v1.14.207g — قرینهٔ همان گیت برایِ قطبِ اقلیتِ روشن
+# قرینهٔ همان گیت برایِ قطبِ اقلیتِ روشن
                     _minc207g = _bright
                     _swg_ok = True
                     try:
@@ -2469,18 +2445,18 @@ class _MangaTranslatorBody_85:
                                               np.ones((5, 5), np.uint8)) > 0))
                         _sw = True
                 if not _sw:
-                    # v1.14.75 — متنِ تیره با دورخطِ روشن (حروفِ قهوه‌ایِ
-                    # 01.jpg با دورخطِ سفید روی حبابِ زرد): بدنهٔ روشنِ
-                    # دورخطِ چسبیده به حروف هم جوهر است؛ وگرنه فقط خطِ
-                    # تیره پاک می‌شود و شبحِ سفیدِ دورخطِ حروف می‌ماند
-                    # (متریکِ VLM: متنِ خوانا ماند!).
+# متنِ تیره با دورخطِ روشن (حروفِ قهوه‌ایِ
+# 01.jpg با دورخطِ سفید روی حبابِ زرد): بدنهٔ روشنِ
+# دورخطِ چسبیده به حروف هم جوهر است؛ وگرنه فقط خطِ
+# تیره پاک می‌شود و شبحِ سفیدِ دورخطِ حروف می‌ماند
+# (متریکِ VLM: متنِ خوانا ماند!).
                     if _fb > 0.004:
-                        # v1.14.75c — دورخطِ روشنِ متنِ تیره (حبابِ سفیدِ کلاسیک
-                        # «This is great, Butler-kun!!» در 01.jpg): دیلیتِ ۷
-                        # بدنهٔ سفیدِ دورِ حروفِ تیره را کامل نمی‌گیرد (شبقِ
-                        # سفید در خروجی). هم‌چنین پیکسل‌هایِ روشنِ تنگِ جدا که
-                        # به قطعهٔ حروفِ تیره نزدیک‌اند (فاصلهٔ ≤۱۱px) هم جزو
-                        # نوار — فاصلهٔ بینِ خط‌ها معمولاً ≥۱۴px است.
+# دورخطِ روشنِ متنِ تیره (حبابِ سفیدِ کلاسیک
+# «This is great, Butler-kun!!» در 01.jpg): دیلیتِ ۷
+# بدنهٔ سفیدِ دورِ حروفِ تیره را کامل نمی‌گیرد (شبقِ
+# سفید در خروجی). هم‌چنین پیکسل‌هایِ روشنِ تنگِ جدا که
+# به قطعهٔ حروفِ تیره نزدیک‌اند (فاصلهٔ ≤۱۱px) هم جزو
+# نوار — فاصلهٔ بینِ خط‌ها معمولاً ≥۱۴px است.
                         _nb = cv2.dilate(core.astype(np.uint8) * 255,
                                          np.ones((5, 5), np.uint8)) > 0
                         _brw = cv2.dilate(_bright.astype(np.uint8) * 255,
@@ -2505,19 +2481,19 @@ class _MangaTranslatorBody_85:
                         _nc = cv2.dilate(core.astype(np.uint8) * 255,
                                          np.ones((7, 7), np.uint8)) > 0
                         core = core | (_dark & _nc)
-            # نوارِ خط عمدتاً زمینه است؛ اگر بیشترِ نوار «جوهر» باشد یعنی
-            # هنر/بلوکِ تیره است — نه خطِ متن → فال‌بک
-            # v1.14.133 — متنِ ضخیمِ دورخط‌دار (حبابِ زردِ 01.jpg): بدنهٔ
-            # تیره + دورخطِ روشنِ چسبیده (v1.14.75 به core اضافه می‌شود)
-            # core را تا ~0.45 می‌رساند و نوارِ سالمِ متن رد می‌شد → فال‌بکِ
-            # block-rect∪ink → حفرهٔ بزرگ → پرِ تیرهٔ LaMa رویِ گوشی. روی
-            # زمینهٔ روشنِ یکدست آستانه سخاوتمندانه‌تر (0.55) — بلوکِ تیره
-            # (med پایین) همچنان با همان 0.42 رد می‌شود.
-            # v1.14.207 — آستانهٔ سخاوتمندانهٔ زمینهٔ روشن دیگر «فقطِ اندروید»
-            # نیست (دستور: «هم گوشی هم پی سی لینوکس باید هردو چک کنی») —
-            # فونتِ درشتِ کمیک («This is great, Butler-kun!!» — img6) رویِ
-            # PC نوارش رد میشد → نصفِ حروف جا میماند. MANGA_LSM_POLY_RESCUE=0
-            # رویِ هر دو پلتفرم رفتارِ قدیمیِ سختگیرانه را برمیگرداند.
+# نوارِ خط عمدتاً زمینه است؛ اگر بیشترِ نوار «جوهر» باشد یعنی
+# هنر/بلوکِ تیره است — نه خطِ متن → فال‌بک
+# متنِ ضخیمِ دورخط‌دار (حبابِ زردِ 01.jpg): بدنهٔ
+# تیره + دورخطِ روشنِ چسبیده ( به core اضافه می‌شود)
+# core را تا ~0.45 می‌رساند و نوارِ سالمِ متن رد می‌شد → فال‌بکِ
+# block-rect∪ink → حفرهٔ بزرگ → پرِ تیرهٔ LaMa رویِ گوشی. روی
+# زمینهٔ روشنِ یکدست آستانه سخاوتمندانه‌تر (0.55) — بلوکِ تیره
+# (med پایین) همچنان با همان 0.42 رد می‌شود.
+# آستانهٔ سخاوتمندانهٔ زمینهٔ روشن دیگر «فقطِ اندروید»
+# نیست (دستور: «هم گوشی هم پی سی لینوکس باید هردو چک کنی») —
+# فونتِ درشتِ کمیک («This is great, Butler-kun!!» — img6) رویِ
+# PC نوارش رد میشد → نصفِ حروف جا میماند. MANGA_LSM_POLY_RESCUE=0
+# رویِ هر دو پلتفرم رفتارِ قدیمیِ سختگیرانه را برمیگرداند.
             _thr_core = 0.42
             if med >= 170.0 and str(os.environ.get(
                     "MANGA_LSM_POLY_RESCUE", "")).strip().lower() != "0":
@@ -2532,16 +2508,16 @@ class _MangaTranslatorBody_85:
             core_u = cv2.morphologyEx(core_u, cv2.MORPH_CLOSE,
                                       np.ones((3, 3), np.uint8))
             near = cv2.dilate(core_u, np.ones((5, 5), np.uint8)) > 0
-            # v1.14.165 — هالهٔ 14..30 (قبلاً 18..30): لبه‌هایِ نرمِ JPEGِ
-            # حروف که ۱۴-۱۷ سطح تیره‌تر از زمینه‌اند قبلاً بیرونِ ماسک
-            # می‌ماندند و شبحِ خاکستریِ کم‌کنتراست جا می‌گذاشتند (حبابِ
-            # «WE KNEW.» فصلِ 264). ۱۰ امتحان شد ولی کنارِ قوسِ حباب
-            # پخشِ خاکستریِ LaMa را بزرگ میکرد → ۱۴ (تعادل).
+# هالهٔ 14..30 (قبلاً 18..30): لبه‌هایِ نرمِ JPEGِ
+# حروف که ۱۴-۱۷ سطح تیره‌تر از زمینه‌اند قبلاً بیرونِ ماسک
+# می‌ماندند و شبحِ خاکستریِ کم‌کنتراست جا می‌گذاشتند (حبابِ
+# «WE KNEW.» فصلِ 264). ۱۰ امتحان شد ولی کنارِ قوسِ حباب
+# پخشِ خاکستریِ LaMa را بزرگ میکرد → ۱۴ (تعادل).
             halo = (np.abs(g.astype(np.float32) - med) >= 14.0) \
                 & (np.abs(g.astype(np.float32) - med) <= 30.0) & near
             lm = ((core_u > 0) | halo)
-            # v1.14.64 — نقشهٔ پالی‌هایِ OCR در برشِ نوار: حروف داخلِ پالی‌ها
-            # هستند، دیوارِ حباب/قوس/کادرِ پنل بیرونِ آن‌ها
+# نقشهٔ پالی‌هایِ OCR در برشِ نوار: حروف داخلِ پالی‌ها
+# هستند، دیوارِ حباب/قوس/کادرِ پنل بیرونِ آن‌ها
             _pm = np.full(lm.shape, 255, dtype=np.uint8)
             _pm_ok = False
             try:
@@ -2559,7 +2535,7 @@ class _MangaTranslatorBody_85:
             except Exception:
                 _pm = np.full(lm.shape, 255, dtype=np.uint8)
                 _pm_ok = False
-            # قطعه‌هایِ عظیم = هنر، نه حرف — امن‌تر: ردِ خط
+# قطعه‌هایِ عظیم = هنر، نه حرف — امن‌تر: ردِ خط
             nz, lal, sts, _ = cv2.connectedComponentsWithStats(
                 lm.astype(np.uint8), connectivity=8)
             kept = np.zeros_like(lm)
@@ -2569,11 +2545,11 @@ class _MangaTranslatorBody_85:
                 chg = int(sts[ci, cv2.CC_STAT_HEIGHT])
                 if ca > 0.55 * (sy1 - sy0) * (sx1 - sx0) \
                         and max(cwd, chg) > 2.5 * max(8.0, lh):
-                    # v1.14.133 — نجاتِ متنِ دورخط‌دار: کامپوننتی که «هنر»
-                    # خوانده میشود ولی ≥۵۵٪ پیکسلهایش داخلِ پالیهایِ OCR
-                    # خودِ خط است = حروفِ ضخیمِ بههمپیوسته (THEN…/the speed
-                    # در 01.jpg)، نه هنر. هنرِ واقعی (قوسِ دیوار، افکتِ صدا)
-                    # بیرونِ پالیهاست و مثلِ قبل رد می‌شود.
+# نجاتِ متنِ دورخط‌دار: کامپوننتی که «هنر»
+# خوانده میشود ولی ≥۵۵٪ پیکسلهایش داخلِ پالیهایِ OCR
+# خودِ خط است = حروفِ ضخیمِ بههمپیوسته (THEN…/the speed
+# در 01.jpg)، نه هنر. هنرِ واقعی (قوسِ دیوار، افکتِ صدا)
+# بیرونِ پالیهاست و مثلِ قبل رد می‌شود.
                     if _pm_ok and _android_gate("MANGA_LSM_POLY_RESCUE"):
                         _cm2 = (lal == ci)
                         _in = float(np.count_nonzero(_cm2 & (_pm > 0)))
@@ -2589,14 +2565,14 @@ class _MangaTranslatorBody_85:
                         print(f"      [📐dbg] رد: قطعهٔ هنر ca={ca} "
                               f"{cwd}×{chg}", flush=True)
                     return None
-                # v1.14.64 — باگِ «متنِ کج یا ناقص پاک میشه»: قوسِ دیوارِ
-                # حباب/خطِ کادرِ پنل که از لبهٔ بالایی/پایینیِ نوارِ خط
-                # می‌گذرد، «جوهرِ تیرهٔ» نوار خوانده می‌شد → داخلِ ماسکِ
-                # می‌رفت → LaMa قوس را نمی‌ساخت و کامپوز حذفش را به خروجی
-                # می‌برد (قوسِ حباب گم می‌شد). جوهرِ متن همیشه ≥pad_y از
-                # لبهٔ نوار فاصله دارد؛ کامپوننتی که به لبهٔ افقیِ نوار
-                # بچسبد و بیرونِ پالی‌هایِ OCR باشد = ساختار است → از ماسک
-                # بیرون کشیده می‌شود.
+# باگِ «متنِ کج یا ناقص پاک میشه»: قوسِ دیوارِ
+# حباب/خطِ کادرِ پنل که از لبهٔ بالایی/پایینیِ نوارِ خط
+# می‌گذرد، «جوهرِ تیرهٔ» نوار خوانده می‌شد → داخلِ ماسکِ
+# می‌رفت → LaMa قوس را نمی‌ساخت و کامپوز حذفش را به خروجی
+# می‌برد (قوسِ حباب گم می‌شد). جوهرِ متن همیشه ≥pad_y از
+# لبهٔ نوار فاصله دارد؛ کامپوننتی که به لبهٔ افقیِ نوار
+# بچسبد و بیرونِ پالی‌هایِ OCR باشد = ساختار است → از ماسک
+# بیرون کشیده می‌شود.
                 if sy0 > 0 and sy1 < h:
                     _ct = int(sts[ci, cv2.CC_STAT_TOP])
                     if (_ct <= 0 or _ct + chg >= (sy1 - sy0)) \
@@ -2604,15 +2580,15 @@ class _MangaTranslatorBody_85:
                         _cm = (lal == ci)
                         _onp = float(np.count_nonzero(_cm & (_pm > 0)))
                         if _onp < 0.35 * float(max(1, ca)):
-                            # v1.14.207 — مثلِ 206b: حروفِ چاقِ بههمپیوستهٔ
-                            # فونتِ کمیک («This is great, Butler-kun!!» —
-                            # img6) به لبهٔ بالا/پایینِ نوار میرسند و
-                            # «ساختار» خوانده میشوند → کلِ کامپوننت (= یک
-                            # کلمهٔ کامل) از نوارِ کامپوز حذف = کلمه در
-                            # عکسِ دوم برمیگشت. حالا فقط پیکسلهایِ بیرونِ
-                            # پالی حذف میشوند؛ حروفِ داخلِ پالی میمانند
-                            # (پیکسلِ بیرونِ پالی در donor دستنخورده است
-                            # پس برگشتِ آن بیخطر است).
+# مثلِ 206b: حروفِ چاقِ بههمپیوستهٔ
+# فونتِ کمیک («This is great, Butler-kun!!» —
+# img6) به لبهٔ بالا/پایینِ نوار میرسند و
+# «ساختار» خوانده میشوند → کلِ کامپوننت (= یک
+# کلمهٔ کامل) از نوارِ کامپوز حذف = کلمه در
+# عکسِ دوم برمیگشت. حالا فقط پیکسلهایِ بیرونِ
+# پالی حذف میشوند؛ حروفِ داخلِ پالی میمانند
+# (پیکسلِ بیرونِ پالی در donor دستنخورده است
+# پس برگشتِ آن بیخطر است).
                             if _onp > 0:
                                 kept |= (_cm & (_pm > 0))
                                 if dbg:
@@ -2624,13 +2600,13 @@ class _MangaTranslatorBody_85:
                                 print(f"      [📐dbg] حذفِ ساختارِ لبه‌ای "
                                       f"ca={ca} chg={chg}", flush=True)
                             continue
-                # v1.14.206 — همان گاردِ v1.14.64 برایِ لبهٔ چپ/راستِ نوار:
-                # قابِ رنگیِ حباب (حبابِ شش‌ضلعیِ سبزِ up0822) از انتهایِ
-                # خطِ متن رد میشود، «جوهرِ تیرهٔ» نوار خوانده می‌شد → داخلِ
-                # نوارِ کامپوز میرفت و قابِ رنگی تکه‌تکه به خروجی می‌رفت.
-                # کامپوننتی که به لبهٔ چپ/راستِ نوار بچسبد، عریض (پهنایِ
-                # عبور از نوار) و عمدتاً بیرونِ پالیهایِ OCR باشد = قاب است
-                # → از نوار بیرون کشیده میشود؛ حروف (داخلِ پالی) میمانند.
+# همان گاردِ برایِ لبهٔ چپ/راستِ نوار:
+# قابِ رنگیِ حباب (حبابِ شش‌ضلعیِ سبزِ up0822) از انتهایِ
+# خطِ متن رد میشود، «جوهرِ تیرهٔ» نوار خوانده می‌شد → داخلِ
+# نوارِ کامپوز میرفت و قابِ رنگی تکه‌تکه به خروجی می‌رفت.
+# کامپوننتی که به لبهٔ چپ/راستِ نوار بچسبد، عریض (پهنایِ
+# عبور از نوار) و عمدتاً بیرونِ پالیهایِ OCR باشد = قاب است
+# → از نوار بیرون کشیده میشود؛ حروف (داخلِ پالی) میمانند.
                 if sx0 > 0 and sx1 < w:
                     _cl = int(sts[ci, cv2.CC_STAT_LEFT])
                     if (_cl <= 0 or _cl + cwd >= (sx1 - sx0)) \
@@ -2642,10 +2618,10 @@ class _MangaTranslatorBody_85:
                                 print(f"      [📐dbg] حذفِ قابِ لبه‌ای "
                                       f"ca={ca} cwd={cwd}", flush=True)
                             continue
-                        # v1.14.206b — حروفِ چسبیده به میله/قاب (متنِ سفیدِ
-                        # img4 رویِ حصار): کلِ کامپوننت حذف نشود — فقط
-                        # پیکسلهایِ بیرونِ پالی (میله/قاب)؛ حروفِ داخلِ
-                        # پالی میمانند وگرنه متن جا میماند.
+# حروفِ چسبیده به میله/قاب (متنِ سفیدِ
+# img4 رویِ حصار): کلِ کامپوننت حذف نشود — فقط
+# پیکسلهایِ بیرونِ پالی (میله/قاب)؛ حروفِ داخلِ
+# پالی میمانند وگرنه متن جا میماند.
                         if _onp < float(max(1, ca)):
                             kept |= (_cm & (_pm > 0))
                             if dbg:
@@ -2654,9 +2630,9 @@ class _MangaTranslatorBody_85:
                                       f"({_onp:.0f}/{ca})", flush=True)
                             continue
                 kept |= (lal == ci)
-            # v1.14.207 — مثلِ thr_core: آستانهٔ 0.80ِ زمینهٔ روشن دیگر فقطِ
-            # اندروید نیست؛ فونتِ درشتِ کمیک (kept≈۰٫۶۴ — img6) رویِ PC
-            # «نوارِ اشباع» رد میشد → نصفِ حروف جا میماند.
+# مثلِ thr_core: آستانهٔ 0.80ِ زمینهٔ روشن دیگر فقطِ
+# اندروید نیست؛ فونتِ درشتِ کمیک (kept≈۰٫۶۴ — img6) رویِ PC
+# «نوارِ اشباع» رد میشد → نصفِ حروف جا میماند.
             if float(kept.mean()) > (0.80 if (
                     med >= 170.0
                     and str(os.environ.get("MANGA_LSM_POLY_RESCUE",
@@ -2666,13 +2642,13 @@ class _MangaTranslatorBody_85:
                     print(f"      [📐dbg] رد: نوارِ اشباع "
                           f"kept={float(kept.mean()):.2f}", flush=True)
                 return None
-            # v1.14.70 — متنِ سفید با دورخطِ تیره (مثلِ «WE FRIENDS?»):
-            # بدنهٔ سفیدِ حرف «حفره»ٔ دورخط است → نوار فقط دورخط را
-            # می‌گرفت و بدنهٔ حروف (خودِ متن!) باقی می‌ماند. پرکردنِ
-            # حفره‌هایِ کوچک نوار = پوششِ کاملِ حروف. اگر پرکردن سطحِ
-            # زیادی اضافه کند (ساختارِ بزرگ) → همان نوارِ قبلی می‌ماند.
-            # ⚠️ kept باید بولی بماند (نحوهٔ ایندکسِ m[...][kept] ماسکِ
-            # صفحه bool است و kept هم باید bool باشد).
+# متنِ سفید با دورخطِ تیره (مثلِ «WE FRIENDS?»):
+# بدنهٔ سفیدِ حرف «حفره»ٔ دورخط است → نوار فقط دورخط را
+# می‌گرفت و بدنهٔ حروف (خودِ متن!) باقی می‌ماند. پرکردنِ
+# حفره‌هایِ کوچک نوار = پوششِ کاملِ حروف. اگر پرکردن سطحِ
+# زیادی اضافه کند (ساختارِ بزرگ) → همان نوارِ قبلی می‌ماند.
+# kept باید بولی بماند (نحوهٔ ایندکسِ m[...][kept] ماسکِ
+# صفحه bool است و kept هم باید bool باشد).
             try:
                 _kept_n = int(np.count_nonzero(kept))
                 if _kept_n > 0:
@@ -2690,7 +2666,7 @@ class _MangaTranslatorBody_85:
     def _panel_leftover_ink(image: np.ndarray, rect, excl: np.ndarray,
                             ret_stats: bool = False,
                             med_h: float = 0.0):
-        """v1.14.135 — ماسکِ «متنِ جامانده» در بلوک (فقطِ مصرفِ اندروید).
+        """ — ماسکِ «متنِ جامانده» در بلوک (فقطِ مصرفِ اندروید).
 
         وقتی OCRِ گوشی خطهایِ یک بلوکِ متراکم را هرز/ناقص خوانده، بینِ
         نوارهایِ خط دهها گلیفِ واقعی باقی میماند (متنِ نیمهپاکِ صفحهٔ
@@ -2705,13 +2681,13 @@ class _MangaTranslatorBody_85:
         ارتفاعِ ۳..۶۴ و عرضِ ≤۱۸۰ (زیرخط/استروکِ هنریِ بلند رد میشود).
         excl = ماسکِ نوارها/پالیها که از جستجو خارج میشود.
 
-        v1.14.238 — سقفهایِ اندازهٔ گلیف سازگار با ارتفاعِ خطِ همان
+         — سقفهایِ اندازهٔ گلیف سازگار با ارتفاعِ خطِ همان
         ناحیه شدند (med_h): فونتِ درشتِ کمیک (img6 — بلندیِ خط ۶۹..۷۹)
         با سقفِ ثابتِ ۶۴ رد میشد و گلیفهای جامانده هیچ‌وقت نجات
         نمیافتادند. med_h=۰ = رفتارِ قبلی."""
         try:
             h, w = image.shape[:2]
-            # v1.14.238 — سقفهایِ سازگار با ارتفاعِ خط
+# سقفهایِ سازگار با ارتفاعِ خط
             _mh = float(med_h or 0.0)
             _hh_max = max(64.0, 1.15 * _mh + 4.0) if _mh > 0 \
                 else 64.0
@@ -2737,8 +2713,8 @@ class _MangaTranslatorBody_85:
             ink_n = int(ink.sum())
             if ink_n < 40 or ink_n > 0.42 * nbg:
                 return (None, (0, med, -1.0)) if ret_stats else None
-            # معیارِ «تخت» رویِ زمینهٔ روشنِ بیرونِ جوهر — خودِ متنِ
-            # جامانده نباید std را بترکاند (v1.14.135b)
+# معیارِ «تخت» رویِ زمینهٔ روشنِ بیرونِ جوهر — خودِ متنِ
+# جامانده نباید std را بترکاند
             _lite = (bg & ~cv2.dilate(
                 ink.astype(np.uint8),
                 np.ones((15, 15), np.uint8)).astype(bool))
@@ -2767,11 +2743,10 @@ class _MangaTranslatorBody_85:
         except Exception:
             return (None, (0, 0.0, -1.0)) if ret_stats else None
 
-
     @staticmethod
     def _ring_flat_stats(crop_img: np.ndarray, crop_msk: np.ndarray,
                          band: int = 26):
-        """v1.14.135 — آمارِ حلقهٔ اطرافِ کلاستر (فقطِ مصرفِ اندروید).
+        """ — آمارِ حلقهٔ اطرافِ کلاستر (فقطِ مصرفِ اندروید).
         اگر حلقهٔ اطرافِ حفره «تخت» باشد (گسترهٔ صدکیِ ≤۲۴)، پرِ
         درجه‌دومِ حلقه بهجایِ LaMa کافی و صدها برابر سریعتر است.
         خروجی: (میانه، std) یا None (حلقهٔ کوچک/بافت‌مند → LaMa)."""
@@ -2796,7 +2771,6 @@ class _MangaTranslatorBody_85:
         except Exception:
             return None
 
-
     def _build_text_mask_fast(self, image: np.ndarray,
                               regions: List[TextRegion]) -> Optional[np.ndarray]:
         try:
@@ -2804,46 +2778,46 @@ class _MangaTranslatorBody_85:
             m = np.zeros((h, w), dtype=np.uint8)
         except Exception:
             return None
-        # v1.14.59 — صندوق‌هایِ «متنِ روشن روی محفظهٔ تیره» که باید اجباری
-        # با LaMa و ماسکِ بلوکِ کامل پاک شوند (شبحِ متنِ قدیمی — کارتِ عنوانِ
-        # Crimson Dragon). در ابتدایِ هر صفحه خالی می‌شود.
+# صندوق‌هایِ «متنِ روشن روی محفظهٔ تیره» که باید اجباری
+# با LaMa و ماسکِ بلوکِ کامل پاک شوند (شبحِ متنِ قدیمی — کارتِ عنوانِ
+# Crimson Dragon). در ابتدایِ هر صفحه خالی می‌شود.
         self._lama_force_rect_boxes = []
-        # v1.14.82 — باکس‌هایِ «فقط-جوهر»: فقط «روشِ» پاکسازی را LaMa
-        # اجباری می‌کند؛ ماسک هرگز توپُر نمی‌شود (قانونِ دو-عکسیِ کاربر)
+# باکس‌هایِ «فقط-جوهر»: فقط «روشِ» پاکسازی را LaMa
+# اجباری می‌کند؛ ماسک هرگز توپُر نمی‌شود (قانونِ دو-عکسیِ کاربر)
         self._lama_ink_boxes = []
-        # v1.14.64 — بنرهایِ تبلیغاتی (واترمارکِ دامنهٔ سایت‌ها): کلِ بنر
-        # توپر پاک می‌شود و در کامپوز هم کلِ بنر از عکسِ پاک‌شده می‌آید
+# بنرهایِ تبلیغاتی (واترمارکِ دامنهٔ سایت‌ها): کلِ بنر
+# توپر پاک می‌شود و در کامپوز هم کلِ بنر از عکسِ پاک‌شده می‌آید
         self._promo_rect_boxes = []
         padding = max(0, int(getattr(self, "mask_padding", 3)))
-        # v1.14.133 — اندروید: متنِ ضخیمِ دورخط‌دار (حبابهایِ زردِ 01.jpg) —
-        # پدِ ۳ ماسک را دقیقاً رویِ دورخطِ سفیدِ حروف میگذارد و LaMaِ گوشی
-        # دورخط را داخلِ حفره «ادامه» میدهد (شبحِ سفیدِ گلیفی). پدِ ۸ لبهٔ
-        # ماسک را در زمینهٔ تمیز میبرد (تستِ H: حبابِ TL تقریباً عالی شد).
+# اندروید: متنِ ضخیمِ دورخط‌دار (حبابهایِ زردِ 01.jpg) —
+# پدِ ۳ ماسک را دقیقاً رویِ دورخطِ سفیدِ حروف میگذارد و LaMaِ گوشی
+# دورخط را داخلِ حفره «ادامه» میدهد (شبحِ سفیدِ گلیفی). پدِ ۸ لبهٔ
+# ماسک را در زمینهٔ تمیز میبرد (تستِ H: حبابِ TL تقریباً عالی شد).
         if padding < 8 and _android_gate("MANGA_LSM_POLY_RESCUE"):
             padding = 8
-        # v1.14.47: دیلیشنِ padding به‌ازایِ هر ناحیه و «قبلِ» گارد/لیمیت انجام
-        # می‌شود (قبلاً بعد از حلقه روی کلِ ماسک بود و بعد از کلیپِ حباب،
-        # ماسک را ۳px داخلِ دیوار می‌فرستاد). حالا لیمیتِ حباب آخربُر است.
+# دیلیشنِ padding به‌ازایِ هر ناحیه و «قبلِ» گارد/لیمیت انجام
+# می‌شود (قبلاً بعد از حلقه روی کلِ ماسک بود و بعد از کلیپِ حباب
+# ماسک را ۳px داخلِ دیوار می‌فرستاد). حالا لیمیتِ حباب آخربُر است.
         _pad_k = cv2.getStructuringElement(
             cv2.MORPH_ELLIPSE, (2 * padding + 1, 2 * padding + 1)) \
             if padding > 0 else None
         n_ok = 0
         n_skip = 0
         for region in regions:
-            # v1.14.64 — تبلیغ/واترمارکِ دامنه («ASURASCANS.COM مثل دیسکورد
-            # و... سایت هارو کامل فیلتر تبلیغ بزن»): کلِ بنرِ تبلیغ توپر
-            # ماسک می‌شود — نه نوارِ خط‌ها — تا هیچ ذره‌ای از حروفِ تبلیغ
-            # در خروجی نماند. (حذفِ بیش از اندازه مجاز است.)
-            # v1.14.70 — SFX هم توپر: پلیِ OCR اغلب فقط بخشی از حروفِ
-            # درشت را می‌گیرد («HAA»→«10») و بقیه می‌ماند؛ rect ناحیه از
-            # روی جوهر تنگ بریده شده پس توپرکردنش امن است.
+# تبلیغ/واترمارکِ دامنه («ASURASCANS.COM مثل دیسکورد
+# و... سایت هارو کامل فیلتر تبلیغ بزن»): کلِ بنرِ تبلیغ توپر
+# ماسک می‌شود — نه نوارِ خط‌ها — تا هیچ ذره‌ای از حروفِ تبلیغ
+# در خروجی نماند. (حذفِ بیش از اندازه مجاز است.)
+# SFX هم توپر: پلیِ OCR اغلب فقط بخشی از حروفِ
+# درشت را می‌گیرد («HAA»→«10») و بقیه می‌ماند؛ rect ناحیه از
+# روی جوهر تنگ بریده شده پس توپرکردنش امن است.
             if getattr(region, "kind", "") in ("promo", "sfx"):
                 try:
                     _px0, _py0, _pw, _ph = [int(v) for v in region.rect]
                     _px1, _py1 = _px0 + _pw, _py0 + _ph
                     if getattr(region, "kind", "") == "promo":
-                        # v1.14.65 — بنر کامل: قابِ سفید/سایه/ماسکوت هم پوشانده
-                        # شود (باکسِ OCR همیشه تنگ‌تر از گرافیکِ بنر است)
+# بنر کامل: قابِ سفید/سایه/ماسکوت هم پوشانده
+# شود (باکسِ OCR همیشه تنگ‌تر از گرافیکِ بنر است)
                         _px0, _py0, _px1, _py1 = self._expand_promo_rect(
                             image, _px0, _py0, _px1, _py1)
                     if _px1 - _px0 >= 8 and _py1 - _py0 >= 8:
@@ -2891,8 +2865,8 @@ class _MangaTranslatorBody_85:
                         print(f"  [🔍] ناحیه rect={tuple(int(v) for v in region.rect)} polys={len(_polys_raw)} tall={_tall} wide={_wide}")
                     except Exception:
                         pass
-                # v1.14.47: متن روی محفظهٔ تیرهٔ یکدست (بنرِ سیاه و امثالش)
-                # → ماسکِ جوهریِ تنگ؛ قبل از شاخه‌هایِ مستطیلی
+# متن روی محفظهٔ تیرهٔ یکدست (بنرِ سیاه و امثالش)
+# → ماسکِ جوهریِ تنگ؛ قبل از شاخه‌هایِ مستطیلی
                 try:
                     _enc = self._enclosure_tight_mask(
                         image, _polys_raw,
@@ -2900,16 +2874,16 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     _enc = None
                 if _enc is not None and np.any(_enc):
-                    # v1.14.82 — قانونِ دقیقِ دو-عکسیِ کاربر: ماسک = فقط
-                    # جوهرِ متن (تنگ)، نه کلِ محفظه! قبلاً (v1.14.59) ماسک
-                    # با _enc_full (کلِ محفظهٔ تیره) جابه‌جا و باکسِ کاملش
-                    # به بلوکِ اجباری-LaMa می‌رفت → LaMa کلِ داخلِ کارت/
-                    # حباب را «بازسازی» می‌کرد (قابِ سفید + هنرِ داخل =
-                    # رنگِ تخت — گزارشِ کاربر: «کل حباب انتقال داده شد و
-                    # با رنگ پر شد؛ لاما روش استفاده نشد»). حالا فقط جوهرِ
-                    # حروف پاک می‌شود؛ LaMa استروک‌ها را از بافتِ اطراف پر
-                    # می‌کند و هنر سرِ جایش می‌ماند. باکسِ جوهر فقط «روشِ»
-                    # پاکسازی را LaMa اجباری می‌کند (نه توپُرشدنِ ماسک).
+# قانونِ دقیقِ دو-عکسیِ کاربر: ماسک = فقط
+# جوهرِ متن (تنگ)، نه کلِ محفظه! قبلاً  ماسک
+# با _enc_full (کلِ محفظهٔ تیره) جابه‌جا و باکسِ کاملش
+# به بلوکِ اجباری-LaMa می‌رفت → LaMa کلِ داخلِ کارت/
+# حباب را «بازسازی» می‌کرد (قابِ سفید + هنرِ داخل =
+# رنگِ تخت — گزارشِ کاربر: «کل حباب انتقال داده شد و
+# با رنگ پر شد؛ لاما روش استفاده نشد»). حالا فقط جوهرِ
+# حروف پاک می‌شود؛ LaMa استروک‌ها را از بافتِ اطراف پر
+# می‌کند و هنر سرِ جایش می‌ماند. باکسِ جوهر فقط «روشِ»
+# پاکسازی را LaMa اجباری می‌کند (نه توپُرشدنِ ماسک).
                     if self.debug:
                         try:
                             print("  [🔍] ماسکِ #مسیر: enclosure-tight (فقطِ جوهر)")
@@ -2951,7 +2925,7 @@ class _MangaTranslatorBody_85:
                                         image, _rm, region, True):
                                     n_skip += 1
                                     continue
-                                # v1.14.48: دیوارِ حباب/کادر از ماسک جدا شود
+# دیوارِ حباب/کادر از ماسک جدا شود
                                 try:
                                     _rm = self._carve_structural_walls(
                                         image, _rm, region, _polys_raw)
@@ -2959,8 +2933,8 @@ class _MangaTranslatorBody_85:
                                     pass
                                 _rm = self._limit_mask_to_bubble(
                                     image, _rm, region)
-                                # v1.14.49: ماسکِ تقریباً-کلِ-حبابِ-سفید →
-                                # جوهرِ تنگ (جلوگیریِ توهمِ LaMa-Manga)
+# ماسکِ تقریباً-کلِ-حبابِ-سفید →
+# جوهرِ تنگ (جلوگیریِ توهمِ LaMa-Manga)
                                 try:
                                     _rm = self._white_bubble_tighten(
                                         image, _rm, None)
@@ -2973,13 +2947,13 @@ class _MangaTranslatorBody_85:
                                 continue
                     except Exception:
                         pass
-                # v1.14.165 — حبابِ تکخطی (polys=1): _polys_dense به ≥۲
-                # پالی نیاز دارد و حبابهایِ تکخطی («WE KNEW.») هرگز به
-                # line-strips نمیرسیدند → فالبکِ fillPoly = پرکردنِ کلِ
-                # داخلِ حباب با LaMa = نوار/لکهٔ خاکستریِ شبح‌مانند.
-                # پالیِ واحدِ پهن (خطِ متنِ افقی) هم مجاز شد؛ شرطهایِ داخلیِ
-                # _line_strips_mask (سهمِ جوهر، سازگاریِ rect) همچنان رد
-                # میکنند.
+# حبابِ تکخطی (polys=1): _polys_dense به ≥۲
+# پالی نیاز دارد و حبابهایِ تکخطی («WE KNEW.») هرگز به
+# line-strips نمیرسیدند → فالبکِ fillPoly = پرکردنِ کلِ
+# داخلِ حباب با LaMa = نوار/لکهٔ خاکستریِ شبح‌مانند.
+# پالیِ واحدِ پهن (خطِ متنِ افقی) هم مجاز شد؛ شرطهایِ داخلیِ
+# _line_strips_mask (سهمِ جوهر، سازگاریِ rect) همچنان رد
+# میکنند.
                 _dense = MangaTranslator._polys_dense(_polys_raw)
                 if not _dense:
                     try:
@@ -3002,11 +2976,11 @@ class _MangaTranslatorBody_85:
                             print("  [🔍] → تلاشِ line-strips")
                         except Exception:
                             pass
-                    # v1.14.53 — ایدهٔ «دو عکس» کاربر: اولی = پاک‌شده که فقط
-                    # «به اندازهٔ متنِ استخراج‌شده، خط به خط» برش می‌خورد؛
-                    # دومی = اصلی که جایِ دقیقِ هر خط از روی آن اندازه گرفته
-                    # می‌شود. ماسکِ خط‌به‌خط → فضایِ بینِ خط‌ها و دیوارِ حباب
-                    # هرگز در ماسک نیست → حباب سالم + پچِ کوچک‌ترِ LaMa.
+# ایدهٔ «دو عکس» کاربر: اولی = پاک‌شده که فقط
+# «به اندازهٔ متنِ استخراج‌شده، خط به خط» برش می‌خورد
+# دومی = اصلی که جایِ دقیقِ هر خط از روی آن اندازه گرفته
+# می‌شود. ماسکِ خط‌به‌خط → فضایِ بینِ خط‌ها و دیوارِ حباب
+# هرگز در ماسک نیست → حباب سالم + پچِ کوچک‌ترِ LaMa.
                     try:
                         _lsm = self._line_strips_mask(image, _polys_raw, region)
                     except Exception:
@@ -3056,26 +3030,26 @@ class _MangaTranslatorBody_85:
                                         box=tuple([int(v) for v in region.rect]),
                                         levels=3)
                                     if _inkB is not None and np.any(_inkB):
-                                        # v1.14.47: در محفظهٔ باکنتراست (متنِ
-                                        # روشن روی بنرِ تیره هم‌رنگِ صفحه) فقط
-                                        # جوهرِ گلیف — نه مستطیلِ بلوک
-                                        # v1.14.48: متنِ آزاد روی زمینهٔ گرادیانی
-                                        # (بدونِ حباب) هم ماسکِ جوهریِ تنگ
-                                        # می‌گیرد — مستطیل لکهٔ تخت می‌سازد
+# در محفظهٔ باکنتراست (متنِ
+# روشن روی بنرِ تیره هم‌رنگِ صفحه) فقط
+# جوهرِ گلیف — نه مستطیلِ بلوک
+# متنِ آزاد روی زمینهٔ گرادیانی
+# (بدونِ حباب) هم ماسکِ جوهریِ تنگ
+# می‌گیرد — مستطیل لکهٔ تخت می‌سازد
                                         if self._ink_tight_ok(
                                                 image, _rm, _inkB, _polys_raw):
-                                            # v1.14.59 — محفظهٔ تیره + متنِ روشن:
-                                            # تنگِ جوهری فقط هستهٔ گلیف را می‌گرفت
-                                            # → پرکنندهٔ رنگی روی گرادیانِ تیره شبحِ
-                                            # حروف جا می‌گذاشت و در ترکیبِ دو-عکسی
-                                            # هم پیکسلِ بینِ گلیف‌ها از عکسِ اصلی
-                                            # می‌ماند = «متنِ قبلی سرِ جایش». طبقِ سبکِ
-                                            # کاربر (عکسِ اول باید کامل پاک شود؛ حباب/
-                                            # محفظه هم آسیب دید مهم نیست) در حالتِ
-                                            # LaMaِ کیفیت مستطیلِ کاملِ بلوک ∪ جوهر
-                                            # می‌ماند و کلاستر اجباراً به LaMa می‌رود؛
-                                            # سقفِ ترکیبِ دو-عکسی هنرِ بیرونِ بلوک را
-                                            # سالم نگه می‌دارد. مسیرِ opencv مثل قبل تنگ.
+# محفظهٔ تیره + متنِ روشن:
+# تنگِ جوهری فقط هستهٔ گلیف را می‌گرفت
+# → پرکنندهٔ رنگی روی گرادیانِ تیره شبحِ
+# حروف جا می‌گذاشت و در ترکیبِ دو-عکسی
+# هم پیکسلِ بینِ گلیف‌ها از عکسِ اصلی
+# می‌ماند = «متنِ قبلی سرِ جایش». طبقِ سبکِ
+# کاربر (عکسِ اول باید کامل پاک شود؛ حباب/
+# محفظه هم آسیب دید مهم نیست) در حالتِ
+# LaMaِ کیفیت مستطیلِ کاملِ بلوک ∪ جوهر
+# می‌ماند و کلاستر اجباراً به LaMa می‌رود
+# سقفِ ترکیبِ دو-عکسی هنرِ بیرونِ بلوک را
+# سالم نگه می‌دارد. مسیرِ opencv مثل قبل تنگ.
                                             if (getattr(self, "use_lama", False)
                                                     and self._clean_level() != "fast"
                                                     and self._ink_bg_dark(
@@ -3091,10 +3065,10 @@ class _MangaTranslatorBody_85:
                                                 except Exception:
                                                     pass
                                             elif getattr(self, "use_lama", False):
-                                                # v1.14.62b — زمینهٔ روشن → بلوکِ
-                                                # کامل ممنوع؛ ماسکِ سخاوتمند ∪ جوهر
-                                                # با مسیرِ عادی (flat/color/LaMaِ
-                                                # کلاستر) پاک می‌شود
+# زمینهٔ روشن → بلوکِ
+# کامل ممنوع؛ ماسکِ سخاوتمند ∪ جوهر
+# با مسیرِ عادی (flat/color/LaMaِ
+# کلاستر) پاک می‌شود
                                                 _rm = cv2.bitwise_or(_rm, _inkB)
                                             else:
                                                 _rm = _inkB
@@ -3114,23 +3088,23 @@ class _MangaTranslatorBody_85:
                                                     print(f"  [🔍] inkB px={int(cv2.countNonZero(_inkB))} t_ink={_ti:.0f} t_out={_to:.0f} light={self._ink_is_light(image, _inkB)}")
                                                 except Exception as _e:
                                                     print("  [🔍] inkB dbg fail:", _e)
-                                            # v1.14.59 — متنِ روشن روی محفظهٔ تیره:
-                                            # ماسکِ توپر (مستطیل ∪ جوهر) قطعی است —
-                                            # کارو/کلیپِ حباب/تایتِن اینجا فقط خرابکاری
-                                            # می‌کنند (پنیرِ سوری = شبحِ حروف) →
-                                            # مستقیم در ماسک می‌نشیند و ادامه نمی‌دهد
+# متنِ روشن روی محفظهٔ تیره:
+# ماسکِ توپر (مستطیل ∪ جوهر) قطعی است —
+# کارو/کلیپِ حباب/تایتِن اینجا فقط خرابکاری
+# می‌کنند (پنیرِ سوری = شبحِ حروف) →
+# مستقیم در ماسک می‌نشیند و ادامه نمی‌دهد
                                             if (getattr(self, "use_lama", False)
                                                     and self._clean_level() != "fast"
                                                     and self._ink_is_light(
                                                         image, _inkB)):
-                                                # v1.14.96 — گاردِ بافتِ زمینه:
-                                                # مستطیلِ کاملِ بلوک فقط برای
-                                                # محفظهٔ «یکدست» (بنرِ صاف).
-                                                # روی گرادیان/برف‌نوی/نقش‌ونگار
-                                                # حفرهٔ بزرگِ LaMa = پرِ تختِ
-                                                # بی‌بافت (412e9e: EXEC و
-                                                # GREEN MOON) → ماسکِ
-                                                # پالی‌به‌پالی ∪ جوهر.
+# گاردِ بافتِ زمینه:
+# مستطیلِ کاملِ بلوک فقط برای
+# محفظهٔ «یکدست» (بنرِ صاف).
+# روی گرادیان/برف‌نوی/نقش‌ونگار
+# حفرهٔ بزرگِ LaMa = پرِ تختِ
+# بی‌بافت (412e9e: EXEC و
+# GREEN MOON) → ماسکِ
+# پالی‌به‌پالی ∪ جوهر.
                                                 _bgst = self._block_bg_stats(
                                                     image,
                                                     tuple([int(v) for v in
@@ -3141,13 +3115,13 @@ class _MangaTranslatorBody_85:
                                                         or _bgst[2] > 0.12):
                                                     try:
                                                         _rm2 = np.zeros_like(m)
-                                                        # v1.14.96e — پالیِ
-                                                        # «خام» (نه ۱.۲×):
-                                                        # گسترشِ ۱.۲× روی
-                                                        # پلاک/قاب‌هایِ تزئینی
-                                                        # قاب را هم ماسک
-                                                        # می‌کند → رگهٔ قاب
-                                                        # در مرجع‌ها (412e9e)
+# پالیِ
+# «خام» (نه ۱.۲×):
+# گسترشِ ۱.۲× روی
+# پلاک/قاب‌هایِ تزئینی
+# قاب را هم ماسک
+# می‌کند → رگهٔ قاب
+# در مرجع‌ها (412e9e)
                                                         for _pl2 in (region.ocr_polys or []):
                                                             try:
                                                                 _pq = np.asarray(
@@ -3201,7 +3175,7 @@ class _MangaTranslatorBody_85:
                                                 continue
                                 except Exception:
                                     pass
-                                # v1.14.48: دیوارِ حباب/کادر از ماسک جدا شود
+# دیوارِ حباب/کادر از ماسک جدا شود
                                 try:
                                     _rm = self._carve_structural_walls(
                                         image, _rm, region, _polys_raw,
@@ -3210,8 +3184,8 @@ class _MangaTranslatorBody_85:
                                     pass
                                 _rm = self._limit_mask_to_bubble(
                                     image, _rm, region)
-                                # v1.14.49: ماسکِ تقریباً-کلِ-حبابِ-سفید →
-                                # جوهرِ تنگ (جلوگیریِ توهمِ LaMa-Manga)
+# ماسکِ تقریباً-کلِ-حبابِ-سفید →
+# جوهرِ تنگ (جلوگیریِ توهمِ LaMa-Manga)
                                 try:
                                     _rm = self._white_bubble_tighten(
                                         image, _rm, _inkB)
@@ -3259,17 +3233,17 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     _ink2 = None
                 if _ink2 is not None and np.any(_ink2):
-                    # v1.14.47: همان قانونِ محفظهٔ باکنتراست برای مسیرِ
-                    # پالی‌هایِ معمولی
-                    # v1.14.48: متنِ آزادِ گرادیانی هم ماسکِ تنگ
+# همان قانونِ محفظهٔ باکنتراست برای مسیرِ
+# پالی‌هایِ معمولی
+# متنِ آزادِ گرادیانی هم ماسکِ تنگ
                     if self._ink_tight_ok(
                             image, _rm, _ink2, _polys_raw):
-                        # v1.14.59 — همان قانونِ محفظهٔ تیره برای مسیرِ پالی‌ها
-                        # v1.14.62b — force-box فقط برای زمینهٔ «تیره»؛
-                        # پنجره‌هایِ آبیِ روشن ([SPECIAL CHANGES]) بلوکِ
-                        # کامل نشوند — LaMaِ کلِ بلوک + اسنپ‌شاتِ کثیف
-                        # (که هنوز متن دارد) = متنِ شبح. زمینهٔ روشن →
-                        # مسیرِ عادی با ماسکِ سخاوتمند ∪ جوهر.
+# همان قانونِ محفظهٔ تیره برای مسیرِ پالی‌ها
+# force-box فقط برای زمینهٔ «تیره»
+# پنجره‌هایِ آبیِ روشن ([SPECIAL CHANGES]) بلوکِ
+# کامل نشوند — LaMaِ کلِ بلوک + اسنپ‌شاتِ کثیف
+# (که هنوز متن دارد) = متنِ شبح. زمینهٔ روشن →
+# مسیرِ عادی با ماسکِ سخاوتمند ∪ جوهر.
                         if (getattr(self, "use_lama", False)
                                 and self._clean_level() != "fast"
                                 and self._ink_bg_dark(image, _ink2)):
@@ -3292,13 +3266,13 @@ class _MangaTranslatorBody_85:
                         _rm = _ink2
                     else:
                         _rm = cv2.bitwise_or(_rm, _ink2)
-                        # v1.14.59 — متنِ روشن روی محفظهٔ تیره → اجباری LaMa
-                        # v1.14.75 — «متنِ روشن» کافی نیست؛ زمینه هم باید
-                        # واقعاً تیره باشد (_ink_bg_dark). حبابِ سفیدِ
-                        # بزرگِ 01.jpg («THE VILLA'S POOL…») متنِ سره
-                        # دارد ولی زمینه حباب «روشن» است → کولرِ
-                        # _ink_is_light کلِ حباب را force-box می‌کرد و
-                        # کامپوز، حباب را کلاً از عکسِ خرابِ اول می‌آورد.
+# متنِ روشن روی محفظهٔ تیره → اجباری LaMa
+# «متنِ روشن» کافی نیست؛ زمینه هم باید
+# واقعاً تیره باشد (_ink_bg_dark). حبابِ سفیدِ
+# بزرگِ 01.jpg («THE VILLA'S POOL…») متنِ سره
+# دارد ولی زمینه حباب «روشن» است → کولرِ
+# _ink_is_light کلِ حباب را force-box می‌کرد و
+# کامپوز، حباب را کلاً از عکسِ خرابِ اول می‌آورد.
                         if (getattr(self, "use_lama", False)
                                 and self._clean_level() != "fast"
                                 and self._ink_is_light(image, _ink2)
@@ -3312,7 +3286,7 @@ class _MangaTranslatorBody_85:
                                      int(getattr(region, "id", -1))])
                             except Exception:
                                 pass
-                # v1.14.48: دیوارِ حباب/کادر از ماسک جدا شود
+# دیوارِ حباب/کادر از ماسک جدا شود
                 try:
                     _rm = self._carve_structural_walls(
                         image, _rm, region, _polys_raw, ink_mask=_ink2)
@@ -3320,7 +3294,7 @@ class _MangaTranslatorBody_85:
                     pass
                 _rm = self._limit_mask_to_bubble(
                     image, _rm, region)
-                # v1.14.49: ماسکِ تقریباً-کلِ-حبابِ-سفید → جوهرِ تنگ
+# ماسکِ تقریباً-کلِ-حبابِ-سفید → جوهرِ تنگ
                 try:
                     _rm = self._white_bubble_tighten(image, _rm, _ink2)
                 except Exception:
@@ -3341,7 +3315,7 @@ class _MangaTranslatorBody_85:
                         if not self._fast_bubble_guard(image, _rm, region, False):
                             n_skip += 1
                             continue
-                        # v1.14.48: دیوارِ حباب/کادر از ماسک جدا شود
+# دیوارِ حباب/کادر از ماسک جدا شود
                         try:
                             _rm = self._carve_structural_walls(
                                 image, _rm, region, [])
@@ -3349,7 +3323,7 @@ class _MangaTranslatorBody_85:
                             pass
                         _rm = self._limit_mask_to_bubble(
                             image, _rm, region)
-                        # v1.14.49: مستطیلِ بدونِ پالی در حبابِ سفید → جوهرِ تنگ
+# مستطیلِ بدونِ پالی در حبابِ سفید → جوهرِ تنگ
                         try:
                             _rm = self._white_bubble_tighten(
                                 image, _rm, None)
@@ -3362,29 +3336,29 @@ class _MangaTranslatorBody_85:
                         n_ok += 1
                 except Exception:
                     continue
-        # v1.14.135 — «پنلِ متنی» با استخراجِ ناقص (فقطِ اندروید —
-        # MANGA_TEXTPANEL): وقتی OCRِ گوشیِ قدیمی (ML Kitِ آن روز) خطهایِ
-        # یک بلوکِ
-        # متراکم را هرز/ناقص خوانده (صفحهٔ قانونیِ 700×11362)، نوارهایِ
-        # خط فقط تکههایی از متن را میپوشانند و حروفِ بینِ نوارها در
-        # خروجی زنده میمانند (متنِ نیمهپاک + لکه). اگر زمینهٔ بلوک
-        # روشن باشد و بیرونِ پالیها دهها گلیفِ جامانده دیده شود،
-        # «فقطِ همان گلیفها» (دیلِ ۴px) به ماسکِ پاکسازی اضافه
-        # میشود — نه مستطیلِ توپر (LaMaِ بلوکِ کامل رویِ زمینهٔ عکسی
-        # توهمِ متن/نویز میسازد — بازتولیدِ A/B). کامپوزِ همتا همان
-        # گلیفها را از عکسِ پاکشده برمیگرداند. حبابِ کاملخوانده
-        # (بینِ پالیهاش گلیفِ جامانده ندارد) هرگز تریگر نمیشود.
-        # v1.14.238 — گیتِ پنلِ متنی پیشفرض رویِ «هر دو» پلتفرم روشن شد
-        # (env=0 خاموش): باقیماندهٔ گلیف بینِ نوارها رویِ PC هم «متنِ
-        # نیمه‌پاک» میسازد — همان گونه که فلسفهٔ v1.14.212 میگوید.
-        # v1.14.241 — پنلِ متنی دوباره «فقطِ اندروید» (رفتارِ testm):
-        # رویِ PC با OCRِ کامل، گلیفِ جاماندهای بینِ نوارها وجود ندارد و
-        # آشکارسازِ گلیف، «هنرِ بینِ خطهایِ سند» (شیشه/برگ/قابِ پنجرهٔ
-        # 9.jpg و img4) را گلیف میپندارد → ۳۴هزارpx هنر به ماسکِ LaMa →
-        # حفرهٔ غول → پرِ مه‌آلود رویِ خودِ نوارها (شکایتِ «شبحِ خاکستری»).
-        # گلیفِ جاماندهٔ واقعیِ PC حالا از مسیرِ کاملِ donor (پالیِ کاملِ
-        # خطوطِ fail — v1.14.241) پاک میشود؛ img4 با گیتِ خاموش حتی
-        # تمیزتر شد (تستِ مو‌به‌مو). MANGA_TEXTPANEL=1 برایِ اجبار.
+# «پنلِ متنی» با استخراجِ ناقص (فقطِ اندروید —
+# MANGA_TEXTPANEL): وقتی OCRِ گوشیِ قدیمی (ML Kitِ آن روز) خطهایِ
+# یک بلوکِ
+# متراکم را هرز/ناقص خوانده (صفحهٔ قانونیِ 700×11362)، نوارهایِ
+# خط فقط تکههایی از متن را میپوشانند و حروفِ بینِ نوارها در
+# خروجی زنده میمانند (متنِ نیمهپاک + لکه). اگر زمینهٔ بلوک
+# روشن باشد و بیرونِ پالیها دهها گلیفِ جامانده دیده شود
+# «فقطِ همان گلیفها» (دیلِ ۴px) به ماسکِ پاکسازی اضافه
+# میشود — نه مستطیلِ توپر (LaMaِ بلوکِ کامل رویِ زمینهٔ عکسی
+# توهمِ متن/نویز میسازد — بازتولیدِ A/B). کامپوزِ همتا همان
+# گلیفها را از عکسِ پاکشده برمیگرداند. حبابِ کاملخوانده
+# (بینِ پالیهاش گلیفِ جامانده ندارد) هرگز تریگر نمیشود.
+# گیتِ پنلِ متنی پیشفرض رویِ «هر دو» پلتفرم روشن شد
+# (env=0 خاموش): باقیماندهٔ گلیف بینِ نوارها رویِ PC هم «متنِ
+# نیمه‌پاک» میسازد — همان گونه که فلسفهٔ میگوید.
+# پنلِ متنی دوباره «فقطِ اندروید» (رفتارِ testm):
+# رویِ PC با OCRِ کامل، گلیفِ جاماندهای بینِ نوارها وجود ندارد و
+# آشکارسازِ گلیف، «هنرِ بینِ خطهایِ سند» (شیشه/برگ/قابِ پنجرهٔ
+# 9.jpg و img4) را گلیف میپندارد → ۳۴هزارpx هنر به ماسکِ LaMa →
+# حفرهٔ غول → پرِ مه‌آلود رویِ خودِ نوارها (شکایتِ «شبحِ خاکستری»).
+# گلیفِ جاماندهٔ واقعیِ PC حالا از مسیرِ کاملِ donor (پالیِ کاملِ
+# خطوطِ fail — ) پاک میشود؛ img4 با گیتِ خاموش حتی
+# تمیزتر شد (تستِ مو‌به‌مو). MANGA_TEXTPANEL=1 برایِ اجبار.
         if _android_gate("MANGA_TEXTPANEL") and n_ok > 0:
             try:
                 _pg = float(max(1, w * h))
@@ -3425,8 +3399,8 @@ class _MangaTranslatorBody_85:
                     if _cov > 0.90:
                         continue  # متن کامل خوانده شده — دست نمی‌زنیم
                     _pm135d = cv2.dilate(_pm, np.ones((9, 9), np.uint8))
-                    # v1.14.238 — med_hِ ناحیه برایِ سقفهایِ سازگار با
-                    # فونتِ درشت (img6: بلندیِ خط ۶۹..۷۹)
+# med_hِ ناحیه برایِ سقفهایِ سازگار با
+# فونتِ درشت (img6: بلندیِ خط ۶۹..۷۹)
                     _mh = 0.0
                     try:
                         _pl = []
@@ -3467,12 +3441,12 @@ class _MangaTranslatorBody_85:
             except Exception as _e2:
                 if self.debug:
                     print("  [!] پنلِ متنی خطا:", _e2)
-        # v1.14.134 — پسگیرِ جوهرِ جامانده: قطعههایِ
-        # گلیفِ همسایهٔ ماسک که OCRِ ناقص بیرونِ پالی گذاشته
-        # ('Yo'/'th'/'a' — حبابِ چپبالای 01.jpg) به ماسک برمیگردند.
-        # v1.14.206 — رویِ PC هم فعال شد (دستورِ سازنده: «هم گوشی هم
-        # پی سی لینوکس باید هردو عکس هاشون چک کنی») — با env=0
-        # قابلِ خاموشکردن است.
+# پسگیرِ جوهرِ جامانده: قطعههایِ
+# گلیفِ همسایهٔ ماسک که OCRِ ناقص بیرونِ پالی گذاشته
+# ('Yo'/'th'/'a' — حبابِ چپبالای 01.jpg) به ماسک برمیگردند.
+        #) — با env=0
+# رویِ PC هم فعال شد (
+# قابلِ خاموشکردن است.
         if (os.environ.get("MANGA_INK_RECLAIM", "1") != "0") \
                 and n_ok > 0:
             try:
@@ -3489,13 +3463,13 @@ class _MangaTranslatorBody_85:
                 pass
         if n_ok <= 0 and n_skip <= 0:
             return None
-        # v1.14.104 — «بالنِ سیستم»: اینتریورِ باکسِ سیستم اینجا به ماسک
-        # اضافه «نمی‌شود» — پرِ فلتِ قطعیِ آن در clean_image انجام می‌شود
-        # (self._fill_system_box_interiors). چرا اینجا نه؟ ماسکِ کلِ
-        # اینتریور، گاردِ ضدتوهمِ LaMa (که به «حلقهٔ روشنِ دورِ ماسک»
-        # تکیه دارد) را کور می‌کند — حلقهٔ دورِ اینتریور = قابِ سیاهِ
-        # باکس است → خروجیِ تیرهٔ توهمیِ LaMa بدونِ اعتبارسنجی می‌ماند
-        # (لگهٔ سیاه — بازتولید در تستِ img1018).
+# «بالنِ سیستم»: اینتریورِ باکسِ سیستم اینجا به ماسک
+# اضافه «نمی‌شود» — پرِ فلتِ قطعیِ آن در clean_image انجام می‌شود
+# (self._fill_system_box_interiors). چرا اینجا نه؟ ماسکِ کلِ
+# اینتریور، گاردِ ضدتوهمِ LaMa (که به «حلقهٔ روشنِ دورِ ماسک»
+# تکیه دارد) را کور می‌کند — حلقهٔ دورِ اینتریور = قابِ سیاهِ
+# باکس است → خروجیِ تیرهٔ توهمیِ LaMa بدونِ اعتبارسنجی می‌ماند
+# (لگهٔ سیاه — بازتولید در تستِ img1018).
         try:
             _dm2 = os.environ.get("MANGA_DUMP_MASK2")
             if _dm2:
@@ -3566,15 +3540,15 @@ class _MangaTranslatorBody_85:
             _n_kept = 0
             _acap = min(max(0.35 * ink.size, 2.5 * float(seed.sum())),
                         0.8 * ink.size)
-            # v1.14.48: «راهرویِ متن» — جذب فقط در همسایگیِ ناحیهٔ متن.
-            # راهرو = مستطیلِ ناحیه (بلوکِ متنِ detector/OCR) ∪ پالی‌ها.
-            # بدونِ این، جذبِ ۳ سطحی تا ~۴۲px از seed خز می‌کند و هنرِ
-            # نزدیک (موی/گونهٔ شخصیت کنارِ حباب) را می‌بلعد → پرکننده با
-            # رنگِ زمینه روی هنر نقاشی می‌کند.
-            # اما راهروِ «فقط پالی‌ها» هم غلط بود: وقتی OCR ناقص است (متنِ
-            # عمودیِ سفیدِ test2 — فقط ۱ گلیف شناسایی شد) خزشِ قانونیِ
-            # گلیف‌به‌گلیفِ داخلِ بلوکِ متن باید بماند → مستطیلِ ناحیه
-            # هم بخشی از راهرو است؛ هنرِ بیرونِ ناحیه محافظت می‌شود.
+# «راهرویِ متن» — جذب فقط در همسایگیِ ناحیهٔ متن.
+# راهرو = مستطیلِ ناحیه (بلوکِ متنِ detector/OCR) ∪ پالی‌ها.
+# بدونِ این، جذبِ ۳ سطحی تا ~۴۲px از seed خز می‌کند و هنرِ
+# نزدیک (موی/گونهٔ شخصیت کنارِ حباب) را می‌بلعد → پرکننده با
+# رنگِ زمینه روی هنر نقاشی می‌کند.
+# اما راهروِ «فقط پالی‌ها» هم غلط بود: وقتی OCR ناقص است (متنِ
+# عمودیِ سفیدِ test2 — فقط ۱ گلیف شناسایی شد) خزشِ قانونیِ
+# گلیف‌به‌گلیفِ داخلِ بلوکِ متن باید بماند → مستطیلِ ناحیه
+# هم بخشی از راهرو است؛ هنرِ بیرونِ ناحیه محافظت می‌شود.
             _cor = None
             try:
                 _co = np.zeros_like(g, dtype=np.uint8)
@@ -3624,7 +3598,7 @@ class _MangaTranslatorBody_85:
                         continue
                     comp = (lab[cy:cy + ch, cx:cx + cw] == i)
                     _sl3 = (slice(cy, cy + ch), slice(cx, cx + cw))
-                    # v1.14.48: کامپوننت باید عمدتاً داخلِ راهرویِ متن باشد
+# کامپوننت باید عمدتاً داخلِ راهرویِ متن باشد
                     _cor_hit = int(np.count_nonzero(comp & _cor[_sl3]))
                     if _cor_hit <= 0 or _cor_hit < 0.30 * float(a):
                         continue
@@ -3665,11 +3639,11 @@ class _MangaTranslatorBody_85:
     def _stray_ink_reclaim(self, image: np.ndarray,
                            page_mask: np.ndarray,
                            regions) -> Optional[np.ndarray]:
-        """v1.14.134 — «پسگیرِ جوهرِ جامانده» (فقطِ اندروید — گیتِ
+        """ — «پسگیرِ جوهرِ جامانده» (فقطِ اندروید — گیتِ
         MANGA_INK_RECLAIM).
 
         ریشهٔ «متن جا میمونه سمت چپِ حباب» (01.jpg، لاگِ گوشیِ
-        v1.14.133): پالیهایِ OCRِ ناقصِ آن روز ('ure' بهجایِ You're،
+        ): پالیهایِ OCRِ ناقصِ آن روز ('ure' بهجایِ You're
         'neredl' بهجایِ the real، 'tractien' بهجایِ attraction) کادرِ
         ناحیه را از x=39 شروع میکنند در حالی که جوهرِ واقعیِ حباب از
         x=13 شروع میشود → حروفِ اولِ هر خط ('Yo'/'th'/'a') بیرونِ
@@ -3683,7 +3657,7 @@ class _MangaTranslatorBody_85:
         داخلِ راهرویِ ناحیهاند (پالیها ∪ rect منبسط به ۱×ارتفاعِ خط —
         ضدِ خزش به هنرِ دور) و (۴) سقفِ کلِ جذبِ ۳۵٪ ماسکِ ناحیه را
         ندارند، پس گرفته میشوند. قطعههایِ بزرگ (هنر/دیوارِ حباب) با
-        گاردهایِ بعد و جرم رد میشوند — درسِ v1.14.133 (قطعهٔ هنرِ
+        گاردهایِ بعد و جرم رد میشوند — درسِ (قطعهٔ هنرِ
         ca=5504).
 
         خروجی: «فقط الحاقیاتِ تازه» (ماسکِ صفحهکامل) یا None.
@@ -3715,8 +3689,8 @@ class _MangaTranslatorBody_85:
                 med_h = float(np.median([b[3] - b[1] for b in lines]))
                 if med_h < 8.0:
                     continue
-                # رسا = ۰.۸×ارتفاعِ خط — شکافِ واقعیِ 01.jpg تا ۰.۶۷× بود؛
-                # ۰.۸ حاشیهٔ امن میدهد بدونِ رسیدن به هنرِ دور
+# رسا = ۰.۸×ارتفاعِ خط — شکافِ واقعیِ 01.jpg تا ۰.۶۷× بود
+# ۰.۸ حاشیهٔ امن میدهد بدونِ رسیدن به هنرِ دور
                 reach = int(min(40.0, max(12.0, 0.8 * med_h)))
                 _all = np.concatenate(polys, axis=0)
                 px0, py0 = float(_all[:, 0].min()), float(_all[:, 1].min())
@@ -3764,8 +3738,8 @@ class _MangaTranslatorBody_85:
                 _near = cv2.dilate(
                     seed.astype(np.uint8),
                     np.ones((2 * _band + 1, 2 * _band + 1), np.uint8)) > 0
-                # راهرو = پالیها ∪ rectِ ناحیه، منبسط به reach —
-                # جذب فقط در همسایگیِ بلوکِ متنِ خودِ ناحیه
+# راهرو = پالیها ∪ rectِ ناحیه، منبسط به reach —
+# جذب فقط در همسایگیِ بلوکِ متنِ خودِ ناحیه
                 _cor = np.zeros(g.shape[:2], dtype=np.uint8)
                 _off = np.array([wx0, wy0], dtype=np.int32)
                 for pp in polys:
@@ -3788,13 +3762,13 @@ class _MangaTranslatorBody_85:
                     _cor, np.ones((2 * reach + 1, 2 * reach + 1), np.uint8))
                 _cand2 = []
                 _wh, _ww = g.shape[:2]
-                # v1.14.213 — گاردِ رنگ: قطعه باید همرنگِ جوهرِ خودِ ناحیه
-                # باشد (دستورِ سازنده: «یک کاری کن حباب متن خراب نشه» —
-                # پسگیرِ ۲۰۶ رویِ img6 ضربهٔ صورتیِ SFXِ «あ» کنارِ متن را
-                # همتونِ حرف میپنداشت و به ماسکِ پاکسازی میبرد = حذفِ
-                # هنر). متنِ آبیِ تیره (هیو ~۱۱۰) و صورتیِ SFX (هیو ~۳۰۰)
-                # از رویِ فاصلهٔ هیو جدا میشوند؛ متنِ خاکستری/سیاه/سفید
-                # (اشباعِ کم) هرگز قطعهٔ اشباعِ رنگی نمیگیرد.
+# گاردِ رنگ: قطعه باید همرنگِ جوهرِ خودِ ناحیه
+# باشد (
+# پسگیرِ ۲۰۶ رویِ img6 ضربهٔ صورتیِ SFXِ «あ» کنارِ متن را
+# همتونِ حرف میپنداشت و به ماسکِ پاکسازی میبرد = حذفِ
+# هنر). متنِ آبیِ تیره (هیو ~۱۱۰) و صورتیِ SFX (هیو ~۳۰۰)
+# از رویِ فاصلهٔ هیو جدا میشوند؛ متنِ خاکستری/سیاه/سفید
+# (اشباعِ کم) هرگز قطعهٔ اشباعِ رنگی نمیگیرد.
                 _sub_bgr = image[wy0:wy1, wx0:wx1]
                 _seed_ink = (seed & ink)
                 _seed_h = _seed_s = None
@@ -3815,8 +3789,8 @@ class _MangaTranslatorBody_85:
                     chg = int(st[ci, cv2.CC_STAT_HEIGHT])
                     if cwd > 2.2 * med_h or chg > 2.2 * med_h:
                         continue
-                    # قطعهٔ بریدهشده به مرزِ پنجره = ساختارِ بزرگِ ادامهدار
-                    # (هنر/دیوار) → رد (همان گاردِ _ink_absorb_mask)
+# قطعهٔ بریدهشده به مرزِ پنجره = ساختارِ بزرگِ ادامهدار
+# (هنر/دیوار) → رد (همان گاردِ _ink_absorb_mask)
                     _cx = int(st[ci, cv2.CC_STAT_LEFT])
                     _cy = int(st[ci, cv2.CC_STAT_TOP])
                     if (_cx <= 1 or _cy <= 1
@@ -3828,8 +3802,8 @@ class _MangaTranslatorBody_85:
                         continue
                     if not bool((_cm & (_cor > 0)).any()):
                         continue
-                    # v1.14.213 — همرنگی با جوهرِ ناحیه (گاردِ رنگِ بالا)؛
-                    # MANGA_RECLAIM_COLORGUARD=0 برایِ خاموشکردنِ دستی
+# همرنگی با جوهرِ ناحیه (گاردِ رنگِ بالا)
+# MANGA_RECLAIM_COLORGUARD=0 برایِ خاموشکردنِ دستی
                     if _seed_h is not None \
                             and os.environ.get(
                                 "MANGA_RECLAIM_COLORGUARD", "1") != "0":
@@ -3842,12 +3816,12 @@ class _MangaTranslatorBody_85:
                             _phs = float(np.median(_ph[:, 0, 1]))
                             _hue_d = abs(_phh - _seed_h)
                             _hue_d = min(_hue_d, 360.0 - _hue_d)
-                            # v1.14.213b — فقطِ عدمِتطابقِ «قوی»: آستانهٔ
-                            # سختگیرانه (S≥۹۰ / هیو≥۷۰) تا قطعههایِ
-                            # سفیدِ کمی-رنگگرفته (JPEG bleed رویِ پنل — img4)
-                            # که متنِ واقعیاند رد نشوند (رگرسیونِ img4:
-                            # گاردِ ساده نصفِ گلیفها را ازِ پسگیر میگرفت و
-                            # پرِ LaMa را کلاً عوض میکرد).
+# فقطِ عدمِتطابقِ «قوی»: آستانهٔ
+# سختگیرانه (S≥۹۰ / هیو≥۷۰) تا قطعههایِ
+# سفیدِ کمی-رنگگرفته (JPEG bleed رویِ پنل — img4)
+# که متنِ واقعیاند رد نشوند (رگرسیونِ img4:
+# گاردِ ساده نصفِ گلیفها را ازِ پسگیر میگرفت و
+# پرِ LaMa را کلاً عوض میکرد).
                             if _phs > 120.0 and _seed_s < 45.0:
                                 continue  # قطعهٔ رنگی، متنِ بی‌رنگ
                             if (_phs > 110.0 and _seed_s > 110.0
@@ -3855,9 +3829,9 @@ class _MangaTranslatorBody_85:
                                 continue  # رنگِ غلط (SFX/هنرِ همسایه)
                         except Exception:
                             pass
-                    # فقط «پیکسلِ تازه» (بیرونِ ماسکِ فعلی) شمرده شود —
-                    # بازجذبِ خودِ متنِ ازقبل-ماسکشده هم سقف را پُر میکرد
-                    # و دیلیتِ بعدی هالویِ بیفایده حولِ متن میداد
+# فقط «پیکسلِ تازه» (بیرونِ ماسکِ فعلی) شمرده شود —
+# بازجذبِ خودِ متنِ ازقبل-ماسکشده هم سقف را پُر میکرد
+# و دیلیتِ بعدی هالویِ بیفایده حولِ متن میداد
                     _new = int(np.count_nonzero(_cm & (~seed)))
                     if _new < 6:
                         continue
@@ -3977,14 +3951,14 @@ class _MangaTranslatorBody_85:
         except Exception:
             return 0
         for region in regions:
-            # v1.14.73 — ناحیهٔ donor-گسترش‌یافته: پرِ فوری نگیرد (حالتِ کیفی)
+# ناحیهٔ donor-گسترش‌یافته: پرِ فوری نگیرد (حالتِ کیفی)
             if skip_ids and int(getattr(region, "id", -1)) in skip_ids:
                 continue
-            # v1.14.65 — بنرِ تبلیغ (promo) با پرکنندهٔ فوریِ خطی دست‌کاری
-            # نشود: پرِ فوریِ نوارِ متنِ بنر + کِیلِ ماسک = حفره در ماسکِ
-            # توپرِ بنر → LaMa متنِ بنر را نمی‌بیند → «ASURASCANS.COM» در
-            # خروجی می‌ماند (بازتولیدِ سندباکس). بنر فقط با ماسکِ توپر +
-            # LaMa/فال‌بک پاک می‌شود.
+# بنرِ تبلیغ (promo) با پرکنندهٔ فوریِ خطی دست‌کاری
+# نشود: پرِ فوریِ نوارِ متنِ بنر + کِیلِ ماسک = حفره در ماسکِ
+# توپرِ بنر → LaMa متنِ بنر را نمی‌بیند → «ASURASCANS.COM» در
+# خروجی می‌ماند (بازتولیدِ سندباکس). بنر فقط با ماسکِ توپر +
+# LaMa/فال‌بک پاک می‌شود.
             if getattr(region, "kind", "") == "promo":
                 continue
             for poly in (getattr(region, "ocr_polys", None) or []):
@@ -4021,7 +3995,7 @@ class _MangaTranslatorBody_85:
 
                     fill_col = None
                     fill_exp = 1.0
-                    fill_plane = None  # v1.14.216 — پرِ صفحهٔ گرادیانی
+                    fill_plane = None  # پرِ صفحهٔ گرادیانی
                     _xs1, _ys1, r1 = _sample_xy(1.025)
                     if r1.shape[0] >= 12:
                         avg1 = r1.mean(axis=0)
@@ -4029,15 +4003,15 @@ class _MangaTranslatorBody_85:
                         if float((dev1 <= 15.0).mean()) >= 0.99:
                             fill_col = avg1
                             fill_exp = 1.05
-                            # v1.14.216 — پرِ صفحه (plane) بهجایِ رنگِ تخت
-                            # رویِ گرادیانِ آرام (دستورِ سازنده: «انگار رو هم
-                            # پیاده شده مثل کوه دیده میشه»): حلقهٔ تنگِ ۲.۵٪
-                            # رویِ گرادیانِ آرام «یکدست» از آب میآید (dev≤۱۵)
-                            # ولی هر خط رنگِ محلیِ خودش را میگیرد → خطوطِ
-                            # چسبیده با رنگهایِ ناهمسان = پلههایِ روی-هم. اگر
-                            # حلقه به صفحهٔ (x,y) خوب بچسبد و نوسانِ رنگیِ
-                            # داخلِ پالی معنادار باشد (≥۸)، پالی با همان
-                            # صفحه پر میشود — گرادیان پیوسته، بدونِ پله.
+# پرِ صفحه (plane) بهجایِ رنگِ تخت
+                            #): حلقهٔ تنگِ ۲.۵٪
+# رویِ گرادیانِ آرام (
+# رویِ گرادیانِ آرام «یکدست» از آب میآید (dev≤۱۵)
+# ولی هر خط رنگِ محلیِ خودش را میگیرد → خطوطِ
+# چسبیده با رنگهایِ ناهمسان = پلههایِ روی-هم. اگر
+# حلقه به صفحهٔ (x,y) خوب بچسبد و نوسانِ رنگیِ
+# داخلِ پالی معنادار باشد (≥۸)، پالی با همان
+# صفحه پر میشود — گرادیان پیوسته، بدونِ پله.
                             try:
                                 if (float(_ys1.max() - _ys1.min()) >= 20
                                         and r1.shape[0] >= 24):
@@ -4061,18 +4035,18 @@ class _MangaTranslatorBody_85:
                                             fill_plane = _coefs
                             except Exception:
                                 fill_plane = None
-                        # v1.14.226 — حلقهٔ تنگِ «نایکنواخت» هم صفحهای
-                        # سنجیده میشود: پنجرهٔ سیستمِ 4e2e77
-                        # («[CLEAR OBJECTIVE…]» رویِ گرادیانِ آبی):
-                        # حلقهٔ تنگ رویِ گرادیانِ اشباع هیچ‌وقت dev≤۱۵
-                        # نمیشود (۷۰-۴۵٪ نمونهها بیرونند) و حلقهٔ پهن
-                        # (۱.۱×) به هنرِ بیرونِ پنل می‌رسد (resid=۱۱.۲ > ۱۰)
-                        # → هیچ صفحهای پر نمیشد → خط به LaMa میفتاد →
-                        # LaMa-manga (سیاهوسفید) رویِ آبیِ اشباع پرِ تختِ
-                        # تیره + شبحِ سفیدِ حروف میگذاشت (لگهٔ مستطیلیِ
-                        # تیره + متنِ قبلی — گزارشِ سازنده). صفحهٔ خودِ
-                        # حلقهٔ تنگ (resid≤۱۰ پس از حذفِ ۲۰٪ بدترین
-                        # نمونهها) همین گرادیان را پیوسته بازسازی میکند.
+# حلقهٔ تنگِ «نایکنواخت» هم صفحهای
+# سنجیده میشود: پنجرهٔ سیستمِ 4e2e77
+# («[CLEAR OBJECTIVE…]» رویِ گرادیانِ آبی):
+# حلقهٔ تنگ رویِ گرادیانِ اشباع هیچ‌وقت dev≤۱۵
+# نمیشود (۷۰-۴۵٪ نمونهها بیرونند) و حلقهٔ پهن
+# (۱.۱×) به هنرِ بیرونِ پنل می‌رسد (resid=۱۱.۲ > ۱۰)
+# → هیچ صفحهای پر نمیشد → خط به LaMa میفتاد →
+# LaMa-manga (سیاهوسفید) رویِ آبیِ اشباع پرِ تختِ
+# تیره + شبحِ سفیدِ حروف میگذاشت (لگهٔ مستطیلیِ
+# تیره + متنِ قبلی — گزارشِ سازنده). صفحهٔ خودِ
+# حلقهٔ تنگ (resid≤۱۰ پس از حذفِ ۲۰٪ بدترین
+# نمونهها) همین گرادیان را پیوسته بازسازی میکند.
                         if fill_col is None and fill_plane is None \
                                 and r1.shape[0] >= 24 \
                                 and float(_ys1.max() - _ys1.min()) >= 20:
@@ -4104,17 +4078,17 @@ class _MangaTranslatorBody_85:
                                 fill_plane = None
                     if fill_col is None:
                         if self._clean_level() != "fast":
-                            # v1.14.216 — پرِ صفحهٔ گرادیانی برایِ حلقهٔ
-                            # «نایکنوخت ولی صاف»: پنجرههایِ UIِ وبتون
-                            # (کارتِ آبیِ [CLEAR OBJECTIVE]…) گرادیانِ آرامِ
-                            # رنگی دارند — حلقهٔ تنگ یکدست نیست (ردِ dev≤۱۵)
-                            # و خوشه به TELEA/LaMa میافتد: TELEA پخشِ
-                            # ناهمسان میسازد و LaMa-manga (مدلِ سیاهوسفیدِ
-                            # مانگا) رویِ گرادیانِ اشباع لکهٔ خاکستریِ
-                            # خیشامی میسازد («کوه»/گِل). اگر حلقهٔ پهن‌تر
-                            # (۱.۱×) به «صفحهٔ» (x,y) با خطایِ کم بچسبد
-                            # (resid≤۱۰) همان صفحه پالی را پر میکند —
-                            # بازسازیِ دقیقِ گرادیان، بدونِ لکه.
+# پرِ صفحهٔ گرادیانی برایِ حلقهٔ
+# «نایکنوخت ولی صاف»: پنجرههایِ UIِ وبتون
+# (کارتِ آبیِ [CLEAR OBJECTIVE]…) گرادیانِ آرامِ
+# رنگی دارند — حلقهٔ تنگ یکدست نیست (ردِ dev≤۱۵)
+# و خوشه به TELEA/LaMa میافتد: TELEA پخشِ
+# ناهمسان میسازد و LaMa-manga (مدلِ سیاهوسفیدِ
+# مانگا) رویِ گرادیانِ اشباع لکهٔ خاکستریِ
+# خیشامی میسازد («کوه»/گِل). اگر حلقهٔ پهن‌تر
+# (۱.۱×) به «صفحهٔ» (x,y) با خطایِ کم بچسبد
+# (resid≤۱۰) همان صفحه پالی را پر میکند —
+# بازسازیِ دقیقِ گرادیان، بدونِ لکه.
                             try:
                                 _xs2g, _ys2g, r2g = _sample_xy(1.10)
                                 if (r2g.shape[0] >= 40
@@ -4129,10 +4103,10 @@ class _MangaTranslatorBody_85:
                                     _pg = _Ag @ _cg
                                     _rg = np.sqrt(((_pg - r2g) ** 2)
                                                   .sum(axis=1))
-                                    # v1.14.226 — پسِ مقاوم: ۲۵٪ بدترین
-                                    # نمونهها (هنرِ بیرونِ پنل/لبهٔ قاب)
-                                    # خطایِ میانگین را کور میکرد (۴e2e77:
-                                    # mean=11.2 رد، بدونِ کانیوت=۸.۶)
+# پسِ مقاوم: ۲۵٪ بدترین
+# نمونهها (هنرِ بیرونِ پنل/لبهٔ قاب)
+# خطایِ میانگین را کور میکرد (۴e2e77:
+# mean=11.2 رد، بدونِ کانیوت=۸.۶)
                                     _rgs = np.sort(_rg)
                                     _kg = max(12, int(
                                         _rgs.shape[0] * 0.75))
@@ -4172,13 +4146,13 @@ class _MangaTranslatorBody_85:
                                         continue
                                     if float(_s2.std()) > 30.0:
                                         continue
-                                    # v1.14.226 — گاردِ شیبِ عمودی: حلقهٔ
-                                    # «آسمان/گرادیان» که بالا و پایینش
-                                    # ناهمسان است (>۱۶ کانالِ) با رنگِ تخت
-                                    # پر نشود — پرِ فوریِ تختِ هر خط با
-                                    # میانگینِ حلقه = نوارِ شیریِ بی‌بافت
-                                    # (لگهٔ سفیدِ img4 — آسمانِ ابری).
-                                    # چنین خطی به LaMa/TELEA واگذار میشود.
+# گاردِ شیبِ عمودی: حلقهٔ
+# «آسمان/گرادیان» که بالا و پایینش
+# ناهمسان است (>۱۶ کانالِ) با رنگِ تخت
+# پر نشود — پرِ فوریِ تختِ هر خط با
+# میانگینِ حلقه = نوارِ شیریِ بی‌بافت
+# (لگهٔ سفیدِ img4 — آسمانِ ابری).
+# چنین خطی به LaMa/TELEA واگذار میشود.
                                     try:
                                         _ym = float(np.median(
                                             _ys2f[_close]))
@@ -4378,8 +4352,8 @@ class _MangaTranslatorBody_85:
             if int(np.count_nonzero(solid)) < 120:
                 return None
             _c0 = quad.reshape(-1, 2).mean(axis=0)
-            # v1.14.244 — علامتِ + برایِ همسطح‌سازی (قراردادِ مشترک با deskew و
-            # نوارهایِ چرخیده؛ قبلاً -ang کجی را دوبرابر می‌کرد)
+# علامتِ + برایِ همسطح‌سازی (قراردادِ مشترک با deskew و
+# نوارهایِ چرخیده؛ قبلاً -ang کجی را دوبرابر می‌کرد)
             M = cv2.getRotationMatrix2D((float(_c0[0]), float(_c0[1])), float(ang), 1.0)
             _cos, _sin = abs(M[0, 0]), abs(M[0, 1])
             nw = int(ch * _sin + cw * _cos) + 2
@@ -4445,9 +4419,9 @@ class _MangaTranslatorBody_85:
             m = crop_msk > 0
             if not m.any():
                 return None
-            # v1.14.47: حلقهٔ نزدیک (۲-۵px بیرونِ ماسک) رنگِ واقعیِ زمینهٔ
-            # چسبیده به متن است — هم برای حبابِ سفید و هم بنرِ سیاه. (تغییرِ
-            # حلقهٔ دورترِ آزمایشی حباب روی بنرِ تیره را خراب می‌کرد → حذف.)
+# حلقهٔ نزدیک (۲-۵px بیرونِ ماسک) رنگِ واقعیِ زمینهٔ
+# چسبیده به متن است — هم برای حبابِ سفید و هم بنرِ سیاه. (تغییرِ
+# حلقهٔ دورترِ آزمایشی حباب روی بنرِ تیره را خراب می‌کرد → حذف.)
             ring = (cv2.dilate(crop_msk, np.ones((5, 5), np.uint8)) > 0) & (~m)
             n_ring = int(np.count_nonzero(ring))
             if n_ring < 40:
@@ -4455,10 +4429,10 @@ class _MangaTranslatorBody_85:
             rp = crop_img[ring].astype(np.int16)
             med = np.median(rp, axis=0)
             d = np.abs(rp - med[None, :]).max(axis=1)
-            # v1.14.47c: نسخهٔ «مدِ غالبِ bimodal» حذف شد — روی هنر با
-            # زمینهٔ روشنِ پراکنده هم پاس می‌شد و پرکردنِ خاکستری روی هنر
-            # می‌ساخت. بنرها الان توسط _enclosure_instant_fill پاک می‌شوند
-            # و این تابع مثل قبل فقط حلقهٔ یکدست را می‌پذیرد.
+# نسخهٔ «مدِ غالبِ bimodal» حذف شد — روی هنر با
+# زمینهٔ روشنِ پراکنده هم پاس می‌شد و پرکردنِ خاکستری روی هنر
+# می‌ساخت. بنرها الان توسط _enclosure_instant_fill پاک می‌شوند
+# و این تابع مثل قبل فقط حلقهٔ یکدست را می‌پذیرد.
             if float((d <= 20).mean()) < 0.96:
                 return None
             sel = rp[d <= 22]
@@ -4489,16 +4463,16 @@ class _MangaTranslatorBody_85:
             grad = cv2.magnitude(gx, gy)[ring]
             if float(np.median(grad)) > 24.0:
                 return None
-            # v1.14.216 — گاردِ گرادیان (دستورِ سازنده: «تو جایِ متنِ
-            # پاکشده انگار رو هم پیاده شده مثل کوه دیده میشه»): TELEA روی
-            # زمینهٔ «گرادیانیِ رنگی» (کارت/پنجرهٔ آبیِ وبتون) از هر طرف
-            # با رنگِ متفاوت پخش میکند → لکهٔ همگام‌نشده + دایلِ ماسک تا
-            # ۲۵px رویِ خطِ بعدی = پلههایِ روی-هم‌افتاده («کوه»). حلقه اگر
-            # پهنایِ رنگیِ قابلِ دیدن دارد (p90-p10 ≥ ۱۶ در یک کانال —
-            # نوارِ متنِ پنجرهٔ [CLEAR OBJECTIVE] با گرادیانِ ~۲۰ واحدی
-            # همین‌جا از آستانهٔ اولیهٔ ۲۸ رد میشد و نوارِ ۵۰-واحدیِ
-            # روشن میساخت) یعنی گرادیان است، نه رنگِ تخت → رد میشود تا
-            # خوشه به LaMa برود. MANGA_COLOR_TELEA=1 برایِ برگشتِ دستی.
+            #): TELEA روی
+# گاردِ گرادیان (
+# زمینهٔ «گرادیانیِ رنگی» (کارت/پنجرهٔ آبیِ وبتون) از هر طرف
+# با رنگِ متفاوت پخش میکند → لکهٔ همگام‌نشده + دایلِ ماسک تا
+# ۲۵px رویِ خطِ بعدی = پلههایِ روی-هم‌افتاده («کوه»). حلقه اگر
+# پهنایِ رنگیِ قابلِ دیدن دارد (p90-p10 ≥ ۱۶ در یک کانال —
+# نوارِ متنِ پنجرهٔ [CLEAR OBJECTIVE] با گرادیانِ ~۲۰ واحدی
+# همین‌جا از آستانهٔ اولیهٔ ۲۸ رد میشد و نوارِ ۵۰-واحدیِ
+# روشن میساخت) یعنی گرادیان است، نه رنگِ تخت → رد میشود تا
+# خوشه به LaMa برود. MANGA_COLOR_TELEA=1 برایِ برگشتِ دستی.
             if os.environ.get("MANGA_COLOR_TELEA", "0") != "1":
                 try:
                     _rp = crop_img[ring].astype(np.int16)
@@ -4571,11 +4545,11 @@ class _MangaTranslatorBody_85:
         ring = cv2.dilate(crop_msk, np.ones((9, 9), np.uint8)) > 0
         ring &= ~m
         if light_ring:
-            # v1.14.135 — اندروید/حفرهٔ بزرگِ کنارِ هنر: حلقه ممکن است
-            # اقلیتِ «دیوار/کاغذِ روشن» + اقلیتِ هنرِ تیره داشته باشد
-            # (بلوکِ متنِ چسبیده به صحنه)؛ fit فقط از پیکسلهایِ روشنِ
-            # حلقه — نتیجه: پرِ دیوارِ یکدست بدونِ آلودگیِ هنرِ تیره.
-            # (پیشفرض light_ring=False → رفتارِ PC بیت‌به‌بیت همان است)
+# اندروید/حفرهٔ بزرگِ کنارِ هنر: حلقه ممکن است
+# اقلیتِ «دیوار/کاغذِ روشن» + اقلیتِ هنرِ تیره داشته باشد
+# (بلوکِ متنِ چسبیده به صحنه)؛ fit فقط از پیکسلهایِ روشنِ
+# حلقه — نتیجه: پرِ دیوارِ یکدست بدونِ آلودگیِ هنرِ تیره.
+# (پیشفرض light_ring=False → رفتارِ PC بیت‌به‌بیت همان است)
             try:
                 _gl = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
                 ring &= (_gl >= 170.0)
@@ -4622,8 +4596,8 @@ class _MangaTranslatorBody_85:
                 keep = error <= max(5.0, float(np.median(error)) * 2.5)
                 if keep.sum() < max(60, 0.55 * len(samples)):
                     return None
-            # v1.14.135 — fit_tol: مسیرِ حلقهٔ روشنِ اندروید با تلورانسِ
-            # بالاتر (گرادیانِ آسمان→دیوار قابلِ fit میشود؛ ضدِ توهمِ LaMa)
+# fit_tol: مسیرِ حلقهٔ روشنِ اندروید با تلورانسِ
+# بالاتر (گرادیانِ آسمان→دیوار قابلِ fit میشود؛ ضدِ توهمِ LaMa)
             if float(np.percentile(error[keep], 90)) > float(fit_tol):
                 return None
             fill = basis[m] @ fit
@@ -4740,13 +4714,13 @@ class _MangaTranslatorBody_85:
         buckets: Dict[int, List[int]] = {}
         for i in range(n):
             buckets.setdefault(_find(i), []).append(i)
-        # v1.14.135 — سقفِ اتحادِ گروه (فقط اندروید — MANGA_LAMA_GROUP_CAP):
-        # هر ورودیِ LaMa به سقفِ پچ (۳۸۴/۵۱۲) داوناسکیل میشود؛ اتحادِ
-        # چند خوشهٔ پراکنده رویِ نوارِ بلند (700×2000+) → مقیاسِ ~0.2 →
-        # LaMa «متنِ قلابی/نویزِ گلیفی» میسازد (لکهٔ کثیفِ بلوکهایِ
-        # متراکم — بازتولیدِ A/B). گروههایی که اتحادشان از ~2.2×پچ
-        # بزرگتر است به زیرگروههایِ همسایه شکسته میشوند → مقیاسِ ≥0.45.
-        # PC (گیت اندروید) دست‌نخورده.
+# سقفِ اتحادِ گروه (فقط اندروید — MANGA_LAMA_GROUP_CAP):
+# هر ورودیِ LaMa به سقفِ پچ (۳۸۴/۵۱۲) داوناسکیل میشود؛ اتحادِ
+# چند خوشهٔ پراکنده رویِ نوارِ بلند (700×2000+) → مقیاسِ ~0.2 →
+# LaMa «متنِ قلابی/نویزِ گلیفی» میسازد (لکهٔ کثیفِ بلوکهایِ
+# متراکم — بازتولیدِ A/B). گروههایی که اتحادشان از ~2.2×پچ
+# بزرگتر است به زیرگروههایِ همسایه شکسته میشوند → مقیاسِ ≥0.45.
+# PC (گیت اندروید) دست‌نخورده.
         _gcap = 0
         try:
             if _on_android() and os.environ.get(
@@ -4797,7 +4771,7 @@ class _MangaTranslatorBody_85:
 
     def _lama_group_prep(self, image: np.ndarray, members: List[list],
                          page_kernel) -> Optional[dict]:
-        """v1.14.96-speed (SRV-G phase2) — فازِ «آماده‌سازی»ِ `_lama_run_group`
+        """-speed (SRV-G phase2) — فازِ «آماده‌سازی»ِ `_lama_run_group`
         قبلی: کراپِ گروه + ماسک + پد + داون‌اسکیلِ >max_side — بدونِ هیچ
         run. خروجی ctx بینِ prep/run/finish مشترک است تا مسیرِ batched
         بایت‌به‌بایت همان ورودی‌هایِ امروز را بسازد. None = گروهِ ردشده
@@ -4811,11 +4785,11 @@ class _MangaTranslatorBody_85:
         bh = max(1, gy1 - gy0)
         pad_x = int(np.clip(round(bw * 0.15), 12, 48))
         pad_y = int(np.clip(round(bh * 0.15), 12, 48))
-        # v1.14.65 — گروه‌هایِ بنرِ تبلیغ (promo): پدِ بزرگ‌تر الزامی است.
-        # با پدِ معمولی (~40px) حفرهٔ بنر ~۵۰٪ کراپ را می‌گیرد و LaMa-Manga
-        # «بنفشِ خیالی/صورتی» نقاشی می‌کند (بازتولیدِ سندباکس: بنرِ
-        # ASURASCANS.COM). با پدِ ~۵۵٪ (حفره ~۲۰٪) مدل راه‌راه‌ها را
-        # واقعاً ادامه می‌دهد — آزمایش: pad=130 → نتیجهٔ تمیز.
+# گروه‌هایِ بنرِ تبلیغ (promo): پدِ بزرگ‌تر الزامی است.
+# با پدِ معمولی (~40px) حفرهٔ بنر ~۵۰٪ کراپ را می‌گیرد و LaMa-Manga
+# «بنفشِ خیالی/صورتی» نقاشی می‌کند (بازتولیدِ سندباکس: بنرِ
+# ASURASCANS.COM). با پدِ ~۵۵٪ (حفره ~۲۰٪) مدل راه‌راه‌ها را
+# واقعاً ادامه می‌دهد — آزمایش: pad=130 → نتیجهٔ تمیز.
         try:
             for _pg in (getattr(self, "_promo_rect_boxes", None) or []):
                 if not (gx1 < int(_pg[0]) or gx0 > int(_pg[2])
@@ -4851,8 +4825,8 @@ class _MangaTranslatorBody_85:
             region = sub_msk[cy0 - ey0:cy1 - ey0, cx0 - ex0:cx1 - ex0]
             sub_msk[cy0 - ey0:cy1 - ey0, cx0 - ex0:cx1 - ex0] = \
                 np.maximum(region, dm)
-        # v1.14.48: دیوارِ حباب/کادر از ماسکِ LaMa هم حذف شود تا به‌عنوان
-        # زمینه بماند و بازسازی نشود
+# دیوارِ حباب/کادر از ماسکِ LaMa هم حذف شود تا به‌عنوان
+# زمینه بماند و بازسازی نشود
         _pp = getattr(self, "_page_protect", None)
         if _pp is not None:
             try:
@@ -4861,9 +4835,9 @@ class _MangaTranslatorBody_85:
                     sub_msk[_pp_sub > 0] = 0
             except Exception:
                 pass
-        # v1.14.81 — ساختارِ روشنِ قفل‌شده (خطِ حباب/قابِ کارت) هم از
-        # ماسکِ LaMa خارج شود — LaMa باید آن را «زمینه» ببیند، نه حفره
-        # (وگرنه قابِ سفیدِ کارت با رنگِ کارت بازسازی می‌شد — img2-r10).
+# ساختارِ روشنِ قفل‌شده (خطِ حباب/قابِ کارت) هم از
+# ماسکِ LaMa خارج شود — LaMa باید آن را «زمینه» ببیند، نه حفره
+# (وگرنه قابِ سفیدِ کارت با رنگِ کارت بازسازی می‌شد — img2-r10).
         try:
             _pa81g = getattr(self, "_prot_all", None)
             if _pa81g is not None:
@@ -4873,7 +4847,7 @@ class _MangaTranslatorBody_85:
         except Exception:
             pass
         if not sub_msk.any():
-            return  # v1.14.65: ماسکِ خالی — طبیعی، لاگ لازم نیست
+            return  # ماسکِ خالی — طبیعی، لاگ لازم نیست
         try:
             _max_side = int(os.environ.get("MANGA_LAMA_MAX_SIDE", "0") or 0)
         except Exception:
@@ -4904,15 +4878,15 @@ class _MangaTranslatorBody_85:
         return ctx
 
     def _lama_try_fn(self, lama):
-        """v1.14.96-speed (SRV-G phase2) — همان `_lama_try` قبلی (بدنه دست
+        """-speed (SRV-G phase2) — همان `_lama_try` قبلی (بدنه دست
         نخورده) به‌صورتِ کارخانهٔ closure تا مسیرِ batched هم دقیقاً همان
         فال‌بک‌ها (EP-mortal → CPU-safe → resize-retry) را داشته باشد."""
         def _lama_try(si, sm, side):
-            # v1.14.65b — حافظهٔ مرگِ EP: بعد از اولین ORT_FAIL واقعی،
-            # بقیهٔ پچ‌هایِ همین ران مستقیم با سشنِ امنِ CPU اجرا می‌شوند
-            # (تلاشِ مجدد با سشنِ مرده فقط اتلافِ زمان است) + انتخابِ «cpu»
-            # در فایلِ .epab ذخیره می‌شود تا ران‌هایِ بعدیِ گوشی از همان
-            # ابتدا CPU برود و هرگز به فال‌بکِ OpenCV (لکهٔ قرمز) نیفتد.
+# حافظهٔ مرگِ EP: بعد از اولین ORT_FAIL واقعی
+# بقیهٔ پچ‌هایِ همین ران مستقیم با سشنِ امنِ CPU اجرا می‌شوند
+# (تلاشِ مجدد با سشنِ مرده فقط اتلافِ زمان است) + انتخابِ «cpu»
+# در فایلِ .epab ذخیره می‌شود تا ران‌هایِ بعدیِ گوشی از همان
+# ابتدا CPU برود و هرگز به فال‌بکِ OpenCV (لکهٔ قرمز) نیفتد.
             _ep_dead = getattr(self, "_lama_ep_dead", False)
 
             def _call_main(ai, am):
@@ -4925,11 +4899,11 @@ class _MangaTranslatorBody_85:
             try:
                 return _call_main(si, sm)
             except Exception as _e0:
-                # v1.14.65 — سکوتِ ممنوع: EPِ پروب‌شده (مثلاً xnnpack) ورودیِ
-                # ثابتِ پروب (۲۵۶²) را پاس می‌کند ولی رویِ شکلِ واقعیِ پچ
-                # (مثلاً ۳۸۴×۱۸۰) ORT_FAIL می‌دهد (لاگِ POCO F4: پچِ کارتِ
-                # Crimson Dragon بی‌صدا رد شد → فال‌بکِ OpenCV → لکهٔ قرمز).
-                # یک بار با سشنِ امنِ CPU دوباره تلاش می‌کنیم.
+# سکوتِ ممنوع: EPِ پروب‌شده (مثلاً xnnpack) ورودیِ
+# ثابتِ پروب (۲۵۶²) را پاس می‌کند ولی رویِ شکلِ واقعیِ پچ
+# (مثلاً ۳۸۴×۱۸۰) ORT_FAIL می‌دهد (لاگِ POCO F4: پچِ کارتِ
+# Crimson Dragon بی‌صدا رد شد → فال‌بکِ OpenCV → لکهٔ قرمز).
+# یک بار با سشنِ امنِ CPU دوباره تلاش می‌کنیم.
                 self._lama_ep_dead = True
                 try:
                     _lama_ep_store(getattr(self, "_lama_model_path", "") or "",
@@ -4983,7 +4957,7 @@ class _MangaTranslatorBody_85:
     def _lama_run_group(self, image: np.ndarray, members: List[list],
                         lama, page_kernel) -> None:
         """مسیرِ تکیِ امروز: prep → run (همان `_lama_try`) → finish.
-        v1.14.96-speed (SRV-G phase2) — فقط بازچینی شد؛ رفتارِ بایت‌به‌بایت
+        -speed (SRV-G phase2) — فقط بازچینی شد؛ رفتارِ بایت‌به‌بایت
         همان قبل است."""
         if os.environ.get("MANGA_GROUP_DBG"):
             try:
@@ -5047,7 +5021,7 @@ class _MangaTranslatorBody_85:
 
     def _lama_group_finish(self, members: List[list], ctx: dict,
                            sub_bgr, page_kernel) -> None:
-        """v1.14.96-speed (SRV-G phase2) — فازِ «پس‌پردازشِ» `_lama_run_group`
+        """-speed (SRV-G phase2) — فازِ «پس‌پردازشِ» `_lama_run_group`
         قبلی (QCِ dark-fill + اعتبارسنجیِ ضدتوهم + انتسابِ اعضا) — دست
         نخورده؛ فقط ورودی‌هایش از ctx می‌آید."""
         img_h, img_w = ctx["img_h"], ctx["img_w"]
@@ -5065,26 +5039,26 @@ class _MangaTranslatorBody_85:
                 _g = cv2.cvtColor(sub_bgr, cv2.COLOR_BGR2GRAY)
                 _bg_px = _g[_ring]
                 _bright = _bg_px[_bg_px >= 160.0]
-                # v1.14.207d — QCِ «پرِ تیره» فقط وقتی معتبر است که حلقهٔ
-                # کلاستر «واقعاً» روشن باشد. بنرِ سیاهِ «CHAPTER 1 PAGE 1»
-                # (img1018) داخلِ کلاسترِ بالایِ صفحه بود؛ حلقهٔ ۳۱pxِ
-                # کلاستر عمدتاً سفیدِ صفحه است → bg_med=۲۵۵ → پرِ «سیاهِ
-                # درستِ» LaMa رویِ بنر رد میشد و جایگزینِ سفید = «لگهٔ
-                # سفیدِ» بزرگ رویِ بنر. حالا اگر ≥۱۰٪ حلقه تیرهِ واقعی
-                # باشد (زمینهٔ مختلط)، این QCِ کورِ سطحِ کلاستر پرش را رد
-                # نمیکند؛ اعتبارسنجیِ محلیِ هر عضو (گاردِ ضدتوهم) خودش
-                # درست قضاوت میکند.
+# QCِ «پرِ تیره» فقط وقتی معتبر است که حلقهٔ
+# کلاستر «واقعاً» روشن باشد. بنرِ سیاهِ «CHAPTER 1 PAGE 1»
+# (img1018) داخلِ کلاسترِ بالایِ صفحه بود؛ حلقهٔ ۳۱pxِ
+# کلاستر عمدتاً سفیدِ صفحه است → bg_med=۲۵۵ → پرِ «سیاهِ
+# درستِ» LaMa رویِ بنر رد میشد و جایگزینِ سفید = «لگهٔ
+# سفیدِ» بزرگ رویِ بنر. حالا اگر ≥۱۰٪ حلقه تیرهِ واقعی
+# باشد (زمینهٔ مختلط)، این QCِ کورِ سطحِ کلاستر پرش را رد
+# نمیکند؛ اعتبارسنجیِ محلیِ هر عضو (گاردِ ضدتوهم) خودش
+# درست قضاوت میکند.
                 _darkqc = float((_bg_px < 110.0).mean())
                 if (_bright.size >= max(50, int(0.02 * _bg_px.size))
                         and _bright.size >= 0.55 * _bg_px.size
                         and _darkqc < 0.10):
                     _bg_med = float(np.median(_bright))
                     _fill_med = float(np.median(_g[_fm]))
-                    # v1.14.133 — اندروید: رویِ حلقهٔ تختِ روشن (حبابِ زرد)،
-                    # پرِ ~۱۳۰-۱۶۰ (بلوکِ خاکستریِ LaMaِ xnnpack) از آستانهٔ
-                    # قدیمیِ (-55) رد میشد و به خروجی میرفت. رویِ حلقهٔ یکدست
-                    # (std≤30) آستانه به -30 سختگیرانهتر میشود؛ بافتِ
-                    # واقعی (std بالا) مثلِ قبل -55.
+# اندروید: رویِ حلقهٔ تختِ روشن (حبابِ زرد)
+# پرِ ~۱۳۰-۱۶۰ (بلوکِ خاکستریِ LaMaِ xnnpack) از آستانهٔ
+# قدیمیِ (-55) رد میشد و به خروجی میرفت. رویِ حلقهٔ یکدست
+# (std≤30) آستانه به -30 سختگیرانهتر میشود؛ بافتِ
+# واقعی (std بالا) مثلِ قبل -55.
                     _dqc_thr = 55.0
                     if _android_gate("MANGA_DARKQC_HARD"):
                         try:
@@ -5092,13 +5066,13 @@ class _MangaTranslatorBody_85:
                                 _dqc_thr = 30.0
                         except Exception:
                             pass
-                    # v1.14.185 — اندروید (MANGA_GRAYQC): بلوکِ خاکستریِ
-                    # LaMaِ xnnpack (پرِ ~۱۲۰-۱۸۰ رویِ حبابِ سفید/روشن)
-                    # ازQCِ قدیمی می‌گذشت چون شرطِ قدیمی فقط «پرِ تیره‌ترِ
-                    # 115» را میگرفت = «لکهٔ خاکستری» در خروجی (نمونه:
-                    # حبابِ جرقهٔ صفحهٔ ژاپنیِ v1.14.184). حالا هر پرِ
-                    # محسوسِ تیره‌تر از حلقهٔ روشن (≥۴۲ واحد) هم رد میشود
-                    # و پرِ تختِ نجاتِ حلقه جایگزینش میشود. PC بیت‌به‌بیت.
+# اندروید (MANGA_GRAYQC): بلوکِ خاکستریِ
+# LaMaِ xnnpack (پرِ ~۱۲۰-۱۸۰ رویِ حبابِ سفید/روشن)
+# ازQCِ قدیمی می‌گذشت چون شرطِ قدیمی فقط «پرِ تیره‌ترِ
+# 115» را میگرفت = «لکهٔ خاکستری» در خروجی (نمونه:
+# حبابِ جرقهٔ صفحهٔ ژاپنیِ ). حالا هر پرِ
+# محسوسِ تیره‌تر از حلقهٔ روشن (≥۴۲ واحد) هم رد میشود
+# و پرِ تختِ نجاتِ حلقه جایگزینش میشود. PC بیت‌به‌بیت.
                     _gray = False
                     if _android_gate("MANGA_GRAYQC"):
                         try:
@@ -5108,36 +5082,35 @@ class _MangaTranslatorBody_85:
                             _gray = False
                     if _gray or (_fill_med < 115.0
                                     and _fill_med < _bg_med - _dqc_thr):
-                        # v1.14.65 — لاگ شود؛ این ردِ خاموش = فال‌بکِ OpenCV
+# لاگ شود؛ این ردِ خاموش = فال‌بکِ OpenCV
                         try:
                             print(f"    [!] LaMa group rejected: dark fill "
                                   f"({_fill_med:.0f} vs bg {_bg_med:.0f})",
                                   flush=True)
                         except Exception:
                             pass
-                        # v1.14.133 — اندروید: به‌جایِ رهاشدن به TELEA (اسمیرِ
-                        # کم‌رنگ رویِ حفرهٔ بزرگ)، اگر حلقه تختِ روشن است خودم
-                        # با رنگِ میانهٔ حلقه پر می‌کنم (همان پرِ تختِ امن).
-                        # پرِ موفق → return نمی‌خوریم تا کامیتِ پایینی اجرا
-                        # شود؛ اعتبارسنجیِ عضویِ بعدی رویِ پرِ تختِ
-                        # نجات‌یافته badf≈۰ می‌گیرد و دست نمی‌زند.
+# اندروید: به‌جایِ رهاشدن به TELEA (اسمیرِ
+# کم‌رنگ رویِ حفرهٔ بزرگ)، اگر حلقه تختِ روشن است خودم
+# با رنگِ میانهٔ حلقه پر می‌کنم (همان پرِ تختِ امن).
+# پرِ موفق → return نمی‌خوریم تا کامیتِ پایینی اجرا
+# شود؛ اعتبارسنجیِ عضویِ بعدی رویِ پرِ تختِ
+# نجات‌یافته badf≈۰ می‌گیرد و دست نمی‌زند.
                         _rescued = False
-                        # v1.14.212 — پیشفرضِ روشن رویِ PC هم: گروهِ ردشده
-                        # (پرِ تیره) بدونِ نجات، یا متنِ اورجینال جا میماند
-                        # یا فال‌بکِ Telea اسمیر میسازد (img6: 88 vs bg 226).
+# پیشفرضِ روشن رویِ PC هم: گروهِ ردشده
+# (پرِ تیره) بدونِ نجات، یا متنِ اورجینال جا میماند
+# یا فال‌بکِ Telea اسمیر میسازد (img6: 88 vs bg 226).
                         if _gate_default_on("MANGA_FILL_RESCUE"):
                             try:
-                                # v1.14.213 — نجاتِ «عضو به عضو» به‌جایِ
-                                # پرِ تختِ کلِ گروه (دستورِ سازنده: «نه لگه
-                                # سیاهی نه لگه سفیدی یا هرنگی لگه بشه قبول
-                                # نمیکنم»): پرِ تختِ یکرنگِ کلِ ماسکِ گروه
-                                # رویِ حبابِ گرادیانی = «لکهٔ سفیدِ
-                                # مستطیلی» (GO! EVEN FASTER — img6). حالا
-                                # هر عضو (خطِ متن) با ماسکِ خودش و حلقهٔ
-                                # «محلیِ روشنِ» خودش ردیف‌به‌ردیف پر میشود —
-                                # رنگِ محلیِ همان خط + گرادیانِ عمودیِ
-                                # حفظشده؛ عضوی که حلقهٔ معتبر ندارد به پرِ
-                                # تختِ محلیِ خودش برمیگردد.
+# نجاتِ «عضو به عضو» به‌جایِ
+                                #): پرِ تختِ یکرنگِ کلِ ماسکِ گروه
+# پرِ تختِ کلِ گروه (
+# رویِ حبابِ گرادیانی = «لکهٔ سفیدِ
+# مستطیلی» (GO! EVEN FASTER — img6). حالا
+# هر عضو (خطِ متن) با ماسکِ خودش و حلقهٔ
+# «محلیِ روشنِ» خودش ردیف‌به‌ردیف پر میشود —
+# رنگِ محلیِ همان خط + گرادیانِ عمودیِ
+# حفظشده؛ عضوی که حلقهٔ معتبر ندارد به پرِ
+# تختِ محلیِ خودش برمیگردد.
                                 _sub_g = cv2.cvtColor(
                                     sub_img, cv2.COLOR_BGR2GRAY)
                                 _resc_px = 0
@@ -5185,8 +5158,8 @@ class _MangaTranslatorBody_85:
                                           f"{_resc_rows} ردیفِ گرادیانی)",
                                           flush=True)
                                 else:
-                                    # هیچ عضوی حلقهٔ معتبر نداشت → پرِ تختِ
-                                    # کل (رفتارِ ۲۱۲)
+# هیچ عضوی حلقهٔ معتبر نداشت → پرِ تختِ
+# کل (رفتارِ ۲۱۲)
                                     _src = _ring
                                     _b = _bg_px >= 160.0
                                     if float(_b.mean()) < 0.98:
@@ -5214,31 +5187,31 @@ class _MangaTranslatorBody_85:
                             return
         except Exception:
             pass
-        # v1.14.140/141 — اندروید (MANGA_DARKSMOKE): QCِ «پرِ ناهمخوان
-        # با حلقه» رویِ زمینهٔ تیره/مختلط. بلوکِ بالایی فقط حلقهٔ روشن
-        # (≥۵۵٪ پیکسل ≥160) را بازرسی میکند؛ رویِ کتِ تیرهٔ (#20)
-        # صفحهٔ 700×11362 حلقه مختلط است (دستکشِ روشن + کت) → LaMaِ
-        # xnnpack در داوناسکیلِ پچِ 512 «دودِ خاکستری» (تیره — لاگِ
-        # گوشیِ v1.14.139) یا «هَزِ روشن» (آرتیفکتِ شبیهساز) میسازد و
-        # بدونِ هیچ بازرسی به خروجی میرود = «لگه». v1.14.142 —
-        # تریگرِ بی‌قطبیت: (الف) دود — انرژیِ فرکانس-بالایِ پر ≫ حلقه
-        # (hf_in > 2.2×hf_ring+4 و hf_in>6)، یا (ب) ناهمخوانیِ
-        # روشنایی — |پر − حلقه| > 22. درمان: پرِ «ردیفی» از حلقهٔ
-        # همان ردیف (گرادیانِ قائم حفظ؛ ردیفِ هنری/شلوغ همان LaMa را
-        # نگه میدارد). PC بیت‌به‌بیت.
+# /141 — اندروید (MANGA_DARKSMOKE): QCِ «پرِ ناهمخوان
+# با حلقه» رویِ زمینهٔ تیره/مختلط. بلوکِ بالایی فقط حلقهٔ روشن
+# (≥۵۵٪ پیکسل ≥160) را بازرسی میکند؛ رویِ کتِ تیرهٔ (#20)
+# صفحهٔ 700×11362 حلقه مختلط است (دستکشِ روشن + کت) → LaMaِ
+# xnnpack در داوناسکیلِ پچِ 512 «دودِ خاکستری» (تیره — لاگِ
+# گوشیِ ) یا «هَزِ روشن» (آرتیفکتِ شبیهساز) میسازد و
+# بدونِ هیچ بازرسی به خروجی میرود = «لگه». —
+# تریگرِ بی‌قطبیت: (الف) دود — انرژیِ فرکانس-بالایِ پر ≫ حلقه
+# (hf_in > 2.2×hf_ring+4 و hf_in>6)، یا (ب) ناهمخوانیِ
+# روشنایی — |پر − حلقه| > 22. درمان: پرِ «ردیفی» از حلقهٔ
+# همان ردیف (گرادیانِ قائم حفظ؛ ردیفِ هنری/شلوغ همان LaMa را
+# نگه میدارد). PC بیت‌به‌بیت.
         try:
             if _android_gate("MANGA_DARKSMOKE") and _fm.any() \
                     and _ring.any():
                 _g2 = cv2.cvtColor(sub_bgr, cv2.COLOR_BGR2GRAY)
                 _rmed = float(np.median(_g2[_ring]))
                 _fmed = float(np.median(_g2[_fm]))
-                # v1.14.186 — اندروید (MANGA_SOFTQC): کلاسِ جدیدِ «لکهٔ
-                # شیری» — پرِ LaMa رویِ زمینهٔ بافت‌دار (کتِ بژِ صفحهٔ
-                # ژاپنیِ v1.14.184) که روشناییاش به حلقه نزدیک است
-                # (از QCِ تیره/دود رد میشود) ولی بافتِ داخلِ پر تقریباً
-                # صفر است در حالیکه حلقه بافتِ واقعی دارد = اسمیرِ
-                # نیمه‌شفافِ لباس/هنر. دروازهٔ ارزان: stdِ حلقه؛ بعد
-                # سنجشِ hf. PC بیت‌به‌بیت.
+# اندروید (MANGA_SOFTQC): کلاسِ جدیدِ «لکهٔ
+# شیری» — پرِ LaMa رویِ زمینهٔ بافت‌دار (کتِ بژِ صفحهٔ
+# ژاپنیِ ) که روشناییاش به حلقه نزدیک است
+# (از QCِ تیره/دود رد میشود) ولی بافتِ داخلِ پر تقریباً
+# صفر است در حالیکه حلقه بافتِ واقعی دارد = اسمیرِ
+# نیمه‌شفافِ لباس/هنر. دروازهٔ ارزان: stdِ حلقه؛ بعد
+# سنجشِ hf. PC بیت‌به‌بیت.
                 _soft = False
                 _rstd = 0.0
                 if _android_gate("MANGA_SOFTQC") \
@@ -5272,13 +5245,13 @@ class _MangaTranslatorBody_85:
                     if _soft or (_hf_in > 2.2 * _hf_rg + 4.0
                                     and _hf_in > 6.0) or \
                             abs(_fmed - _rmed) > 22.0:
-                        # v1.14.140b — پرِ «ردیفی» از حلقهٔ همان ردیف
-                        # (بهجایِ پرِ تختِ کل): هر ردیفِ ماسک که نمونهٔ
-                        # آزادِ کافیِ یکدست دارد با میانهٔ همان ردیف
-                        # پر میشود → گرادیانِ عمودیِ کت/دیوار حفظ و
-                        # چینِ کت (stdِ کلِ حلقه بالا ولی هر ردیف صاف)
-                        # هم پوشش داده میشود؛ ردیفِ شلوغ (هنر) همان
-                        # LaMa را نگه میدارد.
+# پرِ «ردیفی» از حلقهٔ همان ردیف
+# (بهجایِ پرِ تختِ کل): هر ردیفِ ماسک که نمونهٔ
+# آزادِ کافیِ یکدست دارد با میانهٔ همان ردیف
+# پر میشود → گرادیانِ عمودیِ کت/دیوار حفظ و
+# چینِ کت (stdِ کلِ حلقه بالا ولی هر ردیف صاف)
+# هم پوشش داده میشود؛ ردیفِ شلوغ (هنر) همان
+# LaMa را نگه میدارد.
                         _hW = _fm.shape[1]
                         _rOK = np.zeros(_fm.shape[0], bool)
                         _rC = np.zeros((_fm.shape[0], 3), np.float32)
@@ -5320,9 +5293,9 @@ class _MangaTranslatorBody_85:
                             sub_bgr[_fm] = np.clip(
                                 _fill, 0, 255).astype(
                                     np.uint8)[_fm]
-                            # v1.14.186b — f-stringِ چندخطی در 3.11
-                            # سینتکس-ارور میداد (PEP 701 = 3.12) → لیبل
-                            # قبل از print محاسبه میشود
+# f-stringِ چندخطی در 3.11
+# سینتکس-ارور میداد (PEP 701 = 3.12) → لیبل
+# قبل از print محاسبه میشود
                             _tag = ("ضدِ لکهٔ شیری (SOFTQC)"
                                        if _soft else
                                        "ضدِ دودِ زمینهٔ تیره")
@@ -5334,15 +5307,15 @@ class _MangaTranslatorBody_85:
                                   flush=True)
         except Exception:
             pass
-        # v1.14.49 — اعتبارسنجیِ ضدتوهمِ هر عضو: LaMa-Manga وقتی حفرهٔ بزرگ
-        # داخلِ حبابِ سفید می‌بیند گاهی «محتوا» (صورت/بافتِ درخت/بافتِ
-        # اسکرین‌تونِ درشت) نقاشی می‌کند (لاگِ کاربر: حبابِ «YOU'RE
-        # LEAVING…» سیاه/صورت شد). اگر ماسکِ عضو بخشِ عمدهٔ اینتریورِ یک
-        # حبابِ سفید را بپوشاند و نتیجهٔ LaMa محتوایِ تیرهٔ «درشت» داشته
-        # باشد → همان عضو با رنگِ تختِ زمینه پر می‌شود (کارِ flat).
-        # گاردها: نقطه‌هایِ ریزِ اسکرین‌تون با OPEN حذف می‌شوند؛ ماسکِ
-        # کوچک (متنِ کنارِ عکسِ داخلِ حباب) اعتبارسنجی نمی‌شود تا عکس
-        # قانونی قربانی نشود.
+# اعتبارسنجیِ ضدتوهمِ هر عضو: LaMa-Manga وقتی حفرهٔ بزرگ
+# داخلِ حبابِ سفید می‌بیند گاهی «محتوا» (صورت/بافتِ درخت/بافتِ
+# اسکرین‌تونِ درشت) نقاشی می‌کند (لاگِ کاربر: حبابِ «YOU'RE
+# LEAVING…» سیاه/صورت شد). اگر ماسکِ عضو بخشِ عمدهٔ اینتریورِ یک
+# حبابِ سفید را بپوشاند و نتیجهٔ LaMa محتوایِ تیرهٔ «درشت» داشته
+# باشد → همان عضو با رنگِ تختِ زمینه پر می‌شود (کارِ flat).
+# گاردها: نقطه‌هایِ ریزِ اسکرین‌تون با OPEN حذف می‌شوند؛ ماسکِ
+# کوچک (متنِ کنارِ عکسِ داخلِ حباب) اعتبارسنجی نمی‌شود تا عکس
+# قانونی قربانی نشود.
         try:
             _k = getattr(self, "_qc_kernel31", None)
             if _k is None:
@@ -5371,26 +5344,26 @@ class _MangaTranslatorBody_85:
                     if _dbg:
                         print(f"      [🛡dbg] skip tiny mask {_n_mm}px", flush=True)
                     continue
-                # v1.14.227 — QCِ کروما (رنگ، نه فقط روشنایی) — «قبل از»
-                # همهٔ گاردهایِ خاکستری و مستقل از اینتریور: همهٔ QCهایِ
-                # قدیمی خاکستریند؛ LaMa (xnnpackِ گوشی + پچِ ثابتِ ۳۸۴)
-                # رویِ مرزِ دو حبابِ همپوشان با رنگهایِ متفاوت (img6:
-                # حبابِ سفیدِ «You're the real attraction here.» داخلِ
-                # کراپِ خوشهٔ حبابِ زردِ بزرگ — خوشهٔ واقعی: ماسکِ ۶۳هزارpx
-                # با حلقهٔ ذاتیِ مخلوطِ زرد+سفید+آسمان) پرِ «روشنِ زرد»
-                # میسازد که از هر بی‌رنگی سربلند بیرون میآید = «با حباب
-                # داخل به بیرون رنگ زده» (خروجیِ واقعیِ گوشیِ 226 —
-                # چپ‌بالا؛ PC هم در همان مرز لکهٔ خاکستریِ آبی میسازد).
-                # چون حلقهٔ کلِ چنین عضوی مخلوط است (و ماسکِ گسترش‌یافتهٔ
-                # چندخطی اغلب یک مؤلفهٔ عظیمِ به‌هم‌چسبیده است)، سنجش
-                # «پنجره‌پنجرهٔ شبکه‌ای (~۱۱۲px)» با حلقهٔ ۳۱pxیِ محلیِ
-                # همان پنجره انجام میشود: پنجره‌ای با حلقهٔ یکدست و پرِ
-                # تخت که ≥۴۸ واحد در یک کانال با حلقه‌اش فرق دارد = پرِ
-                # رنگِ غلط → همان پنجره با TELEAیِ محلی پر میشود (درمانِ
-                # ۲۱۳ — گرادیان حفظ، رنگِ حبابِ همسایه دیگر بیرون
-                # نمی‌ریزد). گاردها: حلقه/پرِ بافت‌دار (std بالا) و
-                # پنجره‌هایِ مرزی (حلقهٔ مخلوط) سنجیده نمیشوند تا هنرِ
-                # قانونی (سکرین‌تون/گرادیان/مرز) قربانی نشود.
+# QCِ کروما (رنگ، نه فقط روشنایی) — «قبل از»
+# همهٔ گاردهایِ خاکستری و مستقل از اینتریور: همهٔ QCهایِ
+# قدیمی خاکستریند؛ LaMa (xnnpackِ گوشی + پچِ ثابتِ ۳۸۴)
+# رویِ مرزِ دو حبابِ همپوشان با رنگهایِ متفاوت (img6:
+# حبابِ سفیدِ «You're the real attraction here.» داخلِ
+# کراپِ خوشهٔ حبابِ زردِ بزرگ — خوشهٔ واقعی: ماسکِ ۶۳هزارpx
+# با حلقهٔ ذاتیِ مخلوطِ زرد+سفید+آسمان) پرِ «روشنِ زرد»
+# میسازد که از هر بی‌رنگی سربلند بیرون میآید = «با حباب
+# داخل به بیرون رنگ زده» (خروجیِ واقعیِ گوشیِ 226 —
+# چپ‌بالا؛ PC هم در همان مرز لکهٔ خاکستریِ آبی میسازد).
+# چون حلقهٔ کلِ چنین عضوی مخلوط است (و ماسکِ گسترش‌یافتهٔ
+# چندخطی اغلب یک مؤلفهٔ عظیمِ به‌هم‌چسبیده است)، سنجش
+# «پنجره‌پنجرهٔ شبکه‌ای (~۱۱۲px)» با حلقهٔ ۳۱pxیِ محلیِ
+# همان پنجره انجام میشود: پنجره‌ای با حلقهٔ یکدست و پرِ
+# تخت که ≥۴۸ واحد در یک کانال با حلقه‌اش فرق دارد = پرِ
+# رنگِ غلط → همان پنجره با TELEAیِ محلی پر میشود (درمانِ
+# ۲۱۳ — گرادیان حفظ، رنگِ حبابِ همسایه دیگر بیرون
+# نمی‌ریزد). گاردها: حلقه/پرِ بافت‌دار (std بالا) و
+# پنجره‌هایِ مرزی (حلقهٔ مخلوط) سنجیده نمیشوند تا هنرِ
+# قانونی (سکرین‌تون/گرادیان/مرز) قربانی نشود.
                 try:
                     _sic2 = sub_img[oy:oy + dm.shape[0],
                                       ox:ox + dm.shape[1]]
@@ -5401,11 +5374,11 @@ class _MangaTranslatorBody_85:
 
                     _wins = []
                     _tofix = []
-                    # انرژیِ فرکانس-بالای زمینه (ضدِ هنرِ هموارنما):
-                    # مو/پوستِ رگه‌دار (img4_s02: پیشانی) رنگِ غالب و
-                    # stdِ پایین دارد ولی بافتِ ریزش hf بالا است — حباب/
-                    # آسمانِ تخت hf≈۰. فقط حلقههایِ تختِ واقعی سنجیده
-                    # میشوند.
+# انرژیِ فرکانس-بالای زمینه (ضدِ هنرِ هموارنما):
+# مو/پوستِ رگه‌دار (img4_s02: پیشانی) رنگِ غالب و
+# stdِ پایین دارد ولی بافتِ ریزش hf بالا است — حباب/
+# آسمانِ تخت hf≈۰. فقط حلقههایِ تختِ واقعی سنجیده
+# میشوند.
                     try:
                         _gS = cv2.cvtColor(_sic2,
                                               cv2.COLOR_BGR2GRAY)
@@ -5438,10 +5411,10 @@ class _MangaTranslatorBody_85:
                                     if _flC.shape[0] >= 40:
                                         _rmedC = np.median(
                                             _rngC, axis=0)
-                                        # رنگِ غالب: سهمِ پیکسلهایِ حلقه
-                                        # که در ≤۳۰ از میانهاند — بهتر از
-                                        # std (خطِ دیوار/دورخطِ نازک در
-                                        # حلقهٔ سالم دیگر رد نمیکند)
+# رنگِ غالب: سهمِ پیکسلهایِ حلقه
+# که در ≤۳۰ از میانهاند — بهتر از
+# std (خطِ دیوار/دورخطِ نازک در
+# حلقهٔ سالم دیگر رد نمیکند)
                                         _fracC = float((np.max(
                                             np.abs(_rngC
                                                    - _rmedC),
@@ -5461,19 +5434,19 @@ class _MangaTranslatorBody_85:
                                                 _hfC = 0.0
                                         _dch = float(np.max(np.abs(
                                             _fmedC - _rmedC)))
-                                        # v1.14.227b — قانونِ «کروما یا
-                                        # قطب»: پرِ غلطِ قابلِ درمان فقط
-                                        # (الف) جابهجاییِ کرومایی است
-                                        # (کانالها با نسبتِ نابرابر
-                                        # جابهجا شدهاند — زرد رویِ آسمان)
-                                        # یا (ب) حلقهٔ قطبیِ ناب (سفیدِ
-                                        # ≥۲۳۵/سیاهِ ≤۷۰ — بلوکِ خاکستری
-                                        # رویِ حبابِ سفید / پرِ سفید رویِ
-                                        # پنلِ سیاه). «همفامِ تیرهترِ
-                                        # تناسبی» رویِ زمینهٔ میانه (سایهٔ
-                                        # پوست/مو — img4_s02: پیشانی) =
-                                        # بازسازیِ قانونیِ LaMa → دست
-                                        # نمیزیم.
+# قانونِ «کروما یا
+# قطب»: پرِ غلطِ قابلِ درمان فقط
+# (الف) جابهجاییِ کرومایی است
+# (کانالها با نسبتِ نابرابر
+# جابهجا شدهاند — زرد رویِ آسمان)
+# یا (ب) حلقهٔ قطبیِ ناب (سفیدِ
+# ≥۲۳۵/سیاهِ ≤۷۰ — بلوکِ خاکستری
+# رویِ حبابِ سفید / پرِ سفید رویِ
+# پنلِ سیاه). «همفامِ تیرهترِ
+# تناسبی» رویِ زمینهٔ میانه (سایهٔ
+# پوست/مو — img4_s02: پیشانی) =
+# بازسازیِ قانونیِ LaMa → دست
+# نمیزیم.
                                         _rel = ((_rmedC - _fmedC)
                                                    / np.maximum(_rmedC,
                                                                 40.0))
@@ -5485,12 +5458,12 @@ class _MangaTranslatorBody_85:
                                              >= 200.0)
                                             or (float(np.max(_rmedC))
                                                 <= 70.0))
-                                        # گاردِ سه‌گانه: رنگِ غالب ≥۵۵٪
-                                        # «و» stdِ کانالیِ حلقه ≤۳۴ «و»
-                                        # hfِ حلقه ≤۶ — هنرِ هموارنما
-                                        # (مو/پوست) بافت/پراکندگی دارد؛
-                                        # بازسازیِ LaMa رویِ چنین حلقههایی
-                                        # قانونی است و دست نمی‌زنیم.
+# گاردِ سه‌گانه: رنگِ غالب ≥۵۵٪
+# «و» stdِ کانالیِ حلقه ≤۳۴ «و»
+# hfِ حلقه ≤۶ — هنرِ هموارنما
+# (مو/پوست) بافت/پراکندگی دارد
+# بازسازیِ LaMa رویِ چنین حلقههایی
+# قانونی است و دست نمی‌زنیم.
                                         if (_fracC >= 0.55
                                                 and _rstdC <= 34.0
                                                 and _hfC <= 6.0
@@ -5498,31 +5471,31 @@ class _MangaTranslatorBody_85:
                                                 and _dch >= 48.0
                                                 and (_chroma
                                                      or _extreme)):
-                                            # v1.14.241 — گاردِ «حلقه باید
-                                            # نمایندهٔ زمینهٔ زیرِ پنجره
-                                            # باشد» (همان درسِ 228): پنجرهٔ
-                                            # متنِ رویِ دیوارِ روشن که
-                                            # حلقه‌اش به مویِ قهوهایِ
-                                            # شخصِ زیرش میخورد (9.jpg:
-                                            # حلقه=[100,102,166] ولی پرِ
-                                            # درست=[213,213,221]) → رنگِ
-                                            # حلقه رویِ پرِ سالم «هارمونیک»
-                                            # میشود = «مستطیلِ قهوهای».
-                                            # میانهٔ لومیایِ «زیرِ پنجره در
-                                            # اورجینال» (زمینهٔ اکثریت) با
-                                            # لومیایِ حلقه سنجیده میشود؛
-                                            # فاصلهٔ >۶۰ = حلقه زمینهٔ
-                                            # دیگری است → پنجره دستنخورده.
-                                            # v1.14.241 — سنجشِ «پر در
-                                            # برابرِ زمینهٔ زیرِ خودِ
-                                            # پنجره»: زمینهٔ زیر = قطبِ
-                                            # روشنِ اورجینالِ زیرِ ماسک
-                                            # (جوهرِ متن اقلیت است؛
-                                            # صدکِ ۷۵ ≈ زمینه). اگر پر با
-                                            # آن همرنگ بود، پر درست است و
-                                            # حلقه (که هنرِ مجاور را
-                                            # میبیند — مویِ قهوهای/کتِ
-                                            # تیره) حقِ قضاوت ندارد.
+# گاردِ «حلقه باید
+# نمایندهٔ زمینهٔ زیرِ پنجره
+# باشد» (همان درسِ 228): پنجرهٔ
+# متنِ رویِ دیوارِ روشن که
+# حلقه‌اش به مویِ قهوهایِ
+# شخصِ زیرش میخورد (9.jpg:
+# حلقه=[100,102,166] ولی پرِ
+# درست=[213,213,221]) → رنگِ
+# حلقه رویِ پرِ سالم «هارمونیک»
+# میشود = «مستطیلِ قهوهای».
+# میانهٔ لومیایِ «زیرِ پنجره در
+# اورجینال» (زمینهٔ اکثریت) با
+# لومیایِ حلقه سنجیده میشود
+# فاصلهٔ >۶۰ = حلقه زمینهٔ
+# دیگری است → پنجره دستنخورده.
+# سنجشِ «پر در
+# برابرِ زمینهٔ زیرِ خودِ
+# پنجره»: زمینهٔ زیر = قطبِ
+# روشنِ اورجینالِ زیرِ ماسک
+# (جوهرِ متن اقلیت است
+# صدکِ ۷۵ ≈ زمینه). اگر پر با
+# آن همرنگ بود، پر درست است و
+# حلقه (که هنرِ مجاور را
+# میبیند — مویِ قهوهای/کتِ
+# تیره) حقِ قضاوت ندارد.
                                             _skip = False
                                             try:
                                                 _uw = _sic2[
@@ -5553,11 +5526,11 @@ class _MangaTranslatorBody_85:
                                                                 f"≈{_ul241b:.0f})"
                                                                 f" → رد",
                                                                 flush=True)
-                                                        # False = حلقه
-                                                        # نمایندهٔ زمینهٔ
-                                                        # زیرِ پنجره نیست؛
-                                                        # سرایت هم حقِ
-                                                        # ترمیم ندارد
+# False = حلقه
+# نمایندهٔ زمینهٔ
+# زیرِ پنجره نیست
+# سرایت هم حقِ
+# ترمیم ندارد
                                                         _wins.append(
                                                             (False, _gy,
                                                              _gx,
@@ -5588,28 +5561,28 @@ class _MangaTranslatorBody_85:
                                                  _rstdC, _hfC))
                             _gx += _cell
                         _gy += _cell
-                    # دورِ سرایتِ رنگ: پنجرهٔ ترمیم‌نشده که «پرِ»اش همان
-                    # رنگِ غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲ — همان لکهٔ
-                    # LaMa ادامه دارد) و با رنگِ غالبِ حلقهٔ خودش هم
-                    # نمیخواند (غالبِ ≥۴۰٪، Δ≥۴۸) → همان درمان؛ تا لبهٔ
-                    # لکه نصفه نماند (پنجره‌های مرزیِ آسمان+زرد).
+# دورِ سرایتِ رنگ: پنجرهٔ ترمیم‌نشده که «پرِ»اش همان
+# رنگِ غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲ — همان لکهٔ
+# LaMa ادامه دارد) و با رنگِ غالبِ حلقهٔ خودش هم
+# نمیخواند (غالبِ ≥۴۰٪، Δ≥۴۸) → همان درمان؛ تا لبهٔ
+# لکه نصفه نماند (پنجره‌های مرزیِ آسمان+زرد).
                     _fm2 = [t[3] for t in _tofix]
                     for (_dmy, _gy, _gx, _win, _fmedC,
                          _dch, _rmedC, _fstdC, _fracC,
                          _rstdC, _hfC) in _wins:
-                        # سرایت بدونِ گاردِ rstd: پرِ این پنجره عینِ پرِ
-                        # غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲) — یعنی همان
-                        # لکهی LaMa ادامه دارد، نه بازسازیِ هنر؛ گاردِ
-                        # هنرِ متقارن لازم نیست. مرزهایِ دو رنگِ همپوشان
-                        # (آسمان+زرد) همین‌جا ترمیم میشوند. hfِ هنری همچنان
-                        # رد میشود (بافتِ ریز = بازسازیِ قانونیِ LaMa).
+# سرایت بدونِ گاردِ rstd: پرِ این پنجره عینِ پرِ
+# غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲) — یعنی همان
+# لکهی LaMa ادامه دارد، نه بازسازیِ هنر؛ گاردِ
+# هنرِ متقارن لازم نیست. مرزهایِ دو رنگِ همپوشان
+# (آسمان+زرد) همین‌جا ترمیم میشوند. hfِ هنری همچنان
+# رد میشود (بافتِ ریز = بازسازیِ قانونیِ LaMa).
                         if not _dmy:
-                            continue  # v1.14.241 — پنجرهٔ «حلقه≠زمینه» ترمیم/سرایت ممنوع
+                            continue  # پنجرهٔ «حلقه≠زمینه» ترمیم/سرایت ممنوع
                         if _fstdC > 46.0 or _hfC > 6.0 \
                                 or _fracC < 0.40 or _dch < 48.0:
                             continue
-                        # قانونِ کروما/قطب اینجا هم (لنگرِ سرایت معاف
-                        # نیست — پرِ همفامِ تیرهتر تناسبی رد).
+# قانونِ کروما/قطب اینجا هم (لنگرِ سرایت معاف
+# نیست — پرِ همفامِ تیرهتر تناسبی رد).
                         if any(float(np.max(np.abs(
                                 _fmedC - _f2))) <= 12.0
                                for _f2 in _fm2):
@@ -5618,17 +5591,17 @@ class _MangaTranslatorBody_85:
                                  _dch, _rmedC, "(سرایت)",
                                  _fracC, _rstdC, _hfC,
                                  _fstdC))
-                    # یک پخشِ واحد برای «همهٔ» پنجرههایِ تصمیمشده:
-                    # مرز = پیکسلهایِ اصلِ بیرونِ ماسک + پرهایِ درستِ
-                    # داخلِ ماسک (پنجرهٔ زرد-روی-زرد مرزِ درست میماند)؛
-                    # نه پخشِ تک‌پنجره‌ای که از لکهٔ همسایه آلوده میشد.
+# یک پخشِ واحد برای «همهٔ» پنجرههایِ تصمیمشده:
+# مرز = پیکسلهایِ اصلِ بیرونِ ماسک + پرهایِ درستِ
+# داخلِ ماسک (پنجرهٔ زرد-روی-زرد مرزِ درست میماند)
+# نه پخشِ تک‌پنجره‌ای که از لکهٔ همسایه آلوده میشد.
                     if _tofix:
-                        # پرِ «محلی» به‌ازایِ پنجره: برازشِ صفحهٔ
-                        # z=a+bx+cy رویِ زیرمجموعهٔ غالبِ حلقهٔ «همان
-                        # پنجره» (بدون نشتِ رنگِ حبابِ همسایه — پخش/
-                        # میانگینِ جعبه‌ای زردِ #02 را تا آسمانِ #04
-                        # میکشید)؛ بعدِ پر، نوارِ لبهٔ ۴px با تار کردن
-                        # نرم میشود تا درزِ پنجرهها/findها دیده نشود.
+# پرِ «محلی» به‌ازایِ پنجره: برازشِ صفحهٔ
+# z=a+bx+cy رویِ زیرمجموعهٔ غالبِ حلقهٔ «همان
+# پنجره» (بدون نشتِ رنگِ حبابِ همسایه — پخش/
+# میانگینِ جعبه‌ای زردِ #02 را تا آسمانِ #04
+# میکشید)؛ بعدِ پر، نوارِ لبهٔ ۴px با تار کردن
+# نرم میشود تا درزِ پنجرهها/findها دیده نشود.
                         try:
                             _union = np.zeros(mm.shape, bool)
                             for (_gyF, _gxF, _winF, _fmedF, _dchF,
@@ -5649,10 +5622,10 @@ class _MangaTranslatorBody_85:
                                 _wyF, _wxF = np.nonzero(_winfF)
                                 if _wyF.size == 0:
                                     continue
-                                # انتسابِ فاصله‌ای: فقط پیکسلهایِ ماسکی
-                                # که به «حلقهٔ غالب» نزدیکترند پر میشوند —
-                                # سمتِ دیگری از پنجرهٔ مرزی (نزدیکِ رنگِ
-                                # دیگر) دستنخورده میماند (Voronoi ساده).
+# انتسابِ فاصله‌ای: فقط پیکسلهایِ ماسکی
+# که به «حلقهٔ غالب» نزدیکترند پر میشوند —
+# سمتِ دیگری از پنجرهٔ مرزی (نزدیکِ رنگِ
+# دیگر) دستنخورده میماند (Voronoi ساده).
                                 _selF = _winfF.copy()
                                 _planeImgF = None
                                 _hasPF = None
@@ -5683,10 +5656,10 @@ class _MangaTranslatorBody_85:
                                             cv2.DIST_L2, 3)
                                         _selF = _winfF & (_ddF <= _doF)
                                         _selOF = _winfF & (_ddF > _doF)
-                                        # سمتِ «دیگر» هم پر میشود — با
-                                        # برازشِ حلقهٔ خودش (پنجرهٔ مرزی:
-                                        # هر سمت رنگِ خودش را میگیرد؛ وگرنه
-                                        # لکهٔ غلطِ آن سمت سرِ جایش میماند)
+# سمتِ «دیگر» هم پر میشود — با
+# برازشِ حلقهٔ خودش (پنجرهٔ مرزی:
+# هر سمت رنگِ خودش را میگیرد؛ وگرنه
+# لکهٔ غلطِ آن سمت سرِ جایش میماند)
                                         try:
                                             _ryO = _ryF[~_domF]
                                             _rxO = _rxF[~_domF]
@@ -5831,8 +5804,8 @@ class _MangaTranslatorBody_85:
                                             np.rint(_pwF),
                                             0, 255).astype(
                                                 np.uint8)[_selP]
-                            # نرمسازیِ لبه: نوارِ ۴px دورِ اجتماعِ
-                            # پنجرههایِ پرشده با میانگینِ ۹px مینشیند
+# نرمسازیِ لبه: نوارِ ۴px دورِ اجتماعِ
+# پنجرههایِ پرشده با میانگینِ ۹px مینشیند
                             _edgeF = cv2.erode(
                                 _union.astype(np.uint8),
                                 np.ones((9, 9), np.uint8)) > 0
@@ -5907,14 +5880,14 @@ class _MangaTranslatorBody_85:
                     print(f"      [🛡dbg] ({cx0},{cy0}) msk={_n_mm} "
                           f"int={_fa_in:.0f} med_i={_med_i:.0f} "
                           f"cov={_cov:.2f}", flush=True)
-                # v1.14.50: فقط «حبابِ واقعی» — رویِ عکس (پاراگرافِ روی حصار در
-                # 9.jpg) ناحیهٔ روشنِ دیوار «حبابِ سفید» خوانده می‌شد و
-                # بازسازیِ درستِ LaMa (حصار/درخت) با پرِ تخت جایگزین می‌شد
-                # → لکهٔ بژِ بزرگ. ولی حبابِ نیمه‌شفاف (chinese01) دیوارِ
-                # «روشنِ یکنواخت» دارد — پس: دیوارِ تیره «یا» حلقهٔ
-                # یکنواختِ روشن + اینتریورِ یکنواخت + بدونِ نشتِ ۴لبه.
-                # اندازه‌گیریِ واقعی: حصار=ring_std ۴۳.۶/uniform ۰.۶۰ —
-                # حباب=ring_std ۲۱.۱/uniform ۰.۸۶
+# فقط «حبابِ واقعی» — رویِ عکس (پاراگرافِ روی حصار در
+# 9.jpg) ناحیهٔ روشنِ دیوار «حبابِ سفید» خوانده می‌شد و
+# بازسازیِ درستِ LaMa (حصار/درخت) با پرِ تخت جایگزین می‌شد
+# → لکهٔ بژِ بزرگ. ولی حبابِ نیمه‌شفاف (chinese01) دیوارِ
+# «روشنِ یکنواخت» دارد — پس: دیوارِ تیره «یا» حلقهٔ
+# یکنواختِ روشن + اینتریورِ یکنواخت + بدونِ نشتِ ۴لبه.
+# اندازه‌گیریِ واقعی: حصار=ring_std ۴۳.۶/uniform ۰.۶۰ —
+# حباب=ring_std ۲۱.۱/uniform ۰.۸۶
                 _wall_ok = False
                 _uni = 0.0
                 _t4 = 4
@@ -5922,9 +5895,9 @@ class _MangaTranslatorBody_85:
                 try:
                     _ring_in = (cv2.dilate(_intm, np.ones((5, 5),
                                 np.uint8)) > 0) & (_intm == 0)
-                    # v1.14.53: cv2.countNonZero روی آرایهٔ bool exception
-                    # می‌داد → except → _ring_blk=True → مسیرِ ok49 از
-                    # v1.14.50 همیشه مُرده بود و همیشه فال‌بک اجرا می‌شد!
+# cv2.countNonZero روی آرایهٔ bool exception
+# می‌داد → except → _ring_blk=True → مسیرِ ok49 از
+# همیشه مُرده بود و همیشه فال‌بک اجرا می‌شد!
                     _n_ring = int(np.count_nonzero(_ring_in))
                     if _n_ring < 30:
                         if _dbg:
@@ -5949,31 +5922,31 @@ class _MangaTranslatorBody_85:
                                   f"uni={_uni:.2f} t4={_t4}", flush=True)
                 except Exception:
                     _ring_blk = True
-                # v1.14.51 — نشتِ اینتریور (دو صورتِ مختلف):
-                # ۱) حبابِ لبهٔ صفحه/دیوارِ شکافته روی زمینهٔ سفید — لاگِ گوشیِ
-                # v1.14.50: حبابِ «YOU'RE LEAVING…» → اینتریور از شکافِ دیوار
-                # به پنلِ بیرون نشت می‌کند (int≈۴۱Kpx، t4=4، wall_ok=False)
-                # → حبابِ واقعی «ناحیهٔ باز» خوانده شد → توهمِ LaMa (صورتِ
-                # خاکستری + لکهٔ سیاه) قبول شد.
-                # ۲) حبابِ روی هنرِ تیره — «OH BOY…» روی نیمکت: نشت به
-                # نیمکتِ قهوه‌ای med_i را به ~۱۴۰ می‌کاهد → «حبابِ سفید
-                # نیست» → اعتبارسنجی رد → LaMa نیمکت را داخلِ حباب کامل
-                # می‌کند → حباب کلاً پاک می‌شود (بازتولیدِ سندباکس).
-                # فال‌بکِ محلیِ مشترک: کامپوننتِ «روشنِ» چسبیده به خودِ ماسک
-                # (درونِ کراپ) = زمینهٔ سفیدِ محلی. اگر بزرگ (≥۵۵٪ ماسک)،
-                # روشن (med≥۲۲۵)، یکنواخت (≥۷۵٪) و ماسک ≥۴۵٪ آن را بپوشاند
-                # → «زمینهٔ سفید» معتبر است؛ تصمیمِ نهایی را چکِ badf
-                # (توهمِ تیره) می‌گیرد. عکس/هنر (بافتِ تیره/مخلوط) رد می‌شود
-                # (اندازه‌گیری: همهٔ نواحیِ عکسِ 9.jpg رد ✓ بدونِ رگرسیون).
-                # v1.14.52 — گیتِ «متنِ داخلِ اینتریور»: اعتبار‌سنجیِ ضدتوهم فقط
-                # وقتی معنا دارد که خودِ متنِ عضو عمدتاً «داخلِ همان زمینهٔ
-                # سفیدِ تأییدشده» باشد (حباب). کپشنِ رویِ هنر (مثلِ «AND TO
-                # REQUIRE…» روی کت/چوب در ۹.jpg): فقط ~۲۵٪ ماسک داخلِ
-                # اینتریورِ (میزِ سفید) است → بازسازیِ تیرهٔ درستِ LaMa با
-                # bg_medِ «میز» سنجیده می‌شد → ۶۵٪ «توهم» خوانده شد → عضو به
-                # اصلِ خودش برمی‌گشت → متنِ کامل می‌ماند. حالا اگر متنِ
-                # عضو داخلِ اینتریورِ سفیدِ نباشد، اصلاً اعتبارسنجی نمی‌شود
-                # و خروجیِ LaMa (بازسازیِ هنر) قبول می‌شود.
+# نشتِ اینتریور (دو صورتِ مختلف):
+# ۱) حبابِ لبهٔ صفحه/دیوارِ شکافته روی زمینهٔ سفید — لاگِ گوشیِ
+# حبابِ «YOU'RE LEAVING…» → اینتریور از شکافِ دیوار
+# به پنلِ بیرون نشت می‌کند (int≈۴۱Kpx، t4=4، wall_ok=False)
+# → حبابِ واقعی «ناحیهٔ باز» خوانده شد → توهمِ LaMa (صورتِ
+# خاکستری + لکهٔ سیاه) قبول شد.
+# ۲) حبابِ روی هنرِ تیره — «OH BOY…» روی نیمکت: نشت به
+# نیمکتِ قهوه‌ای med_i را به ~۱۴۰ می‌کاهد → «حبابِ سفید
+# نیست» → اعتبارسنجی رد → LaMa نیمکت را داخلِ حباب کامل
+# می‌کند → حباب کلاً پاک می‌شود (بازتولیدِ سندباکس).
+# فال‌بکِ محلیِ مشترک: کامپوننتِ «روشنِ» چسبیده به خودِ ماسک
+# (درونِ کراپ) = زمینهٔ سفیدِ محلی. اگر بزرگ (≥۵۵٪ ماسک)
+# روشن (med≥۲۲۵)، یکنواخت (≥۷۵٪) و ماسک ≥۴۵٪ آن را بپوشاند
+# → «زمینهٔ سفید» معتبر است؛ تصمیمِ نهایی را چکِ badf
+# (توهمِ تیره) می‌گیرد. عکس/هنر (بافتِ تیره/مخلوط) رد می‌شود
+# (اندازه‌گیری: همهٔ نواحیِ عکسِ 9.jpg رد بدونِ رگرسیون).
+# گیتِ «متنِ داخلِ اینتریور»: اعتبار‌سنجیِ ضدتوهم فقط
+# وقتی معنا دارد که خودِ متنِ عضو عمدتاً «داخلِ همان زمینهٔ
+# سفیدِ تأییدشده» باشد (حباب). کپشنِ رویِ هنر (مثلِ «AND TO
+# REQUIRE…» روی کت/چوب در ۹.jpg): فقط ~۲۵٪ ماسک داخلِ
+# اینتریورِ (میزِ سفید) است → بازسازیِ تیرهٔ درستِ LaMa با
+# bg_medِ «میز» سنجیده می‌شد → ۶۵٪ «توهم» خوانده شد → عضو به
+# اصلِ خودش برمی‌گشت → متنِ کامل می‌ماند. حالا اگر متنِ
+# عضو داخلِ اینتریورِ سفیدِ نباشد، اصلاً اعتبارسنجی نمی‌شود
+# و خروجیِ LaMa (بازسازیِ هنر) قبول می‌شود.
                 _m_in_i = (float(np.count_nonzero(mm & (_intm > 0)))
                            / max(1, _n_mm))
                 _ok = (_med_i >= 185.0 and _cov >= 0.45 and not _ring_blk
@@ -6001,10 +5974,10 @@ class _MangaTranslatorBody_85:
                                       f"no bright seed → skip", flush=True)
                             continue
                         _fb_comp = (_l8 == _vls[int(np.argmax(_cns))])
-                        # v1.14.51b: کامپوننتِ روشن گاهی از شکافِ دیوار به
-                        # هایلایتِ روشنِ هنرِ اطراف هم می‌رسد (OH BOY: نیمکتِ
-                        # روشن) → پر تا آن‌جا می‌رود و بلاب می‌سازد. پلِ باریک
-                        # را با فرسایش ببر و بزرگ‌ترین جزء را نگه دار.
+# کامپوننتِ روشن گاهی از شکافِ دیوار به
+# هایلایتِ روشنِ هنرِ اطراف هم می‌رسد (OH BOY: نیمکتِ
+# روشن) → پر تا آن‌جا می‌رود و بلاب می‌سازد. پلِ باریک
+# را با فرسایش ببر و بزرگ‌ترین جزء را نگه دار.
                         try:
                             _fe = cv2.erode(_fb_comp.astype(np.uint8),
                                             np.ones((3, 3), np.uint8),
@@ -6027,20 +6000,20 @@ class _MangaTranslatorBody_85:
                         _cu = float((_gcr[_fb_comp] >= _cm - 30.0).mean())
                         _fcov = float(np.count_nonzero(
                             mm & _fb_comp)) / max(1, _ca)
-                        # v1.14.52: مثلِ ok49 — متنِ عضو باید عمدتاً داخلِ
-                        # کامپوننتِ روشنِ تأییدشده باشد (کپشنِ رویِ هنر:
-                        # fcov=۰.۵۲ ولی m_in_c=۰.۳۲ → رد ✓)
+# مثلِ ok49 — متنِ عضو باید عمدتاً داخلِ
+# کامپوننتِ روشنِ تأییدشده باشد (کپشنِ رویِ هنر:
+# fcov=۰.۵۲ ولی m_in_c=۰.۳۲ → رد )
                         _m_in_c = (float(np.count_nonzero(mm & _fb_comp))
                                    / max(1, _n_mm))
-                        # v1.14.94e — آستانهٔ uni: ۰.۷۵ → ۰.۶۰. کارت‌هایِ
-                        # معرفی رویِ پنلِ عکس‌دار (GLENDA HOLLY — img1018)
-                        # اینتریورِ کاملاً یکنواخت ندارند (لبهٔ عکس/سایه در
-                        # کامپوننت‌ هست → uni≈۰.۶۶) و اعتبارسنجیِ
-                        # ضدتوهم رد می‌شد → لکهٔ سیاهِ LaMa در باکسِ سفید
-                        # می‌ماند. بقیهٔ گیت‌ها (med≥۲۲۵، fcov≥۰.۴۵،
-                        # m_in_c≥۰.۵۵) و خودِ آستانهٔ badf≥۰.۱۰ سرِ
-                        # جایشان‌اند؛ این فقط «اجازهٔ سنجش» است نه اجازهٔ
-                        # پر کردن.
+# آستانهٔ uni: ۰.۷۵ → ۰.۶۰. کارت‌هایِ
+# معرفی رویِ پنلِ عکس‌دار (GLENDA HOLLY — img1018)
+# اینتریورِ کاملاً یکنواخت ندارند (لبهٔ عکس/سایه در
+# کامپوننت‌ هست → uni≈۰.۶۶) و اعتبارسنجیِ
+# ضدتوهم رد می‌شد → لکهٔ سیاهِ LaMa در باکسِ سفید
+# می‌ماند. بقیهٔ گیت‌ها (med≥۲۲۵، fcov≥۰.۴۵
+# m_in_c≥۰.۵۵) و خودِ آستانهٔ badf≥۰.۱۰ سرِ
+# جایشان‌اند؛ این فقط «اجازهٔ سنجش» است نه اجازهٔ
+# پر کردن.
                         _lr_ok = (_ca >= max(600, 0.55 * _n_mm)
                                   and _cm >= 225.0 and _cu >= 0.60
                                   and _fcov >= 0.45 and _m_in_c >= 0.55)
@@ -6064,22 +6037,22 @@ class _MangaTranslatorBody_85:
                 rg = _gcr[ring]
                 if rg.size < 80:
                     continue
-                # v1.14.207j — درِ «متنِ پاکنشده» (مستقل از قطب): گاردهای
-                # قبلی فقط «پرِ تیره‌تر از حلقهٔ روشن» را خطرناک میدانستند؛
-                # متنِ روشن رویِ زمینهٔ تیره (بنرِ CHAPTER PAGE — img1018
-                # در کلاسترِ بزرگ) پرِ «روشنِ خودِ متن» میگرفت و بدونِ
-                # چک میماند = «متنِ قبلی جا میماند». سنجه: از جوهرِ
-                # اصلیِ عضو (پیکسلهایِ دورِ >۶۰ از میانهٔ حلقه) چه
-                # نسبتی همچنان دستنخورده مانده؟ ≥۳۵٪ → عضو رد و با
-                # «قطبِ غالبِ حلقهٔ هر کامپوننت» پر میشود.
+# درِ «متنِ پاکنشده» (مستقل از قطب): گاردهای
+# قبلی فقط «پرِ تیره‌تر از حلقهٔ روشن» را خطرناک میدانستند
+# متنِ روشن رویِ زمینهٔ تیره (بنرِ CHAPTER PAGE — img1018
+# در کلاسترِ بزرگ) پرِ «روشنِ خودِ متن» میگرفت و بدونِ
+# چک میماند = «متنِ قبلی جا میماند». سنجه: از جوهرِ
+# اصلیِ عضو (پیکسلهایِ دورِ >۶۰ از میانهٔ حلقه) چه
+# نسبتی همچنان دستنخورده مانده؟ ≥۳۵٪ → عضو رد و با
+# «قطبِ غالبِ حلقهٔ هر کامپوننت» پر میشود.
                 try:
                     _medJ = float(np.median(rg))
                     _sicJ = sub_img[oy:oy + dm.shape[0],
                                     ox:ox + dm.shape[1]]
-                    # v1.14.207m — _ppc در این نقطه از حلقه هنوز ساخته
-                    # نشده (در بلوکِ ردِ پایینتر ساخته میشود) → نامِ
-                    # تعریفنشده = استثنایِ خاموش = گیتِ بیاثر. اینجا
-                    # نسخهٔ محلیِ خودش را میسازد.
+# _ppc در این نقطه از حلقه هنوز ساخته
+# نشده (در بلوکِ ردِ پایینتر ساخته میشود) → نامِ
+# تعریفنشده = استثنایِ خاموش = گیتِ بیاثر. اینجا
+# نسخهٔ محلیِ خودش را میسازد.
                     _ppcJ = None
                     try:
                         _pp49J = getattr(self, "_page_protect", None)
@@ -6104,17 +6077,17 @@ class _MangaTranslatorBody_85:
                                   f"same={_sfJ:.2f} "
                                   f"ink={int(_inkJ.sum())}", flush=True)
                         if _sfJ >= 0.35:
-                            # v1.14.207k — فقط «جوهرِ جامانده» پر شود نه
-                            # کلِ عضو: پرِ تختِ سراسری، بازسازیِ سالمِ
-                            # LaMa را هم نابود میکرد (r0/r7 — bN جهش).
-                            # ماسکِ جراحی = (جوهر ∩ دستنخورده) + ۵px،
-                            # محدود به mm؛ رنگ = قطبِ غالبِ حلقهٔ هر
-                            # کامپوننتِ باقیمانده.
-                            # v1.14.207l — «روشنشدههایِ بيجا»: پیکسلِ
-                            # «زمینه»ای که LaMa روشنش کرده (لکهٔ سفیدِ
-                            # رویِ بنرِ سیاه — r9) نه جوهر است نه
-                            # دستنخورده؛ پرچمش = اصلِ تیرهٔ همرنگِ
-                            # حلقه + خروجیِ ≥۴۵ روشنتر و ≥۱۷۰.
+# فقط «جوهرِ جامانده» پر شود نه
+# کلِ عضو: پرِ تختِ سراسری، بازسازیِ سالمِ
+# LaMa را هم نابود میکرد (r0/r7 — bN جهش).
+# ماسکِ جراحی = (جوهر ∩ دستنخورده) + ۵px
+# محدود به mm؛ رنگ = قطبِ غالبِ حلقهٔ هر
+# کامپوننتِ باقیمانده.
+# «روشنشدههایِ بيجا»: پیکسلِ
+# «زمینه»ای که LaMa روشنش کرده (لکهٔ سفیدِ
+# رویِ بنرِ سیاه — r9) نه جوهر است نه
+# دستنخورده؛ پرچمش = اصلِ تیرهٔ همرنگِ
+# حلقه + خروجیِ ≥۴۵ روشنتر و ≥۱۷۰.
                             _outJf = _outJ.astype(np.float32)
                             _gJf = _gJ.astype(np.float32)
                             _brightJ = (mm & (~_inkJ)
@@ -6135,11 +6108,11 @@ class _MangaTranslatorBody_85:
                             except Exception:
                                 _rcJ[:] = _sicJ
                             try:
-                                # v1.14.207n — رنگِ قطبِ «سطحِ عضو» بهعنوانِ
-                                # پشتیبان: برایِ تودههایِ بزرگِ باقیمانده،
-                                # حلقهٔ ۱۳px داخلِ خودِ ماسک گیر میکند
-                                # (ring<۲۰ → skip) و لکه پر نمیشد. حلقهٔ
-                                # عضو (rg) قطبِ درست را دارد → همان رنگ.
+# رنگِ قطبِ «سطحِ عضو» بهعنوانِ
+# پشتیبان: برایِ تودههایِ بزرگِ باقیمانده
+# حلقهٔ ۱۳px داخلِ خودِ ماسک گیر میکند
+# (ring<۲۰ → skip) و لکه پر نمیشد. حلقهٔ
+# عضو (rg) قطبِ درست را دارد → همان رنگ.
                                 _poleColM = None
                                 try:
                                     if float((rg < 110.0).mean()) >= 0.5:
@@ -6195,20 +6168,20 @@ class _MangaTranslatorBody_85:
                     pass
                 _rb = rg >= 170.0
                 _rbm = float(_rb.mean())
-                # v1.14.51: عضوِ فال‌بک‌تأییدشده (اینتریورِ سفیدِ چسبیده به
-                # ماسک) گیتِ «حلقه عمدتاً سفید» را رد می‌کند — حبابِ روی
-                # هنرِ تیره (OH BOY روی نیمکت) حلقهٔ تیره دارد ولی داخلش
-                # سفید است؛ bg_med از پیکسل‌هایِ روشنِ حلقه هنوز درست درمی‌آید.
+# عضوِ فال‌بک‌تأییدشده (اینتریورِ سفیدِ چسبیده به
+# ماسک) گیتِ «حلقه عمدتاً سفید» را رد می‌کند — حبابِ روی
+# هنرِ تیره (OH BOY روی نیمکت) حلقهٔ تیره دارد ولی داخلش
+# سفید است؛ bg_med از پیکسل‌هایِ روشنِ حلقه هنوز درست درمی‌آید.
                 if _fb_comp is None and _rbm < 0.50:
-                    # v1.14.207f — تصویرِ آینهٔ همین گارد: حلقهٔ «تیره»
-                    # (متنِ روشن رویِ بنر/پنلِ سیاه — «CHAPTER 1 PAGE 1»
-                    # در img1018). گاردِ قدیمی اینجا «اعتبارسنجی نه» میکرد
-                    # و پرِ سفیدِ توهمیِ LaMa (یا متنِ پاکنشدهٔ روشن)
-                    # بدونِ چک میماند. حالا: اگر حلقه عمدتاً تیره است و
-                    # پرِ داخلِ ماسک همچنان «روشن» (≥۳۵٪ ≥۱۷۰)، عضو رد
-                    # میشود و ماسکِ عضو با «قطبِ غالبِ حلقهٔ هر کامپوننت»
-                    # پر میشود — بنر سیاهِ خالص، حبابِ رویِ پنلِ تیره
-                    # رنگِ پنل.
+# تصویرِ آینهٔ همین گارد: حلقهٔ «تیره»
+# (متنِ روشن رویِ بنر/پنلِ سیاه — «CHAPTER 1 PAGE 1»
+# در img1018). گاردِ قدیمی اینجا «اعتبارسنجی نه» میکرد
+# و پرِ سفیدِ توهمیِ LaMa (یا متنِ پاکنشدهٔ روشن)
+# بدونِ چک میماند. حالا: اگر حلقه عمدتاً تیره است و
+# پرِ داخلِ ماسک همچنان «روشن» (≥۳۵٪ ≥۱۷۰)، عضو رد
+# میشود و ماسکِ عضو با «قطبِ غالبِ حلقهٔ هر کامپوننت»
+# پر میشود — بنر سیاهِ خالص، حبابِ رویِ پنلِ تیره
+# رنگِ پنل.
                     try:
                         _dkr207f = float((rg < 110.0).mean())
                         _fg207f = _g_out[oy:oy + dm.shape[0],
@@ -6289,11 +6262,11 @@ class _MangaTranslatorBody_85:
                     continue
                 if _ba < 40 or _ba < 0.45 * int(_bad.sum()):
                     continue  # نقطه‌هایِ ریز (اسکرین‌تونِ روشن) → توهم نیست
-                # v1.14.51: پرِ تختِ «اینتریور» — کراپ اول به تصویرِ اصل
-                # برمی‌گردد (خروجیِ توهم‌زدهِ LaMa کامل حذف می‌شود)، بعد فقط
-                # mm ∩ همسایگیِ کامپوننتِ روشن (اینتریورِ سفیدِ واقعی + ۵px)
-                # با رنگِ همان کامپوننت پر می‌شود → دیوار/نیمکت/هنرِ اطراف
-                # دست‌نخورده می‌ماند (بازتولید: b03 و OH BOY تمیز).
+# پرِ تختِ «اینتریور» — کراپ اول به تصویرِ اصل
+# برمی‌گردد (خروجیِ توهم‌زدهِ LaMa کامل حذف می‌شود)، بعد فقط
+# mm ∩ همسایگیِ کامپوننتِ روشن (اینتریورِ سفیدِ واقعی + ۵px)
+# با رنگِ همان کامپوننت پر می‌شود → دیوار/نیمکت/هنرِ اطراف
+# دست‌نخورده می‌ماند (بازتولید: b03 و OH BOY تمیز).
                 _rc = sub_bgr[oy:oy + dm.shape[0], ox:ox + dm.shape[1]]
                 _sic = sub_img[oy:oy + dm.shape[0], ox:ox + dm.shape[1]]
                 _pp = getattr(self, "_page_protect", None)
@@ -6308,13 +6281,13 @@ class _MangaTranslatorBody_85:
                 if _fb_comp is not None:
                     _fill_col = np.median(
                         _sic[_fb_comp].astype(np.float32), axis=0)
-                    # v1.14.53: «نسخهٔ پرشدهٔ» comp — جزیره‌هایِ تیرهٔ متنِ
-                    # داخلِ زمینهٔ روشن جزوِ آن می‌شوند ولی دیوارِ حباب (که
-                    # از بیرون به زمینهٔ وصل است) هرگز حفره حساب نمی‌شود.
-                    # قبلاً cd_e≈comp خودِ حروف را «حفره» می‌دید → جوهرِ
-                    # وسطِ حروف از پر افت می‌افتاد → شبحِ متن می‌ماند و
-                    # residue-sweep بعداً برای پاک کردنش دیوار را هم می‌بلعید
-                    # (حبابِ کامل پاک می‌شد — chapter-264/8).
+# «نسخهٔ پرشدهٔ» comp — جزیره‌هایِ تیرهٔ متنِ
+# داخلِ زمینهٔ روشن جزوِ آن می‌شوند ولی دیوارِ حباب (که
+# از بیرون به زمینهٔ وصل است) هرگز حفره حساب نمی‌شود.
+# قبلاً cd_e≈comp خودِ حروف را «حفره» می‌دید → جوهرِ
+# وسطِ حروف از پر افت می‌افتاد → شبحِ متن می‌ماند و
+# residue-sweep بعداً برای پاک کردنش دیوار را هم می‌بلعید
+# (حبابِ کامل پاک می‌شد — chapter-264/8).
                     _ffc = self._fill_holes_mask(_fb_comp)
                     _cm2 = float(np.median(_gcr[_fb_comp]))
                     _ink8 = ((_gcr < _cm2 - 40.0) & (dm > 0) & _ffc)
@@ -6323,19 +6296,19 @@ class _MangaTranslatorBody_85:
                                              np.ones((5, 5), np.uint8))
                     _ink8 = cv2.dilate(_ink8, np.ones((5, 5), np.uint8))
                     _ink8[~_ffc] = 0  # سقف: هرگز بیرونِ نسخهٔ پرشده (دیوار)
-                    # v1.14.70 — نشتِ اینتریور (دمِ بازِ حباب) نباید متن را
-                    # زنده بگذارد: جوهرِ تیرهٔ داخلِ ماسک (بدونِ گیتِ comp)
+# نشتِ اینتریور (دمِ بازِ حباب) نباید متن را
+# زنده بگذارد: جوهرِ تیرهٔ داخلِ ماسک (بدونِ گیتِ comp)
                     _ink8b = self._mask_ink_only(_gcr, dm, _cm2 - 40.0)
                     _pnt = mm & ((cv2.dilate(
                         _fb_comp.astype(np.uint8),
                         np.ones((3, 3), np.uint8)) > 0) | (_ink8 > 0)
                         | (_ink8b > 0))
                 else:
-                    # v1.14.53: مسیرِ ok49 هم «پوسته‌ای» شد — قبلاً _pnt=mm
-                    # بود و هر جا ماسک تا دیوار کشیده شده بود، کلِ ناحیه
-                    # (شاملِ دیوار) با رنگِ تخت سفید می‌شد → حباب کامل پاک.
-                    # حالا فقط داخلِ اینتریورِ تأییدشده (±۱px) + جوهرِ تنگِ
-                    # داخلِ آن؛ دیوار/هنرِ بیرونِ اینتریور دست‌نخورده.
+# مسیرِ ok49 هم «پوسته‌ای» شد — قبلاً _pnt=mm
+# بود و هر جا ماسک تا دیوار کشیده شده بود، کلِ ناحیه
+# (شاملِ دیوار) با رنگِ تخت سفید می‌شد → حباب کامل پاک.
+# حالا فقط داخلِ اینتریورِ تأییدشده (±۱px) + جوهرِ تنگِ
+# داخلِ آن؛ دیوار/هنرِ بیرونِ اینتریور دست‌نخورده.
                     _fill_col = np.median(
                         _sic[_intm > 0].astype(np.float32), axis=0)
                     _int_d = cv2.dilate(_intm, np.ones((3, 3), np.uint8))
@@ -6345,40 +6318,40 @@ class _MangaTranslatorBody_85:
                                              np.ones((5, 5), np.uint8))
                     _ink9 = cv2.dilate(_ink9, np.ones((5, 5), np.uint8))
                     _ink9[_int_d == 0] = 0
-                    # v1.14.70 — «متنِ کج/ناقص پاک میشه» و «بعضی متن‌ها
-                    # جا می‌مونه»: ریشه‌اش این بود که اینتریورِ حباب از
-                    # دمِ بازِ حباب نشت می‌کرد → پیکسل‌هایِ ماسکِ متن که
-                    # بیرونِ اینتریور می‌افتادند اصلاً رنگ نمی‌گرفتند و چون
-                    # _rc به «اصل» برمی‌گردد، همان‌جا متن زنده می‌ماند
-                    # (نمونهٔ «I GOT TO QUIT… / BUT YOU CAN'T, RIGHT~?» —
-                    # دو خطِ آخر نصفه پاک می‌شدند). حالا جوهرِ تیرهٔ داخلِ
-                    # ماسک هم رنگ می‌گیرد (دیوارهای کشیده حذف می‌شوند) →
-                    # خطِ متن کامل پاک می‌شود و دیوارِ حباب دست‌نخورده
-                    # می‌ماند.
+# «متنِ کج/ناقص پاک میشه» و «بعضی متن‌ها
+# جا می‌مونه»: ریشه‌اش این بود که اینتریورِ حباب از
+# دمِ بازِ حباب نشت می‌کرد → پیکسل‌هایِ ماسکِ متن که
+# بیرونِ اینتریور می‌افتادند اصلاً رنگ نمی‌گرفتند و چون
+# _rc به «اصل» برمی‌گردد، همان‌جا متن زنده می‌ماند
+# (نمونهٔ «I GOT TO QUIT… / BUT YOU CAN'T, RIGHT~?» —
+# دو خطِ آخر نصفه پاک می‌شدند). حالا جوهرِ تیرهٔ داخلِ
+# ماسک هم رنگ می‌گیرد (دیوارهای کشیده حذف می‌شوند) →
+# خطِ متن کامل پاک می‌شود و دیوارِ حباب دست‌نخورده
+# می‌ماند.
                     _ink9b = self._mask_ink_only(_gcr, dm, _med_i - 40.0)
                     _pnt = mm & ((_int_d > 0) | (_ink9 > 0) | (_ink9b > 0))
                 if _ppc is not None:
                     _pnt = _pnt & (_ppc == 0)
-                # v1.14.70 — «بازگشت به اصل» فقط بیرونِ ماسک: قبلاً کلِ
-                # کراپ به اصل برمی‌گشت (`_rc[:] = _sic`) → هر پیکسلِ متنی
-                # که رنگ نگرفته بود دوباره متن می‌شد. حالا فقط ناحیهٔ
-                # بیرونِ ماسک (لغزشِ LaMa) به اصل برمی‌گردد و داخلِ ماسک
-                # پرِ تخت می‌گیرد → نه متن می‌ماند، نه لکه.
+# «بازگشت به اصل» فقط بیرونِ ماسک: قبلاً کلِ
+# کراپ به اصل برمی‌گشت (`_rc[:] = _sic`) → هر پیکسلِ متنی
+# که رنگ نگرفته بود دوباره متن می‌شد. حالا فقط ناحیهٔ
+# بیرونِ ماسک (لغزشِ LaMa) به اصل برمی‌گردد و داخلِ ماسک
+# پرِ تخت می‌گیرد → نه متن می‌ماند، نه لکه.
                 try:
                     _unm = ~mm
                     _rc[_unm] = _sic[_unm]
                 except Exception:
                     _rc[:] = _sic
                 if True:
-                    # v1.14.207e — پسگیریِ «متنِ جامانده در پسگیریِ گارد»:
-                    # _pnt فقط «اینتریور/کامپوننتِ روشن ∪ جوهرِ تیره» را پر
-                    # میکرد؛ متنِ «روشن» رویِ زمینهٔ تیره (بنرِ سیاهِ
-                    # CHAPTER PAGE — img1018) نه در کامپوننتِ روشن بود نه
-                    # جوهرِ تیره → بعدِ ردِ LaMa به اصلِ خودش برمیگشت =
-                    # متنِ سفیدِ کامل رویِ بنر. حالا هر پیکسلِ ماسک که
-                    # «جوهرمانند» است (تفاوتِ >۴۲ با زمینهٔ محلیِ تخمینیِ
-                    # 207b) هم پر میشود؛ پیکسلِ همرنگِ زمینه (دیوار/بافت)
-                    # مثلِ قبل به اصل برمیگردد.
+# پسگیریِ «متنِ جامانده در پسگیریِ گارد»:
+# _pnt فقط «اینتریور/کامپوننتِ روشن ∪ جوهرِ تیره» را پر
+# میکرد؛ متنِ «روشن» رویِ زمینهٔ تیره (بنرِ سیاهِ
+# CHAPTER PAGE — img1018) نه در کامپوننتِ روشن بود نه
+# جوهرِ تیره → بعدِ ردِ LaMa به اصلِ خودش برمیگشت =
+# متنِ سفیدِ کامل رویِ بنر. حالا هر پیکسلِ ماسک که
+# «جوهرمانند» است (تفاوتِ >۴۲ با زمینهٔ محلیِ تخمینیِ
+# 207b) هم پر میشود؛ پیکسلِ همرنگِ زمینه (دیوار/بافت)
+# مثلِ قبل به اصل برمیگردد.
                     _fill2 = None
                     try:
                         _kn = (~mm).astype(np.float32)
@@ -6387,14 +6360,14 @@ class _MangaTranslatorBody_85:
                         _num = cv2.boxFilter(_sicf, -1, (25, 25))
                         _loc = (_num
                                    / np.maximum(_den, 1e-3)[..., None])
-                        # v1.14.207b — میانگینِ ساده رویِ زمینهٔ «دوقطبی»
-                        # (بنرِ سیاه + حروفِ سفیدِ کنارِ ماسک — img1018)
-                        # رنگِ خاکستریِ ناخالص میدهد. پس پرِ محلی =
-                        # «قطبِ غالبِ محلی» (همان منطقِ دو-قطبیِ 206d):
-                        # در هر پنجره بینِ قطبِ تیره و روشنِ پیکسلهایِ
-                        # معلوم، قطبی که تراکمش بیشتر است برنده میشود —
-                        # رویِ بنرِ سیاه سیاهِ خالص، رویِ حبابِ سفید سفید،
-                        # رویِ حبابِ ماتِ رنگی رنگِ مات.
+# میانگینِ ساده رویِ زمینهٔ «دوقطبی»
+# (بنرِ سیاه + حروفِ سفیدِ کنارِ ماسک — img1018)
+# رنگِ خاکستریِ ناخالص میدهد. پس پرِ محلی =
+# «قطبِ غالبِ محلی» (همان منطقِ دو-قطبیِ 206d):
+# در هر پنجره بینِ قطبِ تیره و روشنِ پیکسلهایِ
+# معلوم، قطبی که تراکمش بیشتر است برنده میشود —
+# رویِ بنرِ سیاه سیاهِ خالص، رویِ حبابِ سفید سفید
+# رویِ حبابِ ماتِ رنگی رنگِ مات.
                         try:
                             _g207b = cv2.cvtColor(
                                 _sic, cv2.COLOR_BGR2GRAY).astype(np.float32)
@@ -6425,15 +6398,15 @@ class _MangaTranslatorBody_85:
                             np.broadcast_to(np.asarray(
                                 _fill_col, dtype=np.uint8), _loc.shape))
                         try:
-                            # v1.14.207i — پسگیریِ «متنِ جامانده» به روشِ
-                            # کامپوننت‌محور: تخمینِ پیکسلیِ 207b کنارِ
-                            # حروفِ سفیدِ بنر توسطِ لبههایِ روشنِ بیرونِ
-                            # ماسک آلوده میشد (|g-bg|<42 → پر نشد → متن
-                            # برمیگشت). برای هر کامپوننتِ «ماسکِ بدونِ
-                            # _pnt»: رنگ = قطبِ غالبِ حلقهٔ ۱۳px دورِ
-                            # کامپوننت (پایدار، بدونِ لبههایِ حروف)؛ اگر
-                            # خودِ کامپوننت با آن رنگ فاصلهٔ معنیدار
-                            # داشته = جوهر است → پر.
+# پسگیریِ «متنِ جامانده» به روشِ
+# کامپوننت‌محور: تخمینِ پیکسلیِ 207b کنارِ
+# حروفِ سفیدِ بنر توسطِ لبههایِ روشنِ بیرونِ
+# ماسک آلوده میشد (|g-bg|<42 → پر نشد → متن
+# برمیگشت). برای هر کامپوننتِ «ماسکِ بدونِ
+# _pnt»: رنگ = قطبِ غالبِ حلقهٔ ۱۳px دورِ
+# کامپوننت (پایدار، بدونِ لبههایِ حروف)؛ اگر
+# خودِ کامپوننت با آن رنگ فاصلهٔ معنیدار
+# داشته = جوهر است → پر.
                             _gSic207i = cv2.cvtColor(
                                 _sic, cv2.COLOR_BGR2GRAY)
                             _res207i = mm & (~_pnt)
@@ -6480,8 +6453,8 @@ class _MangaTranslatorBody_85:
                             _rc[_pnt] = _fill2[_pnt]
                         else:
                             _rc[_pnt] = _fill_col
-                        # v1.14.207i — رنگِ قطبِ حلقهٔ هر کامپوننتِ
-                        # «جوهرِ شناساییشده» رویِ پرِ عمومی مینشیند
+# رنگِ قطبِ حلقهٔ هر کامپوننتِ
+# «جوهرِ شناساییشده» رویِ پرِ عمومی مینشیند
                         try:
                             for _cmC, _colC in (_cc207i or []):
                                 _rc[_cmC] = _colC
@@ -6521,7 +6494,7 @@ class _MangaTranslatorBody_85:
             cx1, cy1 = min(cx1, img_w), min(cy1, img_h)
             if cx1 <= cx0 or cy1 <= cy0:
                 continue
-            # v1.14.81 — ماسکِ نتیجه هم از پیکسل‌هایِ قفل‌شده تمیز شود
+# ماسکِ نتیجه هم از پیکسل‌هایِ قفل‌شده تمیز شود
             try:
                 _pa81m = getattr(self, "_prot_all", None)
                 if _pa81m is not None:
@@ -6537,7 +6510,7 @@ class _MangaTranslatorBody_85:
 
     @staticmethod
     def _lama_batch_cap() -> int:
-        """v1.14.99 (SRV-H4) — بچینگِ پچ‌هایِ LaMa پیش‌فرضِ خاموش (رویِ
+        """ (SRV-H4) — بچینگِ پچ‌هایِ LaMa پیش‌فرضِ خاموش (رویِ
         سرور در هر دو حالتِ CPU/GPU کندتر بود — SRV-H2/H3؛ مسیرِ موازیِ
         قدیمیِ per-patch مثلِ e32bccf پیش‌فرض است). opt-in:
         MANGA_LAMA_BATCH=1 → روشن با سقفِ خودکارِ قدیمی (PC=8؛
@@ -6553,7 +6526,7 @@ class _MangaTranslatorBody_85:
             if _n > 0:
                 if _n > 1:
                     return max(1, _n)
-                # =1 → روشن با سقفِ خودکارِ قدیمی (SRV-G)
+# =1 → روشن با سقفِ خودکارِ قدیمی (SRV-G)
                 try:
                     if _on_android() or _android_like_env():
                         return 2
@@ -6570,7 +6543,7 @@ class _MangaTranslatorBody_85:
     def _lama_run_groups_batched(self, image: np.ndarray,
                                  groups: List[List[list]],
                                  lama, page_kernel) -> None:
-        """v1.14.96-speed (SRV-G phase2) — اجرایِ دسته‌ایِ پچ‌هایِ LaMa-Manga.
+        """-speed (SRV-G phase2) — اجرایِ دسته‌ایِ پچ‌هایِ LaMa-Manga.
 
         پچ‌هایی که تنسورِ پدشدهٔ «دقیقاً هم‌شکل» دارند (مثلاً همهٔ
         1x3x512x512) در «یک» session.run با بعدِ batch=N می‌روند — همان
@@ -6644,8 +6617,8 @@ class _MangaTranslatorBody_85:
                 except JobCancelled:
                     raise
                 except Exception as _be:
-                    # همان قراردادِ `_lama_try`: مرگِ EP → CPU-safe برایِ
-                    # بقیهٔ ران + ذخیرهٔ «cpu» برایِ ران‌هایِ بعد
+# همان قراردادِ `_lama_try`: مرگِ EP → CPU-safe برایِ
+# بقیهٔ ران + ذخیرهٔ «cpu» برایِ ران‌هایِ بعد
                     self._lama_ep_dead = True
                     try:
                         _lama_ep_store(getattr(self, "_lama_model_path", "")
@@ -6675,7 +6648,7 @@ class _MangaTranslatorBody_85:
     @staticmethod
     def _mask_ink_only(gray_crop: np.ndarray, zone: np.ndarray,
                        thr: float) -> np.ndarray:
-        """v1.14.70 — جوهرِ تیرهٔ داخلِ ماسک (بدونِ گیتِ اینتریور).
+        """ — جوهرِ تیرهٔ داخلِ ماسک (بدونِ گیتِ اینتریور).
 
         ریشهٔ «بعضی متن‌ها جا می‌مونه / کج پاک میشه»: اینتریورِ حباب از
         دمِ بازِ حباب (یا شکافِ JPEGِ دیوار) نشت می‌کرد → پیکسل‌هایِ متن
@@ -6702,7 +6675,7 @@ class _MangaTranslatorBody_85:
                     continue
                 cw_ = int(st[i, cv2.CC_STAT_WIDTH])
                 ch_ = int(st[i, cv2.CC_STAT_HEIGHT])
-                # دیوار/قاب: بلند و نازک (عمودی) یا خیلی کشیده (افقی)
+# دیوار/قاب: بلند و نازک (عمودی) یا خیلی کشیده (افقی)
                 if ch_ >= 30 and ch_ >= 2.5 * cw_:
                     continue
                 if cw_ >= 120 and cw_ >= 6.0 * max(1, ch_):
@@ -6721,10 +6694,10 @@ class _MangaTranslatorBody_85:
         return lv if lv in ("quality", "fast") else "quality"
 
     def _lama_workers_auto(self) -> int:
-        # v1.14.44: سرعتِ LaMa — درخواستِ کاربر «سرعتِ پاکسازیِ lama سریع‌تر کن».
-        # روی گوشیِ ۸ هسته‌ای قبلاً فقط ۶ پچِ موازی اجرا می‌شد (۲ هسته بیکار)
-        # → حالا تا ۸ پچِ موازی (همهٔ هسته‌ها)؛ دینامیکِ لاما در سقفِ ۳۸۴px
-        # حافظهٔ هر رشته کم است و fallbackِ OpenCV در رمِ واقعاً کم سرِ جاست.
+# سرعتِ LaMa — درخواستِ کاربر «سرعتِ پاکسازیِ lama سریع‌تر کن».
+# روی گوشیِ ۸ هسته‌ای قبلاً فقط ۶ پچِ موازی اجرا می‌شد (۲ هسته بیکار)
+# → حالا تا ۸ پچِ موازی (همهٔ هسته‌ها)؛ دینامیکِ لاما در سقفِ ۳۸۴px
+# حافظهٔ هر رشته کم است و fallbackِ OpenCV در رمِ واقعاً کم سرِ جاست.
         try:
             _wa = int(os.environ.get("MANGA_LAMA_WORKERS", "0") or 0)
             if _wa > 0:
@@ -6781,7 +6754,7 @@ class _MangaTranslatorBody_85:
         except Exception:
             _rw = 1
         _rw = max(1, min(_rw, len(groups)))
-        # v1.14.45: مانند مسیرِ اصلی — پچِ کم → نخِ بیشتر برای هر پچ
+# مانند مسیرِ اصلی — پچِ کم → نخِ بیشتر برای هر پچ
         try:
             _rcores = int(self._cpu_core_count())
         except Exception:
@@ -6795,7 +6768,7 @@ class _MangaTranslatorBody_85:
         _no_batch_r = self._lama_batch_cap() <= 0 \
             or not hasattr(lama, "run_batch_tensors")
         if not _no_batch_r:
-            # v1.14.96-speed (SRV-G phase2) — بچینگِ rescue هم مثلِ مسیرِ اصلی
+# speed (SRV-G phase2) — بچینگِ rescue هم مثلِ مسیرِ اصلی
             self._lama_run_groups_batched(cleaned, groups, lama, page_kernel)
         elif _rw > 1:
             try:
@@ -6832,7 +6805,7 @@ class _MangaTranslatorBody_85:
                 continue
             cx0, cy0, cx1, cy1, dm = c[0], c[1], c[2], c[3], c[4]
             mm = dm > 0
-            # v1.14.48: دیوارِ محافظت‌شده در rescue هم دست‌نخورده بماند
+# دیوارِ محافظت‌شده در rescue هم دست‌نخورده بماند
             if _pp is not None:
                 try:
                     mm = mm & (_pp[cy0:cy1, cx0:cx1] == 0)
@@ -6857,11 +6830,11 @@ class _MangaTranslatorBody_85:
                 else:
                     sub = cc
                     msub = mc
-                # v1.14.61 — TELEA رویِ زمینهٔ تختِ روشن (داخلِ حبابِ سفید)
-                # خاکستریِ لکه‌دار/مستطیلِ محو می‌سازد (لاگِ گوشی: حباب‌هایِ
-                # 002 — «لگه میزاره»). اگر رینگِ اطرافِ ماسک تخت و روشن است
-                # → پرکردن با رنگِ خودِ زمینه (همان سبکِ پرکننده‌ها)؛
-                # وگرنه مثل قبل TELEA (زمینهٔ بافت‌دار/تیره).
+# TELEA رویِ زمینهٔ تختِ روشن (داخلِ حبابِ سفید)
+# خاکستریِ لکه‌دار/مستطیلِ محو می‌سازد (لاگِ گوشی: حباب‌هایِ
+# 002 — «لگه میزاره»). اگر رینگِ اطرافِ ماسک تخت و روشن است
+# → پرکردن با رنگِ خودِ زمینه (همان سبکِ پرکننده‌ها)
+# وگرنه مثل قبل TELEA (زمینهٔ بافت‌دار/تیره).
                 _done = False
                 try:
                     _m = msub > 0
@@ -6895,24 +6868,24 @@ class _MangaTranslatorBody_85:
                                 regions: List[TextRegion],
                                 mask: np.ndarray,
                                 skip_ids=None) -> int:
-        """v1.14.47 — پرکردنِ فوریِ متنِ روی محفظهٔ تیرهٔ یکدست (بنرِ هدر،
+        """ — پرکردنِ فوریِ متنِ روی محفظهٔ تیرهٔ یکدست (بنرِ هدر
         حبابِ سیاه). مستقیم با TELEA و رنگِ خودِ محفظه پر می‌شود و پیکسل‌ها
         از ماسکِ اصلی حذف می‌شوند تا حلقهٔ کلاسترها دیگر سراغشان نرود —
         چون ringِ پرکننده‌ها روی بنرِ نازک همیشه به بیرون نشت می‌کند و لگه
         می‌سازد."""
         n_fill = 0
         for region in regions:
-            # v1.14.73 — ناحیهٔ donor-گسترش‌یافته: پرِ فوری نگیرد تا LaMa
-            # کلِ داخل را با بافتِ خودش بازسازی کند (حالتِ کیفی)
+# ناحیهٔ donor-گسترش‌یافته: پرِ فوری نگیرد تا LaMa
+# کلِ داخل را با بافتِ خودش بازسازی کند (حالتِ کیفی)
             if skip_ids and int(getattr(region, "id", -1)) in skip_ids:
                 continue
-            # v1.14.65 — بنرِ تبلیغ (promo): پرکنندهٔ فوریِ محفظه نباید
-            # ماسکِ توپرِ بنر را بکُشد (همان حفرهٔ رویِ متنِ بنر)
+# بنرِ تبلیغ (promo): پرکنندهٔ فوریِ محفظه نباید
+# ماسکِ توپرِ بنر را بکُشد (همان حفرهٔ رویِ متنِ بنر)
             if getattr(region, "kind", "") == "promo":
                 continue
-            # v1.14.82 — ناحیهِ «فقط-جوهر»: پرِ فوریِ محفظه/هاله ممنوع —
-            # پرکنندهِ میانه‌ای روی هنرِ داخلِ کارت لکهِ تخت می‌گذارد.
-            # جوهرش با LaMa پاک می‌شود.
+# ناحیهِ «فقط-جوهر»: پرِ فوریِ محفظه/هاله ممنوع —
+# پرکنندهِ میانه‌ای روی هنرِ داخلِ کارت لکهِ تخت می‌گذارد.
+# جوهرش با LaMa پاک می‌شود.
             try:
                 _ib81f = getattr(self, "_lama_ink_boxes", None) or []
                 if _ib81f:
@@ -6944,8 +6917,8 @@ class _MangaTranslatorBody_85:
             try:
                 ys, xs = np.nonzero(enc)
                 h, w = image.shape[:2]
-                # v1.14.67 — حاشیهٔ ۲۰px (قبلاً ۱۲): گشادکردنِ ۱۳pxِ ماسکِ
-                # پرکردن (برجستگیِ متن) باید داخلِ پنجره جا شود
+# حاشیهٔ ۲۰px (قبلاً ۱۲): گشادکردنِ ۱۳pxِ ماسکِ
+# پرکردن (برجستگیِ متن) باید داخلِ پنجره جا شود
                 x0 = max(0, int(xs.min()) - 20)
                 y0 = max(0, int(ys.min()) - 20)
                 x1 = min(w, int(xs.max()) + 21)
@@ -6955,12 +6928,12 @@ class _MangaTranslatorBody_85:
                 sub = cleaned[y0:y1, x0:x1]
                 m2 = cv2.dilate(enc[y0:y1, x0:x1],
                                 np.ones((3, 3), np.uint8), iterations=1)
-                # v1.14.60 — هاله/درخششِ اطرافِ حروف (نمونه: تیترِ «The
-                # Crimson Dragon…» که متنِ سفیدِ شعاع‌دار روی کارتِ تیره
-                # دارد) فقط با m2 پر نمی‌شود و شبحِ روشن جا می‌گذارد.
-                # پیکسل‌هایِ روشنِ داخلِ خودِ محفظهٔ تیره که نزدیکِ جوهرند
-                # هم به ماسکِ پرکردن اضافه می‌شوند؛ قابِ تزئینیِ دور از
-                # متن دست‌نخورده می‌ماند.
+# هاله/درخششِ اطرافِ حروف (نمونه: تیترِ «The
+# Crimson Dragon…» که متنِ سفیدِ شعاع‌دار روی کارتِ تیره
+# دارد) فقط با m2 پر نمی‌شود و شبحِ روشن جا می‌گذارد.
+# پیکسل‌هایِ روشنِ داخلِ خودِ محفظهٔ تیره که نزدیکِ جوهرند
+# هم به ماسکِ پرکردن اضافه می‌شوند؛ قابِ تزئینیِ دور از
+# متن دست‌نخورده می‌ماند.
                 try:
                     _full_c = getattr(self, "_last_enclosure_full", None)
                     if (_full_c is not None
@@ -6968,14 +6941,14 @@ class _MangaTranslatorBody_85:
                             and int(_full_c.any())):
                         _fc = _full_c[y0:y1, x0:x1] > 0
                         _gg = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
-                        # v1.14.81c — «نزدیکِ جوهر» نه «نزدیکِ کلِ محفظه»!
-                        # قبلاً دیلهٔ ۲۵ِ خودِ enc بود و در محفظهٔ بزرگ
-                        # (کارتِ img2-r10، حبابِ بزرگ) هر ساختارِ روشنِ
-                        # داخلِ محفظه — قابِ سفیدِ کارت، خطِ حباب — را هم
-                        # «هالهٔ حروف» می‌گرفت و با رنگِ کارت پاک می‌کرد
-                        # («حباب به کل حذف زده» — گزارشِ کاربر).
-                        # حالاseed = ماسکِ خامِ متن (_compose_text_mask)؛
-                        # اگر خالی بود fallback به enc.
+# «نزدیکِ جوهر» نه «نزدیکِ کلِ محفظه»!
+# قبلاً دیلهٔ ۲۵ِ خودِ enc بود و در محفظهٔ بزرگ
+# (کارتِ img2-r10، حبابِ بزرگ) هر ساختارِ روشنِ
+# داخلِ محفظه — قابِ سفیدِ کارت، خطِ حباب — را هم
+# «هالهٔ حروف» می‌گرفت و با رنگِ کارت پاک می‌کرد
+# («حباب به کل حذف زده» — گزارشِ کاربر).
+# حالاseed = ماسکِ خامِ متن (_compose_text_mask)
+# اگر خالی بود fallback به enc.
                         try:
                             _ctm = getattr(self, "_compose_text_mask",
                                              None)
@@ -6997,10 +6970,10 @@ class _MangaTranslatorBody_85:
                         _halo = (_gg >= 110) & _fc & _near & (m2 == 0)
                         if int(_halo.sum()):
                             m2 = m2 | _halo.astype(np.uint8)
-                        # v1.14.67 — هالهٔ گرمِ «تیره» (قرمزِ گلو روی کارتِ
-                        # تیره — لکهٔ قرمزِ POCO F4) در خاکستری تیره است و
-                        # با _gg>=110 نمی‌آمد → قرمزِ غالبِ نزدیکِ جوهر هم
-                        # داخلِ پرکردن می‌آید (اجازهٔ «بیشتر پاک شه»).
+# هالهٔ گرمِ «تیره» (قرمزِ گلو روی کارتِ
+# تیره — لکهٔ قرمزِ POCO F4) در خاکستری تیره است و
+# با _gg>=110 نمی‌آمد → قرمزِ غالبِ نزدیکِ جوهر هم
+# داخلِ پرکردن می‌آید (اجازهٔ «بیشتر پاک شه»).
                         try:
                             _rr = sub[..., 2].astype(np.int16)
                             _gg2 = sub[..., 1].astype(np.int16)
@@ -7015,14 +6988,14 @@ class _MangaTranslatorBody_85:
                                       _warm.astype(np.uint8))
                         except Exception:
                             pass
-                        # v1.14.67 — برجستگی/سایهٔ متنِ روشن روی کارتِ تیره
-                        # (اندازه‌گیری رویِ کارتِ Crimson Dragon: قرمزِ
-                        # اشباعِ تیره تا ۶.۷px از گلیف — p99=5.6px) نه در
-                        # _halo می‌آید نه _warm → شبحِ تیره‌قرمزِ حروف در
-                        # خروجی می‌ماند. پرکردن = گشادکردنِ ۱۳px ماسک
-                        # محدود به خودِ محفظهٔ تیره → ۱۰۰٪ برجستگی +
-                        # اجازهٔ «بیشتر پاک شه»؛ قابِ تزئینی بیرونِ محفظه
-                        # دست‌نخورده می‌ماند.
+# برجستگی/سایهٔ متنِ روشن روی کارتِ تیره
+# (اندازه‌گیری رویِ کارتِ Crimson Dragon: قرمزِ
+# اشباعِ تیره تا ۶.۷px از گلیف — p99=5.6px) نه در
+# _halo می‌آید نه _warm → شبحِ تیره‌قرمزِ حروف در
+# خروجی می‌ماند. پرکردن = گشادکردنِ ۱۳px ماسک
+# محدود به خودِ محفظهٔ تیره → ۱۰۰٪ برجستگی +
+# اجازهٔ «بیشتر پاک شه»؛ قابِ تزئینی بیرونِ محفظه
+# دست‌نخورده می‌ماند.
                         try:
                             _growE = cv2.dilate(m2,
                                                 np.ones((13, 13), np.uint8))
@@ -7036,8 +7009,8 @@ class _MangaTranslatorBody_85:
                     pass
                 if not int(cv2.countNonZero(m2)):
                     continue
-                # v1.14.81b — تابِ نورِ پس‌زمینه (قفلِ نرم) قربانیِ
-                # هاله‌گیری نشود — پرتوِ نور پشتِ متن باید بماند
+# تابِ نورِ پس‌زمینه (قفلِ نرم) قربانیِ
+# هاله‌گیری نشود — پرتوِ نور پشتِ متن باید بماند
                 try:
                     _pg81e = getattr(self, "_prot_glow", None)
                     if (_pg81e is not None
@@ -7047,11 +7020,11 @@ class _MangaTranslatorBody_85:
                             m2 = m2 & (~_sub81e).astype(np.uint8)
                 except Exception:
                     pass
-                # v1.14.47: TELEA روی متنِ درشتِ روی بنر، خاکستریِ لکه‌دار
-                # می‌سازد (لبه‌هایِ نویزیِ JPEG را پخش می‌کند). رنگِ هر
-                # پیکسل = میانهٔ محلیِ پیکسل‌هایِ تیرهٔ خودِ محفظه بیرونِ
-                # جوهر → روی بنرِ سیاه، سیاهِ خالص؛ روی بنرِ گرادیانی،
-                # محلی تطبیق می‌شود.
+# TELEA روی متنِ درشتِ روی بنر، خاکستریِ لکه‌دار
+# می‌سازد (لبه‌هایِ نویزیِ JPEG را پخش می‌کند). رنگِ هر
+# پیکسل = میانهٔ محلیِ پیکسل‌هایِ تیرهٔ خودِ محفظه بیرونِ
+# جوهر → روی بنرِ سیاه، سیاهِ خالص؛ روی بنرِ گرادیانی
+# محلی تطبیق می‌شود.
                 _g = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
                 _dark = ((_g < 130).astype(np.uint8)
                          & (m2 == 0).astype(np.uint8))
@@ -7073,9 +7046,9 @@ class _MangaTranslatorBody_85:
                 sub[_sel] = np.clip(
                     np.rint(_fill[_sel]), 0, 255).astype(np.uint8)
                 cleaned[y0:y1, x0:x1] = sub
-                # v1.14.47: حلقهٔ padِ دورِ ماسکِ این ناحیه هم حذف شود تا
-                # حلقهٔ کلاسترها روی پس‌ماندِ آن لکه نسازد
-                # (v1.14.60: کِیل بر اساس m2 — شاملِ هالهٔ پرشده هم هست)
+# حلقهٔ padِ دورِ ماسکِ این ناحیه هم حذف شود تا
+# حلقهٔ کلاسترها روی پس‌ماندِ آن لکه نسازد
+# (: کِیل بر اساس m2 — شاملِ هالهٔ پرشده هم هست)
                 _kill = cv2.dilate(m2, np.ones((9, 9), np.uint8)) > 0
                 mask[y0:y1, x0:x1][_kill] = 0
                 n_fill += 1
@@ -7084,7 +7057,7 @@ class _MangaTranslatorBody_85:
         return n_fill
 
     def _ink_bg_dark(self, image: np.ndarray, ink: np.ndarray) -> bool:
-        """v1.14.62b — آیا زمینهٔ دورِ جوهرِ این ناحیه واقعاً تیره است؟
+        """ — آیا زمینهٔ دورِ جوهرِ این ناحیه واقعاً تیره است؟
         بلوکِ اجباریِ LaMa (force-box) فقط برای «متنِ روشن روی محفظهٔ تیره»
         معنا دارد. پنجره‌هایِ آبیِ روشن (مثل [SPECIAL CHANGES]) را هم بلوکِ
         کامل می‌گرفت → LaMa کلِ پنل را بازسازی می‌کرد و بعدِ مقایسه با
@@ -7104,7 +7077,7 @@ class _MangaTranslatorBody_85:
 
     @staticmethod
     def _mem_trim() -> None:
-        """v1.14.48c — آزادسازیِ حافظهٔ کش‌شده به OS بینِ فازهایِ سنگین.
+        """ — آزادسازیِ حافظهٔ کش‌شده به OS بینِ فازهایِ سنگین.
         روی نوارِ بلندِ وب‌تون، ماسک‌سازی و LaMa پیکِ رم را بالا می‌برند و
         آللوکاتور حافظه را نگه می‌دارد؛ در گوشیِ کم‌رم (POCO F4 با ۰.۶GB
         آزاد) همین نگه‌داشتن OOM می‌آورد. gc + malloc_trim (glibc)."""
@@ -7130,7 +7103,7 @@ class _MangaTranslatorBody_85:
     @staticmethod
     def _system_box_interior(image: np.ndarray, cover_rect,
                              seed_rects=None) -> Optional[np.ndarray]:
-        """v1.14.104 — اینتریورِ «بالنِ سیستم» (باکسِ مشخصاتِ سفید).
+        """ — اینتریورِ «بالنِ سیستم» (باکسِ مشخصاتِ سفید).
 
         خواستهٔ کاربر: «حبابِ سیستم متن‌هاش جدا حساب شه (رندر) ولی
         پاکسازیش: متن‌های نزدیک با هم پاک بشه — فقط سیستم اینجور باشه».
@@ -7180,10 +7153,10 @@ class _MangaTranslatorBody_85:
                 keep[lab == _i] = 1
             if int(keep.sum()) < 300:
                 return None
-            # فقط باکسِ «سفیدِ سیستم»: میانهٔ روشناییِ اینتریور ≥۱۸۰
+# فقط باکسِ «سفیدِ سیستم»: میانهٔ روشناییِ اینتریور ≥۱۸۰
             if float(np.median(g[keep > 0])) < 180.0:
                 return None
-            # حفره‌هایِ محبوس (حروفِ تیره داخلِ سفید) پر شوند
+# حفره‌هایِ محبوس (حروفِ تیره داخلِ سفید) پر شوند
             inv = (keep == 0).astype(np.uint8)
             nh, nlab = cv2.connectedComponents(inv, 8)
             hole = np.zeros_like(inv)
@@ -7194,7 +7167,7 @@ class _MangaTranslatorBody_85:
                     continue  # به مرزِ کراپ می‌رسد = بیرونِ باکس
                 hole[_cm] = 1
             interior = ((keep + hole) > 0).astype(np.uint8)
-            # ۱px فاصله از قابِ تیره — قابِ سیستم هرگز واردِ ماسک نشود
+# ۱px فاصله از قابِ تیره — قابِ سیستم هرگز واردِ ماسک نشود
             interior = cv2.erode(interior, np.ones((3, 3), np.uint8))
             out = np.zeros((h, w), dtype=bool)
             out[by0:by1, bx0:bx1] = interior > 0
@@ -7206,18 +7179,18 @@ class _MangaTranslatorBody_85:
 
     def _rotated_region_strips(self, image: np.ndarray, polys: list,
                                ang: float):
-        """v1.14.238 — نوارهایِ خط‌به‌خط برایِ نواحیِ «چرخیده».
+        """ — نوارهایِ خط‌به‌خط برایِ نواحیِ «چرخیده».
 
         ریشهٔ سه شکایتِ همزمان (حبابِ زردِ چپ‌بریدهٔ img6 با زاویهٔ
         -۹.۵°، تابلوهایِ MINISTRYِ img4 با -۱۵/-۱۹.۳°، خطِ جاماندهٔ
         10.jpg با -۱۵°): نوارِ محور-ترازِ متنِ کج (۱) از دیوارِ حباب
         رد میشود → حلقهٔ رنگِ پر، داخل+بیرونِ حباب را قاطی میکند →
         «لکهٔ سبز-خاکستری روی زرد»؛ (۲) لبهٔ نوار وسطِ حروف میگذرد و
-        گاردِ ساختار (v1.14.64) تکههایِ گلیفِ چسبیده به لبه را از
+        گاردِ ساختار () تکههایِ گلیفِ چسبیده به لبه را از
         ماسک بیرون میکشد → «نقطه‌های سیاه»؛ (۳) خطوطِ کج در یک سطلِ
         y می‌افتند → نوارِ چاق. راه‌حل: برشِ ناحیه با +angle همسطح
         میشود (قراردادِ همسطح‌سازیِ OCR و _max_font_for_region —
-        v1.14.244: علامتِ درست؛ قبلاً -angle بود و کجی را «دوبرابر»
+        : علامتِ درست؛ قبلاً -angle بود و کجی را «دوبرابر»
         میکرد = ریشهٔ «برعکس میچرخونه» و جوهرِ جامانده)، نوارها در فضای
         چرخیده ساخته میشوند (خطوط افقند؛ لبه‌ها هرگز حروف را نمیبرند)
         و ماسک با اینترپولیشنِ NEAREST به مختصاتِ اصلی برمیگردد.
@@ -7232,10 +7205,10 @@ class _MangaTranslatorBody_85:
             by1 = float(_all[:, 1].max())
             cx, cy = (bx0 + bx1) / 2.0, (by0 + by1) / 2.0
             pad = 30.0
-            # v1.14.244 — علامتِ + : زاویهٔ مثبت = نزولی-به-راست (قراردادِ y-down)؛
-            # همسطح‌سازی نیاز به چرخشِ پادساعتگرد دارد = getRotationMatrix2D(+ang)
-            # (عینِ قراردادِ اثبات‌شدهٔ deskew در _ocr_crop و _max_font_for_region).
-            # قبلاً -ang بود → کجی دوبرابر می‌شد (چرخشِ برعکس + جوهرِ جامانده).
+# علامتِ + : زاویهٔ مثبت = نزولی-به-راست (قراردادِ y-down)
+# همسطح‌سازی نیاز به چرخشِ پادساعتگرد دارد = getRotationMatrix2D(+ang)
+# (عینِ قراردادِ اثبات‌شدهٔ deskew در _ocr_crop و _max_font_for_region).
+# قبلاً -ang بود → کجی دوبرابر می‌شد (چرخشِ برعکس + جوهرِ جامانده).
             M = cv2.getRotationMatrix2D((cx, cy), float(ang), 1.0)
             _cos, _sin = abs(M[0, 0]), abs(M[0, 1])
             bw = (bx1 - bx0) + 2.0 * pad
@@ -7265,7 +7238,7 @@ class _MangaTranslatorBody_85:
                 st = self._line_strip_ink(rot_img, lx0, ly0, lx1, ly1,
                                           rot_polys)
                 if st is None:
-                    # پالیِ خودِ خط (اندازهٔ متن) — همان قراردادِ failed
+# پالیِ خودِ خط (اندازهٔ متن) — همان قراردادِ failed
                     try:
                         for _pa in rot_polys:
                             _px0 = float(_pa[:, 0].min())
@@ -7290,8 +7263,8 @@ class _MangaTranslatorBody_85:
                                flags=cv2.INTER_NEAREST, borderValue=0)
             f = cv2.warpAffine(f_rot, Minv, (w, h),
                                flags=cv2.INTER_NEAREST, borderValue=0)
-            # ماسکِ برگشتی فقط تا پالی‌های اصلی + پد معتبر است؛ بیرونِ
-            # آن وارپ ممکن است نوچ بسازد
+# ماسکِ برگشتی فقط تا پالی‌های اصلی + پد معتبر است؛ بیرونِ
+# آن وارپ ممکن است نوچ بسازد
             _valid = np.zeros((h, w), dtype=np.uint8)
             for p in polys:
                 try:
@@ -7310,7 +7283,7 @@ class _MangaTranslatorBody_85:
 
     def _compose_region_strips(self, image: np.ndarray,
                                region: "TextRegion") -> Optional[np.ndarray]:
-        """v1.14.70 — نوارهایِ خط‌به‌خطِ «اندازهٔ دقیقِ متن» برایِ یک ناحیه.
+        """ — نوارهایِ خط‌به‌خطِ «اندازهٔ دقیقِ متن» برایِ یک ناحیه.
 
         خواستِ کاربر: «عکس اول کامل میپاکه بعد همون اندازه متن برش میزنه
         به عکس دوم میزاره نه بیشتر نه کمتر حباب خراب نشه». پس ماسکِ
@@ -7327,10 +7300,10 @@ class _MangaTranslatorBody_85:
                     polys.append(pp)
             if not polys:
                 return None, np.zeros((1, 1), dtype=np.uint8)
-            # v1.14.238 — نواحیِ چرخیده (|angle| ≥ ۳°): نوارها در فضای
-            # همسطح‌شده ساخته میشوند — نوارِ محور-ترازِ متنِ کج از دیوارِ
-            # حباب رد میشود (لکهٔ رنگِ قاطی) و لبه‌اش حروف را میبرد
-            # (نقطه‌های سیاه). MANGA_ROT_STRIPS=0 = خاموش.
+# نواحیِ چرخیده (|angle| ≥ ۳°): نوارها در فضای
+# همسطح‌شده ساخته میشوند — نوارِ محور-ترازِ متنِ کج از دیوارِ
+# حباب رد میشود (لکهٔ رنگِ قاطی) و لبه‌اش حروف را میبرد
+# (نقطه‌های سیاه). MANGA_ROT_STRIPS=0 = خاموش.
             try:
                 _ang = float(getattr(region, "angle", 0.0) or 0.0)
             except Exception:
@@ -7352,24 +7325,24 @@ class _MangaTranslatorBody_85:
                 st = self._line_strip_ink(image, lx0, ly0, lx1, ly1, polys,
                                           dbg=_dbgc)
                 if st is None:
-                    # v1.14.70 — خطی که نوارش ساخته نشد (مثلِ متنِ سفید با
-                    # دورخطِ تیره روی زمینهٔ روشن) نباید از کامپوز بیفتد وگرنه
-                    # متن از عکسِ دوم برمی‌گردد («WE FRIENDS?»). برایِ این
-                    # خط، پالیِ خودش جایگزین می‌شود (اندازهٔ متن).
-                    # v1.14.241 — بازگشت به قراردادِ testm: «کلِ پالی» از
-                    # donor منتقل میشود. جایگزینِ v1.14.206 فقط «جوهرِ
-                    # دو-قطبیِ ±۴۵» را منتقل میکرد و بلوکِ مورفولوژیِ
-                    # میله‌ها بهخاطرِ NameErrorِ _fu8 (متغیر هرگز تعریف
-                    # نشده بود → except بیصدا) هرگز اجرا نمیشد → متنِ
-                    # کمرنگ/آنتی‌الیاس‌شدهٔ اسنادِ وبتون (9.jpg: ARTICLEها
-                    # و y=9536) و حروفِ کم‌کنتراستِ img6 («THE FLOAT FOR
-                    # YOU!») در عکسِ دوم زنده میماند = «متنِ قبلی میماند،
-                    # شبحِ خاکستری، لکه» — گزارشِ سازنده. حصارِ img4
-                    # (نگرانیِ 206) اکنون دو لایهٔ دیگر دارد: (۱) 206c
-                    # نوارِ سالمِ متن را میسازد و خط به این شاخه نمیافتد؛
-                    # (۲) پانچِ میلهٔ نازکِ بلند پایین — میلهٔ حصار/قاب از
-                    # پالیِ خط حذف میشود ولی حروف (تیره + ضخیم؛
-                    # GUARDIANS/TEACHERS) میمانند.
+# خطی که نوارش ساخته نشد (مثلِ متنِ سفید با
+# دورخطِ تیره روی زمینهٔ روشن) نباید از کامپوز بیفتد وگرنه
+# متن از عکسِ دوم برمی‌گردد («WE FRIENDS?»). برایِ این
+# خط، پالیِ خودش جایگزین می‌شود (اندازهٔ متن).
+# بازگشت به قراردادِ testm: «کلِ پالی» از
+# donor منتقل میشود. جایگزینِ فقط «جوهرِ
+# دو-قطبیِ ±۴۵» را منتقل میکرد و بلوکِ مورفولوژیِ
+# میله‌ها بهخاطرِ NameErrorِ _fu8 (متغیر هرگز تعریف
+# نشده بود → except بیصدا) هرگز اجرا نمیشد → متنِ
+# کمرنگ/آنتی‌الیاس‌شدهٔ اسنادِ وبتون (9.jpg: ARTICLEها
+# و y=9536) و حروفِ کم‌کنتراستِ img6 («THE FLOAT FOR
+# YOU!») در عکسِ دوم زنده میماند = «متنِ قبلی میماند
+# شبحِ خاکستری، لکه» — گزارشِ سازنده. حصارِ img4
+# (نگرانیِ 206) اکنون دو لایهٔ دیگر دارد: (۱) 206c
+# نوارِ سالمِ متن را میسازد و خط به این شاخه نمیافتد
+# (۲) پانچِ میلهٔ نازکِ بلند پایین — میلهٔ حصار/قاب از
+# پالیِ خط حذف میشود ولی حروف (تیره + ضخیم
+# GUARDIANS/TEACHERS) میمانند.
                     try:
                         for _pa in polys:
                             _bx0 = float(_pa[:, 0].min())
@@ -7378,13 +7351,13 @@ class _MangaTranslatorBody_85:
                             _by1 = float(_pa[:, 1].max())
                             if (_bx1 >= lx0 - 2 and _bx0 <= lx1 + 2
                                     and _by1 >= ly0 - 2 and _by0 <= ly1 + 2):
-                                # v1.14.241b — بدونِ پانچِ میله: پانچِ
-                                # نسخهٔ اول حروفِ چسبیده/خطهایِ متن را هم
-                                # «میله» میگرفت → جوهرِ اورجینال در عکسِ
-                                # دوم زنده میماند (سه لکهٔ سیاهِ 9.jpg).
-                                # حصارِ img4 توسطِ 206c (نوارِ سالم) محفوظ
-                                # است؛ این شاخه فقط برایِ خطی است که نوارش
-                                # اصلاً ساخته نشد — قراردادِ testm: کلِ پالی.
+# بدونِ پانچِ میله: پانچِ
+# نسخهٔ اول حروفِ چسبیده/خطهایِ متن را هم
+# «میله» میگرفت → جوهرِ اورجینال در عکسِ
+# دوم زنده میماند (سه لکهٔ سیاهِ 9.jpg).
+# حصارِ img4 توسطِ 206c (نوارِ سالم) محفوظ
+# است؛ این شاخه فقط برایِ خطی است که نوارش
+# اصلاً ساخته نشد — قراردادِ testm: کلِ پالی.
                                 cv2.fillPoly(failed,
                                              [np.rint(_pa)
                                               .astype(np.int32)], 255)
@@ -7393,16 +7366,16 @@ class _MangaTranslatorBody_85:
                     continue
                 sx0, sy0, sx1, sy1, kept = st
                 m[sy0:sy1, sx0:sx1][kept] = 255
-                # v1.14.205 — شبحِ لبهٔ حروف: ماسکِ پاکسازی هستهٔ تیره + هالهٔ
-                # ۱۴..۳۰ را میگیرد ولی پیکسلهایِ خیلی روشنِ لبهٔ حرف
-                # (≤۱۴ سطح از زمینه) را نه؛ کامپوزِ فقط-هسته آنها را از عکسِ
-                # اورجینال برمی‌گرداند = شبحِ خوانایِ «ALSO» در حبابِ
-                # «YOU SHOULD ALSO…» (img7 — گزارشِ سازنده: «متن also هم
-                # دیده میشه یا پاک نشده یا نگرفته؟»). پیکسلهایِ روشنِ چسبیده
-                # به هسته (≤۳px) از عکسِ پاک‌شده بیایند — پیکسلی که پاک
-                # نشده در هر دو عکس یکسان است پس خطری ندارد و زمینهٔ هنریِ
-                # پرقاومت (|Δ|>۱۴ — حصارِ پشتِ ARTICLEها) همچنان از
-                # اورجینال میماند.
+# شبحِ لبهٔ حروف: ماسکِ پاکسازی هستهٔ تیره + هالهٔ
+# ۱۴..۳۰ را میگیرد ولی پیکسلهایِ خیلی روشنِ لبهٔ حرف
+# (≤۱۴ سطح از زمینه) را نه؛ کامپوزِ فقط-هسته آنها را از عکسِ
+# اورجینال برمی‌گرداند = شبحِ خوانایِ «ALSO» در حبابِ
+                #). پیکسلهایِ روشنِ چسبیده
+# «YOU SHOULD ALSO…» (img7 —
+# به هسته (≤۳px) از عکسِ پاک‌شده بیایند — پیکسلی که پاک
+# نشده در هر دو عکس یکسان است پس خطری ندارد و زمینهٔ هنریِ
+# پرقاومت (|Δ|>۱۴ — حصارِ پشتِ ARTICLEها) همچنان از
+# اورجینال میماند.
                 try:
                     _g = cv2.cvtColor(image[sy0:sy1, sx0:sx1],
                                          cv2.COLOR_BGR2GRAY)
@@ -7418,12 +7391,12 @@ class _MangaTranslatorBody_85:
                     pass
                 n += 1
             if n == 0:
-                # هیچ خطی نوار نشد → کلِ ناحیه به مسیرِ خام سپرده شود
+# هیچ خطی نوار نشد → کلِ ناحیه به مسیرِ خام سپرده شود
                 return None, failed
-            # v1.14.70 — «نه بیشتر نه کمتر»: نوارها فقط داخلِ پالیِ OCR
-            # (همان باکسِ متن) می‌مانند. بدونِ این محدودیت، دیوارِ حباب
-            # که در نوارِ بالا/پایینِ خط می‌افتد جزوِ «جوهر» می‌شد و از
-            # عکسِ پاک‌شده (که حبابش خراب شده) برمی‌گشت → حباب می‌شکست.
+# «نه بیشتر نه کمتر»: نوارها فقط داخلِ پالیِ OCR
+# (همان باکسِ متن) می‌مانند. بدونِ این محدودیت، دیوارِ حباب
+# که در نوارِ بالا/پایینِ خط می‌افتد جزوِ «جوهر» می‌شد و از
+# عکسِ پاک‌شده (که حبابش خراب شده) برمی‌گشت → حباب می‌شکست.
             _pm = np.zeros((h, w), dtype=np.uint8)
             for _pa in polys:
                 try:
@@ -7438,12 +7411,12 @@ class _MangaTranslatorBody_85:
             failed = (failed & _pm).astype(np.uint8) * 255
             if not m.any() and not failed.any():
                 return None, np.zeros((h, w), dtype=np.uint8)
-            # v1.14.134 — پسگیرِ جوهرِ جامانده در کامپوز:
-            # قطعههایِ گلیفِ بیرونِ پالی ('Yo'/'th'/'a' — 01.jpg) باید در
-            # نوارِ انتقال هم بیایند وگرنه «فقط-نوار» آنها را از عکسِ
-            # اصلی زنده نگه میدارد. همگام با ماسکِ پاکسازی.
-            # v1.14.206 — رویِ PC هم فعال شد (هر دو پلتفرم باید خوب پاک
-            # کند؛ env=0 خاموش میکند).
+# پسگیرِ جوهرِ جامانده در کامپوز:
+# قطعههایِ گلیفِ بیرونِ پالی ('Yo'/'th'/'a' — 01.jpg) باید در
+# نوارِ انتقال هم بیایند وگرنه «فقط-نوار» آنها را از عکسِ
+# اصلی زنده نگه میدارد. همگام با ماسکِ پاکسازی.
+# رویِ PC هم فعال شد (هر دو پلتفرم باید خوب پاک
+# کند؛ env=0 خاموش میکند).
             if os.environ.get("MANGA_INK_RECLAIM", "1") != "0":
                 try:
                     _base = cv2.bitwise_or(m, failed)
@@ -7455,16 +7428,16 @@ class _MangaTranslatorBody_85:
                         m = cv2.bitwise_or(m, _add)
                 except Exception:
                     pass
-            # v1.14.206m — ساختارِ محافظتشده (دیوار/قابِ رنگی) هرگز از
-            # نوارِ کامپوز منتقل نمیشود — حتی تکههایِ داخلِ پالی+۷ —
-            # تا پرِ LaMa که رنگِ قاب را به داخلِ متن کشیده (لکهٔ سبزِ
-            # حبابِ ۳ در up0822) جایِ قابِ اصلی را نگیرد؛ قاب همیشه
-            # پیکسلِ عکسِ دوم است.
-            # v1.14.206m — «قابِ رنگی» هرگز از نوارِ کامپوز منتقل نمیشود
-            # — حتی تکههایِ داخلِ پالی+۷. قاب در ماسکِ فعال میماند (LaMa
-            # آن را با زمینهٔ حباب پر میکند — نه اینکه رنگش را به متن
-            # بکشد: لکهٔ سبزِ up0822) و در خروجی، پیکسلِ قاب همیشه از
-            # عکسِ دوم میآید.
+# ساختارِ محافظتشده (دیوار/قابِ رنگی) هرگز از
+# نوارِ کامپوز منتقل نمیشود — حتی تکههایِ داخلِ پالی+۷ —
+# تا پرِ LaMa که رنگِ قاب را به داخلِ متن کشیده (لکهٔ سبزِ
+# حبابِ ۳ در up0822) جایِ قابِ اصلی را نگیرد؛ قاب همیشه
+# پیکسلِ عکسِ دوم است.
+# «قابِ رنگی» هرگز از نوارِ کامپوز منتقل نمیشود
+# حتی تکههایِ داخلِ پالی+۷. قاب در ماسکِ فعال میماند (LaMa
+# آن را با زمینهٔ حباب پر میکند — نه اینکه رنگش را به متن
+# بکشد: لکهٔ سبزِ up0822) و در خروجی، پیکسلِ قاب همیشه از
+# عکسِ دوم میآید.
             try:
                 _ppm = getattr(self, "_page_colored_protect", None)
                 if _ppm is not None and _ppm.shape == m.shape:
@@ -7479,7 +7452,7 @@ class _MangaTranslatorBody_85:
 
     def _compose_strip_mask(self, image: np.ndarray,
                             mask: np.ndarray) -> np.ndarray:
-        """v1.14.63 — ماسکِ کامپوزِ «فقط نوارِ متن، خط به خط»:
+        """ — ماسکِ کامپوزِ «فقط نوارِ متن، خط به خط»:
         پایه = ماسکِ متنِ خام (self._compose_text_mask — بعدِ کارو/پروتکت،
         قبلِ کِیل/توپرشدن). برایِ بلوک‌هایِ محفظهٔ تیره که ماسکِ فعال‌شان
         «کلِ محفظه» است، به‌جایِ کلِ بلوک فقط «نوارِ هر خطِ متن» — از رویِ
@@ -7490,35 +7463,35 @@ class _MangaTranslatorBody_85:
         نتیجه: دیوار/زمینه/هنرِ دورِ متن همیشه پیکسل‌به‌پیکسل از عکسِ
         اصلیِ دوم می‌ماند و فقط محلِ متن با نسخهٔ پاک‌شده جایگزین می‌شود."""
         try:
-            # v1.14.76 — «صفرِ شوِرَه»: ماسکِ پایه (که enclosure/پرِ فوری
-            # کلِ حباب را دارد) نقطهٔ شروعِ کامپوز نمی‌شود. اگر نقطهٔ
-            # شروعِ «پایهٔ کامل» باشد، هر نواحی از حباب بیرونِ نوارهایِ
-            # خط (دیوار، زمینهٔ گرادیانی) در ماسک می‌ماند و کلِ حباب از
-            # عکسِ پاک‌شده (donor) به عکسِ دوم منتقل می‌شود — اعتراضِ کاربر:
-            # «مگ داری کل حباب انتقال میدی؟؟» (نمونه: حبابِ زردِ img1).
-            # حالا شروع = خالی؛ سپس هر ناحیه دقیقاً نوارهایِ خط‌به‌خط
-            # خودش را می‌گیرد. ناحیه‌هایِ بدونِ نوار (بنر/متنِ آزاد) به
-            # ماسکِ خامِ محدودِ ناحیهٔ خودشان برمی‌گردند.
+# «صفرِ شوِرَه»: ماسکِ پایه (که enclosure/پرِ فوری
+# کلِ حباب را دارد) نقطهٔ شروعِ کامپوز نمی‌شود. اگر نقطهٔ
+# شروعِ «پایهٔ کامل» باشد، هر نواحی از حباب بیرونِ نوارهایِ
+# خط (دیوار، زمینهٔ گرادیانی) در ماسک می‌ماند و کلِ حباب از
+# عکسِ پاک‌شده (donor) به عکسِ دوم منتقل می‌شود — اعتراضِ کاربر:
+# «مگ داری کل حباب انتقال میدی؟؟» (نمونه: حبابِ زردِ img1).
+# حالا شروع = خالی؛ سپس هر ناحیه دقیقاً نوارهایِ خط‌به‌خط
+# خودش را می‌گیرد. ناحیه‌هایِ بدونِ نوار (بنر/متنِ آزاد) به
+# ماسکِ خامِ محدودِ ناحیهٔ خودشان برمی‌گردند.
             base = getattr(self, "_compose_text_mask", None)
             _raw = (mask > 0) if (base is None
                                   or base.shape != mask.shape[:2]) \
                 else (base > 0)
             out = np.zeros_like(_raw)
-            # v1.14.104 — هر فراخوانیِ کامپوز، گروه‌هایِ سیستم را از نو
-            # پردازش کند (کامپوز دوبار صدا می‌شود: اصلی + گارانتیِ نهایی)
+# هر فراخوانیِ کامپوز، گروه‌هایِ سیستم را از نو
+# پردازش کند (کامپوز دوبار صدا می‌شود: اصلی + گارانتیِ نهایی)
             self._compose_sys_done = set()
             h, w = mask.shape[:2]
-            # v1.14.70 — «نه بیشتر نه کمتر»: برایِ هر ناحیه‌ای که پالیِ
-            # OCR دارد، نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ حروف) جایِ
-            # مستطیلِ بلوکِ ماسکِ خام می‌نشینند. نتیجه: دیوارِ حباب،
-            # قوس، قابِ پنل و هنرِ اطراف هرگز از عکسِ پاک‌شده نمی‌آیند
-            # → حباب سالم می‌ماند؛ فقط خودِ حروف پاک می‌شوند.
+# «نه بیشتر نه کمتر»: برایِ هر ناحیه‌ای که پالیِ
+# OCR دارد، نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ حروف) جایِ
+# مستطیلِ بلوکِ ماسکِ خام می‌نشینند. نتیجه: دیوارِ حباب
+# قوس، قابِ پنل و هنرِ اطراف هرگز از عکسِ پاک‌شده نمی‌آیند
+# → حباب سالم می‌ماند؛ فقط خودِ حروف پاک می‌شوند.
             _regions = getattr(self, "_page_regions", None) or []
             _n_str = 0
-            # v1.14.70 — دامنهٔ امنِ «جارویِ بقایا»: فقط نوارهایِ متن.
-            # قبلاً دامنه = ماسکِ خام (مستطیلِ بلوک) بود → دیوارِ حباب که
-            # داخلِ بلوک می‌افتد «بقایایِ متن» خوانده می‌شد و پاک می‌شد
-            # → حباب می‌شکست. دامنهٔ جدید = دقیقاً حروف.
+# دامنهٔ امنِ «جارویِ بقایا»: فقط نوارهایِ متن.
+# قبلاً دامنه = ماسکِ خام (مستطیلِ بلوک) بود → دیوارِ حباب که
+# داخلِ بلوک می‌افتد «بقایایِ متن» خوانده می‌شد و پاک می‌شد
+# → حباب می‌شکست. دامنهٔ جدید = دقیقاً حروف.
             _sweep = np.zeros((h, w), dtype=np.uint8)
             for _rg in _regions:
                 try:
@@ -7534,8 +7507,8 @@ class _MangaTranslatorBody_85:
                     _failed = np.zeros((h, w), dtype=np.uint8)
                 if not _strips.any() and not _failed.any():
                     continue
-                # ناحیهٔ متنیِ این منطقه از ماسکِ خام حذف می‌شود (تا
-                # مستطیلِ بلوک به خروجی نیاید) و نوارهای خط جایگزین می‌شوند
+# ناحیهٔ متنیِ این منطقه از ماسکِ خام حذف می‌شود (تا
+# مستطیلِ بلوک به خروجی نیاید) و نوارهای خط جایگزین می‌شوند
                 _area = np.zeros((h, w), dtype=np.uint8)
                 _ok = False
                 for _p in (getattr(_rg, "ocr_polys", None) or []):
@@ -7555,15 +7528,15 @@ class _MangaTranslatorBody_85:
                 out |= (_failed > 0)
                 _sweep |= (_strips > 0)
                 _sweep |= (_failed > 0)
-                # v1.14.78f — «بلوکِ باندِ تیره»: اگر متن روی باندِ
-                # نیمه‌شفافِ تیره باشد (PARAGRAPHهایِ img4 روی حصار)،
-                # donor کلِ باند را بازسازی کرده (پرکننده‌هایِ فوری/
-                # LaMa) ولی کامپوزِ فقط-نوار، باندِ تیرهٔ اورجینال را
-                # بینِ نوارها زنده نگه می‌دارد → «بلوک‌هایِ قاطیِ
-                # تکه‌تکه». راه‌حل: اگر زمینهٔ بلوک (بیرونِ نوارها)
-                # تیره باشد، کلِ مستطیلِ بلوک از donor می‌آید —
-                # حباب‌هایِ سفید (زمینهٔ روشن) هرگز وارد این مسیر
-                # نمی‌شوند (اعتراضِ «کلِ حباب را منتقل نکن» محفوظ است).
+# «بلوکِ باندِ تیره»: اگر متن روی باندِ
+# نیمه‌شفافِ تیره باشد (PARAGRAPHهایِ img4 روی حصار)
+# donor کلِ باند را بازسازی کرده (پرکننده‌هایِ فوری/
+# LaMa) ولی کامپوزِ فقط-نوار، باندِ تیرهٔ اورجینال را
+# بینِ نوارها زنده نگه می‌دارد → «بلوک‌هایِ قاطیِ
+# تکه‌تکه». راه‌حل: اگر زمینهٔ بلوک (بیرونِ نوارها)
+# تیره باشد، کلِ مستطیلِ بلوک از donor می‌آید —
+# حباب‌هایِ سفید (زمینهٔ روشن) هرگز وارد این مسیر
+# نمی‌شوند (اعتراضِ «کلِ حباب را منتقل نکن» محفوظ است).
                 try:
                     _brx, _bry, _brw, _brh = [int(v) for v in _rg.rect]
                     _bx0 = max(0, _brx)
@@ -7582,22 +7555,21 @@ class _MangaTranslatorBody_85:
                         _outb = (~_bld)
                         if int(np.count_nonzero(_outb)) >= 200:
                             _medb = float(np.median(_bgo[_outb]))
-                            # v1.14.96 — گاردِ بافت: «کلِ بلوک از donor»
-                            # فقط برای باندِ تیرهٔ «یکدست» (std کم —
-                            # PARAGRAPHهایِ img4 روی حصار). روی زمینهٔ
-                            # بافت‌مند (برف‌نوی/نقش‌ونگارِ 412e9e با
-                            # std≈۶۷/۵۸) کلِ بلوک = پرِ تختِ LaMa →
-                            # فقط نوارهایِ خط از donor می‌آیند.
+# گاردِ بافت: «کلِ بلوک از donor»
+# فقط برای باندِ تیرهٔ «یکدست» (std کم —
+# PARAGRAPHهایِ img4 روی حصار). روی زمینهٔ
+# بافت‌مند (برف‌نوی/نقش‌ونگارِ 412e9e با
+# std≈۶۷/۵۸) کلِ بلوک = پرِ تختِ LaMa →
+# فقط نوارهایِ خط از donor می‌آیند.
                             _stdb = float(np.std(_bgo[_outb]))
                             if _medb < 140.0 and _stdb <= 36.0:
-                                # v1.14.209 — قانونِ دو-عکسیِ سازنده: «کلِ
-                                # حباب انتقال میدی حباب خراب میکنی» → حتی
-                                # رویِ باندِ تیرهٔ یکدست فقط نوارهایِ خط از
-                                # donor میآیند (بالا: out |= strips/failed)؛
-                                # بینِ خطها = پیکسلِ اورجینالِ باند (جوهرش
-                                # داخلِ نوارها پاک شده). خرابیِ احتمالیِ
-                                # عکسِ اول (لگه/لکهٔ LaMa) دیگر هرگز با
-                                # کلِ بلوک به عکسِ دوم نمیرسد.
+# قانونِ دو-عکسی: حتی
+# رویِ باندِ تیرهٔ یکدست فقط نوارهایِ خط از
+# donor میآیند (بالا: out |= strips/failed)
+# بینِ خطها = پیکسلِ اورجینالِ باند (جوهرش
+# داخلِ نوارها پاک شده). خرابیِ احتمالیِ
+# عکسِ اول (لگه/لکهٔ LaMa) دیگر هرگز با
+# کلِ بلوک به عکسِ دوم نمیرسد.
                                 if self.debug:
                                     try:
                                         print(f"  [*]بلوکِ "
@@ -7608,22 +7580,22 @@ class _MangaTranslatorBody_85:
                                               f" ممنوع — قانونِ دو-عکسی)")
                                     except Exception:
                                         pass
-                            # v1.14.135 — «پنلِ متنیِ روشن» (همتایِ ماسکِ
-                            # توپرِ بلوک — فقط اندروید، MANGA_TEXTPANEL):
-                            # اگر بینِ نوارها هنوز جوهرِ حروفِ جامانده
-                            # (OCRِ هرزِ آن روز) دیده شود، کلِ بلوک از
-                            # عکسِ پاکشده میآید — وگرنه متنِ نیمهپاک +
-                            # لکه در خروجی میماند. اگر donor آنجا پاک
-                            # نشده باشد، پیکسلِ donor = اورجینال (بیضرر).
-                            # v1.14.241 — هماهنگ با گیتِ ماسک: فقطِ اندروید
+# «پنلِ متنیِ روشن» (همتایِ ماسکِ
+# توپرِ بلوک — فقط اندروید، MANGA_TEXTPANEL):
+# اگر بینِ نوارها هنوز جوهرِ حروفِ جامانده
+# (OCRِ هرزِ آن روز) دیده شود، کلِ بلوک از
+# عکسِ پاکشده میآید — وگرنه متنِ نیمهپاک +
+# لکه در خروجی میماند. اگر donor آنجا پاک
+# نشده باشد، پیکسلِ donor = اورجینال (بیضرر).
+# هماهنگ با گیتِ ماسک: فقطِ اندروید
                             elif _android_gate("MANGA_TEXTPANEL"):
                                 try:
                                     _ex = cv2.dilate(
                                         ((_strips > 0) | (_failed > 0))
                                         .astype(np.uint8),
                                         np.ones((9, 9), np.uint8))
-                                    # v1.14.238 — med_hِ ناحیه (فونتِ
-                                    # درشتِ img6: بلندیِ خط ۶۹..۷۹)
+# med_hِ ناحیه (فونتِ
+# درشتِ img6: بلندیِ خط ۶۹..۷۹)
                                     _mh = 0.0
                                     try:
                                         _pl = []
@@ -7654,9 +7626,9 @@ class _MangaTranslatorBody_85:
                                              _bx1 - _bx0, _by1 - _by0),
                                             _ex, med_h=_mh)
                                     if _ink is not None:
-                                        # فقط گلیفهای جامانده از donor —
-                                        # نه کلِ بلوک (LaMaِ بلوکِ کامل
-                                        # رویِ زمینهٔ عکسی توهم/نویز)
+# فقط گلیفهای جامانده از donor —
+# نه کلِ بلوک (LaMaِ بلوکِ کامل
+# رویِ زمینهٔ عکسی توهم/نویز)
                                         _im = _ink > 0
                                         out[_im] = True
                                         _sweep[_im] = True
@@ -7674,11 +7646,11 @@ class _MangaTranslatorBody_85:
                                     pass
                 except Exception:
                     pass
-                # v1.14.104 — «بالنِ سیستم»: اینتریورِ باکسِ سیستم (که در
-                # پاکسازی «یکجا» پاک شد) در کامپوز هم «یکجا» از عکسِ
-                # پاک‌شده منتقل می‌شود — وگرنه شبح/لکهٔ بینِ خط‌ها از
-                # عکسِ اصلی برمی‌گردد. قابِ سیستم بیرونِ اینتریور است و
-                # طبقِ قاعدهٔ همیشگی از عکسِ اصلی می‌ماند.
+# «بالنِ سیستم»: اینتریورِ باکسِ سیستم (که در
+# پاکسازی «یکجا» پاک شد) در کامپوز هم «یکجا» از عکسِ
+# پاک‌شده منتقل می‌شود — وگرنه شبح/لکهٔ بینِ خط‌ها از
+# عکسِ اصلی برمی‌گردد. قابِ سیستم بیرونِ اینتریور است و
+# طبقِ قاعدهٔ همیشگی از عکسِ اصلی می‌ماند.
                 try:
                     if getattr(_rg, "sys_split", False):
                         _cov = getattr(_rg, "cover_rect", None)
@@ -7716,11 +7688,11 @@ class _MangaTranslatorBody_85:
                                         MangaTranslator._system_box_interior(
                                             image, _key, _seeds)
                                     if _intr is not None:
-                                        # v1.14.209 — قانونِ دو-عکسیِ سازنده:
-                                        # اینتریورِ کاملِ باکسِ سیستم هم دیگر
-                                        # یکجا منتقل نمیشود — فقط نوارهایِ
-                                        # خط (sys_split). بینِ خطها = اورجینال؛
-                                        # خرابیِ عکسِ اول به عکسِ دوم نمیرسد.
+# قانونِ دو-عکسی:
+# اینتریورِ کاملِ باکسِ سیستم هم دیگر
+# یکجا منتقل نمیشود — فقط نوارهایِ
+# خط (sys_split). بینِ خطها = اورجینال
+# خرابیِ عکسِ اول به عکسِ دوم نمیرسد.
                                         if self.debug:
                                             try:
                                                 print(f"  [*]بالنِ سیستم → "
@@ -7733,7 +7705,7 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
                 _n_str += 1
-            # ناحیه‌هایی که نوار ندارند (متنِ آزاد/بنر) → ماسکِ خامِ آن‌ها
+# ناحیه‌هایی که نوار ندارند (متنِ آزاد/بنر) → ماسکِ خامِ آن‌ها
             for _rg in _regions:
                 if getattr(_rg, "kind", "") == "promo":
                     continue
@@ -7748,8 +7720,8 @@ class _MangaTranslatorBody_85:
                 _x1 = min(w, _rx + _rw2 + 7)
                 _y1 = min(h, _ry + _rh2 + 7)
                 if _x1 > _x0 and _y1 > _y0:
-                    # v1.14.76 — ناحیهٔ بی‌نوار (متنِ آزاد/بنر): ماسکِ خام
-                    # فقط داخلِ ناحیهٔ خودش برمی‌گردد (نه کلِ صفحه).
+# ناحیهٔ بی‌نوار (متنِ آزاد/بنر): ماسکِ خام
+# فقط داخلِ ناحیهٔ خودش برمی‌گردد (نه کلِ صفحه).
                     out[_y0:_y1, _x0:_x1] |= _raw[_y0:_y1, _x0:_x1]
                     _sweep[_y0:_y1, _x0:_x1] |= (out[_y0:_y1, _x0:_x1])
             self._compose_sweep_mask = _sweep
@@ -7766,8 +7738,8 @@ class _MangaTranslatorBody_85:
                     print(f"  [*] compose mask dumped → {_dc}")
             except Exception:
                 pass
-            # v1.14.64 — بنرهایِ تبلیغ: کلِ بنر (نه نوارِ خط‌ها) از عکسِ
-            # پاک‌شده به خروجی می‌رود — «کامل فیلتر تبلیغ»
+# بنرهایِ تبلیغ: کلِ بنر (نه نوارِ خط‌ها) از عکسِ
+# پاک‌شده به خروجی می‌رود — «کامل فیلتر تبلیغ»
             for _pb in (getattr(self, "_promo_rect_boxes", None) or []):
                 try:
                     _qx0 = max(0, int(_pb[0]))
@@ -7787,7 +7759,7 @@ class _MangaTranslatorBody_85:
                     by1 = min(h, int(_fb[3]) + 5)
                     if bx1 - bx0 < 8 or by1 - by0 < 8:
                         continue
-                    # کلِ بلوک از کامپوز حذف؛ فقط نوارِ خط‌ها برمی‌گردد
+# کلِ بلوک از کامپوز حذف؛ فقط نوارِ خط‌ها برمی‌گردد
                     out[by0:by1, bx0:bx1] = False
                     g = cv2.cvtColor(image[by0:by1, bx0:bx1],
                                      cv2.COLOR_BGR2GRAY)
@@ -7837,16 +7809,16 @@ class _MangaTranslatorBody_85:
                         out[by0 + sy0:by0 + sy1,
                             bx0 + sx0:bx0 + sx1] = True
                 except Exception:
-                    # در خطا: همان بلوکِ کامل مثلِ قبل — امن‌تر از برگشتِ متن
+# در خطا: همان بلوکِ کامل مثلِ قبل — امن‌تر از برگشتِ متن
                     try:
                         out[max(0, int(_fb[1])):min(h, int(_fb[3]) + 1),
                             max(0, int(_fb[0])):min(w, int(_fb[2]) + 1)] = True
                     except Exception:
                         pass
-            # v1.14.73d — نجاتِ نوارِ جوهرِ پوشش‌داده‌نشده در کامپوز:
-            # خطی که OCR پالی‌اش را نداشته باشد نه در نوارهاست → متنِ
-            # اصل از عکسِ دوم برمی‌گشت. نوارِ نجات (همانِ ماسکِ donor)
-            # جای آن را می‌گیرد.
+# نجاتِ نوارِ جوهرِ پوشش‌داده‌نشده در کامپوز:
+# خطی که OCR پالی‌اش را نداشته باشد نه در نوارهاست → متنِ
+# اصل از عکسِ دوم برمی‌گشت. نوارِ نجات (همانِ ماسکِ donor)
+# جای آن را می‌گیرد.
             try:
                 for _db4 in (getattr(self, "_donor_boxes", None) or []):
                     try:
@@ -7859,10 +7831,10 @@ class _MangaTranslatorBody_85:
                         continue
             except Exception:
                 pass
-            # v1.14.212 — روکشِ حاشیه‌نویسی (قاب/شستشویِ سبزِ up0822) هم
-            # در ماسکِ کامپوز میآید تا با نوارهایِ پاک‌شده به عکسِ دوم
-            # منتقل شود — وگرنه قابِ سبز در خروجیِ نهایی زنده میماند
-            # («هرنگی لگه بشه قبول نمیکنم»).
+# روکشِ حاشیه‌نویسی (قاب/شستشویِ سبزِ up0822) هم
+# در ماسکِ کامپوز میآید تا با نوارهایِ پاک‌شده به عکسِ دوم
+# منتقل شود — وگرنه قابِ سبز در خروجیِ نهایی زنده میماند
+# («هرنگی لگه بشه قبول نمیکنم»).
             try:
                 _anW = getattr(self, "_page_annotation_overlay", None)
                 if _anW is not None and _anW.shape == out.shape \
@@ -7877,11 +7849,9 @@ class _MangaTranslatorBody_85:
 
     def _strip_ghost_polish(self, image: np.ndarray, cleaned: np.ndarray,
                             mask: np.ndarray) -> Tuple[np.ndarray, int]:
-        """v1.14.213 — پولیشِ شبحِ نوارهایِ کامپوز.
+        """ — پولیشِ شبحِ نوارهایِ کامپوز.
 
-        گزارشِ سازنده: «فقط مشکل لگه سیاه سفید داره یا لگه متن قبلی
-        دیده میشه … نه لگه سیاهی نه لگه سفیدی یا هرنگی لگه بشه قبول
-        نمیکنم». ریشه (img6 — حبابِ دوگانهٔ بالا-وسط): لبهٔ ماسکِ LaMa
+        . ریشه (img6 — حبابِ دوگانهٔ بالا-وسط): لبهٔ ماسکِ LaMa
         از وسطِ جوهر میگذرد → donor خطِ ۱-۸px نصفهپاک نگه میدارد
         (تیرگیِ میانه ~۳۵-۵۳) → کامپوزِ دو-عکسی همان نوار را از donor
         میآورد → خطوطِ محوِ «متن قبلی». سویپِ بقایا فقط تیرگیِ ۴۵+ و
@@ -7906,9 +7876,9 @@ class _MangaTranslatorBody_85:
             g = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
             go = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             bg = cv2.medianBlur(g, 41).astype(np.int16)
-            # v1.14.213b — فقطِ شبحِ «محو» (کنتراستِ ۲۲..۶۰): خطِ تیرهٔ
-            # واقعی (هنر/دست/مو — کنتراستِ ۸۰+) هرگز پر نمیشود (img4:
-            # ضربههایِ دست رویِ میز داخلِ نوار، پاک نشود).
+# فقطِ شبحِ «محو» (کنتراستِ ۲۲..۶۰): خطِ تیرهٔ
+# واقعی (هنر/دست/مو — کنتراستِ ۸۰+) هرگز پر نمیشود (img4:
+# ضربههایِ دست رویِ میز داخلِ نوار، پاک نشود).
             _d = (bg - g.astype(np.int16))
             _b = (g.astype(np.int16) - bg)
             dark = (_d > 22) & (_d < 60)
@@ -7921,8 +7891,8 @@ class _MangaTranslatorBody_85:
                 ((go.astype(np.int16) - bgo) > 20)
             oink_near = cv2.dilate(
                 oink.astype(np.uint8), np.ones((25, 25), np.uint8)) > 0
-            # نازک: با openِ خطی زنده، با فرسایشِ ۵×۵ مرده (blobِ ضخیم
-            # = هنر/گلیفِ محافظتشده → رد)
+# نازک: با openِ خطی زنده، با فرسایشِ ۵×۵ مرده (blobِ ضخیم
+# = هنر/گلیفِ محافظتشده → رد)
             k_lh = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 1))
             k_lv = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 7))
             u = cand.astype(np.uint8)
@@ -7932,13 +7902,13 @@ class _MangaTranslatorBody_85:
             thin = ((thin > 0) & ~thick_core).astype(np.uint8)
             if not np.any(thin):
                 return cleaned, 0
-            # v1.14.213c — «باندِ لبهٔ نوار»: شبحِ LaMa پدِّ تراسِ لبهٔ
-            # ماسک است و همیشه به لبهٔ نوارِ کامپوز چسبیده؛ ضربهٔ هنر
-            # (دست/مو داخلِ نوار — img4) وسطِ نوار است و رد میشود.
+# «باندِ لبهٔ نوار»: شبحِ LaMa پدِّ تراسِ لبهٔ
+# ماسک است و همیشه به لبهٔ نوارِ کامپوز چسبیده؛ ضربهٔ هنر
+# (دست/مو داخلِ نوار — img4) وسطِ نوار است و رد میشود.
             _core = cv2.erode(m.astype(np.uint8),
                                  np.ones((13, 13), np.uint8)) > 0
             _edge = m & ~_core
-            # نقشههایِ حفاظت: دیوار/قاب/روکش هرگز پر نمیشوند
+# نقشههایِ حفاظت: دیوار/قاب/روکش هرگز پر نمیشوند
             _prot = None
             try:
                 for _pmN in (getattr(self, "_page_protect", None),
@@ -7978,8 +7948,8 @@ class _MangaTranslatorBody_85:
                 fills |= comp
             if not fills.any():
                 return cleaned, 0
-            # اهدافِ پر + هاله؛ چشمهها = پیکسلهایِ تمیز (جوهرِ محو هم
-            # چشمه نیست وگرنه سیاهی میکشد)
+# اهدافِ پر + هاله؛ چشمهها = پیکسلهایِ تمیز (جوهرِ محو هم
+# چشمه نیست وگرنه سیاهی میکشد)
             tgt = cv2.dilate(fills.astype(np.uint8),
                              np.ones((5, 5), np.uint8)) > 0
             tgt &= (m | fills)
@@ -8030,7 +8000,7 @@ class _MangaTranslatorBody_85:
 
     def _compose_polish(self, image: np.ndarray, composed: np.ndarray,
                          mask: np.ndarray) -> np.ndarray:
-        """v1.14.70 — «پاکسازیِ کثیف»: لکهٔ خاکستری/سبزِ LaMa داخلِ حبابِ
+        """ — «پاکسازیِ کثیف»: لکهٔ خاکستری/سبزِ LaMa داخلِ حبابِ
         سفید، وقتی به عکسِ دوم منتقل می‌شود، به‌صورتِ لکهٔ محو دیده می‌شود
         (نمونه: حبابِ «YEP!» و «OH BOY…»). راه‌حل: اگر حلقهٔ دورِ نوار یکنواخت
         باشد (زمینهٔ ساده)، هر پیکسلِ نوار که از رنگِ حلقه تیره‌تر/روشن‌تر
@@ -8048,10 +8018,10 @@ class _MangaTranslatorBody_85:
                 return composed
             out = composed
             _k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-            # v1.14.73 — کامپوز با دیلیتِ ۹ انجام می‌شود → هر چیزی تا ۹px
-            # اطرافِ نوار از «عکسِ پاک‌شده» (donor) می‌آید. حلقه باید از
-            # «اورجینال» باشد وگرنه هالهٔ donor رنگِ فلتن را می‌شکند
-            # (نمونه: پرِ نوارهایِ حبابِ زرد با بژِ خاکستری).
+# کامپوز با دیلیتِ ۹ انجام می‌شود → هر چیزی تا ۹px
+# اطرافِ نوار از «عکسِ پاک‌شده» (donor) می‌آید. حلقه باید از
+# «اورجینال» باشد وگرنه هالهٔ donor رنگِ فلتن را می‌شکند
+# (نمونه: پرِ نوارهایِ حبابِ زرد با بژِ خاکستری).
             _m9 = cv2.dilate(m, np.ones((9, 9), np.uint8)) > 0
             _k2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
             for i in range(1, n):
@@ -8076,18 +8046,18 @@ class _MangaTranslatorBody_85:
                 ring = cv2.dilate(subm.astype(np.uint8), _k2) > 0
                 ring &= ~subm
                 ring &= ~_m9[y0:y1, x0:x1]
-                # v1.14.73 — حلقه فقط از پیکسل‌هایِ «اورجینال» ساخته شود:
-                # نوارهایِ همسایه (موتیلینگِ LaMa/TELEA) آمارِ حلقه را
-                # آلوده می‌کنند و rstd بی‌دلیل بالا می‌رود. اگر بعد از
-                # حذف، حلقه خیلی کوچک شد، همان حلقهٔ قبلی (با نوارها).
+# حلقه فقط از پیکسل‌هایِ «اورجینال» ساخته شود:
+# نوارهایِ همسایه (موتیلینگِ LaMa/TELEA) آمارِ حلقه را
+# آلوده می‌کنند و rstd بی‌دلیل بالا می‌رود. اگر بعد از
+# حذف، حلقه خیلی کوچک شد، همان حلقهٔ قبلی (با نوارها).
                 try:
                     _ring_o = ring & (m[y0:y1, x0:x1] == 0)
                     if int(np.count_nonzero(_ring_o)) >= 40:
                         ring = _ring_o
                 except Exception:
                     pass
-                # v1.14.73 — دیوار از حلقه بیرون بماند تا سفیدیِ حباب را
-                # «تیره» نگیرد و پولیشِ نوارهایِ چسبیده به دیوار هم فعال شود
+# دیوار از حلقه بیرون بماند تا سفیدیِ حباب را
+# «تیره» نگیرد و پولیشِ نوارهایِ چسبیده به دیوار هم فعال شود
                 try:
                     for _pmN in (getattr(self, "_page_protect", None),
                                  getattr(self, "_page_wall_band", None),
@@ -8102,10 +8072,10 @@ class _MangaTranslatorBody_85:
                 else:
                     _ring_n = int(np.count_nonzero(ring))
                 rg = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
-                # v1.14.73 — گیت‌های فلتنِ «کلِ نوار»:
-                # v1.14.75e — آمارِ حلقه از «عکسِ اورجینال» گرفته شود نه
-                # خروجی — پرِ LaMa (در خروجی) حلقه را آلوده می‌کند و
-                # متادیتای هر پولیشِ درست را خراب می‌کند.
+# گیت‌های فلتنِ «کلِ نوار»:
+# آمارِ حلقه از «عکسِ اورجینال» گرفته شود نه
+# خروجی — پرِ LaMa (در خروجی) حلقه را آلوده می‌کند و
+# متادیتای هر پولیشِ درست را خراب می‌کند.
                 try:
                     _rimg = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                     _rv_o = _rimg[y0:y1, x0:x1][ring]
@@ -8116,20 +8086,20 @@ class _MangaTranslatorBody_85:
                         rmed = rstd = None
                 except Exception:
                     rmed = rstd = None
-                # v1.14.82 — گیتِ بافتِ خروجی: اگر «نتیجهٔ» کامپوز روی این
-                # مؤلفه بافت‌مند است (هنرِ حفظ‌شده — مثلِ کارتِ img2 با
-                # قابِ سفید و خطوطِ داخل)، پولیش (فلت/لکه‌گیری) ممنوع —
-                # وگرنه فازِ «لکه» هر پیکسلِ روشن‌تر از زمینه (قابِ سفید،
-                # هایلایتِ هنر) را با رنگِ حلقه پر می‌کند («کل حباب با
-                # رنگ پر شد — لاما روش استفاده نشد»). سنجه روی خروجی
-                # سنجیده می‌شود نه اورجینال (اورجینال خودِ متن را دارد).
-                # کالیبراسیون img2: هنر std=66/lap=9.3 ؛ پنلِ تخت std≤4.
-                # v1.14.206o — این گیت فقط وقتی معنا دارد که حلقه هم
-                # «غیریکنواخت» است (نوارِ وسطِ هنر). اگر حلقهٔ اورجینال
-                # تخت باشد (حبابِ سفید/رنگیِ تخت)، بافتِ خروجی = خودِ
-                # لکهٔ پرِ LaMa است (لکهٔ سبزِ قابِ رنگی در up0822 —
-                # پرِ LaMa رنگِ قاب را داخلِ متن کشیده) و باید فلت شود؛
-                # پس فقط ترکیبِ «بافت‌مند + حلقهٔ بافت‌مند» رد میشود.
+# گیتِ بافتِ خروجی: اگر «نتیجهٔ» کامپوز روی این
+# مؤلفه بافت‌مند است (هنرِ حفظ‌شده — مثلِ کارتِ img2 با
+# قابِ سفید و خطوطِ داخل)، پولیش (فلت/لکه‌گیری) ممنوع —
+# وگرنه فازِ «لکه» هر پیکسلِ روشن‌تر از زمینه (قابِ سفید
+# هایلایتِ هنر) را با رنگِ حلقه پر می‌کند («کل حباب با
+# رنگ پر شد — لاما روش استفاده نشد»). سنجه روی خروجی
+# سنجیده می‌شود نه اورجینال (اورجینال خودِ متن را دارد).
+# کالیبراسیون img2: هنر std=66/lap=9.3 ؛ پنلِ تخت std≤4.
+# این گیت فقط وقتی معنا دارد که حلقه هم
+# «غیریکنواخت» است (نوارِ وسطِ هنر). اگر حلقهٔ اورجینال
+# تخت باشد (حبابِ سفید/رنگیِ تخت)، بافتِ خروجی = خودِ
+# لکهٔ پرِ LaMa است (لکهٔ سبزِ قابِ رنگی در up0822 —
+# پرِ LaMa رنگِ قاب را داخلِ متن کشیده) و باید فلت شود
+# پس فقط ترکیبِ «بافت‌مند + حلقهٔ بافت‌مند» رد میشود.
                 if rstd is not None and rstd > 12.0:
                     try:
                         _vT = rg[subm].astype(np.float32)
@@ -8137,12 +8107,12 @@ class _MangaTranslatorBody_85:
                             _lapT = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
                             if (float(np.std(_vT)) > 12.0
                                     or float(np.mean(_lapT[subm])) > 2.5):
-                                # v1.14.226d — استثنایِ بلوکِ اجباری-LaMa:
-                                # «بافتِ» نوارِ بلوکهایِ اجباری، خودِ شبحِ
-                                # حروفِ LaMa است نه هنر (SFXِ 4e2e77:
-                                # CHANGES TO… ذوب‌شده ولی خوانا — std=۳۴)
-                                # → رد نکن؛ بگذار به گیتها/بازپرِ گرادیانی
-                                # برسد.
+# استثنایِ بلوکِ اجباری-LaMa:
+# «بافتِ» نوارِ بلوکهایِ اجباری، خودِ شبحِ
+# حروفِ LaMa است نه هنر (SFXِ 4e2e77:
+# CHANGES TO… ذوب‌شده ولی خوانا — std=۳۴)
+# → رد نکن؛ بگذار به گیتها/بازپرِ گرادیانی
+# برسد.
                                 _fhit26d = False
                                 try:
                                     for _fb26d in (getattr(
@@ -8181,23 +8151,23 @@ class _MangaTranslatorBody_85:
                                 continue
                     except Exception:
                         pass
-                #  الف) حلقهٔ اورجینال یکنواخت — حبابِ سفید/رنگیِ تخت که
-                #     حلقه‌اش داخلِ حباب است.
-                #     v1.14.75 — یکنواختیِ «اکثریتِ» حلقه (≥۷۵٪ در ±۱۲ از
-                #     میانهٔ حلقه) کافی است؛ رینگِ حبابِ سفیدِ بزرگِ 01.jpg
-                #     لبهٔ هنرِ استخر را هم می‌گیرد و rstd کل را بالا می‌برد
-                #     — اقلیتِ هنر نباید فلتِ نوار را بلاک کند وگرنه شبحِ
-                #     محوِ متن زنده می‌ماند.
-                #  ب) خودِ نوار «اکثریت‌یکنواخت» (≥۸۰٪ نزدیکِ میانهٔ خودش)
-                #     — برای بلوک‌هایِ بزرگ (ماسکِ بلوک/حبابِ زرد) که حلقه‌شان
-                #     هنر است و گیتِ الف نمی‌گیرد؛ اقلیتِ باقی‌مانده =
-                #     جوهرِ شبحِ متن است.
-                # v1.14.104 — گیتِ رنگی (درسِ v1.14.38): «یکنواختی» فقط در
-                # خاکستری دیده نمی‌شود. کارتِ قرمزِ 890fb1: خاکستریِ حلقه
-                # یکنواختِ ~۱۲ (rstd=4!) ولی کانالِ R گرادیانِ ۵۰→۱۳ دارد
-                # — پولیشِ فلتِ خاکستری‌فکر کلِ بلوک را با «میانهٔ حلقه»
-                # یک‌رنگ می‌کند = لگهٔ قرمزِ مستطیلی. سنجه = بیشینهٔ
-                # stdِ کانال‌هایِ BGR رویِ حلقهٔ اورجینال + اکثریتِ هر کانال.
+# الف) حلقهٔ اورجینال یکنواخت — حبابِ سفید/رنگیِ تخت که
+# حلقه‌اش داخلِ حباب است.
+# یکنواختیِ «اکثریتِ» حلقه (≥۷۵٪ در ±۱۲ از
+# میانهٔ حلقه) کافی است؛ رینگِ حبابِ سفیدِ بزرگِ 01.jpg
+# لبهٔ هنرِ استخر را هم می‌گیرد و rstd کل را بالا می‌برد
+# اقلیتِ هنر نباید فلتِ نوار را بلاک کند وگرنه شبحِ
+# محوِ متن زنده می‌ماند.
+# ب) خودِ نوار «اکثریت‌یکنواخت» (≥۸۰٪ نزدیکِ میانهٔ خودش)
+# برای بلوک‌هایِ بزرگ (ماسکِ بلوک/حبابِ زرد) که حلقه‌شان
+# هنر است و گیتِ الف نمی‌گیرد؛ اقلیتِ باقی‌مانده =
+# جوهرِ شبحِ متن است.
+# گیتِ رنگی (درسِ ): «یکنواختی» فقط در
+# خاکستری دیده نمی‌شود. کارتِ قرمزِ 890fb1: خاکستریِ حلقه
+# یکنواختِ ~۱۲ (rstd=4!) ولی کانالِ R گرادیانِ ۵۰→۱۳ دارد
+# پولیشِ فلتِ خاکستری‌فکر کلِ بلوک را با «میانهٔ حلقه»
+# یک‌رنگ می‌کند = لگهٔ قرمزِ مستطیلی. سنجه = بیشینهٔ
+# stdِ کانال‌هایِ BGR رویِ حلقهٔ اورجینال + اکثریتِ هر کانال.
                 _cstd = None
                 try:
                     _roc = image[y0:y1, x0:x1][ring].astype(np.float32)
@@ -8223,7 +8193,7 @@ class _MangaTranslatorBody_85:
                     _can_flat = True
                     _gate2 = "A:rstd<=10"
                 elif rstd is not None and rstd <= 60.0:
-                    # v1.14.75 — اکثریتِ یکنواختِ حلقه (حباب با لبهٔ هنر):
+# اکثریتِ یکنواختِ حلقه (حباب با لبهٔ هنر):
                     try:
                         _rvv = rg[ring]
                         _rmv = float(np.median(_rvv))
@@ -8240,9 +8210,9 @@ class _MangaTranslatorBody_85:
                           f"rstd={rstd if rstd is None else round(rstd,2)} "
                           f"ring_n={_ring_n}")
                 if not _can_flat:
-                    # v1.14.73b — گیتِ «اکثریت‌یکنواخت» فقط برای نوارهایِ
-                    # «داخلِ حباب» (donor box)؛ نوارِ رویِ هنرِ بیرون (راوی
-                    # رویِ زمین/پرده) فلت شود = میلهٔ رنگیِ تخت (img4).
+# گیتِ «اکثریت‌یکنواخت» فقط برای نوارهایِ
+# «داخلِ حباب» (donor box)؛ نوارِ رویِ هنرِ بیرون (راوی
+# رویِ زمین/پرده) فلت شود = میلهٔ رنگیِ تخت (img4).
                     try:
                         _in_donor = False
                         for _db2 in (getattr(self, "_donor_boxes", None)
@@ -8258,9 +8228,9 @@ class _MangaTranslatorBody_85:
                             _gd = rg[subm]
                             if _gd.size >= 40:
                                 _gmode = float(np.median(_gd))
-                                # v1.14.104 — گیتِ C هم رنگی: کامپوننتِ
-                                # گرادیانِ رنگی (کارتِ 890fb1 در خاکستری
-                                # «اکثریت‌یکنواخت» است!) فلت نشود.
+# گیتِ C هم رنگی: کامپوننتِ
+# گرادیانِ رنگی (کارتِ 890fb1 در خاکستری
+# «اکثریت‌یکنواخت» است!) فلت نشود.
                                 _gdC = None
                                 try:
                                     _subC = sub[subm].astype(np.float32)
@@ -8289,29 +8259,29 @@ class _MangaTranslatorBody_85:
                           f"{rstd if rstd is None else round(rstd, 2)} "
                           f"ring_n={_ring_n}", flush=True)
                 if _can_flat:
-                    # v1.14.73 — دامنهٔ فلتن = خودِ نوار + هالهٔ دورِ آن:
-                    # «اثرِ فشردنِ جوهر روی کاغذ» (۴-۱۵ سطحِ زیرِ زمینه،
-                    # شکلِ حروف) تا ~۱۳px بیرونِ نوار می‌ریزد (نمونهٔ
-                    # حبابِ زرد: «Alright! I'll increase…» خوانا ماند) —
-                    # با فلت‌کردنِ فقط ۵px زنده می‌ماند.
-                    # v1.14.75 — شبحِ داخلِ نوارهایِ بزرگِ بلوکی حبابِ زرد
-                    # (لکههای تیرهٔ تیره‌تر از زمینه) با ۱۳px هم اسمش نمی‌شد
-                    # چون گیتِ رنگِ ±۲۶ حفره‌ها را نمی‌گرفت — دیلیتِ ۱۷ +
-                    # گیتِ رنگِ آماری: پیکسلی که «آوتلایرِ» توزیعِ سایهٔ
-                    # نوار است (bis basal) هم داخلِ فلتن.
+# دامنهٔ فلتن = خودِ نوار + هالهٔ دورِ آن:
+# «اثرِ فشردنِ جوهر روی کاغذ» (۴-۱۵ سطحِ زیرِ زمینه
+# شکلِ حروف) تا ~۱۳px بیرونِ نوار می‌ریزد (نمونهٔ
+# حبابِ زرد: «Alright! I'll increase…» خوانا ماند) —
+# با فلت‌کردنِ فقط ۵px زنده می‌ماند.
+# شبحِ داخلِ نوارهایِ بزرگِ بلوکی حبابِ زرد
+# (لکههای تیرهٔ تیره‌تر از زمینه) با ۱۳px هم اسمش نمی‌شد
+# چون گیتِ رنگِ ±۲۶ حفره‌ها را نمی‌گرفت — دیلیتِ ۱۷ +
+# گیتِ رنگِ آماری: پیکسلی که «آوتلایرِ» توزیعِ سایهٔ
+# نوار است (bis basal) هم داخلِ فلتن.
                     _flat_dom = cv2.dilate(
                         subm.astype(np.uint8),
                         cv2.getStructuringElement(
                             cv2.MORPH_ELLIPSE, (17, 17))) > 0
-                    # v1.14.73d — گیتِ رنگ: فقط پیکسل‌هایِ «هم‌رنگِ نوار»
-                    # فلت می‌شوند — دیوارِ ضخیم/خشنِ بیرونِ protect (خطِ
-                    # دست‌کشیدهٔ کیمتسو) و هنرِ چسبیده به نوار محفوظ می‌مانند.
+# گیتِ رنگ: فقط پیکسل‌هایِ «هم‌رنگِ نوار»
+# فلت می‌شوند — دیوارِ ضخیم/خشنِ بیرونِ protect (خطِ
+# دست‌کشیدهٔ کیمتسو) و هنرِ چسبیده به نوار محفوظ می‌مانند.
                     try:
                         _fm = float(np.median(rg[subm]))
-                        # v1.14.226b — استثنایِ هستهٔ نوار: بقایایِ روشنِ
-                        # حروف (خاکستریِ ۲۵۰ در برابرِ میانهٔ ۱۶۰) از گیتِ
-                        # رنگ بیرون میافتادند و همان شبحهایِ سفید زنده
-                        # میماندند (پنجرهٔ 4e2e77) — گیت فقط برایِ هاله.
+# استثنایِ هستهٔ نوار: بقایایِ روشنِ
+# حروف (خاکستریِ ۲۵۰ در برابرِ میانهٔ ۱۶۰) از گیتِ
+# رنگ بیرون میافتادند و همان شبحهایِ سفید زنده
+# میماندند (پنجرهٔ 4e2e77) — گیت فقط برایِ هاله.
                         _flat_dom &= ((np.abs(
                             rg.astype(np.float32) - _fm) <= 26.0) | subm)
                     except Exception:
@@ -8324,14 +8294,14 @@ class _MangaTranslatorBody_85:
                     except Exception:
                         pass
                     if int(np.count_nonzero(_flat_dom)) >= 20:
-                        # v1.14.75 — رنگِ فلتن از «حلقهٔ اورجینال» گرفته می‌شود
-                        # نه از خودِ نوار: اگر LaMa نوار را با رنگِ کمی غلط
-                        # پر کرده باشد (لگهٔ روشنِ حبابِ زردِ 01.jpg / لگهٔ
-                        # سرخِ کارتِ 890fb1)، میانهٔ خودِ نوار همان رنگِ غلط
-                        # را تثبیت می‌کرد. حلقهٔ اورجینال (پیکسل‌هایِ عکسِ
-                        # اصلیِ اطرافِ نوار) = رنگِ واقعیِ زمینهٔ حباب.
-                        # فال‌بک: اگر حلقه‌ی قابلِ اعتماد نبود، همان
-                        # میانهٔ خودِ نوار (رفتارِ قبلی).
+# رنگِ فلتن از «حلقهٔ اورجینال» گرفته می‌شود
+# نه از خودِ نوار: اگر LaMa نوار را با رنگِ کمی غلط
+# پر کرده باشد (لگهٔ روشنِ حبابِ زردِ 01.jpg / لگهٔ
+# سرخِ کارتِ 890fb1)، میانهٔ خودِ نوار همان رنگِ غلط
+# را تثبیت می‌کرد. حلقهٔ اورجینال (پیکسل‌هایِ عکسِ
+# اصلیِ اطرافِ نوار) = رنگِ واقعیِ زمینهٔ حباب.
+# فال‌بک: اگر حلقه‌ی قابلِ اعتماد نبود، همان
+# میانهٔ خودِ نوار (رفتارِ قبلی).
                         _refc = None
                         try:
                             _ring_u8 = ring.astype(np.uint8)
@@ -8350,26 +8320,26 @@ class _MangaTranslatorBody_85:
                         if _refc is None:
                             _refc = np.median(
                                 sub[_flat_dom].astype(np.float32), axis=0)
-                        # v1.14.226 — فلتنِ گرادیان‌آگاه: پنجرهٔ سیستمِ
-                        # 4e2e77 — هر خطِ متن رویِ گرادیانِ آبی، حلقهٔ
-                        # «محلیِ» خودش را یکنواخت دارد (rstd≤۱۰) و فلت با
-                        # میانهٔ خودش پاک میشد → پلههایِ آبیِ ناهمسانِ
-                        # روی-هم (اسکرینشاتِ سازنده). سنجشِ شیب روی
-                        # «همهٔ پیکسلهایِ زمینهٔ اورجینالِ پنجرهٔ محلی»
-                        # (بیرونِ ماسکِ نوارها — نه فقط حلقهٔ ۲۵px که
-                        # همسایههاشان آن را میبلعند): شیبِ >۶ در هر
-                        # کانال بین ربعِ اول و آخرِ ردیفهای زمینه =
-                        # گرادیان → فلتن بهجایِ رنگِ تخت، «رنگِ ردیفی»
-                        # میان‌یابی‌شده میگیرد — گرادیان زنده میماند،
-                        # لکههایِ LaMa هم پاک میشوند.
+# فلتنِ گرادیان‌آگاه: پنجرهٔ سیستمِ
+# 4e2e77 — هر خطِ متن رویِ گرادیانِ آبی، حلقهٔ
+# «محلیِ» خودش را یکنواخت دارد (rstd≤۱۰) و فلت با
+# میانهٔ خودش پاک میشد → پلههایِ آبیِ ناهمسانِ
+# روی-هم (اسکرینشاتِ سازنده). سنجشِ شیب روی
+# «همهٔ پیکسلهایِ زمینهٔ اورجینالِ پنجرهٔ محلی»
+# (بیرونِ ماسکِ نوارها — نه فقط حلقهٔ ۲۵px که
+# همسایههاشان آن را میبلعند): شیبِ >۶ در هر
+# کانال بین ربعِ اول و آخرِ ردیفهای زمینه =
+# گرادیان → فلتن بهجایِ رنگِ تخت، «رنگِ ردیفی»
+# میان‌یابی‌شده میگیرد — گرادیان زنده میماند
+# لکههایِ LaMa هم پاک میشوند.
                         try:
                             _prof = None
                             try:
-                                # v1.14.226b — پنجرهٔ پروفایلِ بازتر
-                                # (±۶۰): در بلوکهایِ چندخطی، ماسکهایِ
-                                # خطوط، پنجرهٔ ۱۸px را میبلعند و مدل از
-                                # ۲-۳ ردیفِ باقیمانده ساخته میشد (رنگِ
-                                # غلط → دوختِ عمودی).
+# پنجرهٔ پروفایلِ بازتر
+# (±۶۰): در بلوکهایِ چندخطی، ماسکهایِ
+# خطوط، پنجرهٔ ۱۸px را میبلعند و مدل از
+# ۲-۳ ردیفِ باقیمانده ساخته میشد (رنگِ
+# غلط → دوختِ عمودی).
                                 _py = max(0, y - 60)
                                 _py2 = min(m.shape[0], y + h + 60)
                                 _bgw = (m[_py:_py2, x0:x1] == 0)
@@ -8437,12 +8407,12 @@ class _MangaTranslatorBody_85:
                                     _gate = np.abs(
                                         rg[_rr].astype(np.float32)
                                         - float(_rowg[_rr])) <= 26.0
-                                    # v1.14.226b — گیتِ رنگ فقط رویِ هاله:
-                                    # هستهٔ نوار (= خودِ متن) همیشه بازپر
-                                    # میشود — بقایایِ سفیدِ حروف از مدل
-                                    # >۲۶ فاصله داشتند و گیت، همان شبحها
-                                    # را زنده نگه میداشت (خطوطِ سفیدِ
-                                    # پایینِ پنجرهٔ 4e2e77).
+# گیتِ رنگ فقط رویِ هاله:
+# هستهٔ نوار (= خودِ متن) همیشه بازپر
+# میشود — بقایایِ سفیدِ حروف از مدل
+# >۲۶ فاصله داشتند و گیت، همان شبحها
+# را زنده نگه میداشت (خطوطِ سفیدِ
+# پایینِ پنجرهٔ 4e2e77).
                                     _gate |= subm[_rr]
                                     _rd = _rd & _gate
                                     if not _rd.any():
@@ -8462,15 +8432,15 @@ class _MangaTranslatorBody_85:
                         sub[:] = _sF
                         out[y0:y1, x0:x1] = sub
                         continue
-                # v1.14.226c — بلوکِ بزرگِ «فلت رویِ گرادیان»: بلوکهایِ
-                # اجباری-LaMaیِ پنجرهٔ سیستمِ 4e2e77 ([TRAITS…]/[CLASS…])
-                # — گیتهایِ فلتن (A/B/C) رینگِ پهنِ پنل+هنر را رد
-                # میکنند (rstd>10) و پرِ تختِ روشنِ LaMa [77,190,251]
-                # رویِ گرادیانِ آبی میماند = قابِ مستطیلیِ روشن
-                # (اسکرینشاتِ سازنده). مدلِ «جداکردنی» = ردیف(y)+ستون(x):
-                # گرادیانِ عمودی و افقی هر دو بازسازی میشوند؛ خشنیِ
-                # پروفایل = هنر/بافت → رد. انحرافِ پر از مدل ≥۳.۵ =
-                # پرِ غلط → بازپرِ ردیفی-ستونی.
+# بلوکِ بزرگِ «فلت رویِ گرادیان»: بلوکهایِ
+# اجباری-LaMaیِ پنجرهٔ سیستمِ 4e2e77 ([TRAITS…]/[CLASS…])
+# گیتهایِ فلتن (A/B/C) رینگِ پهنِ پنل+هنر را رد
+# میکنند (rstd>10) و پرِ تختِ روشنِ LaMa [77,190,251]
+# رویِ گرادیانِ آبی میماند = قابِ مستطیلیِ روشن
+# (اسکرینشاتِ سازنده). مدلِ «جداکردنی» = ردیف(y)+ستون(x):
+# گرادیانِ عمودی و افقی هر دو بازسازی میشوند؛ خشنیِ
+# پروفایل = هنر/بافت → رد. انحرافِ پر از مدل ≥۳.۵ =
+# پرِ غلط → بازپرِ ردیفی-ستونی.
                 if not _can_flat and a >= 4000 and (w >= 60 or h >= 60):
                     try:
                         _py026c = max(0, y - 60)
@@ -8480,7 +8450,7 @@ class _MangaTranslatorBody_85:
                         _off26c = y0 - _py026c
                         _sep26c = None
                         if int(_bgw26c.sum()) >= 200:
-                            # پروفایلِ ردیفی
+# پروفایلِ ردیفی
                             _rows26c = []
                             _cols26c = []
                             _free26c = max(
@@ -8491,7 +8461,7 @@ class _MangaTranslatorBody_85:
                                     _rows26c.append(_rr26c - _off26c)
                                     _cols26c.append(np.median(
                                         _subO26c[_rr26c][_selr26c], axis=0))
-                            # پروفایلِ ستونی
+# پروفایلِ ستونی
                             _colsx26c = []
                             _colsv26c = []
                             for _cc26c in range(_bgw26c.shape[1]):
@@ -8518,7 +8488,7 @@ class _MangaTranslatorBody_85:
                                     _mt26c - _mb26c).max())
                                 _g26c = float(np.mean(_carr26c))
                                 if _dr26c > 6.0:
-                                    # هموارسازی (۹تایی) + گیتِ خشنی
+# هموارسازی (۹تایی) + گیتِ خشنی
                                     try:
                                         _k26c = np.ones(
                                             9, np.float32) / 9.0
@@ -8553,10 +8523,10 @@ class _MangaTranslatorBody_85:
                                 _sep26c
                             _h26c = sub.shape[0]
                             _w26c = sub.shape[1]
-                            # مدلِ ردیفی (گرادیانِ عمودی) — پروفایلِ ستونی
-                            # کنار گذاشته شد: ستونهایِ قابِ سفیدِ پنل،
-                            # میانگینِ ستون را می‌کشند و رنگِ مدل را در
-                            # کلِ ستون غلط میکنند (لکهٔ زردِ بالای پنل)
+# مدلِ ردیفی (گرادیانِ عمودی) — پروفایلِ ستونی
+# کنار گذاشته شد: ستونهایِ قابِ سفیدِ پنل
+# میانگینِ ستون را می‌کشند و رنگِ مدل را در
+# کلِ ستون غلط میکنند (لکهٔ زردِ بالای پنل)
                             _rowc26c = np.zeros((_h26c, 3), np.float32)
                             for _ch26c in range(3):
                                 _rowc26c[:, _ch26c] = np.interp(
@@ -8567,7 +8537,7 @@ class _MangaTranslatorBody_85:
                             _mg26c = (0.299 * _modelc26c[..., 2]
                                       + 0.587 * _modelc26c[..., 1]
                                       + 0.114 * _modelc26c[..., 0])
-                            # انحرافِ پرِ فعلی از مدل (فقط روی نوار)
+# انحرافِ پرِ فعلی از مدل (فقط روی نوار)
                             _fillrows = []
                             _modelrows = []
                             for _rr26c in range(_h26c):
@@ -8607,11 +8577,11 @@ class _MangaTranslatorBody_85:
                                 except Exception:
                                     pass
                                 _sF26c = sub.copy()
-                                # بدونِ گیتِ رنگ: خودِ پرِ غلطِ LaMa در
-                                # ردیفهایِ پایین از مدل >۲۶ فاصله داشت و
-                                # گیت، همان پرِ غلط را زنده نگه میداشت =
-                                # نوارِ ترکیبی. دامنه = نوار+هاله منهایِ
-                                # نقشههایِ حفاظت — کافی است.
+# بدونِ گیتِ رنگ: خودِ پرِ غلطِ LaMa در
+# ردیفهایِ پایین از مدل >۲۶ فاصله داشت و
+# گیت، همان پرِ غلط را زنده نگه میداشت =
+# نوارِ ترکیبی. دامنه = نوار+هاله منهایِ
+# نقشههایِ حفاظت — کافی است.
                                 _rd26c = _dom26c
                                 if int(_rd26c.sum()) >= 20:
                                     _sF26c[_rd26c] = np.clip(np.rint(
@@ -8636,13 +8606,13 @@ class _MangaTranslatorBody_85:
                                     ).astype(np.uint8)
                 sub[:] = _s
                 out[y0:y1, x0:x1] = sub
-            # v1.14.74 — «فلتنِ کلِ داخلِ حباب» (v1.14.73c) حذف شد:
-            # کاربر: «عکسِ دوم حبابش پاک نشه» — در خروجی فقط نوارِ متن
-            # مجاز به تغییر است. فلتنِ کلِ اینتریور حتی با «گیتِ رنگ»،
-            # هرگاه LaMa داخل را با رنگِ غلط پر کرده بود همان رنگِ غلط
-            # را تثبیت می‌کرد (نمونهٔ 01.jpg: حبابِ زرد → خاکستریِ تخت).
-            # شبحِ بینِ نوارها را «پولیشِ نوار + ۱۳px» و جارویِ بقایا
-            # می‌برند؛ زمینهٔ حباب همیشه پیکسلِ اورجینال می‌ماند.
+# «فلتنِ کلِ داخلِ حباب»  حذف شد:
+# کاربر: «عکسِ دوم حبابش پاک نشه» — در خروجی فقط نوارِ متن
+# مجاز به تغییر است. فلتنِ کلِ اینتریور حتی با «گیتِ رنگ»
+# هرگاه LaMa داخل را با رنگِ غلط پر کرده بود همان رنگِ غلط
+# را تثبیت می‌کرد (نمونهٔ 01.jpg: حبابِ زرد → خاکستریِ تخت).
+# شبحِ بینِ نوارها را «پولیشِ نوار + ۱۳px» و جارویِ بقایا
+# می‌برند؛ زمینهٔ حباب همیشه پیکسلِ اورجینال می‌ماند.
             return out
         except Exception:
             return composed
@@ -8650,13 +8620,13 @@ class _MangaTranslatorBody_85:
     def _texture_refill_donor(self, donor: np.ndarray,
                               original: np.ndarray,
                               cmp_mask: np.ndarray) -> None:
-        """v1.14.96 — بازپرِ بافت برای زمینه‌هایِ نویز/نقش‌ونگار.
+        """ — بازپرِ بافت برای زمینه‌هایِ نویز/نقش‌ونگار.
 
         LaMa روی برف‌نوی/خال‌خال (EXECِ 412e9e، پلاکِ GREEN MOON) پرِ
         «تختِ بی‌بافت» می‌دهد — نویزِ ریز میانگین می‌شود و مستطیلِ صاف
         می‌ماند. برای هر مؤلفهٔ نوارمانندِ ماسک که حلقه‌اش بافت‌مند است
         (std حلقه > ۳۶):
-          low-freq  = میان‌یابیِ قائمِ ستونی بینِ ردیف‌هایِ تمیزِ
+          low-freq = میان‌یابیِ قائمِ ستونی بینِ ردیف‌هایِ تمیزِ
                       بالا/پایینِ نوار (گرادیانِ واقعی)
           high-freq = نویزِ واقعیِ نزدیک‌ترین پیکسلِ «تمیزِ بی‌لبه»
                       (برفِ زمینه بدونِ لبهٔ دیوار/قاب)
@@ -8689,17 +8659,17 @@ class _MangaTranslatorBody_85:
                 rvals = g[y0:y1, x0:x1][ring].astype(np.float32)
                 if float(rvals.std()) <= 36.0:
                     continue
-                # پیکسل‌هایِ «تمیزِ بی‌لبه» برای برداشتِ نویز — لبه‌های
-                # تیز (دیوار/قاب) با resid بزرگ حذف می‌شوند
+# پیکسل‌هایِ «تمیزِ بی‌لبه» برای برداشتِ نویز — لبه‌های
+# تیز (دیوار/قاب) با resid بزرگ حذف می‌شوند
                 clean = ring & (resid_max[y0:y1, x0:x1] <= 45.0)
                 if int(np.count_nonzero(clean)) < 200:
                     continue
                 crop_o = blur_b[y0:y1, x0:x1]
                 crop_d = donor[y0:y1, x0:x1]
-                # v1.14.96f — فقط پیکسل‌هایِ «واقعاً پرشده» (پرِ LaMa)
-                # بازپر می‌شوند؛ جایی که donor = اصلِ عکس است (ماسکِ
-                # تنگِ پالی‌به‌پالی) بافتِ اورجینال دست‌نخورده می‌ماند —
-                # نویزِ مصنوعی هرگز جایِ بافتِ واقعی را نمی‌گیرد.
+# فقط پیکسل‌هایِ «واقعاً پرشده» (پرِ LaMa)
+# بازپر می‌شوند؛ جایی که donor = اصلِ عکس است (ماسکِ
+# تنگِ پالی‌به‌پالی) بافتِ اورجینال دست‌نخورده می‌ماند —
+# نویزِ مصنوعی هرگز جایِ بافتِ واقعی را نمی‌گیرد.
                 _chg = (np.abs(crop_d.astype(np.int16)
                                  - original[y0:y1, x0:x1].astype(np.int16))
                           .max(axis=2) > 6)
@@ -8710,7 +8680,7 @@ class _MangaTranslatorBody_85:
                     continue
                 if int(np.count_nonzero(_tgt)) < \
                         0.25 * max(1, int(np.count_nonzero(comp))):
-                    # تغییراتِ جزئی → donor همین‌جا سالم است
+# تغییراتِ جزئی → donor همین‌جا سالم است
                     continue
                 lowf = cv2.GaussianBlur(crop_d.astype(np.float32),
                                         (0, 0), 3.5)
@@ -8719,9 +8689,9 @@ class _MangaTranslatorBody_85:
                     continue
                 ymin, ymax = int(ys_i.min()), int(ys_i.max())
                 span = float(max(1, ymax - ymin))
-                # v1.14.96b — مرجعِ هموارشده در محورِ x: میانگینِ ۵ ردیفِ
-                # هر ستون «رگهٔ عمودی» می‌سازد؛ ابتدا ستون‌هایِ آلوده به
-                # ماسک حذف و با میان‌یابیِ افقی پر، بعد نرمِ گاوسیِ ۱بعدی.
+# مرجعِ هموارشده در محورِ x: میانگینِ ۵ ردیفِ
+# هر ستون «رگهٔ عمودی» می‌سازد؛ ابتدا ستون‌هایِ آلوده به
+# ماسک حذف و با میان‌یابیِ افقی پر، بعد نرمِ گاوسیِ ۱بعدی.
                 W96 = x1 - x0
                 ty0, ty1 = max(0, ymin - 6), ymin
                 by0b, by1b = ymax + 1, min(mall.shape[0], ymax + 7)
@@ -8735,7 +8705,7 @@ class _MangaTranslatorBody_85:
                         return None
                     vals = np.where(valid[..., None], band, np.nan)
                     with np.errstate(invalid="ignore"):
-                        # v1.14.96g — میانهٔ跨-ردیف (مقاوم به خالِ بافت)
+# میانهٔ跨-ردیف (مقاوم به خالِ بافت)
                         ref = np.nanmedian(vals, axis=0)
                     bad = ~np.isfinite(ref).all(axis=-1)
                     if bool(bad.all()):
@@ -8745,10 +8715,10 @@ class _MangaTranslatorBody_85:
                         for cc in np.nonzero(bad)[0]:
                             j = xs_ok[np.argmin(np.abs(xs_ok - cc))]
                             ref[cc] = ref[j]
-                    # v1.14.96c — GaussianBlur رویِ (W,3) کانال‌هایِ رنگ را
-                    # با هم قاطی می‌کند (خاکستری!) → شکلِ (1,W,3) لازم است
-                    # v1.14.96g — میانهٔ پهنِ跨-ستون (۴۱): نوارِ تیره/روشنِ
-                    # قاب و شیارها (۱۰–۲۵px) را حذف می‌کند
+# GaussianBlur رویِ (W,3) کانال‌هایِ رنگ را
+# با هم قاطی می‌کند (خاکستری!) → شکلِ (1,W,3) لازم است
+# میانهٔ پهنِ跨-ستون (۴۱): نوارِ تیره/روشنِ
+# قاب و شیارها (۱۰–۲۵px) را حذف می‌کند
                     ref2 = np.clip(ref, 0, 255).astype(
                         np.uint8).reshape(1, -1, 3)
                     ref2 = cv2.medianBlur(ref2, 41)
@@ -8759,10 +8729,10 @@ class _MangaTranslatorBody_85:
                 bref_full = _band_ref(bband, bvalid)
                 if tref_full is None and bref_full is None:
                     continue
-                # v1.14.96g — اگر یک باندِ مرجع «آلودهٔ ساختار» است
-                # (قاب/شیار از باند عبور می‌کند — پلاکِ GREEN MOON:
-                # tref std=35 در برابرِ bref std=13) فقط باندِ پایدار
-                # ملاک می‌شود؛ وگرنه میان‌یابیِ قائمِ کامل.
+# اگر یک باندِ مرجع «آلودهٔ ساختار» است
+# (قاب/شیار از باند عبور می‌کند — پلاکِ GREEN MOON:
+# tref std=35 در برابرِ bref std=13) فقط باندِ پایدار
+# ملاک می‌شود؛ وگرنه میان‌یابیِ قائمِ کامل.
                 _tstd = float(np.std(tref_full.mean(axis=1))) \
                     if tref_full is not None else 1e9
                 _bstd = float(np.std(bref_full.mean(axis=1))) \
@@ -8793,7 +8763,7 @@ class _MangaTranslatorBody_85:
                         lowf[yy, x] = bref[None, :]
                 if _ref_fail:
                     continue
-                # نویزِ واقعی از نزدیک‌ترین پیکسلِ تمیزِ بی‌لبه
+# نویزِ واقعی از نزدیک‌ترین پیکسلِ تمیزِ بی‌لبه
                 dist, lab = cv2.distanceTransformWithLabels(
                     (~clean).astype(np.uint8), cv2.DIST_L2, 5,
                     labelType=cv2.DIST_LABEL_PIXEL)
@@ -8803,8 +8773,8 @@ class _MangaTranslatorBody_85:
                 hf_map = np.zeros_like(lowf)
                 hf_map[mys, mxs] = \
                     resid[y0:y1, x0:x1][cy_i[idx], cx_i[idx]]
-                # v1.14.96d — نمونه‌برداریِ نزدیک‌ترین‌همسایه «قفلِ ستونی»
-                # می‌سازد (رگهٔ عمودی)؛ بلورِ ریز آن را می‌شکند
+# نمونه‌برداریِ نزدیک‌ترین‌همسایه «قفلِ ستونی»
+# می‌سازد (رگهٔ عمودی)؛ بلورِ ریز آن را می‌شکند
                 hf_map = cv2.GaussianBlur(hf_map, (0, 0), 0.8)
                 fill = np.clip(lowf + hf_map, 0, 255).astype(np.uint8)
                 sub = crop_d.copy()
@@ -8845,10 +8815,9 @@ class _MangaTranslatorBody_85:
 
     def _fill_harmony_qc(self, donor: np.ndarray, original: np.ndarray,
                          zone: np.ndarray, verbose: bool = True) -> int:
-        """v1.14.228 — QCِ هماهنگیِ رنگِ پر، برایِ «همهٔ» پرکنندهها.
+        """ — QCِ هماهنگیِ رنگِ پر، برایِ «همهٔ» پرکنندهها.
 
-        دستورِ سازنده: «معلومه از حباب داخل با بیرون حباب یکی حساب کرده
-        یک رنگ کرده یا بعضی متن هارو نپاکیده» — پرِ خاکستری LaMa رویِ
+        پرِ خاکستری LaMa رویِ
         زمینهٔ سفید/بنفش (img4ِ #13/#14/#20)، پرِ سفید رویِ آسمان/پوست
         (#03/CMP1)، و پرِ یکرنگی که مرزِ حباب را میپوشاند از هر مسیری
         (فوری/TELEA/LaMa/هارمونیکِ ۲۲۷) میآیند. QCهایِ قبلی فقطِ LaMa و
@@ -8879,12 +8848,12 @@ class _MangaTranslatorBody_85:
             if not ch.any():
                 return 0
             _g = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
-            # v1.14.228 — فقط «مرزهایِ ساختاریِ درشت» (کادرِ حباب، قابِ
-            # پنل، ستون) قطعه‌بندی میکنند. Canny رویِ اصل، لبههایِ
-            # «گلیفِ متن» را هم میداد → نوارهایِ متنِ متراکم به خردههایی
-            # زیرِ آستانهٔ ۴۰px میشکستند و QC هیچوقت به آنها نمیرسید
-            # (باقیماندهٔ خاکستریِ y=8500ِ img4). با بلورِ σ=۴ لبههایِ
-            # گلیف (کشِ ~۴-۶px) محو میشوند و مرزهایِ درشت میمانند.
+# فقط «مرزهایِ ساختاریِ درشت» (کادرِ حباب، قابِ
+# پنل، ستون) قطعه‌بندی میکنند. Canny رویِ اصل، لبههایِ
+# «گلیفِ متن» را هم میداد → نوارهایِ متنِ متراکم به خردههایی
+# زیرِ آستانهٔ ۴۰px میشکستند و QC هیچوقت به آنها نمیرسید
+# (باقیماندهٔ خاکستریِ y=8500ِ img4). با بلورِ σ=۴ لبههایِ
+# گلیف (کشِ ~۴-۶px) محو میشوند و مرزهایِ درشت میمانند.
             _gb = cv2.GaussianBlur(_g, (0, 0), 4.0)
             _ed = cv2.Canny(_gb, 40, 120)
             _ed = (cv2.dilate(
@@ -8916,7 +8885,7 @@ class _MangaTranslatorBody_85:
                     pch_b = pcc & ch_b
                     if int(pch_b.sum()) < 25:
                         continue
-                    # حلقه از اورجینال — داخلِ جعبهٔ گسترش‌یافته تا سبک بماند
+# حلقه از اورجینال — داخلِ جعبهٔ گسترش‌یافته تا سبک بماند
                     _pad = 20
                     by0 = max(0, y0 - _pad)
                     bx0 = max(0, x0 - _pad)
@@ -8926,12 +8895,12 @@ class _MangaTranslatorBody_85:
                     _pcp[y0 - by0:y1 - by0 + 1,
                          x0 - bx0:x1 - bx0 + 1] = \
                         pcc.astype(np.uint8)
-                    # حلقهٔ «مد-خوشهای»: نامزدها = دیلاتِ قطعه (۱۷px،
-                    # درِ کم تا ۳۱px) منهایِ مرزهایِ قوی؛ «مهم نیست داخلِ
-                    # zm باشد» — فاصلهٔ بینخطِ اورجینال هم پسزمینه است.
-                    # جوهرِ متنِ خطهایِ مجاور با پیکِ هیستوگرامِ لومیا +
-                    # پنجرهٔ ±۴۰ دورِ همان خوشه کنار گذاشته میشود تا
-                    # حلقه = رنگِ پسزمینهٔ غالب باشد نه جوهر.
+# حلقهٔ «مد-خوشهای»: نامزدها = دیلاتِ قطعه (۱۷px
+# درِ کم تا ۳۱px) منهایِ مرزهایِ قوی؛ «مهم نیست داخلِ
+# zm باشد» — فاصلهٔ بینخطِ اورجینال هم پسزمینه است.
+# جوهرِ متنِ خطهایِ مجاور با پیکِ هیستوگرامِ لومیا +
+# پنجرهٔ ±۴۰ دورِ همان خوشه کنار گذاشته میشود تا
+# حلقه = رنگِ پسزمینهٔ غالب باشد نه جوهر.
                     _oc = original[by0:by1, bx0:bx1]
                     _ocf = _oc.astype(np.float32)
                     _lum_map = (_ocf[:, :, 0] * 0.114
@@ -8939,9 +8908,9 @@ class _MangaTranslatorBody_85:
                                 + _ocf[:, :, 2] * 0.299)
                     _edc = _ed[by0:by1, bx0:bx1]
                     _chc = ch[by0:by1, bx0:bx1]
-                    # نامزدها = دورِ قطعه − مرز − «همهٔ پیکسلهایِ پروشده»
-                    # (خودِ قطعه و خطهایِ مجاور) → حلقه = پسزمینهٔ واقعیِ
-                    # دستنخورده (بینخط/حاشیه)، هرگز رنگِ خودِ پرها.
+# نامزدها = دورِ قطعه − مرز − «همهٔ پیکسلهایِ پروشده»
+# (خودِ قطعه و خطهایِ مجاور) → حلقه = پسزمینهٔ واقعیِ
+# دستنخورده (بینخط/حاشیه)، هرگز رنگِ خودِ پرها.
                     cand = (cv2.dilate(_pcp, _k) > 0) \
                         & (~_edc) & (~_chc)
                     if int(cand.sum()) < 80:
@@ -8958,15 +8927,15 @@ class _MangaTranslatorBody_85:
                                                  range=(0, 256))
                     _mb = int(_hist.argmax())
                     if int(_hist[_mb]) < 0.22 * _nr:
-                        # هیچ خوشهای حتی ۱۲٪ هم نیست (هنرِ کاملاً مرکب)
-                        # → نه آمارِ معتبر نه میدانِ امن؛ دستنخورده.
+# هیچ خوشهای حتی ۱۲٪ هم نیست (هنرِ کاملاً مرکب)
+# → نه آمارِ معتبر نه میدانِ امن؛ دستنخورده.
                         if _dbg:
                             print(f"    [228d] قطعه@({x0},{y0}) "
                                   f"حلقهٔ بیخوشه "
                                   f"({_hist[_mb]}/{_nr}) رد",
                                   flush=True)
                         continue
-                    # همترازیِ pch با جعبهٔ پَددار (pch_b رویِ جعبهٔ stats است)
+# همترازیِ pch با جعبهٔ پَددار (pch_b رویِ جعبهٔ stats است)
                     pch_p = np.zeros((by1 - by0, bx1 - bx0), bool)
                     pch_p[y0 - by0:y1 - by0 + 1,
                           x0 - bx0:x1 - bx0 + 1] = pch_b
@@ -8977,7 +8946,7 @@ class _MangaTranslatorBody_85:
                             print(f"    [228d] قطعه@({x0},{y0}) "
                                   f"خوشهکم={int(fbm.sum())}", flush=True)
                         continue
-                    # همترازیِ pch (بالا انجام شد) — آمارِ حلقه
+# همترازیِ pch (بالا انجام شد) — آمارِ حلقه
                     rpx = _ocf[fbm]
                     rmed = np.median(rpx, axis=0)
                     rsp = float(np.max(
@@ -8992,7 +8961,7 @@ class _MangaTranslatorBody_85:
                     fmed = np.median(fpx, axis=0)
                     fstd = float(np.median(np.std(fpx, axis=0)))
                     d = float(np.abs(fmed - rmed).max())
-                    # آستانهٔ تطبیقی: چشم رویِ زمینهٔ روشن/تیره حساستر است
+# آستانهٔ تطبیقی: چشم رویِ زمینهٔ روشن/تیره حساستر است
                     _thr = 20.0
                     if _rl >= 232.0:
                         _thr = 13.0
@@ -9007,18 +8976,18 @@ class _MangaTranslatorBody_85:
                                   f"سالم d={d:.0f} پ={fmed.round(0)} "
                                   f"ح={rmed.round(0)}", flush=True)
                         continue
-                    # v1.14.241 — گاردِ «حلقه باید نمایندهٔ زمینهٔ زیرِ
-                    # خودِ قطعه باشد»: قطعههایِ متنِ رویِ کتِ تیره که
-                    # حلقه‌شان تا دیوار/زمینهٔ روشنِ پشتِ شخص میرسد
-                    # (y=9536ِ 9.jpg: حلقه=دیوارِ روشن ~۲۲۵، زمینهٔ زیرِ
-                    # متن=کتِ تیره ~۷۰) → QCِ حلقه پرِ «درستِ» تیرهٔ LaMa
-                    # را ناهماهنگ میخواند و با رنگِ روشنِ حلقه دوبارهپر
-                    # میکرد = «لکهٔ سفیدِ ابرمانند» (۲۴۸هزارpx در یک
-                    # صفحه!). حالا اگر میانهٔ لومیایِ «زمینهٔ زیرِ قطعه در
-                    # اورجینال» (پس‌زمینه اکثریت است — متن اقلیت) با
-                    # مرکزِ خوشهٔ حلقه بیش از ۶۰ واحد فاصله داشته باشد،
-                    # حلقه زمینهٔ «دیگری» را توصیف میکند → قطعه
-                    # دستنخورده میماند.
+# گاردِ «حلقه باید نمایندهٔ زمینهٔ زیرِ
+# خودِ قطعه باشد»: قطعههایِ متنِ رویِ کتِ تیره که
+# حلقه‌شان تا دیوار/زمینهٔ روشنِ پشتِ شخص میرسد
+# (y=9536ِ 9.jpg: حلقه=دیوارِ روشن ~۲۲۵، زمینهٔ زیرِ
+# متن=کتِ تیره ~۷۰) → QCِ حلقه پرِ «درستِ» تیرهٔ LaMa
+# را ناهماهنگ میخواند و با رنگِ روشنِ حلقه دوبارهپر
+# میکرد = «لکهٔ سفیدِ ابرمانند» (۲۴۸هزارpx در یک
+# صفحه!). حالا اگر میانهٔ لومیایِ «زمینهٔ زیرِ قطعه در
+# اورجینال» (پس‌زمینه اکثریت است — متن اقلیت) با
+# مرکزِ خوشهٔ حلقه بیش از ۶۰ واحد فاصله داشته باشد
+# حلقه زمینهٔ «دیگری» را توصیف میکند → قطعه
+# دستنخورده میماند.
                     try:
                         _ul = _lum_map[pch_p]
                         if _ul.size >= 40:
@@ -9039,10 +9008,10 @@ class _MangaTranslatorBody_85:
                               f"پ={fmed.round(0)} ح={rmed.round(0)} "
                               f"rsp={rsp:.0f}", flush=True)
                     plane = None
-                    # «میدانِ فرکانسِ پایین» پیشفرضِ خاموش: درِ تستِ واقعی
-                    # (img4ِ r20) نزدیکِ مرزِ هنر، رنگِ تیرهِ هنرِ مجاور را
-                    # به داخلِ پر میکشید (Δ منفیِ نوارهایِ بالا). فقط با
-                    # MANGA_HQC_FIELD=1 برایِ آزمایش.
+# «میدانِ فرکانسِ پایین» پیشفرضِ خاموش: درِ تستِ واقعی
+# (img4ِ r20) نزدیکِ مرزِ هنر، رنگِ تیرهِ هنرِ مجاور را
+# به داخلِ پر میکشید (Δ منفیِ نوارهایِ بالا). فقط با
+# MANGA_HQC_FIELD=1 برایِ آزمایش.
                     _field = (os.environ.get("MANGA_HQC_FIELD", "0") == "1"
                               and fstd <= 32.0)
                     if not _field:
@@ -9077,8 +9046,8 @@ class _MangaTranslatorBody_85:
                                       f"پربافت fstd={fstd:.0f} رد",
                                       flush=True)
                             continue
-                    # مقدارِ نو فقط رویِ پیکسلهایِ پرشده — همراستا با
-                    # جعبهٔ پَددار (pch_p بالا ساخته شد)
+# مقدارِ نو فقط رویِ پیکسلهایِ پرشده — همراستا با
+# جعبهٔ پَددار (pch_p بالا ساخته شد)
                     repl = donor[by0:by1, bx0:bx1].copy()
                     if _field:
                         try:
@@ -9154,7 +9123,7 @@ class _MangaTranslatorBody_85:
                             axis=1)
                         repl[pch_p] = np.clip(
                             np.rint(_A2 @ plane), 0, 255).astype(np.uint8)
-                    # فدرِ نرمِ مرز — فقط داخلِ نوارِ متن
+# فدرِ نرمِ مرز — فقط داخلِ نوارِ متن
                     _wm = pch_p.astype(np.float32)
                     _wm = cv2.GaussianBlur(_wm, (0, 0), 2.0)
                     _wm = np.minimum(_wm * 1.6, 1.0)
@@ -9183,13 +9152,13 @@ class _MangaTranslatorBody_85:
                            mask: np.ndarray,
                            verbose: bool = True,
                            refill: bool = False) -> np.ndarray:
-        # v1.14.107 — نقشهٔ «چه چیزی واقعاً منتقل شد» برایِ گاردهایِ
-        # پساکامپوز (وارسیِ نهایی/جارویِ بازمانده): هیچ ترمیمی بعد از
-        # کامپوز حقِ نوشتن بیرونِ این مجموعه را ندارد — قراردادِ
-        # دو-عکسی: «بیرونِ نوارِ متن = پیکسلِ اورجینال، همیشه». خطایِ
-        # کاربر (۱۰۱۸/sexyverse): tier6ِ «پرِ سفیدِ ناب» و جارویِ
-        # بازماندهٔ تیره بیرونِ نوار می‌نوشتند → خطِ حباب/نوارِ هدر/قابِ
-        # پنل سفید می‌شد = «کلِ حباب پاکیده».
+# نقشهٔ «چه چیزی واقعاً منتقل شد» برایِ گاردهایِ
+# پساکامپوز (وارسیِ نهایی/جارویِ بازمانده): هیچ ترمیمی بعد از
+# کامپوز حقِ نوشتن بیرونِ این مجموعه را ندارد — قراردادِ
+# دو-عکسی: «بیرونِ نوارِ متن = پیکسلِ اورجینال، همیشه». خطایِ
+# کاربر (۱۰۱۸/sexyverse): tier6ِ «پرِ سفیدِ ناب» و جارویِ
+# بازماندهٔ تیره بیرونِ نوار می‌نوشتند → خطِ حباب/نوارِ هدر/قابِ
+# پنل سفید می‌شد = «کلِ حباب پاکیده».
         self._compose_final_cmp = None
         try:
             _dd81z = os.environ.get("MANGA_DUMP_DONOR", "")
@@ -9198,7 +9167,7 @@ class _MangaTranslatorBody_85:
                 print(f"  [*] donor dumped -> {_dd81z}")
         except Exception:
             pass
-        """v1.14.54 — ترکیبِ «دو عکس» — عینِ ایدهٔ خودِ کاربر:
+        """ترکیبِ «دو عکس» — عینِ ایدهٔ خودِ کاربر:
         «عکسِ اول متن‌هاش کامل بپاکه؛ اشکال نداره حباب خراب شه یا بیشتر پاک
         شه. بعد این ک کامل پاکیده شده به اندازهٔ همون متن خط به خط برش
         بخوره، به عکسِ دوم بچسونه جایِ متن‌هایِ اصلی‌شون. عکسِ دوم باید
@@ -9215,10 +9184,10 @@ class _MangaTranslatorBody_85:
                 return donor
             if donor.shape[:2] != original.shape[:2]:
                 return donor
-            # v1.14.228 — QCِ هماهنگیِ رنگِ پر (همهٔ پرکنندهها، مرزآگاه)
-            # درست قبلِ کامپوز: خاکستری-روی-سفید/بنفش، سفید-روی-آسمان،
-            # و پرِ یکرنگِ رو-مرزِ حباب اینجا اصلاح میشوند — بیرونِ نوار
-            # نمینویسد و حلقهٔ شلوغ (هنر) را دستنخورده میگذارد.
+# QCِ هماهنگیِ رنگِ پر (همهٔ پرکنندهها، مرزآگاه)
+# درست قبلِ کامپوز: خاکستری-روی-سفید/بنفش، سفید-روی-آسمان
+# و پرِ یکرنگِ رو-مرزِ حباب اینجا اصلاح میشوند — بیرونِ نوار
+# نمینویسد و حلقهٔ شلوغ (هنر) را دستنخورده میگذارد.
             if os.environ.get("MANGA_NO_HQC", "0") != "1":
                 try:
                     self._fill_harmony_qc(donor, original, mask,
@@ -9226,14 +9195,14 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
             _cmp = cv2.dilate(mask, self._compose_kernel9()) > 0
-            # v1.14.64 — دیوارِ حباب/قوس/کادرِ پنل (نقشهٔ ساختاریِ محافظت)
-            # هرگز از عکسِ پاک‌شده به خروجی نمی‌رود — حتی اگر لبهٔ نوارِ متن
-            # به آن چسبیده باشد. این «قوسِ ناپدیدشده» را ریشه‌کن می‌کند.
-            # v1.14.96j — استثنا: گلیفِ تنهاِ جاافتاده (Wِ WICKED) که
-            # نقشهٔ حفاظت آن را «قاب» خوانده — اجزایِ کوچکِ هم‌اندازهٔ
-            # حرفِ محافظت‌شده که کاملاً داخلِ نوارِ متن‌اند = بقایایِ
-            # حرف‌اند → مثلِ بقیهٔ نوار منتقل می‌شوند. قاب/خطِ کشیده
-            # محافظت می‌ماند.
+# دیوارِ حباب/قوس/کادرِ پنل (نقشهٔ ساختاریِ محافظت)
+# هرگز از عکسِ پاک‌شده به خروجی نمی‌رود — حتی اگر لبهٔ نوارِ متن
+# به آن چسبیده باشد. این «قوسِ ناپدیدشده» را ریشه‌کن می‌کند.
+# استثنا: گلیفِ تنهاِ جاافتاده (Wِ WICKED) که
+# نقشهٔ حفاظت آن را «قاب» خوانده — اجزایِ کوچکِ هم‌اندازهٔ
+# حرفِ محافظت‌شده که کاملاً داخلِ نوارِ متن‌اند = بقایایِ
+# حرف‌اند → مثلِ بقیهٔ نوار منتقل می‌شوند. قاب/خطِ کشیده
+# محافظت می‌ماند.
             try:
                 _ppC = getattr(self, "_page_protect", None)
                 if _ppC is not None and _ppC.shape == _cmp.shape:
@@ -9254,21 +9223,21 @@ class _MangaTranslatorBody_85:
                         _cmp &= (_ppC == 0)
             except Exception:
                 pass
-            # v1.14.73 — دیوارِ ریز (حباب‌هایِ کوچک — YEP!/OH BOY که دیوارشان
-            # <۶۰px است و از نقشهٔ protect بزرگ جا می‌ماند) هم هرگز از عکسِ
-            # پاک‌شده منتقل نمی‌شود → حباب‌هایِ کوچک هم سالم می‌مانند.
+# دیوارِ ریز (حباب‌هایِ کوچک — YEP!/OH BOY که دیوارشان
+# <۶۰px است و از نقشهٔ protect بزرگ جا می‌ماند) هم هرگز از عکسِ
+# پاک‌شده منتقل نمی‌شود → حباب‌هایِ کوچک هم سالم می‌مانند.
             try:
                 _wbC = getattr(self, "_page_wall_band", None)
                 if _wbC is not None and _wbC.shape == _cmp.shape:
                     _cmp &= (_wbC == 0)
             except Exception:
                 pass
-            # v1.14.206n — قابِ رنگی (نقشهٔ جدا) هم هرگز از donor
-            # منتقل نمیشود — در ماسکِ فعال پر شده و در خروجی اورجینالش
-            # میماند (حبابِ سبزِ up0822)
-            # v1.14.212 — استثنا: پیکسلهایِ «روکشِ حاشیه‌نویسی» خودشان
-            # رنگیاند و از قابِ رنگی جدا شدهاند (حلقهٔ خنثی + هالِ
-            # پالی) — آنها باید منتقل شوند تا لگهٔ رنگی در خروجی نماند.
+# قابِ رنگی (نقشهٔ جدا) هم هرگز از donor
+# منتقل نمیشود — در ماسکِ فعال پر شده و در خروجی اورجینالش
+# میماند (حبابِ سبزِ up0822)
+# استثنا: پیکسلهایِ «روکشِ حاشیه‌نویسی» خودشان
+# رنگیاند و از قابِ رنگی جدا شدهاند (حلقهٔ خنثی + هالِ
+# پالی) — آنها باید منتقل شوند تا لگهٔ رنگی در خروجی نماند.
             try:
                 _pcC = getattr(self, "_page_colored_protect", None)
                 if _pcC is not None and _pcC.shape == _cmp.shape:
@@ -9293,19 +9262,19 @@ class _MangaTranslatorBody_85:
             if not _cmp.any():
                 self._compose_final_cmp = np.zeros_like(_cmp)
                 return np.ascontiguousarray(original)
-            # v1.14.96 — بازپرِ بافت (آزمایشی): روی زمینهٔ برف‌نوی/نقش‌ونگار
-            # پرِ LaMa «تختِ بی‌بافت» است → نواری که حلقه‌اش بافت‌مند است
-            # با low-freqِ میان‌یابی‌شده + نویزِ واقعی بازپر می‌شود.
-            # v1.14.96h — پیش‌فرضِ «خاموش»: در تستِ A/B، نسخهٔ بدونِ
-            # بازپر برنده بود (ماسکِ پالی‌باندیِ v1.14.96 خودش پرِ
-            # لایما را آن‌قدر تنگ کرده که بازپرِ نویزِ مصنوعی نوار
-            # می‌سازد). فقط با MANGA_TEXTURE_REFILL=1 فعال شود.
+# بازپرِ بافت (آزمایشی): روی زمینهٔ برف‌نوی/نقش‌ونگار
+# پرِ LaMa «تختِ بی‌بافت» است → نواری که حلقه‌اش بافت‌مند است
+# با low-freqِ میان‌یابی‌شده + نویزِ واقعی بازپر می‌شود.
+# پیش‌فرضِ «خاموش»: در تستِ A/B، نسخهٔ بدونِ
+# بازپر برنده بود (ماسکِ پالی‌باندیِ خودش پرِ
+# لایما را آن‌قدر تنگ کرده که بازپرِ نویزِ مصنوعی نوار
+# می‌سازد). فقط با MANGA_TEXTURE_REFILL=1 فعال شود.
             if refill and os.environ.get("MANGA_TEXTURE_REFILL", "0") == "1":
                 self._texture_refill_donor(donor, original, _cmp)
-            # v1.14.105 — زباله‌روبی قبل از تخصیصِ خروجیِ تمام‌قد: رویِ
-            # نوارهایِ بلندِ وبتون (۹۰۰×۱۶۰۰۰) RSSِ انباشتهٔ پایپ‌لاین به
-            # مرزِ OOM می‌رسد؛ هر MB آزادشده اینجا کمکه (فقط semantics
-            # reference-counting — بدونِ تغییرِ داده)
+# زباله‌روبی قبل از تخصیصِ خروجیِ تمام‌قد: رویِ
+# نوارهایِ بلندِ وبتون (۹۰۰×۱۶۰۰۰) RSSِ انباشتهٔ پایپ‌لاین به
+# مرزِ OOM می‌رسد؛ هر MB آزادشده اینجا کمکه (فقط semantics
+# reference-counting — بدونِ تغییرِ داده)
             try:
                 import gc as _gc
                 _gc.collect()
@@ -9314,11 +9283,11 @@ class _MangaTranslatorBody_85:
             self._compose_final_cmp = _cmp.copy()
             _out = np.ascontiguousarray(
                 np.where(_cmp[..., None], donor, original))
-            # v1.14.212 — روکشِ حاشیه‌نویسی: نواحیِ «سفیدِ تختِ واقعی»
-            # (جعبهٔ حاشیه‌نویسیِ سفید — گواهِ شکاف) با سفیدِ همان جعبه
-            # تخت پر میشوند؛ سبز/شستشو/قاب کاملاً محو میشود. LaMa رویِ
-            # ناحیهٔ شسته‌شده خودش شستشو را زمینه میپندارد و سبز میسازد.
-            # (MANGA_212_FLAT=0 خاموش — برایِ مقایسهٔ A/B)
+# روکشِ حاشیه‌نویسی: نواحیِ «سفیدِ تختِ واقعی»
+# (جعبهٔ حاشیه‌نویسیِ سفید — گواهِ شکاف) با سفیدِ همان جعبه
+# تخت پر میشوند؛ سبز/شستشو/قاب کاملاً محو میشود. LaMa رویِ
+# ناحیهٔ شسته‌شده خودش شستشو را زمینه میپندارد و سبز میسازد.
+# (MANGA_212_FLAT=0 خاموش — برایِ مقایسهٔ A/B)
             try:
                 _anF = getattr(self, "_page_annotation_fill", None)
                 _anFl = getattr(self, "_page_annotation_flat", None)
@@ -9332,27 +9301,27 @@ class _MangaTranslatorBody_85:
                         _out[_sel] = _anF[_sel]
             except Exception:
                 pass
-            # v1.14.139 — ضدِ «باندِ سفید» در کامپوز (فقط اندروید —
-            # MANGA_STRIP_HARM): donorِ LaMa رویِ زمینهٔ گرادیانی/کرم
-            # گاهی «روشنتر/سفیدتر» از زمینهٔ اطراف برمیگردد و کامپوزِ
-            # فقط-نوار همان پیکسلهایِ سفید را میبرد (لاگِ گوشیِ
-            # v1.14.138 — نوارهایِ سفیدِ #19/#20 رویِ دیوارِ کرمِ
-            # 700×11362 = «لگه»).
-            # v1.14.139b — همسازِ «خط‌به‌خط» (بازنویسیِ همسازِ ردیفی):
-            # نوارهایِ خطِ چسبیده در بلوکِ متراکم در باندِ ردیفیِ مشترک
-            # ادغام میشوند و لنگرِ قائمِ آزاد پیدا نمیکنند → حالا برای
-            # هر «خطِ» هر ناحیه (همان گروه‌بندیِ خطِ نوارهایِ کامپوز)
-            # هدفِ هر ردیف = میانهٔ پیکسلهایِ «آزادِ همان ردیف» (شکافِ
-            # بینِ کلمات + حاشیهٔ خط) از عکسِ اورجینال گرفته میشود —
-            # لنگرِ افقی، مستقل ازِ گپِ بینِ خطها؛ گرادیانِ قائم هم
-            # چون هر ردیف هدفِ خودش را دارد حفظ میشود. گاردها: باندِ
-            # غیرتخت (std>15) / ردیفِ بدونِ نمونهٔ آزاد / هدفِ ناهوار
-            # (هنر) / دلتایِ ناچیز (<15) یا افراطی (>60) → دست نخوردن.
-            # v1.14.212 — پیشفرضِ روشن رویِ PC هم (گیتِ _gate_default_on):
-            # درزها/دال‌هایِ تختِ LaMa رویِ گرادیانِ آسمانِ وبتونها
-            # (img4/4e2e77 — گزارشِ سازنده: «لگهٔ سیاه سفید») دیگر فقط
-            # اندروید نیست؛ همسازِ ردیفیِ خط، نوار را با زمینهٔ اورجینالِ
-            # همان ردیف تراز میکند (گاردها: std/هدفِ ناهوار/دلتا ۱۵-۶۰).
+# ضدِ «باندِ سفید» در کامپوز (فقط اندروید —
+# MANGA_STRIP_HARM): donorِ LaMa رویِ زمینهٔ گرادیانی/کرم
+# گاهی «روشنتر/سفیدتر» از زمینهٔ اطراف برمیگردد و کامپوزِ
+# فقط-نوار همان پیکسلهایِ سفید را میبرد (لاگِ گوشیِ
+# نوارهایِ سفیدِ #19/#20 رویِ دیوارِ کرمِ
+# 700×11362 = «لگه»).
+# همسازِ «خط‌به‌خط» (بازنویسیِ همسازِ ردیفی):
+# نوارهایِ خطِ چسبیده در بلوکِ متراکم در باندِ ردیفیِ مشترک
+# ادغام میشوند و لنگرِ قائمِ آزاد پیدا نمیکنند → حالا برای
+# هر «خطِ» هر ناحیه (همان گروه‌بندیِ خطِ نوارهایِ کامپوز)
+# هدفِ هر ردیف = میانهٔ پیکسلهایِ «آزادِ همان ردیف» (شکافِ
+# بینِ کلمات + حاشیهٔ خط) از عکسِ اورجینال گرفته میشود —
+# لنگرِ افقی، مستقل ازِ گپِ بینِ خطها؛ گرادیانِ قائم هم
+# چون هر ردیف هدفِ خودش را دارد حفظ میشود. گاردها: باندِ
+# غیرتخت (std>15) / ردیفِ بدونِ نمونهٔ آزاد / هدفِ ناهوار
+# (هنر) / دلتایِ ناچیز (<15) یا افراطی (>60) → دست نخوردن.
+# پیشفرضِ روشن رویِ PC هم (گیتِ _gate_default_on):
+# درزها/دال‌هایِ تختِ LaMa رویِ گرادیانِ آسمانِ وبتونها
+# (img4/4e2e77 — ) دیگر فقط
+# اندروید نیست؛ همسازِ ردیفیِ خط، نوار را با زمینهٔ اورجینالِ
+# همان ردیف تراز میکند (گاردها: std/هدفِ ناهوار/دلتا ۱۵-۶۰).
             if _gate_default_on("MANGA_STRIP_HARM"):
                 try:
                     _hH, _wH = _cmp.shape
@@ -9372,10 +9341,10 @@ class _MangaTranslatorBody_85:
                         for (lx0, ly0, lx1, ly1) in (_lnsH or []):
                             _yA = max(0, int(ly0) - 1)
                             _yZ = min(_hH, int(ly1) + 2)
-                            # ±۱۸px بیرونِ باکسِ خط = نمونهٔ زمینهٔ
-                            # اطرافِ خط (گپِ کلمه + حاشیهٔ دو سر) —
-                            # پالیِ OCR تاِ لبهٔ متن است و بدونِ
-                            # این بسط، ستونِ آزادِ کافی وجود ندارد
+# ±۱۸px بیرونِ باکسِ خط = نمونهٔ زمینهٔ
+# اطرافِ خط (گپِ کلمه + حاشیهٔ دو سر) —
+# پالیِ OCR تاِ لبهٔ متن است و بدونِ
+# این بسط، ستونِ آزادِ کافی وجود ندارد
                             _xA = max(0, int(lx0) - 18)
                             _xZ = min(_wH, int(lx1) + 19)
                             _bh = _yZ - _yA
@@ -9394,12 +9363,12 @@ class _MangaTranslatorBody_85:
                                 continue
                             _medS = np.median(
                                 _src.reshape(-1, 3), axis=0)
-                            # هدفِ هر ردیف از ستونهایِ آزادِ همان ردیف —
-                            # «آزاد» بر اساسِ ماسکِ بدونِ دیلیت است (گپِ
-                            # ۸-۱۴px کلمهها بعد از دیلیتِ 4px بسته
-                            # میشود)؛ نمونهها = شکافِ بینِ کلمات +
-                            # ردیفهایِ بالایِ سریف/پایینِ دم — همه
-                            # زمینهٔ اورجینال
+# هدفِ هر ردیف از ستونهایِ آزادِ همان ردیف —
+# «آزاد» بر اساسِ ماسکِ بدونِ دیلیت است (گپِ
+# ۸-۱۴px کلمهها بعد از دیلیتِ 4px بسته
+# میشود)؛ نمونهها = شکافِ بینِ کلمات +
+# ردیفهایِ بالایِ سریف/پایینِ دم — همه
+# زمینهٔ اورجینال
                             _mrawH = mask[_yA:_yZ, _xA:_xZ] > 0
                             _tgt = np.zeros((_bh, 3), np.float32)
                             _have = np.zeros(_bh, bool)
@@ -9408,18 +9377,18 @@ class _MangaTranslatorBody_85:
                                 _nf = int(_free.sum())
                                 if _nf < 12:
                                     continue
-                                # v1.14.241 — گاردِ ناهمگنیِ درون‌ردیف:
-                                # ردیفِ آزاد رویِ هنرِ شلوغ (یقه/کراوات/
-                                # خطِ سیاه + پنل + متنِ جامانده — r4886ِ
-                                # 9.jpg) میانهٔ «مخلوط» میدهد؛ همسازِ
-                                # ردیفی نوارِ سالمِ donor را به آن تراز
-                                # میکرد = «باندِ خاکستریِ افقی». ردیفی که
-                                # پیکسلهایِ آزادش یکدست نیستند (std>۱۸)
-                                # هدفِ معتبر ندارد؛ اگر اکثریتِ ردیفها
-                                # معتبر نباشند کلِ خط دستنخورده میماند
-                                # (گرادیانِ نرمِ آسمانِ img4/4e2e77 هر
-                                # ردیفش یکدست است → همساز همچنان کار
-                                # میکند).
+# گاردِ ناهمگنیِ درون‌ردیف:
+# ردیفِ آزاد رویِ هنرِ شلوغ (یقه/کراوات/
+# خطِ سیاه + پنل + متنِ جامانده — r4886ِ
+# 9.jpg) میانهٔ «مخلوط» میدهد؛ همسازِ
+# ردیفی نوارِ سالمِ donor را به آن تراز
+# میکرد = «باندِ خاکستریِ افقی». ردیفی که
+# پیکسلهایِ آزادش یکدست نیستند (std>۱۸)
+# هدفِ معتبر ندارد؛ اگر اکثریتِ ردیفها
+# معتبر نباشند کلِ خط دستنخورده میماند
+# (گرادیانِ نرمِ آسمانِ img4/4e2e77 هر
+# ردیفش یکدست است → همساز همچنان کار
+# میکند).
                                 try:
                                     _rf = _orgB[_ri][_free]
                                     if float(np.max(np.std(
@@ -9433,7 +9402,7 @@ class _MangaTranslatorBody_85:
                             if int(_have.sum()) < max(
                                     4, int(0.3 * _bh)):
                                 continue
-                            # پرکردنِ ردیفهایِ نمونه‌نداشته + اسموث
+# پرکردنِ ردیفهایِ نمونه‌نداشته + اسموث
                             _idxH = np.nonzero(_have)[0]
                             for _ri in range(_bh):
                                 if _have[_ri]:
@@ -9459,12 +9428,12 @@ class _MangaTranslatorBody_85:
                                         mode='same')
                             if float(_tgt.std()) > 24.0:
                                 continue  # هدفِ ناهوار = هنر
-                            # سازگاریِ قائم: هدفِ افقی باید با زمینهٔ
-                            # قائمِ همان ستونها همخوان باشد — وگرنه
-                            # خط رویِ مرزِ هنر است (نوارِ تیرهٔ
-                            # بالا/پایین) و لنگرِ افقی به آن اعمال
-                            # نمیشود. میانه در برابرِ گلیفِ خطِ
-                            # مجاورِ ناخوانده مقاوم است.
+# سازگاریِ قائم: هدفِ افقی باید با زمینهٔ
+# قائمِ همان ستونها همخوان باشد — وگرنه
+# خط رویِ مرزِ هنر است (نوارِ تیرهٔ
+# بالا/پایین) و لنگرِ افقی به آن اعمال
+# نمیشود. میانه در برابرِ گلیفِ خطِ
+# مجاورِ ناخوانده مقاوم است.
                             _vtA = max(0, _yA - 9)
                             _vtB = max(0, _yA - 3)
                             _vbA = min(_hH, _yZ + 4)
@@ -9513,9 +9482,9 @@ class _MangaTranslatorBody_85:
                 if verbose:
                     print(f"  [*] دو-عکسی: خروجی = عکسِ اصلی + "
                           f"{int(_cmp.sum())}px نوارِ متنِ پاک‌شده")
-                    # v1.14.74 — انتقالِ «همین لحظه، همین تصویر»: هر عکس بلافاصله
-                    # بعد از پاک‌شدنش کامپوز می‌شود (نه اینکه همه در آخر بیایند) —
-                    # درخواستِ کاربر: «دفعه اول هر عکس جدا انتقال بده».
+# انتقالِ «همین لحظه، همین تصویر»: هر عکس بلافاصله
+# بعد از پاک‌شدنش کامپوز می‌شود (نه اینکه همه در آخر بیایند) —
+# درخواستِ کاربر: «دفعه اول هر عکس جدا انتقال بده».
                     print(f"  [*]انتقالِ فوریِ همین صفحه — "
                           f"عکسِ دوم = خروجیِ نهایی")
             except Exception:
@@ -9528,7 +9497,7 @@ class _MangaTranslatorBody_85:
                                    regions: List[TextRegion],
                                    mask: np.ndarray,
                                    cleaned: np.ndarray) -> int:
-        """v1.14.104 — پرِ فلتِ «قطعیِ» اینتریورِ بالنِ سیستم (باکسِ سفید).
+        """ — پرِ فلتِ «قطعیِ» اینتریورِ بالنِ سیستم (باکسِ سفید).
 
         درخواستِ کاربر: «حبابِ سیستم متن‌هاش جدا حساب شه (رندر)، ولی
         پاکسازیش: متن‌های نزدیک با هم پاک بشه — فقط سیستم اینجور باشه».
@@ -9566,8 +9535,8 @@ class _MangaTranslatorBody_85:
                 _intr = MangaTranslator._system_box_interior(
                     image, _key, _seeds)
                 if _intr is not None:
-                    # گیتِ «اکثریتِ سفید»: اینتریورِ عکس‌دار/متنیِ سنگین
-                    # فلت نشود (رفتارِ خط‌به‌خطِ قبلی محفوظ)
+# گیتِ «اکثریتِ سفید»: اینتریورِ عکس‌دار/متنیِ سنگین
+# فلت نشود (رفتارِ خط‌به‌خطِ قبلی محفوظ)
                     try:
                         _g = cv2.cvtColor(
                             image, cv2.COLOR_BGR2GRAY)
@@ -9578,14 +9547,14 @@ class _MangaTranslatorBody_85:
                         _intr = None
                 if _intr is None or _intr.shape != mask.shape[:2]:
                     continue
-                # ۲px فاصلهٔ بیشتر از قاب برایِ خودِ پر
+# ۲px فاصلهٔ بیشتر از قاب برایِ خودِ پر
                 _intr_w = cv2.erode(
                     _intr.astype(np.uint8),
                     np.ones((5, 5), np.uint8)) > 0
                 if int(_intr_w.sum()) < 200:
                     continue
-                # رنگِ پر = میانهٔ پیکسل‌هایِ «سفیدِ» اینتریور (مصون از
-                # آلودگیِ خودِ حروفِ تیره)
+# رنگِ پر = میانهٔ پیکسل‌هایِ «سفیدِ» اینتریور (مصون از
+# آلودگیِ خودِ حروفِ تیره)
                 try:
                     _gb = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                     _wsel = _intr_w & (_gb >= 180)
@@ -9598,8 +9567,8 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     continue
                 cleaned[_intr_w] = np.clip(_fill, 0, 255).astype(np.uint8)
-                # اینتریور از ماسکِ LaMa/پرکننده‌ها کِیل شود — پرِ فلت
-                # «قطعی» است و هیچ پرکنندهٔ دیگری نباید رویش برود
+# اینتریور از ماسکِ LaMa/پرکننده‌ها کِیل شود — پرِ فلت
+# «قطعی» است و هیچ پرکنندهٔ دیگری نباید رویش برود
                 mask[_intr] = 0
                 n_done += 1
                 if self.debug:
@@ -9614,21 +9583,21 @@ class _MangaTranslatorBody_85:
             return n_done
 
     def _clean_label(self) -> str:
-        # نامِ کوتاهِ روشِ پاکسازی برای لاگ
+# نامِ کوتاهِ روشِ پاکسازی برای لاگ
         return {"lama-manga": "lama.onnx", "lama-big": "big-lama"}.get(
             str(getattr(self, "clean_method", "") or "").lower(), "opencv")
 
     @staticmethod
     def _absorb_text_halo(bgr: np.ndarray, mask: np.ndarray,
                           band: int = 17, s_min: int = 55) -> np.ndarray:
-        """v1.14.66 — هالهٔ گلوِ اشباعِ گرمِ دورِ متن (قرمز/نارنجی/زرد/
+        """ — هالهٔ گلوِ اشباعِ گرمِ دورِ متن (قرمز/نارنجی/زرد/
         سرخابی — مثلِ کارتِ «Crimson Dragon») جزوِ جوهرِ متن حساب می‌شود.
         پیکسل‌هایِ پُراشباعِ گرمِ «چسبیده به ماسک» (تا band پیکسل) به ماسک
         اضافه می‌شوند تا هر مسیرِ پاکسازی آن‌ها را هم ببرد — وگرنه هاله
         زنده می‌ماند و «لکهٔ قرمز» دیده می‌شود (POCO F4). فقط توده‌های
         چسبیده به ماسک؛ تراشهٔ پراکنده و هنرِ دور دست‌نخورده می‌ماند.
         درخواستِ صریحِ کاربر: «اشکال نداره بیشتر پاک شه».
-        v1.14.67 — گوشیِ POCO F4 هنوز لکه داشت: دنبالهٔ کم‌رنگِ هاله
+         — گوشیِ POCO F4 هنوز لکه داشت: دنبالهٔ کم‌رنگِ هاله
         (S<80) و فراتر از ۱۳پیکسل زنده می‌ماند → band ۱۷، s_min ۵۵،
         و گشادش‌کردنِ نهاییِ هالهٔ جذب‌شده با ۷px تا مرزِ ماسک روی
         «زمینهٔ پاک» بفتد نه دنبالهٔ هاله (فیلِ بعدی قرمز نمی‌گیرد)."""
@@ -9651,13 +9620,13 @@ class _MangaTranslatorBody_85:
                 return mask
             n, lab, stats, _ = cv2.connectedComponentsWithStats(halo, 8)
             keep = np.zeros_like(halo)
-            # v1.14.82 — «هالهِ واقعی در برابر زمینهِ هنری»:
-            # هالهِ حقیقی نارین نازکی است که چند پیکسل بعد از لبهِ حروف
-            # تمام می‌شود. اگر تودهِ گرمِ هم‌ماهِ یک مؤلفهٌ خیلی
-            # بیرونِ حلقه (تا 3×band) ادامه داشته باشد = خودِ
-            # زمینهِ قرمز/گرمِ کارت است، نه هالهِ حروف → هرگز
-            # جذب نشود (خطای کارت img2: +107هزارpx هنر جذب ماسک
-            # شد و کل کارت با رنگ پر شد).
+# «هالهِ واقعی در برابر زمینهِ هنری»:
+# هالهِ حقیقی نارین نازکی است که چند پیکسل بعد از لبهِ حروف
+# تمام می‌شود. اگر تودهِ گرمِ هم‌ماهِ یک مؤلفهٌ خیلی
+# بیرونِ حلقه (تا 3×band) ادامه داشته باشد = خودِ
+# زمینهِ قرمز/گرمِ کارت است، نه هالهِ حروف → هرگز
+# جذب نشود (خطای کارت img2: +107هزارpx هنر جذب ماسک
+# شد و کل کارت با رنگ پر شد).
             try:
                 _warmfree = (warm & (~m0)).astype(np.uint8)
                 _nw, _lw = cv2.connectedComponents(_warmfree, 8)
@@ -9704,20 +9673,19 @@ class _MangaTranslatorBody_85:
                 return mask
             keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE,
                                     np.ones((5, 5), np.uint8))
-            # v1.14.67 — گشادکردنِ ۷px: مرزِ ماسک باید از دنبالهٔ هاله
-            # رد شود؛ وگرنه پرکنندهٔ گرادیانی رنگِ هاله را داخل می‌کشد
+# گشادکردنِ ۷px: مرزِ ماسک باید از دنبالهٔ هاله
+# رد شود؛ وگرنه پرکنندهٔ گرادیانی رنگِ هاله را داخل می‌کشد
             keep = cv2.dilate(keep, np.ones((7, 7), np.uint8))
             return ((m0 | (keep > 0)).astype(np.uint8)) * 255
         except Exception:
             return mask
 
     def clean_image(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
-        # v1.14.210 — پوستهٔ قفل‌دار: بدنهٔ اصلی در _clean_image_page زیرِ
-        # قفلِ سریالِ کلاس اجرا میشود تا پاکسازیِ همزمانِ دو صفحهٔ بچ
-        # (کارگرهایِ فازِ دوم) وضعیتِ صفحه‌محور را قاطی نکند (راغزارشِ
-        # سازنده: «دست جمعی متن قبلی میمونه / کلِ حباب انتقال میده حباب
-        # خراب میکنه — تکی اوکیه»). حالتِ تکی تغییری نمی‌بیند (یک صفحه =
-        # یک قفلِ بی‌رقیب).
+# پوستهٔ قفل‌دار: بدنهٔ اصلی در _clean_image_page زیرِ
+# قفلِ سریالِ کلاس اجرا میشود تا پاکسازیِ همزمانِ دو صفحهٔ بچ
+# (کارگرهایِ فازِ دوم) وضعیتِ صفحه‌محور را قاطی نکند.
+# حالتِ تکی تغییری نمی‌بیند (یک صفحه =
+# یک قفلِ بی‌رقیب).
         _lk = getattr(MangaTranslator, "_page_clean_lock", None)
         if _lk is None:
             return self._clean_image_page(image, regions)
@@ -9725,17 +9693,15 @@ class _MangaTranslatorBody_85:
             return self._clean_image_page(image, regions)
 
     def _clean_image_page(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
-        # v1.14.70 — نواحیِ صفحه نگه داشته می‌شوند تا «کامپوزِ دو-عکسی»
-        # بتواند نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ متن) را بسازد.
+# نواحیِ صفحه نگه داشته می‌شوند تا «کامپوزِ دو-عکسی»
+# بتواند نوارهایِ خط‌به‌خط (اندازهٔ دقیقِ متن) را بسازد.
         self._page_regions = list(regions or [])
-        # v1.14.230 — «متنِ فقط عدد/نماد دست‌نخورده بماند» (دستورِ
-        # سازنده: «ولی اگ میشد .... نره ترجمه و همچنین نباید پاک کنه
-        # هیچ دستی بهش نزنه»): ناحیه‌ای که متنِ OCRشدهاش «هیچ حرفی»
-        # ندارد ('....'، '123124'، '[] ,./???!?~') نه ترجمه میشود
-        # (فیلترِ ۲۲۹ در translate_regions) و نه پاکسازی — هنر/عدتِ
-        # صفحه دست‌نخورده میماند. ناحیهٔ «جوهرِ بی‌متن» (ocr_empty:
-        # حبابِ واقعی که OCR نخواند) همچنان پاک میشود — متنِ واقعی
-        # گم نشود.
+# «متنِ فقط عدد/نماد دست‌نخورده بماند»: ناحیه‌ای که متنِ OCRشدهاش «هیچ حرفی»
+# ندارد ('....'، '123124'، ' ,./???!?~') نه ترجمه میشود
+# (فیلترِ ۲۲۹ در translate_regions) و نه پاکسازی — هنر/عدتِ
+# صفحه دست‌نخورده میماند. ناحیهٔ «جوهرِ بی‌متن» (ocr_empty:
+# حبابِ واقعی که OCR نخواند) همچنان پاک میشود — متنِ واقعی
+# گم نشود.
         _nt = [r for r in (regions or [])
                   if getattr(r, "no_touch", False)]
         if _nt:
@@ -9749,9 +9715,9 @@ class _MangaTranslatorBody_85:
                 pass
         if not regions:
             return image.copy()
-        # v1.14.185 — اندروید: پروفایلرِ سبکِ مرحله‌هایِ پاکسازی — هر
-        # مرحله چند ثانیه میگیرد را در لاگ نشان میدهد تا کندیِ «پاکسازیِ
-        # کلی یک کم طول میکشه» دقیق پیدا شود. PC هیچ چیزی چاپ نمیکند.
+# اندروید: پروفایلرِ سبکِ مرحله‌هایِ پاکسازی — هر
+# مرحله چند ثانیه میگیرد را در لاگ نشان میدهد تا کندیِ «پاکسازیِ
+# کلی یک کم طول میکشه» دقیق پیدا شود. PC هیچ چیزی چاپ نمیکند.
         _tc = time.time()
 
         def _stage(tag: str) -> None:
@@ -9765,11 +9731,11 @@ class _MangaTranslatorBody_85:
         mask = self._build_text_mask(image, regions)
         if not np.any(mask):
             return image.copy()
-        self._mem_trim()  # v1.14.48c: پیکِ ماسک‌سازی به OS برگردد
+        self._mem_trim()  # پیکِ ماسک‌سازی به OS برگردد
 
-        # v1.14.48: دیوارِ حباب/کادرِ پنل را از ماسکِ فعال جدا کن —
-        # پرکننده‌ها ماسک را گشاد می‌کنند و دیوار را می‌بلعند
-        # (بدونِ copy — bitwise_and خروجیِ جدید می‌سازد و raw می‌ماند)
+# دیوارِ حباب/کادرِ پنل را از ماسکِ فعال جدا کن —
+# پرکننده‌ها ماسک را گشاد می‌کنند و دیوار را می‌بلعند
+# (بدونِ copy — bitwise_and خروجیِ جدید می‌سازد و raw می‌ماند)
         self._page_raw_text_mask = mask
         try:
             _dm = os.environ.get("MANGA_DUMP_MASK")
@@ -9780,28 +9746,28 @@ class _MangaTranslatorBody_85:
             pass
         _protect = self._structural_protect_mask(image, regions)
         self._page_protect = _protect
-        # v1.14.73 — نقشهٔ «دیوارِ ریز»: دیوارِ حباب‌هایِ کوچک (<۶۰px —
-        # مثلِ YEP!) هم مثلِ بزرگ‌ها در کامپوز محافظت می‌شود تا هرگز
-        # پیکسلِ آن از عکسِ پاک‌شده به خروجی نرود (حبابِ نازک نشکند).
+# نقشهٔ «دیوارِ ریز»: دیوارِ حباب‌هایِ کوچک (<۶۰px —
+# مثلِ YEP!) هم مثلِ بزرگ‌ها در کامپوز محافظت می‌شود تا هرگز
+# پیکسلِ آن از عکسِ پاک‌شده به خروجی نرود (حبابِ نازک نشکند).
         try:
             self._page_wall_band = self._structural_protect_mask(
                 image, regions, min_len=16, near_px=13)
         except Exception:
             self._page_wall_band = None
-        # v1.14.186 — پایانِ اعتبارِ کشِ MANGA_PROT_CACHE: هرگز کهنه نمیماند
+# پایانِ اعتبارِ کشِ MANGA_PROT_CACHE: هرگز کهنه نمیماند
         self._spm_cache = None
-        # v1.14.206n — protect دیگر از ماسکِ «فعال» کم نمیشود: عکسِ اول
-        # (donor) طبقِ سبکِ خودِ سازنده حقِ «بیشتر پاک کردن» دارد
-        # («اشکال نداره حباب خراب شه یا بیشتر پاک شه») — چون کامپوزِ
-        # دو-عکسی (206m) و پولیشِ حلقه، ساختار را هرگز از عکسِ دوم
-        # منتقل نمیکنند و پولیش هم protect را از نمونهٔ حلقه بیرون
-        # میگذارد. قبلاً حذفِ protect از ماسک، پرِ LaMa را وادار میکرد
-        # دورِ قابِ رنگی بچرخد و رنگِ قاب را داخلِ متن میکشید (لکهٔ
-        # سبزِ حبابهایِ ۳/۴ در up0822).
+# protect دیگر از ماسکِ «فعال» کم نمیشود: عکسِ اول
+# (donor) طبقِ سبکِ خودِ سازنده حقِ «بیشتر پاک کردن» دارد
+# («اشکال نداره حباب خراب شه یا بیشتر پاک شه») — چون کامپوزِ
+# دو-عکسی (206m) و پولیشِ حلقه، ساختار را هرگز از عکسِ دوم
+# منتقل نمیکنند و پولیش هم protect را از نمونهٔ حلقه بیرون
+# میگذارد. قبلاً حذفِ protect از ماسک، پرِ LaMa را وادار میکرد
+# دورِ قابِ رنگی بچرخد و رنگِ قاب را داخلِ متن میکشید (لکهٔ
+# سبزِ حبابهایِ ۳/۴ در up0822).
 
-        # v1.14.66 — هالهٔ گلوِ اشباعِ دورِ متن (لکهٔ قرمزِ کارتِ عنوان)
-        # قبل از اسنپ‌شاتِ کامپوز و همهٔ مسیرهایِ پاکسازی به ماسک می‌چسبد
-        # تا نوارِ ترکیبِ دو-عکسی هم هاله را بپوشاند (خروجی = بدونِ لکه).
+# هالهٔ گلوِ اشباعِ دورِ متن (لکهٔ قرمزِ کارتِ عنوان)
+# قبل از اسنپ‌شاتِ کامپوز و همهٔ مسیرهایِ پاکسازی به ماسک می‌چسبد
+# تا نوارِ ترکیبِ دو-عکسی هم هاله را بپوشاند (خروجی = بدونِ لکه).
         try:
             _t = time.time()
             _n2 = int((mask > 0).sum())
@@ -9816,38 +9782,38 @@ class _MangaTranslatorBody_85:
             pass
         _stage("ماسک+هاله")
 
-        # v1.14.63 — ماسکِ کامپوزِ «خط‌به‌خط»: نسخهٔ خامِ ماسکِ متنِ همین
-        # لحظه (بعدِ کارو/پروتکت، «قبلِ» کِیلِ پرکننده‌هایِ فوری و «قبلِ»
-        # توپرشدنِ بلوک‌هایِ تیره) برایِ ترکیبِ دو-عکسی نگه داشته می‌شود.
-        # طبقِ حرفِ تازهٔ کاربر: «به اندازهٔ متنِ اصلی برش بخوره بذاره رو
-        # عکسِ اصلی — چرا کلِ حباب رو منتقل می‌کنی؟» → کامپوز فقط نوارِ
-        # متن را می‌گیرد، نه کلِ حباب/محفظه/پیکسل‌هایِ تغییرکردهٔ پراکنده.
+# ماسکِ کامپوزِ «خط‌به‌خط»: نسخهٔ خامِ ماسکِ متنِ همین
+# لحظه (بعدِ کارو/پروتکت، «قبلِ» کِیلِ پرکننده‌هایِ فوری و «قبلِ»
+# توپرشدنِ بلوک‌هایِ تیره) برایِ ترکیبِ دو-عکسی نگه داشته می‌شود.
+# طبقِ حرفِ تازهٔ کاربر: «به اندازهٔ متنِ اصلی برش بخوره بذاره رو
+# عکسِ اصلی — چرا کلِ حباب رو منتقل می‌کنی؟» → کامپوز فقط نوارِ
+# متن را می‌گیرد، نه کلِ حباب/محفظه/پیکسل‌هایِ تغییرکردهٔ پراکنده.
         self._compose_text_mask = mask.copy()
 
-        # v1.14.74 — درخواستِ نهاییِ کاربر: «عکسِ اول متن‌هاش کامل بپاکه —
-        # اشکال نداره حباب خراب شه یا بیشتر پاک شه. بعد خط به خط برش
-        # بخوره به عکسِ دوم بچسونه جایِ متن‌هایِ اصلی‌شون. عکسِ دوم باید
-        # خروجی بشه» + «چرا کل حباب انتقال میدی؟ حروف به حروف برش بزنه».
-        # ماسکِ donor = فقط نوارِ متن + پدِ سخاوتمندانه (+ نجاتِ جوهرِ
-        # جا‌مانده). «کلِ داخلِ حباب» (v1.14.71/73) حذف شد: LaMa داخلِ
-        # حبابِ رنگی را خمیرِ خاکستری می‌کرد («لگه») و روی گوشی کند بود.
+# درخواستِ نهاییِ کاربر: «عکسِ اول متن‌هاش کامل بپاکه —
+# اشکال نداره حباب خراب شه یا بیشتر پاک شه. بعد خط به خط برش
+# بخوره به عکسِ دوم بچسونه جایِ متن‌هایِ اصلی‌شون. عکسِ دوم باید
+# خروجی بشه» + «چرا کل حباب انتقال میدی؟ حروف به حروف برش بزنه».
+# ماسکِ donor = فقط نوارِ متن + پدِ سخاوتمندانه (+ نجاتِ جوهرِ
+# جا‌مانده). «کلِ داخلِ حباب» (/73) حذف شد: LaMa داخلِ
+# حبابِ رنگی را خمیرِ خاکستری می‌کرد («لگه») و روی گوشی کند بود.
         try:
             mask = self._expand_donor_text_strips(
                 image, mask, regions)
         except Exception:
             pass
-        # v1.14.74 — donor دیگر اینتریور ندارد → هیچ ناحیه‌ای از پرکردنِ
-        # فوری مستثنا نیست (پرِ فلت برای حبابِ تخت، LaMa برای بافت —
-        # همان مسیرِ همیشگیِ سبکِ پاکسازی).
+# donor دیگر اینتریور ندارد → هیچ ناحیه‌ای از پرکردنِ
+# فوری مستثنا نیست (پرِ فلت برای حبابِ تخت، LaMa برای بافت —
+# همان مسیرِ همیشگیِ سبکِ پاکسازی).
         _donor_skip = None
 
-        # v1.14.81 — نقشهٔ «ساختارِ روشنِ دور از متن» (خطِ سفیدِ حباب،
-        # قابِ کادر). خطایِ واقعیِ کاربر رویِ img2: «این قسمت حباب به کل
-        # حذف زده و اون یکی کامل سیاه کرده» — بلوکِ اجباری-LaMa خطِ سفیدِ
-        # حباب را می‌بلید و LaMa پنلِ تیره را سیاهِ خالص می‌کرد.
-        # پیکسل‌هایِ روشن (≥۱۵۰) که بیش از ~۳۱px از جوهرِ متن فاصله
-        # دارند «قفل» می‌شوند: ۱) از ماسکِ توپرِ بلوکِ اجباری خارج‌اند،
-        # ۲) بعد از هر مرحله از عکسِ اصل به cleaned برمی‌گردند.
+# نقشهٔ «ساختارِ روشنِ دور از متن» (خطِ سفیدِ حباب
+# قابِ کادر). خطایِ واقعیِ کاربر رویِ img2: «این قسمت حباب به کل
+# حذف زده و اون یکی کامل سیاه کرده» — بلوکِ اجباری-LaMa خطِ سفیدِ
+# حباب را می‌بلید و LaMa پنلِ تیره را سیاهِ خالص می‌کرد.
+# پیکسل‌هایِ روشن (≥۱۵۰) که بیش از ~۳۱px از جوهرِ متن فاصله
+# دارند «قفل» می‌شوند: ۱) از ماسکِ توپرِ بلوکِ اجباری خارج‌اند
+# ۲) بعد از هر مرحله از عکسِ اصل به cleaned برمی‌گردند.
         self._prot_bright = None
         self._prot_glow = None
         self._prot_all = None
@@ -9866,12 +9832,12 @@ class _MangaTranslatorBody_85:
                     if self.debug:
                         print(f"  [✓]حفاظتِ ساختارِ روشن — "
                               f"{int(cv2.countNonZero(_pb3))}px قفل شد")
-                # v1.14.81b — قفلِ «تابِ نورِ پس‌زمینه»: مؤلفهٔ روشنِ (≥۱۰۰)
-                # که بخشِ بزرگی‌اش (≥۲۰۰۰px) بیش از ~۱۰۰px از متن فاصله
-                # دارد = نورِ صحنه/پنل است، نه هالهٔ حروف — نمونه: پرتوِ
-                # بالایِ پنلِ img2 که پرکنندهٔ هاله سیاهش می‌کرد.
-                # قرمزِ اشباع (خاکستریِ ~۷۶) عمداً زیرِ آستانه می‌ماند تا
-                # لکهٔ قرمزِ کارتِ عنوان طبقِ v1.14.66/67 پاک شود.
+# قفلِ «تابِ نورِ پس‌زمینه»: مؤلفهٔ روشنِ (≥۱۰۰)
+# که بخشِ بزرگی‌اش (≥۲۰۰۰px) بیش از ~۱۰۰px از متن فاصله
+# دارد = نورِ صحنه/پنل است، نه هالهٔ حروف — نمونه: پرتوِ
+# بالایِ پنلِ img2 که پرکنندهٔ هاله سیاهش می‌کرد.
+# قرمزِ اشباع (خاکستریِ ~۷۶) عمداً زیرِ آستانه می‌ماند تا
+# لکهٔ قرمزِ کارتِ عنوان طبقِ /67 پاک شود.
                 try:
                     _b = (_g3 >= 100).astype(np.uint8)
                     _d = cv2.distanceTransform(
@@ -9902,8 +9868,8 @@ class _MangaTranslatorBody_85:
                                           f"({len(_keep)} مؤلفه)")
                 except Exception:
                     self._prot_glow = None
-                # قفل‌ها از ماسکِ پاکسازی خارج می‌شوند (LaMa/پرکننده‌ها
-                # حقِ بازنویسی‌شان را ندارند)
+# قفل‌ها از ماسکِ پاکسازی خارج می‌شوند (LaMa/پرکننده‌ها
+# حقِ بازنویسی‌شان را ندارند)
                 try:
                     _pa = None
                     if self._prot_bright is not None:
@@ -9914,9 +9880,9 @@ class _MangaTranslatorBody_85:
                     if _pa is not None and int(cv2.countNonZero(_pa)):
                         mask[_pa > 0] = 0
                         self._prot_all = _pa
-                    # v1.14.106 — قفلِ خطِ سراسری (کادرِ پنل) هم در
-                    # _prot_all: ترمیمها/جارو/چسباندنِ LaMa حقِ بازنویسی
-                    # قاب را ندارند
+# قفلِ خطِ سراسری (کادرِ پنل) هم در
+# _prot_all: ترمیمها/جارو/چسباندنِ LaMa حقِ بازنویسی
+# قاب را ندارند
                     try:
                         _pgp = getattr(self, "_page_protect", None)
                         if _pgp is not None \
@@ -9932,7 +9898,7 @@ class _MangaTranslatorBody_85:
                         pass
                 except Exception:
                     pass
-                # v1.14.81 — پروبِ وضعیتِ قفلِ پیکسل
+# پروبِ وضعیتِ قفلِ پیکسل
                 try:
                     _pv2 = os.environ.get("MANGA_PROBE", "")
                     if _pv2 and "," in _pv2:
@@ -9960,11 +9926,11 @@ class _MangaTranslatorBody_85:
                       f"({cleaned[_qy81p, _qx81p]})", flush=True)
         except Exception:
             pass
-        # v1.14.94 — قفلِ ساختارِ روشنِ نازک (قابِ تزئینی/نوارِ لبه) که
-        # باکسِ بلوکِ اجباری از رویش عبور می‌کند — قبل از توپرشدنِ ماسک،
-        # وگرنه LaMa قاب را له می‌کند (GREEN MOON). در `_prot_all`
-        # ادغام می‌شود تا همهٔ مسیرها (پرکنندهٔ فوری، LaMa، paste) آن را
-        # محترم بشمارند.
+# قفلِ ساختارِ روشنِ نازک (قابِ تزئینی/نوارِ لبه) که
+# باکسِ بلوکِ اجباری از رویش عبور می‌کند — قبل از توپرشدنِ ماسک
+# وگرنه LaMa قاب را له می‌کند (GREEN MOON). در `_prot_all`
+# ادغام می‌شود تا همهٔ مسیرها (پرکنندهٔ فوری، LaMa، paste) آن را
+# محترم بشمارند.
         try:
             _fbs2 = (getattr(self, "_lama_force_rect_boxes", None) or [])
             if _fbs2:
@@ -9982,13 +9948,13 @@ class _MangaTranslatorBody_85:
         except Exception:
             pass
 
-        # v1.14.59 — بلوک‌هایِ «متنِ روشن روی محفظهٔ تیره» (کارتِ عنوانِ
-        # Crimson Dragon و امثالش): هرچه کارو/کلیپِ حباب/پروتکت از ماسک
-        # کم کرده باشد بی‌اثر — ماسک در این بلوک‌ها اجباری توپر می‌شود تا
-        # ۱) LaMa کلِ بلوک را بازسازی کند (پرکنندهٔ تخت شبح نمی‌گذارد)
-        # ۲) نوارِ ترکیبِ دو-عکسی کلِ بلوک را از عکسِ پاک‌شده بگیرد
-        # (پیکسلِ بینِ حروف از عکسِ اصلی نماند = «متنِ قبلی سرِ جایش»).
-        # سقفِ ترکیب هنرِ بیرونِ بلوک را سالم نگه می‌دارد.
+# بلوک‌هایِ «متنِ روشن روی محفظهٔ تیره» (کارتِ عنوانِ
+# Crimson Dragon و امثالش): هرچه کارو/کلیپِ حباب/پروتکت از ماسک
+# کم کرده باشد بی‌اثر — ماسک در این بلوک‌ها اجباری توپر می‌شود تا
+# ۱) LaMa کلِ بلوک را بازسازی کند (پرکنندهٔ تخت شبح نمی‌گذارد)
+# ۲) نوارِ ترکیبِ دو-عکسی کلِ بلوک را از عکسِ پاک‌شده بگیرد
+# (پیکسلِ بینِ حروف از عکسِ اصلی نماند = «متنِ قبلی سرِ جایش»).
+# سقفِ ترکیب هنرِ بیرونِ بلوک را سالم نگه می‌دارد.
         try:
             _fb_list = (getattr(self, "_lama_force_rect_boxes", None) or [])
             _h, _w = mask.shape[:2]
@@ -10002,13 +9968,13 @@ class _MangaTranslatorBody_85:
                     _fb_new.append([int(_fb[0]), int(_fb[1]),
                                     int(_fb[2]), int(_fb[3])])
                     continue
-                # v1.14.94b — سنجشِ باکس به «متنِ واقعی»: باکسِ ناحیهٔ
-                # دیتکتور تا مرزِ پنل می‌رود و LaMa قابِ تزئینی را له
-                # می‌کند (نمونه: GREEN MOON). باکسِ پرشده = bboxِ
-                # جوهر+هالهٔ داخلِ باکس + پدِ ۱۲px — ساختارِ بیرونِ متن
-                # هرگز بلعیده نمی‌شود؛ تضمینِ v1.14.59 («پیکسلِ بینِ
-                # حروف از اصل نماند») همچنان برقرار است چون کلِ بلوکِ
-                # متن پوشیده می‌شود.
+# سنجشِ باکس به «متنِ واقعی»: باکسِ ناحیهٔ
+# دیتکتور تا مرزِ پنل می‌رود و LaMa قابِ تزئینی را له
+# می‌کند (نمونه: GREEN MOON). باکسِ پرشده = bboxِ
+# جوهر+هالهٔ داخلِ باکس + پدِ ۱۲px — ساختارِ بیرونِ متن
+# هرگز بلعیده نمی‌شود؛ تضمینِ («پیکسلِ بینِ
+# حروف از اصل نماند») همچنان برقرار است چون کلِ بلوکِ
+# متن پوشیده می‌شود.
                 _nx0, _ny0 = _fx0, _fy0
                 _nx1, _ny1 = _fx1, _fy1
                 _bx0, _by0 = _fx0, _fy0
@@ -10027,24 +9993,24 @@ class _MangaTranslatorBody_85:
                         _bx0, _by0, _bx1, _by1 = _nx0, _ny0, _nx1, _ny1
                 except Exception:
                     pass
-                # v1.14.94c — پرِ بلوکِ اجباری «خط‌به‌خط»: به‌جایِ یک
-                # مستطیلِ توپرِ چندخطی (حفرهٔ غول = خمیرِ LaMa + لکهٔ
-                # تخت روی گرادیان)، هر خطِ متن نوارِ خودش را می‌گیرد
-                # (bboxِ سطر + پد). بینِ خط‌ها = پس‌زمینهٔ اصل می‌ماند —
-                # LaMa هر نوار را از بافتِ واقعیِ بالا/پایین بازسازی
-                # می‌کند (فلسفهٔ «خط به خط» کاربر) و جعبه‌هایِ
-                # اسنپ‌شات/مقایسه هم نواریند.
+# پرِ بلوکِ اجباری «خط‌به‌خط»: به‌جایِ یک
+# مستطیلِ توپرِ چندخطی (حفرهٔ غول = خمیرِ LaMa + لکهٔ
+# تخت روی گرادیان)، هر خطِ متن نوارِ خودش را می‌گیرد
+# (bboxِ سطر + پد). بینِ خط‌ها = پس‌زمینهٔ اصل می‌ماند —
+# LaMa هر نوار را از بافتِ واقعیِ بالا/پایین بازسازی
+# می‌کند (فلسفهٔ «خط به خط» کاربر) و جعبه‌هایِ
+# اسنپ‌شات/مقایسه هم نواریند.
                 _strips = []
                 _p = 12
                 try:
-                    # v1.14.95 — جدایشِ خطی از پالی‌هایِ OCR: پروفیلِ جوهر
-                    # وقتی هالهٔ درخشش بینِ خط‌ها پُرش کند (نمونهٔ «The
-                    # Crimson Dragon,» رویِ پلاک) هر دو خط را یک باند
-                    # می‌کند → حفرهٔ LaMa غول می‌شود و لبهٔ تختِ محسوس
-                    # رویِ گرادیان می‌ماند. مرزِ باند از مرکزِ پالی‌ها،
-                    # ولی گسترهٔ باند از «جوهرِ خامِ» همان باند — وگرنه
-                    # پالیِ فونتِ تزئینی (بلندیِ ۱۳۲px) باز کلِ بلوک را
-                    # می‌پوشاند (v1.14.95c).
+# جدایشِ خطی از پالی‌هایِ OCR: پروفیلِ جوهر
+# وقتی هالهٔ درخشش بینِ خط‌ها پُرش کند (نمونهٔ «The
+# Crimson Dragon,» رویِ پلاک) هر دو خط را یک باند
+# می‌کند → حفرهٔ LaMa غول می‌شود و لبهٔ تختِ محسوس
+# رویِ گرادیان می‌ماند. مرزِ باند از مرکزِ پالی‌ها
+# ولی گسترهٔ باند از «جوهرِ خامِ» همان باند — وگرنه
+# پالیِ فونتِ تزئینی (بلندیِ ۱۳۲px) باز کلِ بلوک را
+# می‌پوشاند .
                     _src = None
                     if _sub3 is not None and _ys2.size >= 400:
                         _src = _sub3
@@ -10081,10 +10047,10 @@ class _MangaTranslatorBody_85:
                     except Exception:
                         _pl = []
                     if len(_pl) >= 2:
-                        # بازهٔ خامِ y (بدونِ پد) — اگر پدِ قبل از ادغام
-                        # اضافه شود، خط‌هایِ نزدیک (پلاکِ «The Crimson
-                        # Dragon,») در هم می‌لغزند و یک باند می‌شوند.
-                        # مختصاتِ پالی = مطلق؛ بازه‌ها نسبت به باکس‌اند.
+# بازهٔ خامِ y (بدونِ پد) — اگر پدِ قبل از ادغام
+# اضافه شود، خط‌هایِ نزدیک (پلاکِ «The Crimson
+# Dragon,») در هم می‌لغزند و یک باند می‌شوند.
+# مختصاتِ پالی = مطلق؛ بازه‌ها نسبت به باکس‌اند.
                         _ivs = []
                         for _pp2 in _pl:
                             _iy0 = max(0, int(np.floor(
@@ -10107,11 +10073,11 @@ class _MangaTranslatorBody_85:
                             else:
                                 _mrg.append(list(_iv))
                         if not (2 <= len(_mrg) <= 12):
-                            # تلاشِ ۲ — شکافِ مرکزها: فونت‌هایِ تزئینی پالیِ
-                            # بلند می‌سازند و بازه‌هایِ y خط‌ها همپوشانی
-                            # دارند (پلاک: [5-137]/[76-205]). مرزِ خط‌ها =
-                            # میانهٔ بزرگ‌ترینِ شکافِ بینِ مرکزِ خط‌ها؛
-                            # هر باند در مرز کِیل می‌شود.
+# تلاشِ ۲ — شکافِ مرکزها: فونت‌هایِ تزئینی پالیِ
+# بلند می‌سازند و بازه‌هایِ y خط‌ها همپوشانی
+# دارند (پلاک: [5-137]/[76-205]). مرزِ خط‌ها =
+# میانهٔ بزرگ‌ترینِ شکافِ بینِ مرکزِ خط‌ها
+# هر باند در مرز کِیل می‌شود.
                             try:
                                 _cents = sorted(
                                     (v[0] + v[1]) / 2.0 for v in _ivs)
@@ -10144,10 +10110,10 @@ class _MangaTranslatorBody_85:
                             except Exception:
                                 _mrg = []
                         if 2 <= len(_mrg) <= 12:
-                            # v1.14.95c — گسترهٔ باند از «جوهرِ خامِ همان
-                            # باند» نه از bboxِ پالی (فونتِ تزئینی پالیِ
-                            # بلند می‌سازد → نوارها همپوشان می‌شوند و
-                            # حفرهٔ LaMa باز کلِ بلوک می‌شود).
+# گسترهٔ باند از «جوهرِ خامِ همان
+# باند» نه از bboxِ پالی (فونتِ تزئینی پالیِ
+# بلند می‌سازد → نوارها همپوشان می‌شوند و
+# حفرهٔ LaMa باز کلِ بلوک می‌شود).
                             _profC = None
                             if _src is not None:
                                 _profC = (_src > 0).sum(axis=1)
@@ -10169,11 +10135,11 @@ class _MangaTranslatorBody_85:
                                                    + int(_rr.max()) + 7)
                                         if _ny1 - _ny0 >= 10:
                                             _ay, _qy2 = _ny0, _ny1
-                                # v1.14.95f — پدِ ۲۰px: هالهٔ درخششِ
-                                # متن تا ~۲۰px بیرونِ جوهر می‌رود؛ اگر
-                                # نوار تنگ باشد، هاله دورِ پرِ تازه
-                                # می‌ماند و «قابِ روشنِ» محسوس می‌سازد
-                                # (اسکرین‌شاتِ پلاکِ کاربر).
+# پدِ ۲۰px: هالهٔ درخششِ
+# متن تا ~۲۰px بیرونِ جوهر می‌رود؛ اگر
+# نوار تنگ باشد، هاله دورِ پرِ تازه
+# می‌ماند و «قابِ روشنِ» محسوس می‌سازد
+# (اسکرین‌شاتِ پلاکِ کاربر).
                                 _ay = max(0, _ay - 20)
                                 _qy2 = min(_fy1 - _fy0, _qy2 + 20)
                                 if _qy2 - _ay < 10:
@@ -10194,9 +10160,9 @@ class _MangaTranslatorBody_85:
                                   f"iv={' '.join(_ivs_dbg)}")
                     if not _strips and _sub3 is not None \
                             and _ys2.size >= 400:
-                        # v1.14.94d — پروفیلِ سطر/ستون از «جوهرِ خام»
-                        # (قبلِ هاله‌گیریِ v1.14.66) — هاله، سطرها را به
-                        # هم می‌چسباند و جدایشِ خطی را می‌کُشد
+# پروفیلِ سطر/ستون از «جوهرِ خام»
+# (قبلِ هاله‌گیریِ ) — هاله، سطرها را به
+# هم می‌چسباند و جدایشِ خطی را می‌کُشد
                         _src = _sub3
                         try:
                             _rawS = getattr(
@@ -10271,7 +10237,7 @@ class _MangaTranslatorBody_85:
                     _fb_new.append([_sx0, _sy0, _sx1, _sy1])
                     if os.environ.get("MANGA_NO_FORCE_LAMA", "0") != "1":
                         mask[_sy0:_sy1, _sx0:_sx1] = 255
-                        # v1.14.81 — ساختارِ روشن/تابِ نور از بلوکِ اجباری خارج
+# ساختارِ روشن/تابِ نور از بلوکِ اجباری خارج
                         try:
                             _pa = getattr(self, "_prot_all", None)
                             if _pa is not None:
@@ -10287,7 +10253,7 @@ class _MangaTranslatorBody_85:
             if _fb_new:
                 self._lama_force_rect_boxes = _fb_new
             if _fb_list:
-                # سقفِ رنگ‌آمیزی (cap) هم باید کلِ بلوک را بپوشاند
+# سقفِ رنگ‌آمیزی (cap) هم باید کلِ بلوک را بپوشاند
                 self._page_raw_text_mask = mask.copy()
                 if self.debug:
                     try:
@@ -10299,13 +10265,13 @@ class _MangaTranslatorBody_85:
 
         cleaned = image.copy()
         counts = {"flat": 0, "color": 0, "LaMa": 0, "OpenCV": 0}
-        # v1.14.105 — ماسکِ اتحادِ وارسی: فقط نواحیِ EP-وابسته (LaMa/OpenCV)
-        # انباشته می‌شوند تا وارسیِ نهاییِ ضدِ خرابیِ GPU دقیقاً روی
-        # همان‌ها برود؛ پرهایِ فلت/رنگیِ قطعی و SFX/تبلیغ خارج‌اند
+# ماسکِ اتحادِ وارسی: فقط نواحیِ EP-وابسته (LaMa/OpenCV)
+# انباشته می‌شوند تا وارسیِ نهاییِ ضدِ خرابیِ GPU دقیقاً روی
+# همان‌ها برود؛ پرهایِ فلت/رنگیِ قطعی و SFX/تبلیغ خارج‌اند
         self._verify_union = None
-        # v1.14.104 — «بالنِ سیستم»: پرِ فلتِ قطعیِ اینتریورِ باکسِ سفیدِ
-        # سیستم (یک واحد — خط‌ها + بینِ خط‌ها) قبل از هر پرکنندهٔ دیگر.
-        # جزئیاتِ چرایی → docstringِ _fill_system_box_interiors.
+# «بالنِ سیستم»: پرِ فلتِ قطعیِ اینتریورِ باکسِ سفیدِ
+# سیستم (یک واحد — خط‌ها + بینِ خط‌ها) قبل از هر پرکنندهٔ دیگر.
+# جزئیاتِ چرایی → docstringِ _fill_system_box_interiors.
         try:
             _n_sys = self._fill_system_box_interiors(
                 image, regions, mask, cleaned)
@@ -10329,9 +10295,9 @@ class _MangaTranslatorBody_85:
         except Exception:
             pass
         _stage("پرکنندهٔ فوری")
-        # v1.14.81 — قفلِ ساختارِ روشن/تابِ نور: پرکننده‌هایِ فوری حقِ
-        # دست‌زدن به این پیکسل‌ها را ندارند — خطِ سفیدِ حباب و پرتوِ نور
-        # باید زنده بمانند (خطایِ img2: «حباب به کل حذف زده»)
+# قفلِ ساختارِ روشن/تابِ نور: پرکننده‌هایِ فوری حقِ
+# دست‌زدن به این پیکسل‌ها را ندارند — خطِ سفیدِ حباب و پرتوِ نور
+# باید زنده بمانند (خطایِ img2: «حباب به کل حذف زده»)
         try:
             _pa = getattr(self, "_prot_all", None)
             if _pa is not None and int(cv2.countNonZero(_pa)):
@@ -10350,21 +10316,21 @@ class _MangaTranslatorBody_85:
                     pass
         except Exception:
             pass
-        # v1.14.61 — باگِ «لکهٔ بلوکی/سیاهی روی کارتِ تیره»: پرکننده‌هایِ
-        # فوری ناحیهٔ پرشده را از ماسک کِیل می‌کنند؛ بعد کلاسترِ بعدی با
-        # «سوراخِ حروف» به LaMa می‌رسید → LaMa متنِ سفیدِ باقی‌مانده در
-        # حفره‌ها را زمینه فرض می‌کرد و دورش لکهٔ قرمزِ بلوکی می‌ساخت
-        # (نمونه: تیترِ Crimson Dragon و پلیتِ AIDE ZEPHYROS رویِ گوشی).
-        # پس از کِیل، باکسِ کاملِ بلوک‌هایِ اجباری-LaMa دوباره توپر می‌شود
-        # تا LaMa کلِ متن را با هم ببیند و پاک کند (سبکِ پاکسازی عوض
-        # نمی‌شود — همان مسیرِ اجباری-LaMa با ماسکِ کاملِ v1.14.59).
+# باگِ «لکهٔ بلوکی/سیاهی روی کارتِ تیره»: پرکننده‌هایِ
+# فوری ناحیهٔ پرشده را از ماسک کِیل می‌کنند؛ بعد کلاسترِ بعدی با
+# «سوراخِ حروف» به LaMa می‌رسید → LaMa متنِ سفیدِ باقی‌مانده در
+# حفره‌ها را زمینه فرض می‌کرد و دورش لکهٔ قرمزِ بلوکی می‌ساخت
+# (نمونه: تیترِ Crimson Dragon و پلیتِ AIDE ZEPHYROS رویِ گوشی).
+# پس از کِیل، باکسِ کاملِ بلوک‌هایِ اجباری-LaMa دوباره توپر می‌شود
+# تا LaMa کلِ متن را با هم ببیند و پاک کند (سبکِ پاکسازی عوض
+# نمی‌شود — همان مسیرِ اجباری-LaMa با ماسکِ کاملِ ).
         try:
             for _fb in (getattr(self, "_lama_force_rect_boxes",
                                 None) or []):
                 if os.environ.get("MANGA_NO_FORCE_LAMA", "0") != "1":
                     mask[_fb[1]:_fb[3], _fb[0]:_fb[2]] = 255
-                    # v1.14.81 — همان حفاظت (بعد از کِیلِ پرکننده‌های فوری
-                    # هم بلوک دوباره توپر می‌شود)
+# همان حفاظت (بعد از کِیلِ پرکننده‌های فوری
+# هم بلوک دوباره توپر می‌شود)
                     try:
                         _pa = getattr(self, "_prot_all", None)
                         if _pa is not None:
@@ -10377,14 +10343,14 @@ class _MangaTranslatorBody_85:
                         pass
         except Exception:
             pass
-        # v1.14.62 — اسنپ‌شاتِ «وضعیتِ پرکنندهٔ فوری» برایِ بلوک‌هایِ محفظهٔ
-        # تیره، قبل از حلقهٔ LaMa. چرا: در نوارِ ترکیبی، بازسازیِ بلوکِ کامل
-        # توسطِ LaMa-Manga (مدلِ گوشی/سقفِ پچِ ۳۸۴) رویِ صفحهٔ گرادیانیِ تیره
-        # «لکهٔ بلوکی» می‌سازد (کارتِ عنوانِ Crimson Dragon — بازتولیدِ
-        # سندباکس در strip_003). پرکنندهٔ فوریِ گرادیانی (v1.14.60) رویِ همان
-        # بلوک «کاملاً تمیز» است (اثبات: MANGA_NO_FORCE_LAMA=1). پس نتیجهٔ
-        # LaMaِ هر بلوک در اعمالِ نهایی با این اسنپ‌شات سنجیده می‌شود؛ اگر
-        # انحرافِ لکه‌ای بزرگ داشت، همان اسنپ‌شات جایگزین می‌شود.
+# اسنپ‌شاتِ «وضعیتِ پرکنندهٔ فوری» برایِ بلوک‌هایِ محفظهٔ
+# تیره، قبل از حلقهٔ LaMa. چرا: در نوارِ ترکیبی، بازسازیِ بلوکِ کامل
+# توسطِ LaMa-Manga (مدلِ گوشی/سقفِ پچِ ۳۸۴) رویِ صفحهٔ گرادیانیِ تیره
+# «لکهٔ بلوکی» می‌سازد (کارتِ عنوانِ Crimson Dragon — بازتولیدِ
+# سندباکس در strip_003). پرکنندهٔ فوریِ گرادیانی  رویِ همان
+# بلوک «کاملاً تمیز» است (اثبات: MANGA_NO_FORCE_LAMA=1). پس نتیجهٔ
+# LaMaِ هر بلوک در اعمالِ نهایی با این اسنپ‌شات سنجیده می‌شود؛ اگر
+# انحرافِ لکه‌ای بزرگ داشت، همان اسنپ‌شات جایگزین می‌شود.
         self._force_pre_snap = None
         try:
             _fbs = (getattr(self, "_lama_force_rect_boxes", None) or [])
@@ -10418,7 +10384,7 @@ class _MangaTranslatorBody_85:
         if not np.any(mask):
             if self.debug:
                 print("  [*] everything cleaned by instant fill")
-            # v1.14.54/63: در این مسیر هم خروجی = عکسِ اصلی + فقط نوارِ متن
+# /63: در این مسیر هم خروجی = عکسِ اصلی + فقط نوارِ متن
             try:
                 _cmp = self._compose_strip_mask(image, mask)
                 cleaned = self._compose_two_image(cleaned, image, _cmp,
@@ -10452,10 +10418,10 @@ class _MangaTranslatorBody_85:
         _pg_h, _pg_w = image.shape[:2]
         _pg_area = float(max(1, _pg_h * _pg_w))
         _webtoon = (min(_pg_h, _pg_w) * 2.5 < max(_pg_h, _pg_w))
-        # v1.14.167 — حلقهٔ پرکنندهٔ خوشه‌ها به تابعِ مستقل تبدیل شد تا
-        # خوشه‌ها همزمان پر شوند (بودجهٔ موازیِ سیستم — «پاکسازیش
-        # همینجور»): هر خوشه فقط result میسازد و رویِ cleaned نمینویسد؛
-        # نوشتنِ نتیجه‌ها همان مسیرِ ترتیبیِ بعدِ LaMa است.
+# حلقهٔ پرکنندهٔ خوشه‌ها به تابعِ مستقل تبدیل شد تا
+# خوشه‌ها همزمان پر شوند (بودجهٔ موازیِ سیستم — «پاکسازیش
+# همینجور»): هر خوشه فقط result میسازد و رویِ cleaned نمینویسد
+# نوشتنِ نتیجه‌ها همان مسیرِ ترتیبیِ بعدِ LaMa است.
         _clusters_l = list(self._mask_clusters(mask, pad=3))
 
         def _fill_one_cluster(bx0, by0, bx1, by1):
@@ -10471,8 +10437,8 @@ class _MangaTranslatorBody_85:
                 _ok_flat = (_cb_area <= 0.0035 * _pg_area
                             and (bx1 - bx0) <= 0.30 * _pg_w
                             and (by1 - by0) <= 0.22 * _pg_h)
-            # v1.14.59 — کلاسترهایِ «متنِ روشن روی محفظهٔ تیره» اجباری LaMa:
-            # پرکنندهٔ تخت/رنگی روی گرادیانِ تیره شبحِ حروف جا می‌گذارد
+# کلاسترهایِ «متنِ روشن روی محفظهٔ تیره» اجباری LaMa:
+# پرکنندهٔ تخت/رنگی روی گرادیانِ تیره شبحِ حروف جا می‌گذارد
             _force_lama = False
             if _q_lama:
                 try:
@@ -10482,8 +10448,8 @@ class _MangaTranslatorBody_85:
                                 or by1 < _fb[1] - 8 or by0 > _fb[3] + 8):
                             _force_lama = True
                             break
-                    # v1.14.82 — جوهرِ محفظهِ تیره: فقط روشِ LaMa —
-                    # پرکنندهِ تخت/رنگی هنرِ اطرافِ حروف را نابود می‌کند
+# جوهرِ محفظهِ تیره: فقط روشِ LaMa —
+# پرکنندهِ تخت/رنگی هنرِ اطرافِ حروف را نابود می‌کند
                     if not _force_lama:
                         for _ib in (getattr(self, "_lama_ink_boxes",
                                             None) or []):
@@ -10506,11 +10472,11 @@ class _MangaTranslatorBody_85:
                     _cr = self._color_fill_cluster(crop_img, crop_msk)
                     if _cr is not None:
                         crop_msk, result = _cr
-                        # v1.14.81 — پرکنندهٔ رنگی ماسک را با دیلهٔ ۲۵+کلوز
-                        # گسترش می‌دهد و همین گسترش، ساختارِ روشنِ نزدیک
-                        # (قابِ سفیدِ کارتِ img2-r10) را هم می‌بلعید و با
-                        # TELEA پاک می‌کرد («اون یکی کامل سیاه کرده»).
-                        # پیکسل‌هایِ قفل‌شده از ماسکِ برگشتی خارج می‌شوند.
+# پرکنندهٔ رنگی ماسک را با دیلهٔ ۲۵+کلوز
+# گسترش می‌دهد و همین گسترش، ساختارِ روشنِ نزدیک
+# (قابِ سفیدِ کارتِ img2-r10) را هم می‌بلعید و با
+# TELEA پاک می‌کرد («اون یکی کامل سیاه کرده»).
+# پیکسل‌هایِ قفل‌شده از ماسکِ برگشتی خارج می‌شوند.
                         try:
                             _pa81c = getattr(self, "_prot_all", None)
                             if _pa81c is not None:
@@ -10538,22 +10504,22 @@ class _MangaTranslatorBody_85:
                         and _android_gate("MANGA_FILL_RESCUE") \
                         and float(cv2.countNonZero(crop_msk)) >= 0.40 * float(
                             max(1, (bx1 - bx0) * (by1 - by0))):
-                    # v1.14.133 — اندروید: فقط «حفرهٔ بزرگ» (ماسکِ block-rect∪ink
-                    # ~≥۴۰٪ باکس) → پرِ درجه‌دومِ تخت از حلقه؛ نوارهایِ باریکِ
-                    # line-strips (~۱۵-۳۰٪) همچنان به LaMa میروند که رویِ
-                    # حفرهٔ کوچک از پرِ تختِ درجه‌دوم تمیزتر است (گرادیانِ
-                    # حباب را از زمینهٔ بزرگتر میخواند).
+# اندروید: فقط «حفرهٔ بزرگ» (ماسکِ block-rect∪ink
+# ~≥۴۰٪ باکس) → پرِ درجه‌دومِ تخت از حلقه؛ نوارهایِ باریکِ
+# line-strips (~۱۵-۳۰٪) همچنان به LaMa میروند که رویِ
+# حفرهٔ کوچک از پرِ تختِ درجه‌دوم تمیزتر است (گرادیانِ
+# حباب را از زمینهٔ بزرگتر میخواند).
                     result = self._flat_fill_cluster(crop_img, crop_msk)
                     if result is not None:
-                        # v1.14.135 — ضدِ توهمِ LaMa (MANGA_BIGCAV_FLAT):
-                        # LaMaِ حفرهٔ بزرگِ چندخطی (بلوکِ متنِ متراکم) در
-                        # داوناسکیل «متنِ قلابی/نویزِ گلیفی» میسازد (لاگِ
-                        # گوشیِ 700×11362 + بازتولیدِ A/B — «لکهٔ کثیف»).
-                        # اگر حلقه عمدتاً «روشنِ یکدست» باشد (دیوار/کاغذِ
-                        # صاف — اقلیتِ تیرهٔ حلق = هنرِ چسبیده رد میشود)،
-                        # پرِ درجه‌دومِ حلقه «نگه داشته میشود» حتی اگر
-                        # گاردِ بافتِ کل-کراپ (بهخاطرِ همان اقلیتِ تیره)
-                        # textured بگوید.
+# ضدِ توهمِ LaMa (MANGA_BIGCAV_FLAT):
+# LaMaِ حفرهٔ بزرگِ چندخطی (بلوکِ متنِ متراکم) در
+# داوناسکیل «متنِ قلابی/نویزِ گلیفی» میسازد (لاگِ
+# گوشیِ 700×11362 + بازتولیدِ A/B — «لکهٔ کثیف»).
+# اگر حلقه عمدتاً «روشنِ یکدست» باشد (دیوار/کاغذِ
+# صاف — اقلیتِ تیرهٔ حلق = هنرِ چسبیده رد میشود)
+# پرِ درجه‌دومِ حلقه «نگه داشته میشود» حتی اگر
+# گاردِ بافتِ کل-کراپ (بهخاطرِ همان اقلیتِ تیره)
+# textured بگوید.
                         try:
                             _gr = cv2.cvtColor(crop_img,
                                                   cv2.COLOR_BGR2GRAY)
@@ -10572,11 +10538,11 @@ class _MangaTranslatorBody_85:
                             pass
                     elif result is None and _android_gate(
                             "MANGA_BIGCAV_FLAT"):
-                        # v1.14.135b — fitِ حلقهٔ روشن: وقتی اقلیتِ تیرهٔ
-                        # حلقه (هنرِ چسبیده) fitِ عادی را میشکند ولی
-                        # دیوار/کاغذِ روشن هنوز حاکم است، fit فقط از
-                        # پیکسلهایِ روشنِ حلقه → پرِ تمیز بهجایِ
-                        # LaMaِ توهمزن.
+# fitِ حلقهٔ روشن: وقتی اقلیتِ تیرهٔ
+# حلقه (هنرِ چسبیده) fitِ عادی را میشکند ولی
+# دیوار/کاغذِ روشن هنوز حاکم است، fit فقط از
+# پیکسلهایِ روشنِ حلقه → پرِ تمیز بهجایِ
+# LaMaِ توهمزن.
                         _lrg = self._flat_fill_cluster(
                             crop_img, crop_msk, light_ring=True,
                             fit_tol=13.0)
@@ -10592,13 +10558,13 @@ class _MangaTranslatorBody_85:
                                     pass
                 elif result is None and _q_lama \
                         and _android_gate("MANGA_FLATRING"):
-                    # v1.14.135 — اندروید/سرعت: حلقهٔ اطرافِ حفره «تخت» است
-                    # (گسترهٔ صدکیِ ≤۲۴ — متن روی کاغذِ سفید/پنلِ تخت) →
-                    # پرِ درجه‌دومِ حلقه بهجایِ LaMa (LaMaِ خوشهایِ 21
-                    # کلاسترِ صفحهٔ 700×11362 = 42.7s؛ بیشترشان کاغذِ
-                    # سفیداند). گاردِ بافتِ پایین (textured) اگر پرِ تخت
-                    # را نپسندد به LaMa برمیگرداند — کیفیتِ وبتونِ
-                    # گرادیانی دست‌نخورده میماند.
+# اندروید/سرعت: حلقهٔ اطرافِ حفره «تخت» است
+# (گسترهٔ صدکیِ ≤۲۴ — متن روی کاغذِ سفید/پنلِ تخت) →
+# پرِ درجه‌دومِ حلقه بهجایِ LaMa (LaMaِ خوشهایِ 21
+# کلاسترِ صفحهٔ 700×11362 = 42.7s؛ بیشترشان کاغذِ
+# سفیداند). گاردِ بافتِ پایین (textured) اگر پرِ تخت
+# را نپسندد به LaMa برمیگرداند — کیفیتِ وبتونِ
+# گرادیانی دست‌نخورده میماند.
                     _rf = MangaTranslator._ring_flat_stats(crop_img,
                                                               crop_msk)
                     if _rf is not None:
@@ -10657,25 +10623,25 @@ class _MangaTranslatorBody_85:
                 _short = float(max(1.0, min(_img_h, _img_w)))
                 if _extreme:
                     _mode = "patch-wise"
-                    # فیکس groups=pending — قبلاً groups=لیستِ تختِ کراپ‌ها بود و وقتی
-                    # فقط «یک» کلاستر در صف بود (صفحهٔ تک‌ناحیه‌ای)، حلقهٔ for grp همان
-                    # «کراپِ تکی» را به‌جای «لیستِ کراپ‌ها» می‌داد → _lama_group_prep
-                    # روی int کرش → استثنایِ بی‌صدا → LaMa کلاً می‌مُرد → پرِ
-                    # گرادیانی/TELEA → شبحِ لکه. در دسته‌ای نوارها چندکلاستری‌اند
-                    # (len>1) و باگ شلیک نمی‌کرد. حالا ساختار از ابتدا درست است.
+# فیکس groups=pending — قبلاً groups=لیستِ تختِ کراپ‌ها بود و وقتی
+# فقط «یک» کلاستر در صف بود (صفحهٔ تک‌ناحیه‌ای)، حلقهٔ for grp همان
+# «کراپِ تکی» را به‌جای «لیستِ کراپ‌ها» می‌داد → _lama_group_prep
+# روی int کرش → استثنایِ بی‌صدا → LaMa کلاً می‌مُرد → پرِ
+# گرادیانی/TELEA → شبحِ لکه. در دسته‌ای نوارها چندکلاستری‌اند
+# (len>1) و باگ شلیک نمی‌کرد. حالا ساختار از ابتدا درست است.
                     groups = [[c] for c in pending]
                     if os.environ.get("MANGA_LAMA_GROUP", "1") != "0" and len(pending) > 1:
                         _gap = 24
                         if _long >= 2.5 * _short:
-                            # v1.14.241 — بازگشت به فرمولِ testm
-                            # (0.16×ضلعِ کوتاه، سقفِ ۱۴۴): گپِ ۰.۲۴/۲۲۰ِ
-                            # v1.14.216 زنجیرههایِ دورتر (فاصلهٔ ۱۵۰-۲۴۰px
-                            # — بلوکهایِ سندِ 9.jpg مثلِ y=1552..3844) را هم
-                            # میچسباند → پچِ ۷۰۰×۲۳۰۰ → داوناسکیلِ ۰.۵۶ِ
-                            # big-lama → «مهِ خاکستری/باندِ کدر» رویِ donor
-                            # (گزارشِ سازنده: شبحِ خاکستری، لکه). زنجیرههایِ
-                            # واقعیِ ۶۰-۹۰px (منطقِ ۲۱۶) هنوز با گپِ ۱۱۲
-                            # گروه میشوند — پلهٔ رنگیِ «کوه» برنمیگردد.
+# بازگشت به فرمولِ testm
+# (0.16×ضلعِ کوتاه، سقفِ ۱۴۴): گپِ ۰.۲۴/۲۲۰ِ
+# زنجیرههایِ دورتر (فاصلهٔ ۱۵۰-۲۴۰px
+# بلوکهایِ سندِ 9.jpg مثلِ y=1552..3844) را هم
+# میچسباند → پچِ ۷۰۰×۲۳۰۰ → داوناسکیلِ ۰.۵۶ِ
+# big-lama → «مهِ خاکستری/باندِ کدر» رویِ donor
+# زنجیرههایِ
+# واقعیِ ۶۰-۹۰px (منطقِ ۲۱۶) هنوز با گپِ ۱۱۲
+# گروه میشوند — پلهٔ رنگیِ «کوه» برنمیگردد.
                             _gap = int(max(32, min(144, round(_short * 0.16))))
                         elif _on_android():
                             _gap = int(max(24, min(96, round(_short * 0.04))))
@@ -10684,18 +10650,18 @@ class _MangaTranslatorBody_85:
                                 "MANGA_LAMA_MAX_MEMBERS", "0") or 0)
                         except Exception:
                             _mm = 0
-                        # v1.14.46: هزینهٔ هر فراخوانیِ LaMa با مساحتِ داخلیِ
-                        # سقف‌خورده (≤۳۸۴) متناسب است — پچِ بزرگ‌تر = مجموعِ
-                        # محاسبهٔ کمتر. اندروید ۶→۱۰ عضو (~۲x سریع‌تر)
+# هزینهٔ هر فراخوانیِ LaMa با مساحتِ داخلیِ
+# سقف‌خورده (≤۳۸۴) متناسب است — پچِ بزرگ‌تر = مجموعِ
+# محاسبهٔ کمتر. اندروید ۶→۱۰ عضو (~۲x سریع‌تر)
                         if _mm <= 0:
                             _mm = 10 if _on_android() else 6
                         groups = self._group_nearby_patches(
                             pending, gap=_gap, max_members=_mm)
-                        # v1.14.65 — بنرِ تبلیغ (promo) هرگز با کلاسترهایِ
-                        # دیگر گروه نمی‌شود: گروهِ بزرگ‌تر = کراپِ بزرگ‌تر =
-                        # داون‌اسکیلِ بیشتر (مثلاً 0.61) → LaMa-Manga بنر را
-                        # «موشِ بنفش/صورتی» بازسازی می‌کند (بازتولیدِ
-                        # سندباکس). بنرِ تنها با پدِ ۵۵٪ = تمیزِ کامل.
+# بنرِ تبلیغ (promo) هرگز با کلاسترهایِ
+# دیگر گروه نمی‌شود: گروهِ بزرگ‌تر = کراپِ بزرگ‌تر =
+# داون‌اسکیلِ بیشتر (مثلاً 0.61) → LaMa-Manga بنر را
+# «موشِ بنفش/صورتی» بازسازی می‌کند (بازتولیدِ
+# سندباکس). بنرِ تنها با پدِ ۵۵٪ = تمیزِ کامل.
                         try:
                             _prbG = (getattr(self, "_promo_rect_boxes",
                                              None) or [])
@@ -10726,15 +10692,15 @@ class _MangaTranslatorBody_85:
                         print(f"  [*] LaMa {_mode}: {len(pending)} clusters → "
                               f"{len(groups)} patches on {_img_w}x{_img_h}")
                     t0 = time.time()
-                    # v1.14.44: یک منبعِ حقیقت — همان _lama_workers_auto
-                    # (قبلاً یک جدولِ تکراریِ همین‌جا بود که با آن فرق داشت)
+# یک منبعِ حقیقت — همان _lama_workers_auto
+# (قبلاً یک جدولِ تکراریِ همین‌جا بود که با آن فرق داشت)
                     try:
                         _workers = self._lama_workers_auto()
                     except Exception:
                         _workers = 1
-                    # v1.14.46: بیش از cores÷2 پچِ همزمان، حافظه/کش را اشباع
-                    # می‌کند (صفحهٔ ۶ پچیِ POCO: 6×1نخی = 53.8s!) — 4×2نخی
-                    # همان‌ها را در ۲ موج و سریع‌تر تمام می‌کند
+# بیش از cores÷2 پچِ همزمان، حافظه/کش را اشباع
+# می‌کند (صفحهٔ ۶ پچیِ POCO: 6×1نخی = 53.8s!) — 4×2نخی
+# همان‌ها را در ۲ موج و سریع‌تر تمام می‌کند
                     if _on_android():
                         try:
                             _workers = max(1, min(
@@ -10743,8 +10709,8 @@ class _MangaTranslatorBody_85:
                         except Exception:
                             pass
                     _workers = max(1, min(_workers, len(groups)))
-                    # v1.14.45: نخِ هر پچ = هسته‌ها ÷ پچِ موازی — پچِ کم →
-                    # نخِ بیشتر (قبلاً همیشه ۱ نخ بود و هسته‌ها بیکار می‌ماند)
+# نخِ هر پچ = هسته‌ها ÷ پچِ موازی — پچِ کم →
+# نخِ بیشتر (قبلاً همیشه ۱ نخ بود و هسته‌ها بیکار می‌ماند)
                     try:
                         _cores_n = int(self._cpu_core_count())
                     except Exception:
@@ -10756,11 +10722,11 @@ class _MangaTranslatorBody_85:
                     except Exception:
                         pass
                     _thr_eff = max(1, int(getattr(lama, "thr_used", 1) or 1))
-                    # v1.14.51: اگر سشن با نخِ متفاوت باز است، همین‌جا یک‌بار
-                    # با force سوئیچ کن — خنک‌کاریِ ۲s بعدِ لودِ پس‌زمینه‌ای
-                    # اولین سوئیچ را می‌خورد و زمان‌بند روی ۲×۴ (کند روی
-                    # big.LITTLE) می‌ماند. بعدِ سوئیچ: پچِ موازیِ بیشتر ×
-                    # نخِ کمتر (تنظیمِ سریعِ v47 روی POCO F4).
+# اگر سشن با نخِ متفاوت باز است، همین‌جا یک‌بار
+# با force سوئیچ کن — خنک‌کاریِ ۲s بعدِ لودِ پس‌زمینه‌ای
+# اولین سوئیچ را می‌خورد و زمان‌بند روی ۲×۴ (کند روی
+# big.LITTLE) می‌ماند. بعدِ سوئیچ: پچِ موازیِ بیشتر ×
+# نخِ کمتر (تنظیمِ سریعِ v47 روی POCO F4).
                     if _thr_eff != _thr_want and _workers >= 2:
                         try:
                             lama = self._get_lama(threads=_thr_want,
@@ -10769,12 +10735,12 @@ class _MangaTranslatorBody_85:
                             pass
                         _thr_eff = max(1, int(getattr(lama, "thr_used", 1)
                                               or 1))
-                    # v1.14.50: ضدِ اشباعِ نخ — لاگِ POCO F4 (۸ هسته) نشان کرد
-                    # سشنِ اولیه با ۴ نخ باز می‌ماند (سوئیچِ ۴→۲ با گاردِ رم
-                    # رد می‌شود) و زمان‌بند ۴ پچِ موازی × ۴ نخ = ۱۶ نخ روی
-                    # ۸ هسته می‌سازد → Over-subscription و کندی (۶۵s به‌جای
-                    # ~۵۰s). اگر سشن نخِ بیشتری از نیاز دارد، تعدادِ پچِ
-                    # موازی را کم کن تا workers × threads ≈ هسته‌ها بماند.
+# ضدِ اشباعِ نخ — لاگِ POCO F4 (۸ هسته) نشان کرد
+# سشنِ اولیه با ۴ نخ باز می‌ماند (سوئیچِ ۴→۲ با گاردِ رم
+# رد می‌شود) و زمان‌بند ۴ پچِ موازی × ۴ نخ = ۱۶ نخ روی
+# ۸ هسته می‌سازد → Over-subscription و کندی (۶۵s به‌جای
+# ~۵۰s). اگر سشن نخِ بیشتری از نیاز دارد، تعدادِ پچِ
+# موازی را کم کن تا workers × threads ≈ هسته‌ها بماند.
                     if _thr_eff > _thr_want and _cores_n >= 4:
                         try:
                             _workers = max(1, min(
@@ -10784,9 +10750,9 @@ class _MangaTranslatorBody_85:
                     _no_batch_m = self._lama_batch_cap() <= 0 \
                         or not hasattr(lama, "run_batch_tensors")
                     if not _no_batch_m:
-                        # v1.14.99 (SRV-H4) — بچینگِ هم‌شکلِ پدشده فقط opt-in
-                        # (MANGA_LAMA_BATCH=1/N)؛ پیش‌فرض: مسیرِ موازیِ قدیمیِ
-                        # per-patch (e32bccf).
+# (SRV-H4) — بچینگِ هم‌شکلِ پدشده فقط opt-in
+# (MANGA_LAMA_BATCH=1/N)؛ پیش‌فرض: مسیرِ موازیِ قدیمیِ
+# per-patch (e32bccf).
                         _raise_if_stop()
                         self._lama_run_groups_batched(image, groups, lama,
                                                       page_kernel)
@@ -10837,7 +10803,7 @@ class _MangaTranslatorBody_85:
                     if _done and self.debug:
                         print(f"  [*] LaMa clustered: {dt:.1f}s "
                               f"({_done}/{len(pending)} clusters in {len(groups)} patches)")
-                    self._mem_trim()  # v1.14.48c: رمِ فازِ LaMa آزاد شود
+                    self._mem_trim()  # رمِ فازِ LaMa آزاد شود
                 else:
                     try:
                         page_mask = cv2.dilate(mask, page_kernel)
@@ -10903,12 +10869,12 @@ class _MangaTranslatorBody_85:
                           flush=True)
                 except Exception:
                     pass
-            # v1.14.62 — اعتبارسنجیِ نتیجهٔ LaMa رویِ بلوک‌هایِ محفظهٔ تیره:
-            # در نوارِ ترکیبی، بازسازیِ بلوکِ کاملِ LaMa-Manga رویِ صفحهٔ
-            # گرادیانیِ تیره «لکهٔ بلوکیِ تیره» می‌سازد (کارتِ عنوانِ Crimson
-            # Dragon — بازتولیدِ سندباکس). اسنپ‌شاتِ پرکنندهٔ فوریِ گرادیانی
-            # (قبل از LaMa) مرجع است؛ انحرافِ بزرگ = لکه → جایگزینی با
-            # اسنپ‌شات (سبکِ پاکسازی عوض نمی‌شود — همان پرکنندهٔ فوریِ خودم).
+# اعتبارسنجیِ نتیجهٔ LaMa رویِ بلوک‌هایِ محفظهٔ تیره:
+# در نوارِ ترکیبی، بازسازیِ بلوکِ کاملِ LaMa-Manga رویِ صفحهٔ
+# گرادیانیِ تیره «لکهٔ بلوکیِ تیره» می‌سازد (کارتِ عنوانِ Crimson
+# Dragon — بازتولیدِ سندباکس). اسنپ‌شاتِ پرکنندهٔ فوریِ گرادیانی
+# (قبل از LaMa) مرجع است؛ انحرافِ بزرگ = لکه → جایگزینی با
+# اسنپ‌شات (سبکِ پاکسازی عوض نمی‌شود — همان پرکنندهٔ فوریِ خودم).
             if (method == "LaMa" and result is not None
                     and getattr(self, "_force_pre_snap", None)):
                 try:
@@ -10929,16 +10895,16 @@ class _MangaTranslatorBody_85:
                             dtype=np.int16))
                         if _ra.shape != _rb.shape or _ra.size < 400:
                             continue
-                        # v1.14.73 — بلوکِ donor-گسترش‌یافته: مرجع = نتیجهٔ
-                        # LaMa، نه اسنپ‌شاتِ پرکنندهٔ فوری (تخت = همان
-                        # «لگِ سیاه» که کاربر گزارش کرد). کاربر گفته عکسِ
-                        # اول کامل پاک شه؛ جعبهٔ تیره هم با LaMa بافت‌مند
-                        # بازسازی می‌شود و نوارِ خط‌به‌خطِ آن تمیز می‌ماند.
-                        # v1.14.73b — فقط وقتی زمینهٔ دورِ بلوک «بافت‌مند»
-                        # است (پرده/بوکه). کارتِ گرادیانیِ صاف: پرِ فوریِ
-                        # گرادیانیِ اسنپ‌شات تمیز‌تر است (کارتِ Crimson
-                        # Dragon — LaMa رویِ گرادیانِ تیره شبح/لکهٔ بلوکی
-                        # می‌گذارد) → همان منطقِ جایگزینیِ v1.14.62 بماند.
+# بلوکِ donor-گسترش‌یافته: مرجع = نتیجهٔ
+# LaMa، نه اسنپ‌شاتِ پرکنندهٔ فوری (تخت = همان
+# «لگِ سیاه» که کاربر گزارش کرد). کاربر گفته عکسِ
+# اول کامل پاک شه؛ جعبهٔ تیره هم با LaMa بافت‌مند
+# بازسازی می‌شود و نوارِ خط‌به‌خطِ آن تمیز می‌ماند.
+# فقط وقتی زمینهٔ دورِ بلوک «بافت‌مند»
+# است (پرده/بوکه). کارتِ گرادیانیِ صاف: پرِ فوریِ
+# گرادیانیِ اسنپ‌شات تمیز‌تر است (کارتِ Crimson
+# Dragon — LaMa رویِ گرادیانِ تیره شبح/لکهٔ بلوکی
+# می‌گذارد) → همان منطقِ جایگزینیِ بماند.
                         try:
                             _dn_hit = False
                             for _db in (getattr(self, "_donor_boxes", None)
@@ -10948,16 +10914,16 @@ class _MangaTranslatorBody_85:
                                     _dn_hit = True
                                     break
                             if _dn_hit:
-                                # v1.14.73b — فقط جعبه‌هایی که «داخلشان» بافت‌مند
-                                # است LaMa را مرجع می‌گیرند؛ داخلِ صاف/گرادیانی
-                                # (کارتِ Crimson Dragon) → منطقِ v1.14.62 بماند.
+# فقط جعبه‌هایی که «داخلشان» بافت‌مند
+# است LaMa را مرجع می‌گیرند؛ داخلِ صاف/گرادیانی
+# (کارتِ Crimson Dragon) → منطقِ بماند.
                                 if MangaTranslator._box_bg_textured(
                                         image, _sn[0], _sn[1], _sn[2], _sn[3]):
-                                    # v1.14.81 — «نگه‌داشتنِ LaMa» فقط وقتی
-                                    # که روشناییِ زمینهٔ غیرمتن هم همان ماند.
-                                    # img2: پنلِ تیرهٔ ~۶۰ → LaMa سیاهِ ~۱۲
-                                    # داد («کامل سیاه کرده» کاربر) → منطقِ
-                                    # v1.14.62 (جایگزینی با اسنپ‌شات) بسنجد.
+# «نگه‌داشتنِ LaMa» فقط وقتی
+# که روشناییِ زمینهٔ غیرمتن هم همان ماند.
+# img2: پنلِ تیرهٔ ~۶۰ → LaMa سیاهِ ~۱۲
+# داد («کامل سیاه کرده» کاربر) → منطقِ
+# (جایگزینی با اسنپ‌شات) بسنجد.
                                     _keep3 = True
                                     try:
                                         _gA = cv2.cvtColor(
@@ -10994,19 +10960,19 @@ class _MangaTranslatorBody_85:
                                             except Exception:
                                                 pass
                                         continue  # زمینهٔ بافت‌مند → LaMa مرجع
-                                        # نامعتبر → منطقِ v1.14.62 پایین‌تر
+# نامعتبر → منطقِ پایین‌تر
                         except Exception:
                             pass
                         _dM = np.abs(_ra - _rb).max(axis=2).astype(np.uint8)
                         _dM = cv2.GaussianBlur(_dM, (0, 0), 4)
                         _dm_mean = float(_dM.mean())
                         _dm_big = float((_dM > 26).mean())
-                        # v1.14.62b — گاردِ «متنِ شبح»: اگر اسنپ‌شات هنوز
-                        # جوهرِ متنیِ زیاد دارد (پرکنندهٔ فوری ناکام مانده —
-                        # پنلِ روشن) ولی نتیجهٔ LaMa هموارتر است، جایگزینی
-                        # ممنوع — وگرنه متنِ انگلیسی برمی‌گشت. سنجش:
-                        # انرژیِ فرکانسِ بالا نسبت به میانهٔ محلی (حروف نازک
-                        # = ساختار؛ لکه/گرادیانِ نرم = بی‌ساختار).
+# گاردِ «متنِ شبح»: اگر اسنپ‌شات هنوز
+# جوهرِ متنیِ زیاد دارد (پرکنندهٔ فوری ناکام مانده —
+# پنلِ روشن) ولی نتیجهٔ LaMa هموارتر است، جایگزینی
+# ممنوع — وگرنه متنِ انگلیسی برمی‌گشت. سنجش:
+# انرژیِ فرکانسِ بالا نسبت به میانهٔ محلی (حروف نازک
+# = ساختار؛ لکه/گرادیانِ نرم = بی‌ساختار).
                         _gs = cv2.cvtColor(
                             np.clip(_rb, 0, 255).astype(np.uint8),
                             cv2.COLOR_BGR2GRAY)
@@ -11031,15 +10997,15 @@ class _MangaTranslatorBody_85:
                                       f"نگه داشته شد (جلوگیری از متنِ شبح)",
                                       flush=True)
                             continue
-                        # v1.14.226 — گاردِ جوهرِ هستهٔ ماسک: اسنپ‌شاتی که
-                        # هنوز «جوهرِ متن» درونِ ماسکِ متن دارد هرگز
-                        # جایگزینِ LaMa نمیشود. آستانهٔ ۳۰ِ 62b شبحِ
-                        # نیمه‌پوشیده را نمیبیند (پرکنندهٔ فوریِ ناموفق،
-                        # کنتراستِ ~۲۰) — لاگِ کاملِ 4e2e77: «LaMa زمینه
-                        # را 146→183 → اسنپ‌شاتْ مرجع» = برگشتِ خوانای
-                        # [TRAITS: FILTHY RICH…] (اسکرینشاتِ سازنده).
-                        # سنجشِ مستقیم روی «هستهٔ ماسک» (جایی که میدانیم
-                        # متن بوده) با آستانهٔ ۲۰ + برتریِ ۲× از LaMa.
+# گاردِ جوهرِ هستهٔ ماسک: اسنپ‌شاتی که
+# هنوز «جوهرِ متن» درونِ ماسکِ متن دارد هرگز
+# جایگزینِ LaMa نمیشود. آستانهٔ ۳۰ِ 62b شبحِ
+# نیمه‌پوشیده را نمیبیند (پرکنندهٔ فوریِ ناموفق
+# کنتراستِ ~۲۰) — لاگِ کاملِ 4e2e77: «LaMa زمینه
+# را 146→183 → اسنپ‌شاتْ مرجع» = برگشتِ خوانای
+# [TRAITS: FILTHY RICH…] (اسکرینشاتِ سازنده).
+# سنجشِ مستقیم روی «هستهٔ ماسک» (جایی که میدانیم
+# متن بوده) با آستانهٔ ۲۰ + برتریِ ۲× از LaMa.
                         try:
                             _mc = None
                             try:
@@ -11072,11 +11038,11 @@ class _MangaTranslatorBody_85:
                                     continue
                         except Exception:
                             pass
-                        # فقط «لکهٔ بلوکی» — لکهٔ واقعی (کارتِ عنوان) در
-                        # Δ>26 بوم‌بوم است (اندازه‌گیری: ۰.۶۲/۰.۷۶) ولی
-                        # بازسازیِ سالمِ LaMa روی پنل‌هایِ آبی فقط Δμ=۶-۷
-                        # و Δ>26≈۰.۰۱ دارد → شرط روی فراکسیونِ لکه‌ای است
-                        # نه میانگین (وگرنه پاکیِ سالم جایگزین می‌شد!)
+# فقط «لکهٔ بلوکی» — لکهٔ واقعی (کارتِ عنوان) در
+# Δ>26 بوم‌بوم است (اندازه‌گیری: ۰.۶۲/۰.۷۶) ولی
+# بازسازیِ سالمِ LaMa روی پنل‌هایِ آبی فقط Δμ=۶-۷
+# و Δ>26≈۰.۰۱ دارد → شرط روی فراکسیونِ لکه‌ای است
+# نه میانگین (وگرنه پاکیِ سالم جایگزین می‌شد!)
                         if _dm_big > 0.08 and _dm_mean > 9.0:
                             _res2 = np.array(result)
                             _res2[_iy0 - cy0:_iy1 - cy0,
@@ -11098,10 +11064,10 @@ class _MangaTranslatorBody_85:
                     _prot_c = self._page_protect[cy0:cy1, cx0:cx1]
                 except Exception:
                     _prot_c = None
-            # v1.14.48: سقفِ ترکیب — هیچ پرکننده‌ای نباید بیش از ~۷px
-            # بیرونِ ماسکِ خامِ متن نقاشی کند. _dil/_color ماسک را تا ۲۵px
-            # گشاد + CLOSE می‌کنند و روی هنرِ اطرافِ حباب لکهٔ خاکستری
-            # می‌سازند (رینگِ اسمیر دورِ «BUT I LIKE IT HERE.»)
+# سقفِ ترکیب — هیچ پرکننده‌ای نباید بیش از ~۷px
+# بیرونِ ماسکِ خامِ متن نقاشی کند. _dil/_color ماسک را تا ۲۵px
+# گشاد + CLOSE می‌کنند و روی هنرِ اطرافِ حباب لکهٔ خاکستری
+# می‌سازند (رینگِ اسمیر دورِ «BUT I LIKE IT HERE.»)
             _cap_k = getattr(self, "_cap_kernel7", None)
             if _cap_k is None:
                 _cap_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
@@ -11113,12 +11079,12 @@ class _MangaTranslatorBody_85:
             except Exception:
                 _mm_cap = None
             if result is None:
-                # v1.14.65 — بلوکِ اجباری-LaMa (محفظهٔ تیره) که LaMa آن را
-                # از دست داد: پرِ گرادیانیِ توپرِ داخلِ باکس (همان ریاضیِ
-                # اثبات‌شدهٔ پرکنندهٔ فوری) به‌جای فال‌بکِ OpenCV؛ وگرنه
-                # refineِ تنگِ گلیف، هالهٔ قرمز را زنده می‌گذارد (لکهٔ
-                # قرمزِ POCO F4). اسنپ‌شاتِ قبلِ LaMa هم قابلِ اعتماد نیست —
-                # در مسیرِ block-rect∪ink هنوز خودِ متن را دارد.
+# بلوکِ اجباری-LaMa (محفظهٔ تیره) که LaMa آن را
+# از دست داد: پرِ گرادیانیِ توپرِ داخلِ باکس (همان ریاضیِ
+# اثبات‌شدهٔ پرکنندهٔ فوری) به‌جای فال‌بکِ OpenCV؛ وگرنه
+# refineِ تنگِ گلیف، هالهٔ قرمز را زنده می‌گذارد (لکهٔ
+# قرمزِ POCO F4). اسنپ‌شاتِ قبلِ LaMa هم قابلِ اعتماد نیست —
+# در مسیرِ block-rect∪ink هنوز خودِ متن را دارد.
                 try:
                     _res3 = self._force_box_gradient_fill(
                         image, cx0, cy0, cx1, cy1)
@@ -11143,9 +11109,9 @@ class _MangaTranslatorBody_85:
                 _dil = cv2.morphologyEx(
                     cv2.dilate(crop_msk, _oc_k, iterations=1),
                     cv2.MORPH_CLOSE, _oc_k)
-                # v1.14.65 — هالهٔ گلو (متنِ روشن روی پنلِ تیره): رویِ
-                # زمینهٔ تیره، ماسکِ فال‌بک باید هالهٔ دورِ گلیف را هم
-                # بپوشاند وگرنه جوهرِ قرمز/روشنِ دورِ حرف می‌ماند
+# هالهٔ گلو (متنِ روشن روی پنلِ تیره): رویِ
+# زمینهٔ تیره، ماسکِ فال‌بک باید هالهٔ دورِ گلیف را هم
+# بپوشاند وگرنه جوهرِ قرمز/روشنِ دورِ حرف می‌ماند
                 _bg_med2 = None
                 try:
                     _g2 = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
@@ -11171,11 +11137,11 @@ class _MangaTranslatorBody_85:
                         (_dil > 0).astype(np.uint8), cv2.DIST_L2, 3).max())
                 except Exception:
                     _thick = _thick0
-                # v1.14.65 — رویِ پنلِ تیره هرگز «نازک» حساب نشو (گلو)
+# رویِ پنلِ تیره هرگز «نازک» حساب نشو (گلو)
                 _thin = (_thick <= 28.0) and not (
                     _bg_med2 is not None and _bg_med2 < 100.0)
-                # v1.14.48: استروکِ نازک روی گرادیان → پرکردنِ صفحه‌ایِ حلقه
-                # (قبل از TELEA که رنگِ هنرِ نزدیک را می‌کشد)
+# استروکِ نازک روی گرادیان → پرکردنِ صفحه‌ایِ حلقه
+# (قبل از TELEA که رنگِ هنرِ نزدیک را می‌کشد)
                 if _thick0 <= 14.0:
                     try:
                         _rpf = self._ring_plane_fill(crop_img, crop_msk)
@@ -11183,11 +11149,11 @@ class _MangaTranslatorBody_85:
                         _rpf = None
                     if _rpf is not None:
                         result = _rpf
-                # v1.14.65 — refineِ تنگِ گلیف فقط رویِ زمینهٔ روشن: رویِ
-                # پنلِ تیره ماسک را تا هستهٔ حرف جمع می‌کند و هالهٔ قرمزِ
-                # دورِ حرف زنده می‌ماند (بازتولیدِ لکهٔ قرمزِ POCO F4)
-                # + برایِ خوشهٔ تبلیغ (promo) هرگز refine نکن — ماسکِ توپرِ
-                # بنر باید توپر بماند وگرنه بینِ حروفِ بنر بنفش می‌ماند
+# refineِ تنگِ گلیف فقط رویِ زمینهٔ روشن: رویِ
+# پنلِ تیره ماسک را تا هستهٔ حرف جمع می‌کند و هالهٔ قرمزِ
+# دورِ حرف زنده می‌ماند (بازتولیدِ لکهٔ قرمزِ POCO F4)
+# + برایِ خوشهٔ تبلیغ (promo) هرگز refine نکن — ماسکِ توپرِ
+# بنر باید توپر بماند وگرنه بینِ حروفِ بنر بنفش می‌ماند
                 _is_promo = False
                 try:
                     for _pb2 in (getattr(self, "_promo_rect_boxes",
@@ -11232,9 +11198,9 @@ class _MangaTranslatorBody_85:
                     result = self._scrub_bright_residuals(result, crop_msk)
                 except Exception:
                     pass
-            # v1.14.81 — تنظیمِ رنگِ حلقه + بلندِ آلفا برایِ OpenCV هم:
-            # فال‌بکِ TELEA رویِ آسمانِ نقش‌دار «مستطیلِ کثیف» می‌ساخت
-            # (img3) چون فقط نتیجهٔ LaMa تنظیمِ رنگ می‌شد.
+# تنظیمِ رنگِ حلقه + بلندِ آلفا برایِ OpenCV هم:
+# فال‌بکِ TELEA رویِ آسمانِ نقش‌دار «مستطیلِ کثیف» می‌ساخت
+# (img3) چون فقط نتیجهٔ LaMa تنظیمِ رنگ می‌شد.
             if method in ("LaMa", "OpenCV"):
                 try:
                     try:
@@ -11249,10 +11215,10 @@ class _MangaTranslatorBody_85:
                             _dstc = cleaned[cy0:cy1, cx0:cx1]
                             _ring_std = float(
                                 _dstc[_ring].astype(np.float32).std())
-                            # v1.14.81 — زمینهٔ بافت‌مند (آسمانِ نقش‌دارِ
-                            # img3): stdِ حلقه بالاست ولی IQR کوچک —
-                            # تنظیمِ رنگِ نتیجهٔ LaMa نباید رد شود، وگرنه
-                            # نوارها به‌صورتِ «مستطیلِ کثیفِ کدر» می‌مانند.
+# زمینهٔ بافت‌مند (آسمانِ نقش‌دارِ
+# img3): stdِ حلقه بالاست ولی IQR کوچک —
+# تنظیمِ رنگِ نتیجهٔ LaMa نباید رد شود، وگرنه
+# نوارها به‌صورتِ «مستطیلِ کثیفِ کدر» می‌مانند.
                             try:
                                 _rq = np.percentile(
                                     _dstc[_ring].astype(np.float32),
@@ -11288,17 +11254,17 @@ class _MangaTranslatorBody_85:
                                         _res_f, 0, 255).astype(np.uint8)
                     except Exception:
                         pass
-                    # v1.14.94 — تطبیقِ لو-فرکانسِ پرِ LaMa با زمینهٔ
-                    # پیرامون. نکتهٔ مهمِ تستِ واقعی (412e9e/890fb1 رویِ
-                    # CPUِ پچِ ۳۸۴): میدانِ دیفرانسِ باکسِ بزرگ خودش
-                    # «باندِ موج‌دار/بلوکی» می‌سازد — پرکنندهٔ LaMa در
-                    # اکثرِ موارد خودش درست است → پیش‌فرضِ خاموش؛
-                    # فقط با MANGA_LFCM=1 برایِ آزمایش فعال می‌شود.
+# تطبیقِ لو-فرکانسِ پرِ LaMa با زمینهٔ
+# پیرامون. نکتهٔ مهمِ تستِ واقعی (412e9e/890fb1 رویِ
+# CPUِ پچِ ۳۸۴): میدانِ دیفرانسِ باکسِ بزرگ خودش
+# «باندِ موج‌دار/بلوکی» می‌سازد — پرکنندهٔ LaMa در
+# اکثرِ موارد خودش درست است → پیش‌فرضِ خاموش
+# فقط با MANGA_LFCM=1 برایِ آزمایش فعال می‌شود.
                     try:
-                        # v1.14.94f — گیتِ بافتِ LFCM: فقط رویِ زمینهٔ
-                        # «صاف/گرادیانی» (کارتِ عنوان) اجرا شود؛ رویِ
-                        # زمینهٔ بافت‌مند میدانِ دیفرانسِ باکسِ بزرگ خودش
-                        # باندِ موج‌دار می‌سازد (تستِ 412e9e) → خودکار رد.
+# گیتِ بافتِ LFCM: فقط رویِ زمینهٔ
+# «صاف/گرادیانی» (کارتِ عنوان) اجرا شود؛ رویِ
+# زمینهٔ بافت‌مند میدانِ دیفرانسِ باکسِ بزرگ خودش
+# باندِ موج‌دار می‌سازد (تستِ 412e9e) → خودکار رد.
                         _go = False
                         if method == "LaMa" \
                                 and os.environ.get(
@@ -11334,10 +11300,10 @@ class _MangaTranslatorBody_85:
                         if _go and _nMB >= 2000:
                             _th = float(cv2.distanceTransform(
                                 _mB3.astype(np.uint8), cv2.DIST_L2, 3).max())
-                            # v1.14.95d — پنجرهٔ LFCM باید نسبت به «پهنایِ
-                            # نوار» هم مقیاس شود؛ وگرنه در انتهایِ نوارهایِ
-                            # عریض (پلاکِ ۶۰۰px) پروفیلِ افقیِ وینیت را
-                            # نمی‌گیرد و لبهٔ روشن/تیرهٔ نوار پیدا می‌ماند.
+# پنجرهٔ LFCM باید نسبت به «پهنایِ
+# نوار» هم مقیاس شود؛ وگرنه در انتهایِ نوارهایِ
+# عریض (پلاکِ ۶۰۰px) پروفیلِ افقیِ وینیت را
+# نمی‌گیرد و لبهٔ روشن/تیرهٔ نوار پیدا می‌ماند.
                             _cw = int(crop_msk.shape[1])
                             _k = int(np.clip(
                                 round(max(_th * 3.0, _cw * 0.45)),
@@ -11360,9 +11326,9 @@ class _MangaTranslatorBody_85:
                                     _wb[(_rd > 0) & (~_mB3)] = 0.0
                             except Exception:
                                 pass
-                            # v1.14.94 — پیکسل‌هایِ قفلِ ساختار (قاب/نوارِ
-                            # روشن) هم نمونهٔ زمینه نیستند؛ وگرنه بلورِ
-                            # بزرگ رنگِ نقره‌ایِ قاب را وسطِ حفره می‌کشد
+# پیکسل‌هایِ قفلِ ساختار (قاب/نوارِ
+# روشن) هم نمونهٔ زمینه نیستند؛ وگرنه بلورِ
+# بزرگ رنگِ نقره‌ایِ قاب را وسطِ حفره می‌کشد
                             try:
                                 _pa2 = getattr(self, "_prot_all", None)
                                 if (_pa2 is not None
@@ -11391,8 +11357,8 @@ class _MangaTranslatorBody_85:
                                     np.ones((3, 3), np.uint8)) * 255),
                                 (0, 0), 3.0).astype(np.float32) / 255.0
                             _w2 = np.clip(_w2, 0.0, 1.0)[..., None]
-                            # v1.14.94 — جاهایی که زمینهٔ نمونه‌گیریِ کافی
-                            # ندارند وزنِ نرمِ پایین (نه cutoffِ بلوکی)
+# جاهایی که زمینهٔ نمونه‌گیریِ کافی
+# ندارند وزنِ نرمِ پایین (نه cutoffِ بلوکی)
                             try:
                                 _low = (_den < 0.05).astype(np.float32)
                                 if float(_low.mean()) > 0.001:
@@ -11417,14 +11383,14 @@ class _MangaTranslatorBody_85:
                                     pass
                     except Exception:
                         pass
-                    # v1.14.95e — هم‌سازِ ستونیِ نوارهایِ عریض رویِ
-                    # زمینهٔ تیرهٔ صاف (پلاکِ «Crimson Dragon»): پرِ
-                    # LaMa پروفیلِ قائمِ وینیت را ادامه نمی‌دهد →
-                    # باندِ تیره‌تر/روشن‌تر با لبهٔ واضح (اسکرین‌شاتِ
-                    # کاربر). هدف = میان‌یابیِ خطیِ حلقهٔ بالا/پایینِ
-                    # هر ستون (v1.14.95g: به‌جایِ corrِ ثابت، شیبِ
-                    # کاملِ قائم جایگزینِ فرکانسِ پایینِ پر می‌شود —
-                    # بافتِ فرکانس‌بالا دست‌نخورده می‌ماند).
+# هم‌سازِ ستونیِ نوارهایِ عریض رویِ
+# زمینهٔ تیرهٔ صاف (پلاکِ «Crimson Dragon»): پرِ
+# LaMa پروفیلِ قائمِ وینیت را ادامه نمی‌دهد →
+# باندِ تیره‌تر/روشن‌تر با لبهٔ واضح (اسکرین‌شاتِ
+# کاربر). هدف = میان‌یابیِ خطیِ حلقهٔ بالا/پایینِ
+# هر ستون (: به‌جایِ corrِ ثابت، شیبِ
+# کاملِ قائم جایگزینِ فرکانسِ پایینِ پر می‌شود —
+# بافتِ فرکانس‌بالا دست‌نخورده می‌ماند).
                     try:
                         _mB4 = (crop_msk > 0)
                         _h2, _w3 = _mB4.shape
@@ -11518,8 +11484,8 @@ class _MangaTranslatorBody_85:
                            else (crop_msk > 0).astype(np.uint8) * 255)
                     if _prot_c is not None:
                         _m8 = _m8.copy()
-                        _m8[_prot_c > 0] = 0  # v1.14.48: دیوار محافظت شود
-                    # v1.14.81 — پیکسل‌هایِ قفلِ روشن هم هرگز نوشته نشوند
+                        _m8[_prot_c > 0] = 0  # دیوار محافظت شود
+# پیکسل‌هایِ قفلِ روشن هم هرگز نوشته نشوند
                     try:
                         _pa81w = getattr(self, "_prot_all", None)
                         if _pa81w is not None:
@@ -11577,9 +11543,9 @@ class _MangaTranslatorBody_85:
                         os.environ["MANGA_DUMP_AFTER_PASTE"], cleaned)
                 except Exception:
                     pass
-            # v1.14.105 — انباشتنِ ماسکِ وارسی (وارسیِ واقعی یک‌بار در
-            # پایانِ پاکسازی انجام می‌شود — بدونِ تداخل با LFCM/سویپ و
-            # بدونِ فشارِ حافظهٔ LaMa در میانهٔ کار)
+# انباشتنِ ماسکِ وارسی (وارسیِ واقعی یک‌بار در
+# پایانِ پاکسازی انجام می‌شود — بدونِ تداخل با LFCM/سویپ و
+# بدونِ فشارِ حافظهٔ LaMa در میانهٔ کار)
             try:
                 if method in ("LaMa", "OpenCV"):
                     if self._verify_union is None:
@@ -11588,7 +11554,7 @@ class _MangaTranslatorBody_85:
                     self._verify_union[cy0:cy1, cx0:cx1] |= (crop_msk > 0)
             except Exception:
                 pass
-            # v1.14.81 — پروبِ درونِ حلقه: چه کراپی پیکسلِ قفل‌شده را می‌نویسد؟
+# پروبِ درونِ حلقه: چه کراپی پیکسلِ قفل‌شده را می‌نویسد؟
             try:
                 _pv81l = os.environ.get("MANGA_PROBE", "")
                 if _pv81l and "," in _pv81l:
@@ -11610,19 +11576,19 @@ class _MangaTranslatorBody_85:
                       f"({cleaned[_qya, _qxa]})", flush=True)
         except Exception:
             pass
-        # v1.14.48c: ماسک‌ها/نتیجه‌هایِ کراپ‌ها بعد از ترکیب آزاد شوند —
-        # روی نوارِ بلند ~۵۰-۱۵۰MB است که در سویپ‌ها و ذخیره لازم می‌آید
+# ماسک‌ها/نتیجه‌هایِ کراپ‌ها بعد از ترکیب آزاد شوند —
+# روی نوارِ بلند ~۵۰-۱۵۰MB است که در سویپ‌ها و ذخیره لازم می‌آید
         try:
             del crops, pending, groups
         except Exception:
             pass
-        self._mem_trim()  # v1.14.48c: قبل از سویپ‌ها رم آزاد شود
+        self._mem_trim()  # قبل از سویپ‌ها رم آزاد شود
 
-        # v1.14.65 — بازرسیِ رنگیِ بنرِ تبلیغ: LaMa-Manga برایِ حفرهٔ بزرگِ
-        # بنر رویِ خطوطِ سرعت گاهی بنفشِ «خیالی» نقاشی می‌کند (منبعش
-        # لبه‌هایِ بنفشِ نیم‌پوشانده است). داخلِ هر بنرِ promo اگر پیکسلِ
-        # بنفشِ اشباعِ معنادار ماند → همان پیکسل‌ها با TELEA از حلقهٔ خود
-        # بنر پر می‌شود (خروجی: راه‌راهِ محو — بی‌بنفش).
+# بازرسیِ رنگیِ بنرِ تبلیغ: LaMa-Manga برایِ حفرهٔ بزرگِ
+# بنر رویِ خطوطِ سرعت گاهی بنفشِ «خیالی» نقاشی می‌کند (منبعش
+# لبه‌هایِ بنفشِ نیم‌پوشانده است). داخلِ هر بنرِ promo اگر پیکسلِ
+# بنفشِ اشباعِ معنادار ماند → همان پیکسل‌ها با TELEA از حلقهٔ خود
+# بنر پر می‌شود (خروجی: راه‌راهِ محو — بی‌بنفش).
         try:
             _prbC = (getattr(self, "_promo_rect_boxes", None) or [])
             if _prbC:
@@ -11656,14 +11622,14 @@ class _MangaTranslatorBody_85:
         except Exception:
             pass
 
-        # v1.14.62 — جاروی جوهرِ روشنِ باقی‌مانده «داخلِ» بلوک‌هایِ محفظهٔ
-        # تیره (کارتِ عنوان). کاربر: «عکس‌ها را کامل خوب پاک کنه؛ اضافه پاک
-        # کردن هم اشکال نداره». نمونهٔ واقعی: تکهٔ سفیدِ «S(» وسطِ کارتِ
-        # Crimson Dragon که نه در کِیلِ پرکنندهٔ فوری بود و نه LaMa کامل
-        # برداشت. داخلِ این بلوک‌ها هر پیکسلِ روشن (پس‌زمینهٔ کارت تیره است)
-        # با رنگِ محلیِ خودِ صفحه (همان پرکنندهٔ فوریِ گرادیانی) پر می‌شود؛
-        # قابِ تزئینی بیرونِ باکس است (باکس ۸px فرسایش می‌گیرد) و دست
-        # نمی‌خورد.
+# جاروی جوهرِ روشنِ باقی‌مانده «داخلِ» بلوک‌هایِ محفظهٔ
+# تیره (کارتِ عنوان). کاربر: «عکس‌ها را کامل خوب پاک کنه؛ اضافه پاک
+# کردن هم اشکال نداره». نمونهٔ واقعی: تکهٔ سفیدِ «S(» وسطِ کارتِ
+# Crimson Dragon که نه در کِیلِ پرکنندهٔ فوری بود و نه LaMa کامل
+# برداشت. داخلِ این بلوک‌ها هر پیکسلِ روشن (پس‌زمینهٔ کارت تیره است)
+# با رنگِ محلیِ خودِ صفحه (همان پرکنندهٔ فوریِ گرادیانی) پر می‌شود
+# قابِ تزئینی بیرونِ باکس است (باکس ۸px فرسایش می‌گیرد) و دست
+# نمی‌خورد.
         try:
             _fbsW = (getattr(self, "_lama_force_rect_boxes", None) or [])
             if _fbsW:
@@ -11679,14 +11645,14 @@ class _MangaTranslatorBody_85:
                     if _wx1 - _wx0 < 12 or _wy1 - _wy0 < 12:
                         continue
                     _sub = _gW[_wy0:_wy1, _wx0:_wx1]
-                    # v1.14.94 — گاردِ زمینه: این سویپ فقط برایِ کارت‌هایِ
-                    # «تیرهٔ یکنواخت» است (کارتِ Crimson). اگر حلقهٔ دورِ
-                    # باکس در عکسِ اصل بافت‌مند/روشن باشد (نئبولا، بافتِ
-                    # پنل، قابِ نقره‌ای)، پیکسل‌هایِ روشنِ داخلِ باکس
-                    # احتمالاً زمینهٔ قانونی‌اند نه جوهرِ جامانده → سویپ
-                    # ممنوع؛ وگرنه نئبولای روشنِ داخلِ نوارِ EXEC
-                    # MEETING با رنگِ تیرهٔ تخت پر می‌شد (بازتولیدِ
-                    # «بلوک‌هایِ تخت»).
+# گاردِ زمینه: این سویپ فقط برایِ کارت‌هایِ
+# «تیرهٔ یکنواخت» است (کارتِ Crimson). اگر حلقهٔ دورِ
+# باکس در عکسِ اصل بافت‌مند/روشن باشد (نئبولا، بافتِ
+# پنل، قابِ نقره‌ای)، پیکسل‌هایِ روشنِ داخلِ باکس
+# احتمالاً زمینهٔ قانونی‌اند نه جوهرِ جامانده → سویپ
+# ممنوع؛ وگرنه نئبولای روشنِ داخلِ نوارِ EXEC
+# MEETING با رنگِ تیرهٔ تخت پر می‌شد (بازتولیدِ
+# «بلوک‌هایِ تخت»).
                     try:
                         _rgW = 14
                         _rx0W = max(0, int(_fbW[0]) - _rgW)
@@ -11719,15 +11685,15 @@ class _MangaTranslatorBody_85:
                                 _ringV = _gOW[_ringW]
                                 _rstdW = float(_ringV.std())
                                 _rbriW = float((_ringV >= 140).mean())
-                                # v1.14.96i — معیارِ stdِ حلقه حذف شد:
-                                # حلقهٔ باکس‌هایِ داخلِ صحنهٔ پرجزئیات
-                                # (سکه/قابِ WICKEDِ 012_p1) همیشه
-                                # بافت‌مند است ولی «محفظهٔ» خودِ باکس
-                                # سیاهِ یکنواخت است — سویپ فقط
-                                # پیکسل‌هایِ روشنِ داخل را با رنگِ
-                                # تیرهٔ محلی پر می‌کند. گاردِ واقعی =
-                                # یکنواختیِ محفظهٔ تیره (پایین‌تر) +
-                                # حلقهٔ روشن (کارتِ سفید).
+# معیارِ stdِ حلقه حذف شد:
+# حلقهٔ باکس‌هایِ داخلِ صحنهٔ پرجزئیات
+# (سکه/قابِ WICKEDِ 012_p1) همیشه
+# بافت‌مند است ولی «محفظهٔ» خودِ باکس
+# سیاهِ یکنواخت است — سویپ فقط
+# پیکسل‌هایِ روشنِ داخل را با رنگِ
+# تیرهٔ محلی پر می‌کند. گاردِ واقعی =
+# یکنواختیِ محفظهٔ تیره (پایین‌تر) +
+# حلقهٔ روشن (کارتِ سفید).
                                 if _rbriW > 0.30:
                                     if self.debug:
                                         print(f"  [✓]سویپِ جوهرِ "
@@ -11738,23 +11704,23 @@ class _MangaTranslatorBody_85:
                                     continue
                     except Exception:
                         pass
-                    # v1.14.65 — آستانهٔ ۱۴۰ دست‌نخورده ماند: آزمایشِ سندباکس
-                    # نشان داد آستانهٔ نسبی (med+26) بافتِ اسپَتِر خودِ کارت
-                    # را هم می‌گیرد و «شبحِ تیره» می‌سازد. هالهٔ قرمز باید در
-                    # «ماسک» پوشانده شود (اسنپ‌شات/LaMa)، نه با سویپ.
+# آستانهٔ ۱۴۰ دست‌نخورده ماند: آزمایشِ سندباکس
+# نشان داد آستانهٔ نسبی (med+26) بافتِ اسپَتِر خودِ کارت
+# را هم می‌گیرد و «شبحِ تیره» می‌سازد. هالهٔ قرمز باید در
+# «ماسک» پوشانده شود (اسنپ‌شات/LaMa)، نه با سویپ.
                     _bright = (_sub >= 140)
                     if _protW is not None:
                         _bright = _bright & (
                             _protW[_wy0:_wy1, _wx0:_wx1] == 0)
-                        # v1.14.96j — حبابیِ OCR گاهی یک گلیف را از قلم
-                        # می‌اندازد (Wِ «WICKED» در 012_p1) و نقشهٔ
-                        # حفاظتِ ساختاری آن گلیفِ تنها را «قاب/خطِ
-                        # روشن» می‌خواند و همیشه زنده نگهش می‌دارد.
-                        # اجزایِ کوچکِ هم‌اندازهٔ حرف (<۱۲۰۰px و
-                        # <۹۰px درازا) که داخلِ محفظهٔ تیرهٔ یکدست
-                        # قفس شده‌اند = بقایایِ حرف‌اند، نه قاب —
-                        # به سویپ برگردانده می‌شوند. قاب/پرتوِ
-                        # کشیده دست‌نخورده می‌ماند.
+# حبابیِ OCR گاهی یک گلیف را از قلم
+# می‌اندازد (Wِ «WICKED» در 012_p1) و نقشهٔ
+# حفاظتِ ساختاری آن گلیفِ تنها را «قاب/خطِ
+# روشن» می‌خواند و همیشه زنده نگهش می‌دارد.
+# اجزایِ کوچکِ هم‌اندازهٔ حرف (<۱۲۰۰px و
+# <۹۰px درازا) که داخلِ محفظهٔ تیرهٔ یکدست
+# قفس شده‌اند = بقایایِ حرف‌اند، نه قاب —
+# به سویپ برگردانده می‌شوند. قاب/پرتوِ
+# کشیده دست‌نخورده می‌ماند.
                         try:
                             _bP = (_sub >= 140) & (
                                 _protW[_wy0:_wy1, _wx0:_wx1] > 0)
@@ -11781,10 +11747,10 @@ class _MangaTranslatorBody_85:
                         continue
                     if float(_bright.mean()) > 0.5:
                         continue  # بلوک عمدتاً روشن؟ → این کارتِ تیره نیست
-                    # v1.14.96i — گاردِ یکنواختیِ محفظه: سویپ فقط وقتی
-                    # امن است که پیکسل‌هایِ تیرهٔ داخلِ باکس یکدست باشند
-                    # (کارتِ سیاه/سرخِ صاف). محفظهٔ بافت‌مند/گرادیانی
-                    # (نئبولای EXEC) با std تیره‌هایِ بالا رد می‌شود.
+# گاردِ یکنواختیِ محفظه: سویپ فقط وقتی
+# امن است که پیکسل‌هایِ تیرهٔ داخلِ باکس یکدست باشند
+# (کارتِ سیاه/سرخِ صاف). محفظهٔ بافت‌مند/گرادیانی
+# (نئبولای EXEC) با std تیره‌هایِ بالا رد می‌شود.
                     _darkM2 = ((_sub < 120).astype(np.uint8))
                     _dkV = _sub[_darkM2 > 0]
                     if _dkV.size >= 200 and \
@@ -11827,27 +11793,26 @@ class _MangaTranslatorBody_85:
         except Exception:
             pass
 
-        # v1.14.54 — روشِ «دو عکس» کاربر: عکسِ اول = پاک‌شدهٔ کامل (حتی اگر
-        # حباب در آن خراب یا بیشتر پاک شده باشد — مهم نیست)، عکسِ دوم =
-        # عکسِ اصلی که «خروجی» روی آن ساخته می‌شود. فقط نوارهایِ متن از
-        # عکسِ اول برش می‌خورند؛ هر آسیبی که پاک‌سازی بیرونِ نوارها زده
-        # باشد (دیوارِ حباب، بینِ خط‌ها، هنر) اینجا دور ریخته می‌شود.
-        # سویپ‌هایِ بعدی روی همین تصویرِ ترکیب‌شده کار می‌کنند تا اگر جوهرِ
-        # بیرونِ نوار مانده باشد، همان‌جا پاک شود.
-        #
-        # v1.14.60 — باگِ «متن پاک نشده»: کامپوز فقط با «ماسکِ بازمانده»
-        # بود؛ اما _enclosure_instant_fill ناحیهٔ محفظه را از ماسک کِیل
-        # می‌کند و حاصلِ پرکردنِ فوری‌اش (و هر پرکنندهٔ دیگر بیرونِ ماسکِ
-        # کِیل‌شده) با کامپوز دور ریخته می‌شد → متنِ قدیمی از عکسِ اصلی
-        # برمی‌گشت (نمونه: تیترِ «The Crimson Dragon…»). حالا ماسکِ کامپوز
-        # = ماسکِ متن ∪ همهٔ پیکسل‌هایِ واقعاً تغییرکرده — مثلِ مسیرِ
-        # early-return در بالا. سقفِ تغییرها قبلاً با mm_cap (~۱۵px بیرونِ
-        # ماسکِ خام) کنترل شده، پس لکهٔ دور از متن ساخته نمی‌شود.
-        # ابزارِ دیباگِ مرحله‌ای (MANGA_STAGE_DUMP=پوشه) — قبل/بعدِ کامپوز و
-        # سویپِ بقایا؛ برایِ ریشه‌یابیِ «لکه» که کدام مرحله ساخته
+# روشِ «دو عکس» کاربر: عکسِ اول = پاک‌شدهٔ کامل (حتی اگر
+# حباب در آن خراب یا بیشتر پاک شده باشد — مهم نیست)، عکسِ دوم =
+# عکسِ اصلی که «خروجی» روی آن ساخته می‌شود. فقط نوارهایِ متن از
+# عکسِ اول برش می‌خورند؛ هر آسیبی که پاک‌سازی بیرونِ نوارها زده
+# باشد (دیوارِ حباب، بینِ خط‌ها، هنر) اینجا دور ریخته می‌شود.
+# سویپ‌هایِ بعدی روی همین تصویرِ ترکیب‌شده کار می‌کنند تا اگر جوهرِ
+# بیرونِ نوار مانده باشد، همان‌جا پاک شود.
+# باگِ «متن پاک نشده»: کامپوز فقط با «ماسکِ بازمانده»
+# بود؛ اما _enclosure_instant_fill ناحیهٔ محفظه را از ماسک کِیل
+# می‌کند و حاصلِ پرکردنِ فوری‌اش (و هر پرکنندهٔ دیگر بیرونِ ماسکِ
+# کِیل‌شده) با کامپوز دور ریخته می‌شد → متنِ قدیمی از عکسِ اصلی
+# برمی‌گشت (نمونه: تیترِ «The Crimson Dragon…»). حالا ماسکِ کامپوز
+# = ماسکِ متن ∪ همهٔ پیکسل‌هایِ واقعاً تغییرکرده — مثلِ مسیرِ
+# early-return در بالا. سقفِ تغییرها قبلاً با mm_cap (~۱۵px بیرونِ
+# ماسکِ خام) کنترل شده، پس لکهٔ دور از متن ساخته نمی‌شود.
+# ابزارِ دیباگِ مرحله‌ای (MANGA_STAGE_DUMP=پوشه) — قبل/بعدِ کامپوز و
+# سویپِ بقایا؛ برایِ ریشه‌یابیِ «لکه» که کدام مرحله ساخته
         _sdd = os.environ.get("MANGA_STAGE_DUMP", "")
-        # v1.14.81 — پروبِ نقطه‌ای: MANGA_PROBE="x,y" → مقدارِ cleaned در
-        # هر مرحله چاپ می‌شود (ریشه‌یابیِ «چه مرحله‌ای پیکسل را کشت»)
+# پروبِ نقطه‌ای: MANGA_PROBE="x,y" → مقدارِ cleaned در
+# هر مرحله چاپ می‌شود (ریشه‌یابیِ «چه مرحله‌ای پیکسل را کشت»)
         _probe = None
         try:
             _pv = os.environ.get("MANGA_PROBE", "")
@@ -11870,19 +11835,19 @@ class _MangaTranslatorBody_85:
                     print(f"  [🔍PROBE] pre_compose={cleaned[_probe[1], _probe[0]]}", flush=True)
             except Exception:
                 _sd = ""
-        # v1.14.63 — کامپوزِ دو-عکسیِ «خط‌به‌خطِ سخت»: فقط نوارِ متنِ خام
-        # (نه پیکسل‌هایِ تغییرکردهٔ پراکنده، نه کلِ حباب/محفظه). قبلًا
-        # «تغییرکرده ∪ ماسک» بود که کلِ حبابِ پُرشده را به خروجی می‌برد —
-        # اعتراضِ کاربر: «چرا کلِ حباب رو منتقل می‌کنی؟ خط به خط برش بزن».
+# کامپوزِ دو-عکسیِ «خط‌به‌خطِ سخت»: فقط نوارِ متنِ خام
+# (نه پیکسل‌هایِ تغییرکردهٔ پراکنده، نه کلِ حباب/محفظه). قبلًا
+# «تغییرکرده ∪ ماسک» بود که کلِ حبابِ پُرشده را به خروجی می‌برد —
+# اعتراضِ کاربر: «چرا کلِ حباب رو منتقل می‌کنی؟ خط به خط برش بزن».
         if os.environ.get("MANGA_TWO_IMAGE", "1") != "0":
             try:
                 _cmp2 = self._compose_strip_mask(image, mask)
             except Exception:
                 _cmp2 = mask
             cleaned = self._compose_two_image(cleaned, image, _cmp2)
-            # v1.14.73 — پولیشِ نوارها به «بعد از» سویپ‌ها منتقل شد:
-            # سویپ‌هایِ LaMa/TELEA بعد از پولیش، بافتِ موتیلینگ را دوباره
-            # روی نوارهایِ فلت‌شده می‌ریختند (شبحِ متن زنده می‌گشت).
+# پولیشِ نوارها به «بعد از» سویپ‌ها منتقل شد:
+# سویپ‌هایِ LaMa/TELEA بعد از پولیش، بافتِ موتیلینگ را دوباره
+# روی نوارهایِ فلت‌شده می‌ریختند (شبحِ متن زنده می‌گشت).
         else:
             _cmp2 = None
         if _sdd and _sd:
@@ -11897,30 +11862,30 @@ class _MangaTranslatorBody_85:
         _kern_r = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
         try:
             _n_res = 0
-            # v1.14.74 — «سریع بپاکه بره دیگ»: بعد از کامپوزِ دو-عکسی،
-            # دیگر هیچ «نجاتِ LaMa»ای اجرا نمی‌شود (موج‌هایِ «parallel
-            # rescue patches» و «LaMa group rejected … منتظر می‌مونه» روی
-            # گوشی ۵ دقیقه معطل می‌کردند). کیفیتِ نوارها در donor، قبل
-            # از کامپوز تضمین شده (پرکنندهٔ فلت/LaMa + پولیشِ نوار)؛
-            # جارویِ بقایا فقط با TELEA/پرِ فلتِ سریع کار می‌کند.
-            # برای آزمایشِ قدیمی: MANGA_RESCUE_LAMA=1
+# «سریع بپاکه بره دیگ»: بعد از کامپوزِ دو-عکسی
+# دیگر هیچ «نجاتِ LaMa»ای اجرا نمی‌شود (موج‌هایِ «parallel
+# rescue patches» و «LaMa group rejected … منتظر می‌مونه» روی
+# گوشی ۵ دقیقه معطل می‌کردند). کیفیتِ نوارها در donor، قبل
+# از کامپوز تضمین شده (پرکنندهٔ فلت/LaMa + پولیشِ نوار)
+# جارویِ بقایا فقط با TELEA/پرِ فلتِ سریع کار می‌کند.
+# برای آزمایشِ قدیمی: MANGA_RESCUE_LAMA=1
             _rescue_lama = (os.environ.get("MANGA_RESCUE_LAMA", "0") == "1"
                             and bool(getattr(self, "use_lama", False))
                             and self._clean_level() != "fast")
             for _pass in range(3):
                 _want_lama = (_pass >= 1 and _rescue_lama)
                 _rboxes: List[Tuple[int, int, int, int, np.ndarray]] = []
-                # v1.14.63 — جاروی بقایا با «ماسکِ متنِ خام» نه ماسکِ
-                # کِیل‌شده: پرکننده‌هایِ فوری ماسک را کِیل می‌کنند و سویپ
-                # قبلاً آن ناحیه‌ها را کامل رد می‌کرد (_m_px<80) → متنِ
-                # قدیمیِ دست‌نخورده (نمونهٔ گوشی: «L» کنارِ «جملهٔ کوتاه»)
-                # هرگز پیدا نمی‌شد. ماسکِ خام = همان نوارهایِ متن.
+# جاروی بقایا با «ماسکِ متنِ خام» نه ماسکِ
+# کِیل‌شده: پرکننده‌هایِ فوری ماسک را کِیل می‌کنند و سویپ
+# قبلاً آن ناحیه‌ها را کامل رد می‌کرد (_m_px<80) → متنِ
+# قدیمیِ دست‌نخورده (نمونهٔ گوشی: «L» کنارِ «جملهٔ کوتاه»)
+# هرگز پیدا نمی‌شد. ماسکِ خام = همان نوارهایِ متن.
                 _mres = getattr(self, "_compose_text_mask", None)
                 if _mres is None or _mres.shape != mask.shape[:2]:
                     _mres = mask
-                # v1.14.70 — دامنهٔ امن: فقط نوارهایِ متن (نه مستطیلِ
-                # بلوک) — با دامنهٔ بلوک، دیوارِ حباب «بقایایِ متن»
-                # خوانده می‌شد و پاک می‌شد → حباب خراب.
+# دامنهٔ امن: فقط نوارهایِ متن (نه مستطیلِ
+# بلوک) — با دامنهٔ بلوک، دیوارِ حباب «بقایایِ متن»
+# خوانده می‌شد و پاک می‌شد → حباب خراب.
                 _msw = getattr(self, "_compose_sweep_mask", None)
                 if _msw is not None and _msw.shape == mask.shape[:2] \
                         and int(np.count_nonzero(_msw)) >= 40:
@@ -11956,8 +11921,8 @@ class _MangaTranslatorBody_85:
             except Exception:
                 pass
 
-        # v1.14.48: جاروی لکهٔ محوِ داخلِ حباب‌هایِ سفید (halo حروف) —
-        # نمونهٔ کاربر: لکهٔ وسطِ «BUT I LIKE IT HERE.» / نقطهٔ «MR. JUN~»
+# جاروی لکهٔ محوِ داخلِ حباب‌هایِ سفید (halo حروف) —
+# نمونهٔ کاربر: لکهٔ وسطِ «BUT I LIKE IT HERE.» / نقطهٔ «MR. JUN~»
         try:
             _n_int = self._bubble_interior_sweep(image, cleaned, regions)
             if _n_int and self.debug:
@@ -11968,23 +11933,23 @@ class _MangaTranslatorBody_85:
             _tb.print_exc()
         _stage("جارویِ حباب")
 
-        # v1.14.75 — «گارانتیِ کامپوزِ دوباره»: بعدازِ همهٔ سویپ‌ها/سویپ
-        # نجات/پولیش، خروجیِ نهایی دوباره با _compose_two_image روی
-        # ماسکِ «کامپوزِ خط‌به‌خط» فیلتر می‌شود. قبلاً بعضی سویپ‌ها
-        # (بقایا/حباب/نجات) بیرونِ نوارِ متن هم پیکسل عوض می‌کردند و
-        # حباب — که عکسِ اولِ خرابش به خروجی نرسیده بود — برمی‌گشت
-        # (نمونهٔ 01.jpg: حبابِ سفیدِ بزرگِ «THE VILLA'S POOL…»)
+# «گارانتیِ کامپوزِ دوباره»: بعدازِ همهٔ سویپ‌ها/سویپ
+# نجات/پولیش، خروجیِ نهایی دوباره با _compose_two_image روی
+# ماسکِ «کامپوزِ خط‌به‌خط» فیلتر می‌شود. قبلاً بعضی سویپ‌ها
+# (بقایا/حباب/نجات) بیرونِ نوارِ متن هم پیکسل عوض می‌کردند و
+# حباب — که عکسِ اولِ خرابش به خروجی نرسیده بود — برمی‌گشت
+# (نمونهٔ 01.jpg: حبابِ سفیدِ بزرگِ «THE VILLA'S POOL…»)
         try:
             if _cmp2 is not None:
-                # v1.14.81 — قبل از کامپوزِ نهایی: پیکسل‌هایِ قفل‌شده
-                # (خطِ حباب/قاب/تابِ نور) از اصل ترمیم می‌شوند تا نوارها
-                # بُرشِ سالم ببرند — نه سیاهیِ LaMa، نه پرشِ فوری.
-                # v1.14.96j — استثنا: گلیفِ تنهاِ جاافتاده (Wِ «WICKED»)
-                # که نقشهٔ حفاظت آن را قاب خوانده — اگر از اصل ترمیم
-                # شود، کامپوزِ نهایی خودِ متنِ اصلی را منتقل می‌کند!
-                # اجزایِ کوچکِ هم‌اندازهٔ حرفِ محافظت‌شده که داخلِ
-                # نوارهایِ کامپوز‌اند ترمیم «نمی‌شوند» تا پاک‌شدهٔ
-                # سویپ/LaMa زنده بماند. قاب/خطِ کشیده مثلِ قبل ترمیم.
+# قبل از کامپوزِ نهایی: پیکسل‌هایِ قفل‌شده
+# (خطِ حباب/قاب/تابِ نور) از اصل ترمیم می‌شوند تا نوارها
+# بُرشِ سالم ببرند — نه سیاهیِ LaMa، نه پرشِ فوری.
+# استثنا: گلیفِ تنهاِ جاافتاده (Wِ «WICKED»)
+# که نقشهٔ حفاظت آن را قاب خوانده — اگر از اصل ترمیم
+# شود، کامپوزِ نهایی خودِ متنِ اصلی را منتقل می‌کند!
+# اجزایِ کوچکِ هم‌اندازهٔ حرفِ محافظت‌شده که داخلِ
+# نوارهایِ کامپوز‌اند ترمیم «نمی‌شوند» تا پاک‌شدهٔ
+# سویپ/LaMa زنده بماند. قاب/خطِ کشیده مثلِ قبل ترمیم.
                 try:
                     _pa81f = getattr(self, "_prot_all", None)
                     if _pa81f is not None and int(cv2.countNonZero(_pa81f)):
@@ -12022,24 +11987,24 @@ class _MangaTranslatorBody_85:
                     pass
         except Exception:
             pass
-        # v1.14.73 — پولیشِ نهاییِ نوارها — «بعد از» همهٔ سویپ‌ها:
-        # حلقهٔ کاملاً یکنواخت (حبابِ سفید/رنگیِ تخت) → کلِ نوار + ۵px
-        # هالهٔ دورِ آن با رنگِ اورجینالِ حلقه هم‌سطح می‌شود → شبحِ
-        # ۱-۳ سطحیِ متن (که سویپ‌ها نمی‌بینندش) صفر می‌شود و هیچ
-        # سویپی دیگر بعدش بافت نمی‌ریزد.
+# پولیشِ نهاییِ نوارها — «بعد از» همهٔ سویپ‌ها:
+# حلقهٔ کاملاً یکنواخت (حبابِ سفید/رنگیِ تخت) → کلِ نوار + ۵px
+# هالهٔ دورِ آن با رنگِ اورجینالِ حلقه هم‌سطح می‌شود → شبحِ
+# ۱-۳ سطحیِ متن (که سویپ‌ها نمی‌بینندش) صفر می‌شود و هیچ
+# سویپی دیگر بعدش بافت نمی‌ریزد.
         if _cmp2 is not None:
             try:
                 cleaned = self._compose_polish(image, cleaned, _cmp2)
             except Exception:
                 pass
-        # v1.14.213 — پولیشِ شبحِ نوار (دستورِ سازنده: «نه لگه سیاهی نه
-        # لگه سفیدی یا هرنگی لگه بشه قبول نمیکنم»): بقایایِ نازکِ جوهر
-        # که LaMa لبهٔ ماسکشان را نصفه گذاشته (خطوطِ ۱-۸px داخلِ نوار —
-        # تیرگیِ ~۳۵ که سویپِ ۴۵+ و همسطحیِ پولیش نمی‌بینندش) با پرِ
-        # پیازی از زمینهٔ تمیزِ اطراف پاک میشوند؛ فقط نوارهایِ کامپوز،
-        # فقط اجزایِ نازکِ نزدیکِ جوهرِ متنِ اصلی و فقط حلقهٔ تخت — دیوار/
-        # هنر/حبابهایِ بافت‌دار هرگز دست نمیخورند. MANGA_GHOST_POLISH=0
-        # برایِ خاموشکردنِ دستی.
+        #): بقایایِ نازکِ جوهر
+# پولیشِ شبحِ نوار (
+# که LaMa لبهٔ ماسکشان را نصفه گذاشته (خطوطِ ۱-۸px داخلِ نوار —
+# تیرگیِ ~۳۵ که سویپِ ۴۵+ و همسطحیِ پولیش نمی‌بینندش) با پرِ
+# پیازی از زمینهٔ تمیزِ اطراف پاک میشوند؛ فقط نوارهایِ کامپوز
+# فقط اجزایِ نازکِ نزدیکِ جوهرِ متنِ اصلی و فقط حلقهٔ تخت — دیوار/
+# هنر/حبابهایِ بافت‌دار هرگز دست نمیخورند. MANGA_GHOST_POLISH=0
+# برایِ خاموشکردنِ دستی.
         if _cmp2 is not None \
                 and os.environ.get("MANGA_GHOST_POLISH", "1") != "0":
             try:
@@ -12056,29 +12021,29 @@ class _MangaTranslatorBody_85:
             except Exception:
                 pass
 
-        # v1.14.75g — «پرِ پیازیِ نوارهایِ داخلِ حباب»: نوارهایِ متنِ
-        # داخل حباب (donor box) که پرِ LaMa رنگشان کمی غلط است
-        # (شبحِ سفیدِ «This is great» روی گرادیانِ آبی-سفید)، هم‌چنین
-        # حبابِ زردِ img1 که با TELEA سفید می‌شد (TELEA سفیدیِ شبح را
-        # به داخل پخش می‌کند): پیکسل‌های نوار از «پیکسل‌هایِ
-        # پس‌زمینهٔ اورجینالِ اطرافشان» پر می‌شوند — کامپوزِ گارانتی
-        # تضمین کرده هر پیکسلِ بیرونِ نوارِ داخلِ جعبه پیکسلِ
-        # اورجینال است. fill پیازی (هر دور، حاشیهٔ ناشناخته با
-        # میانگینِ همسایه‌هایِ شناخته 3×3): گرادیانِ رنگِ حباب دست
-        # نخورده ادامه می‌یابد و هیچ سفیدی وارد نمی‌شود. بیرونِ حباب
-        # (متن روی هنر) دست نمی‌خورد.
+# «پرِ پیازیِ نوارهایِ داخلِ حباب»: نوارهایِ متنِ
+# داخل حباب (donor box) که پرِ LaMa رنگشان کمی غلط است
+# (شبحِ سفیدِ «This is great» روی گرادیانِ آبی-سفید)، هم‌چنین
+# حبابِ زردِ img1 که با TELEA سفید می‌شد (TELEA سفیدیِ شبح را
+# به داخل پخش می‌کند): پیکسل‌های نوار از «پیکسل‌هایِ
+# پس‌زمینهٔ اورجینالِ اطرافشان» پر می‌شوند — کامپوزِ گارانتی
+# تضمین کرده هر پیکسلِ بیرونِ نوارِ داخلِ جعبه پیکسلِ
+# اورجینال است. fill پیازی (هر دور، حاشیهٔ ناشناخته با
+# میانگینِ همسایه‌هایِ شناخته 3×3): گرادیانِ رنگِ حباب دست
+# نخورده ادامه می‌یابد و هیچ سفیدی وارد نمی‌شود. بیرونِ حباب
+# (متن روی هنر) دست نمی‌خورد.
         try:
             if _cmp2 is not None:
                 _instrip = (_cmp2 > 0)
                 _inb = np.zeros(_instrip.shape, dtype=bool)
-                # v1.14.78d — «گیتِ پیازی»: پیازی فقط برایِ زمینهٔ
-                # تخت/گرادیانی (حباب/کارت) — جایی که donor رنگِ غلط
-                # گرفته. رویِ هنرِ بافت‌مند (نرده/صورت/کت — img4)
-                # پیازی بافتِ LaMa را به «ابر» تبدیل می‌کند
-                # (1.9Mpx = ۲۴٪ صفحه!). معیار: کسری از حلقهٔ
-                # اطرافِ جعبه که محله‌هایِ ۱۱px آن تخت است (std<12)
-                # باید ≥۰٫۵ باشد؛ وگرنه جعبه از پیازی مستثنا می‌شود
-                # و بافتِ بازسازیِ LaMa می‌ماند.
+# «گیتِ پیازی»: پیازی فقط برایِ زمینهٔ
+# تخت/گرادیانی (حباب/کارت) — جایی که donor رنگِ غلط
+# گرفته. رویِ هنرِ بافت‌مند (نرده/صورت/کت — img4)
+# پیازی بافتِ LaMa را به «ابر» تبدیل می‌کند
+# (1.9Mpx = ۲۴٪ صفحه!). معیار: کسری از حلقهٔ
+# اطرافِ جعبه که محله‌هایِ ۱۱px آن تخت است (std<12)
+# باید ≥۰٫۵ باشد؛ وگرنه جعبه از پیازی مستثنا می‌شود
+# و بافتِ بازسازیِ LaMa می‌ماند.
                 try:
                     _g78o = cv2.cvtColor(
                         image, cv2.COLOR_BGR2GRAY).astype(np.float32)
@@ -12086,11 +12051,11 @@ class _MangaTranslatorBody_85:
                     _m78b = cv2.blur(_g78o * _g78o, (11, 11))
                     _std = np.sqrt(np.maximum(
                         _m78b - _m78a * _m78a, 0))
-                    # v1.14.78e — علاوه بر «تخت»، «بی‌لبه» هم لازم است:
-                    # پس‌زمینهٔ بوکهٔ ساختمان/نرده محلی-تخت است ولی
-                    # لبه‌هایِ ساختاری دارد (میلهٔ نرده، قاب پنجره) —
-                    # پیازی آن لبه‌ها را می‌بَرد (img4 PARAGRAPH2).
-                    # تخت + بدونِ لبه = حباب/گرادیانِ نرم → پیازی اوکی.
+# علاوه بر «تخت»، «بی‌لبه» هم لازم است:
+# پس‌زمینهٔ بوکهٔ ساختمان/نرده محلی-تخت است ولی
+# لبه‌هایِ ساختاری دارد (میلهٔ نرده، قاب پنجره) —
+# پیازی آن لبه‌ها را می‌بَرد (img4 PARAGRAPH2).
+# تخت + بدونِ لبه = حباب/گرادیانِ نرم → پیازی اوکی.
                     _lap = np.abs(cv2.Laplacian(
                         _g78o, cv2.CV_32F))
                     _edgef = cv2.blur(
@@ -12130,16 +12095,16 @@ class _MangaTranslatorBody_85:
                 _sel = _instrip & _inb
                 if _sel.any():
                     _known = (_inb & ~_instrip).astype(np.float32)
-                    # v1.14.78b — «سدِ دیوار»: اگر donor یک ساختارِ تیرهٔ
-                    # اورجینال (دورِ حباب/دُم/کادر) را *حفظ* کرده باشد
-                    # (تیره در اورجینال ≈ تیره در خروجی)، آن پیکسل‌ها
-                    # نباید دوباره پیازی پر شوند — وگرنه پرِ پیازی از دو
-                    # طرفِ مرزِ سفید↔کرم قاطی می‌شود: دورِ حباب می‌شکند و
-                    # رنگِ بیرون به داخل نشت می‌کند (نمونه: حبابِ YEP!
-                    # img7). آن پیکسل‌ها «شناخته» با مقدارِ خودشان
-                    # می‌مانند → هم سالم می‌مانند، هم سدِ جلوگیریِ نشت
-                    # هستند. پیکسلِ متنِ پاک‌شده (تیره در اورجینال، روشن
-                    # در خروجی) باز هم «ناشناخته» می‌ماند و پر می‌شود.
+# «سدِ دیوار»: اگر donor یک ساختارِ تیرهٔ
+# اورجینال (دورِ حباب/دُم/کادر) را *حفظ* کرده باشد
+# (تیره در اورجینال ≈ تیره در خروجی)، آن پیکسل‌ها
+# نباید دوباره پیازی پر شوند — وگرنه پرِ پیازی از دو
+# طرفِ مرزِ سفید↔کرم قاطی می‌شود: دورِ حباب می‌شکند و
+# رنگِ بیرون به داخل نشت می‌کند (نمونه: حبابِ YEP!
+# img7). آن پیکسل‌ها «شناخته» با مقدارِ خودشان
+# می‌مانند → هم سالم می‌مانند، هم سدِ جلوگیریِ نشت
+# هستند. پیکسلِ متنِ پاک‌شده (تیره در اورجینال، روشن
+# در خروجی) باز هم «ناشناخته» می‌ماند و پر می‌شود.
                     try:
                         _gO = cv2.cvtColor(
                             image, cv2.COLOR_BGR2GRAY).astype(np.float32)
@@ -12193,15 +12158,15 @@ class _MangaTranslatorBody_85:
 
             pass
 
-        # v1.14.44: پاسِ مرجع حذف شد — درخواستِ کاربر: «این خط خط چیه؛
-        # mm خوب می‌پاکه». پاسِ هندسی مرجع (v1.14.41) بعد از همهٔ پاس‌ها
-        # روی هر خطِ OCR هیل/پرکردن انجام می‌داد و روی زمینه‌های روشن
-        # نوارهای افقیِ هم‌راستا با خطوطِ متن می‌ساخت (خط‌خطیِ
-        # اسکرین‌شاتِ کاربر: ۲۴/۲۴ خطِ heal). شاخهٔ mm این پاس را
-        # ندارد و کاربر تأیید کرده پاکسازیِ mm تمیز است → حذفِ کاملِ
-        # پاس تا خطِ لوله‌ایِ پاکسازی دقیقاً برابرِ mm بشود. خودِ تابع
-        # نگه داشته شده (بدونِ فراخوانی) برای استفادهٔ آزمایشی با
-        # MANGA_MT=1 در CLI.
+# پاسِ مرجع حذف شد — درخواستِ کاربر: «این خط خط چیه
+# mm خوب می‌پاکه». پاسِ هندسی مرجع  بعد از همهٔ پاس‌ها
+# روی هر خطِ OCR هیل/پرکردن انجام می‌داد و روی زمینه‌های روشن
+# نوارهای افقیِ هم‌راستا با خطوطِ متن می‌ساخت (خط‌خطیِ
+# اسکرین‌شاتِ کاربر: ۲۴/۲۴ خطِ heal). شاخهٔ mm این پاس را
+# ندارد و کاربر تأیید کرده پاکسازیِ mm تمیز است → حذفِ کاملِ
+# پاس تا خطِ لوله‌ایِ پاکسازی دقیقاً برابرِ mm بشود. خودِ تابع
+# نگه داشته شده (بدونِ فراخوانی) برای استفادهٔ آزمایشی با
+# MANGA_MT=1 در CLI.
         try:
             if os.environ.get("MANGA_MT", "0") == "1":
                 _n_mt, _mt_how = self._mt_polygon_clean(cleaned, image,
@@ -12214,14 +12179,13 @@ class _MangaTranslatorBody_85:
             print("  [!] MT polygon clean error:")
             _tb.print_exc()
 
-
-        # v1.14.78c — «تیکِ جامانده»: جوهرِ کوچکِ ریز (نقطهٔ !، تیکِ جدا،
-        # خشِ کوتاه) که ماسکِ نوار ندیده بود و در خروجی دست‌نخورده ماند
-        # (نمونه: تیکِ 4x17 در (533,965) img7 کنارِ «ME BOMB..!»). فقط
-        # داخلِ نوارهایِ متن، فقط لُختهٔ کوچکِ مستقل (≤300px، جعبه≤30)،
-        # فقط اگر در اورجینال هم بخشی از ساختارِ کوچکِ مستقل باشد (نه
-        # مو/هنرِ متصل) و نزدیکِ متنی که پاک شده → پیازی از اطرافِ
-        # خروجی پر می‌شود. «به اندازهٔ متن» — چیزی اضافه پاک نمی‌شود.
+# «تیکِ جامانده»: جوهرِ کوچکِ ریز (نقطهٔ !، تیکِ جدا
+# خشِ کوتاه) که ماسکِ نوار ندیده بود و در خروجی دست‌نخورده ماند
+# (نمونه: تیکِ 4x17 در (533,965) img7 کنارِ «ME BOMB..!»). فقط
+# داخلِ نوارهایِ متن، فقط لُختهٔ کوچکِ مستقل (≤300px، جعبه≤30)
+# فقط اگر در اورجینال هم بخشی از ساختارِ کوچکِ مستقل باشد (نه
+# مو/هنرِ متصل) و نزدیکِ متنی که پاک شده → پیازی از اطرافِ
+# خروجی پر می‌شود. «به اندازهٔ متن» — چیزی اضافه پاک نمی‌شود.
         try:
             if _cmp2 is not None and int(np.count_nonzero(_cmp2)) > 40:
                 _gO78c = cv2.cvtColor(
@@ -12231,8 +12195,8 @@ class _MangaTranslatorBody_85:
                 _bg78c = cv2.medianBlur(
                     _gO78c.astype(np.uint8), 31).astype(np.float32)
                 _inkO = (_gO78c < 120.0) | ((_bg78c - _gO78c) > 45.0)
-                # نوارِ گشادشده: تیکِ ندیده‌شده *داخلِ* ماسک نیست ولی در
-                # باندِ همان خطِ متن است
+# نوارِ گشادشده: تیکِ ندیده‌شده *داخلِ* ماسک نیست ولی در
+# باندِ همان خطِ متن است
                 _zone78c = cv2.dilate(
                     _cmp2, cv2.getStructuringElement(
                         cv2.MORPH_ELLIPSE, (25, 25))) > 0
@@ -12276,8 +12240,8 @@ class _MangaTranslatorBody_85:
                                     & ~_unch[_vy0:_vy1, _vx0:_vx1])
                     if int(np.count_nonzero(_win_cleaned)) < 30:
                         continue  # متنِ همسایه پاک نشده → بخشی از آن متن
-                    # زمینهٔ اطراف در اورجینال باید روشن و یکنواخت باشد
-                    # (حباب/کادر) — نه بافتِ اسکرین‌تون/هنرِ پرنقطه
+# زمینهٔ اطراف در اورجینال باید روشن و یکنواخت باشد
+# (حباب/کادر) — نه بافتِ اسکرین‌تون/هنرِ پرنقطه
                     _ry0, _ry1 = max(0, _by0 - 7), min(
                         image.shape[0], _by1 + 7)
                     _rx0, _rx1 = max(0, _bx0 - 7), min(
@@ -12289,11 +12253,11 @@ class _MangaTranslatorBody_85:
                     _ring3[_ry1:, :] = False
                     _ring3[:, :_rx0] = False
                     _ring3[:, _rx1:] = False
-                    _rgv = _gC78c[_ring3]  # v1.14.78c2 — زمینه از
-                    # «خروجیِ پاک‌شده» نه اورجینال؛ وگرنه گلیف‌های
-                    # اطرافِ متن std را منفجر می‌کنند و تیکِ واقعی
-                    # رد می‌شد. اسکرین‌تون/هنر در خروجی هم ناهموار
-                    # می‌ماند → باز هم رد می‌شود.
+                    _rgv = _gC78c[_ring3]  # 2 — زمینه از
+# «خروجیِ پاک‌شده» نه اورجینال؛ وگرنه گلیف‌های
+# اطرافِ متن std را منفجر می‌کنند و تیکِ واقعی
+# رد می‌شد. اسکرین‌تون/هنر در خروجی هم ناهموار
+# می‌ماند → باز هم رد می‌شود.
                     if _rgv.size < 40 or float(
                             np.median(_rgv)) < 150.0 or float(
                             np.std(_rgv)) > 34.0:
@@ -12331,9 +12295,9 @@ class _MangaTranslatorBody_85:
 
         if self.debug:
             print(f"  - Cleanup: {counts}")
-        # v1.14.105 — وارسیِ نهاییِ ضدِ خرابیِ EP (یک‌بار برای کلِ صفحه):
-        # خروجیِ ناقص/کثیفِ LaMa رویِ GPUهایِ ویندوزی (CUDA/DML) را روی
-        # نواحیِ پاک‌شده می‌سنجد و پلکانی ترمیم می‌کند
+# وارسیِ نهاییِ ضدِ خرابیِ EP (یک‌بار برای کلِ صفحه):
+# خروجیِ ناقص/کثیفِ LaMa رویِ GPUهایِ ویندوزی (CUDA/DML) را روی
+# نواحیِ پاک‌شده می‌سنجد و پلکانی ترمیم می‌کند
         try:
             self._final_verify_repair(cleaned, image)
         except Exception:
@@ -12349,11 +12313,11 @@ class _MangaTranslatorBody_85:
                           f"val={cleaned[_py, _px]}", flush=True)
         except Exception:
             pass
-        # v1.14.228 — QCِ پایانیِ هماهنگیِ پر (بعد از همهٔ سویپها).
-        # درِ تستِ img4 همین پاس بود که نوارهایِ خاکستریِ باقیماندهٔ
-        # r20/#13/#16 را سفید کرد (۱۷ قطعه/۴۳۳هزارpx) — قطعاتِ بعد از
-        # سویپها بزرگترند (مرزهایِ ساختاریِ σ4) و حلقهشان پاکتر.
-        # با MANGA_HQC_FINAL=0 خاموش میشود.
+# QCِ پایانیِ هماهنگیِ پر (بعد از همهٔ سویپها).
+# درِ تستِ img4 همین پاس بود که نوارهایِ خاکستریِ باقیماندهٔ
+# r20/#13/#16 را سفید کرد (۱۷ قطعه/۴۳۳هزارpx) — قطعاتِ بعد از
+# سویپها بزرگترند (مرزهایِ ساختاریِ σ4) و حلقهشان پاکتر.
+# با MANGA_HQC_FINAL=0 خاموش میشود.
         if os.environ.get("MANGA_HQC_FINAL", "1") == "1" \
                 and os.environ.get("MANGA_NO_HQC", "0") != "1":
             try:
@@ -12372,16 +12336,16 @@ class _MangaTranslatorBody_85:
                         print(f"  [*] HQC dump -> {_hqcd}", flush=True)
             except Exception:
                 pass
-        # v1.14.228 — جارویِ متنِ جاماندهٔ خوانا (دستورِ سازنده: «بعضی
-        # متن هارو نپاکیده متن قبلیش دیده میشه» — نمونهٔ img4:
-        # «…COUNSELING SESSION» رویِ کت، بیرونِ نوارِ ماسک).
+        # نمونهٔ img4:
+# جارویِ متنِ جاماندهٔ خوانا (
+# «…COUNSELING SESSION» رویِ کت، بیرونِ نوارِ ماسک).
         if os.environ.get("MANGA_NO_LEFTOVER", "0") != "1":
             try:
                 self._leftover_text_sweep(cleaned, image, _cmp2, regions)
             except Exception:
                 pass
-        # v1.14.238 — جارویِ خرده‌گلیف/نقطه‌هایِ جاماندهٔ داخلِ ناحیه
-        # (دستورِ سازنده: «وقتی میپاکه نقطه نقطه سیاه جا میزاره هر متن»).
+# جارویِ خرده‌گلیف/نقطه‌هایِ جاماندهٔ داخلِ ناحیه
+# .
         if os.environ.get("MANGA_DOT_SWEEP", "1") != "1":
             pass
         else:
@@ -12397,7 +12361,7 @@ class _MangaTranslatorBody_85:
                            zone: Optional[np.ndarray],
                            regions: List[TextRegion],
                            verbose: bool = True) -> int:
-        """v1.14.238 — جارویِ خرده‌گلیف/نقطه‌هایِ جاماندهٔ داخلِ ناحیه.
+        """ — جارویِ خرده‌گلیف/نقطه‌هایِ جاماندهٔ داخلِ ناحیه.
 
         ریشه (img6 — حبابِ زردِ بالا + حباب‌هایِ سفید): تکههایِ
         دورخط/ضدآلیاسِ حروف که بیرونِ نوارهایِ کامپوز ماندند =
@@ -12433,7 +12397,7 @@ class _MangaTranslatorBody_85:
                     y1 = min(h, ry + rh + 5)
                     if x1 - x0 < 48 or y1 - y0 < 32:
                         continue
-                    # بلندیِ میانهٔ خط برایِ سقفهایِ سازگار
+# بلندیِ میانهٔ خط برایِ سقفهایِ سازگار
                     try:
                         _pl = []
                         for p in _polys:
@@ -12456,10 +12420,10 @@ class _MangaTranslatorBody_85:
                     ex = np.zeros(g.shape, bool)
                     if _zm is not None:
                         ex = _zm[y0:y1, x0:x1]
-                    # آمارِ زمینه از «زونِ تمیز» (بیرونِ نوارها) — ولی
-                    # شکارِ جوهر رویِ «کلِ برش»: خرده‌لکه‌ها هم بیرونِ
-                    # نوار ماندند (نقطهٔ جامانده) هم داخلِ نوار (لکهٔ
-                    # خودِ پرکنندهٔ donor) — هر دو باید پاک شوند
+# آمارِ زمینه از «زونِ تمیز» (بیرونِ نوارها) — ولی
+# شکارِ جوهر رویِ «کلِ برش»: خرده‌لکه‌ها هم بیرونِ
+# نوار ماندند (نقطهٔ جامانده) هم داخلِ نوار (لکهٔ
+# خودِ پرکنندهٔ donor) — هر دو باید پاک شوند
                     exd = cv2.dilate(
                         ex.astype(np.uint8),
                         np.ones((3, 3), np.uint8)) > 0
@@ -12493,7 +12457,7 @@ class _MangaTranslatorBody_85:
                         if a < 4 or a > _a_max or hh < 2 or hh > _hh_max \
                                 or ww > _ww_max:
                             continue
-                        # چسبیده به مرزِ برش = دیوار/ساختور — دست نزن
+# چسبیده به مرزِ برش = دیوار/ساختور — دست نزن
                         _cx = int(st[i, cv2.CC_STAT_LEFT])
                         _cy = int(st[i, cv2.CC_STAT_TOP])
                         if _cx <= 1 or _cy <= 1 \
@@ -12501,8 +12465,8 @@ class _MangaTranslatorBody_85:
                                 or _cy + hh >= _sub_h - 1:
                             continue
                         _cm = (lab == i)
-                        # داخلِ نوارِ کامپوز = لکهٔ خودِ پرکننده — فقط
-                        # خرده‌لکهٔ ریز مجاز (نه تکهٔ بزرگِ احتمالیِ هنر)
+# داخلِ نوارِ کامپوز = لکهٔ خودِ پرکننده — فقط
+# خرده‌لکهٔ ریز مجاز (نه تکهٔ بزرگِ احتمالیِ هنر)
                         if bool((_cm & ex).any()):
                             if a > 300 or ww > 64 or hh > 44:
                                 continue
@@ -12512,9 +12476,9 @@ class _MangaTranslatorBody_85:
                         continue
                     if int(cv2.countNonZero(gm)) < 4:
                         continue
-                    # پاسِ دوم — فقط «داخلِ نوارها»: رگه‌های خاکستریِ
-                    # ملایمِ پرکنندهٔ donor (۲۵..۴۰ زیرِ زمینه) که با
-                    # آستانهٔ اصلی رد شدند («خطوطِ محو»)
+# پاسِ دوم — فقط «داخلِ نوارها»: رگه‌های خاکستریِ
+# ملایمِ پرکنندهٔ donor (۲۵..۴۰ زیرِ زمینه) که با
+# آستانهٔ اصلی رد شدند («خطوطِ محو»)
                     try:
                         _ink2 = (g.astype(np.int16) < (med - 26.0)) \
                             & ex & (~cv2.dilate(
@@ -12568,7 +12532,7 @@ class _MangaTranslatorBody_85:
                              zone: Optional[np.ndarray],
                              regions: List[TextRegion],
                              verbose: bool = True) -> int:
-        """v1.14.228 — جارویِ متنِ جاماندهٔ خوانا با گیتِ OCR.
+        """ — جارویِ متنِ جاماندهٔ خوانا با گیتِ OCR.
 
         OCR رویِ خروجیِ پاکشده؛ هر خطِ لاتینِ بااطمینان (≥۰٫۷۲) که
         ≥۴۰٪ آن داخلِ «زونِ مجاز» (نوارِ کامپوز + مستطیلهایِ ناحیه
@@ -12644,7 +12608,7 @@ class _MangaTranslatorBody_85:
                 _med = float(np.median(sub_go))
                 _inko = ((sub_go < _med - 45.0)
                          | (sub_go > min(232.0, _med + 45.0)))
-                # درِ اصل باید جوهرِ متن بوده باشد (≥۴٪)
+# درِ اصل باید جوهرِ متن بوده باشد (≥۴٪)
                 if float(_inko.mean()) < 0.04:
                     continue
                 resid = (_inko & sub_same & sub_ok)
@@ -12742,12 +12706,12 @@ class _MangaTranslatorBody_85:
                         cv2.getStructuringElement(
                             cv2.MORPH_ELLIPSE, (31, 31))) > 0
                     resid = resid | _blob | (_dark_raw & _band)
-                    # v1.14.61 — بقایایِ جوهرِ «بیرونِ» ماسکِ هسته (مثلاً
-                    # آپاستروف/کامایِ بینِ نوارهایِ خط — نمونهٔ گوشی: مارکِ
-                    # کنارِ «جملهٔ کوتاه») رویِ زمینهٔ تختِ روشنِ حباب:
-                    # داخلِ مستطیلِ ناحیه (بدونِ حاشیهٔ ۱۲px که کادرِ حباب
-                    # است) هم جارو می‌شود — فقط رویِ زمینهٔ تختِ روشن که
-                    # آسیب به هنر ممکن نیست.
+# بقایایِ جوهرِ «بیرونِ» ماسکِ هسته (مثلاً
+# آپاستروف/کامایِ بینِ نوارهایِ خط — نمونهٔ گوشی: مارکِ
+# کنارِ «جملهٔ کوتاه») رویِ زمینهٔ تختِ روشنِ حباب:
+# داخلِ مستطیلِ ناحیه (بدونِ حاشیهٔ ۱۲px که کادرِ حباب
+# است) هم جارو می‌شود — فقط رویِ زمینهٔ تختِ روشن که
+# آسیب به هنر ممکن نیست.
                     try:
                         _er = 12
                         _rh, _rw = _mcore.shape
@@ -12760,12 +12724,12 @@ class _MangaTranslatorBody_85:
                             _blob2 = cv2.morphologyEx(
                                 _dark2.astype(np.uint8), cv2.MORPH_OPEN,
                                 _k5) > 0
-                            # v1.14.64 — باگِ «متنِ کج یا ناقص»: قوسِ دیوارِ
-                            # حباب/خطِ کادرِ پنلِ بیرونِ ماسک، «بقایایِ جوهر»
-                            # خوانده می‌شد و جارو می‌شد (قوسِ ناپدیدشده).
-                            # ساختار = کامپوننتِ کشیدهٔ افقی (عریضِ ≥۱۰۰px و
-                            # ≥۲.۵ برابرِ بلندی‌اش). بقایایِ واقعیِ متن =
-                            # قطعه‌هایِ حرفیِ کوچک/فشرده — رد نمی‌شوند.
+# باگِ «متنِ کج یا ناقص»: قوسِ دیوارِ
+# حباب/خطِ کادرِ پنلِ بیرونِ ماسک، «بقایایِ جوهر»
+# خوانده می‌شد و جارو می‌شد (قوسِ ناپدیدشده).
+# ساختار = کامپوننتِ کشیدهٔ افقی (عریضِ ≥۱۰۰px و
+# ≥۲.۵ برابرِ بلندی‌اش). بقایایِ واقعیِ متن =
+# قطعه‌هایِ حرفیِ کوچک/فشرده — رد نمی‌شوند.
                             if float(_blob2.mean()) <= 0.10:
                                 try:
                                     _nz2, _lb2, _st2, _ = \
@@ -12898,8 +12862,8 @@ class _MangaTranslatorBody_85:
                                     _ch = int(_st[_ci, cv2.CC_STAT_HEIGHT])
                                     if _ca / float(max(1, _cw * _ch)) < 0.30:
                                         continue
-                                    # v1.14.64 — ساختارِ کشیدهٔ نازک (قوسِ
-                                    # دیوار/کادر) بقایایِ متن نیست
+# ساختارِ کشیدهٔ نازک (قوسِ
+# دیوار/کادر) بقایایِ متن نیست
                                     if _cw >= 100 and _cw >= 2.5 * max(1, _ch):
                                         continue
                                     _touch = ((_cx <= 0) + (_cy <= 0)
@@ -12930,10 +12894,10 @@ class _MangaTranslatorBody_85:
                         image[_gy0:_gy1, _gx0:_gx1], cv2.COLOR_BGR2GRAY)
                     _dom = self._bubble_domain_local(
                         image[_gy0:_gy1, _gx0:_gx1], _gseed)
-                    # v1.14.48: اعتبارسنجیِ دیوار — دامینِ کاذب (موی/سایهٔ
-                    # شخصیت کنارِ حباب) دیوارِ تیرهٔ دورِ خودش ندارد →
-                    # کلِ شاخه رد شود وگرنه بقایایِ موی/گونه resid می‌شوند
-                    # و LaMa-rescue روی صورت لکه می‌سازد
+# اعتبارسنجیِ دیوار — دامینِ کاذب (موی/سایهٔ
+# شخصیت کنارِ حباب) دیوارِ تیرهٔ دورِ خودش ندارد →
+# کلِ شاخه رد شود وگرنه بقایایِ موی/گونه resid می‌شوند
+# و LaMa-rescue روی صورت لکه می‌سازد
                     if _dom is not None and cv2.countNonZero(_dom) > 0:
                         try:
                             _dr = (cv2.dilate(_dom, np.ones((7, 7), np.uint8))
@@ -12983,11 +12947,11 @@ class _MangaTranslatorBody_85:
                                 _lab4[_cy4:_cy4 + _ch4,
                                       _cx4:_cx4 + _cw4] == _ci].any()):
                                 continue
-                            # v1.14.48: بقایایِ واقعیِ متن داخلِ حبابِ سفید
-                            # شناورند — حلقهٔ دورشان روشن است. تکه‌هایِ
-                            # موی/گونه در لبهٔ دامینِ کاذب حلقهٔ تیره دارند
-                            # → رد (لکهٔ LaMa-rescue روی گونهٔ «BUT I
-                            # LIKE IT HERE.»)
+# بقایایِ واقعیِ متن داخلِ حبابِ سفید
+# شناورند — حلقهٔ دورشان روشن است. تکه‌هایِ
+# موی/گونه در لبهٔ دامینِ کاذب حلقهٔ تیره دارند
+# → رد (لکهٔ LaMa-rescue روی گونهٔ «BUT I
+# LIKE IT HERE.»)
                             try:
                                 _cm = (_lab4[_cy4:_cy4 + _ch4,
                                              _cx4:_cx4 + _cw4] == _ci)
@@ -13010,9 +12974,9 @@ class _MangaTranslatorBody_85:
                             resid = resid | _r4
             except Exception:
                 pass
-            # v1.14.48: دیوارِ حباب/کادر (ساختارِ محافظت‌شده) هرگز resid
-            # نیست — شاخه‌هایِ «پیکسلِ تیرهٔ بیرونِ ماسک» دیوار را مثل
-            # متنِ باقی‌مانده هیل می‌کردند و حباب را نابود می‌کردند
+# دیوارِ حباب/کادر (ساختارِ محافظت‌شده) هرگز resid
+# نیست — شاخه‌هایِ «پیکسلِ تیرهٔ بیرونِ ماسک» دیوار را مثل
+# متنِ باقی‌مانده هیل می‌کردند و حباب را نابود می‌کردند
             _pp = getattr(self, "_page_protect", None)
             if _pp is not None:
                 try:
@@ -13095,7 +13059,7 @@ class _MangaTranslatorBody_85:
                     pts = np.asarray(poly, dtype=np.float32).reshape(-1, 2)
                     if len(pts) < 3:
                         continue
-                    # فاصلهٔ امن بیرونِ متن: متن + هالهٔ JPEG را می‌پوشاند
+# فاصلهٔ امن بیرونِ متن: متن + هالهٔ JPEG را می‌پوشاند
                     px0, py0 = pts[:, 0].min(), pts[:, 1].min()
                     px1, py1 = pts[:, 0].max(), pts[:, 1].max()
                     pw, ph = float(px1 - px0), float(py1 - py0)
@@ -13105,7 +13069,7 @@ class _MangaTranslatorBody_85:
                     hull = cv2.convexHull(
                         pts.astype(np.int32)).reshape(-1, 2).astype(np.float32)
                     cx, cy = float(hull[:, 0].mean()), float(hull[:, 1].mean())
-                    # چندضلعیِ منبسط (حاوی هاله) — رئوس از مرکز به بیرون
+# چندضلعیِ منبسط (حاوی هاله) — رئوس از مرکز به بیرون
                     exp = hull.copy()
                     _d = hull - np.array([cx, cy], np.float32)
                     _nd = np.hypot(_d[:, 0], _d[:, 1])
@@ -13115,9 +13079,9 @@ class _MangaTranslatorBody_85:
                            + _d * _push[:, None])
                     exp[:, 0] = np.clip(exp[:, 0], 0, W - 1)
                     exp[:, 1] = np.clip(exp[:, 1], 0, H - 1)
-                    # آیا جوهری داخل چندضلعی مانده؟ (در وضعیت فعلی)
-                    # ⚠️ برش باید پدینگ داشته باشد وگرنه رینگِ بیرونیِ ماسک
-                    # داخلِ crop نمی‌افتد (باگِ رینگِ خالی) و هیچ ترمیمی رخ نمی‌دهد
+# آیا جوهری داخل چندضلعی مانده؟ (در وضعیت فعلی)
+# برش باید پدینگ داشته باشد وگرنه رینگِ بیرونیِ ماسک
+# داخلِ crop نمی‌افتد (باگِ رینگِ خالی) و هیچ ترمیمی رخ نمی‌دهد
                     _pad = margin + 16
                     ex0, ey0 = int(exp[:, 0].min()) - _pad, int(exp[:, 1].min()) - _pad
                     ex1, ey1 = int(exp[:, 0].max()) + 1 + _pad, int(exp[:, 1].max()) + 1 + _pad
@@ -13132,8 +13096,8 @@ class _MangaTranslatorBody_85:
                                  255)
                     if not emask.any():
                         continue
-                    # رنگ مرجع — اول از نمونه‌های رأسِ مرجع (گوشه‌های خط =
-                    # انتهای متن = پس‌زمینهٔ واقعی)، بعد رینگِ بیرونی
+# رنگ مرجع — اول از نمونه‌های رأسِ مرجع (گوشه‌های خط =
+# انتهای متن = پس‌زمینهٔ واقعی)، بعد رینگِ بیرونی
                     _sub_f = sub.astype(np.float32)
                     samp = self._mt_ring_samples(cleaned, exp, margin + 2)
                     bg_med = None
@@ -13155,10 +13119,10 @@ class _MangaTranslatorBody_85:
                         if len(_okr) < 24:
                             continue
                         bg_med = np.median(_okr, axis=0)
-                    # v1.14.43: گیتِ ضدبافت — اگر خودِ رینگِ دورِ خط پر از
-                    # پیکسلِ «جوهرگونه» باشد، زمینه الگودار است (پارچه/
-                    # هافتون/هنر) نه پس‌زمینهٔ متن → ترمیم الگو را له می‌کند
-                    # → ردّ. سایه/گرادیانِ نرم از این گیت رد می‌شود.
+# گیتِ ضدبافت — اگر خودِ رینگِ دورِ خط پر از
+# پیکسلِ «جوهرگونه» باشد، زمینه الگودار است (پارچه/
+# هافتون/هنر) نه پس‌زمینهٔ متن → ترمیم الگو را له می‌کند
+# → ردّ. سایه/گرادیانِ نرم از این گیت رد می‌شود.
                     if int(ring.sum()) >= 24:
                         _rg = _sub_f[ring]
                         _rgd = np.linalg.norm(_rg - bg_med[None, :], axis=1)
@@ -13166,38 +13130,37 @@ class _MangaTranslatorBody_85:
                         if _rfrac > 0.35:
                             continue
 
-
-                    # جوهرِ جامانده داخل چندضلعی؟
+# جوهرِ جامانده داخل چندضلعی؟
                     in_d = np.linalg.norm(_sub_f - bg_med[None, None, :],
                                           axis=2)
                     ink = (in_d > 45.0) & (emask > 0)
                     ink_frac = float(ink.sum()) / float((emask > 0).sum())
                     if ink_frac < 0.010:
                         continue  # تمیز است — دست نمی‌زنیم (کارِ LaMa می‌ماند)
-                    # رینگِ پاکِ IDW — نمونه‌های جوهرگونه حذف می‌شوند
+# رینگِ پاکِ IDW — نمونه‌های جوهرگونه حذف می‌شوند
                     ring_ok = ring & (in_d <= 45.0)
                     if _dbg_img is not None:
                         _pe = exp.astype(np.int32).reshape(-1, 1, 2)
                         cv2.polylines(_dbg_img, [_pe], True, (0, 255, 0), 2)
-                    # رنگِ پرکردن: نمونه‌های رأسِ نزدیکِ رنگِ پس‌زمینه
+# رنگِ پرکردن: نمونه‌های رأسِ نزدیکِ رنگِ پس‌زمینه
                     _sf = samp[np.linalg.norm(samp - bg_med, axis=1) <= 45.0] \
                         if len(samp) >= 3 else samp
                     fill_color = (np.median(_sf, axis=0) if len(_sf) >= 3
                                   else bg_med)
-                    # گیتِ یکنواختی مرجع: فاصلهٔ اقلیدسیِ RGB ≤ ۲۵
+# گیتِ یکنواختی مرجع: فاصلهٔ اقلیدسیِ RGB ≤ ۲۵
                     _unif = samp[np.linalg.norm(samp - fill_color,
                                                 axis=1) <= 25.0]
                     uniform = (len(samp) >= 3
                                and len(_unif) >= max(3, int(0.90 * len(samp))))
-                    # v1.14.43: پرکردنِ جامد حذف شد — حتی وقتی رینگ «یکنواخت»
-                    # است، روی گرادیان/سایهٔ نرم نوارِ تختِ هم‌رنگ می‌سازد
-                    # (بلوکی که کاربر روی گوشی دید). هِیلِ IDW از خودِ
-                    # پیرامون درون‌یابی می‌کند → روی گرادیان هم نامرئی است.
-                    # v1.14.43: ترمیمِ جراحیِ جوهر — فقط پیکسل‌های جوهرِ
-                    # جامانده (و هالهٔ نازکِ دورشان) با IDW از پیرامونِ پاکِ
-                    # همان حوالی بازسازی می‌شوند؛ کلِ چندضلعی هرگز رنگ دوباره
-                    # نمی‌شود تا کارِ LaMa و بافتِ زمینه سالم بماند —
-                    # نوار/بلوکی که کاربر روی گوشی دید دیگر ساخته نمی‌شود.
+# پرکردنِ جامد حذف شد — حتی وقتی رینگ «یکنواخت»
+# است، روی گرادیان/سایهٔ نرم نوارِ تختِ هم‌رنگ می‌سازد
+# (بلوکی که کاربر روی گوشی دید). هِیلِ IDW از خودِ
+# پیرامون درون‌یابی می‌کند → روی گرادیان هم نامرئی است.
+# ترمیمِ جراحیِ جوهر — فقط پیکسل‌های جوهرِ
+# جامانده (و هالهٔ نازکِ دورشان) با IDW از پیرامونِ پاکِ
+# همان حوالی بازسازی می‌شوند؛ کلِ چندضلعی هرگز رنگ دوباره
+# نمی‌شود تا کارِ LaMa و بافتِ زمینه سالم بماند —
+# نوار/بلوکی که کاربر روی گوشی دید دیگر ساخته نمی‌شود.
                     _ink_m = (ink * 255).astype(np.uint8)
                     _ink_d = cv2.dilate(_ink_m, np.ones((5, 5), np.uint8),
                                         iterations=1) > 0
@@ -13205,8 +13168,8 @@ class _MangaTranslatorBody_85:
                     _tgt = np.argwhere(_target)
                     if not len(_tgt):
                         continue
-                    # نمونه‌های تمیز: اول داخلِ خودِ چندضلعیِ منبسط (نزدیک‌ترین
-                    # زمینه)، بعد رینگِ بیرونی
+# نمونه‌های تمیز: اول داخلِ خودِ چندضلعیِ منبسط (نزدیک‌ترین
+# زمینه)، بعد رینگِ بیرونی
                     _clean_in = np.argwhere((emask > 0) & (~_target)
                                             & (in_d <= 45.0))
                     _rpts = np.argwhere(ring_ok)
@@ -13222,7 +13185,7 @@ class _MangaTranslatorBody_85:
                         _rpts = _rpts[::_step]
                     _rcol = _sub_f[_rpts[:, 0], _rpts[:, 1]]
                     _res_f = _sub_f.copy()
-                    # تکه‌تکه برای حافظهٔ امن روی نوارهای بلند
+# تکه‌تکه برای حافظهٔ امن روی نوارهای بلند
                     for _c0 in range(0, len(_tgt), 20000):
                         _c1 = min(len(_tgt), _c0 + 20000)
                         _tc = _tgt[_c0:_c1]
@@ -13233,7 +13196,7 @@ class _MangaTranslatorBody_85:
                         _ww /= _ww.sum(axis=1, keepdims=True)
                         _heal = _ww @ _rcol
                         _res_f[_tc[:, 0], _tc[:, 1]] = _heal
-                    # فِدرِ ملایم روی مرزِ هدف تا لبهٔ ترمیم دیده نشود
+# فِدرِ ملایم روی مرزِ هدف تا لبهٔ ترمیم دیده نشود
                     _tm = (_target * 255).astype(np.uint8)
                     _core = cv2.erode(_tm, np.ones((3, 3), np.uint8))
                     _alpha = cv2.GaussianBlur(_tm, (5, 5), 1.2)
@@ -13253,7 +13216,6 @@ class _MangaTranslatorBody_85:
         if not (n_fill + n_heal):
             return 0, ""
         return n_fill + n_heal, f"{n_fill} fill, {n_heal} heal"
-
 
     def _opencv_fill_components(self, crop_img: np.ndarray, crop_msk: np.ndarray,
                                 wall: Optional[np.ndarray] = None) -> np.ndarray:
@@ -13368,7 +13330,6 @@ class _MangaTranslatorBody_85:
         except Exception:
             return False
 
-
     def _glyph_refine_mask(self, image: np.ndarray, mask: np.ndarray) -> Optional[np.ndarray]:
         try:
             m0 = (mask > 0).astype(np.uint8)
@@ -13406,7 +13367,7 @@ class _MangaTranslatorBody_85:
 
     def _ring_plane_fill(self, crop_img: np.ndarray,
                          crop_msk: np.ndarray) -> Optional[np.ndarray]:
-        """v1.14.48 — پرکردنِ استروک‌هایِ نازک روی زمینهٔ گرادیانی با
+        """ — پرکردنِ استروک‌هایِ نازک روی زمینهٔ گرادیانی با
         «صفحهٔ رنگیِ برازش‌شده از حلقه» — به‌جای TELEA که رنگِ هنرِ نزدیک
         (دست/شانه) را داخلِ زمینه می‌کشد (لکهٔ خاکستریِ صفحهٔ TIME BOMB
         کنارِ «SINCE WHEN WERE WE FRIENDS?»). برای هر کامپوننت: حلقهٔ ۹px
@@ -13488,27 +13449,27 @@ class _MangaTranslatorBody_85:
                 out[m > 0] = up[m > 0]
         except Exception:
             pass
-        # v1.14.206g — ترمیمِ «تکهٔ سیاهِ تازه»: Telea از مرزِ ماسک رنگ
-        # میکشد و اگر دورِ ماسک تیره باشد (دورخطِ سیاهِ متنِ دورخط‌دار
-        # img3 / جوهرِ چسبیده به ماسک)، داخلِ پرشده لکهٔ سیاه میسازد.
-        # تکههایِ تیرهٔ تازهٔ داخلِ ماسک (خروجی <70 جایی که حاشیهٔ
-        # اورجینالِ اطراف روشن >110 بوده) پیدا، گشاد ۹px و یک Telea
-        # کوچکِ دیگر — مرزِ این بار هنرِ اطراف است نه خودِ دورخط.
+# ترمیمِ «تکهٔ سیاهِ تازه»: Telea از مرزِ ماسک رنگ
+# میکشد و اگر دورِ ماسک تیره باشد (دورخطِ سیاهِ متنِ دورخط‌دار
+# img3 / جوهرِ چسبیده به ماسک)، داخلِ پرشده لکهٔ سیاه میسازد.
+# تکههایِ تیرهٔ تازهٔ داخلِ ماسک (خروجی <70 جایی که حاشیهٔ
+# اورجینالِ اطراف روشن >110 بوده) پیدا، گشاد ۹px و یک Telea
+# کوچکِ دیگر — مرزِ این بار هنرِ اطراف است نه خودِ دورخط.
         try:
             _go = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             _gc = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
-            # بیشینهٔ محلی بهجایِ میانگین — کنارِ دورخطِ سیاهِ خودِ متن،
-            # میانگینِ ۲۱×۲۱ زیرِ ۱۱۰ میافتد و تکه پیدا نمیشد
+# بیشینهٔ محلی بهجایِ میانگین — کنارِ دورخطِ سیاهِ خودِ متن
+# میانگینِ ۲۱×۲۱ زیرِ ۱۱۰ میافتد و تکه پیدا نمیشد
             _ring = cv2.dilate(_go, np.ones((31, 31), np.uint8))
             _dkn = ((_gc < 70) & (_ring > 110) & (m > 0))
             _dkn = cv2.morphologyEx(
                 _dkn.astype(np.uint8), cv2.MORPH_OPEN,
                 np.ones((3, 3), np.uint8))
             if int(cv2.countNonZero(_dkn)) >= 40:
-                # v1.14.206h — تله‌آیِ دوم هم از همان دورِ تیره رنگ میکشد؛
-                # هر تکه با «میانهٔ رنگِ حلقهٔ روشنِ اطرافش» پر میشود
-                # (پچِ تختِ همرنگِ هنر با لبهٔ فدر) — تیرهٔ باقیمانده
-                # نمیماند و لکهٔ سیاه جایش لکهٔ همرنگِ زمینه میشود.
+# تله‌آیِ دوم هم از همان دورِ تیره رنگ میکشد
+# هر تکه با «میانهٔ رنگِ حلقهٔ روشنِ اطرافش» پر میشود
+# (پچِ تختِ همرنگِ هنر با لبهٔ فدر) — تیرهٔ باقیمانده
+# نمیماند و لکهٔ سیاه جایش لکهٔ همرنگِ زمینه میشود.
                 _nzg, _lbg, _stg, _ = cv2.connectedComponentsWithStats(
                     _dkn.astype(np.uint8), 8)
                 for _ig in range(1, _nzg):
@@ -13567,10 +13528,10 @@ class _MangaTranslatorBody_85:
                         return None
             except Exception:
                 pass
-            # v1.14.47c: به نسخهٔ medianBlur برگشت — بنرهایِ تیره حالا توسط
-            # _enclosure_instant_fill قبل از این‌جا پاک می‌شوند و این تابع
-            # فقط زمینه‌هایِ روشن/هنری را می‌گیرد که medianBlur خطوطِ هنر
-            # را بهتر از پخشِ کانولوشن حفظ می‌کند (مقایسهٔ صفحهٔ چینی).
+# به نسخهٔ medianBlur برگشت — بنرهایِ تیره حالا توسط
+# _enclosure_instant_fill قبل از این‌جا پاک می‌شوند و این تابع
+# فقط زمینه‌هایِ روشن/هنری را می‌گیرد که medianBlur خطوطِ هنر
+# را بهتر از پخشِ کانولوشن حفظ می‌کند (مقایسهٔ صفحهٔ چینی).
             bg = cv2.medianBlur(crop_img, k_a)
             bg = cv2.medianBlur(bg, k_b)
             alpha = cv2.GaussianBlur(m_d, (7, 7), 0).astype(np.float32) / 255.0
@@ -13582,8 +13543,8 @@ class _MangaTranslatorBody_85:
 
     def _rect_structure_lock(self, image: np.ndarray,
                              rects) -> Optional[np.ndarray]:
-        """v1.14.94 — قفلِ «ساختارِ روشنِ نازک» در بلوک‌هایِ اجباری-LaMa
-        (v1.14.59). باکسِ توپرِ بلوکِ تیره گاهی از مرزِ پنل عبور می‌کند و
+        """ — قفلِ «ساختارِ روشنِ نازک» در بلوک‌هایِ اجباری-LaMa
+        (). باکسِ توپرِ بلوکِ تیره گاهی از مرزِ پنل عبور می‌کند و
         قابِ تزئینی/نوارِ لبهٔ پنل (ساختارِ روشنِ نازک) را هم می‌بلعد —
         LaMa با حفرهٔ بزرگِ رویِ ساختار، قاب را «له» می‌کند (نمونهٔ کاربر:
         GREEN MOON — قابِ کنارِ متن ذوب شد). معیارِ ساختار: مؤلفهٔ روشن
@@ -13592,7 +13553,7 @@ class _MangaTranslatorBody_85:
         تودهٔ پس‌زمینه (گلیفِ متن هم کاملاً داخلِ باکس‌اند و هرگز قفل
         نمی‌شوند). پیکسل‌هایِ قفل از ماسکِ
         بلوک خارج می‌شوند تا LaMa آن‌ها را «زمینه» ببیند و دستِ
-        پرکننده‌ها هم به آن‌ها نرسد (مکانیزمِ v1.14.81)."""
+        پرکننده‌ها هم به آن‌ها نرسد (مکانیزمِ )."""
         try:
             if os.environ.get("MANGA_NO_STRUCT_LOCK", "0") == "1":
                 return None
@@ -13617,7 +13578,7 @@ class _MangaTranslatorBody_85:
             bright = ((reg >= 148).astype(np.uint8)) * 255
             if not int(cv2.countNonZero(bright)):
                 continue
-            # پلِ نازکِ گلو بینِ حرف و قاب بشکند
+# پلِ نازکِ گلو بینِ حرف و قاب بشکند
             try:
                 bright = cv2.morphologyEx(bright, cv2.MORPH_OPEN,
                                           np.ones((2, 2), np.uint8))
@@ -13626,7 +13587,7 @@ class _MangaTranslatorBody_85:
             n, lab, st, _ = cv2.connectedComponentsWithStats(bright, 8)
             if n <= 1:
                 continue
-            # باکسِ توپرِ داخلِ ناحیه (همان +4/-5 مسیرِ v1.14.59)
+# باکسِ توپرِ داخلِ ناحیه (همان +4/-5 مسیرِ )
             rx0 = max(0, (x0 - 4) - ex0)
             ry0 = max(0, (y0 - 4) - ey0)
             rx1 = min(ex1 - ex0, (x1 + 5) - ex0)
@@ -13654,7 +13615,7 @@ class _MangaTranslatorBody_85:
                 _any = True
             if not int(cv2.countNonZero(hit)):
                 continue
-            # حفره‌هایِ بینِ پیچ‌هایِ قاب هم پوشیده شود + رشدِ ملایم
+# حفره‌هایِ بینِ پیچ‌هایِ قاب هم پوشیده شود + رشدِ ملایم
             hit = cv2.morphologyEx(hit, cv2.MORPH_CLOSE,
                                    np.ones((13, 13), np.uint8))
             hit = cv2.dilate(hit, np.ones((7, 7), np.uint8))
@@ -13668,7 +13629,7 @@ class _MangaTranslatorBody_85:
                                  regions: List["TextRegion"],
                                  min_len: int = 60,
                                  near_px: int = 25) -> Optional[np.ndarray]:
-        """v1.14.48 — نقشهٔ «ساختارِ محافظت‌شده» در سطحِ صفحه: دیوارِ حباب و
+        """ — نقشهٔ «ساختارِ محافظت‌شده» در سطحِ صفحه: دیوارِ حباب و
         کادرِ پنل (خطوطِ تیرهٔ نازکِ بلند) هرگز نباید پاک شوند. همهٔ
         مرحله‌هایِ پرکردن ماسک را تا ۲۵px گشاد + CLOSE می‌کنند و خطِ
         ۳-۴ پیکسلیِ دیوار را می‌بلعند → باگِ «حبابِ پاک‌شده ولی تمیز»
@@ -13680,20 +13641,20 @@ class _MangaTranslatorBody_85:
         کم می‌شود."""
         try:
             h, w = image.shape[:2]
-            # ناحیهٔ موردِ توجه: حوالیِ ماسکِ متنِ خام (بدونِ protect)
+# ناحیهٔ موردِ توجه: حوالیِ ماسکِ متنِ خام (بدونِ protect)
             _raw_mask = getattr(self, "_page_raw_text_mask", None)
             if _raw_mask is None or _raw_mask.shape != (h, w) \
                     or not np.any(_raw_mask):
                 return None
-            # v1.14.186 — اندروید (MANGA_PROT_CACHE): این تابع در هر صفحه
-            # «دو بار» صدا زده میشود (protect + wall_bandِ v1.14.73 با
-            # min_len/near_pxِ متفاوت) و بخشهایِ سنگینش (medianBlurِ ۳۱،
-            # ساختِ poly_all، بازِ خطیِ سراسری + distanceTransformها)
-            # از min_len/near_px مستقلاند → کشِ کوتاهِ بینِ همان دو
-            # فراخوانی (صرفهٔ ~۱-۴ ثانیه در هر صفحه). کلید = آدرسِ بافرِ
-            # تصویر + ماسکِ خام + تعدادِ ناحیه؛ و محلِ فراخوانی بعد از
-            # بارِ دوم آن را پاک میکند (self._spm_cache = None) تا کش
-            # هیچ‌وقت کهنه نشود. PC بدونِ کش — بیت‌به‌بیت.
+# اندروید (MANGA_PROT_CACHE): این تابع در هر صفحه
+# «دو بار» صدا زده میشود (protect + wall_bandِ با
+# min_len/near_pxِ متفاوت) و بخشهایِ سنگینش (medianBlurِ ۳۱
+# ساختِ poly_all، بازِ خطیِ سراسری + distanceTransformها)
+# از min_len/near_px مستقلاند → کشِ کوتاهِ بینِ همان دو
+# فراخوانی (صرفهٔ ~۱-۴ ثانیه در هر صفحه). کلید = آدرسِ بافرِ
+# تصویر + ماسکِ خام + تعدادِ ناحیه؛ و محلِ فراخوانی بعد از
+# بارِ دوم آن را پاک میکند (self._spm_cache = None) تا کش
+# هیچ‌وقت کهنه نشود. PC بدونِ کش — بیت‌به‌بیت.
             _spc = None
             _key = None
             if _android_gate("MANGA_PROT_CACHE"):
@@ -13714,7 +13675,7 @@ class _MangaTranslatorBody_85:
                 dark_full, poly_all = _spc[1], _spc[2]
                 out = _spc[3].copy()
                 _ln, _vl, _hl = _spc[4], _spc[5], _spc[6]
-                # بخشهایِ وابسته به near_px — ارزان — از نو
+# بخشهایِ وابسته به near_px — ارزان — از نو
                 _nk = 25 if int(near_px) >= 25 \
                     else (13 if int(near_px) >= 13 else 9)
                 near = cv2.dilate(_raw_mask,
@@ -13729,9 +13690,9 @@ class _MangaTranslatorBody_85:
                     else (13 if int(near_px) >= 13 else 9)
                 near = cv2.dilate(_raw_mask,
                                   np.ones((_nk, _nk), np.uint8))
-                # v1.14.48b: تیرگیِ «نسبی» هم — دیوارِ محوِ JPEG (خاکستریِ ۱۲۰-۱۹۰
-                # روی زمینهٔ روشن) با آستانهٔ مطلقِ ۱۲۰ گم می‌شد و بخشی از دیوار
-                # باز هم لکه می‌شد. medianBlurِ ۳۱ زمینهٔ محلی است.
+# تیرگیِ «نسبی» هم — دیوارِ محوِ JPEG (خاکستریِ ۱۲۰-۱۹۰
+# روی زمینهٔ روشن) با آستانهٔ مطلقِ ۱۲۰ گم می‌شد و بخشی از دیوار
+# باز هم لکه می‌شد. medianBlurِ ۳۱ زمینهٔ محلی است.
                 try:
                     _bg = cv2.medianBlur(g, 31)
                     dark_rel = ((_bg.astype(np.int16)
@@ -13741,15 +13702,15 @@ class _MangaTranslatorBody_85:
                     dark = (g < 120).astype(np.uint8) * 255
                 dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE,
                                         np.ones((3, 3), np.uint8))
-                # v1.14.106 — تیرهٔ کاملِ صفحه (قبل از برشِ باندِ ۲۵px) برای
-                # بازِ خطیِ سراسری؛ سرِ کادرِ پنل داخلِ باند است ولی بدنه‌اش
-                # بیرونِ باند — خط باید تا انتها محافظت شود نه فقط سرش.
+# تیرهٔ کاملِ صفحه (قبل از برشِ باندِ ۲۵px) برای
+# بازِ خطیِ سراسری؛ سرِ کادرِ پنل داخلِ باند است ولی بدنه‌اش
+# بیرونِ باند — خط باید تا انتها محافظت شود نه فقط سرش.
                 dark_full = dark
                 dark = cv2.bitwise_and(dark, near)
                 n, lab, st, _ = cv2.connectedComponentsWithStats(dark, 8)
                 if n <= 1:
                     return None
-                # پالی‌هایِ OCR — گلیف‌ها اینجایند و نباید محافظت شوند
+# پالی‌هایِ OCR — گلیف‌ها اینجایند و نباید محافظت شوند
                 poly_all = np.zeros((h, w), dtype=np.uint8)
                 for r in (regions or []):
                     for p in (getattr(r, "ocr_polys", None) or []):
@@ -13765,11 +13726,11 @@ class _MangaTranslatorBody_85:
                 poly_all = cv2.dilate(poly_all,
                                       np.ones((9, 9), np.uint8))
                 out = np.zeros((h, w), dtype=np.uint8)
-                # v1.14.106 — بازِ خطیِ سراسری: کادرِ پنل/خطِ جدابندِ سرراست
-                # (اجرای ≥۶۰px، ضخامت ≤۱۰px، بیرونِ پالیهایِ OCR) سراسری
-                # محافظت میشود — نه فقط تکهٔ داخلِ باندِ متن. کیسِ ۱۰۱۸:
-                # ماسکِ لوگو/حباب قابِ چپِ پنل را در میان بریده بود و تکههای
-                # یتیم مثل «لبهٔ سیاه» دیده میشدند.
+# بازِ خطیِ سراسری: کادرِ پنل/خطِ جدابندِ سرراست
+# (اجرای ≥۶۰px، ضخامت ≤۱۰px، بیرونِ پالیهایِ OCR) سراسری
+# محافظت میشود — نه فقط تکهٔ داخلِ باندِ متن. کیسِ ۱۰۱۸:
+# ماسکِ لوگو/حباب قابِ چپِ پنل را در میان بریده بود و تکههای
+# یتیم مثل «لبهٔ سیاه» دیده میشدند.
                 try:
                     _vl = cv2.morphologyEx(
                         dark_full, cv2.MORPH_OPEN,
@@ -13779,10 +13740,10 @@ class _MangaTranslatorBody_85:
                         np.ones((1, 60), np.uint8))
                     if int(cv2.countNonZero(_vl)) or \
                             int(cv2.countNonZero(_hl)):
-                        # v1.14.106b — ضخامتِ بدونِ پخش: erodeِ بدونِ dilate
-                        # تا هستهٔ توپر حذف شود ولی خطِ نازکِ چسبیده به آن زنده
-                        # بماند (dilateِ ±۷px قابِ ۵px کناری را هم میکشت —
-                        # کیسِ ۱۰۱۸: کلِ قابِ چپِ پنل)
+# ضخامتِ بدونِ پخش: erodeِ بدونِ dilate
+# تا هستهٔ توپر حذف شود ولی خطِ نازکِ چسبیده به آن زنده
+# بماند (dilateِ ±۷px قابِ ۵px کناری را هم میکشت —
+# کیسِ ۱۰۱۸: کلِ قابِ چپِ پنل)
                         _vth = cv2.erode(_vl,
                                          np.ones((1, 15), np.uint8))
                         _hth = cv2.erode(_hl,
@@ -13804,13 +13765,13 @@ class _MangaTranslatorBody_85:
                             _bh2 = int(_s2[_i2, cv2.CC_STAT_HEIGHT])
                             _cp2 = (_l2[_by2:_by2 + _bh2,
                                         _bx2:_bx2 + _bw2] == _i2)
-                            # v1.14.106b — در سطحِ پیکسل: فقط پیکسلهایِ نازک
-                            # (≤۱۰px) محافظت میشوند؛ لبِ ساختارِ توپر که به
-                            # خط چسبیده قربانیِ کلِ کامپوننت نمیشود
+# در سطحِ پیکسل: فقط پیکسلهایِ نازک
+# (≤۱۰px) محافظت میشوند؛ لبِ ساختارِ توپر که به
+# خط چسبیده قربانیِ کلِ کامپوننت نمیشود
                             try:
-                                # پدِ ۱px — کامپوننتِ توپر (خطِ کامل در باکسِ
-                                # خودش) هیچ پیکسلِ صفر ندارد → dt=FLT_MAX و
-                                # همه رد میشد (کیسِ قابِ ۱۰۱۸)
+# پدِ ۱px — کامپوننتِ توپر (خطِ کامل در باکسِ
+# خودش) هیچ پیکسلِ صفر ندارد → dt=FLT_MAX و
+# همه رد میشد (کیسِ قابِ ۱۰۱۸)
                                 _pd2 = np.zeros(
                                     (_cp2.shape[0] + 2,
                                      _cp2.shape[1] + 2), np.uint8)
@@ -13863,9 +13824,9 @@ class _MangaTranslatorBody_85:
                 bh_ = int(st[i, cv2.CC_STAT_HEIGHT])
                 if not (bw_ >= int(min_len) or bh_ >= int(min_len)):
                     continue
-                # v1.14.48b: فقط در bbox کار کن — آرایهٔ کاملِ صفحه در هر
-                # کامپوننت (مخصوصاً distanceTransformِ float32) روی نوارِ
-                # بلند رم را می‌بلعد و OOM می‌آورد
+# فقط در bbox کار کن — آرایهٔ کاملِ صفحه در هر
+# کامپوننت (مخصوصاً distanceTransformِ float32) روی نوارِ
+# بلند رم را می‌بلعد و OOM می‌آورد
                 comp = (lab[by:by + bh_, bx:bx + bw_] == i)
                 on_poly = float(np.count_nonzero(
                     comp & (poly_all[by:by + bh_, bx:bx + bw_] > 0)))
@@ -13880,37 +13841,37 @@ class _MangaTranslatorBody_85:
                 if _thick > 14.0:
                     continue
                 out[by:by + bh_, bx:bx + bw_][comp] = 255
-            # v1.14.206j — «قابِ رنگیِ» حباب: خطِ نازکِ بلندِ «اشباعِ
-            # رنگی» (حبابِ ششضلعیِ سبزِ up0822) تیرهِ خالص نیست و از
-            # معیارِ dark جا میماند → داخلِ ماسکِ متن میفتد، donor
-            # پاکش میکند و قاب تکهتکه به خروجی میرود. همان شرطهایِ
-            # بلندی/نازکی/بیرونِ پالی رویِ کانالِ اشباع اعمال میشود؛
-            # متنِ رنگیِ خودِ ناحیه داخلِ پالیهاست و محافظت نمیشود و
-            # هالهٔ پهنِ گلو (v1.14.66) هم «نازک» نیست و رد میشود.
+# «قابِ رنگیِ» حباب: خطِ نازکِ بلندِ «اشباعِ
+# رنگی» (حبابِ ششضلعیِ سبزِ up0822) تیرهِ خالص نیست و از
+# معیارِ dark جا میماند → داخلِ ماسکِ متن میفتد، donor
+# پاکش میکند و قاب تکهتکه به خروجی میرود. همان شرطهایِ
+# بلندی/نازکی/بیرونِ پالی رویِ کانالِ اشباع اعمال میشود
+# متنِ رنگیِ خودِ ناحیه داخلِ پالیهاست و محافظت نمیشود و
+# هالهٔ پهنِ گلو  هم «نازک» نیست و رد میشود.
             _out_colj = np.zeros((h, w), dtype=np.uint8)
             try:
                 _hsvj = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-                # v1.14.206r — رسایِ ۶۰px: کمانهایِ قابِ دورِ متن (بالای
-                # حبابِ ششضلعی) از باندِ ۲۵px بیروناند و بدونِ آنها قاب
-                # خطچین میماند. بازپسگیریِ «اورجینال» در بدترین حالت
-                # یعنی اصلِ آنجا دستنخورده میماند — امن.
+# رسایِ ۶۰px: کمانهایِ قابِ دورِ متن (بالای
+# حبابِ ششضلعی) از باندِ ۲۵px بیروناند و بدونِ آنها قاب
+# خطچین میماند. بازپسگیریِ «اورجینال» در بدترین حالت
+# یعنی اصلِ آنجا دستنخورده میماند — امن.
                 _nearj = cv2.dilate(_raw_mask,
                                     np.ones((121, 121), np.uint8))
-                # S≥70: لبههایِ ضدآلیاسِ حرفِ رنگی-روی-زمینه (S=45..70)
-                # نباید واردِ map شوند وگرنه بازپسگیری، متنِ رنگی را
-                # برمیگرداند («l»یِ Alright در img6) — تقاطعهایِ قاب با
-                # حرف فدای متنِ تمیز میشوند.
+# S≥70: لبههایِ ضدآلیاسِ حرفِ رنگی-روی-زمینه (S=45..70)
+# نباید واردِ map شوند وگرنه بازپسگیری، متنِ رنگی را
+# برمیگرداند («l»یِ Alright در img6) — تقاطعهایِ قاب با
+# حرف فدای متنِ تمیز میشوند.
                 _colj = (((_hsvj[..., 1] >= 70)
                           & (_hsvj[..., 2] >= 60))
                          & _nearj).astype(np.uint8) * 255
-                # v1.14.206s — گسترشِ درامتدادِ خط: تکههایِ تقاطعِ قاب با
-                # حرف (S=45..70 — سبزِ تیرهشده رویِ جوهر) فقط اگر به
-                # خطِ تأییدشدهٔ قاب چسبیده باشند واردِ map میشوند؛ لبهٔ
-                # حرفِ دور از قاب («l»یِ Alright در img6) وسطِ حباب است
-                # و به قاب نمیرسد → متن پاک میماند.
+# گسترشِ درامتدادِ خط: تکههایِ تقاطعِ قاب با
+# حرف (S=45..70 — سبزِ تیرهشده رویِ جوهر) فقط اگر به
+# خطِ تأییدشدهٔ قاب چسبیده باشند واردِ map میشوند؛ لبهٔ
+# حرفِ دور از قاب («l»یِ Alright در img6) وسطِ حباب است
+# و به قاب نمیرسد → متن پاک میماند.
                 try:
-                    # فقط همرنگِ خطِ قاب (فاصلهٔ هیوئیِ سیرشارکی ≤۲۵) —
-                    # لبهٔ حرفِ قهوهایِ دور از قاب (img6) وصل نمیشود
+# فقط همرنگِ خطِ قاب (فاصلهٔ هیوئیِ سیرشارکی ≤۲۵) —
+# لبهٔ حرفِ قهوهایِ دور از قاب (img6) وصل نمیشود
                     _mhj = _hsvj[..., 0][_colj > 0]
                     if _mhj.size >= 30:
                         _medh = float(np.median(_mhj))
@@ -13929,8 +13890,8 @@ class _MangaTranslatorBody_85:
                     pass
                 _ncj, _lcj, _scj, _ = cv2.connectedComponentsWithStats(
                     _colj, 8)
-                # پالیِ «خام» — قابِ رنگی فقط لبهٔ پالی را میبُرد؛
-                # با poly_allِ گشادِ ۹ همهٔ تکهها on_poly میشدند
+# پالیِ «خام» — قابِ رنگی فقط لبهٔ پالی را میبُرد
+# با poly_allِ گشادِ ۹ همهٔ تکهها on_poly میشدند
                 _polyrawj = np.zeros((h, w), dtype=np.uint8)
                 for _rj in (regions or []):
                     for _pj in (getattr(_rj, "ocr_polys", None) or []):
@@ -13943,15 +13904,15 @@ class _MangaTranslatorBody_85:
                             cv2.fillPoly(
                                 _polyrawj,
                                 [np.rint(_ppj).astype(np.int32)], 255)
-                # v1.14.206l — قابِ حبابهایِ کوچک هم تکههایِ ریز دارد
-                # (حبابِ «HE'S KNOWN…» در up0822: ~۸۷px در کلِ قاب) →
-                # آستانه = همترازِ wall_band (۱۶px)
-                # v1.14.206q — تکههایِ قابِ رنگی خیلی ریزند (۲×۸px —
-                # JPEG + تقاطع با حرف它们 را میشکند) → گیتِ طول/مساحت/
-                # پالی حذف شد؛ فقط «نازکِ اشباعِ نزدیکِ متن» (dt≤۱۴)
-                # کافی است — رنگِ تختِ پهن (هالهٔ گلو/زمینه) «نازک»
-                # نیست و رد میشود؛ متنِ رنگیِ نازک هم restored میشود
-                # ولی متنِ رنگیِ نازک در دیالوگ نادر است.
+# قابِ حبابهایِ کوچک هم تکههایِ ریز دارد
+# (حبابِ «HE'S KNOWN…» در up0822: ~۸۷px در کلِ قاب) →
+# آستانه = همترازِ wall_band (۱۶px)
+# تکههایِ قابِ رنگی خیلی ریزند (۲×۸px —
+# JPEG + تقاطع با حرف它们 را میشکند) → گیتِ طول/مساحت/
+# پالی حذف شد؛ فقط «نازکِ اشباعِ نزدیکِ متن» (dt≤۱۴)
+# کافی است — رنگِ تختِ پهن (هالهٔ گلو/زمینه) «نازک»
+# نیست و رد میشود؛ متنِ رنگیِ نازک هم restored میشود
+# ولی متنِ رنگیِ نازک در دیالوگ نادر است.
                 for _ij in range(1, _ncj):
                     _aj = int(_scj[_ij, cv2.CC_STAT_AREA])
                     if _aj < 3:
@@ -13962,14 +13923,14 @@ class _MangaTranslatorBody_85:
                     _bhj = int(_scj[_ij, cv2.CC_STAT_HEIGHT])
                     _cpj = (_lcj[_byj:_byj + _bhj,
                                  _bxj:_bxj + _bwj] == _ij)
-                    # v1.14.207 — «قابِ رنگی» نباید خودِ حروفِ رنگی را
-                    # ببلعد: متنِ بنفشِ اشباعِ درشتِ img6 (S≥۷۰ و «نازکِ»
-                    # ≤۱۴px!) ۱۲هزارpx حرف را داخلِ map برد → کامپوزِ
-                    # دو-عکسی آن حرفها را از خروجی حذف کرد = «متنِ قبلی
-                    # جا میماند». کامپوننتِ بزرگِ «عمدتاً داخلِ پالیِ
-                    # OCR» = حرف است نه قاب (قابِ حباب عمدتاً بیرونِ
-                    # پالیست) → رد. تکههایِ ریزِ تقاطعِ قاب/حرف
-                    # (۲×۸px — v1.14.206q) بدونِ گیت میمانند.
+# «قابِ رنگی» نباید خودِ حروفِ رنگی را
+# ببلعد: متنِ بنفشِ اشباعِ درشتِ img6 (S≥۷۰ و «نازکِ»
+# ≤۱۴px!) ۱۲هزارpx حرف را داخلِ map برد → کامپوزِ
+# دو-عکسی آن حرفها را از خروجی حذف کرد = «متنِ قبلی
+# جا میماند». کامپوننتِ بزرگِ «عمدتاً داخلِ پالیِ
+# OCR» = حرف است نه قاب (قابِ حباب عمدتاً بیرونِ
+# پالیست) → رد. تکههایِ ریزِ تقاطعِ قاب/حرف
+# (۲×۸px — ) بدونِ گیت میمانند.
                     if _aj >= 24:
                         try:
                             _onpj = float(np.count_nonzero(
@@ -13986,7 +13947,7 @@ class _MangaTranslatorBody_85:
                             continue
                     except Exception:
                         pass
-                    # فقط نقشهٔ «قابِ رنگی» — protectِ تیره دستنخورده
+# فقط نقشهٔ «قابِ رنگی» — protectِ تیره دستنخورده
                     _out_colj[_byj:_byj + _bhj,
                               _bxj:_bxj + _bwj][_cpj] = 255
             except Exception:
@@ -13994,25 +13955,25 @@ class _MangaTranslatorBody_85:
                     import traceback as _tb206j
                     print("  [!]قفلِ قابِ رنگی خطا:", flush=True)
                     _tb206j.print_exc()
-            # v1.14.206n — نقشهٔ «فقطِ قابِ رنگی» جدا نگه داشته میشود تا
-            # _expand_donor_text_strips فقط قابِ رنگی را در donor آزاد
-            # کند (رنگِ قاب واردِ پرِ متن نشود) — دیوارِ تیره مثلِ قبل.
+# نقشهٔ «فقطِ قابِ رنگی» جدا نگه داشته میشود تا
+# _expand_donor_text_strips فقط قابِ رنگی را در donor آزاد
+# کند (رنگِ قاب واردِ پرِ متن نشود) — دیوارِ تیره مثلِ قبل.
             self._page_colored_protect = _out_colj \
                 if int(np.count_nonzero(_out_colj)) else None
-            # v1.14.212 — نقشهٔ «روکشِ حاشیه‌نویسیِ ورودی» (up0822):
-            # اسکرینشاتهایی که از اپهایِ ترجمهٔ دیگر میآیند یک لایهٔ
-            # حاشیه‌نویسی «چسبیده به متن» دارند — قابِ ششضلعیِ سبزِ
-            # اشباع + شستشویِ نیمه‌شفافِ سبز رویِ کلِ بلوکِ متن. قانونِ
-            # 206j/n این قاب را از پاکسازی و کامپوز «محرمانه» میکند تا
-            # رنگش واردِ پر نشود → نتیجه: قابِ سبز + شستشو در خروجیِ
-            # نهایی زنده میماند = «هرنگی لگه بشه قبول نمیکنم».
-            # تشخیصِ ایمن (فقط حالتِ قطعی): حلقهٔ اطرافِ بلوکِ متن
-            # «تقریباً خنثیِ یکنواخت» باشد (سفید/خاکستریِ حباب —
-            # std≤۳۴ و S≤۳۰) و داخلِ هالِ پالیها پیکسلِ «رنگیِ»
-            # (S≥۲۴) بهاندازهٔ کافی باشد (≥۵٪ هال) → کلِ آن ناحیهٔ
-            # رنگی مثلِ خودِ متن پاک و منتقل میشود؛ LaMa با حلقهٔ
-            # سفیدِ دورش سفیدِ تمیز پر میکند. حبابِ رنگی (زردِ img6)
-            # و آسمانِ اشباعِ وبتون → حلقه S بالاست → رد (بی‌خطر).
+# نقشهٔ «روکشِ حاشیه‌نویسیِ ورودی» (up0822):
+# اسکرینشاتهایی که از اپهایِ ترجمهٔ دیگر میآیند یک لایهٔ
+# حاشیه‌نویسی «چسبیده به متن» دارند — قابِ ششضلعیِ سبزِ
+# اشباع + شستشویِ نیمه‌شفافِ سبز رویِ کلِ بلوکِ متن. قانونِ
+# 206j/n این قاب را از پاکسازی و کامپوز «محرمانه» میکند تا
+# رنگش واردِ پر نشود → نتیجه: قابِ سبز + شستشو در خروجیِ
+# نهایی زنده میماند = «هرنگی لگه بشه قبول نمیکنم».
+# تشخیصِ ایمن (فقط حالتِ قطعی): حلقهٔ اطرافِ بلوکِ متن
+# «تقریباً خنثیِ یکنواخت» باشد (سفید/خاکستریِ حباب —
+# std≤۳۴ و S≤۳۰) و داخلِ هالِ پالیها پیکسلِ «رنگیِ»
+# (S≥۲۴) بهاندازهٔ کافی باشد (≥۵٪ هال) → کلِ آن ناحیهٔ
+# رنگی مثلِ خودِ متن پاک و منتقل میشود؛ LaMa با حلقهٔ
+# سفیدِ دورش سفیدِ تمیز پر میکند. حبابِ رنگی (زردِ img6)
+# و آسمانِ اشباعِ وبتون → حلقه S بالاست → رد (بی‌خطر).
             try:
                 _anl = np.zeros((h, w), dtype=np.uint8)
                 _flat212m = np.zeros((h, w), dtype=np.uint8)
@@ -14039,7 +14000,7 @@ class _MangaTranslatorBody_85:
                             continue
                         _rx, _ry, _rw2, _rh2 = \
                             [int(v) for v in _rg_an.rect]
-                        # هالِ پالیهایِ این ناحیه + ۱۲px = قلمروِ روکش
+# هالِ پالیهایِ این ناحیه + ۱۲px = قلمروِ روکش
                         _hz = np.zeros((h, w), dtype=np.uint8)
                         try:
                             _hull_cv = cv2.convexHull(
@@ -14055,25 +14016,25 @@ class _MangaTranslatorBody_85:
                         _hz_raw = _hz.copy()
                         _hz = cv2.dilate(
                             _hz, np.ones((25, 25), np.uint8))
-                        # v1.14.212d — «شکاف»: باندِ ۶..۲۷px دورِ متنِ خام =
-                        # درونِ روکش (بینِ متن و قاب). حبابِ سفیدِ واقعی:
-                        # شکاف = سفیدِ تخت. روکش رویِ هنر (پنلِ راستِ
-                        # up0822): شکاف = پوست/بافت — حلقهٔ بیرونی به
-                        # حاشیهٔ سفیدِ صفحه می‌رسد و غلط می‌شد.
+# «شکاف»: باندِ ۶..۲۷px دورِ متنِ خام =
+# درونِ روکش (بینِ متن و قاب). حبابِ سفیدِ واقعی:
+# شکاف = سفیدِ تخت. روکش رویِ هنر (پنلِ راستِ
+# up0822): شکاف = پوست/بافت — حلقهٔ بیرونی به
+# حاشیهٔ سفیدِ صفحه می‌رسد و غلط می‌شد.
                         _gap = cv2.subtract(
                             cv2.dilate(_hz_raw, np.ones((55, 55),
                                                         np.uint8)),
                             cv2.dilate(_hz_raw, np.ones((13, 13),
                                                         np.uint8)))
-                        # حلقه = باندِ ~۳۰px دورِ هال (منهایِ خودِ هال)
-                        # — مستطیلِ ناحیه خودش میتواند هماندازهٔ روکش باشد
-                        # (تشخیصِ حباب، هگزاگونِ حاشیه‌نویسی را میبوسد)
-                        # پس حلقهٔ «rect+16 منهایِ هال» خالی میشد.
+# حلقه = باندِ ~۳۰px دورِ هال (منهایِ خودِ هال)
+# مستطیلِ ناحیه خودش میتواند هماندازهٔ روکش باشد
+# (تشخیصِ حباب، هگزاگونِ حاشیه‌نویسی را میبوسد)
+# پس حلقهٔ «rect+16 منهایِ هال» خالی میشد.
                         _rz = cv2.subtract(
                             cv2.dilate(_hz, np.ones((89, 89), np.uint8)),
                             cv2.dilate(_hz, np.ones((31, 31), np.uint8)))
-                        # محدود به حوالیِ ناحیه (نه فراتر از ۶۰px بیرونِ
-                        # مستطیلِ ناحیه — دور از هنرِ بی‌ربط)
+# محدود به حوالیِ ناحیه (نه فراتر از ۶۰px بیرونِ
+# مستطیلِ ناحیه — دور از هنرِ بی‌ربط)
                         _cl = np.zeros((h, w), dtype=np.uint8)
                         _cl[max(0, _ry - 60):min(h, _ry + _rh2 + 60),
                                max(0, _rx - 60):
@@ -14082,16 +14043,16 @@ class _MangaTranslatorBody_85:
                         _n_rz = int(np.count_nonzero(_rz))
                         if _n_rz < 400:
                             continue
-                        # v1.14.212f — «شاهدِ سبز»: جوهرِ رنگیِ داخلِ هال اگر
-                        # عمدتاً سبزفام باشد (هیویِ ۳۵..۸۵ — رنگِ کلاسیکِ
-                        # هایلایتِ اپهایِ ترجمه)، خودش گواهِ روکش است و
-                        # گاردهایِ حلقه (که پنلِ شلوغ را رد میکنند — ناحیهٔ
-                        # «ONE CLEAN RIGHT HOOK» در up0822 با rstd=۹۰ از
-                        # فیلتر میافتاد) دور زده میشوند. متنِ واقعیِ کمیک
-                        # سبزِ خالص نیست؛ قابِ حاشیه‌نویسی هست.
-                        # نکتهٔ S≥۶۰: fringeیِ JPEG دورِ متنِ سفید-روی-
-                        # مشکی (lang_ko — S=۲۴..۶۰) شاهد نیست؛ فقط قلبِ
-                        # اشباعِ قاب.
+# «شاهدِ سبز»: جوهرِ رنگیِ داخلِ هال اگر
+# عمدتاً سبزفام باشد (هیویِ ۳۵..۸۵ — رنگِ کلاسیکِ
+# هایلایتِ اپهایِ ترجمه)، خودش گواهِ روکش است و
+# گاردهایِ حلقه (که پنلِ شلوغ را رد میکنند — ناحیهٔ
+# «ONE CLEAN RIGHT HOOK» در up0822 با rstd=۹۰ از
+# فیلتر میافتاد) دور زده میشوند. متنِ واقعیِ کمیک
+# سبزِ خالص نیست؛ قابِ حاشیه‌نویسی هست.
+# نکتهٔ S≥۶۰: fringeیِ JPEG دورِ متنِ سفید-روی-
+# مشکی (lang_ko — S=۲۴..۶۰) شاهد نیست؛ فقط قلبِ
+# اشباعِ قاب.
                         try:
                             _cin = (_hz > 0) \
                                 & (_hsv_an[..., 1] >= 60) \
@@ -14109,11 +14070,11 @@ class _MangaTranslatorBody_85:
                         except Exception:
                             _gproof = False
                         if not _gproof:
-                            # v1.14.212b — حلقه فقط «روشنِ» خودش را نشانِ
-                            # زمینه میدهد: باندِ دورِ بلوک، دیوارِ تیرهٔ
-                            # حباب/هنر هم دارد (rstd تا ۱۰۰ رویِ up0822)؛
-                            # زمینهٔ واقعی = پیکسلهایِ «روشنِ کم‌اشباعِ»
-                            # حلقه (کاغذ/داخلِ حبابِ سفید).
+# حلقه فقط «روشنِ» خودش را نشانِ
+# زمینه میدهد: باندِ دورِ بلوک، دیوارِ تیرهٔ
+# حباب/هنر هم دارد (rstd تا ۱۰۰ رویِ up0822)
+# زمینهٔ واقعی = پیکسلهایِ «روشنِ کم‌اشباعِ»
+# حلقه (کاغذ/داخلِ حبابِ سفید).
                             _rzpx = _rz > 0
                             _rv_an = _hsv_an[..., 2][_rzpx]
                             _rs_an = _hsv_an[..., 1][_rzpx]
@@ -14131,13 +14092,13 @@ class _MangaTranslatorBody_85:
                             _rsv = _hsv_an[_rzpx][_br]
                             if float(np.median(_rsv[:, 1])) > 30.0:
                                 continue  # حلقهٔ رنگی (زرد/آسمان) — رد
-                        # v1.14.212d — «سفیدِ تختِ واقعی» از «شکافِ درونِ
-                        # روکش» سنجیده میشود (نه حلقهٔ بیرونی که تا
-                        # حاشیهٔ سفیدِ صفحه می‌رسد): شکافِ «تختِ سفیدِ
-                        # بی‌بافت» = حبابِ سفیدِ واقعی → پرِ تختِ سفید.
-                        # شکافِ هنری حتی وقتی شستشویِ سبز آن را کم‌اشباعِ
-                        # روشن کرده، «بافت» دارد (هاشور/اسکرین‌تون —
-                        # انرژیِ فرکانسِ بالا) → LaMa (پنلِ راستِ up0822).
+# «سفیدِ تختِ واقعی» از «شکافِ درونِ
+# روکش» سنجیده میشود (نه حلقهٔ بیرونی که تا
+# حاشیهٔ سفیدِ صفحه می‌رسد): شکافِ «تختِ سفیدِ
+# بی‌بافت» = حبابِ سفیدِ واقعی → پرِ تختِ سفید.
+# شکافِ هنری حتی وقتی شستشویِ سبز آن را کم‌اشباعِ
+# روشن کرده، «بافت» دارد (هاشور/اسکرین‌تون —
+# انرژیِ فرکانسِ بالا) → LaMa (پنلِ راستِ up0822).
                         try:
                             _gpx = _gap > 0
                             _gv = _hsv_an[..., 2][_gpx]
@@ -14181,15 +14142,15 @@ class _MangaTranslatorBody_85:
                                       flush=True)
                             except Exception:
                                 pass
-                        # پیکسلهایِ رنگیِ داخلِ هال = روکشِ حاشیه‌نویسی
+# پیکسلهایِ رنگیِ داخلِ هال = روکشِ حاشیه‌نویسی
                         _col_an = ((_hsv_an[..., 1] >= 24)
                                    & (_hsv_an[..., 2] >= 60))
                         _ov = ((_hz > 0) & _col_an)
                         _n_ov = int(np.count_nonzero(_ov))
-                        # v1.14.212f — حضور = رنگِ فراوان (S≥۲۴ — شستشو)
-                        # + «قابِ سبزِ اشباع» (S≥۶۰، هیویِ سبزِ ۴۰..۸۰،
-                        # ≥۱۵۰px): fringeیِ JPEG (lang_ko — هیویِ آبیِ
-                        # ۱۰۰..۱۲۰) و متنِ آبی-خاکستری قابِ سبز ندارند.
+# حضور = رنگِ فراوان (S≥۲۴ — شستشو)
+# + «قابِ سبزِ اشباع» (S≥۶۰، هیویِ سبزِ ۴۰..۸۰
+# ≥۱۵۰px): fringeیِ JPEG (lang_ko — هیویِ آبیِ
+# ۱۰۰..۱۲۰) و متنِ آبی-خاکستری قابِ سبز ندارند.
                         _n = 0
                         try:
                             _hue = _hsv_an[..., 0].astype(np.int32)
@@ -14204,12 +14165,12 @@ class _MangaTranslatorBody_85:
                                 np.count_nonzero(_hz)))) \
                                 or _n < 150:
                             continue
-                        # v1.14.212e — ناحیهٔ روکش = هالِ متن + ۲۵px
-                        # (داخلِ جعبه) ∪ کمانهایِ نازکِ رنگیِ قاب تا
-                        # ~۸۱px (محدود به مستطیلِ ناحیه + ۲۴px). جعبهٔ
-                        # حاشیه‌نویسی خودش «جعبهٔ سفید» است — پرِ تختِ
-                        # سفیدِ همانِ داخلِ جعبه (شکاف) درست است؛ هنرِ
-                        # پشتِ جعبه اساساً در اورجینال هم پنهان است.
+# ناحیهٔ روکش = هالِ متن + ۲۵px
+# (داخلِ جعبه) ∪ کمانهایِ نازکِ رنگیِ قاب تا
+# ~۸۱px (محدود به مستطیلِ ناحیه + ۲۴px). جعبهٔ
+# حاشیه‌نویسی خودش «جعبهٔ سفید» است — پرِ تختِ
+# سفیدِ همانِ داخلِ جعبه (شکاف) درست است؛ هنرِ
+# پشتِ جعبه اساساً در اورجینال هم پنهان است.
                         _ov = (_hz > 0)
                         try:
                             _clb = np.zeros((h, w), dtype=np.uint8)
@@ -14242,31 +14203,31 @@ class _MangaTranslatorBody_85:
                                     except Exception:
                                         continue
                                     _thin |= _cm
-                                # حاشیهٔ آنتیآلیاسِ قاب (سبزِ کماشباعِ
-                                # S<۲۴ زیرِ آستانه میماند = ردِ کم‌رنگ)
-                                # → ۳px دیلیت دورِ هر کمان
+# حاشیهٔ آنتیآلیاسِ قاب (سبزِ کماشباعِ
+# S<۲۴ زیرِ آستانه میماند = ردِ کم‌رنگ)
+# → ۳px دیلیت دورِ هر کمان
                                 _thin = cv2.dilate(
                                     _thin.astype(np.uint8),
                                     np.ones((7, 7), np.uint8)) > 0
                                 _ov = _ov | _thin
                         except Exception:
                             pass
-                        # دیوار/ساختارِ تیره (protect) هرگز پاک نشود
+# دیوار/ساختارِ تیره (protect) هرگز پاک نشود
                         _ov = _ov & (out == 0)
                         _n_ov = int(np.count_nonzero(_ov))
                         if _n_ov < 400:
                             continue
                         _anl[_ov] = 255
-                        # رنگِ پر = میانهٔ پیکسلهایِ «روشنِ» حلقه — فقط
-                        # برایِ نواحیِ «سفیدِ تختِ واقعی»؛ نواحیِ هنری از
-                        # donor (LaMa) می‌گیرند. LaMa رویِ ناحیهٔ شسته‌شده
-                        # خودش شستشو را زمینه میپندارد و سبز میسازد؛ پرِ
-                        # تختِ حلقه چون حلقه تخت است درست است (عینِ 133).
+# رنگِ پر = میانهٔ پیکسلهایِ «روشنِ» حلقه — فقط
+# برایِ نواحیِ «سفیدِ تختِ واقعی»؛ نواحیِ هنری از
+# donor (LaMa) می‌گیرند. LaMa رویِ ناحیهٔ شسته‌شده
+# خودش شستشو را زمینه میپندارد و سبز میسازد؛ پرِ
+# تختِ حلقه چون حلقه تخت است درست است (عینِ 133).
                         if _whiteflat:
                             _flat212m[_ov] = 255
-                            # رنگِ پر = میانهٔ «سفیدِ شکاف» (داخلِ جعبه) —
-                            # جعبهٔ حاشیه‌نویسی خودش سفید است؛ حلقهٔ بیرونی
-                            # ممکن است هنر/خاکستری باشد (پنلِ راست = 224).
+# رنگِ پر = میانهٔ «سفیدِ شکاف» (داخلِ جعبه) —
+# جعبهٔ حاشیه‌نویسی خودش سفید است؛ حلقهٔ بیرونی
+# ممکن است هنر/خاکستری باشد (پنلِ راست = 224).
                             try:
                                 _fc = np.median(
                                     image[_gpx][_gb], axis=0)
@@ -14306,10 +14267,10 @@ class _MangaTranslatorBody_85:
                 self._page_annotation_overlay = None
                 self._page_annotation_flat = None
                 self._page_annotation_fill = None
-            # v1.14.65 — بنرِ تبلیغ هرگز protect نمی‌شود: سایه/لبهٔ تیرهٔ بنر
-            # «ساختارِ نازکِ تیره» حساب می‌شد → از ماسکِ LaMa کم می‌شد →
-            # بنفشِ بنر در ورودیِ مدل می‌ماند و خروجیِ «صورتی/بنفشِ خیالی»
-            # می‌ساخت (بازتولیدِ سندباکس: بنرِ ASURASCANS.COM)
+# بنرِ تبلیغ هرگز protect نمی‌شود: سایه/لبهٔ تیرهٔ بنر
+# «ساختارِ نازکِ تیره» حساب می‌شد → از ماسکِ LaMa کم می‌شد →
+# بنفشِ بنر در ورودیِ مدل می‌ماند و خروجیِ «صورتی/بنفشِ خیالی»
+# می‌ساخت (بازتولیدِ سندباکس: بنرِ ASURASCANS.COM)
             for _pbP in (getattr(self, "_promo_rect_boxes", None) or []):
                 try:
                     _qx0 = max(0, int(_pbP[0]))
@@ -14340,16 +14301,16 @@ class _MangaTranslatorBody_85:
     @staticmethod
     def _expand_promo_rect(image: np.ndarray,
                            rx0: int, ry0: int, rx1: int, ry1: int):
-        """v1.14.65 — بنرِ تبلیغ تقریباً همیشه بزرگ‌تر از باکسِ OCR است:
+        """ — بنرِ تبلیغ تقریباً همیشه بزرگ‌تر از باکسِ OCR است:
         قابِ سفید، سایه، و ماسکوت/لوگویِ کنارِ متن (نمونهٔ ASURASCANS.COM:
         لوگو تا ۲۹px بیرونِ باکسِ OCR). پدِ ثابت برایِ قاب/سایه + رشدِ
         hue-محور برایِ لوگویِ رنگیِ چسبیده. طبقِ سبکِ کاربر «حباب خراب شه
         یا بیشتر پاک شه اشکال نداره» — رشد محتاطانه ولی کامل."""
         try:
             h, w = image.shape[:2]
-            # پدِ ثابتِ سخاوتمندانه: قابِ سفید (±)، سایه، و ماسکوتِ کِرمِ
-            # کنارِ بنر (ماسکوتِ ASURA «کرم» است — hue‌اش با زمینهٔ بژ
-            # یکسان است و با hue پیدا نمی‌شود؛ نمونه: تا +۲۹px بیرونِ OCR)
+# پدِ ثابتِ سخاوتمندانه: قابِ سفید (±)، سایه، و ماسکوتِ کِرمِ
+# کنارِ بنر (ماسکوتِ ASURA «کرم» است — hue‌اش با زمینهٔ بژ
+# یکسان است و با hue پیدا نمی‌شود؛ نمونه: تا +۲۹px بیرونِ OCR)
             rx0 = max(0, int(rx0) - 22)
             ry0 = max(0, int(ry0) - 14)
             rx1 = min(w, int(rx1) + 30)
@@ -14384,7 +14345,7 @@ class _MangaTranslatorBody_85:
     def _bubble_interior_sweep(self, image: np.ndarray,
                                cleaned: np.ndarray,
                                regions: List["TextRegion"]) -> int:
-        """v1.14.48 — جاروی لکه‌هایِ محوِ داخلِ حباب‌هایِ سفیدِ تمیز.
+        """ — جاروی لکه‌هایِ محوِ داخلِ حباب‌هایِ سفیدِ تمیز.
         بعد از پاکسازی، هالهٔ خاکستریِ محو (halo حروف/JPEG) داخلِ حباب
         می‌ماند — نمونه‌هایِ واقعیِ صفحهٔ TIME BOMB: «BUT I LIKE IT HERE.»
         (لکهٔ وسطِ حباب)، «MR. JUN~» (نقطهٔ خاکستری)، «GUARD» (سایهٔ
@@ -14410,10 +14371,10 @@ class _MangaTranslatorBody_85:
             x1, y1 = min(w, x + rw + M), min(h, y + rh + M)
             if x1 - x0 < 32 or y1 - y0 < 32:
                 continue
-            # v1.14.48c: ناحیهٔ عظیم (بنر/پروموی تمام‌صفحه در نوارِ بلند)
-            # → کراپِ چند ده مگاپیکسلی و انفجارِ رم (OOM) → رد.
-            # سقفِ ۱۵۰K px حباب‌هایِ معمولی را پوشش می‌دهد؛ نوارهایِ عریضِ
-            # پرومو/راوی که حبابِ سفیدِ یکدست نیستند رد می‌شوند
+# ناحیهٔ عظیم (بنر/پروموی تمام‌صفحه در نوارِ بلند)
+# → کراپِ چند ده مگاپیکسلی و انفجارِ رم (OOM) → رد.
+# سقفِ ۱۵۰K px حباب‌هایِ معمولی را پوشش می‌دهد؛ نوارهایِ عریضِ
+# پرومو/راوی که حبابِ سفیدِ یکدست نیستند رد می‌شوند
             if (x1 - x0) * (y1 - y0) > 150_000:
                 continue
             oc = image[y0:y1, x0:x1]
@@ -14424,7 +14385,7 @@ class _MangaTranslatorBody_85:
                 g = cv2.cvtColor(oc, cv2.COLOR_BGR2GRAY)
                 gc = cv2.cvtColor(cc, cv2.COLOR_BGR2GRAY)
                 hsv = cv2.cvtColor(cc, cv2.COLOR_BGR2HSV)
-                # بذر = جوهرِ متنِ اصلی (برای پیدا کردنِ اینتریورِ حباب)
+# بذر = جوهرِ متنِ اصلی (برای پیدا کردنِ اینتریورِ حباب)
                 med_o = float(np.median(g))
                 zone = ((g < med_o - 60.0) | (g > min(255.0, med_o + 60.0))
                         ).astype(np.uint8) * 255
@@ -14433,11 +14394,11 @@ class _MangaTranslatorBody_85:
                 interior = self._bubble_interior_mask(g, zone, erode_iters=0)
                 if interior is None or int(cv2.countNonZero(interior)) == 0:
                     continue
-                # v1.14.48b: اینتریور نباید از دیوار نشت کرده باشد — protect
-                # (دیوار/کادر) را از اینتریور کم کن و فقط بزرگ‌ترین جزیرهٔ
-                # باقی‌مانده (داخلِ واقعیِ حباب) را نگه دار؛ وگرنه سویپ روی
-                # هنرِ بیرونِ حباب (گونه/مویِ کنارِ دیوار) بلاب می‌بیند و
-                # TELEA روی صورت لکه می‌سازد
+# اینتریور نباید از دیوار نشت کرده باشد — protect
+# (دیوار/کادر) را از اینتریور کم کن و فقط بزرگ‌ترین جزیرهٔ
+# باقی‌مانده (داخلِ واقعیِ حباب) را نگه دار؛ وگرنه سویپ روی
+# هنرِ بیرونِ حباب (گونه/مویِ کنارِ دیوار) بلاب می‌بیند و
+# TELEA روی صورت لکه می‌سازد
                 _pp0 = getattr(self, "_page_protect", None)
                 if _pp0 is not None:
                     try:
@@ -14461,10 +14422,10 @@ class _MangaTranslatorBody_85:
                 _fa = float(cv2.countNonZero(interior))
                 if not (0.10 * _area <= _fa <= 0.94 * _area):
                     continue
-                # v1.14.49 — چکِ نشت: اینتریورِ واقعیِ حباب هیچ‌وقت به لبهٔ
-                # کراپ (rect+۳۰px) نمی‌رسد؛ اگر برسد یعنی از شکافِ JPEGِ دیوار
-                # به پنلِ بیرونی نشته (پنلِ سفید همه‌جا متصله) → سویپ دیوار و
-                # هنر را می‌خورد (حبابِ «YOU'RE LEAVING…» که کلاً خراب شد)
+# چکِ نشت: اینتریورِ واقعیِ حباب هیچ‌وقت به لبهٔ
+# کراپ (rect+۳۰px) نمی‌رسد؛ اگر برسد یعنی از شکافِ JPEGِ دیوار
+# به پنلِ بیرونی نشته (پنلِ سفید همه‌جا متصله) → سویپ دیوار و
+# هنر را می‌خورد (حبابِ «YOU'RE LEAVING…» که کلاً خراب شد)
                 try:
                     _touch = (int(np.count_nonzero(interior[0, :]))
                               + int(np.count_nonzero(interior[-1, :]))
@@ -14474,7 +14435,7 @@ class _MangaTranslatorBody_85:
                         continue
                 except Exception:
                     pass
-                # دیوارِ معتبر: حلقهٔ دورِ اینتریور باید تیره‌تر باشد
+# دیوارِ معتبر: حلقهٔ دورِ اینتریور باید تیره‌تر باشد
                 _ring = cv2.dilate(interior, np.ones((5, 5), np.uint8))
                 _ring = (_ring > 0) & (interior == 0)
                 if int(np.count_nonzero(_ring)) < 30:
@@ -14482,17 +14443,17 @@ class _MangaTranslatorBody_85:
                 if float(np.median(g[_ring])) > float(
                         np.median(g[interior > 0])) - 40.0:
                     continue
-                # اینتریورِ یکدستِ روشن (حبابِ سفیدِ تمیز)؟
-                # v1.14.48b: فرسایشِ ۷px — با erode_iters=0 اینتریور از
-                # شکافِ ریزِ دیوار (JPEG) به بیرون نشت می‌کند و خودِ دیوار
-                # داخلِ اینتریور می‌افتد → سویپ دیوار را «بلاب» می‌خواند و
-                # می‌خورد (دقیقاً همان لکه‌محوییِ باقی‌مانده روی دیوار)
+# اینتریورِ یکدستِ روشن (حبابِ سفیدِ تمیز)؟
+# فرسایشِ ۷px — با erode_iters=0 اینتریور از
+# شکافِ ریزِ دیوار (JPEG) به بیرون نشت می‌کند و خودِ دیوار
+# داخلِ اینتریور می‌افتد → سویپ دیوار را «بلاب» می‌خواند و
+# می‌خورد (دقیقاً همان لکه‌محوییِ باقی‌مانده روی دیوار)
                 _int_e = cv2.erode(interior, np.ones((7, 7), np.uint8))
                 if int(cv2.countNonZero(_int_e)) < 400:
                     continue
-                # v1.14.49: نوارِ امن — فقط پیکسل‌هایِ حداقل ~۹px داخلِ اینتریور
-                # مجاز به بلاب/پولیش‌اند؛ بلابِ چسبیده‌به-دیوار = دیوارِ
-                # فرسوده/سایهٔ دیوار است نه هالهٔ متن
+# نوارِ امن — فقط پیکسل‌هایِ حداقل ~۹px داخلِ اینتریور
+# مجاز به بلاب/پولیش‌اند؛ بلابِ چسبیده‌به-دیوار = دیوارِ
+# فرسوده/سایهٔ دیوار است نه هالهٔ متن
                 _edge_safe = cv2.erode(interior, np.ones((19, 19), np.uint8))
                 if int(cv2.countNonZero(_edge_safe)) < 200:
                     continue
@@ -14501,12 +14462,12 @@ class _MangaTranslatorBody_85:
                     continue
                 if float((gc[_int_e > 0] >= med_c - 30.0).mean()) < 0.90:
                     continue
-                # نزدیکی به جوهرِ اصلی (هالوی حروف) — نقاشیِ دور از متن
-                # هرگز جارو نمی‌شود
+# نزدیکی به جوهرِ اصلی (هالوی حروف) — نقاشیِ دور از متن
+# هرگز جارو نمی‌شود
                 _ink_d = cv2.dilate(zone, np.ones((17, 17), np.uint8)) > 0
-                # v1.14.48b: سقفِ مکانی — بلاب‌ها فقط تا ~۱۲px بیرونِ مستطیلِ
-                # متنِ خودِ ناحیه. اینتریورِ نشتی از شکافِ دیوار (که protect
-                # هم آنجا سوراخ است) نمی‌تواند به گونه/مویِ بیرونِ حباب برسد
+# سقفِ مکانی — بلاب‌ها فقط تا ~۱۲px بیرونِ مستطیلِ
+# متنِ خودِ ناحیه. اینتریورِ نشتی از شکافِ دیوار (که protect
+# هم آنجا سوراخ است) نمی‌تواند به گونه/مویِ بیرونِ حباب برسد
                 try:
                     _rb = np.zeros_like(_int_e)
                     _ry0, _rx0 = max(0, y - y0), max(0, x - x0)
@@ -14517,7 +14478,7 @@ class _MangaTranslatorBody_85:
                     _rb_band = (_rb > 0)
                 except Exception:
                     _rb_band = None
-                # بلاب‌هایِ محو: تیره‌تر از زمینهٔ تمیز یا رنگیِ کم‌اشباع
+# بلاب‌هایِ محو: تیره‌تر از زمینهٔ تمیز یا رنگیِ کم‌اشباع
                 _dist = np.abs(
                     cc.astype(np.int16)
                     - np.array([med_c, med_c, med_c], dtype=np.int16)
@@ -14526,14 +14487,14 @@ class _MangaTranslatorBody_85:
                           & _ink_d).astype(np.uint8) * 255
                 _blobs |= ((_int_e > 0) & (_dist > 30) & _ink_d
                            & (hsv[..., 1] < 60)).astype(np.uint8) * 255
-                # v1.14.48b: هالهٔ خیلی محو (ارواحِ بازسازیِ LaMa / JPEG halo)
-                # فقط در همسایگیِ ۲۵px جوهرِ متنِ اصلی — آستانهٔ ملایم‌تر
+# هالهٔ خیلی محو (ارواحِ بازسازیِ LaMa / JPEG halo)
+# فقط در همسایگیِ ۲۵px جوهرِ متنِ اصلی — آستانهٔ ملایم‌تر
                 try:
                     _blobs |= (((_int_e > 0) & (gc < med_c - 16.0) & _ink_d)
                                .astype(np.uint8) * 255)
                 except Exception:
                     pass
-                # v1.14.48b: ساختارِ محافظت‌شده (دیوار/کادر) هرگز بلاب نیست
+# ساختارِ محافظت‌شده (دیوار/کادر) هرگز بلاب نیست
                 _pp2 = getattr(self, "_page_protect", None)
                 if _pp2 is not None:
                     try:
@@ -14542,7 +14503,7 @@ class _MangaTranslatorBody_85:
                         pass
                 if _rb_band is not None:
                     _blobs[~_rb_band] = 0
-                # v1.14.49: بلابِ نزدیکِ دیوار هرگز (TELEA دیوار را می‌خورد)
+# بلابِ نزدیکِ دیوار هرگز (TELEA دیوار را می‌خورد)
                 try:
                     _blobs[_edge_safe == 0] = 0
                 except Exception:
@@ -14566,11 +14527,11 @@ class _MangaTranslatorBody_85:
                         _fix_m = cv2.bitwise_and(_fix_m, _int_e)
                         if int(cv2.countNonZero(_fix_m)) < 10:
                             _fix_m = None
-                # v1.14.48b: پولیشِ سفید — موتیلینگِ محوِ بازسازیِ LaMa داخلِ
-                # حبابِ یکدست (ارواحِ خاکستریِ چرخانی) به رنگِ زمینه نرم شود
-                # v1.14.49: پولیش فقط در همسایگیِ جوهرِ متنِ قبلی — نه کلِ
-                # داخلِ حباب (سایه/گرادیانِ ملایمِ قانونیِ حباب نباید تخت
-                # شود — «بعضی حباب‌ها یک کم دست خورده»)
+# پولیشِ سفید — موتیلینگِ محوِ بازسازیِ LaMa داخلِ
+# حبابِ یکدست (ارواحِ خاکستریِ چرخانی) به رنگِ زمینه نرم شود
+# پولیش فقط در همسایگیِ جوهرِ متنِ قبلی — نه کلِ
+# داخلِ حباب (سایه/گرادیانِ ملایمِ قانونیِ حباب نباید تخت
+# شود — «بعضی حباب‌ها یک کم دست خورده»)
                 _polish = None
                 try:
                     _mott = ((_int_e > 0) & (gc < med_c - 7.0)
@@ -14604,17 +14565,17 @@ class _MangaTranslatorBody_85:
                 continue
         return n_fix
 
-    # v1.14.105 — وارسیِ نهاییِ ضدِ خرابیِ EP — یک‌بار برای کلِ صفحه،
-    # درست قبل از خروجِ clean_image. چرا آخرِ کار و نه بعد از هر باکس:
-    # ۱) وسطِ پایپ‌لاین، منطق‌هایِ بعدی (LFCM، ردِ گروهِ LaMa، سویپِ
-    #    باقی‌مانده، پرِ دونورِ بلوکِ تیره) هنوز کارشان تمام نشده و
-    #    وارسیِ میان‌راهی هم‌پوشانی/تناقض می‌سازد (تریگرهایِ کاذبِ 01)؛
-    # ۲) هر ترمیمِ میان‌راهی یک فراخوانیِ LaMaِ دیگر است → arenaِ ONNX
-    #    رویِ نوارهایِ بلندِ وبتون (۹۰۰×۱۶۰۰۰، باکسِ ۴GB) OOM می‌دهد؛
-    # ۳) آنچه کاربر می‌بیند خروجیِ نهایی است — سنجش هم باید رویِ همان
-    #    انجام شود. ماسکِ اتحادِ (فقط LaMa/OpenCV) از حلقه می‌آید؛
-    #    کامپوننت‌هایِ به‌هم‌چسبیده جدا سنجیده می‌شوند؛ SFX/تبلیغ که هرگز
-    #    پاک نشده‌اند ذاتاً بیرونِ ماسک‌اند و دست نمی‌خورند.
+# وارسیِ نهاییِ ضدِ خرابیِ EP — یک‌بار برای کلِ صفحه
+# درست قبل از خروجِ clean_image. چرا آخرِ کار و نه بعد از هر باکس:
+# ۱) وسطِ پایپ‌لاین، منطق‌هایِ بعدی (LFCM، ردِ گروهِ LaMa، سویپِ
+# باقی‌مانده، پرِ دونورِ بلوکِ تیره) هنوز کارشان تمام نشده و
+# وارسیِ میان‌راهی هم‌پوشانی/تناقض می‌سازد (تریگرهایِ کاذبِ 01)
+# ۲) هر ترمیمِ میان‌راهی یک فراخوانیِ LaMaِ دیگر است → arenaِ ONNX
+# رویِ نوارهایِ بلندِ وبتون (۹۰۰×۱۶۰۰۰، باکسِ ۴GB) OOM می‌دهد
+# ۳) آنچه کاربر می‌بیند خروجیِ نهایی است — سنجش هم باید رویِ همان
+# انجام شود. ماسکِ اتحادِ (فقط LaMa/OpenCV) از حلقه می‌آید
+# کامپوننت‌هایِ به‌هم‌چسبیده جدا سنجیده می‌شوند؛ SFX/تبلیغ که هرگز
+# پاک نشده‌اند ذاتاً بیرونِ ماسک‌اند و دست نمی‌خورند.
     def _final_verify_repair(self, cleaned: np.ndarray,
                              image: np.ndarray) -> None:
         u = getattr(self, "_verify_union", None)
@@ -14633,11 +14594,11 @@ class _MangaTranslatorBody_85:
             return
         if cleaned.shape[:2] != image.shape[:2]:
             return
-        # v1.14.107 — قراردادِ دو-عکسی: وارسی/ترمیم فقط رویِ چیزی که
-        # «واقعاً» به خروجی منتقل شده معنا دارد؛ بیرونِ نوارِ کامپوز
-        # پیکسلِ اورجینال است و هر «ترمیمی» آن = حذفِ هنر (کلِ حباب
-        # پاکیده — کیسِ ۱۰۱۸). خوشه‌ها و نوشتن‌ها به همین مجموعه قفل
-        # می‌شوند؛ اگر چیزی منتقل نشده، گارد کاری نمیکند.
+# قراردادِ دو-عکسی: وارسی/ترمیم فقط رویِ چیزی که
+# «واقعاً» به خروجی منتقل شده معنا دارد؛ بیرونِ نوارِ کامپوز
+# پیکسلِ اورجینال است و هر «ترمیمی» آن = حذفِ هنر (کلِ حباب
+# پاکیده — کیسِ ۱۰۱۸). خوشه‌ها و نوشتن‌ها به همین مجموعه قفل
+# می‌شوند؛ اگر چیزی منتقل نشده، گارد کاری نمیکند.
         _cmpF = getattr(self, "_compose_final_cmp", None)
         if _cmpF is not None and _cmpF.shape == u.shape:
             u = u & (_cmpF > 0)
@@ -14648,10 +14609,10 @@ class _MangaTranslatorBody_85:
         try:
             import gc as _gc
             um = u.astype(np.uint8) * 255
-            # v1.14.105c — خوشه‌بندیِ نزدیک‌ها: حروف/خط‌هایِ یک بلوکِ متن
-            # (تا ۴۱px فاصله) یکی می‌شوند تا مثلِ باکسِ اصلیِ پایپ‌لاین
-            # یک‌جا سنجیده/ترمیم شوند؛ جداکردنِ حرف‌به‌حرف حلقهٔ سنجش را
-            # با خرابیِ همسایه آلوده می‌کند و ترمیم را می‌شکند (تستِ B/C/D)
+# خوشه‌بندیِ نزدیک‌ها: حروف/خط‌هایِ یک بلوکِ متن
+# (تا ۴۱px فاصله) یکی می‌شوند تا مثلِ باکسِ اصلیِ پایپ‌لاین
+# یک‌جا سنجیده/ترمیم شوند؛ جداکردنِ حرف‌به‌حرف حلقهٔ سنجش را
+# با خرابیِ همسایه آلوده می‌کند و ترمیم را می‌شکند (تستِ B/C/D)
             um_d = cv2.dilate(um, np.ones((41, 41), np.uint8))
             n_lab, lab, stats, _ = cv2.connectedComponentsWithStats(
                 um_d, connectivity=8)
@@ -14672,7 +14633,7 @@ class _MangaTranslatorBody_85:
                 Y1 = min(cleaned.shape[0], y0 + h_c + pad)
                 if (X1 - X0) < 12 or (Y1 - Y0) < 12:
                     continue
-                # ماسکِ واقعیِ اتحاد (نه دیلیت) — مثلِ crop_mskِ باکس
+# ماسکِ واقعیِ اتحاد (نه دیلیت) — مثلِ crop_mskِ باکس
                 comp = ((lab[Y0:Y1, X0:X1] == li) &
                         (um[Y0:Y1, X0:X1] > 0)).astype(np.uint8) * 255
                 if int((comp > 0).sum()) < 60:
@@ -14684,8 +14645,8 @@ class _MangaTranslatorBody_85:
                 if not np.array_equal(_before, cleaned[Y0:Y1, X0:X1]):
                     n_fix += 1
                     _gc.collect()
-            # v1.14.106 — جاروی بازماندهٔ تیره (لبه/نوارِ سیاهِ کنارِ پاکشدهها)
-            # v1.14.107 — فقط داخلِ نوارِ کامپوز؛ بیرونِ نوار = اورجینال
+# جاروی بازماندهٔ تیره (لبه/نوارِ سیاهِ کنارِ پاکشدهها)
+# فقط داخلِ نوارِ کامپوز؛ بیرونِ نوار = اورجینال
             try:
                 _nsw = self._dark_remnant_sweep(cleaned, u, limit=_cmpF)
                 if _nsw and self.debug:
@@ -14712,13 +14673,13 @@ class _MangaTranslatorBody_85:
                     pass
             pass
 
-    # v1.14.106 — جاروی بازماندهٔ تیره: لبه/نوارِ سیاهی که بعد از پاکسازی
-    # همسایهٔ مستقیمِ نواحیِ پاکشده میماند (سایهٔ لوگو/بنرِ بیرونِ ماسکِ
-    # متن — کیسِ ۱۰۱۸). فقط خوشهٔ تیرهٔ کوچکِ محصور در سفیدِ صافِ همسایه؛
-    # قاب/سایهٔ جعبههایِ سیستم (دور ازِ نواحیِ LaMa) و خطِ هنریِ بلند هرگز.
-    # v1.14.107 — «limit» = نوارِ کامپوز: هدف‌ها و نوشتن‌ها فقط داخلِ
-    # چیزی که واقعاً به خروجی منتقل شده؛ بیرونِ نوار = اورجینال (خطِ
-    # حباب/دُم/قابِ پنل هرگز هدف نمیشود — کیسِ «کلِ حباب پاکیده»).
+# جاروی بازماندهٔ تیره: لبه/نوارِ سیاهی که بعد از پاکسازی
+# همسایهٔ مستقیمِ نواحیِ پاکشده میماند (سایهٔ لوگو/بنرِ بیرونِ ماسکِ
+# متن — کیسِ ۱۰۱۸). فقط خوشهٔ تیرهٔ کوچکِ محصور در سفیدِ صافِ همسایه
+# قاب/سایهٔ جعبههایِ سیستم (دور ازِ نواحیِ LaMa) و خطِ هنریِ بلند هرگز.
+# «limit» = نوارِ کامپوز: هدف‌ها و نوشتن‌ها فقط داخلِ
+# چیزی که واقعاً به خروجی منتقل شده؛ بیرونِ نوار = اورجینال (خطِ
+# حباب/دُم/قابِ پنل هرگز هدف نمیشود — کیسِ «کلِ حباب پاکیده»).
     def _dark_remnant_sweep(self, cleaned: np.ndarray,
                             union: np.ndarray,
                             limit: Optional[np.ndarray] = None) -> int:
@@ -14739,7 +14700,7 @@ class _MangaTranslatorBody_85:
         _pa = getattr(self, "_prot_all", None)
         if _pa is not None and _pa.shape == g.shape:
             dark[(_pa > 0)] = 0
-        # v1.14.107 — قفلِ نوارِ کامپوز رویِ هدف‌ها
+# قفلِ نوارِ کامپوز رویِ هدف‌ها
         if limit is not None and limit.shape == g.shape:
             dark[(limit <= 0)] = 0
         if int(dark.sum()) == 0:
@@ -14784,7 +14745,7 @@ class _MangaTranslatorBody_85:
                             axis=0).astype(np.float32)
             fm = cv2.dilate(lc, np.ones((3, 3), np.uint8))
             al = (fm.astype(np.float32) / 255.0)[..., None]
-            # v1.14.107 — نوشتن هم فقط داخلِ نوارِ کامپوز
+# نوشتن هم فقط داخلِ نوارِ کامپوز
             if limit is not None and limit.shape == g.shape:
                 _limC = (limit[ey0:ey1, ex0:ex1] > 0)
                 if _limC.shape == al.shape[:2]:
@@ -14797,33 +14758,33 @@ class _MangaTranslatorBody_85:
             n_fix += 1
         return n_fix
 
-    # v1.14.105 — وارسیِ پس از پاکسازی + ترمیمِ پلکانی (ضدِ خروجیِ بدِ EP)
-    # زمینه: رویِ برخی اجراکننده‌ها (CUDA/DML رویِ ویندوز) خروجیِ LaMa ناقص
-    # یا کثیف برمی‌گردد در حالی که همان ورودی رویِ CPU تمیز پاک می‌شود —
-    # دو نمونهٔ واقعیِ v1.14.104:
-    # الف) «GREEN MOON» روی پلاکِ بافت‌مند: نصفِ متن جا مانده (اسیرِ عمودی)
-    # ب) داخلِ حباب/جعبهٔ سفید: پرِ LaMa خاکستریِ کثیف به‌جای سفید
-    # این گارد مستقل از EP بعد از کامپوزِ هر باکس می‌دود. سنجش‌ها:
-    # ۱) جوهرِ باقی‌مانده: نسبتِ «پیکسلِ متن‌نما» (اختلاف از میانهٔ محلی)
-    #    داخلِ ماسک در برابرِ حلقهٔ زمینه — بافتِ خودِ زمینه (نقطه‌چین/
-    #    موزاییک) با نرخِ حلقه خنثی می‌شود؛
-    # ۲) تیرگیِ نسبی: رویِ حلقهٔ صاف، میانهٔ روشناییِ ناحیهٔ پاکشده اگر
-    #    ≥ ۱۸ واحد از حلقه تیره‌تر باشد (نوارِ خاکستریِ حباب).
-    # ترمیمِ پلکانی — هر مرحله دوباره سنجیده می‌شود:
-    # ۱) LaMa دوباره با ماسکِ گشادِ ۱۷px (هاله/گلو هم می‌گیرد)
-    # ۲) LaMa دوباره با ماسکِ گشادِ ۳۳px
-    # ۳) پرِ هموارِ زمینه (_smooth_bg_fill) وگرنه TELEA
-    # ۴) TELEA با ماسکِ گشاد
-    # ۵) پرِ تختِ رنگِ حلقه — فقط وقتی حلقه واقعاً صاف است
-    # هیچ مرحله‌ای بیرونِ ماسک نمی‌نویسد؛ پیکسل‌هایِ قفل (_prot_all) و
-    # سقفِ (_page_raw_text_mask + کپِ ۲۵px) همیشه محترم هستند.
+# وارسیِ پس از پاکسازی + ترمیمِ پلکانی (ضدِ خروجیِ بدِ EP)
+# زمینه: رویِ برخی اجراکننده‌ها (CUDA/DML رویِ ویندوز) خروجیِ LaMa ناقص
+# یا کثیف برمی‌گردد در حالی که همان ورودی رویِ CPU تمیز پاک می‌شود —
+# دو نمونهٔ واقعیِ :
+# الف) «GREEN MOON» روی پلاکِ بافت‌مند: نصفِ متن جا مانده (اسیرِ عمودی)
+# ب) داخلِ حباب/جعبهٔ سفید: پرِ LaMa خاکستریِ کثیف به‌جای سفید
+# این گارد مستقل از EP بعد از کامپوزِ هر باکس می‌دود. سنجش‌ها:
+# ۱) جوهرِ باقی‌مانده: نسبتِ «پیکسلِ متن‌نما» (اختلاف از میانهٔ محلی)
+# داخلِ ماسک در برابرِ حلقهٔ زمینه — بافتِ خودِ زمینه (نقطه‌چین/
+# موزاییک) با نرخِ حلقه خنثی می‌شود
+# ۲) تیرگیِ نسبی: رویِ حلقهٔ صاف، میانهٔ روشناییِ ناحیهٔ پاکشده اگر
+# ≥ ۱۸ واحد از حلقه تیره‌تر باشد (نوارِ خاکستریِ حباب).
+# ترمیمِ پلکانی — هر مرحله دوباره سنجیده می‌شود:
+# ۱) LaMa دوباره با ماسکِ گشادِ ۱۷px (هاله/گلو هم می‌گیرد)
+# ۲) LaMa دوباره با ماسکِ گشادِ ۳۳px
+# ۳) پرِ هموارِ زمینه (_smooth_bg_fill) وگرنه TELEA
+# ۴) TELEA با ماسکِ گشاد
+# ۵) پرِ تختِ رنگِ حلقه — فقط وقتی حلقه واقعاً صاف است
+# هیچ مرحله‌ای بیرونِ ماسک نمی‌نویسد؛ پیکسل‌هایِ قفل (_prot_all) و
+# سقفِ (_page_raw_text_mask + کپِ ۲۵px) همیشه محترم هستند.
     def _verify_repair_clean(self, cleaned: np.ndarray, image: np.ndarray,
                              cx0: int, cy0: int, cx1: int, cy1: int,
                              crop_msk, method: str = "",
                              limit: Optional[np.ndarray] = None) -> None:
-        # v1.14.107 — «limit» = نقشهٔ نوارِ کامپوز (self._compose_final_cmp):
-        # تمامِ نوشتن‌هایِ ترمیم با آلفایِ صفر بیرونِ آن قفل می‌شوند —
-        # قراردادِ دو-عکسی: بیرونِ نوار = پیکسلِ اورجینال، همیشه.
+# «limit» = نقشهٔ نوارِ کامپوز (self._compose_final_cmp):
+# تمامِ نوشتن‌هایِ ترمیم با آلفایِ صفر بیرونِ آن قفل می‌شوند —
+# قراردادِ دو-عکسی: بیرونِ نوار = پیکسلِ اورجینال، همیشه.
         try:
             if method not in ("LaMa", "OpenCV"):
                 return
@@ -14868,24 +14829,24 @@ class _MangaTranslatorBody_85:
             ring = (md > 0) & (mdin == 0) & (m == 0)
             if int(ring.sum()) < 80:
                 return
-            # v1.14.105b — ارزیابی/نوشتن تا ۹px بیرونِ ماسک (هاله/گلو):
-            # اسیرِ سبزِ دورِ «GREEN MOON» بیرونِ هستهٔ ماسک است؛ ارزیابیِ
-            # فقط-داخلِ ماسک آن را نمی‌بیند. نوشتن هم فقط تا همین ۹px است
-            # (داخلِ ماسکِ ترمیمِ ۱۷px) — هنرِ دورتر هرگز دست نمی‌خورد.
+# ارزیابی/نوشتن تا ۹px بیرونِ ماسک (هاله/گلو):
+# اسیرِ سبزِ دورِ «GREEN MOON» بیرونِ هستهٔ ماسک است؛ ارزیابیِ
+# فقط-داخلِ ماسک آن را نمی‌بیند. نوشتن هم فقط تا همین ۹px است
+# (داخلِ ماسکِ ترمیمِ ۱۷px) — هنرِ دورتر هرگز دست نمی‌خورد.
             m_eval = cv2.dilate(m, np.ones((19, 19), np.uint8))
             ink_m, ink_r = _ink(g, m_eval, ring)
             gm = float(np.median(g[m_eval > 0]))
             gr = float(np.median(g[ring]))
-            # گیتِ تیرگیِ پرِ کثیف (نوارِ خاکستریِ GPU در حبابِ سفید):
-            # برای بلوکِ چندخطی، حلقه خط‌هایِ خاکستریِ دیگر را هم می‌گیرد →
-            # میانهٔ حلقه آلوده است. سه سیگنالِ مقاوم:
-            # ۱) یکنواختیِ پر (پرِ خاکستریِ GPU یکدست است؛ بافتِ بازسازی‌شده
-            #    پلاک/اسکری‌تون پهنایِ زیاد دارد)
-            # ۲) خنثاییِ رنگیِ پر (پرِ خرابِ GPU خاکستریِ خنثی است؛ آسمانِ
-            #    گرادیانی آبی، پلاک آبی — B-R بزرگ)
-            # ۳) فاصله از صدک‌هایِ حلقه (p90 حلقه = سفیدِ حباب، p10 = تیرهٔ پنل)
-            # رویِ هستهٔ ماسک سنجیده می‌شود نه m_eval؛ وگرنه گپِ سفیدِ
-            # بینِ خط‌ها spread را می‌شکند
+# گیتِ تیرگیِ پرِ کثیف (نوارِ خاکستریِ GPU در حبابِ سفید):
+# برای بلوکِ چندخطی، حلقه خط‌هایِ خاکستریِ دیگر را هم می‌گیرد →
+# میانهٔ حلقه آلوده است. سه سیگنالِ مقاوم:
+# ۱) یکنواختیِ پر (پرِ خاکستریِ GPU یکدست است؛ بافتِ بازسازی‌شده
+# پلاک/اسکری‌تون پهنایِ زیاد دارد)
+# ۲) خنثاییِ رنگیِ پر (پرِ خرابِ GPU خاکستریِ خنثی است؛ آسمانِ
+# گرادیانی آبی، پلاک آبی — B-R بزرگ)
+# ۳) فاصله از صدک‌هایِ حلقه (p90 حلقه = سفیدِ حباب، p10 = تیرهٔ پنل)
+# رویِ هستهٔ ماسک سنجیده می‌شود نه m_eval؛ وگرنه گپِ سفیدِ
+# بینِ خط‌ها spread را می‌شکند
             _msel = m > 0
             try:
                 _mp = np.percentile(g[_msel], [10, 90])
@@ -14910,55 +14871,55 @@ class _MangaTranslatorBody_85:
             except Exception:
                 rs = float(g[ring].std())
                 rp90 = float(np.percentile(g[ring], 90))
-            # v1.14.105c — بارِ سفیدِ سخت: داخلِ حباب/جعبهٔ سفیدِ تخت
-            # (حلقهٔ روشن و صاف) ترمیمِ «فقط-بد-نباشد» کافی نیست؛ دودِ
-            # کم‌رنگ (جوهرِ ۰.۰۳) هنوز به چشم می‌آید → مراحل ادامه پیدا
-            # می‌کنند تا پرِ ناب (LaMa گشادتر/هموار/تخت) به دست آید
+# بارِ سفیدِ سخت: داخلِ حباب/جعبهٔ سفیدِ تخت
+# (حلقهٔ روشن و صاف) ترمیمِ «فقط-بد-نباشد» کافی نیست؛ دودِ
+# کم‌رنگ (جوهرِ ۰.۰۳) هنوز به چشم می‌آید → مراحل ادامه پیدا
+# می‌کنند تا پرِ ناب (LaMa گشادتر/هموار/تخت) به دست آید
             white_flat = (rs <= 16.0) and (rp90 >= 240.0)
-            # سنجشِ جوهر: هم نسبی (حلقه = خطِ پایهٔ بافت) هم tierِ مطلق —
-            # پلاکِ «GREEN MOON»: بافتِ حلقه ink_r≈0.13 است ولی پاکِ سالم
-            # ink_m≈0.01 دارد؛ متنِ نصفه‌پاک ≈0.32 → tierِ مطلقِ 0.22 می‌گیردش
-            # v1.14.105c — tierِ مطلق فقط وقتی که حلقه نسبتاً صاف است
-            # (ink_r≤0.18) فعال است تا زمینه‌هایِ بافت‌مند (ink_r تا 0.22+)
-            # تریگرِ کاذب نسازند؛ خرابیِ پرَخشن با tierِ پرزورِ 0.40 می‌آید
-            # v1.14.105d — کالیبراسیون رویِ رگرسیونِ CPU: tier1 از ۰٫۱۰→۰٫۱۵
-            # (چ264_9 crop@(575,3189) جوهرِ ۰٫۱۳ = بافتِ قانونیِ پنجره بود،
-            # نه باقی‌مانده) — کیس‌هایِ واقعیِ GPU: A=۰٫۲۵+ (tier2)،
-            # B=تیرگی، C=۰٫۳۲ (tier2)، D=تیرگی → همه سرِ جایشان؛
-            # FPِ 01 (جوهرِ ۰٫۲۳ خطِ موج‌دار) با گاردِ فقط-LaMa رویِ بافت
-            # و قفلِ خطِ هنری ردِ ترمیم می‌شود → خروجیِ دست‌نخورده
+# سنجشِ جوهر: هم نسبی (حلقه = خطِ پایهٔ بافت) هم tierِ مطلق —
+# پلاکِ «GREEN MOON»: بافتِ حلقه ink_r≈0.13 است ولی پاکِ سالم
+# ink_m≈0.01 دارد؛ متنِ نصفه‌پاک ≈0.32 → tierِ مطلقِ 0.22 می‌گیردش
+# tierِ مطلق فقط وقتی که حلقه نسبتاً صاف است
+# (ink_r≤0.18) فعال است تا زمینه‌هایِ بافت‌مند (ink_r تا 0.22+)
+# تریگرِ کاذب نسازند؛ خرابیِ پرَخشن با tierِ پرزورِ 0.40 می‌آید
+# کالیبراسیون رویِ رگرسیونِ CPU: tier1 از ۰٫۱۰→۰٫۱۵
+# (چ264_9 crop@(575,3189) جوهرِ ۰٫۱۳ = بافتِ قانونیِ پنجره بود
+# نه باقی‌مانده) — کیس‌هایِ واقعیِ GPU: A=۰٫۲۵+ (tier2)
+# B=تیرگی، C=۰٫۳۲ (tier2)، D=تیرگی → همه سرِ جایشان
+# FPِ 01 (جوهرِ ۰٫۲۳ خطِ موج‌دار) با گاردِ فقط-LaMa رویِ بافت
+# و قفلِ خطِ هنری ردِ ترمیم می‌شود → خروجیِ دست‌نخورده
             bad_ink = (ink_m > max(0.15, ink_r * 2.0 + 0.04)) or \
                 ((ink_m >= 0.22 and ink_r <= 0.18 and
                   ink_m > ink_r * 1.2 + 0.02) or
                  (ink_m >= 0.40 and ink_m > ink_r * 1.1 + 0.02))
-            # v1.14.105c — تیرگیِ نسبیِ آستانه ۲۲→۳۰ + حلقهٔ روشن (rp90≥۱۹۰):
-            # «پرِ کثیفِ سفید» فقط وقتی معنا دارد که اطراف روشن باشد؛ پنلِ
-            # تیرهٔ 012p1 (p90=۱۳۶) تریگرِ کاذب نمی‌سازد؛ نوارِ خاکستریِ
-            # واقعیِ GPU (۱۰۱۸) گپِ ۳۹ با حلقهٔ ۲۵۵ دارد
-            # v1.14.207h — p90ِ حلقه برایِ «متنِ سفید رویِ بنرِ سیاه»
-            # (هدرِ CHAPTER PAGE — img1018) کافی نیست: حلقه = بنرِ سیاه +
-            # نوارِ سفیدِ صفحه در ۳۱px → rp90=۲۵۵ و پرِ «سیاهِ درستِ» LaMa
-            # «تیرگی» پرچم میخورد → LaMa×۱۷/×۳۳ → بازگردانیِ اورجینال =
-            # کلِ متنِ بنر برمیگشت. حالا حلقه باید «عمدتاً» روشن باشد
-            # (≥۵۰٪ ≥۱۷۰) نه فقط صدکِ ۹۰.
+# تیرگیِ نسبیِ آستانه ۲۲→۳۰ + حلقهٔ روشن (rp90≥۱۹۰):
+# «پرِ کثیفِ سفید» فقط وقتی معنا دارد که اطراف روشن باشد؛ پنلِ
+# تیرهٔ 012p1 (p90=۱۳۶) تریگرِ کاذب نمی‌سازد؛ نوارِ خاکستریِ
+# واقعیِ GPU (۱۰۱۸) گپِ ۳۹ با حلقهٔ ۲۵۵ دارد
+# p90ِ حلقه برایِ «متنِ سفید رویِ بنرِ سیاه»
+# (هدرِ CHAPTER PAGE — img1018) کافی نیست: حلقه = بنرِ سیاه +
+# نوارِ سفیدِ صفحه در ۳۱px → rp90=۲۵۵ و پرِ «سیاهِ درستِ» LaMa
+# «تیرگی» پرچم میخورد → LaMa×۱۷/×۳۳ → بازگردانیِ اورجینال =
+# کلِ متنِ بنر برمیگشت. حالا حلقه باید «عمدتاً» روشن باشد
+# (≥۵۰٪ ≥۱۷۰) نه فقط صدکِ ۹۰.
             bad_gray = (mask_spread <= 22.0) and (neutr <= 14.0) and \
                 (gap_dark >= 30.0) and (rp90 >= 190.0) and \
                 (float((g[ring] >= 170.0).mean()) >= 0.50)
-            # v1.14.106 — دودِ متنِ بازمانده (ghost imprint): پرِ LaMa گاهی
-            # امضایِ کمرنگِ متنِ قبلی (۱۹۵–۲۵۰، اختلافِ فقط ۵–۲۵ از سفید)
-            # را نگه میدارد؛ «جوهرِ» hf≥۲۶ آن را نمیبیند و رویِ صفحهِ گوشی
-            # کاربر دیده میشود (۱۰۱۸: نرخِ دود تا ۰٫۱۴ در حبابِ دولوبه).
-            # فقط در زمینهٔ سفیدِ صاف (white_flat) معنا دارد؛ اندازهگیری روی
-            # هستهٔ فرسودهٔ ماسک تا لبهٔ فِدرِ blend شمرده نشود.
+# دودِ متنِ بازمانده (ghost imprint): پرِ LaMa گاهی
+# امضایِ کمرنگِ متنِ قبلی (۱۹۵–۲۵۰، اختلافِ فقط ۵–۲۵ از سفید)
+# را نگه میدارد؛ «جوهرِ» hf≥۲۶ آن را نمیبیند و رویِ صفحهِ گوشی
+# کاربر دیده میشود (۱۰۱۸: نرخِ دود تا ۰٫۱۴ در حبابِ دولوبه).
+# فقط در زمینهٔ سفیدِ صاف (white_flat) معنا دارد؛ اندازهگیری روی
+# هستهٔ فرسودهٔ ماسک تا لبهٔ فِدرِ blend شمرده نشود.
             _mcore = cv2.erode(m, np.ones((5, 5), np.uint8)) \
                 if min(m.shape[:2]) > 7 else m
             if int((_mcore > 0).sum()) < 40:
                 _mcore = m
 
             def _ghost_frac(g_):
-                # (نرخِ دود، روشناییِ نابِ هسته) — دود = 195..252؛
-                # coreW آستانهٔ زمینهٔ سفید است: پرِ بازسازی‌شدهٔ زمینهٔ
-                # بافت‌دار (هاف‌تون) خودش تیره است → coreW کم → گیت نمیگیرد
+# (نرخِ دود، روشناییِ نابِ هسته) — دود = 195..252
+# coreW آستانهٔ زمینهٔ سفید است: پرِ بازسازی‌شدهٔ زمینهٔ
+# بافت‌دار (هاف‌تون) خودش تیره است → coreW کم → گیت نمیگیرد
                 v = g_[_mcore > 0]
                 if v.size < 40:
                     return 0.0, 0.0
@@ -14967,20 +14928,20 @@ class _MangaTranslatorBody_85:
                 return gh, cw
 
             ghost_m, corew_m = _ghost_frac(g)
-            # v1.14.107 — گیتِ زمینهٔ سفیدِ «واقعی»: دود فقط رویِ زمینهٔ
-            # سفید معنا دارد (بندِ بالای سرش همین را میگوید) ولی سنجهٔ
-            # قبلی corew روشناییِ «پرِ فعلی» بود نه زمینه → رویِ متنِ
-            # سفید-رو-سیاه (هدرِ ۱۰۱۸: پرِ سفیدِ LaMa رویِ نوارِ سیاه)
-            # تریگرِ کاذب می‌ساخت و tier6 کلِ نوار را سفید میکرد. حالا
-            # حلقهٔ واقعی باید روشن باشد (≥۴۵٪ پیکسلِ حلقه ≥۲۴۰).
+# گیتِ زمینهٔ سفیدِ «واقعی»: دود فقط رویِ زمینهٔ
+# سفید معنا دارد (بندِ بالای سرش همین را میگوید) ولی سنجهٔ
+# قبلی corew روشناییِ «پرِ فعلی» بود نه زمینه → رویِ متنِ
+# سفید-رو-سیاه (هدرِ ۱۰۱۸: پرِ سفیدِ LaMa رویِ نوارِ سیاه)
+# تریگرِ کاذب می‌ساخت و tier6 کلِ نوار را سفید میکرد. حالا
+# حلقهٔ واقعی باید روشن باشد (≥۴۵٪ پیکسلِ حلقه ≥۲۴۰).
             _rgw = float((g[ring] >= 240).mean())
             bad_ghost = (ghost_m >= 0.05) and (corew_m >= 0.55) and \
                 (_rgw >= 0.45)
-            # v1.14.135 — «نویزِ توهمِ LaMa» (MANGA_LAMA_NOISEQC):
-            # حفرهٔ بزرگِ چندخطی در داوناسکیلِ پچِ ۳۸۴ «متنِ قلابیِ گری»
-            # میسازد که انرژیِ فرکانس-بالایش ≫ حلقهٔ روشنِ اطراف است ولی
-            # جوهرِ >=26 ندارد → پرچمهایِ بالا نمیگیرندش (بازتولیدِ A/B
-            # رویِ 700×11362 — لکهٔ کثیف). اینجا فقط پرچم؛ درمان در گامِ ۰.
+# «نویزِ توهمِ LaMa» (MANGA_LAMA_NOISEQC):
+# حفرهٔ بزرگِ چندخطی در داوناسکیلِ پچِ ۳۸۴ «متنِ قلابیِ گری»
+# میسازد که انرژیِ فرکانس-بالایش ≫ حلقهٔ روشنِ اطراف است ولی
+# جوهرِ >=26 ندارد → پرچمهایِ بالا نمیگیرندش (بازتولیدِ A/B
+# رویِ 700×11362 — لکهٔ کثیف). اینجا فقط پرچم؛ درمان در گامِ ۰.
             bad_noise = False
             _nq_in = _nq_lr = -1.0
             try:
@@ -15013,14 +14974,14 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
 
-            # v1.14.136 — گیتِ «هنر/سایه» (فقط اندروید — MANGA_VERIFY_ARTSKIP):
-            # اگر تنها تریگر «جوهرِ» ضعیف باشد (ink<0.30) و بیش از ۴۰٪
-            # ناحیه خاکستریِ خنثی (سایه/بافتِ هنر — نه متنِ جامانده)،
-            # LaMa×17/×33 هیچ‌وقت «OK» نمیشود (لاگِ گوشیِ 700×11362:
-            # crop@(573,3189) بوتهٔ تیره — ~۱۵-۳۰ ثانیه هدررفت در هر
-            # ناحیه، بارها) → ترمیم رد میشود. متنِ واقعی (ink≥0.30) و
-            # دودِ زمینهٔ سفید (bad_ghost) هرگز اینجا رد نمیشوند.
-            # PC بایت‌به‌بیت دست‌نخورده.
+# گیتِ «هنر/سایه» (فقط اندروید — MANGA_VERIFY_ARTSKIP):
+# اگر تنها تریگر «جوهرِ» ضعیف باشد (ink<0.30) و بیش از ۴۰٪
+# ناحیه خاکستریِ خنثی (سایه/بافتِ هنر — نه متنِ جامانده)
+# LaMa×17/×33 هیچ‌وقت «OK» نمیشود (لاگِ گوشیِ 700×11362:
+# crop@(573,3189) بوتهٔ تیره — ~۱۵-۳۰ ثانیه هدررفت در هر
+# ناحیه، بارها) → ترمیم رد میشود. متنِ واقعی (ink≥0.30) و
+# دودِ زمینهٔ سفید (bad_ghost) هرگز اینجا رد نمیشوند.
+# PC بایت‌به‌بیت دست‌نخورده.
             if (_android_gate("MANGA_VERIFY_ARTSKIP") and bad_ink
                     and not (bad_gray or bad_ghost or bad_noise)
                     and ink_m < 0.30 and neutr >= 40.0):
@@ -15033,7 +14994,7 @@ class _MangaTranslatorBody_85:
                         pass
                 return
 
-            # ماسکِ گشادِ محدود: قفل‌ها ممنوع، حداکثر ۲۵px از جوهرِ خام
+# ماسکِ گشادِ محدود: قفل‌ها ممنوع، حداکثر ۲۵px از جوهرِ خام
             def _bounded(dil_k: int):
                 wb = cv2.dilate(
                     m, cv2.getStructuringElement(
@@ -15065,21 +15026,21 @@ class _MangaTranslatorBody_85:
             def _blend(res_):
                 alpha = cv2.GaussianBlur(m_eval, (7, 7), 2.0)
                 alpha = np.minimum(alpha, m_eval)
-                # v1.14.107 — قفلِ نوارِ کامپوز: هیچ ترمیمی بیرونِ نوار
-                # نوشته نمیشود (خطِ حباب/قاب/نوارِ هدر دست‌نخورده)
+# قفلِ نوارِ کامپوز: هیچ ترمیمی بیرونِ نوار
+# نوشته نمیشود (خطِ حباب/قاب/نوارِ هدر دست‌نخورده)
                 if limit is not None:
                     _limB = limit[Y0:Y1, X0:X1]
                     if _limB.shape == alpha.shape:
                         alpha = alpha * (
                             (_limB > 0).astype(np.uint8))
-                # v1.14.225 — قفلِ ساختار (ضدِ «حبابِ بیرون با حبابِ
-                # داخل یک رنگ»): هالهٔ ۱۹pxیِ m_eval وقتی متن به دیوارِ
-                # حباب چسبیده باشد از رویِ دیوار میگذشت و پرِ تختِ
-                # ترمیم (سفیدِ ناب/تختِ حلقه) دیوار را با رنگِ یکسان
-                # میپوشاند = بیرون و داخلِ حباب همرنگ. دیوار/قفلها
-                # (_prot_all = ساختارِ روشن + گلو + خطِ سراسری +
-                # page_protect) از نوشتنِ ترمیم خارج میشوند — همان
-                # قانونی که پرکنندههایِ اصلی از قبل دارند.
+# قفلِ ساختار (ضدِ «حبابِ بیرون با حبابِ
+# داخل یک رنگ»): هالهٔ ۱۹pxیِ m_eval وقتی متن به دیوارِ
+# حباب چسبیده باشد از رویِ دیوار میگذشت و پرِ تختِ
+# ترمیم (سفیدِ ناب/تختِ حلقه) دیوار را با رنگِ یکسان
+# میپوشاند = بیرون و داخلِ حباب همرنگ. دیوار/قفلها
+# (_prot_all = ساختارِ روشن + گلو + خطِ سراسری +
+# page_protect) از نوشتنِ ترمیم خارج میشوند — همان
+# قانونی که پرکنندههایِ اصلی از قبل دارند.
                 try:
                     _pa225b = getattr(self, "_prot_all", None)
                     if _pa225b is not None:
@@ -15094,12 +15055,12 @@ class _MangaTranslatorBody_85:
                 bl = dst * (1.0 - a3) + res_.astype(np.float32) * a3
                 cleaned[Y0:Y1, X0:X1] = bl.astype(np.uint8)
 
-            # سخت‌گیریِ مطلق برایِ مسیرِ پرِ خاکستری (بد_gray): پرِ سالمِ
-            # حباب تقریباً بی‌جوهر است (hf≈0.02)؛ توهمِ متنِ LaMa (وقتی
-            # حلقه به متنِ سالمِ اطراف آلوده است) تا 0.20 می‌رسد —
-            # گیتِ نسبی آن را نمی‌بیند → سقفِ مطلقِ 0.10
-            # v1.14.106 — مسیرِ دود هم سختگیریِ مطلق می‌خواهد (جوهرِ دود
-            # زیرِ آستانه است وگرنه گیتِ نسبی زود OK می‌کند)
+# سخت‌گیریِ مطلق برایِ مسیرِ پرِ خاکستری (بد_gray): پرِ سالمِ
+# حباب تقریباً بی‌جوهر است (hf≈0.02)؛ توهمِ متنِ LaMa (وقتی
+# حلقه به متنِ سالمِ اطراف آلوده است) تا 0.20 می‌رسد —
+# گیتِ نسبی آن را نمی‌بیند → سقفِ مطلقِ 0.10
+# مسیرِ دود هم سختگیریِ مطلق می‌خواهد (جوهرِ دود
+# زیرِ آستانه است وگرنه گیتِ نسبی زود OK می‌کند)
             _strict = bool(bad_gray or bad_ghost)
 
             def _quality(g_res, what):
@@ -15137,10 +15098,10 @@ class _MangaTranslatorBody_85:
 
             fallback = None  # (res، برچسب) — خوب ولی نه ناب
 
-            # ۰ — v1.14.135 — ضدِ «نویزِ توهمِ LaMa» در حفرهٔ بزرگ
-            # (فقط اندروید — MANGA_LAMA_NOISEQC): درمان = پرِ حلقهٔ روشن
-            # — ارزان، بی‌نویز و همرنگِ زمینه. (پرچم در bad_noise بالای
-            # سر محاسبه شد.)
+# ۰ — — ضدِ «نویزِ توهمِ LaMa» در حفرهٔ بزرگ
+# (فقط اندروید — MANGA_LAMA_NOISEQC): درمان = پرِ حلقهٔ روشن
+# ارزان، بی‌نویز و همرنگِ زمینه. (پرچم در bad_noise بالای
+# سر محاسبه شد.)
             try:
                 if bad_noise:
                     if self.debug:
@@ -15166,17 +15127,17 @@ class _MangaTranslatorBody_85:
             except Exception:
                 pass
 
-            # ۱ و ۲ — LaMa دوباره با ماسکِ گشاد
-            # v1.14.105c — کپِ حافظه: برایِ کامپوننت‌هایِ بزرگِ (>۰٫۴Mpx)
-            # LaMaِ مجدد صدا زده نمی‌شود (arenaِ ONNX رویِ نوارهایِ بلندِ
-            # وبتون OOM می‌دهد) → همان مراحلِ OpenCV (هموار/TELEA/تخت)
-            # v1.14.135 — اندروید/میان‌بُرِ حلقهٔ روشن-تخت
-            # (MANGA_VERIFY_FASTFILL): وقتی حلقه «سفیدِ صاف» است
-            # (white_flat — لاگِ گوشیِ 700×11362: lum=254/p90=255/
-            # spread=3)، ترمیمِ LaMa×17 و ×33 هر دو «هنوز بد» میدهند و
-            # در نهایت پرِ تخت/سفید برنده است (~۲۰-۴۰ ثانیهٔ هدررفت در
-            # هر ناحیهٔ بد) → مستقیم به نردبانِ ارزان (هموار/TELEA/تخت).
-            # PC دست‌نخورده.
+# ۱ و ۲ — LaMa دوباره با ماسکِ گشاد
+# کپِ حافظه: برایِ کامپوننت‌هایِ بزرگِ (>۰٫۴Mpx)
+# LaMaِ مجدد صدا زده نمی‌شود (arenaِ ONNX رویِ نوارهایِ بلندِ
+# وبتون OOM می‌دهد) → همان مراحلِ OpenCV (هموار/TELEA/تخت)
+# اندروید/میان‌بُرِ حلقهٔ روشن-تخت
+# (MANGA_VERIFY_FASTFILL): وقتی حلقه «سفیدِ صاف» است
+# (white_flat — لاگِ گوشیِ 700×11362: lum=254/p90=255/
+# spread=3)، ترمیمِ LaMa×17 و ×33 هر دو «هنوز بد» میدهند و
+# در نهایت پرِ تخت/سفید برنده است (~۲۰-۴۰ ثانیهٔ هدررفت در
+# هر ناحیهٔ بد) → مستقیم به نردبانِ ارزان (هموار/TELEA/تخت).
+# PC دست‌نخورده.
             _skip_lama = (_android_gate("MANGA_VERIFY_FASTFILL")
                              and bool(white_flat))
             _lama_cap = 400_000
@@ -15187,13 +15148,13 @@ class _MangaTranslatorBody_85:
                     lama = self._get_lama()
             except Exception:
                 lama = None
-            # v1.14.138 — خروجِ زودهنگام (فقط اندروید —
-            # MANGA_VERIFY_FASTEXIT): اگر LaMa جوهر را نسبت به ورودی
-            # عملاً کم نکرد (Δ<0.02 — لاگِ گوشیِ 700×11362:
-            # crop@(573,3189) 0.17→0.16 و crop@(420,3261) 0.66→0.60
-            # بعدش هم تخت)، دورِ بعدی هم بیاثر است → دورِ بعدی و
-            # (برایِ جوهرِ ضعیفِ هنرمانند) تلاشِ ×۲ هم حذف — صرفهٔ
-            # ۱-۲ اینفرنسِ LaMa در هر ناحیهٔ بیاثر. PC دست‌نخورده.
+# خروجِ زودهنگام (فقط اندروید —
+# MANGA_VERIFY_FASTEXIT): اگر LaMa جوهر را نسبت به ورودی
+# عملاً کم نکرد (Δ<0.02 — لاگِ گوشیِ 700×11362:
+# crop@(573,3189) 0.17→0.16 و crop@(420,3261) 0.66→0.60
+# بعدش هم تخت)، دورِ بعدی هم بیاثر است → دورِ بعدی و
+# (برایِ جوهرِ ضعیفِ هنرمانند) تلاشِ ×۲ هم حذف — صرفهٔ
+# ۱-۲ اینفرنسِ LaMa در هر ناحیهٔ بیاثر. PC دست‌نخورده.
             _fx = _android_gate("MANGA_VERIFY_FASTEXIT")
             _lama_gain = True
             if lama is not None:
@@ -15234,9 +15195,8 @@ class _MangaTranslatorBody_85:
                     if ok_b and fallback is None:
                         fallback = (res1, f"LaMa×{_dk}")
 
-            # ۳ — پرِ هموارِ زمینه، وگرنه TELEA — فقط رویِ حلقهٔ صافِ روشن؛
-            # رویِ بافت (پنجره/کفِ چ264_9) هموار/تخت = پاک‌کنِ بافت‌اند
-            # v1.14.105d
+# ۳ — پرِ هموارِ زمینه، وگرنه TELEA — فقط رویِ حلقهٔ صافِ روشن
+# رویِ بافت (پنجره/کفِ چ264_9) هموار/تخت = پاک‌کنِ بافت‌اند
             if not (rs <= 16.0):
                 res2 = None
                 _via = "skip-بافت"
@@ -15267,7 +15227,7 @@ class _MangaTranslatorBody_85:
                 if ok_b2 and fallback is None:
                     fallback = (res2, _via or "fill")
 
-            # ۴ — TELEA با ماسکِ گشاد (اگر مرحلهٔ ۳ smooth بود)
+# ۴ — TELEA با ماسکِ گشاد (اگر مرحلهٔ ۳ smooth بود)
             if _via == "smooth":
                 try:
                     res3 = cv2.inpaint(orig, wb, 5, cv2.INPAINT_TELEA)
@@ -15281,7 +15241,7 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
 
-            # ۵ — پرِ تختِ رنگِ حلقه — فقط حلقهٔ واقعاً صاف
+# ۵ — پرِ تختِ رنگِ حلقه — فقط حلقهٔ واقعاً صاف
             try:
                 if rs <= 16.0:
                     col = np.median(out[ring].astype(np.float32),
@@ -15297,17 +15257,17 @@ class _MangaTranslatorBody_85:
                         return
             except Exception:
                 pass
-            # ۶ — v1.14.106 — پرِ سفیدِ ناب: زمینهٔ سفیدِ اثباتشده
-            # (coreW≥۰٫۵۵ یعنی پرِ کنونی عمدتاً سفیدِ ناب است و فقط دودِ
-            # متن مانده) → رنگِ میانهٔ پیکسلهایِ روشنِ حلقه (۲۵۵ حباب) کل
-            # ماسک را پر میکند؛ حباب/صفحهٔ سفید را دودِ ناپذیر میکند.
-            # بافت‌ها (coreW کم) هرگز به این مرحله نمی‌رسند.
+# ۶ — — پرِ سفیدِ ناب: زمینهٔ سفیدِ اثباتشده
+# (coreW≥۰٫۵۵ یعنی پرِ کنونی عمدتاً سفیدِ ناب است و فقط دودِ
+# متن مانده) → رنگِ میانهٔ پیکسلهایِ روشنِ حلقه (۲۵۵ حباب) کل
+# ماسک را پر میکند؛ حباب/صفحهٔ سفید را دودِ ناپذیر میکند.
+# بافت‌ها (coreW کم) هرگز به این مرحله نمی‌رسند.
             try:
                 if corew_m >= 0.55:
                     rb = ring & (g >= 245)
-                    # v1.14.107 — سفیدِ حلقه باید «غالب» باشد نه فقط حاضر؛
-                    # رویِ نوارِ سیاهِ هدر، حاشیهٔ سفیدِ صفحه کافی بود که
-                    # rb.sum()≥۸۰ پاس شود و کلِ نوار سفید میشد
+# سفیدِ حلقه باید «غالب» باشد نه فقط حاضر
+# رویِ نوارِ سیاهِ هدر، حاشیهٔ سفیدِ صفحه کافی بود که
+# rb.sum≥۸۰ پاس شود و کلِ نوار سفید میشد
                     if int(rb.sum()) >= 80 and \
                             float((g[ring] >= 245).mean()) >= 0.45:
                         col6 = np.median(out[rb].astype(np.float32),
@@ -15323,15 +15283,15 @@ class _MangaTranslatorBody_85:
                             return
             except Exception:
                 pass
-            # ۷ — v1.14.136 — تلاشِ بزرگ‌نمایی‌شده (فقط اندروید —
-            # MANGA_VERIFY_UP2): وقتی هیچ پلهای جواب نداد (لاگِ گوشیِ
-            # 700×11362: crop@(420,3261) ink=0.66 — LaMa×17 و ×33 هر دو
-            # «هنوز بد» و در نهایت «خروجیِ فعلی ماند» = متنِ کثیفِ پابرجا)،
-            # برش ×۲ بزرگ میشود (سقفِ 1600px — ضدفِ لهشدگیِ پچِ 384) و
-            # LaMa با ماسکِ گشادِ ×۲ دوباره ران میشود؛ بازسازیِ ریزتر
-            # جوهرِ جامانده را اغلب میگیرد. نتیجه با همان گیتِ کیفیت
-            # سنجیده میشود؛ قبول نشد → همان «خروجیِ فعلی ماند».
-            # PC بایت‌به‌بیت دست‌نخورده.
+# ۷ — — تلاشِ بزرگ‌نمایی‌شده (فقط اندروید —
+# MANGA_VERIFY_UP2): وقتی هیچ پلهای جواب نداد (لاگِ گوشیِ
+# 700×11362: crop@(420,3261) ink=0.66 — LaMa×17 و ×33 هر دو
+# «هنوز بد» و در نهایت «خروجیِ فعلی ماند» = متنِ کثیفِ پابرجا)
+# برش ×۲ بزرگ میشود (سقفِ 1600px — ضدفِ لهشدگیِ پچِ 384) و
+# LaMa با ماسکِ گشادِ ×۲ دوباره ران میشود؛ بازسازیِ ریزتر
+# جوهرِ جامانده را اغلب میگیرد. نتیجه با همان گیتِ کیفیت
+# سنجیده میشود؛ قبول نشد → همان «خروجیِ فعلی ماند».
+# PC بایت‌به‌بیت دست‌نخورده.
             if lama is not None and _android_gate("MANGA_VERIFY_UP2") \
                     and out.shape[0] * out.shape[1] <= 400_000 \
                     and not (_fx and not _lama_gain and ink_m < 0.30):
@@ -15378,31 +15338,31 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
 
-            # ۸ — v1.14.138 — فالبکِ نهاییِ «پرِ ردیفی» (فقط اندروید —
-            # MANGA_VERIFY_ROWFILL): وقتی هیچ پلی جواب نداد و جوهرِ
-            # جامانده «واقعی» است (bad_ink با ink≥0.22 — لاگِ گوشیِ
-            # 700×11362: crop@(420,3261) ink=0.66 = متنِ شبحِ LaMaِ
-            # چندخطی که ×17/×33/×2 هر سه نگرفتند و «خروجیِ فعلی ماند»)،
-            # برایِ هر ردیفِ ماسک، رنگِ میانهٔ پیکسلهایِ بیرونِ ماسکِ
-            # همان ردیف (شکافِ بینِ خطها/حاشیهٔ بلوک) جایگزینِ ماسک
-            # میشود — گرادیانِ عمودیِ زمینه حفظ میشود و متنِ شبح حذف؛
-            # ردیفِ کاملاً ماسک از نزدیکترینِ ردیفهایِ زمینهدار
-            # درون‌یابی میشود. گاردِ ضدِ هنر: زمینهٔ رنگیِ قوی (نوتار
-            # >۴۰ — بوته/سایه مثلِ ARTSKIP) هرگز پر نمیشود. گیتِ
-            # قبولیِ آسانتر (جوهرِ پر ≈۰ و فاصله از میانهٔ حلقه ≤۳۵)
-            # چون حلقهٔ بلوکِ چندخطی خودش آلوده به خطهایِ دیگر است و
-            # گیتِ معمولی معیارِ غلط میگیرد.
-            # PC بایت‌به‌بیت دست‌نخورده.
+# ۸ — — فالبکِ نهاییِ «پرِ ردیفی» (فقط اندروید —
+# MANGA_VERIFY_ROWFILL): وقتی هیچ پلی جواب نداد و جوهرِ
+# جامانده «واقعی» است (bad_ink با ink≥0.22 — لاگِ گوشیِ
+# 700×11362: crop@(420,3261) ink=0.66 = متنِ شبحِ LaMaِ
+# چندخطی که ×17/×33/×2 هر سه نگرفتند و «خروجیِ فعلی ماند»)
+# برایِ هر ردیفِ ماسک، رنگِ میانهٔ پیکسلهایِ بیرونِ ماسکِ
+# همان ردیف (شکافِ بینِ خطها/حاشیهٔ بلوک) جایگزینِ ماسک
+# میشود — گرادیانِ عمودیِ زمینه حفظ میشود و متنِ شبح حذف
+# ردیفِ کاملاً ماسک از نزدیکترینِ ردیفهایِ زمینهدار
+# درون‌یابی میشود. گاردِ ضدِ هنر: زمینهٔ رنگیِ قوی (نوتار
+# >۴۰ — بوته/سایه مثلِ ARTSKIP) هرگز پر نمیشود. گیتِ
+# قبولیِ آسانتر (جوهرِ پر ≈۰ و فاصله از میانهٔ حلقه ≤۳۵)
+# چون حلقهٔ بلوکِ چندخطی خودش آلوده به خطهایِ دیگر است و
+# گیتِ معمولی معیارِ غلط میگیرد.
+# PC بایت‌به‌بیت دست‌نخورده.
             def _row_fill_res():
                 mo = (m > 0)
                 if not mo.any():
                     return None
                 hgt, wid = mo.shape
                 mfill = m_eval > 0
-                # نمونهگیری با دیلِ ۱۵ (نه بیشتر): درِ بلوکِ متراکمِ
-                # چندخطی حاشیهٔ بلوک + شکافِ بینِ خطها تنها نمونهٔ
-                # زمینهایِ هر ردیفاند (میانه در برابرِ گلیفِ جامانده
-                # مقاوم است)؛ دیلِ بزرگتر همهٔ ردیف را میبلعد
+# نمونهگیری با دیلِ ۱۵ (نه بیشتر): درِ بلوکِ متراکمِ
+# چندخطی حاشیهٔ بلوک + شکافِ بینِ خطها تنها نمونهٔ
+# زمینهایِ هر ردیفاند (میانه در برابرِ گلیفِ جامانده
+# مقاوم است)؛ دیلِ بزرگتر همهٔ ردیف را میبلعد
                 msamp = cv2.dilate(
                     m, cv2.getStructuringElement(
                         cv2.MORPH_ELLIPSE, (15, 15))) > 0
@@ -15415,8 +15375,8 @@ class _MangaTranslatorBody_85:
                     return None
                 rowcol = {}
                 hrows = []
-                # نمونه از «همهٔ» ردیفهایِ برش (حاشیهٔ بالا/پایینِ بلوک
-                # هم لنگرِ گرادیاناند — نه فقط ردیفهایِ ماسک)
+# نمونه از «همهٔ» ردیفهایِ برش (حاشیهٔ بالا/پایینِ بلوک
+# هم لنگرِ گرادیاناند — نه فقط ردیفهایِ ماسک)
                 for yy in range(hgt):
                     free = ~msamp[yy, x0b:x1b]
                     if int(free.sum()) >= max(
@@ -15452,14 +15412,14 @@ class _MangaTranslatorBody_85:
                     fill, 0, 255).astype(np.uint8)[mfill]
                 return res
 
-            # v1.14.139 — دامنهٔ پرِ ردیفی جوهرِ ضعیفِ تأییدشده را هم
-            # میگیرد: لاگِ گوشیِ v1.14.138 — crop@(573,3189) با
-            # ink=0.16/حلقه=0.03/neutr=31 توسطِ خودِ وارسی «جوهر» پرچم
-            # شد (دود=1.00) ولی گیتِ قدیمیِ ink≥0.22 فالبکِ نهایی را
-            # قفل کرد → «ترمیمِ کامل نشد — خروجیِ فعلی ماند» = تکهٔ
-            # حرف رویِ تصویر. شرطِ تازه: جوهرِ ≥۰٫۱۰ وقتی حلقه پاک
-            # است (ink_r≤0.10) و حلقه گسترهٔ صدکیِ معقول دارد (rs≤30
-            # — ضدِ زمینهٔ بافت‌مند/هنری). PC بیت‌به‌بیت.
+# دامنهٔ پرِ ردیفی جوهرِ ضعیفِ تأییدشده را هم
+# میگیرد: لاگِ گوشیِ — crop@(573,3189) با
+# ink=0.16/حلقه=0.03/neutr=31 توسطِ خودِ وارسی «جوهر» پرچم
+# شد (دود=1.00) ولی گیتِ قدیمیِ ink≥0.22 فالبکِ نهایی را
+# قفل کرد → «ترمیمِ کامل نشد — خروجیِ فعلی ماند» = تکهٔ
+# حرف رویِ تصویر. شرطِ تازه: جوهرِ ≥۰٫۱۰ وقتی حلقه پاک
+# است (ink_r≤0.10) و حلقه گسترهٔ صدکیِ معقول دارد (rs≤30
+# ضدِ زمینهٔ بافت‌مند/هنری). PC بیت‌به‌بیت.
             if _android_gate("MANGA_VERIFY_ROWFILL") and bad_ink and \
                     neutr <= 40.0 and \
                     (ink_m >= 0.22 or (ink_m >= 0.10 and
@@ -15488,9 +15448,9 @@ class _MangaTranslatorBody_85:
                             return
                 except Exception:
                     pass
-            # هیچ مرحله‌ای بارِ سفیدِ سخت را پاس نکرد — اگر دست‌کم یک
-            # نتیجهٔ «بد-نیست» داشتیم، همان را blend می‌کنیم (به‌مراتب
-            # بهتر از خروجیِ کثیفِ اولیهٔ EP)
+# هیچ مرحله‌ای بارِ سفیدِ سخت را پاس نکرد — اگر دست‌کم یک
+# نتیجهٔ «بد-نیست» داشتیم، همان را blend می‌کنیم (به‌مراتب
+# بهتر از خروجیِ کثیفِ اولیهٔ EP)
             if fallback is not None:
                 _fr, _fw = fallback
                 if self.debug:
@@ -15509,21 +15469,20 @@ class _MangaTranslatorBody_85:
                           flush=True)
                 except Exception:
                     pass
-            # v1.14.225 — پایانِ «بازگردانیِ اورجینال» (۲۰۱). دستورِ
-            # سازنده: «متنِ قبلی جا میمونه… باید بتونن خوب بپاکن» —
-            # برگرداندنِ پیکسلِ اورجینال در ناحیهٔ «متن» یعنی خودِ
-            # متنِ انگلیسیِ خام برمیگشت (لاگِ واقعیِ گوشیِ v1.14.217:
-            # crop@(1673,0) — LaMa×2-برش «هنوز بد» → [↺201] → متنِ
-            # اورجینال سرِ جایش ماند). قاعدهٔ تازه: هیچ مسیری حقِ
-            # برگرداندنِ اورجینالِ «متن» را ندارد؛ آخرین فالبک = «پرِ
-            # ردیفیِ بی‌گیت» (رنگِ میانهٔ زمینهٔ همان ردیف — گرادیانِ
-            # عمودی حفظ، جوهر به سازهٔ پیکسلیِ ردیف جایگزین میشود =
-            # از ساخت، بدونِ متن) و اگر نشد «پرِ تختِ حلقه». بدترین
-            # حالتِ تازه = یک لکهٔ همرنگِ زمینه — هرگز متنِ جامانده.
-            # گاردِ هنر (همارزِ ARTSKIPِ اندروید، حالا رویِ PC هم):
-            # جوهرِ ضعیف + حلقهٔ بافت‌مند + زمینهٔ رنگی = سایه/بوتهٔ
-            # هنر — نه متن؛ در آن حالت «خروجیِ فعلی» میماند (هرگز
-            # اورجینالِ متن برنمیگردد، هیچ پُری هم رویِ هنر نمیرود).
+# پایانِ «بازگردانیِ اورجینال» (۲۰۱) —
+# برگرداندنِ پیکسلِ اورجینال در ناحیهٔ «متن» یعنی خودِ
+# متنِ انگلیسیِ خام برمیگشت (لاگِ واقعیِ گوشیِ :
+# crop@(1673,0) — LaMa×2-برش «هنوز بد» → [↺201] → متنِ
+# اورجینال سرِ جایش ماند). قاعدهٔ تازه: هیچ مسیری حقِ
+# برگرداندنِ اورجینالِ «متن» را ندارد؛ آخرین فالبک = «پرِ
+# ردیفیِ بی‌گیت» (رنگِ میانهٔ زمینهٔ همان ردیف — گرادیانِ
+# عمودی حفظ، جوهر به سازهٔ پیکسلیِ ردیف جایگزین میشود =
+# از ساخت، بدونِ متن) و اگر نشد «پرِ تختِ حلقه». بدترین
+# حالتِ تازه = یک لکهٔ همرنگِ زمینه — هرگز متنِ جامانده.
+# گاردِ هنر (همارزِ ARTSKIPِ اندروید، حالا رویِ PC هم):
+# جوهرِ ضعیف + حلقهٔ بافت‌مند + زمینهٔ رنگی = سایه/بوتهٔ
+# هنر — نه متن؛ در آن حالت «خروجیِ فعلی» میماند (هرگز
+# اورجینالِ متن برنمیگردد، هیچ پُری هم رویِ هنر نمیرود).
             _art_like = bool(
                 rs > 22.0 and ink_m < 0.30 and neutr >= 40.0)
             if _art_like:
@@ -15564,8 +15523,8 @@ class _MangaTranslatorBody_85:
                             except Exception:
                                 pass
                 except Exception:
-                    # حتی در خطا هم «خروجیِ فعلی» میماند — دیگر هرگز
-                    # اورجینال برنمیگردد.
+# حتی در خطا هم «خروجیِ فعلی» میماند — دیگر هرگز
+# اورجینال برنمیگردد.
                     pass
         except Exception:
             return
@@ -15587,7 +15546,6 @@ class _MangaTranslatorBody_85:
             dark[m0 == 0] = 0
             out = cv2.inpaint(out, dark, inpaintRadius=4, flags=cv2.INPAINT_TELEA)
         return out
-
 
     def _scrub_bright_residuals(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
 
@@ -15619,7 +15577,6 @@ class _MangaTranslatorBody_85:
             cm = (clab == i)
             if not cm.any():
                 continue
-
 
             ring = cv2.dilate(cm.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
             ring &= ~cm
@@ -15654,13 +15611,11 @@ class _MangaTranslatorBody_85:
             if not np.any(bad):
                 continue
 
-
             ys, xs = np.where(cm)
             bad_full = np.zeros(cm.shape, dtype=bool)
             bad_full[ys[bad], xs[bad]] = True
             if int(bad_full.sum()) < 8:
                 continue
-
 
             inv = (~cm).astype(np.float32)
             k = 21
@@ -15672,7 +15627,6 @@ class _MangaTranslatorBody_85:
                 np.divide(num, den, out=est, where=den > 1e-4)
                 filled[:, :, c][bad_full] = est[bad_full]
             filled = np.clip(filled, 0, 255).astype(np.uint8)
-
 
             bm = bad_full.astype(np.uint8) * 255
             bm = cv2.dilate(bm, np.ones((3, 3), np.uint8), iterations=1)
@@ -15700,4 +15654,3 @@ class _MangaTranslatorBody_85:
         if any(x in low for x in ("per minute", "per model", "rate limit", "too many requests")):
             return False
         return False
-

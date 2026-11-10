@@ -18,7 +18,6 @@ from extract_ui import extract
 
 import manga_app
 
-
 def _manga():
     global manga
     if manga is None:
@@ -29,14 +28,12 @@ def _manga():
 STATE = {"job": None, "lock": threading.Lock()}
 _MF_CACHE = {"mf": None}
 
-
 def _pil_webp_ok():
     try:
         from PIL import features
         return bool(features.check("webp"))
     except Exception:
         return False
-
 
 def _webp_to_png_android(src):
     try:
@@ -55,7 +52,6 @@ def _webp_to_png_android(src):
     except Exception:
         return None
 
-
 def _is_webp_file(path):
     try:
         with open(path, "rb") as f:
@@ -63,7 +59,6 @@ def _is_webp_file(path):
         return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
     except Exception:
         return False
-
 
 def install_webp_guards():
     if _pil_webp_ok():
@@ -117,7 +112,6 @@ def install_webp_guards():
     except Exception:
         pass
 
-
 def _resolve_img_format(p):
     fmt = str(p.get("img_format") or p.get("format") or "").strip().lstrip(".").lower()
     if fmt == "jpeg":
@@ -127,7 +121,6 @@ def _resolve_img_format(p):
     elif fmt == "webp" and not _pil_webp_ok():
         fmt = "jpg"
     return fmt
-
 
 install_webp_guards()
 
@@ -142,7 +135,6 @@ _IMG_MAGICS = (
     (b"%PDF", ".pdf"),
 )
 _ACCEPTED_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".zip", ".pdf"}
-
 
 def _fix_input_ext(path):
 
@@ -191,7 +183,6 @@ def _fix_input_ext(path):
     except Exception:
         return path
 
-
 def _bundles():
     try:
         b = list(manga_app.FONT_BUNDLES)
@@ -201,13 +192,11 @@ def _bundles():
         pass
     return []
 
-
 def _font_dir():
     try:
         return manga_app.FONT_DIR
     except Exception:
         return os.path.join(os.getcwd(), "fonts")
-
 
 def _tone_ready(fname):
     p = os.path.join(_font_dir(), fname)
@@ -215,7 +204,6 @@ def _tone_ready(fname):
         return os.path.isfile(p) and os.path.getsize(p) > 20_000
     except Exception:
         return False
-
 
 def _slot_fields(mf):
 
@@ -235,11 +223,10 @@ def _slot_fields(mf):
                         m["en"] = fid
     return mapping
 
-
 def _defaults(mf):
-    # v1.14.146 — متنِ پرامپتِ خودکار (برایِ پیش‌فرضِ کادرِ پرامپتِ گوشی)
-    # v1.14.147 — نقشهٔ value_if: با تغییرِ دروپ‌داونِ سبک، متنِ کادرِ پرامپت
-    # زنده عوض میشود (فیکسِ «سبک را میگذارم lite ولی پرامپت عوض نمیشود»).
+# متنِ پرامپتِ خودکار (برایِ پیش‌فرضِ کادرِ پرامپتِ گوشی)
+# نقشهٔ value_if: با تغییرِ دروپ‌داونِ سبک، متنِ کادرِ پرامپت
+# زنده عوض میشود (فیکسِ «سبک را میگذارم lite ولی پرامپت عوض نمیشود»).
     _auto_prompt = ""
     _preset_map = {}
     try:
@@ -265,8 +252,8 @@ def _defaults(mf):
             if not isinstance(f, dict):
                 continue
             if f.get("id") == "instruction_text":
-                # v1.14.146: دیگر متنِ کلاسیک پیشفرض نمینشیند — خالی = خودکار
-                # (پُرکردنِ قبلی باعثِ «رویِ گوشی پرامپت auto نمیشود» بود)
+# دیگر متنِ کلاسیک پیشفرض نمینشیند — خالی = خودکار
+# (پُرکردنِ قبلی باعثِ «رویِ گوشی پرامپت auto نمیشود» بود)
                 f["default"] = ""
             elif f.get("id") == "prompt_mode":
                 cur = f.get("default")
@@ -280,8 +267,8 @@ def _defaults(mf):
                 if not (isinstance(cur, str) and cur.strip()) and _auto_prompt:
                     f["default"] = _auto_prompt
                 if _preset_map:
-                    # v1.14.147 — MainActivity با تغییرِ prompt_mode متن را
-                    # بر اساسِ این نقشه زنده عوض میکند
+# MainActivity با تغییرِ prompt_mode متن را
+# بر اساسِ این نقشه زنده عوض میکند
                     f["value_if"] = {"field": "prompt_mode", "values": _preset_map}
             elif f.get("id") == "readord":
                 cur = f.get("default")
@@ -293,7 +280,6 @@ def _defaults(mf):
                 if f.get("default") not in ("lama-manga", "lama-big", "opencv"):
                     f["default"] = "lama-manga"
 
-
 def _bundled_source(name):
 
     import importlib
@@ -303,14 +289,12 @@ def _bundled_source(name):
         raise RuntimeError("no loader for " + name)
     return loader.get_source(name)
 
-
 def _android() -> bool:
     try:
         import java  # noqa: F401 — فقط روی Chaquopy موجود است
         return True
     except Exception:
         return False
-
 
 def _drop_choice(choices, token):
     """حذف یک گزینه از لیست انتخاب — مقدار می‌شود c[0] نه برچسب c[1]."""
@@ -327,7 +311,6 @@ def _drop_choice(choices, token):
             continue
         kept.append(c)
     return kept
-
 
 def manifest():
 
@@ -358,9 +341,9 @@ def manifest():
     for sec in mf.get("sections", []):
         for f in sec.get("fields", []):
             if f.get("choices_from") == "PROVIDERS" or f.get("id") == "provider":
-                # v1.14.220 — «auto» اولِ منو (همان ترتیبِ وب: auto|gemini|
-                # مدلهایِ کاربر|custom — مدلهایِ کاربر را MainActivity از
-                # حافظهٔ دستگاه به گزینهها اضافه میکند)
+# «auto» اولِ منو (همان ترتیبِ وب: auto|gemini|
+# مدلهایِ کاربر|custom — مدلهایِ کاربر را MainActivity از
+# حافظهٔ دستگاه به گزینهها اضافه میکند)
                 _pc = ["auto"] + [str(x) for x in provs
                                   if str(x).lower() not in ("auto",)]
                 f["choices"] = [[p, p] for p in _pc]
@@ -368,16 +351,16 @@ def manifest():
             if f.get("id") in ("manga_api_base", "api_base"):
                 f["visible_if"] = {"field": "provider", "equals": "custom"}
                 f["label"] = "دامنهٔ API سفارشی (فقط برای custom — مثال: https://api.example.com/v1)"
-            # --- گوشی: گزینهٔ PSD از قالب خروجی حذف می‌شود (درخواست کاربر) ---
+# گوشی: گزینهٔ PSD از قالب خروجی حذف می‌شود (درخواست کاربر) ---
             if f.get("id") in ("out_fmt", "manga_out_fmt", "fmt") and _android():
                 f["choices"] = _drop_choice(f.get("choices") or [], "psd")
-            # --- گوشی: lama-big قابل اجرا نیست → فقط دو حالت دیگر می‌آید ---
+# گوشی: lama-big قابل اجرا نیست → فقط دو حالت دیگر می‌آید ---
             if f.get("id") == "clean_method" and _android():
                 f["choices"] = _drop_choice(f.get("choices") or [], "lama-big")
                 if f.get("default") == "lama-big":
                     f["default"] = "lama-manga"
-        # --- ترتیبِ خواستهٔ کاربر: ارائه‌دهنده → لینک(custom) → کلید → مدل ---
-        # (دکمهٔ «تست کلید» در MainActivity بعد از «مدل» رندر می‌شود)
+# ترتیبِ خواستهٔ کاربر: ارائه‌دهنده → لینک(custom) → کلید → مدل ---
+# (دکمهٔ «تست کلید» در MainActivity بعد از «مدل» رندر می‌شود)
         _forder = {"provider": 0, "manga_provider": 0,
                    "manga_api_base": 1, "api_base": 1,
                    "manga_api_keys": 2, "api_keys": 2,
@@ -393,13 +376,11 @@ def manifest():
     _MF_CACHE["mf"] = mf
     return json.dumps(mf, ensure_ascii=False)
 
-
 def _cfg(key, dflt=None):
     try:
         return manga_app.load_config().get(key, dflt)
     except Exception:
         return dflt
-
 
 def _resolve_main_font(job):
     custom = job["params"].get("font_upload_file") or job["params"].get("font_file")
@@ -423,7 +404,6 @@ def _resolve_main_font(job):
     except Exception:
         fp = ""
     return fp
-
 
 def _resolve_tones(job, mf):
 
@@ -449,7 +429,6 @@ def _resolve_tones(job, mf):
             _log(job, "[!] فونت لحن «%s» پیدا نشد — با فونت اصلی رندر می‌شود" % lbl)
     return font_by_style, active
 
-
 def _clean_method_of(p):
     cm = str(p.get("clean_method") or "").strip().lower()
     if cm in ("lama-manga", "lama-big", "opencv"):
@@ -461,7 +440,6 @@ def _clean_method_of(p):
     if bool(p.get("force_cpu")):
         return "opencv"
     return "lama-manga"
-
 
 def _out_stem_from_src(src: str) -> str:
     s = str(src or "").strip()
@@ -479,9 +457,8 @@ def _out_stem_from_src(src: str) -> str:
     stem = re.sub(r'[\\/:*?"<>|]+', "_", stem).strip(" ._")
     return stem[:80]
 
-
 def _prompt_params(p):
-    """(prompt_mode, instruction) از پارامترهایِ جابِ گوشی — v1.14.146.
+    """(prompt_mode, instruction) از پارامترهایِ جابِ گوشی — .
     prompt_mode: گزینهٔ دروپ‌داونِ سبکِ پرامپت در گوشی.
     instruction: متنِ کادرِ پرامپتِ گوشی — اگر برابرِ پیشفرضهایِ شناختهشده
     باشد سفارشی حساب نمیشود (خودِ MangaTranslator هم نرمالایز میکند)."""
@@ -501,10 +478,8 @@ def _prompt_params(p):
         pass
     return _pm, (_body or None)
 
-
-
 def _resolve_auto_or_named(p, keys, log):
-    """v1.14.220 — resolveِ «auto» و «مدلِ نامیِ کاربر» قبل از ساختِ
+    """ — resolveِ «auto» و «مدلِ نامیِ کاربر» قبل از ساختِ
     MangaTranslator (مثلِ وب؛ manga.py دستنخورده میماند).
     ورودی: p (پارامترهایِ job — شاملِ custom_models از MainActivity)،
     keys (لیستِ کلیدها)، log (تابعِ لاگِ زنده).
@@ -520,8 +495,8 @@ def _resolve_auto_or_named(p, keys, log):
         _keys0 = str(p.get("keys") or "")
         _mdl0 = str(p.get("model") or "")
         if _prov0 and _prov0 not in ("auto", "gemini", "custom"):
-            # مدلِ نامیِ کاربر — اگر در لیست نبود/لیست خالی بود → gemini
-            # (providerِ «ناموجود» هرگز به موتور نمیرود)
+# مدلِ نامیِ کاربر — اگر در لیست نبود/لیست خالی بود → gemini
+# (providerِ «ناموجود» هرگز به موتور نمیرود)
             _named = getattr(manga_app, "resolve_ai_named", None)
             _r = _named(_cm, _prov0, _keys0, _mdl0) if (_named and _cm) else None
             if _r:
@@ -568,7 +543,6 @@ def _resolve_auto_or_named(p, keys, log):
             p["provider"] = "gemini"
     return keys
 
-
 def start_job(params_json, files_dir):
     with STATE["lock"]:
         if STATE["job"] and not STATE["job"].get("done"):
@@ -578,7 +552,7 @@ def start_job(params_json, files_dir):
         os.makedirs(work, exist_ok=True)
         out = os.path.join(work, "out")
         fmt = str(p.get("fmt", "PDF")).upper()
-        # --- گوشی: PSD پشتیبانی نمی‌شود (حذف شد) → PDF ---
+# گوشی: PSD پشتیبانی نمی‌شود (حذف شد) → PDF ---
         if fmt == "PSD" and _android():
             fmt = "PDF"
             p["fmt"] = "PDF"
@@ -600,18 +574,17 @@ def start_job(params_json, files_dir):
     threading.Thread(target=_run, args=(job,), daemon=True).start()
     return json.dumps({"ok": True}, ensure_ascii=False)
 
-
-# v1.14.153 — ترتیبِ نشانهها مهم است (اولین تطبیق برنده میشود).
+# ترتیبِ نشانهها مهم است (اولین تطبیق برنده میشود).
 # («آماده شد» حذف شد — خطِ «صفحهٔ N آماده شد» را میدزدید و اعلان
 # را رویِ «رندر و ذخیره» قفل میکرد؛ شمارهٔ صفحه از regexِ پایین
-# میآید. «لود نشد» = خطایِ بارگذاریِ موتور (v1.14.183 — فالبکی
+# میآید. «لود نشد» = خطایِ بارگذاریِ موتور ( — فالبکی
 # نیست؛ کاربر در اعلان خطا را میبیند).
 _PROG_PHASES = (
     ("بارگذاری موتور", "بارگذاری مدلها"),
     ("لود نشد", "خطا"),
-    # v1.14.154 — نشانگرهایِ شروعِ فازِ هر صفحه (پرینتهایِ جدیدِ manga.py)
-    # + حالتهایِ پایانی. ترتیب مهم است (اولین تطبیق برنده): خطهایِ
-    # «[OCR] … خطا: …» اول گاردِ استخراج را میگیرند نه «خطا» را.
+# نشانگرهایِ شروعِ فازِ هر صفحه (پرینتهایِ جدیدِ manga.py)
+# + حالتهایِ پایانی. ترتیب مهم است (اولین تطبیق برنده): خطهایِ
+# «[OCR] … خطا: …» اول گاردِ استخراج را میگیرند نه «خطا» را.
     ("استخراج متن", "استخراج متن"),
     ("متن استخراج شد", "استخراج متن"),
     ("(PaddleOCR)", "استخراج متن"),
@@ -619,7 +592,7 @@ _PROG_PHASES = (
     ("ترجمه:", "ترجمه"),
     ("فاز ۳", "ترجمه"),
     ("ترجمه با", "ترجمه"),
-    # v1.14.242 — استریمِ زندهٔ مرجع (درخواستِ واحد): خطوطِ «← استریم: X/Y دیالوگ…»
+# استریمِ زندهٔ مرجع (درخواستِ واحد): خطوطِ «← استریم: X/Y دیالوگ…»
     ("استریم:", "ترجمه"),
     ("پاکسازی متن", "پاکسازی"),
     ("روش پاکسازی", "پاکسازی"),
@@ -633,9 +606,8 @@ _PROG_PHASES = (
     ("پدلِ اندروید", "استخراج متن"),
 )
 
-
 def _update_prog(job, msg):
-    """v1.14.151 — فازِ فعلی و شمارهٔ صفحه برای اعلانِ پیشزمینه."""
+    """فازِ فعلی و شمارهٔ صفحه برای اعلانِ پیشزمینه."""
     try:
         m = re.search(r"(\d{1,4})\s+آماده شد", msg)
         ph = None
@@ -652,9 +624,8 @@ def _update_prog(job, msg):
     except Exception:
         pass
 
-
 def _heal_models_dirs(job):
-    """v1.14.154 — پیشدرمانِ EACCES (system error 13): رویِ بعضیِ گوشیها
+    """ — پیشدرمانِ EACCES (system error 13): رویِ بعضیِ گوشیها
     فایلهایِ مدل بعد از بهروزرسانیِ اپ مجوزِ خواندن ندارند → ONNX
     Runtime میشکند و استخراجِ همان کراپ خالی میماند. اینجا قبل از
     بارگذاریِ موتور، مجوزِ همهٔ فایلهایِ پوشههایِ مدل اصلاح میشود
@@ -686,20 +657,17 @@ def _heal_models_dirs(job):
     if _n:
         _log(job, "[*] مجوزِ خواندنِ %d فایلِ مدل اصلاح شد (درمانِ EACCES)" % _n)
 
-
 def _log(job, msg):
     _update_prog(job, str(msg))
     with STATE["lock"]:
         txt = str(job.get("log") or "")
         job["log"] = (txt + "\n" + str(msg))[-12000:]
-    _FULLLOG.write(str(msg) + "\n")  # v1.14.16: لاگ کامل
-
+    _FULLLOG.write(str(msg) + "\n")  # لاگ کامل
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
-
 class _FullLog:
-    """v1.14.16: لاگ کاملِ بدون برش → <files_dir>/manga.log
+    """: لاگ کاملِ بدون برش → <files_dir>/manga.log
     لاگِ باکسِ UI هر خط را تا ۳۰۰ نویسه و کل را تا ۱۲هزار نویسه برش می‌زند؛
     این فایل همه‌چیز را خام نگه می‌دارد تا کاربر بتواند متن کامل را بفرستد."""
 
@@ -719,7 +687,7 @@ class _FullLog:
                 os.makedirs(d, exist_ok=True)
                 p = os.path.join(d, "manga.log")
                 old_p = os.path.join(d, "manga_old.log")
-                # لاگ اجرای قبلی → manga_old.log (دو فایل، همان‌طور که کاربر خواست)
+# لاگ اجرای قبلی → manga_old.log (دو فایل، همان‌طور که کاربر خواست)
                 if os.path.isfile(p):
                     try:
                         if os.path.getsize(p) <= 8 * 1024 * 1024:
@@ -768,9 +736,7 @@ class _FullLog:
         with self._lock:
             self._close()
 
-
 _FULLLOG = _FullLog()
-
 
 def _fulllog_header():
     try:
@@ -790,7 +756,6 @@ def _fulllog_header():
     return ("=== Manga Translator v%s | %s | cpu=%s %s ===\n"
             % (_ver, time.strftime("%Y-%m-%d %H:%M:%S"), _cpu, _arch))
 
-
 def _fulllog_params(job):
     try:
         p = job.get("params") or {}
@@ -809,9 +774,7 @@ def _fulllog_params(job):
     except Exception:
         return "params: ?"
 
-
 class _TeeStream:
-
 
     def __init__(self, job):
         self._job = job
@@ -841,7 +804,7 @@ class _TeeStream:
             self._len = 0
         if not chunk:
             return
-        _FULLLOG.write(chunk)  # v1.14.16: خام و بدون برش به فایل
+        _FULLLOG.write(chunk)  # خام و بدون برش به فایل
         pieces = chunk.replace("\r", "\n").split("\n")
         for ln in pieces[:-1]:
             self._emit(ln)
@@ -856,11 +819,11 @@ class _TeeStream:
             return
         if len(ln) > 300:
             ln = "…" + ln[-300:]
-        # v1.14.153 — ریشهٔ «اعلان گیرِ درحال بارگیری، عوض نمیشه»:
-        # ماشینِ فاز فقط خطهایِ _log را میدید؛ ولی تقریباً همهٔ پیامهایِ
-        # پایپلاین (صفحهٔ N آماده شد / OCR: / فاز ۳) با print() از
-        # _TeeStream میآیند → فاز هیچوقت عوض نمیشد. حالا هر خطِ
-        # stdout هم فاز/شمارهٔ صفحه را بهروز میکند.
+# ریشهٔ «اعلان گیرِ درحال بارگیری، عوض نمیشه»:
+# ماشینِ فاز فقط خطهایِ _log را میدید؛ ولی تقریباً همهٔ پیامهایِ
+# پایپلاین (صفحهٔ N آماده شد / OCR: / فاز ۳) با print از
+# _TeeStream میآیند → فاز هیچوقت عوض نمیشد. حالا هر خطِ
+# stdout هم فاز/شمارهٔ صفحه را بهروز میکند.
         _update_prog(self._job, ln)
         with STATE["lock"]:
             txt = str(self._job.get("log") or "")
@@ -877,7 +840,6 @@ class _TeeStream:
         with self._lock:
             return "".join(self._tail)
 
-
 def _heartbeat(job):
 
     t0 = time.time()
@@ -891,7 +853,6 @@ def _heartbeat(job):
         if cur == last:
             _log(job, "در حال کار… %d ثانیه — صفحه‌های سنگین/دانلود مدل طول می‌کشد" % int(time.time() - t0))
         last = cur
-
 
 def _attach_log_handlers(tee):
 
@@ -920,7 +881,6 @@ def _attach_log_handlers(tee):
             pass
     return (h, attached)
 
-
 def _detach_log_handlers(attached):
     try:
         h, lgs = attached
@@ -929,11 +889,10 @@ def _detach_log_handlers(attached):
     except Exception:
         pass
 
-
 def _run(job):
     p = job["params"]
     job["_t0"] = time.time()
-    _FULLLOG.open(job.get("files_dir"))  # v1.14.16: لاگ کامل
+    _FULLLOG.open(job.get("files_dir"))  # لاگ کامل
     _FULLLOG.write(_fulllog_params(job) + "\n")
     try:
         os.makedirs(job["out"], exist_ok=True)
@@ -953,24 +912,24 @@ def _run(job):
         shutil.rmtree(job["live_dbg"], ignore_errors=True)
         os.environ["MANGA_LIVE_DEBUG_DIR"] = job["live_dbg"]
         langs = [x for x in str(p.get("ocr_lang") or "en").split() if x.strip()]
-        # v1.14.163 — سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
-        # فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا
-        # میکند و OCR فقط رویِ همان کراپها اجرا میشود.
-        # v1.14.170→184 — موتورِ OCRِ گوشی = SDKِ رسمیِ PaddleOCR
-        # اندروید (ppocr-sdkِ وندورشده با PP-OCRv6_smallِ باندل).
-        # v1.14.184 — «هرروشی تو گوشی واسه استخراج شده حذف کن فقط از
-        # همین لینک بالا استفاده کنه» → هر انتخابِ کهنه
-        # (mlkit/rapidocr/onnx/paddle/…) نادیده گرفته میشود.
+# سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
+# فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا
+# میکند و OCR فقط رویِ همان کراپها اجرا میشود.
+# →184 — موتورِ OCRِ گوشی = SDKِ رسمیِ PaddleOCR
+# اندروید (ppocr-sdkِ وندورشده با PP-OCRv6_smallِ باندل).
+# «هرروشی تو گوشی واسه استخراج شده حذف کن فقط از
+# همین لینک بالا استفاده کنه» → هر انتخابِ کهنه
+# (mlkit/rapidocr/onnx/paddle/…) نادیده گرفته میشود.
         try:
             _oe = str(p.get("ocr_engine") or "").strip().lower()
             if _oe:
                 _log(job, "[!] انتخابِ موتورِ «%s» دیگر پشتیبانی نمیشود "
-                          "(v1.14.184) — SDKِ رسمیِ PaddleOCR اندروید "
+                          " — SDKِ رسمیِ PaddleOCR اندروید "
                           "(PP-OCRv6_smallِ باندل) بهکار میرود" % _oe)
         except Exception:
             pass
         _src0 = str(p.get("src") or "")
-        # --- چند فایل انتخاب‌شده (اندروید: با کاما جدا شده) → پوشهٔ دسته‌ای ---
+# چند فایل انتخاب‌شده (اندروید: با کاما جدا شده) → پوشهٔ دسته‌ای ---
         if ("," in _src0 and "://" not in _src0
                 and not _src0.lower().startswith(("http://", "https://"))):
             _parts = [s.strip() for s in _src0.split(",") if s.strip()]
@@ -993,15 +952,15 @@ def _run(job):
         if _src1 != _src0:
             p["src"] = _src1
             _log(job, "پسوند ورودی اصلاح شد → %s" % os.path.basename(_src1))
-        # v1.14.181 — دکمهٔ «تستِ سرعت» (v1.14.178) کامل حذف شد؛ روشِ
-        # استخراج = فقط SDKِ رسمیِ PaddleOCR — speed_lab_env پایینتر
-        # اعمالش میکند.
+# دکمهٔ «تستِ سرعت»  کامل حذف شد؛ روشِ
+# استخراج = فقط SDKِ رسمیِ PaddleOCR — speed_lab_env پایینتر
+# اعمالش میکند.
         keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
-        # ── v1.14.220 — resolveِ «auto» و «مدلِ نامیِ کاربر» (مثلِ وب) ──
-        # لیستِ مدلهایِ سفارشی از MainActivity (custom_models) میآید؛
-        # سنجشِ دسترسی = همان probeِ موتور (manga.test_api_keys)؛
-        # manga.py هیچ تغییری نمیکند — خروجیِ resolve همیشه providerِ
-        # واقعیِ gemini/custom است.
+# resolveِ «auto» و «مدلِ نامیِ کاربر» (مثلِ وب) ──
+# لیستِ مدلهایِ سفارشی از MainActivity (custom_models) میآید
+# سنجشِ دسترسی = همان probeِ موتور (manga.test_api_keys)
+# manga.py هیچ تغییری نمیکند — خروجیِ resolve همیشه providerِ
+# واقعیِ gemini/custom است.
         keys = _resolve_auto_or_named(p, keys, lambda m: _log(job, str(m)))
         if not keys and not (bool(p.get("fake")) or bool(p.get("clean_only"))):
             _log(job, "[!] حداقل یک کلید API لازم است — کلید بده یا "
@@ -1035,8 +994,8 @@ def _run(job):
         hb = threading.Thread(target=_heartbeat, args=(job,), daemon=True)
         hb.start()
         handlers = _attach_log_handlers(tee)
-        # v1.14.176 — «آزمایشگاهِ سرعتِ استخراج»: تنظیمهایِ پنلِ اپ →
-        # envهایِ OCRِ گوشی (پیشفرض = رفتارِ قبل) + ریستِ سنجههایِ سرعت
+# «آزمایشگاهِ سرعتِ استخراج»: تنظیمهایِ پنلِ اپ →
+# envهایِ OCRِ گوشی (پیشفرض = رفتارِ قبل) + ریستِ سنجههایِ سرعت
         try:
             _sl = getattr(_manga(), "speed_lab_env", None)
             if _sl:
@@ -1054,7 +1013,7 @@ def _run(job):
 
         try:
             with contextlib.redirect_stdout(tee), contextlib.redirect_stderr(tee):
-                _heal_models_dirs(job)  # v1.14.154 — پیشدرمانِ EACCES
+                _heal_models_dirs(job)  # پیشدرمانِ EACCES
                 _log(job, "در حال بارگذاری موتور و مدل‌ها…"
                           " (بار اول مدل‌ها دانلود می‌شوند)")
                 mf = _MF_CACHE["mf"]
@@ -1085,8 +1044,8 @@ def _run(job):
                     api_timeout=_f("timeout", 40.0),
                     max_retries=_i("maxre", 8),
                     request_delay=_f("reqdelay", 0.0),
-                    translation_temperature=_f("temp", 0.7),  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
-                    # v1.14.243 — تنظیمِ top_p (پیشفرض 0.9) — از فرمِ اندروید
+                    translation_temperature=_f("temp", 0.7),  # دستور: ۰.۷ (عینِ مرجع)
+# تنظیمِ top_p (پیشفرض 0.9) — از فرمِ اندروید
                     translation_top_p=_f("top_p", 0.9),
                     img_quality=_i("quality", 92),
                     img_format=_resolve_img_format(p),
@@ -1099,8 +1058,8 @@ def _run(job):
                 if (getattr(manga, "_on_android", lambda: False)()
                         and getattr(tr, "det", None) is not None):
                     tr.stitch_max_height = 4000
-                    # v1.14.106 — اندروید صراحتاً برش می‌خواهد (رمِ کم)؛
-                    # حالتِ صفحاتِ مستقل روی گوشی رد می‌شود (رفتارِ قبلی)
+# اندروید صراحتاً برش می‌خواهد (رمِ کم)
+# حالتِ صفحاتِ مستقل روی گوشی رد می‌شود (رفتارِ قبلی)
                     tr.stitch_explicit = True
                 tr.batch_workers = _i("batchw", 3)
 
@@ -1117,15 +1076,15 @@ def _run(job):
                 tr.run(str(p.get("src")), job["out_file_path"], resume=False)
         finally:
             _detach_log_handlers(handlers)
-            # v1.14.215 — خطا/لغو وسطِ کار: صفحه‌هایِ در انتظارِ گیتِ ترتیبِ
-            # نمایشِ زنده به‌ترتیب آزاد شوند تا نمایش ناقص نماند.
+# خطا/لغو وسطِ کار: صفحه‌هایِ در انتظارِ گیتِ ترتیبِ
+# نمایشِ زنده به‌ترتیب آزاد شوند تا نمایش ناقص نماند.
             try:
                 _manga()._live_seq_flush()
             except Exception:
                 pass
             os.environ.pop("MANGA_LIVE_DIR", None)
-            # v1.14.176 — گزارشِ سرعتِ «این اجرا» (آزمایشگاهِ سرعت): میانگینِ
-            # کراپ + سهمِ پلهها → سازنده بینِ حالتهایِ پنل مقایسه میکند
+# گزارشِ سرعتِ «این اجرا» (آزمایشگاهِ سرعت): میانگینِ
+# کراپ + سهمِ پلهها → سازنده بینِ حالتهایِ پنل مقایسه میکند
             try:
                 _rep = getattr(_manga(), "_mt_speed_report", None)
                 if _rep:
@@ -1184,9 +1143,9 @@ def _run(job):
         if not imgs:
             imgs = _live_pages(job)
         dl = job["out_file_path"] if os.path.isfile(job["out_file_path"]) else None
-        # 🔍 v1.14.13: دیباگ = «یک خروجی یکپارچه» مثل خروجی اصلی — نه تصاویر
-        # جدا جدا. اگر موتور خودش *_debug.pdf ساخته (خروجی PDF/HTML/ZIP) همون
-        # استفاده می‌شود؛ وگرنه از تصاویر دیباگ یک PDF واحد ساخته می‌شود.
+# دیباگ = «یک خروجی یکپارچه» مثل خروجی اصلی — نه تصاویر
+# جدا جدا. اگر موتور خودش *_debug.pdf ساخته (خروجی PDF/HTML/ZIP) همون
+# استفاده می‌شود؛ وگرنه از تصاویر دیباگ یک PDF واحد ساخته می‌شود.
         dbg_out = None
         try:
             _root, _ext = os.path.splitext(job["out_file_path"])
@@ -1236,13 +1195,12 @@ def _run(job):
             job["done"] = True
             job["error"] = True
     finally:
-        # v1.14.16: جمع‌بندی و بستن لاگ کامل در همهٔ مسیرها (موفق/لغو/خطا)
+# جمع‌بندی و بستن لاگ کامل در همهٔ مسیرها (موفق/لغو/خطا)
         _FULLLOG.write(
             "=== END — done=%s cancelled=%s error=%s — %.1fs ===\n"
             % (bool(job.get("done")), bool(job.get("cancelled")),
                bool(job.get("error")), time.time() - job.get("_t0", time.time())))
         _FULLLOG.close()
-
 
 def _live_pages(job, dbg: bool = False):
     """صفحه‌های تمام‌شدهٔ لحظه‌ای از پوشهٔ live — برای نمایش زنده بدون رفرش.
@@ -1260,10 +1218,9 @@ def _live_pages(job, dbg: bool = False):
     except Exception:
         return []
 
-
 def _live_total(job, dbg: bool = False) -> int:
     """تعداد کل صفحه‌ها از total.txt (موتور همان اول تعداد کل را می‌نویسد)
-    — تا نمایشگر زنده از اول اسلات لودینگ برای همه بگذارد (v1.14.29)."""
+    — تا نمایشگر زنده از اول اسلات لودینگ برای همه بگذارد ()."""
     d = job.get("live_dbg" if dbg else "live")
     if not d:
         return 0
@@ -1273,15 +1230,14 @@ def _live_total(job, dbg: bool = False) -> int:
     except Exception:
         return 0
 
-
 def poll():
     with STATE["lock"]:
         job = STATE["job"]
         if not job:
             return json.dumps({"idle": True}, ensure_ascii=False)
-        # v1.14.154 — «کدوم قسمته، کدوم عکسه، چند درصده»: صفحهٔ جاری
-        # (در حال کار = آمادهشده + ۱) و درصد، اینجا حساب میشود تا
-        # اعلان فقط نمایش بدهد.
+# «کدوم قسمته، کدوم عکسه، چند درصده»: صفحهٔ جاری
+# (در حال کار = آمادهشده + ۱) و درصد، اینجا حساب میشود تا
+# اعلان فقط نمایش بدهد.
         _pt = _live_total(job)
         _pp = int(job.get("prog_page") or 0)
         if _pt > 0:
@@ -1312,7 +1268,6 @@ def poll():
             "prog_pct": _ppct,
         }, ensure_ascii=False)
 
-
 def cancel():
     """لغو واقعی کار در حال اجرا — پرچم توقف موتور را می‌گذارد؛ حلقهٔ
     اصلی manga.py بین صفحه‌ها آن را می‌بیند و JobCancelled می‌دهد."""
@@ -1327,7 +1282,6 @@ def cancel():
     except Exception:
         pass
     return json.dumps({"ok": True}, ensure_ascii=False)
-
 
 def test_keys(params_json):
     """تست کلیدهای API / لینک سفارشی برای دکمهٔ «تست کلید» اندروید.
@@ -1352,10 +1306,8 @@ def test_keys(params_json):
     except Exception as e:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
-
 def _gemini_offline_models():
-    """v1.14.232 — لیستِ آفلاینِ مدلهایِ Gemini (دستورِ سازنده: «مدل هارو
-    افلاین هم بزار یک بار خودت لیست هارو بگیر بزار کد») — از manga.py؛
+    """ — لیستِ آفلاینِ مدلهایِ Gemini () — از manga.py
     اگر import نشد، نسخهٔ داخلی همین‌جا."""
     try:
         from manga import gemini_offline_models as _g
@@ -1374,14 +1326,12 @@ def _gemini_offline_models():
         "gemini-flash-latest",
     ]
 
-
 def list_models(params_json):
-    """v1.14.231 — فهرستِ زندهٔ مدلها برایِ دکمهٔ «↻» کنارِ فیلدِ مدلِ
-    اندروید (دستورِ سازنده: «تو گوشی دکمه رفرش مدل gemini نداره واسه
-    انتخاب مدل»). params_json: {"provider": "gemini", "keys": "...",
+    """ — فهرستِ زندهٔ مدلها برایِ دکمهٔ «↻» کنارِ فیلدِ مدلِ
+    اندروید (). params_json: {"provider": "gemini", "keys": "...",
     "api_base": "..."} — همان list_provider_modelsِ وب (Gemini: فقط
     مدلهایِ ترجمهپذیر). خروجی: {"ok": bool, "models": [...], "error": str}.
-    v1.14.232 — فال‌بکِ آفلاین: اگر گرفتنِ فهرستِ زندهٔ Gemini نشد
+     — فال‌بکِ آفلاین: اگر گرفتنِ فهرستِ زندهٔ Gemini نشد
     (اینترنت/کلید)، لیستِ هاردکدِ داخلِ کد با پرچمِ offline=true
     برمیگردد (دستور: «اگ اپدیتی چیزی شد خودشون رفرش میزنن»).
     """

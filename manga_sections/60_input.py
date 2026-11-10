@@ -1,6 +1,5 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# ⚠️ MangaTranslator (۲ از ۷) — ورودی: URL، دانلودِ تصاویر، decode، خروجیِ خودکار
+# MangaTranslator (۲ از ۷) — ورودی: URL، دانلودِ تصاویر، decode، خروجیِ خودکار
 # این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
 # اجرا نمیشود — لودرِ manga.py این محتوا را بههمان ترتیبِ شمارهٔ
 # فایل، داخلِ کلاس میچسباند. کلاسِ پوششیِ زیر فقط برایِ معتبر
@@ -40,7 +39,7 @@ class _MangaTranslatorBody_60:
 
     @staticmethod
     def _is_direct_image_url(url: str) -> bool:
-        """v1.14.33: هوشمندتر — لینک‌هایی مثل گوگل‌تیترِ thumbnail
+        """: هوشمندتر — لینک‌هایی مثل گوگل‌تیترِ thumbnail
         (encrypted-tbn0.gstatic.com/images?q=tbn:…) یا ویکیا
         (…/DailyQuest1.jpg/revision/latest) هم «تصویر مستقیم» حساب می‌شوند.
         قبلاً این‌ها «فصل» حساب می‌شدند و تک‌تک جدا پردازش می‌شدند — برای
@@ -51,10 +50,10 @@ class _MangaTranslatorBody_60:
         exts = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif")
         if any(path.endswith(e) for e in exts):
             return True
-        # بسته‌بندی‌های گالری: name.jpg/revision/latest ، name.jpg/900 等
+# بسته‌بندی‌های گالری: name.jpg/revision/latest ، name.jpg/900 等
         if re.search(r"\.(jpe?g|png|webp|bmp|gif)(/|$)", path):
             return True
-        # thumbnail های گوگل و مشابه: images?q=tbn:…
+# thumbnail های گوگل و مشابه: images?q=tbn:…
         if "gstatic.com/images" in low and "q=tbn:" in low:
             return True
         return False
@@ -63,9 +62,9 @@ class _MangaTranslatorBody_60:
     def _expand_input_urls(input_str: str) -> List[str]:
         import requests
 
-        # چند لینک: با اینتر (\n یا \r\n — هرچقدر که کاربر زده باشد)، تب یا
-        # کاما جدا می‌شود. فاصلهٔ ساده جداکننده «نیست» تا سینتکسِ بازهٔ
-        # «…/1 > 14.jpg» (که فاصله دارد) نشکند.
+# چند لینک: با اینتر (\n یا \r\n — هرچقدر که کاربر زده باشد)، تب یا
+# کاما جدا می‌شود. فاصلهٔ ساده جداکننده «نیست» تا سینتکسِ بازهٔ
+# «…/1 > 14.jpg» (که فاصله دارد) نشکند.
         parts = [p.strip() for p in re.split(r"[,\n\r\t]+", input_str) if p.strip()]
         if not parts:
             return []
@@ -79,12 +78,12 @@ class _MangaTranslatorBody_60:
             )
         }
 
-        # v1.14.33: الگوهای بازه — «1 > 14.jpg» صعودی (از اول به آخر) و
-        # «1 < 14.jpg» نزولی (از آخر به اول). بعد از کاما هم کار می‌کند:
-        #   https://…/chapter-264/1 > 14.jpg
-        #   https://…/chapter-264/1 < 14.jpg
-        #   https://…/chapter-264/1.jpg,https://…/2.jpg  (فقط ۱ و ۲)
-        #   https://…/chapter-264/*.jpg                   (هرچه پیدا کند)
+# الگوهای بازه — «1 > 14.jpg» صعودی (از اول به آخر) و
+# «1 < 14.jpg» نزولی (از آخر به اول). بعد از کاما هم کار می‌کند:
+# https://…/chapter-264/1 > 14.jpg
+# https://…/chapter-264/1 < 14.jpg
+# https://…/chapter-264/1.jpg,https://…/2.jpg (فقط ۱ و ۲)
+# https://…/chapter-264/*.jpg (هرچه پیدا کند)
         _range_re = re.compile(
             r"^(?P<base>.+?)(?P<a>\d+)\s*(?P<op>[><])\s*(?P<b>\d+)"
             r"(?P<ext>\.[A-Za-z0-9]{2,5})?(?P<q>\?.*)?$"
@@ -103,7 +102,7 @@ class _MangaTranslatorBody_60:
                 if hi - lo > 2000:
                     print(f"[!] بازه خیلی بزرگ نادیده گرفته شد: {part[:80]}")
                     continue
-                # > از اول به آخر (صعودی) — < از آخر به اول (نزولی)
+# > از اول به آخر (صعودی) — < از آخر به اول (نزولی)
                 nums = range(lo, hi + 1) if op == ">" else range(hi, lo - 1, -1)
                 _found = [f"{base}{n}{ext}{q}" for n in nums]
                 print(f"[*] بازهٔ لینک: {lo} {'→' if op == '>' else '←'} {hi} "
@@ -325,7 +324,7 @@ class _MangaTranslatorBody_60:
             except Exception:
                 _alpha = False
             if _alpha:
-                # پس‌زمینهٔ سفید تا ناحیهٔ شفافِ وب‌پی سیاه نشود
+# پس‌زمینهٔ سفید تا ناحیهٔ شفافِ وب‌پی سیاه نشود
                 base = Bitmap.createBitmap(
                     bm.getWidth(), bm.getHeight(), Bitmap.Config.ARGB_8888)
                 _cv = Canvas(base)
@@ -368,7 +367,7 @@ class _MangaTranslatorBody_60:
         اگر opencv باز نکرد (مثلاً وب‌پی رویِ گوشی) با Pillow باز می‌کنیم؛
         اگر Pillow هم کدک نداشت (وب‌پیِ گوشی) BitmapFactoryِ اندروید باز
         می‌کند و بایتِ jpg برمی‌گردد تا ذخیره و خواندنِ بعدیِ cv2 سالم بماند.
-        v1.14.66 — رویِ اندروید وب‌پی/avif «اولِ Pillow»: دیکودِ وب‌پیِ
+         — رویِ اندروید وب‌پی/avif «اولِ Pillow»: دیکودِ وب‌پیِ
         opencvِ گوشی دورِ متنِ قرمز نویزِ کروما می‌گذارد و هاله از ماسک
         فرار می‌کند (لکهٔ قرمزِ POCO F4 — کشفِ کاربر: همان فایل با فرمتِ
         jpg تمیز پاک می‌شود). با Pillow-first مسیرِ «لینک» و «فایلِ
@@ -390,7 +389,7 @@ class _MangaTranslatorBody_60:
         except Exception:
             _rgb = None
         if _rgb is None:
-            # آخرین پشتوانه (فقط گوشی): کدکِ خودِ اندروید — وب‌پی/avif/heic
+# آخرین پشتوانه (فقط گوشی): کدکِ خودِ اندروید — وب‌پی/avif/heic
             _jpg = MangaTranslator._android_decode_bytes(content)
             if _jpg:
                 _img2 = cv2.imdecode(
@@ -408,7 +407,7 @@ class _MangaTranslatorBody_60:
     def _imread_any(path: str):
         """خواندنِ فایلِ تصویر: اول cv2.imread؛ اگر نشد (وب‌پی/avif رویِ
         گوشی) بایت‌ها با زنجیرهٔ کاملِ بازش (Pillow/اندروید) باز می‌شود.
-        v1.14.67 — رویِ اندروید وب‌پیِ با پسوندِ دروغین (rename به
+         — رویِ اندروید وب‌پیِ با پسوندِ دروغین (rename به
         .png/.jpg) هم مستقیم به زنجیرهٔ کامل می‌رود؛ دیکودِ وب‌پیِ opencvِ
         گوشی نویزِ کروما می‌گذارد و هالهٔ قرمز از ماسک فرار می‌کند."""
         if _on_android():
@@ -441,17 +440,17 @@ class _MangaTranslatorBody_60:
         زنجیرهٔ کاملِ بازش همان‌جا به jpg تبدیل و مسیرِ تازه برمی‌گردد؛
         فایلِ اصلی دست‌نخورده می‌ماند. اگر فایل قابلِ باز شدن نباشد،
         مسیرِ اصلی برمی‌گردد تا مرحلهٔ بعد پیامِ دقیق بدهد."""
-        # v1.14.66 — اندروید: وب‌پی/avif/heic همیشه از زنجیرهٔ کاملِ بازش
-        # می‌گذرد (همان زنجیرهٔ مسیرِ لینک) — حتی اگر opencvِ گوشی بتواند
-        # بخوانَد؛ دیکودِ وب‌پیِ opencvِ گوشی دورِ متنِ قرمز نویز می‌گذارد
-        # و هالهٔ قرمز از ماسک فرار می‌کند (لکهٔ قرمزِ POCO F4).
+# اندروید: وب‌پی/avif/heic همیشه از زنجیرهٔ کاملِ بازش
+# می‌گذرد (همان زنجیرهٔ مسیرِ لینک) — حتی اگر opencvِ گوشی بتواند
+# بخوانَد؛ دیکودِ وب‌پیِ opencvِ گوشی دورِ متنِ قرمز نویز می‌گذارد
+# و هالهٔ قرمز از ماسک فرار می‌کند (لکهٔ قرمزِ POCO F4).
         _ext_norm = os.path.splitext(path)[1].lower()
         _force_chain = (_on_android() and _ext_norm in (
             ".webp", ".avif", ".heif", ".heic"))
-        # v1.14.67 — پسوندِ دروغین (لکهٔ قرمزِ POCO F4 دورِ دوم): فایلِ وب‌پیِ
-        # محلی که پسوندش به .png/.jpg «اصلاح» شده بود از گاردِ پسوندی می‌گذشت
-        # و opencvِ گوشی دیکودِ کروما-نویز می‌کرد. حالا رویِ اندروید جادویِ
-        # بایت هم چک می‌شود — محتوا اهمیت دارد نه پسوند.
+# پسوندِ دروغین (لکهٔ قرمزِ POCO F4 دورِ دوم): فایلِ وب‌پیِ
+# محلی که پسوندش به .png/.jpg «اصلاح» شده بود از گاردِ پسوندی می‌گذشت
+# و opencvِ گوشی دیکودِ کروما-نویز می‌کرد. حالا رویِ اندروید جادویِ
+# بایت هم چک می‌شود — محتوا اهمیت دارد نه پسوند.
         if not _force_chain and _on_android():
             try:
                 with open(path, "rb") as _fmg:
@@ -521,7 +520,7 @@ class _MangaTranslatorBody_60:
         }
         url = MangaTranslator._normalize_image_url(url)
 
-        use_numeric_sort = False  # v1.14.230 — پیش از تعریفِ _save_bytes (مسیرِ عکسِ مستقیم هم اینجا میگذرد)
+        use_numeric_sort = False  # پیش از تعریفِ _save_bytes (مسیرِ عکسِ مستقیم هم اینجا میگذرد)
 
         def _save_bytes(content: bytes, index: int, hint_url: str = "") -> Optional[str]:
             ext = os.path.splitext(urlparse(hint_url or url).path)[1].lower()
@@ -539,7 +538,7 @@ class _MangaTranslatorBody_60:
             if img is None:
                 return None
             if _reblob is not None:
-                # opencv وب‌پی را دوباره نمی‌خواند → همان لحظه jpg شد
+# opencv وب‌پی را دوباره نمی‌خواند → همان لحظه jpg شد
                 content, ext = _reblob, ".jpg"
             h, w = img.shape[:2]
             if min(h, w) < 80 or max(h, w) < 200:
@@ -548,12 +547,12 @@ class _MangaTranslatorBody_60:
             _base = os.path.splitext(os.path.basename(urlparse(hint_url or url).path))[0]
             _base = re.sub(r'[\\/:*?"<>|]+', "_", _base).strip("._ ")[:80]
             _stem = _base or f"page_{index:03d}"
-            # v1.14.230 — اسمهایِ بدونِ شماره (هشِ تصادفی مثل 888746.webp)
-            # در هر سورتی (نیچرال/الفبایی) ترتیبِ صفحه را بهم میریزند —
-            # حتی در رزومِ همان فصل. وقتی دستهٔ صفحهها شمارهٔ ترتیبیِ
-            # قابلِ اتکا ندارد (use_numeric_sort=False)، شمارهٔ ترتیبِ
-            # دانلود (HTML) به ابتدایِ نام میچسبد: 001_888746.webp
-            # → هر سورتی ترتیبِ واقعی را حفظ میکند.
+# اسمهایِ بدونِ شماره (هشِ تصادفی مثل 888746.webp)
+# در هر سورتی (نیچرال/الفبایی) ترتیبِ صفحه را بهم میریزند —
+# حتی در رزومِ همان فصل. وقتی دستهٔ صفحهها شمارهٔ ترتیبیِ
+# قابلِ اتکا ندارد (use_numeric_sort=False)، شمارهٔ ترتیبِ
+# دانلود (HTML) به ابتدایِ نام میچسبد: 001_888746.webp
+# → هر سورتی ترتیبِ واقعی را حفظ میکند.
             if (not use_numeric_sort) and _base:
                 _stem = f"{index:03d}_{_base}"
             out_file = os.path.join(dest_dir, f"{_stem}{ext}")
@@ -580,10 +579,10 @@ class _MangaTranslatorBody_60:
             if saved_path:
                 print(f"    1 تصویر مستقیم از لینک دانلود شد.")
                 return [saved_path]
-            # v1.14.56: یک تلاشِ دیگر با Acceptِ ساده‌تر — بعضی CDNها وقتی
-            # «image/avif» در Accept باشد فرمتِ avif می‌دهند که نه opencv
-            # نه Pillow بلدند باز کردنش؛ بدونِ avif معمولاً همان وب‌پی/jpg
-            # برمی‌گردد.
+# یک تلاشِ دیگر با Acceptِ ساده‌تر — بعضی CDNها وقتی
+# «image/avif» در Accept باشد فرمتِ avif می‌دهند که نه opencv
+# نه Pillow بلدند باز کردنش؛ بدونِ avif معمولاً همان وب‌پی/jpg
+# برمی‌گردد.
             _last = content
             try:
                 _alt = dict(headers)
@@ -609,7 +608,6 @@ class _MangaTranslatorBody_60:
         soup = BeautifulSoup(resp.content, "html.parser")
         img_urls, seen = [], set()
         raw_html = resp.text if hasattr(resp, "text") else resp.content.decode("utf-8", errors="ignore")
-
 
         json_page_urls = []
         for m in re.finditer(
@@ -661,7 +659,6 @@ class _MangaTranslatorBody_60:
 
         img_urls = MangaTranslator._try_extend_sequential(img_urls, headers)
 
-
         deduped = []
         seen_u = set()
         for u in img_urls:
@@ -671,7 +668,6 @@ class _MangaTranslatorBody_60:
             seen_u.add(key)
             deduped.append(u)
         img_urls = deduped
-
 
         numbered = []
         for u in img_urls:
@@ -700,12 +696,12 @@ class _MangaTranslatorBody_60:
         else:
             print(f"    [*] ترتیب HTML حفظ شد ({len(img_urls)} تصویر، بدون شماره ترتیبی).")
 
-        # v1.14.230 — داراییِ مشترکِ سری (کاور/بنرِ تکراریِ بالای هر صفحهٔ
-        # فصل): وقتی چند لینکِ فصل پشتِ سرِ هم دانلود میشوند، هر URL که
-        # فصلِ قبلی دانلودش کرده (= عکسِ سطحِ سری، نه صفحهٔ فصل) رد
-        # میشود — گزارشِ سازنده: «وقتی دوتا لینک میدم ترتیب بندی عکس
-        # ها بهم میریزه». نامها هم (بالا) شمارهٔ ترتیب گرفتند تا سورتِ
-        # نهاییِ فصلها (01_001_ … 02_001_ …) هرگز بهم نریزد.
+# داراییِ مشترکِ سری (کاور/بنرِ تکراریِ بالای هر صفحهٔ
+# فصل): وقتی چند لینکِ فصل پشتِ سرِ هم دانلود میشوند، هر URL که
+# فصلِ قبلی دانلودش کرده (= عکسِ سطحِ سری، نه صفحهٔ فصل) رد
+        #. نامها هم (بالا) شمارهٔ ترتیب گرفتند تا سورتِ
+# میشود —
+# نهاییِ فصلها (01_001_ … 02_001_ …) هرگز بهم نریزد.
         if shared_seen is not None and img_urls:
             _b = len(img_urls)
             img_urls = [u for u in img_urls
@@ -716,11 +712,11 @@ class _MangaTranslatorBody_60:
             for u in img_urls:
                 shared_seen.add(u.split("?")[0].lower())
 
-        # v1.14.203 — دانلودِ موازیِ صفحات (~۸۹ثانیه → چندثانیه): علتِ کندی،
-        # دانلودِ پشتسرهم با هندشیکِ TLSِ جدا برایِ هر صفحه بود. حالا یک
-        # سشنِ مشترک (اتصالِ HTTPS نگه‌داشته‌شده) + ۶ کارگرِ همزمان
-        # (MANGA_DL_WORKERS). ترتیبِ ذخیره = دقیقاً ترتیبِ صفحات؛ فایلها در
-        # نخِ اصلی نوشته میشوند و دانلودِ ناموفق مثلِ قبل فقط رد میشود.
+# دانلودِ موازیِ صفحات (~۸۹ثانیه → چندثانیه): علتِ کندی
+# دانلودِ پشتسرهم با هندشیکِ TLSِ جدا برایِ هر صفحه بود. حالا یک
+# سشنِ مشترک (اتصالِ HTTPS نگه‌داشته‌شده) + ۶ کارگرِ همزمان
+# (MANGA_DL_WORKERS). ترتیبِ ذخیره = دقیقاً ترتیبِ صفحات؛ فایلها در
+# نخِ اصلی نوشته میشوند و دانلودِ ناموفق مثلِ قبل فقط رد میشود.
         _sess = requests.Session()
         try:
             _ad = requests.adapters.HTTPAdapter(
@@ -754,7 +750,6 @@ class _MangaTranslatorBody_60:
             path = _save_bytes(_content, len(saved) + 1, img_url)
             if path:
                 saved.append(path)
-
 
         print(f"    {len(saved)} تصویر از {url} دانلود شد "
               f"({time.time() - _t_dl:.1f}s).")
@@ -832,4 +827,3 @@ class _MangaTranslatorBody_60:
                 if os.path.splitext(name)[1].lower() in IMAGE_EXTS:
                     files.append(os.path.join(root, name))
         return sorted(files, key=MangaTranslator._natural_sort_key)
-

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""سنجشِ متنِ جامانده در خروجیِ clean-only (v1.14.210).
+"""سنجشِ متنِ جامانده در خروجیِ clean-only ().
 
 هر صفحهٔ خروجی با RapidOCR خوانده میشود؛ هر باکسِ متنِ بااطمینان که در
 «اورجینال» هم بود ولی در خروجی هنوز خوانده میشود = متنِ جامانده.
@@ -20,7 +20,6 @@ import manga  # noqa: E402
 
 OUT = sys.argv[1]
 INP = sys.argv[2]
-
 
 def ocr_texts(tr, img):
     res = []
@@ -49,7 +48,6 @@ def ocr_texts(tr, img):
             res.append((txt, score, (x, y, w, h)))
     return res
 
-
 def main():
     tr = manga.MangaTranslator(
         api_key=["dummy"], provider="gemini", ocr_langs=["en"],
@@ -67,7 +65,7 @@ def main():
         if not os.path.isfile(op):
             continue
         base = os.path.splitext(os.path.basename(op))[0]
-        # اورجینالِ متناظر (همان نام، هر پسوندی)
+# اورجینالِ متناظر (همان نام، هر پسوندی)
         cands = glob.glob(os.path.join(INP, base + ".*"))
         print(f"\n===== {os.path.basename(op)} =====")
         im_o = cv2.imread(op)
@@ -90,7 +88,6 @@ def main():
             total_left += 1 if in_orig else 0
             print(f"  [!] «{t}» (score={s:.2f} rect={r}) — {tag}")
     print(f"\n>>> جمعِ متنِ جاماندهٔ مشکوک: {total_left}")
-
 
 if __name__ == "__main__":
     main()

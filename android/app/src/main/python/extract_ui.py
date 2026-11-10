@@ -20,9 +20,7 @@ _ACC = "Accordion"
 
 _UNKNOWN = object()
 
-
 class _Env:
-
 
     def __init__(self, tree):
         self.scopes = [{}]
@@ -44,7 +42,6 @@ class _Env:
             if name in sc:
                 return sc[name]
         return _UNKNOWN
-
 
 def _eval(node, env):
     if node is None:
@@ -165,7 +162,6 @@ def _eval(node, env):
         return _UNKNOWN
     return _UNKNOWN
 
-
 def _eval_iterable(expr, env):
     if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) \
             and expr.func.id == "enumerate" and expr.args:
@@ -178,12 +174,10 @@ def _eval_iterable(expr, env):
         return None
     return list(v)
 
-
 def _iter_values(node, env):
     if not isinstance(node, ast.For):
         return None
     return _eval_iterable(node.iter, env)
-
 
 def _bind(target, value):
     binding = {}
@@ -200,7 +194,6 @@ def _bind(target, value):
         return binding
     return None
 
-
 class _Snap:
 
     def __init__(self, scopes):
@@ -212,13 +205,11 @@ class _Snap:
                 return sc[name]
         return _UNKNOWN
 
-
 def _lit(node):
     try:
         return ast.literal_eval(node)
     except Exception:
         return None
-
 
 def _str_of(node, env=None):
     if node is None:
@@ -250,7 +241,6 @@ def _str_of(node, env=None):
         return s if s.strip() else None
     return None
 
-
 def _choices(node):
     if node is None:
         return None
@@ -267,7 +257,6 @@ def _choices(node):
         else:
             out.append([str(v), str(v)])
     return out
-
 
 def _default(node):
     if node is None:
@@ -289,7 +278,6 @@ def _default(node):
         return None, None
     return _lit(node), None
 
-
 def _assign_name(parent_stack):
     for p in reversed(parent_stack):
         if isinstance(p, ast.Assign) and p.targets:
@@ -297,7 +285,6 @@ def _assign_name(parent_stack):
             if isinstance(t, ast.Name):
                 return t.id
     return None
-
 
 def _unwrap_safe(tree):
 
@@ -318,7 +305,6 @@ def _unwrap_safe(tree):
             return node
 
     return W().visit(tree)
-
 
 def extract(path_or_source, is_source=False):
     src = path_or_source if is_source else open(path_or_source, encoding="utf-8").read()
@@ -431,8 +417,8 @@ def extract(path_or_source, is_source=False):
                 st = _lit(kw.get("step"))
                 field["step"] = st or 1
             if kind == "Number":
-                # v1.14.243 — temperature/top_p: فیلدِ عددیِ دارایِ step در
-                # اندروید دکمهٔ کم/زیادِ نیتیو میگیرد (عینِ صفحهٔ تنظیماتِ مرجعِ مرجع)
+# temperature/top_p: فیلدِ عددیِ دارایِ step در
+# اندروید دکمهٔ کم/زیادِ نیتیو میگیرد (عینِ صفحهٔ تنظیماتِ مرجعِ مرجع)
                 mn = _lit(kw.get("minimum"))
                 mx = _lit(kw.get("maximum"))
                 stn = _lit(kw.get("step"))
@@ -502,7 +488,6 @@ def extract(path_or_source, is_source=False):
             s["title"] = "تنظیمات" if i == 0 else "بخش %d" % (i + 1)
 
     return {"app_name": "مانگا مترجم", "app_ver": app_ver, "sections": sections}
-
 
 if __name__ == "__main__":
     import sys

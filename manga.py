@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""مترجمِ خودکارِ مانگا/مانهوا به فارسی — لودرِ پلاگینی (v1.14.253+)
+"""مترجمِ خودکارِ مانگا/مانهوا به فارسی — لودرِ پلاگینی
 
 این فایل دیگر غول‌پیکر نیست: بدنهٔ اصلیِ برنامه در پوشهٔ
 «manga_sections/» است — هر موضوع یک فایل (پایه/پرامپتها، نصب،
@@ -8,19 +8,19 @@
 این لودر همه را بهترتیبِ شمارهٔ فایل در «یک» فضایِ نام بارگذاری
 میکند — یعنی رفتار عینِ همان manga.pyیِ تکیِ قدیمی است:
 
-    manga_sections/00_base.py      → هدر، نسخه، importها، پرامپتها
-    manga_sections/10_install.py   → نصبِ وابستگیها + وضعیتِ توقف
-    manga_sections/20_models.py    → ORT/سختافزار، LaMa، تشخیص، مدلها
-    manga_sections/30_ocr.py       → موتورهای OCR
-    manga_sections/40_api_text.py  → سرویسهای AI + ابزارهای متن
+    manga_sections/00_base.py → هدر، نسخه، importها، پرامپتها
+    manga_sections/10_install.py → نصبِ وابستگیها + وضعیتِ توقف
+    manga_sections/20_models.py → ORT/سختافزار، LaMa، تشخیص، مدلها
+    manga_sections/30_ocr.py → موتورهای OCR
+    manga_sections/40_api_text.py → سرویسهای AI + ابزارهای متن
     manga_sections/50_translator.py→ MangaTranslator (شروعِ کلاس)
-    manga_sections/60_input.py     → ورودی/دانلود
-    manga_sections/70_extract.py   → استخراجِ متن + دوخت/برشِ صفحهها
+    manga_sections/60_input.py → ورودی/دانلود
+    manga_sections/70_extract.py → استخراجِ متن + دوخت/برشِ صفحهها
     manga_sections/80_translate.py → ترجمهٔ AI
-    manga_sections/85_cleanup.py   → پاکسازی (یکجا)
-    manga_sections/90_render.py    → رندرِ متن + قالبهای خروجی
-    manga_sections/95_run.py       → run() — پایانِ کلاس
-    manga_sections/99_cli.py       → build_arg_parser و main()
+    manga_sections/85_cleanup.py → پاکسازی (یکجا)
+    manga_sections/90_render.py → رندرِ متن + قالبهای خروجی
+    manga_sections/95_run.py → run() — پایانِ کلاس
+    manga_sections/99_cli.py → build_arg_parser و main()
 
 ویرایشِ کد فقط در manga_sections/ — نگهبانِ همخوانی:
     python scripts/build_manga.py --check
@@ -29,14 +29,13 @@
 (manga_sections/__pycache__/) ذخیره میشود — دفعاتِ بعدی بارگذاریِ
 بخشها تقریباً رایگان است (~میلیثانیه، نه نیمثانیه).
 
-v1.14.253 — خودترمیمیِ بخشها (دستورِ سازنده: رویِ گوشی
-«manga_sections/ پیدا نشد» در حالی که اپ سالم کار میکند):
+خودترمیمیِ بخشها (در حالی که اپ سالم کار میکند):
   • غایب/ناقص → همینجا از میرورهایِ ریپو دانلود میشود (blocking،
     با ضرب‌الاجل) و همان لحظه اجرا میشود — دیگر «Clear Data» لازم
     نیست و پنجرهٔ شکستهٔ بینِ نصبِ لودر و رسیدنِ بخشها (مسابقهٔ
     آپدیترِ پس‌زمینه) خودش ترمیم میشود.
   • کهنه (نسخهٔ 00_base < نسخهٔ لودر — گوشیِ کاربر با بخشهایِ
-    ۱.۱۴.۲۵۱ گیر کرده بود) → تازهسازی در «رشتهٔ پس‌زمینه»: همین
+     گیر کرده بود) → تازهسازی در «رشتهٔ پس‌زمینه»: همین
     اجرا با نسخهٔ موجود کار میکند، نسخهٔ تازه از اجرای بعدی فعال
     میشود (بدونِ قفلِ شروعِ اپ). ترتیبِ commit: 00_base.py «آخر»
     تا شکستِ وسطِ راه = نسخهٔ کهنه = تلاشِ دوباره، نه نسخهٔ مخلوط.
@@ -61,7 +60,7 @@ _CACHE_DIR = _os.path.join(_SECTIONS_DIR, "__pycache__")
 _CACHE_PREFIX = "manga_loader_"
 _CACHE_MAGIC = b"MGLDR\x01"
 
-# v1.14.253 — همان زنجیرهٔ میرورهایِ لانچرِ اندروید (raw گیت‌هاب →
+# همان زنجیرهٔ میرورهایِ لانچرِ اندروید (raw گیت‌هاب →
 # jsDelivr که در ایران باز است → gh-proxy) — فقط برای خودترمیمی.
 _UPDATE_MIRRORS = (
     "https://raw.githubusercontent.com/"
@@ -83,13 +82,11 @@ _STRIP_END = "# BUILD-STRIP-END"
 _MANGA_LOADER = True
 _SELF_UPDATE_TRIED = False
 
-
 def _section_sort_key(name: str):
     i = 0
     while i < len(name) and name[i].isdigit():
         i += 1
     return (int(name[:i]) if i else 10 ** 9, name)
-
 
 def _read_manifest():
     """فهرستِ بخشها از MANIFEST — سفیدنامهٔ بارگذاری (ضدِ فایلِ زامبی)."""
@@ -101,13 +98,11 @@ def _read_manifest():
     return [n for n in names
             if n and not n.startswith("#") and n.endswith(".py")]
 
-
 def _ver_tuple(v: str):
     try:
         return tuple(int(x) for x in str(v or "0").strip().split("."))
     except ValueError:
         return (0, )
-
 
 def _ver_cmp(a: str, b: str) -> int:
     ta, tb = _ver_tuple(a), _ver_tuple(b)
@@ -117,7 +112,6 @@ def _ver_cmp(a: str, b: str) -> int:
         if xa != xb:
             return 1 if xa > xb else -1
     return 0
-
 
 def _sections_app_ver() -> str:
     """نسخهٔ بخشهایِ نصب‌شده — APP_VER داخلِ 00_base.py (بدون exec)."""
@@ -129,13 +123,11 @@ def _sections_app_ver() -> str:
     except Exception:
         return "0"
 
-
 def _fetch_bytes(url: str, timeout: float):
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
-
 
 def _fetch_mirrors(name: str, min_size: int, timeout: float, deadline: float):
     last = None
@@ -151,7 +143,6 @@ def _fetch_mirrors(name: str, min_size: int, timeout: float, deadline: float):
             last = e
     raise last if last else RuntimeError("مهلتِ دانلود تمام شد")
 
-
 def _manifest_names_remote(deadline: float):
     """(فهرستِ نامها، بایتهایِ خودِ MANIFEST) از میرورها — نامِ تودرتو
     (manga_sections/00_base.py) هم پذیرفته میشود؛ فقط نامِ پایه
@@ -161,7 +152,6 @@ def _manifest_names_remote(deadline: float):
              if ln.strip() and not ln.strip().startswith("#")
              and ln.strip().endswith(".py")]
     return [_os.path.basename(n) for n in names], man
-
 
 def _throttle_ok(min_seconds: float) -> bool:
     """تلاشِ تازهسازی حداکثر هر min_seconds ثانیه یک بار (mtimeِ مهر).
@@ -178,7 +168,6 @@ def _throttle_ok(min_seconds: float) -> bool:
     except OSError:
         return False
     return True
-
 
 def _fetch_sections(deadline: float) -> bool:
     """همهٔ بخشها را stage میکند و فقط بعد ازِ موفقیتِ «همه» commit
@@ -211,8 +200,8 @@ def _fetch_sections(deadline: float) -> bool:
             except OSError:
                 pass
         return False
-    # commit: همه چیز آماده است — MANIFEST اول (سفیدنامه)، بعد بخشها،
-    # و 00_base.py آخر (نشانگرِ نسخه).
+# commit: همه چیز آماده است — MANIFEST اول (سفیدنامه)، بعد بخشها
+# و 00_base.py آخر (نشانگرِ نسخه).
     try:
         man_tmp = _MANIFEST_PATH + ".new"
         with open(man_tmp, "wb") as f:
@@ -228,7 +217,7 @@ def _fetch_sections(deadline: float) -> bool:
             _os.replace(tmp, _os.path.join(_SECTIONS_DIR, n))
         except OSError:
             pass
-    # زامبی: فایلِ عددیِ خارج از MANIFESTِ جدید
+# زامبی: فایلِ عددیِ خارج از MANIFESTِ جدید
     try:
         for n in _os.listdir(_SECTIONS_DIR):
             if n.endswith(".py") and n[:1].isdigit() and n not in names:
@@ -239,7 +228,6 @@ def _fetch_sections(deadline: float) -> bool:
     except OSError:
         pass
     return True
-
 
 def _self_heal_blocking(reason: str):
     """بخشهایِ غایب/ناقص را همین لحظه دانلود میکند — فقط وقتی صدا
@@ -259,7 +247,6 @@ def _self_heal_blocking(reason: str):
                           "❌ دانلود ناموفق (اینترنت؟) — پیامِ خطا در ادامه…"),
           flush=True)
 
-
 def _sections_present() -> bool:
     """پوشهٔ بخشها واقعاً محتوا دارد؟ — پوشهٔ «خالی» (باقیماندهٔ تلاشِ
     ناموفیفِ خودترمیمی/آپدیتر) همان «غایب» تلقی میشود تا موتورِ خالی
@@ -268,13 +255,12 @@ def _sections_present() -> bool:
         return False
     if _os.path.isfile(_MANIFEST_PATH):
         return True
-    # بدونِ MANIFEST: نصبِ دستی — فقط با فایلِ عددیِ واقعی معتبر است
+# بدونِ MANIFEST: نصبِ دستی — فقط با فایلِ عددیِ واقعی معتبر است
     try:
         return any(n.endswith(".py") and n[:1].isdigit()
                    for n in _os.listdir(_SECTIONS_DIR))
     except OSError:
         return False
-
 
 def _maybe_refresh_stale_async():
     """بخشهایِ «کهنه» (نسخهٔ 00_base < لودر) را در پس‌زمینه تازه
@@ -316,7 +302,6 @@ def _maybe_refresh_stale_async():
     except Exception:
         pass
 
-
 def _section_names():
     """نامهای بخش: MANIFEST اگر هست، وگرنه همهٔ *.pyهای عددی پوشه."""
     if not _sections_present():
@@ -324,11 +309,11 @@ def _section_names():
         if not _sections_present():
             _sys.stderr.write(
                 "❌ پوشهٔ manga_sections/ کنارِ manga.py پیدا نشد —\n"
-                "   از v1.14.251 بدنهٔ موتور در همان پوشه است و فایلِ manga.py\n"
+                "   بدنهٔ موتور در همان پوشه است و فایلِ manga.py\n"
                 "   بهتنهایی کافی نیست. نسخهٔ کاملِ برنامه را بگیرید:\n"
                 "   https://github.com/amirwolf512k/Manga-AutoTranslate\n")
-            # RuntimeError (نه SystemExit) تا گاردهایِ except Exception در
-            # bridge/health آپدیتگرها هم آن را بگیرند و با وقار گزارش کنند
+# RuntimeError (نه SystemExit) تا گاردهایِ except Exception در
+# bridge/health آپدیتگرها هم آن را بگیرند و با وقار گزارش کنند
             raise RuntimeError("manga_sections/ پیدا نشد — لودرِ manga.py محتوا ندارد")
     on_disk = [n for n in _os.listdir(_SECTIONS_DIR)
                if n.endswith(".py") and n[:1].isdigit()]
@@ -346,13 +331,12 @@ def _section_names():
             "❌ manga_sections/MANIFEST این فایلها را میخواهد ولی نیستند: %s\n"
             "   (ریپو/آپدیت ناقص است — دوباره بگیرید)\n" % ", ".join(missing))
         raise RuntimeError("بخشهایِ MANIFEST غایبند: %s" % ", ".join(missing))
-    # فایلِ عددیِ خارج از سفیدنامه = زامبیِ آپدیتِ قبلی — نادیده + هشدار
+# فایلِ عددیِ خارج از سفیدنامه = زامبیِ آپدیتِ قبلی — نادیده + هشدار
     extra = [n for n in on_disk if n not in listed]
     if extra:
         print("[manga] ⚠ بخشهایِ خارج از MANIFEST نادیده گرفته شدند: %s"
               % ", ".join(sorted(extra)), flush=True)
     return sorted(listed, key=_section_sort_key)
-
 
 def _read_stripped(path: str):
     """محتوای بخش بدونِ بلاکهایِ BUILD-STRIP (سربرگها/کلاسِ پوششی)."""
@@ -372,7 +356,6 @@ def _read_stripped(path: str):
         out = out[:-1]
     return out
 
-
 def _combined():
     """(source, نگاشتِ شمارهٔ خط ← نامِ بخش) — عینِ بیلدِ تک‌فایلی."""
     parts, line_map, lineno = [], [], 1
@@ -383,7 +366,6 @@ def _combined():
         parts.append("\n".join(lines) + "\n")
     return "".join(parts), line_map
 
-
 def _section_for_line(line_map, lineno: str):
     best = None
     for start, name in line_map:
@@ -392,7 +374,6 @@ def _section_for_line(line_map, lineno: str):
         else:
             break
     return best
-
 
 def _cache_key(src: str, names):
     h = hashlib.sha256()
@@ -403,7 +384,6 @@ def _cache_key(src: str, names):
     h.update(b"|")
     h.update(src.encode("utf-8"))
     return h.hexdigest()[:16]
-
 
 def _load_cached(key: str):
     """کدِ کامپایلشده از کشِ marshal — سریع و ارزان."""
@@ -416,7 +396,6 @@ def _load_cached(key: str):
     except Exception:
         return None
 
-
 def _save_cache(key: str, code):
     try:
         _os.makedirs(_CACHE_DIR, exist_ok=True)
@@ -426,7 +405,7 @@ def _save_cache(key: str, code):
             f.write(_CACHE_MAGIC)
             f.write(marshal.dumps(code))
         _os.replace(tmp, path)
-        # کشهای کهنه را پاک کن
+# کشهای کهنه را پاک کن
         for n in _os.listdir(_CACHE_DIR):
             if n.startswith(_CACHE_PREFIX) and n != _CACHE_PREFIX + key + ".marshal":
                 try:
@@ -435,7 +414,6 @@ def _save_cache(key: str, code):
                     pass
     except Exception:
         pass  # دیرکتوریِ فقط-خواندنی و… — بی‌خطر: دفعهٔ بعد دوباره کامپایل میشود
-
 
 def _load_sections():
     _maybe_refresh_stale_async()
@@ -454,9 +432,8 @@ def _load_sections():
                 % (sec or "?", e.lineno, e.msg))
             raise
         _save_cache(key, code)
-    # یک فضایِ نام — عینِ همان تک‌فایلِ قدیمی: همهٔ تعریفها همینجا
-    # مینشینند و import manga / from manga import … بی‌تغییر کار میکند.
+# یک فضایِ نام — عینِ همان تک‌فایلِ قدیمی: همهٔ تعریفها همینجا
+# مینشینند و import manga / from manga import … بی‌تغییر کار میکند.
     exec(code, globals())
-
 
 _load_sections()

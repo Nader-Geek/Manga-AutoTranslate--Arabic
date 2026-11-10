@@ -24,7 +24,6 @@ from datetime import datetime, timezone
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TIME_RE = re.compile(r"\[TIME\]\s*([^=]+)=([0-9.]+)s?(.*)")
 
-
 def find_images(img_dir: str):
     exts = (".jpg", ".jpeg", ".png", ".webp", ".bmp")
     files = []
@@ -32,7 +31,6 @@ def find_images(img_dir: str):
         if name.lower().endswith(exts):
             files.append(os.path.join(img_dir, name))
     return files
-
 
 def run_cli(imgs, out_dir, workers=2, label="run"):
     env = os.environ.copy()
@@ -78,7 +76,6 @@ def run_cli(imgs, out_dir, workers=2, label="run"):
         "stages_s": {k: round(v, 1) for k, v in sorted(stages.items())},
         "log": log_path,
     }
-
 
 def main():
     ap = argparse.ArgumentParser()
@@ -140,7 +137,6 @@ def main():
                 f.write(f"| {k} | {v} |\n")
     print("[✓] گزارش:", rep_path, "و", md_path)
     sys.exit(0 if r["ok"] else 1)
-
 
 if __name__ == "__main__":
     main()

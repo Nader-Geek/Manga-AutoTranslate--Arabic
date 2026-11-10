@@ -1,6 +1,5 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# 📦 نصب — وابستگیها، pip، تشخیص GPU + وضعیتِ توقف و پرچمهای کتابخانهها
+# نصب — وابستگیها، pip، تشخیص GPU + وضعیتِ توقف و پرچمهای کتابخانهها
 # نصبِ خودکارِ وابستگیها (_ensure_all_dependencies و زنجیرهٔ pip) + REQUEST_STOP/JobCancelled و پرچمهای _HAS_GEMINI/_HAS_OPENAI/… .
 # (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
@@ -20,7 +19,6 @@ def _pip_install(*packages: str) -> bool:
         print(f"    [!] خطا: {e}")
         return False
 
-
 def _pip_uninstall(*packages: str) -> None:
     try:
         subprocess.run(
@@ -31,14 +29,12 @@ def _pip_uninstall(*packages: str) -> None:
     except Exception:
         pass
 
-
 def _can_import(module: str) -> bool:
     try:
         __import__(module)
         return True
     except Exception:
         return False
-
 
 def _nvidia_gpu_present() -> bool:
     try:
@@ -58,10 +54,10 @@ def _nvidia_gpu_present() -> bool:
             return True
     except Exception:
         return False
-    # v1.14.230 — ویندوزِ بدونِ nvidia-smi در PATH (نصبِ درایورِ استودیو یا
-    # PATHِ ناقصِ پایتون): همان پرسوجویِ wmic/powershellِ DirectML حالا
-    # NVIDIA را هم میبیند — گرایندهٔ «GPU صفر درصد» وقتی کارت هست ولی
-    # مسیرِ auto هیچوقت onnxruntime-gpu را نمیگرفت.
+# ویندوزِ بدونِ nvidia-smi در PATH (نصبِ درایورِ استودیو یا
+# PATHِ ناقصِ پایتون): همان پرسوجویِ wmic/powershellِ DirectML حالا
+# NVIDIA را هم میبیند — گرایندهٔ «GPU صفر درصد» وقتی کارت هست ولی
+# مسیرِ auto هیچوقت onnxruntime-gpu را نمیگرفت.
     try:
         if _platform.system().lower() == "windows":
             for _cmd in (
@@ -80,14 +76,12 @@ def _nvidia_gpu_present() -> bool:
         pass
     return False
 
-
 _DIRECTX_GPU_CACHE = None  # None = هنوز پروب نشده؛ True/False = کشِ نتیجه
 
-
 def _directx_gpu_present() -> bool:
-    """v1.14.75 — هر GPU-capable (AMD/Intel/گرافیکِ یکپارچه) رویِ ویندوز:
+    """ — هر GPU-capable (AMD/Intel/گرافیکِ یکپارچه) رویِ ویندوز:
     برایِ DirectML. فقط ویندوز؛ لینوکس DirectML ندارد.
-    v1.14.232 — گزارشِ سازنده: «تا الان ندیدم از gpu استفاده کنه» با
+     — با
     RX 5700 XT — ریشه: wmic در ویندوزهایِ جدید (۲۴H۲+) حذف/خالی است و
     پاورشل هم گاهی جوابِ خالی میداد → تشخیصِ «GPU ویندوزی» False میشد و
     onnxruntime-directml هیچ‌وقت نصب نمیشد. حالا ۴ روشِ مستقل به‌ترتیب
@@ -110,10 +104,10 @@ def _directx_gpu_present() -> bool:
                                      "intel", "arc", "graphics", "display"))
         if hit:
             return True
-        # خروجیِ فقط-سرستون (wmicِ ویندوزهایِ خراب) → None = نامشخص
+# خروجیِ فقط-سرستون (wmicِ ویندوزهایِ خراب) → None = نامشخص
         return bool(have_header and "videocontroller" in low)
 
-    # (۱) wmic — در ویندوزهایِ قدیمی سریع است
+# (۱) wmic — در ویندوزهایِ قدیمی سریع است
     try:
         r = subprocess.run(
             ["wmic", "path", "win32_VideoController", "get", "name"],
@@ -125,7 +119,7 @@ def _directx_gpu_present() -> bool:
                 return True
     except Exception:
         pass
-    # (۲) پاورشل — Get-CimInstance
+# (۲) پاورشل — Get-CimInstance
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
@@ -137,7 +131,7 @@ def _directx_gpu_present() -> bool:
             return True
     except Exception:
         pass
-    # (۳) پاورشل — Get-PnpDevice (بدونِ وابستگی به WMI-ویدئو)
+# (۳) پاورشل — Get-PnpDevice (بدونِ وابستگی به WMI-ویدئو)
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
@@ -149,7 +143,7 @@ def _directx_gpu_present() -> bool:
             return True
     except Exception:
         pass
-    # (۴) رجیستری — کلاسِ Display_ADAPTERS؛ بدونِ WMI/پاورشل همیشه هست
+# (۴) رجیستری — کلاسِ Display_ADAPTERS؛ بدونِ WMI/پاورشل همیشه هست
     try:
         r = subprocess.run(
             ["reg", "query",
@@ -165,7 +159,6 @@ def _directx_gpu_present() -> bool:
     _DIRECTX_GPU_CACHE = False
     return False
 
-
 def _ort_has_cuda() -> bool:
     try:
         import onnxruntime as _ort
@@ -173,11 +166,9 @@ def _ort_has_cuda() -> bool:
     except Exception:
         return False
 
-
 def _ort_has_dml() -> bool:
-    """v1.14.232 — بیلدِ DirectML (پکیجِ onnxruntime-directml) نصب است؟
-    برایِ کارت‌هایِ AMD/Intel رویِ ویندوز (گزارشِ سازنده: RX 5700 XT
-    «تا الان ندیدم از gpu استفاده کنه» — CUDA که مالِ NVIDIA است؛ مسیرِ
+    """ — بیلدِ DirectML (پکیجِ onnxruntime-directml) نصب است؟
+    برایِ کارت‌هایِ AMD/Intel رویِ ویندوز (CUDA که مالِ NVIDIA است؛ مسیرِ
     درستِ AMD رویِ ویندوز DirectML است)."""
     try:
         import onnxruntime as _ort
@@ -185,14 +176,10 @@ def _ort_has_dml() -> bool:
     except Exception:
         return False
 
-
 def _parallel_budget(kind: str = "ocr") -> int:
-    """v1.14.167 — بودجهٔ موازیِ سیستم: چند ناحیهٔ متن همزمان کار کنند.
+    """ — بودجهٔ موازیِ سیستم: چند ناحیهٔ متن همزمان کار کنند.
 
-    دستورِ سازنده: «هر بخش متن یک مقدار ram cpu gpu (gpu اگه داره) همزمان
-    کار کنن سریعتر باشن… بجای اینکه تک تک متن‌ها رو استخراج کنه همهٔ
-    قسمت‌های متن استخراج بزنه؛ باید به اندازهٔ توانِ سیستم انجام بده —
-    حداکثر توانش — همچنین پاکسازیش همینجور».
+    .
 
     ورودی: cpu (os.cpu_count) + ramِ آزاد (/proc/meminfo؛ ویندوز:
     GlobalMemoryStatusEx) + gpu (CUDAِ onnxruntime). سقفِ عقلانی:
@@ -207,7 +194,7 @@ def _parallel_budget(kind: str = "ocr") -> int:
         cpu = os.cpu_count() or 4
     except Exception:
         cpu = 4
-    # RAMِ آزاد
+# RAMِ آزاد
     ram_gb = 0.0
     try:
         with open("/proc/meminfo", encoding="ascii") as f:
@@ -245,8 +232,8 @@ def _parallel_budget(kind: str = "ocr") -> int:
     if _env > 0:
         return max(1, min(8, _env))
     try:
-        # v1.14.232 — DirectML (AMD/Intel ویندوز) هم مثلِ CUDA یک نفرِ
-        # اضافهٔ موازی میگیرد
+# DirectML (AMD/Intel ویندوز) هم مثلِ CUDA یک نفرِ
+# اضافهٔ موازی میگیرد
         _gpu = (not _IS_ANDROID) and (_ort_has_cuda() or _ort_has_dml())
     except Exception:
         _gpu = False
@@ -268,7 +255,6 @@ def _parallel_budget(kind: str = "ocr") -> int:
             base = min(base, 3)
     return max(1, base)
 
-
 def _torch_available() -> bool:
     try:
         import torch
@@ -276,10 +262,9 @@ def _torch_available() -> bool:
     except Exception:
         return False
 
-
 def _ensure_rapidocr_pkg() -> bool:
     """موتور OCR سبک ONNX (rapidocr) را فقط اگر واقعاً لازم باشد نصب می‌کند.
-    v1.14.29: دیگر در شروع برنامه نصب نمی‌شود — فقط وقتی موتور ONNX لود می‌شود."""
+    : دیگر در شروع برنامه نصب نمی‌شود — فقط وقتی موتور ONNX لود می‌شود."""
     if _can_import("rapidocr") or _can_import("rapidocr_onnxruntime"):
         return True
     if _IS_ANDROID:
@@ -291,10 +276,9 @@ def _ensure_rapidocr_pkg() -> bool:
         return True
     return _pip_install("rapidocr-onnxruntime")
 
-
 def _ensure_torch_cpu() -> bool:
     """torch را فقط برای روش پاکسازی lama-big نصب می‌کند (بار اول، ~۲۰۰MB).
-    v1.14.29: نصب torch از شروع برنامه به همین نقطه منتقل شد."""
+    : نصب torch از شروع برنامه به همین نقطه منتقل شد."""
     if _torch_available():
         return True
     if _IS_ANDROID:
@@ -358,7 +342,6 @@ def _ensure_all_dependencies() -> None:
         if not _can_import("cv2"):
             _pip_install("opencv-python-headless==4.10.0.84")
 
-
     text_pkgs = []
     if not _can_import("arabic_reshaper"):
         text_pkgs.append("arabic-reshaper")
@@ -366,7 +349,6 @@ def _ensure_all_dependencies() -> None:
         text_pkgs.append("python-bidi")
     if text_pkgs:
         _pip_install(*text_pkgs)
-
 
     misc = []
     if not _can_import("huggingface_hub"):
@@ -385,18 +367,16 @@ def _ensure_all_dependencies() -> None:
     if misc:
         _pip_install(*misc)
 
-
-    # v1.14.29: rapidocr / paddleocr / torch دیگر در شروع نصب نمی‌شوند.
-    #   paddleocr هیچ‌وقت خودکار نصب نمی‌شود (سنگین است؛ OCR سبک ONNX داریم)
-    #   rapidocr فقط وقتی نصب می‌شود که موتور OCR ONNX واقعاً لود شود
-    #   torch فقط وقتی نصب می‌شود که روش پاکسازی lama-big انتخاب شده باشد
+# rapidocr / paddleocr / torch دیگر در شروع نصب نمی‌شوند.
+# paddleocr هیچ‌وقت خودکار نصب نمی‌شود (سنگین است؛ OCR سبک ONNX داریم)
+# rapidocr فقط وقتی نصب می‌شود که موتور OCR ONNX واقعاً لود شود
+# torch فقط وقتی نصب می‌شود که روش پاکسازی lama-big انتخاب شده باشد
     if not _IS_ANDROID:
         if not _can_import("google.genai") and not _can_import("google.generativeai"):
             _pip_install("google-genai")
 
         if not _can_import("openai"):
             _pip_install("openai")
-
 
     import platform as _platform
 
@@ -412,9 +392,9 @@ def _ensure_all_dependencies() -> None:
             _has_dml = "DmlExecutionProvider" in _ort.get_available_providers()
         except Exception:
             _has_dml = False
-    # v1.14.75 — GPU-capable رویِ ویندوز (حتی AMD/Intel) ولی بدونِ CUDA:
-    # خودکار onnxruntime-directml نصب شود (DirectML رویِ همهٔ DirectX12
-    # کار می‌کند) تا LaMa رویِ GPU برود؛ CPU به‌عنوانِ فال‌بک.
+# GPU-capable رویِ ویندوز (حتی AMD/Intel) ولی بدونِ CUDA:
+# خودکار onnxruntime-directml نصب شود (DirectML رویِ همهٔ DirectX12
+# کار می‌کند) تا LaMa رویِ GPU برود؛ CPU به‌عنوانِ فال‌بک.
     _need_dml = (_is_windows and not want_gpu and not _has_dml
                  and _directx_gpu_present())
 
@@ -575,7 +555,7 @@ def _ensure_all_dependencies() -> None:
                     os.execv(sys.executable, [sys.executable] + sys.argv)
     else:
         if _need_dml:
-            # v1.14.75 — GPUِ ویندوزیِ غیرِ CUDA (AMD/Intel): DirectML
+# GPUِ ویندوزیِ غیرِ CUDA (AMD/Intel): DirectML
             print("[*] GPU (DirectML) رویِ ویندوز پیدا شد؛ نصبِ onnxruntime-directml ...")
             _pip_uninstall("onnxruntime", "onnxruntime-gpu")
             if _pip_install("onnxruntime-directml"):
@@ -601,7 +581,6 @@ def _ensure_all_dependencies() -> None:
 
     print("[+] بررسی وابستگی‌ها تمام شد.\n")
 
-
 _ensure_all_dependencies()
 
 import argparse
@@ -626,31 +605,25 @@ import cv2
 from PIL import Image, ImageDraw, ImageFont
 REQUEST_STOP = False
 
-
 class JobCancelled(Exception):
     """وقتی کاربر دکمهٔ لغو را می‌زند پرتاب می‌شود."""
-
 
 def request_stop() -> None:
     global REQUEST_STOP
     REQUEST_STOP = True
 
-
 def clear_stop() -> None:
     global REQUEST_STOP
     REQUEST_STOP = False
 
-
 def stop_requested() -> bool:
     return bool(globals().get("REQUEST_STOP"))
-
 
 def _raise_if_stop() -> None:
     """لغو فوری — در همهٔ حلقه‌های ریز (OCR/پاکسازی/ترجمه/رندر) چک می‌شود
     تا «لغو» بدون معطلی درجا عملی شود (درخواست کاربر)."""
     if stop_requested():
         raise JobCancelled("لغو توسط کاربر")
-
 
 os.environ.setdefault("FLAGS_use_mkldnn", "0")
 os.environ.setdefault("FLAGS_onednn", "0")
@@ -680,7 +653,6 @@ try:
 except ImportError:
     OpenAI = None
 
-
 _HAS_PADDLE = False
 try:
     from paddleocr import PaddleOCR
@@ -694,7 +666,6 @@ try:
     _HAS_RAPIDOCR = True
 except ImportError:
     RapidOCR = None
-
 
 try:
     import onnxruntime as ort
@@ -711,7 +682,3 @@ try:
     from huggingface_hub import hf_hub_download
 except ImportError:
     hf_hub_download = None
-
-
-
-

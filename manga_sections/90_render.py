@@ -1,6 +1,5 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# ⚠️ MangaTranslator (۶ از ۷) — رندرِ متن + قالبهای خروجی (PDF/ZIP/PSD/HTML)
+# MangaTranslator (۶ از ۷) — رندرِ متن + قالبهای خروجی (PDF/ZIP/PSD/HTML)
 # این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
 # اجرا نمیشود — لودرِ manga.py این محتوا را بههمان ترتیبِ شمارهٔ
 # فایل، داخلِ کلاس میچسباند. کلاسِ پوششیِ زیر فقط برایِ معتبر
@@ -23,12 +22,12 @@ class _MangaTranslatorBody_90:
             shaped = sample
         txt = "".join(sorted({c for c in shaped
                               if not c.isspace() and c != "\u200c"}))
-        # v1.14.229 — لیگاتورهایِ لام-الف (ﻻ/ﻼ و همزه/مده): فونتی که این
-        # شش گلیف را ندارد «حملات» را «حم ت» رندر میکند (لا کلاً غیب
-        # میشود — فونتِ واقعیِ Vazir-Code همین است؛ حتی نسخهٔ رسمیِ
-        # upstream هم ندارد). پروبِ پوشش باید بگیردشان تا فونتِ خراب
-        # به فونتِ اصلی فالبک شود. «سلام» هم «لا» دارد — فقط عدد/علامت
-        # بی‌خطر است.
+# لیگاتورهایِ لام-الف (ﻻ/ﻼ و همزه/مده): فونتی که این
+# شش گلیف را ندارد «حملات» را «حم ت» رندر میکند (لا کلاً غیب
+# میشود — فونتِ واقعیِ Vazir-Code همین است؛ حتی نسخهٔ رسمیِ
+# upstream هم ندارد). پروبِ پوشش باید بگیردشان تا فونتِ خراب
+# به فونتِ اصلی فالبک شود. «سلام» هم «لا» دارد — فقط عدد/علامت
+# بی‌خطر است.
         txt += "\uFEF5\uFEF6\uFEF7\uFEF8\uFEFB\uFEFC"
         MangaTranslator._FA_PROBE_CACHE = txt
         return txt
@@ -126,7 +125,6 @@ class _MangaTranslatorBody_90:
 
     def _max_font_for_region(self, region: "TextRegion") -> int:
 
-
         polys = list(getattr(region, "ocr_polys", None) or []) or list(getattr(region, "boxes", None) or [])
         if not polys:
             return 48
@@ -164,11 +162,10 @@ class _MangaTranslatorBody_90:
         words = text.split()
         if not words:
             words = [""]
-        # دو متن هرگز یکی نمی‌شوند: هر شکستِ \n (از مدل یا از جداکنندهٔ
-        # چندمتن) در خطِ خودش می‌ماند و زیرِ خطِ قبل رندر می‌شود.
+# دو متن هرگز یکی نمی‌شوند: هر شکستِ \n (از مدل یا از جداکنندهٔ
+# چندمتن) در خطِ خودش می‌ماند و زیرِ خطِ قبل رندر می‌شود.
         _segments = [s.strip() for s in str(text).split("\n")]
         _segments = [s for s in _segments if s] or [str(text).strip() or " "]
-
 
         def wrap_at(size: int, line_gap: int):
             font = self._load_font(size, style=style)
@@ -195,7 +192,6 @@ class _MangaTranslatorBody_90:
                 if current:
                     lines.append(current)
 
-
             bb = font.getbbox("آیگچ", stroke_width=sw)
             glyph_h = bb[3] - bb[1]
             line_h = glyph_h + line_gap
@@ -213,7 +209,6 @@ class _MangaTranslatorBody_90:
             )
             return font, lines, sw, total_h, widest, line_h
 
-
         n_words = len(words)
         short_text = n_words <= 2 and sum(len(w) for w in words) <= 12
         min_size = 14 if short_text else 11
@@ -227,7 +222,6 @@ class _MangaTranslatorBody_90:
                 smallest_attempt = (font, lines, sw, line_h)
                 if total_h <= max_h and widest <= max_w:
                     return font, lines, sw
-
 
         for size in range(min_size - 1, 5, -1):
             font, lines, sw, total_h, widest, line_h = wrap_at(size, 0)
@@ -315,11 +309,11 @@ class _MangaTranslatorBody_90:
             try:
                 self._render_one_region(pil_img, draw, image, original_image, region)
             except Exception as e:
-                # v1.14.149 — «حبابِ سیاه ممنوع»: رندرِ خطاخورده
-                # هرگز ناحیهٔ پاکشدهٔ بی‌متن نمیگذارد. گام۱:
-                # GC + تلاشِ دوباره (بیشترِ خطاها تخصیصِ لحظهای
-                # است). گام۲: رندرِ سادهٔ فال‌بک. گام۳: برگرداندنِ
-                # پیکسلهایِ اصلی — هیچ مسیری به باکسِ خالی نیست.
+# «حبابِ سیاه ممنوع»: رندرِ خطاخورده
+# هرگز ناحیهٔ پاکشدهٔ بی‌متن نمیگذارد. گام۱:
+# GC + تلاشِ دوباره (بیشترِ خطاها تخصیصِ لحظهای
+# است). گام۲: رندرِ سادهٔ فال‌بک. گام۳: برگرداندنِ
+# پیکسلهایِ اصلی — هیچ مسیری به باکسِ خالی نیست.
                 print(f"  [!] رندر ناحیه {region.id} خطا داد ({e}) → فال‌بک…")
                 _done = False
                 try:
@@ -351,7 +345,7 @@ class _MangaTranslatorBody_90:
 
     def _render_one_region_fallback(self, pil_img, draw, image,
                                     original_image, region) -> None:
-        """v1.14.149 — سادهترین رندرِ ممکن برایِ ناحیه‌ای که
+        """ — سادهترین رندرِ ممکن برایِ ناحیه‌ای که
         رندرِ اصلی مرد: متنِ چندخطیِ وسطچین با رنگِ خودکار.
         هر گام گاردشده است؛ خطا به caller برمیگردد تا گامِ سوم
         (بازگردانیِ پیکسل) اجرا شود."""
@@ -432,7 +426,7 @@ class _MangaTranslatorBody_90:
 
     def _restore_region_pixels(self, pil_img, image, original_image,
                                region) -> None:
-        """v1.14.149 — آخرین گاردِ ضدحبابِ سیاه: پیکسلهایِ
+        """ — آخرین گاردِ ضدحبابِ سیاه: پیکسلهایِ
         اورجینالِ ناحیه برمیگردند (متنِ اصلی دیده میشود)."""
         try:
             x, y, w, h = region.rect
@@ -450,7 +444,7 @@ class _MangaTranslatorBody_90:
 
     def _rescue_empty_ocr(self, image: np.ndarray,
                                regions: List[TextRegion]) -> None:
-        """v1.14.149 — نجاتِ OCR برایِ نواحیِ ocr_empty: برشِ
+        """ — نجاتِ OCR برایِ نواحیِ ocr_empty: برشِ
         استانداردِ _ocr_crop + معکوس (متنِ سفید-روی-تیره). متنِ
         نجاتیده → source_text/ocr_polys → ناحیه ترجمه و رندر
         میشود؛ بهجایِ «پاکسازیِ بی‌متن» (حبابِ سیاه)."""
@@ -496,13 +490,13 @@ class _MangaTranslatorBody_90:
                         _t2 = " ".join(_txts).strip()
                 except Exception:
                     pass
-            # v1.14.201 — نجاتِ بی‌جا ممنوع: «۹۹»، «年»، «/»، «三弄» و
-            # امثالِ آن نویزِ OCR رویِ افکتِ صوتیِ کره‌ای/هنر است نه متنِ
-            # نجاتیده — اگر پذیرفته شود به مترجم میرود و ترجمهٔ آشغالِ
-            # فارسی رویِ همان ناحیه مینشیند (لاگِ فصلِ ۱۱۰: حباب با
-            # «تو کی هستی؟! جایزه‌ای؟ من!»). نجات فقط با حداقلِ ۲ حرفِ
-            # لاتین و برتریِ حرف بر نویز پذیرفته میشود؛ باقی ocr_empty
-            # میماند (متنِ اصلی سرِ جایش — پاک نشد به همان قاعدهٔ ۱۴۹).
+# نجاتِ بی‌جا ممنوع: «۹۹»، «年»، «/»، «三弄» و
+# امثالِ آن نویزِ OCR رویِ افکتِ صوتیِ کره‌ای/هنر است نه متنِ
+# نجاتیده — اگر پذیرفته شود به مترجم میرود و ترجمهٔ آشغالِ
+# فارسی رویِ همان ناحیه مینشیند (لاگِ فصلِ ۱۱۰: حباب با
+# «تو کی هستی؟! جایزه‌ای؟ من!»). نجات فقط با حداقلِ ۲ حرفِ
+# لاتین و برتریِ حرف بر نویز پذیرفته میشود؛ باقی ocr_empty
+# میماند (متنِ اصلی سرِ جایش — پاک نشد به همان قاعدهٔ ۱۴۹).
             _lt = sum(1 for _c in _t2
                          if _c.isascii() and _c.isalpha())
             if _t2 and _lt >= 2 and \
@@ -528,7 +522,6 @@ class _MangaTranslatorBody_90:
     def _draw_debug_regions(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
       vis = image.copy()
 
-
       colors = {
         "dialogue": (0, 0, 255),
         "promo": (0, 165, 255),
@@ -540,13 +533,10 @@ class _MangaTranslatorBody_90:
         x, y, w, h = r.rect
         color = colors.get(r.kind, (0, 0, 255))
 
-
         cv2.rectangle(vis, (x, y), (x + w, y + h), color, 2)
-
 
         cx = x + w // 2
         cv2.circle(vis, (cx, y + h // 2), 3, (0, 255, 255), -1)
-
 
         label = f"[{r.id}] {r.kind[:3].upper()}"
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
@@ -554,13 +544,12 @@ class _MangaTranslatorBody_90:
         cv2.putText(vis, label, (x + 2, y - 4),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
 
-
         short = (r.source_text or "")[:28]
         if short:
             cv2.putText(vis, short, (x, y + h + 14),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 200, 0), 1, cv2.LINE_AA)
-        # v1.14.43: مختصاتِ ناحیه روی خودِ تصویر دیباگ — «مکانش کجاست» بدون لاگ
-        # چیپِ تیره + متنِ زرد تا روی هر پس‌زمینه‌ای خوانا باشد
+# مختصاتِ ناحیه روی خودِ تصویر دیباگ — «مکانش کجاست» بدون لاگ
+# چیپِ تیره + متنِ زرد تا روی هر پس‌زمینه‌ای خوانا باشد
         try:
             _ct = f"({x},{y} {w}x{h})"
             (_cw, _ch), _ = cv2.getTextSize(_ct, cv2.FONT_HERSHEY_SIMPLEX,
@@ -585,14 +574,13 @@ class _MangaTranslatorBody_90:
                 cv2.putText(vis, st, (x + 2, y + 14),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1, cv2.LINE_AA)
 
-      # v1.14.252 — باکسهایِ خامِ detِ OCR (آبی) — درخواستِ سازنده: «یک
-      # متن استخراج نزده ببین det نتونسته پیدا کنه یا ret استخراج نزده
-      # بعد میخوام det هم تو دیباگ نشون بده با ابی». آبی = چیزی که detِ
-      # متن رویِ کراپِ حباب «دیده» است (پاسِ فقط-det؛ قبل ازِ rec و قبل ازِ
-      # فیلترهایِ امتیاز/188/225). تفسیر:
-      #   • خطی که جعبهٔ آبی دارد ولی قرمز/متن ندارد → det دید، rec/فیلتر حذف کرد
-      #   • خطی که اصلاً آبی ندارد → det آن را ندید (مقصرِ det)
-      # (جمعآوری: 70_extract._dbg_collect_det_quads_252 — فقط با --debug)
+      #. آبی = چیزی که detِ
+# باکسهایِ خامِ detِ OCR (آبی) —
+# متن رویِ کراپِ حباب «دیده» است (پاسِ فقط-det؛ قبل ازِ rec و قبل ازِ
+# فیلترهایِ امتیاز/188/225). تفسیر:
+# • خطی که جعبهٔ آبی دارد ولی قرمز/متن ندارد → det دید، rec/فیلتر حذف کرد
+# • خطی که اصلاً آبی ندارد → det آن را ندید (مقصرِ det)
+# (جمعآوری: 70_extract._dbg_collect_det_quads_252 — فقط با --debug)
       try:
         _dq = getattr(self, "_dbg_det_quads", None) or []
         for _q in _dq:
@@ -601,13 +589,13 @@ class _MangaTranslatorBody_90:
       except Exception:
         pass
 
-      # v1.14.173 — باکسهایِ خامِ detector-v4-s با رنگِ سبز رویِ همین
-      # DEBUGِ صفحه — مقایسهٔ مستقیمِ detector در برابرِ OCR بدونِ عکسِ
-      # جدا (دستورِ سازنده: «عکس جدا نشون نده رو همون عکس اصلی دیباگ
-      # بزاره با یک رنگ دیگ سبز نشون بده»): سبزِ D## = باکسِ خامِ
-      # detectorِ قبلِ فیلتر/OCR؛ قرمزِ [##] = ناحیهٔ نهاییِ بعدِ OCR.
-      # اگر متنی در DEBUG سبزِ نداشته باشد → detector نتونسته پیدا کند؛
-      # اگر سبز دارد ولی متنِ قرمزش غلط/خالی است → مقصرِ OCR است.
+# باکسهایِ خامِ detector-v4-s با رنگِ سبز رویِ همین
+# DEBUGِ صفحه — مقایسهٔ مستقیمِ detector در برابرِ OCR بدونِ عکسِ
+      #): سبزِ D## = باکسِ خامِ
+# جدا (
+# detectorِ قبلِ فیلتر/OCR؛ قرمزِ [##] = ناحیهٔ نهاییِ بعدِ OCR.
+# اگر متنی در DEBUG سبزِ نداشته باشد → detector نتونسته پیدا کند
+# اگر سبز دارد ولی متنِ قرمزش غلط/خالی است → مقصرِ OCR است.
       _det_raw0 = None
       for _r0 in regions:
         _v0 = getattr(_r0, "det_raw", None)
@@ -636,10 +624,8 @@ class _MangaTranslatorBody_90:
 
       return vis
 
-
     @staticmethod
     def _skew_from_quads(core_bgr: np.ndarray, quads, ox: int, oy: int, inset: int) -> float:
-
 
         try:
             g = cv2.cvtColor(core_bgr, cv2.COLOR_BGR2GRAY)
@@ -711,7 +697,6 @@ class _MangaTranslatorBody_90:
             raise ValueError("هیچ تصویری برای ساخت PDF وجود نداره.")
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
 
-
         q = max(92, int(np.clip(int(getattr(self, "img_quality", 90) or 90), 40, 100)))
         images[0].save(
             out_path,
@@ -725,7 +710,6 @@ class _MangaTranslatorBody_90:
     @staticmethod
     def _save_as_zip(folder: str, out_path: str) -> None:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-
 
         with zipfile.ZipFile(out_path, "w", zipfile.ZIP_STORED) as zf:
             for name in sorted(os.listdir(folder), key=MangaTranslator._natural_sort_key):
@@ -810,7 +794,6 @@ class _MangaTranslatorBody_90:
             compression=psd_enums.Compression.raw,
         )
 
-
         preview_bgr = pages[0]
         preview_rgb, _ = _place_on_canvas(preview_bgr)
         comp = np.stack(
@@ -891,7 +874,6 @@ class _MangaTranslatorBody_90:
                 exact=False,
             )
         elif ext in (".jpg", ".jpeg"):
-
 
             sub = 0 if q >= 90 else 2
             pil.save(
@@ -1029,7 +1011,6 @@ html, body { background: #0a0a0b; }
         else:
             path = raw
 
-
         parts = [p for p in re.split(r"[/\\]+", path) if p]
         skip: List[str] = []
         noise = {
@@ -1080,4 +1061,3 @@ html, body { background: #0a0a0b; }
                 seen.add(s)
                 out.append(s)
         return out
-

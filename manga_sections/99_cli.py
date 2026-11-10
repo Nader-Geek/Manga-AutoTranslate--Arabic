@@ -1,6 +1,5 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# 📦 CLI — build_arg_parser و main()
+# CLI — build_arg_parser و main
 # None
 # (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
@@ -129,15 +128,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="سبک پرامپت وقتی --instruction داده نشده: auto (پیشفرض؛ بر اساس مدل: "
                         "مدلهای Lite → سبک، بقیه → حرفهای)، "
                         "professional (حرفهای انگلیسی)، lite (سبک انگلیسی)")
-    p.add_argument("--temperature", type=float, default=0.7)  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
-    p.add_argument("--top-p", type=float, default=0.9)  # v1.14.243 — مرجع تنظیمِ top_p
+    p.add_argument("--temperature", type=float, default=0.7)  # دستور: ۰.۷ (عینِ مرجع)
+    p.add_argument("--top-p", type=float, default=0.9)  # مرجع تنظیمِ top_p
     p.add_argument(
         "--debug",
         action="store_true",
         help="حالت دیباگ: مربع رنگی دور هر بلوک؛ خروجی دیباگ هم فرمت اصلی را می‌گیرد (مثلاً PDF → *_debug.pdf)",
     )
     return p
-
 
 def main():
     try:
@@ -147,10 +145,10 @@ def main():
         pass
     args = build_arg_parser().parse_args()
 
-    # v1.14.178 — «تستِ سرعت» (دکمهٔ واحدِ پنل): به‌جایِ ترجمه، همهٔ
-    # حالتهایِ استخراج اندازهگیری و برنده در speed_test.json ذخیره
-    # میشود. نیازی به کلیدِ API/فونت/موتورِ ترجمه ندارد؛ زودتر از همهٔ
-    # اعتبارسنجیها میآید. (اپِ PC با MANGA_SPEED_TEST=1 میفرستد.)
+# «تستِ سرعت» (دکمهٔ واحدِ پنل): به‌جایِ ترجمه، همهٔ
+# حالتهایِ استخراج اندازهگیری و برنده در speed_test.json ذخیره
+# میشود. نیازی به کلیدِ API/فونت/موتورِ ترجمه ندارد؛ زودتر از همهٔ
+# اعتبارسنجیها میآید. (اپِ PC با MANGA_SPEED_TEST=1 میفرستد.)
     if str(os.environ.get("MANGA_SPEED_TEST", "") or "").strip() == "1":
         try:
             speed_lab_env({})  # برندهٔ ذخیرهشدهٔ قبلی + خطِ لاگِ آن
@@ -263,13 +261,13 @@ def main():
         mag_ratio=args.mag_ratio,
         two_pass_ocr=not args.no_two_pass_ocr,
         translation_temperature=args.temperature,
-        translation_top_p=getattr(args, "top_p", 0.9),  # v1.14.243 — مرجع
+        translation_top_p=getattr(args, "top_p", 0.9),  # مرجع
         max_output_width=(args.max_width or None),
         stitch_max_height=(8000 if getattr(args, "stitch_max_height", None) is None
                            else int(args.stitch_max_height)),
         stitch_short_threshold=args.stitch_short_threshold,
         stitch_keep_first=not args.no_stitch_keep_first,
-        # v1.14.106 — اگر کاربرِ CLI خودش فلگ را داده باشد، حالتِ مستقل رد می‌شود
+# اگر کاربرِ CLI خودش فلگ را داده باشد، حالتِ مستقل رد می‌شود
         stitch_explicit=(getattr(args, "stitch_max_height", None) is not None),
         repair_page_seams=not bool(getattr(args, "no_seam_repair", False)),
         debug=bool(getattr(args, "debug", False)),
@@ -360,13 +358,12 @@ def main():
             clean_old=not args.keep_old,
         )
     finally:
-        # v1.14.215 — خطا/لغو وسطِ کار هم نباید صفحه‌هایِ نمایشِ زنده را
-        # برای همیشه در گیتِ ترتیب قفل نگه دارد.
+# خطا/لغو وسطِ کار هم نباید صفحه‌هایِ نمایشِ زنده را
+# برای همیشه در گیتِ ترتیب قفل نگه دارد.
         try:
             _live_seq_flush()
         except Exception:
             pass
-
 
 if __name__ == "__main__":
     main()

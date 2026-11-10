@@ -17,7 +17,6 @@ _IMG_MAGICS = (
 )
 _ACCEPTED_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".zip", ".pdf"}
 
-
 def _fix_input_ext(path):
     try:
         if not path or "://" in path or not os.path.isfile(path):
@@ -56,14 +55,11 @@ def _fix_input_ext(path):
     except Exception:
         return path
 
-
 _ENGINE_FILES = ("manga.py", "manga_app.py", "bridge.py", "extract_ui.py",
                  "app_server.py")
 
-
 def _files_dir():
     return os.environ.get("MANGA_FILES_DIR") or os.getcwd()
-
 
 def _syntax_check(path):
     try:
@@ -79,7 +75,6 @@ def _syntax_check(path):
         return "خواندن ناموفق: %s" % e
     return None
 
-
 def health():
 
     files_dir = _files_dir()
@@ -87,9 +82,9 @@ def health():
     lines = []
     ok = True
 
-    # v1.14.253 — اول import (لودرِ v1.14.253+ خودش بخشهایِ غایب را
-    # دانلود میکند — خودترمیمی)؛ بعد وضعیتِ فایلها را فهرست کن تا
-    # نتیجهٔ ترمیم هم در همین گزارش دیده شود.
+# اول import (لودرِ خودش بخشهایِ غایب را
+# دانلود میکند — خودترمیمی)؛ بعد وضعیتِ فایلها را فهرست کن تا
+# نتیجهٔ ترمیم هم در همین گزارش دیده شود.
     culprit = None
     tb_full = ""
     sections_err = False
@@ -137,9 +132,9 @@ def health():
         else:
             lines.append("  • %s — ✔ سالم (%.1f KB)" % (n, size / 1024.0))
 
-    # v1.14.251 — موتور پلاگینی است: بدنه از manga_sections/ میآید.
-    # v1.14.253 — «نیست» دیگر فوراً ❌ نیست: لودر خودش دانلودش میکند؛
-    # فقط وقتی خطا داریم که import هم واقعا شکست خورده باشد.
+# موتور پلاگینی است: بدنه از manga_sections/ میآید.
+# «نیست» دیگر فوراً نیست: لودر خودش دانلودش میکند
+# فقط وقتی خطا داریم که import هم واقعا شکست خورده باشد.
     sec_dir = os.path.join(upd, "manga_sections")
     if os.path.isdir(sec_dir):
         n_sec = len([x for x in os.listdir(sec_dir) if x.endswith(".py")])
@@ -160,11 +155,11 @@ def health():
         lines.append("💡 اگر باز هم خطا گرفتی، متن کامل خطای زمان اجرا در همین "
                      "کادر لاگ، موقع شروع ترجمه نمایش داده می‌شود.")
     elif sections_err:
-        # v1.14.253 — توصیهٔ «Clear Data» برایِ نبودِ بخشها «مضر» بود:
-        # داده‌ها را پاک میکند و همان وضعیتِ شکسته را دوباره میسازد.
+# توصیهٔ «Clear Data» برایِ نبودِ بخشها «مضر» بود:
+# داده‌ها را پاک میکند و همان وضعیتِ شکسته را دوباره میسازد.
         lines.insert(0, "❌ بخشهایِ موتور (manga_sections/) دانلود نشده‌اند.")
         lines.append("🔧 راه‌حل: اینترنت را وصل کن و اپ را ببند و دوباره باز "
-                     "کن — موتور (v1.14.253+) بخشها را خودش دانلود "
+                     "کن — موتور بخشها را خودش دانلود "
                      "میکند و چند لحظه بعد دوباره همین تست را بزن. "
                      "«Clear Data» نزن — لازم نیست و کمک هم نمیکند.")
     else:
@@ -172,7 +167,6 @@ def health():
         lines.append("🔧 راه‌حل سریع: تنظیمات اپ → پاک‌کردن داده اپ (Clear Data) "
                      "→ باز کردن دوباره؛ یا نسخه جدید اپ را نصب کن.")
     return json.dumps({"ok": ok, "report": "\n".join(lines)}, ensure_ascii=False)
-
 
 def _find_culprit(tb_text):
     import re
@@ -190,7 +184,6 @@ def _ollama_base(p):
     if b and not b.endswith("/v1"):
         b += "/v1"
     return b or "http://localhost:11434/v1"
-
 
 def _ollama_check(p):
 
@@ -220,7 +213,6 @@ def _ollama_check(p):
         p["model"] = models[0]
     return None, base + ("  |  مدل‌ها: " + "، ".join(models[:8]) if models else "")
 
-
 def start_job(params_json, files_dir):
     p = json.loads(params_json)
 
@@ -248,21 +240,17 @@ def start_job(params_json, files_dir):
 
     return _delegate_start(json.dumps(p, ensure_ascii=False), files_dir)
 
-
 def _delegate_start(params_json, files_dir):
     import bridge
     return bridge.start_job(params_json, files_dir)
-
 
 def poll():
     import bridge
     return bridge.poll()
 
-
 def cancel():
     import bridge
     return bridge.cancel()
-
 
 def test_keys(params_json):
     """پروکسی تست کلیدها برای دکمهٔ «تست کلیدها / لینک» اندروید.
@@ -272,14 +260,12 @@ def test_keys(params_json):
     import bridge
     return bridge.test_keys(params_json)
 
-
 def list_models(params_json):
-    """v1.14.231 - proxy of live model list for the refresh button next to
+    """ - proxy of live model list for the refresh button next to
     the Android model field (like test_keys; MainActivity calls the
     native_bridge module). Output: {"ok": bool, "models": [...], "error": str}."""
     import bridge
     return bridge.list_models(params_json)
-
 
 def status():
     try:
@@ -287,7 +273,6 @@ def status():
         return launcher.status()
     except Exception:
         return "status error"
-
 
 def check_engine_files():
     return health()

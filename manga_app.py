@@ -30,18 +30,15 @@ KEY_ENV_ORDER = ("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY",
                  "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "GROQ_API_KEY",
                  "XAI_API_KEY", "TOGETHER_API_KEY", "OPENROUTER_API_KEY", "API_KEY")
 PROVIDER_ALIASES = {"chatgpt": "openai", "grok": "xai"}
-# v1.14.217 — دستورِ سازنده: «همه مدلای ک تو کد الکی اضافه شده حذف کن بجز
-# Gemini و گزینه کاستوم بمونه» — فهرستِ ارائه‌دهندگانِ رابط فقط همین دو
+# فهرستِ ارائه‌دهندگانِ رابط فقط همین دو
 # میماند؛ موتور (manga.py) همچنان همه را میشناسد (CLI/سازگاریِ configهای
 # قدیمی) و مدلهایِ دلخواه با «custom» اجرا میشوند.
 PROVIDERS = ["gemini", "custom"]
 
 DEFAULT_GEMINI_KEYS = []#",".join(["123:])
 
-# v1.14.236 — نوارِ پیشرفتِ زیرِ لاگ در وب (خواستهٔ سازنده: «تو گوشی
-# یه قابلیت هست ک میگه چند از چند درصد متن استخراج شده و یا کجای کاره…
-# میخوام رو پی سی و لینوکس تو وبش پایین لاگ درصدش نشون بده مثل گوشی»).
-# همان نشانگرهایی که اعلانِ اندروید میسازند (bridge.py — v1.14.154) اینجا
+# نوارِ پیشرفتِ زیرِ لاگ در وب:
+# همان نشانگرهایی که اعلانِ اندروید میسازند (bridge.py) اینجا
 # از دنبالهٔ لاگِ وب خوانده میشوند: فاز از آخرین خطِ شناخته‌شده و شمارهٔ
 # صفحه از آخرین «N آماده شد»؛ درصد = صفحهٔ در حال کار ÷ کل (total.txt
 # پوشهٔ live را موتور همان اول می‌نویسد). ترتیب مهم است (اولین تطبیقِ
@@ -69,7 +66,7 @@ _WEB_PROG_PHASES = (
     ("پدلِ اندروید", "استخراج متن"),
 )
 
-# v1.14.239 — شمارنده‌های صریحِ موتور (manga.py — پایپ‌لاینِ مرجع):
+# شمارنده‌های صریحِ موتور (manga.py — پایپ‌لاینِ مرجع):
 # «استخراج متن: n/N صفحه»، «پاکسازی متن: n/N صفحه»، «ترجمه: n/N ناحیه».
 # n/N از خودِ خط خوانده میشود (کلِ همراه، مستقل از total.txt).
 _WEB_PROG_COUNT_RES = (
@@ -79,27 +76,25 @@ _WEB_PROG_COUNT_RES = (
      "پاکسازی", "صفحه"),
     (re.compile(r"ترجمه[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*ناحیه"),
      "ترجمه", "ناحیه"),
-    # v1.14.242 — استریمِ زندهٔ مرجع: در درخواستِ واحد، پیشرفتِ لحظهای از
-    # خطوطِ «← استریم: X/Y دیالوگ…» خوانده میشود (همان پیشنمایشِ
-    # صفحهبهصفحهٔ مرجع)
+# استریمِ زندهٔ مرجع: در درخواستِ واحد، پیشرفتِ لحظهای از
+# خطوطِ «← استریم: X/Y دیالوگ…» خوانده میشود (همان پیشنمایشِ
+# صفحهبهصفحهٔ مرجع)
     (re.compile(r"استریم[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*دیالوگ"),
      "ترجمه", "ناحیه"),
 )
 
-
 def _web_prog_parse(log: str):
     """(فاز، مقدارِ فعلی، کلِ همراهِ خط، واحد) از انتهای لاگ — آخرین رخداد ملاک است.
 
-    v1.14.239 — موتور (manga.py) حالا در سبکِ مرجع بعد از «هر» صفحهٔ
+     — موتور (manga.py) حالا در سبکِ مرجع بعد از «هر» صفحهٔ
     استخراج‌شده «استخراج متن: n/N صفحه»، بعد از هر صفحهٔ پاک‌شده
     «پاکسازی متن: n/N صفحه» و بعد از هر بستهٔ ترجمه «ترجمه: n/N ناحیه»
     چاپ میکند (قبلاً تا پایانِ کلِ استخراج هیچ «N آماده شد»ای نبود و
-    درصدِ نوار روی 0٪ گیر میکرد — گزارشِ سازنده). اینجا آخرینِ این
-    خطها + «N آماده شد» (رندرِ نهایی) و نشانگرهایِ پایان/خطا با هم
+    درصدِ نوار روی 0٪ گیر میکرد — (رندرِ نهایی) و نشانگرهایِ پایان/خطا با هم
     مقایسه میشوند؛ برنده = آخرین رخداد. tot=0 یعنی کل از total.txt
     پوشهٔ live خوانده شود."""
     tail = (log or "").splitlines()[-400:]
-    # ۱) شمارنده‌های صریح — آخرین خطِ هر فاز
+# ۱) شمارنده‌های صریح — آخرین خطِ هر فاز
     marks = {}
     for idx, ln in enumerate(tail):
         for rx, kind, unit in _WEB_PROG_COUNT_RES:
@@ -118,12 +113,12 @@ def _web_prog_parse(log: str):
         for _k, _v in _WEB_PROG_PHASES:
             if _k in ln and _v in ("تمام شد", "خطا", "لغو شد"):
                 _term_idx, _term_phase = idx, _v
-    # صفحهٔ آمادهٔ آخر (برای حالتِ خطا)
+# صفحهٔ آمادهٔ آخر (برای حالتِ خطا)
     _page_legacy = _ready_page
-    # ۲) رویدادها: (idx، فاز، cur، tot، unit) — آخرینِشان برنده
+# ۲) رویدادها: (idx، فاز، cur، tot، unit) — آخرینِشان برنده
     events = []
     for kind, (idx, cur, tot, unit) in marks.items():
-        # شمارندهٔ استخراج بعد از «صفحه کامل شد» بازنشسته میشود
+# شمارندهٔ استخراج بعد از «صفحه کامل شد» بازنشسته میشود
         if (kind == "استخراج متن" and _ext_done_idx is not None
                 and idx < _ext_done_idx):
             continue
@@ -136,7 +131,7 @@ def _web_prog_parse(log: str):
         events.sort(key=lambda e: e[0])
         _, ph, cur, tot, unit = events[-1]
         return ph, cur, tot, unit
-    # ۳) فازِ قدیمیِ بدونِ شمارنده (اولین تطبیقِ آخرین خطِ شناختهشده)
+# ۳) فازِ قدیمیِ بدونِ شمارنده (اولین تطبیقِ آخرین خطِ شناختهشده)
     phase = ""
     for ln in reversed(tail):
         for _k, _v in _WEB_PROG_PHASES:
@@ -146,7 +141,6 @@ def _web_prog_parse(log: str):
         if phase:
             break
     return phase, _page_legacy, 0, ""
-
 
 def _web_prog_html(phase: str, cur: int, total: int, running: bool,
                    done: bool, unit: str = "") -> str:
@@ -188,13 +182,9 @@ def _web_prog_html(phase: str, cur: int, total: int, running: bool,
         '</div>'
     )
 
-
-
-
-
 FONT_BUNDLES = [
-    # v1.14.66 — اول «آینهٔ jsDelivr»: raw.githubusercontent.com در ایران
-    # اغلب بسته/کند است و فونت‌ها دانلود نمی‌شدند (درخواستِ کاربر).
+# اول «آینهٔ jsDelivr»: raw.githubusercontent.com در ایران
+# اغلب بسته/کند است و فونت‌ها دانلود نمی‌شدند (درخواستِ کاربر).
     ("normal",       "Vazirmatn-Bold.ttf", "کودک — متن عادی حباب", [
         "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@master/fonts/ttf/Vazirmatn-Bold.ttf",
         "https://raw.githubusercontent.com/rastikerdar/vazirmatn/master/fonts/ttf/Vazirmatn-Bold.ttf",
@@ -225,15 +215,14 @@ FONT_BUNDLES = [
         "https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@master/dist/Samim-Bold.ttf",
         "https://raw.githubusercontent.com/rastikerdar/samim-font/master/dist/Samim-Bold.ttf",
     ]),
-    # v1.14.229 — دستورِ سازنده: «یک فونت تو لیست فونت هام هست ک حملات
-    # دو کلمش نمیزاره… ببین کدومه عوض کن یک چیز دیگ بزار». فونتِ مقصر
-    # Vazir-Code.ttf بود: فونتِ کدنویسی است و «هیچ‌کدام» از شش گلیفِ
-    # لیگاتورِ لام-الف (ﻻ/ﻼ/ﻵ/… U+FEF5..FEFC) را ندارد → «حملات» به‌جایِ
-    # رندر، «لا» کلاً غیب میشد و «حم ت» میماند (حتی نسخهٔ رسمیِ
-    # upstream هم ندارد — تست شد). جایگزین: Sahel-Bold (همهٔ گلیفها،
-    # حسِ پنجرهٔ سیستم، و از قبل در fallback همین باندل بود). گاردِ
-    # پوششِ ۲۲۹ در manga.py هم فونتِ خرابِ باقی‌مانده در نصبهای قدیمی را
-    # خودکار به فونتِ سالم فالبک میکند.
+    #. فونتِ مقصر
+# Vazir-Code.ttf بود: فونتِ کدنویسی است و «هیچ‌کدام» از شش گلیفِ
+# لیگاتورِ لام-الف (ﻻ/ﻼ/ﻵ/… U+FEF5..FEFC) را ندارد → «حملات» به‌جایِ
+# رندر، «لا» کلاً غیب میشد و «حم ت» میماند (حتی نسخهٔ رسمیِ
+# upstream هم ندارد — تست شد). جایگزین: Sahel-Bold (همهٔ گلیفها
+# حسِ پنجرهٔ سیستم، و از قبل در fallback همین باندل بود). گاردِ
+# پوششِ ۲۲۹ در manga.py هم فونتِ خرابِ باقی‌مانده در نصبهای قدیمی را
+# خودکار به فونتِ سالم فالبک میکند.
     ("system",       "Sahel-Bold.ttf", "پنجرهٔ سیستم/UI (دیجیتال)", [
         "https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@master/dist/Sahel-Bold.ttf",
         "https://raw.githubusercontent.com/rastikerdar/sahel-font/master/dist/Sahel-Bold.ttf",
@@ -253,7 +242,6 @@ FONT_BUNDLES = [
 def _norm_instr(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip())
 
-
 def is_custom_instruction(text: str) -> bool:
     t = (text or "").strip()
     if not t:
@@ -263,9 +251,8 @@ def is_custom_instruction(text: str) -> bool:
             return False
     return True
 
-
 def _known_default_instruction_texts() -> list:
-    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند (فقط مرجع — v1.14.246)."""
+    """متنهایی که «پیشفرض» حساب میشوند و سفارشی نیستند (فقط مرجع)."""
     try:
         from manga import PROMPT_PRESETS  # ایمپورتِ سنگین — فقط همین‌جا
         return [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]
@@ -292,7 +279,6 @@ def normalize_api_base(url: str) -> str:
         return ""
     return u
 
-
 def _cli_ask(prompt: str) -> str:
     try:
         return input(prompt).strip()
@@ -300,15 +286,13 @@ def _cli_ask(prompt: str) -> str:
         print()
         return ""
 
-
-PROMPT_MODE_DEFAULT = "auto"  # v1.14.146 — پیشفرضِ مشترکِ وب و فرمِ گوشی
+PROMPT_MODE_DEFAULT = "auto"  # پیشفرضِ مشترکِ وب و فرمِ گوشی
 
 PROMPT_MODE_LABELS = {
     "auto": "خودکار (بر اساس سرویس و مدل)",
     "professional": "حرفه‌ای — مخصوص Gemini Flash و Pro",
     "lite": "سبک — مخصوص Flash Lite و سرویس‌های غیر Gemini",
 }
-
 
 # برچسبهایِ نمایشیِ نسخههایِ قبلیِ وباپ (رادیو) — برایِ سازگاریِ کانفیگِ قدیمی
 _PROMPT_MODE_LEGACY_LABELS = {
@@ -317,10 +301,9 @@ _PROMPT_MODE_LEGACY_LABELS = {
     "سبک — Flash Lite و غیرِ Gemini": "lite",
 }
 
-
 def sanitize_prompt_mode(v) -> str:
     """هر ورودیِ (مقدار یا برچسبِ قدیمی) به یکی از auto/professional/lite —
-    v1.14.145: پیشفرضِ همیشه auto (فیکسِ ارورِ invalid choice در manga.py)."""
+    : پیشفرضِ همیشه auto (فیکسِ ارورِ invalid choice در manga.py)."""
     s = str(v or "").strip()
     if s in ("auto", "professional", "lite"):
         return s
@@ -331,9 +314,8 @@ def sanitize_prompt_mode(v) -> str:
             return _k
     return "auto"
 
-
 def resolve_prompt_preview(mode_v, provider_v, model_v, instr_v):
-    """متنِ کاملِ پرامپتِ مؤثر — v1.14.147: تیترِ «پرامپت فعلی: …» حذف شد
+    """متنِ کاملِ پرامپتِ مؤثر — : تیترِ «پرامپت فعلی: …» حذف شد
     (خواستهٔ کاربر)؛ فقط خودِ متنِ پرامپت برمی‌گردد."""
     t = (instr_v or "").strip()
     if t and is_custom_instruction(t):
@@ -353,14 +335,12 @@ def ensure_dirs():
     for d in (WORK_DIR, UPLOAD_DIR, OUT_DIR, FONT_DIR):
         os.makedirs(d, exist_ok=True)
 
-
 def default_keys() -> str:
     for name in KEY_ENV_ORDER:
         v = os.environ.get(name, "").strip()
         if v:
             return v
     return DEFAULT_GEMINI_KEYS
-
 
 def load_config() -> dict:
     try:
@@ -376,7 +356,6 @@ def load_config() -> dict:
         pass
     return cfg
 
-
 def save_config(cfg: dict) -> None:
     try:
         with open(CFG_PATH, "w", encoding="utf-8") as f:
@@ -384,24 +363,20 @@ def save_config(cfg: dict) -> None:
     except Exception:
         pass
 
-
-# ── v1.14.217 — مدیرِ مدلهایِ سفارشی ─────────────────────────────
-# دستورهای سازنده: «یک گزینه دکمه هم اضافه کن + یعنی اضافه کردن مدل اون
-# مدل مثلا چند مدل ai اضافه میکنن … همون مدل ai ها جا به جا بشه» +
+# مدیرِ مدلهایِ سفارشی ─────────────────────────────
+# +
 # «تو گوشی پی سی لینوکس مدل هاشو تو حافظه سیو کنه بجز وب ولی وب اجرا
 # کنن» + «یک گزینه import و backup اخر صفحه اضافه کن چیزای ک وارد کردن
 # بکاپ بگیره از مدل بگیرع تا تنظیماتشون».
 CUSTOM_MODELS_PATH = os.path.join(WORK_DIR, "manga_models.json")
 
-
 def _web_host() -> bool:
-    """v1.14.217 — وبِ عمومی (GitHub Actions/سرور): ذخیرهٔ فایلی نمیکینیم؛
+    """ — وبِ عمومی (GitHub Actions/سرور): ذخیرهٔ فایلی نمیکینیم
     مدلها فقط در مرورگرِ خودِ کاربر (localStorage) و حافظهٔ نشست میمانند
     ولی کاملاً اجرا میشوند. PC/لینوکس/گوشی → فایل روی دیسک (ماندگار)."""
     return (os.environ.get("GITHUB_ACTIONS", "").strip() not in ("", "false")
             or os.environ.get("MANGA_WEB", "").strip() == "1"
             or os.environ.get("RAILWAY_STATIC_URL", "").strip() != "")
-
 
 def load_custom_models() -> list:
     """مدلهایِ سفارشی از فایلِ دیسک (اجرایِ محلی) — در وب فایل نیست.
@@ -428,7 +403,6 @@ def load_custom_models() -> list:
         pass
     return []
 
-
 def save_custom_models(models: list) -> bool:
     """ذخیره روی دیسک — فقط در اجرایِ محلی (گوشی/PC/لینوکس). در وب رد
     میشود (حافظهٔ نشست + localStorage مرورگر خودش نگه میدارد)."""
@@ -441,9 +415,8 @@ def save_custom_models(models: list) -> bool:
     except Exception:
         return False
 
-
 def _cm_names(models: list) -> list:
-    """v1.14.221 — فقطِ نامهایِ معتبرِ لیستِ مدلها (بدونِ تکرار/خالی)."""
+    """فقطِ نامهایِ معتبرِ لیستِ مدلها (بدونِ تکرار/خالی)."""
     out = []
     for m in (models or []):
         nm = str(m.get("name") or "").strip()
@@ -451,9 +424,8 @@ def _cm_names(models: list) -> list:
             out.append(nm)
     return out
 
-
 def _cm_mask_key(k) -> str:
-    """v1.14.222 — کلیدِ ماسکشده برایِ نمایشِ امن (sk-123456…wxyz)."""
+    """کلیدِ ماسکشده برایِ نمایشِ امن (sk-123456…wxyz)."""
     k = str(k or "").strip()
     if not k:
         return ""
@@ -461,10 +433,8 @@ def _cm_mask_key(k) -> str:
         return k[:2] + "…" + k[-2:]
     return k[:6] + "…" + k[-4:]
 
-
 def _cm_info_html(models: list, name: str) -> str:
-    """v1.14.222 — دستورِ سازنده: «وقتی یک چیز کاستوم سیو میکنم لینکش هم
-    باید نشون بده» — وقتی مدلِ ذخیرهشدهٔ کاربر در منو انتخاب میشود، مشخصاتِ
+    """ — وقتی مدلِ ذخیرهشدهٔ کاربر در منو انتخاب میشود، مشخصاتِ
     ذخیرهشدهٔ خودش (لینک + مدلِ هوش + کلیدِ ماسکشده) بهصورتِ فقطخواندنی
     زیرِ منو نشان داده میشود — فیلدها پر نمیشوند (دستورِ قبلی: انتخابِ
     مدل خودش را در فیلدها بارگذاری نکند)."""
@@ -487,16 +457,11 @@ def _cm_info_html(models: list, name: str) -> str:
         parts.append(f"کلید: <code>{esc(key)}</code>")
     return "<div class='hint'>" + " — ".join(parts) + "</div>"
 
-
-
-
-# ── v1.14.218 — منویِ انتخابِ AI با گزینهٔ auto ──────────────────
+# منویِ انتخابِ AI با گزینهٔ auto ──────────────────
 def _ai_choices(models: list) -> list:
-    """گزینههایِ منویِ انتخابِ AI به ترتیبِ خواستهٔ سازنده:
-    اول «auto»، دوم «gemini»، بعد مدلهایِ اضافهشدهٔ کاربر به ترتیبِ
+    """گزینههایِ منویِ انتخابِ AI به ترتیبِ دوم «gemini»، بعد مدلهایِ اضافهشدهٔ کاربر به ترتیبِ
     افزودن، و آخری «custom».
-    v1.14.221 — دستورِ سازنده: «وقتی مدلی تو کاستوم اضافه نکرده باشم
-    دکمه auto نیاد تو لیست مدلا» → «auto» فقط وقتی در لیست حداقل یک
+     — → «auto» فقط وقتی در لیست حداقل یک
     مدلِ ذخیرهشده باشد در منو میآید؛ بدونِ مدل: gemini | custom."""
     names = [n for n in _cm_names(models)
              if n not in ("auto", "gemini", "custom")]
@@ -505,10 +470,8 @@ def _ai_choices(models: list) -> list:
     out.append("custom")
     return out
 
-
 def _gemini_offline_models() -> list:
-    """v1.14.232 — لیستِ آفلاینِ مدلهایِ Gemini (دستورِ سازنده: «مدل
-    هارو افلاین هم بزار یک بار خودت لیست هارو بگیر بزار کد») — از
+    """ — لیستِ آفلاینِ مدلهایِ Gemini () — از
     manga.py میآید (GEMINI_FLASH_MODELS_OFFLINE؛ فقط flash و flash-lite
     و flash-preview). اگر import نشد (مثلاً وبِ هاست با بک‌اندِ سبک)
     همین نسخهٔ داخلی استفاده میشود تا دراپ‌داون هرگز خالی نباشد."""
@@ -529,10 +492,9 @@ def _gemini_offline_models() -> list:
         "gemini-flash-latest",
     ]
 
-
 def resolve_ai_named(models: list, pick: str, api_keys: str = "",
                      model_id: str = ""):
-    """v1.14.218 — resolveِ «مدلِ مشخصِ کاربر» از منویِ AI به provider واقعی
+    """ — resolveِ «مدلِ مشخصِ کاربر» از منویِ AI به provider واقعی
     برای manga.py (manga.py دستنخورده میماند). اگر کاربر مدلِ مشخصی
     (مدلِ خودش یا gemini) انتخاب کرده باشد فقط و فقط همان استفاده میشود.
     خروجی: (provider, api_base, api_key, model) — نامِ ناشناخته: None."""
@@ -548,10 +510,9 @@ def resolve_ai_named(models: list, pick: str, api_keys: str = "",
                     str(m.get("model") or "").strip() or (model_id or ""))
     return None
 
-
 def resolve_ai_auto(models: list, api_keys: str = "", model_id: str = "",
                     probe=None):
-    """v1.14.218 — رفتارِ «auto»: خودش بینِ همهٔ مدلهایِ موجود (gemini +
+    """ — رفتارِ «auto»: خودش بینِ همهٔ مدلهایِ موجود (gemini +
     مدلهایِ کاربر به ترتیبِ افزودن) انتخاب میکند؛ اگر یکی خطا داد یا در
     دسترس نبود سراغِ بعدی میرود. سنجشِ دسترسی = درخواستِ سبکِ همان موتور
     (manga.test_api_keys) — manga.py هیچ تغییری نمیکند.
@@ -592,7 +553,6 @@ def resolve_ai_auto(models: list, api_keys: str = "", model_id: str = "",
     lines.append("❌ auto: هیچ‌کدام از مدلها در دسترس نبودند.")
     return ("", "", "", "", lines)
 
-
 def find_font() -> str:
     cands = []
     if os.path.isdir(FONT_DIR):
@@ -605,7 +565,6 @@ def find_font() -> str:
                 if f.lower().endswith((".ttf", ".otf")):
                     cands.append((1, os.path.join(d, f)))
     return cands[0][1] if cands else ""
-
 
 def _download(url: str, dst: str) -> bool:
     try:
@@ -620,7 +579,6 @@ def _download(url: str, dst: str) -> bool:
         except Exception:
             pass
         return False
-
 
 def download_fonts(log=print) -> int:
     
@@ -645,17 +603,15 @@ def download_fonts(log=print) -> int:
 
 GITHUB_RAW_BASE = ("https://raw.githubusercontent.com/"
                    "amirwolf512k/Manga-AutoTranslate/main/")
-# v1.14.33: لانچرها هم آپدیت می‌شوند (Manga.bat / manga.sh)
+# لانچرها هم آپدیت می‌شوند (Manga.bat / manga.sh)
 UPDATE_FILES = ("manga.py", "manga_app.py", "Manga.bat", "manga.sh")
-# v1.14.33: چکِ آپدیت حالا ارزان است (فایل VERSION چندبایتی) → هر ۳۰ دقیقه
+# چکِ آپدیت حالا ارزان است (فایل VERSION چندبایتی) → هر ۳۰ دقیقه
 UPDATE_INTERVAL_S = 30 * 60
 UPD_DIR = os.path.join(WORK_DIR, "updates")
-
 
 def _read_ver_from_src(src: str) -> str:
     m = re.search(r'APP_VER\s*=\s*"([^"]+)"', src or "")
     return m.group(1) if m else "0"
-
 
 def _cmp_ver(a: str, b: str) -> int:
     try:
@@ -669,7 +625,6 @@ def _cmp_ver(a: str, b: str) -> int:
         pb.append(0)
     return (pa > pb) - (pa < pb)
 
-
 def _local_file_ver(name: str) -> str:
     try:
         with open(os.path.join(HERE, name), encoding="utf-8") as f:
@@ -677,15 +632,13 @@ def _local_file_ver(name: str) -> str:
     except Exception:
         return "0"
 
-
 def _http_get(url: str, timeout: float = 30.0) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
-
 def _remote_app_ver(log=print) -> str:
-    """v1.14.33: نسخهٔ_remote را از فایل VERSION (چند بایت) می‌خواند —
+    """: نسخهٔ_remote را از فایل VERSION (چند بایت) می‌خواند —
     قبلاً برای چکِ نسخه، خودِ manga.py (~نیم مگابایت) دانلود می‌شد که روی
     اینترنتِ کند عملاً «آپدیت گیر کردن» بود."""
     try:
@@ -697,7 +650,6 @@ def _remote_app_ver(log=print) -> str:
     except Exception as e:
         log(f"[!] چک نسخهٔ remote ناموفق: {str(e)[:80]}")
     return ""
-
 
 def _local_app_ver() -> str:
     """نسخهٔ محلی: اول فایل VERSION کنار برنامه، بعد APP_VER در manga_app.py."""
@@ -712,9 +664,8 @@ def _local_app_ver() -> str:
         pass
     return _local_file_ver("manga_app.py")
 
-
 def _remote_section_names(log=print):
-    """v1.14.251 — فهرستِ بخشهایِ پلاگینیِ موتور از MANIFEST ریپو.
+    """ — فهرستِ بخشهایِ پلاگینیِ موتور از MANIFEST ریپو.
     (موتور از manga_sections/ خوانده میشود؛ آپدیتِ manga.py باید
     بخشها را هم همراه بیاورد وگرنه لودر چیزی برای اجرا ندارد.)"""
     try:
@@ -728,7 +679,6 @@ def _remote_section_names(log=print):
         log(f"[!] گرفتنِ MANIFEST ناموفق: {str(e)[:80]}")
         return None
 
-
 def _stage_update_file(name: str, log=print) -> dict:
     """یک فایل آپدیت را می‌گیرد و کنار بقیه stage می‌کند (برای apply)."""
     info = {"local": "", "remote": "", "newer": False}
@@ -737,7 +687,7 @@ def _stage_update_file(name: str, log=print) -> dict:
                         + str(int(time.time() // 300)), timeout=60).decode("utf-8", "ignore")
         info["remote"] = _read_ver_from_src(src[:8192])
         info["local"] = _local_file_ver(name)
-        # v1.14.251: نام میتواند تو در تو باشد (manga_sections/00_base.py)
+# نام میتواند تو در تو باشد (manga_sections/00_base.py)
         staged = os.path.join(UPD_DIR, name + ".staged")
         os.makedirs(os.path.dirname(staged) or UPD_DIR, exist_ok=True)
         with open(staged, "w", encoding="utf-8") as f:
@@ -746,7 +696,6 @@ def _stage_update_file(name: str, log=print) -> dict:
     except Exception as e:
         info["error"] = str(e)[:120]
     return info
-
 
 def check_updates(force: bool = False, log=print) -> dict:
     try:
@@ -763,10 +712,10 @@ def check_updates(force: bool = False, log=print) -> dict:
     newer_global = bool(remote_ver and _cmp_ver(remote_ver, local_ver) > 0)
 
     if newer_global:
-        # v1.14.33: فقط وقتی نسخهٔ جدید واقعاً هست، فایل‌ها دانلود می‌شوند —
-        # و به‌صورت موازی (۴ فایل همزمان) تا آپدیت خیلی سریع‌تر بیاید.
-        # v1.14.251: بخشهایِ پلاگینیِ موتور (manga_sections/) هم همراهِ
-        # آپدیتِ manga.py دانلود و نصب میشوند — بدونِ آنها لودر اجرا نمیشود.
+# فقط وقتی نسخهٔ جدید واقعاً هست، فایل‌ها دانلود می‌شوند —
+# و به‌صورت موازی (۴ فایل همزمان) تا آپدیت خیلی سریع‌تر بیاید.
+# بخشهایِ پلاگینیِ موتور (manga_sections/) هم همراهِ
+# آپدیتِ manga.py دانلود و نصب میشوند — بدونِ آنها لودر اجرا نمیشود.
         files = list(UPDATE_FILES)
         sections = _remote_section_names(log=log)
         if sections:
@@ -803,7 +752,6 @@ def check_updates(force: bool = False, log=print) -> dict:
         pass
     return rep
 
-
 def apply_updates(report: Optional[dict] = None, log=print) -> list:
 
     installed = []
@@ -815,7 +763,7 @@ def apply_updates(report: Optional[dict] = None, log=print) -> list:
             continue
         try:
             dst = os.path.join(HERE, name)
-            # v1.14.251: نام میتواند تو در تو باشد (manga_sections/00_base.py)
+# نام میتواند تو در تو باشد (manga_sections/00_base.py)
             os.makedirs(os.path.dirname(dst) or HERE, exist_ok=True)
             bak = dst + ".bak"
             if os.path.isfile(dst):
@@ -827,8 +775,8 @@ def apply_updates(report: Optional[dict] = None, log=print) -> list:
         except Exception as e:
             log(f"✖ نصب {name} ناموفق: {e}")
 
-    # v1.14.251 — بخشهایِ زامبیِ آپدیتِ قبلی را پاک کن (مثلاً وقتی فایلی در
-    # MANIFEST جدید حذف شده باشد). فقط وقتی این آپدیت خودش بخشها آورده.
+# بخشهایِ زامبیِ آپدیتِ قبلی را پاک کن (مثلاً وقتی فایلی در
+# MANIFEST جدید حذف شده باشد). فقط وقتی این آپدیت خودش بخشها آورده.
     sec_dir = os.path.join(HERE, "manga_sections")
     keep = {os.path.basename(n) for n in (rep.get("files") or {})
             if n.startswith("manga_sections/")}
@@ -844,7 +792,6 @@ def apply_updates(report: Optional[dict] = None, log=print) -> list:
     if installed:
         log("🔁 برای فعال‌شدن کامل، برنامه را ببندید و دوباره باز کنید.")
     return installed
-
 
 def auto_update_on_start(log=print) -> None:
 
@@ -895,7 +842,6 @@ def _font_persian_ok(path: str) -> bool:
     _ft_checked[path] = ok
     return ok
 
-
 def font_args() -> list:
     
     args = []
@@ -910,7 +856,6 @@ def font_args() -> list:
             args += [f"--font-{flag}", p]
     return args
 
-
 def human_size(n: float) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if n < 1024:
@@ -918,17 +863,13 @@ def human_size(n: float) -> str:
         n /= 1024
     return f"{n:.1f} TB"
 
-
-
-
-
 def smart_output_base(input_path: str) -> str:
     
     raw = (input_path or "").strip()
     if not raw:
         return "chapter_fa"
     
-    # چند لینک (با اینتر/کاما/تب): برای نامِ خروجی فقط اولی ملاک است
+# چند لینک (با اینتر/کاما/تب): برای نامِ خروجی فقط اولی ملاک است
     raw = re.split(r"[,\n\r\t]+", raw)[0].strip()
     is_url = raw.lower().startswith(("http://", "https://"))
     if is_url:
@@ -994,7 +935,6 @@ def smart_output_base(input_path: str) -> str:
         base = base + "_fa"
     return base
 
-
 def append_history(entry: dict) -> None:
     try:
         with open(HIST_PATH, "a", encoding="utf-8") as f:
@@ -1002,19 +942,10 @@ def append_history(entry: dict) -> None:
     except Exception:
         pass
 
-
-
-
-
-
 def has_display() -> bool:
     if os.name == "nt" or sys.platform == "darwin":
         return True
     return bool(os.environ.get("DISPLAY"))
-
-
-
-
 
 def manga_py_ok() -> bool:
     
@@ -1025,15 +956,11 @@ def manga_py_ok() -> bool:
         return False
     return ("def run_desktop" not in head) and ("def run_web" not in head)
 
-
 MANGA_MIXED_MSG = (
     "❌ فایل manga.py کنار برنامه، فایل «مترجم» نیست — کد خود برنامه داخلش ذخیره شده\\n"
     "(احتمالاً manga_app.py را با نام manga.py ذخیره کرده‌اید).\\n"
     "فایل manga.py اصلی (مترجم) را کنار manga_app.py بگذارید و دوباره اجرا کنید."
 )
-
-
-
 
 def run_cli_interactive():
     
@@ -1056,8 +983,8 @@ def run_cli_interactive():
     ext = {"1": ".pdf", "2": ".zip", "3": ".html", "4": "", "5": ".psd"}.get(f, ".pdf")
 
     print("\nارائه‌دهندهٔ AI را انتخاب کنید:")
-    # v1.14.217 — فقط Gemini و custom (دستورِ سازنده: «همه مدلای ک تو کد
-    # الکی اضافه شده حذف کن بجز Gemini و گزینه کاستوم بمونه»)
+    #)
+# فقط Gemini و custom (
     prov_menu = [
         ("gemini", "Google Gemini - رایگان با سهمیه"),
         ("custom", "سرویس دلخواه — ۴ فرمت: OpenAI / Responses / Anthropic / Google (دامنه + توکن + مدل)"),
@@ -1124,8 +1051,8 @@ def run_cli_interactive():
            "--batch-workers", str(int(cfg.get("batch_workers", 3))),
            "--max-retries", str(int(cfg.get("max_retries", 8))),
            "--request-delay", str(float(cfg.get("request_delay", 0))),
-           "--temperature", str(float(cfg.get("temperature", 0.7))),  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
-           "--top-p", str(float(cfg.get("top_p", 0.9))),  # v1.14.243 — تنظیمِ top_p
+           "--temperature", str(float(cfg.get("temperature", 0.7))),  # دستور: ۰.۷ (عینِ مرجع)
+           "--top-p", str(float(cfg.get("top_p", 0.9))),  # تنظیمِ top_p
            "--reading-order", str(cfg.get("reading_order", "rtl"))]
     cmd += font_args()
     klist = [k.strip() for k in (keys or "").replace(";", ",").split(",") if k.strip()]
@@ -1151,7 +1078,6 @@ def run_cli_interactive():
     else:
         print(f"\n✅ تمام شد ({dur_s}) — خروجی: {out_v}")
 
-
 def run_cli(argv):
     if not argv:
         run_cli_interactive()
@@ -1167,7 +1093,6 @@ def run_cli(argv):
     spec.loader.exec_module(mod)
     if hasattr(mod, "main"):
         mod.main()
-
 
 def _ensure_webview() -> bool:
     """pywebview را در صورت نبود نصب می‌کند (فقط بار اول، چند MB)."""
@@ -1186,9 +1111,8 @@ def _ensure_webview() -> bool:
         print(f"[!] pywebview نصب نشد ({e}) → مرورگر")
         return False
 
-
 def run_desktop():
-    """v1.14.30: پنجرهٔ دسکتاپ = دقیقاً همان رابط وب.
+    """: پنجرهٔ دسکتاپ = دقیقاً همان رابط وب.
 
     رابط قدیمی tkinter حذف شد؛ حالا سرور وب همان UI محبوبِ گوشی/وب را سرو
     می‌کند و پنجرهٔ نیتیو (pywebview / WebView2) همان صفحه را نشان می‌دهد —
@@ -1199,8 +1123,8 @@ def run_desktop():
     import webbrowser
 
     port = int(os.environ.get("MANGA_APP_PORT", "7860") or 7860)
-    # v1.14.33: ?desktop=1 → صفحه می‌فهمد داخل پنجرهٔ دسکتاپ است؛ تنظیمات و
-    # کلیدهای API برای همیشه ذخیره می‌شوند (مثل اندروید)، نه ۳۰ دقیقه‌ایِ وب.
+# ?desktop=1 → صفحه می‌فهمد داخل پنجرهٔ دسکتاپ است؛ تنظیمات و
+# کلیدهای API برای همیشه ذخیره می‌شوند (مثل اندروید)، نه ۳۰ دقیقه‌ایِ وب.
     url = f"http://127.0.0.1:{port}/?desktop=1"
 
     def _up() -> bool:
@@ -1236,8 +1160,8 @@ def run_desktop():
     else:
         try:
             import webview
-            # v1.14.33: private_mode=False → localStorage مثل اندروید دائمی می‌ماند
-            # (کلیدهای API بعد از بستن برنامه هم پاک نمی‌شوند).
+# private_mode=False → localStorage مثل اندروید دائمی می‌ماند
+# (کلیدهای API بعد از بستن برنامه هم پاک نمی‌شوند).
             _store = os.path.join(WORK_DIR, "webview_profile")
             try:
                 os.makedirs(_store, exist_ok=True)
@@ -1258,7 +1182,7 @@ def run_desktop():
             opened_browser = True
 
     if opened_browser:
-        # تا مرورگر باز است، سرور باید بماند
+# تا مرورگر باز است، سرور باید بماند
         try:
             if proc is not None:
                 proc.wait()
@@ -1275,9 +1199,8 @@ def run_desktop():
             pass
     sys.exit(0)
 
-
 WEB_CSS = """
-/* v1.14.33: فونت از سرورِ خودِ برنامه می‌آید (@font-face محلی) — دیگر هیچ
+/* فونت از سرورِ خودِ برنامه می‌آید (@font-face محلی) — دیگر هیچ
    درخواستی به fonts.googleapis.com نمی‌رود. در ایران آن دامنه کند/مسدود است و
    پنجرهٔ PC ده‌ها ثانیه معطلش می‌ماند («اپ کند میاد بالا»). */
 @font-face{font-family:'Vazirmatn';font-style:normal;font-weight:400;
@@ -1308,7 +1231,6 @@ body, .gradio-container, footer, .gradio-container .prose {
     #060607 !important;
 }
 .gradio-container { max-width: 880px !important; margin: 0 auto !important; }
-
 
 .nav {
   display: flex; align-items: center; justify-content: space-between;
@@ -1377,8 +1299,7 @@ body, .gradio-container, footer, .gradio-container .prose {
   box-shadow: 0 4px 12px rgba(224,53,42,.35), inset 0 0 0 1.5px rgba(255,255,255,.2);
 }
 .hint { color: var(--ink-dim) !important; font-size: .83rem; margin-top: 8px; }
-/* v1.14.224 — دستورِ سازنده: «تو وب لینوکس پی سی لینک مدل بزرگ باشه صفحه
-   بزرگ تر میشه اینو درست کن بعد قسمت میگن لینک بلند باشه کش میده» — لینکِ
+/* لینکِ
    بلند (https://api.cloudflare.com/client/v4/accounts/…/chat/completions)
    و اسمِ بلندِ مدل در خطِ مشخصاتِ زیرِ منو شکسته میشوند و دیگر صفحه را
    پهن/بزرگ نمیکند — overflow-wrap:anywhere به همهٔ فرزندان میرسد و
@@ -1390,15 +1311,12 @@ body, .gradio-container, footer, .gradio-container .prose {
 }
 #manga_cm_info code, .hint code { white-space: normal !important; }
 
-/* v1.14.221 — ضربدرِ ✖ِ حذف، چسبیده به خودِ منویِ انتخابِ AI: مدلِ
+/* ضربدرِ ✖ِ حذف، چسبیده به خودِ منویِ انتخابِ AI: مدلِ
    خودت را در منو انتخاب کن، ✖ِ کنارِ منو میآید و با یک کلیک از لیست و
-   منو پاک میشود (دستورِ سازنده: «هرمدلی ک خودم ساختم انتخاب کنم کنارش
-   ضربدر بیاد نه پایینش کلی ضربدر نشون بده»)
-   v1.14.222 — دستورِ سازنده: «دکمه ضربدرش بزرگه هم اندازه دکمش کن» →
+   منو پاک میشود.
    ✖ دیگر دکمهٔ درشتِ ۴۴px نیست؛ دقیقاً هماندازهٔ خودِ کنترلِ منو (۳۰px)
-   و همترازِ آن ساخته میشود
-   v1.14.223 — دستورِ سازنده: «دکمه ضربدرش به بالا کش اومده به اندازهٔ
-   دکمه باشه» — ریشه پیدا شد: خودِ ✖ ۳۰×۳۰ است ولی gradio دورِ هر ردیف
+   و همترازِ آن ساخته میشود.
+   ریشه پیدا شد: خودِ ✖ ۳۰×۳۰ است ولی gradio دورِ هر ردیف
    یک قابِ .styler با پسزمینهٔ خاکستریِ آبی (var(--block-border-color))
    میکشد؛ فاصلهٔ خالیِ کنارِ منو همان پسزمینه میشود و شبیهِ اینکه ✖ به
    بالا کشیده شده. قاب شفاف میشود تا فقط خودِ دکمهٔ ✖ دیده شود (وبِ
@@ -1415,8 +1333,7 @@ div.styler{background:transparent !important;border:none !important;
   transition:all .15s ease}
 #manga_cm_del_btn:hover{background:rgba(255,70,70,.18) !important;color:#ff4d4d !important}
 #manga_cm_del_btn:active{transform:scale(.94)}
-/* v1.14.223 — دستورِ سازنده: «کلید ک وارد میکنن بشه هاید کرد پیشفرض
-   هاید باشه زدن روش دیده بشه» — فیلدِ کلید از سمتِ سرور type="password"
+/* فیلدِ کلید از سمتِ سرور type="password"
    است (پیشفرضِ مخفی) و دکمهٔ 👁 داخلِ فیلد آن را نشان/مخفی میکند */
 #manga_api_keys .wrap, #manga_api_keys .input-container{position:relative !important}
 #manga_api_keys input{padding-inline-start:44px !important}
@@ -1431,7 +1348,7 @@ div.styler{background:transparent !important;border:none !important;
   box-shadow:none !important;margin:0 !important;flex:none !important}
 .manga-eye.on{color:#ffd28a !important;border-color:rgba(255,210,138,.45) !important}
 .manga-eye:active{transform:translateY(-50%) scale(.93)}
-/* v1.14.219 — کانالهایِ پنهانِ مرورگر↔سرور: gradio 6 کامپوننتهایِ
+/* کانالهایِ پنهانِ مرورگر↔سرور: gradio 6 کامپوننتهایِ
    visible=False را اصلاً در DOM نمیگذارد و همهٔ JSهایی که با setVal
    به سرور خبر میدهند (افزودنِ مدل، ضربدرِ ✖، بازیابیِ localStorage،
    sid) کور میشوند؛ پس این کانالها visible=True ولی با CSS مخفی
@@ -1554,7 +1471,6 @@ textarea { scrollbar-color: var(--ink-line) #08080a !important; }
 .compact-upload .empty .icon-wrap { display: none !important; }
 .compact-upload label { position: static !important; margin: 4px 0 !important; }
 
-
 #manga_ocr_lang .wrap { padding: 0 !important; background: transparent !important; }
 #manga_ocr_lang svg { display: none !important; }
 
@@ -1657,7 +1573,7 @@ footer { display: none !important; }
 .chip-dot.idle { background: var(--ink-dim); }
 @keyframes chipPulse { 50% { opacity: .3; } }
 
-/* ---- نوار پیشرفت زیر لاگ (v1.14.236 — مثل اپ اندروید: فاز + صفحه + درصد) ---- */
+/* ---- نوار پیشرفت زیر لاگ (مثل اپ اندروید: فاز + صفحه + درصد) ---- */
 #manga_prog_row .mprog {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   margin: 10px 0 2px; padding: 11px 16px;
@@ -1710,7 +1626,6 @@ footer { display: none !important; }
 }
 """
 
-
 def _detect_codespace() -> bool:
     if os.environ.get("CODESPACE_NAME"):
         return True
@@ -1730,7 +1645,6 @@ def _detect_codespace() -> bool:
         pass
     return False
 
-
 def _hostname_codespace_name() -> str:
     try:
         import socket
@@ -1740,7 +1654,6 @@ def _hostname_codespace_name() -> str:
     except Exception:
         pass
     return ""
-
 
 def _safe(cls, *args, **kw):
     while True:
@@ -1752,15 +1665,12 @@ def _safe(cls, *args, **kw):
                 raise
             kw.pop(mobj.group(1))
 
-
 def _gradio_major() -> int:
     try:
         import gradio
         return int(gradio.__version__.split(".")[0])
     except Exception:
         return 0
-
-
 
 def _dark_js_src() -> str:
     return """() => {
@@ -1873,10 +1783,9 @@ def _dark_js_src() -> str:
       });
     }
   } catch (e) {}
-  // ---- دکمهٔ دانلودِ لاگِ کامل (v1.14.200) ----
+  // ---- دکمهٔ دانلودِ لاگِ کامل ----
   // نمایشِ زنده فقط ۱۲۰ خطِ آخر را نشان میدهد؛ این دکمه فایلِ کاملِ لاگِ
-  // رویِ دیسک را میدهد — از اولِ کار تا همین لحظه، بی هیچ برش (خواستهٔ
-  // سازنده: «لاگ کامل بگیره ناقص نباشه» — برایِ گزارشِ باگ).
+  // رویِ دیسک را میدهد — از اولِ کار تا همین لحظه، بی هیچ برش (برایِ گزارشِ باگ).
   try {
     const dlLogBtn = document.getElementById('manga_dl_log');
     if (dlLogBtn && !dlLogBtn._bound) {
@@ -1955,9 +1864,7 @@ def run_web():
             pass
         return "⬇ دانلود"
 
-
-
-    # صفحهٔ خواندن زندهٔ وب — داخل پوشهٔ live نوشته می‌شود و صفحه‌های جدید خودکار به آن اضافه می‌شوند
+# صفحهٔ خواندن زندهٔ وب — داخل پوشهٔ live نوشته می‌شود و صفحه‌های جدید خودکار به آن اضافه می‌شوند
     _LIVE_READER_TMPL = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>نمایش</title>
@@ -1993,12 +1900,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 (function(){
   var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__", STAMP = Date.now();
   var arrived = 0, total = 0, dbgArrived = 0, dbgMode = false, busy = false;
-  var mtimes = {};  // v1.14.160 — slot → mtime of last image update
+  var mtimes = {};  // slot → mtime of last image update
   var c = document.getElementById('c'), h = document.getElementById('h'),
       b = document.getElementById('n'), dot = document.getElementById('dot'),
       db = document.getElementById('db');
   var haveDbg = !!DBG, dbgTotal = -1;
-  // v1.14.159 — دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
+  // دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
   // صفحهٔ دیباگ واقعاً وجود دارد (قبلاً فقط وجودِ پوشه کافی بود → دکمه
   // میآمد ولی فعال نبود). total.txt پوشهٔ دیباگ هر ۴ ثانیه چک میشود.
   function pollDbgTotal(){
@@ -2039,7 +1946,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     while (c.children.length < want) c.appendChild(mkPh());
     for (var i = 0; i < want; i++) {
       var el = c.children[i];
-      // v1.14.195 — ضدِ چشمکِ اسلاتِ تازه: تصویر اول کامل دیکود میشود؛
+      // ضدِ چشمکِ اسلاتِ تازه: تصویر اول کامل دیکود میشود
       // placeholderِ «در حال ترجمه…» تا آخرین لحظه سرِ جایش میماند و بعد
       // عوض میشود — زمینهٔ تیرهٔ خالی هرگز دیده نمیشود.
       if (i < a && el.tagName !== 'IMG' && !el.__pend) {
@@ -2091,7 +1998,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       db.classList.toggle('on', dbgMode);
       db.textContent = dbgMode ? '📖 نهایی' : '🔍 دیباگ';
       c.innerHTML = '';
-      mtimes = {};  // v1.14.160 — folder switched, reset stamps
+      mtimes = {};  // folder switched, reset stamps
       h = document.createElement('div');
       h.className = 'hint';
       h.textContent = dbgMode ? 'در انتظار دیباگ…' : 'در انتظار صفحه…';
@@ -2100,15 +2007,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       probe();
     });
   }
-  // v1.14.160 — progressive 15-by-15 refresh: the engine rewrites the same
+  // progressive 15-by-15 refresh: the engine rewrites the same
   // slot file after every translated batch and logs 'slot mtime' into
   // mtimes.txt; here only the changed slot is re-fetched (no scroll jump).
-  // v1.14.194 — گامِ اولِ تعویضِ بیفلاش: تصویرِ نو قبل از تعویضِ src کامل
+  // گامِ اولِ تعویضِ بیفلاش: تصویرِ نو قبل از تعویضِ src کامل
   // دیکود میشد. ولی جوابِ سرورِ داخلی در کشِ حافظهٔ مرورگر نمیماند —
   // درخواستِ دومِ همان URL دوباره گرفته و دیکود میشد؛ ضمنِ آن چند صدم
   // ثانیه، عنصرِ img فریمِ قبلی را میریزد و زمینهٔ سیاه نشان میداد
   // («هر متنِ جدید صفحه سیاه میکنه انگار عکس کامل از اول لود میشه»).
-  // v1.14.195 — گامِ دوم: پوشانهٔ دوبل. تصویرِ نو در یک imgِ روییِ همجایِ
+  // گامِ دوم: پوشانهٔ دوبل. تصویرِ نو در یک imgِ روییِ همجایِ
   // اسلات (position:absolute رویِ همان مختصات) دیکود و «رویِ» تصویرِ قدیم
   // می‌نشیند؛ پیکسلهایِ قدیم تا این لحظه هرگز دور نمیشوند. فقط بعدِ
   // نقشدنِ پوشانه، srcِ اسلاتِ اصلی زیرِ پوشانه عوض میشود (نامرئی است) و
@@ -2198,9 +2105,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       })
       .catch(function(){});
   }
-  // v1.14.236 — چیپِ «↓ صفحه‌های جدید» پایین-چپ حذف شد (دستورِ سازنده:
-  // «سمت چپ پایین میزنه چپتر جدید یا قسمت جدید… اونو حذف کن نمیخواد
-  // بیاد») — اسکرولِ خودکار و پرشِ صفحه از قبل ممنوع بود؛ چیپ فقط
+  // چیپِ «↓ صفحه‌های جدید» پایین-چپ حذف شد — اسکرولِ خودکار و پرشِ صفحه از قبل ممنوع بود؛ چیپ فقط
   // اعلانِ «صفحهٔ تازه آمده» بود.
   setInterval(function(){
     pollTotal();
@@ -2281,10 +2186,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             str(title).replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace('"', "&quot;")
         )
-        # v1.14.103: نوار بالا sticky است — با اسکرولِ پایین هم بالای صفحه
-        # می‌چسبد (خواستهٔ کاربر: روی PC/لینوکس بدون برگشتن به بالا، دکمه‌ها
-        # همیشه دسترس باشند — مثل اپ اندروید). اسکرول همچنان طبیعیِ سند است
-        # و نوار پیشرفتِ پایین هم ثابت می‌ماند.
+# نوار بالا sticky است — با اسکرولِ پایین هم بالای صفحه
+# می‌چسبد (خواستهٔ کاربر: روی PC/لینوکس بدون برگشتن به بالا، دکمه‌ها
+# همیشه دسترس باشند — مثل اپ اندروید). اسکرول همچنان طبیعیِ سند است
+# و نوار پیشرفتِ پایین هم ثابت می‌ماند.
         css = (
             "*{box-sizing:border-box;margin:0;padding:0}"
             "html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans-serif;"
@@ -2317,8 +2222,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ".rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}"
             "}"
         )
-        # v1.14.31: جاوااسکریپت روی اسکرولِ خودِ سند (window) — نه داخل باکس؛
-        # نوار بالا sticky است و با اسکرول، بالای صفحه می‌چسبد (وب + اندروید).
+# جاوااسکریپت روی اسکرولِ خودِ سند (window) — نه داخل باکس
+# نوار بالا sticky است و با اسکرول، بالای صفحه می‌چسبد (وب + اندروید).
         js = r"""
 (function(){
   const root = document.getElementById('manga_rdr');
@@ -2511,8 +2416,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             "</head>\n"
             "<body>\n"
             '<div class="rdr" id="manga_rdr" data-zoom="1">\n'
-            # v1.14.103: نوار بالا sticky (position:sticky;top:0) — با اسکرولِ پایین
-            # هم بالای صفحه می‌ماند. نوار پیشرفت پایین همچنان همیشه دیده می‌شود.
+# نوار بالا sticky (position:sticky;top:0) — با اسکرولِ پایین
+# هم بالای صفحه می‌ماند. نوار پیشرفت پایین همچنان همیشه دیده می‌شود.
             '  <div class="rdrS">\n'
             '    <div class="rdr-bar">\n'
             '      <button type="button" class="rdr-btn" data-act="close" title="بستن">✕</button>\n'
@@ -2533,8 +2438,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         return page
 
     g6 = _gradio_major() >= 6
-    # v1.14.33: فونتِ Vazirmatn از پوشهٔ fonts خود برنامه سرو می‌شود (بدون
-    # fonts.googleapis.com — در ایران کند/مسدود است و PC را خیلی دیر بالا می‌آورد).
+# فونتِ Vazirmatn از پوشهٔ fonts خود برنامه سرو می‌شود (بدون
+# fonts.googleapis.com — در ایران کند/مسدود است و PC را خیلی دیر بالا می‌آورد).
     try:
         import gradio as _gr_css
         _gmaj = int(str(getattr(_gr_css, "__version__", "4")).split(".")[0] or 4)
@@ -2548,7 +2453,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                "css": WEB_CSS_RUNTIME}
     with gr.Blocks(title=APP_NAME, **blocks_kw) as demo:
 
-        
         gr.HTML(
             """
 <div class="nav">
@@ -2565,7 +2469,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 """
         )
 
-        
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۱</span> ورودی — فایل یا لینک مانهوا</div>')
             inp_upload = gr.File(label="آپلود فایل‌ها (چندتایی) — کلیک کن",
@@ -2579,20 +2482,19 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                         "«…/1 < 14.jpg» از آخر به اول، "
                                         "«…/*.jpg» هرچه پیدا کند — همه با هم ترجمه می‌شوند."))
 
-        
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۲</span> مترجم هوش مصنوعی</div>')
-            # ترتیب خواستهٔ کاربر: ارائه‌دهنده → لینک (custom) → کلید → مدل → تست
-            # v1.14.218 — منویِ انتخابِ AI: auto | gemini | مدلهایِ من | custom
+# ترتیب خواستهٔ کاربر: ارائه‌دهنده → لینک (custom) → کلید → مدل → تست
+# منویِ انتخابِ AI: auto | gemini | مدلهایِ من | custom
             _init_models = list(load_custom_models())
-            # v1.14.221 — «auto» فقط وقتی در لیست مدلها مدلی باشد در منو
-            # میآید (دستورِ سازنده: «وقتی مدلی تو کاستوم اضافه نکرده باشم
-            # دکمه auto نیاد تو لیست مدلا»)؛ بدونِ مدل: gemini | custom.
+# «auto» فقط وقتی در لیست مدلها مدلی باشد در منو
+            #)؛ بدونِ مدل: gemini | custom.
+# میآید (
             _init_ch = _ai_choices(_init_models)
             _init_prov = "auto" if "auto" in _init_ch else "gemini"
-            # v1.14.221 — ضربدرِ ✖ِ حذف، چسبیده به خودِ منو (نه لیستی پایینِ
-            # صفحه): فقط وقتی مدلِ کاربر در منو انتخاب شده باشد دیده میشود
-            # و همان مدلِ انتخابی را از لیست و منو پاک میکند.
+# ضربدرِ ِ حذف، چسبیده به خودِ منو (نه لیستی پایینِ
+# صفحه): فقط وقتی مدلِ کاربر در منو انتخاب شده باشد دیده میشود
+# و همان مدلِ انتخابی را از لیست و منو پاک میکند.
             with gr.Row(elem_id="manga_provider_row"):
                 provider = gr.Dropdown(
                     _init_ch, value=_init_prov,
@@ -2606,15 +2508,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     "✖", variant="secondary", scale=0,
                     elem_id="manga_cm_del_btn",
                     visible=(_init_prov in _cm_names(_init_models)))
-            # v1.14.222 — مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدلِ هوش/
-            # کلیدِ ماسکشده) — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
+# مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدلِ هوش/
+# کلیدِ ماسکشده) — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
             cm_info_md = gr.Markdown("", visible=False,
                                      elem_id="manga_cm_info")
-            # v1.14.222 — بانکِ حافظهٔ فیلدها مالِ هر provider: وقتی از
-            # Gemini به Custom (یا برعکس) میروی، هر کدام مقادیرِ خودشان را
-            # دارند و مقادیرِ کاستوم زیرِ Gemini نشون داده نمیشود (دستورِ
-            # سازنده: «میرم Gemini مال کاستوم ک سیو زدم نشون میده»)
-            # (baseیِ configِ دیسک برایِ custom بذر میشود — PC/لینوکس)
+# بانکِ حافظهٔ فیلدها مالِ هر provider: وقتی از
+# Gemini به Custom (یا برعکس) میروی، هر کدام مقادیرِ خودشان را
+# دارند و مقادیرِ کاستوم زیرِ Gemini نشون داده نمیشود.
+# (baseیِ configِ دیسک برایِ custom بذر میشود — PC/لینوکس)
             fields_bank = gr.State({
                 "_last": _init_prov,
                 "custom": {"base": str(cfg.get("api_base", "") or ""),
@@ -2628,9 +2529,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                   elem_id="manga_api_base",
                                   visible=False,
                                   scale=3)
-            # v1.14.222 — رویِ «auto» ردیفِ ورود از همان ابتدا پنهان است (حالتِ
-            # PC/دیسک که منو با «auto» بالا میآید)؛ دستورِ سازنده: «وقتی رو
-            # auto بزارن اونجا نشه مدلی چیزی وارد کرد»
+# رویِ «auto» ردیفِ ورود از همان ابتدا پنهان است (حالتِ
+# PC/دیسک که منو با «auto» بالا میآید)
             with gr.Row(visible=(_init_prov != "auto")) as api_row:
                 api_keys = gr.Textbox(label="کلیدهای API شما (با کاما = چرخش خودکار)",
                                       value="",
@@ -2638,23 +2538,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                       elem_id="manga_api_keys",
                                       info="کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ.")
 
-                # v1.14.229 — دستورِ سازنده: «قسمت ai همون قسمت gemini مدل
-                # دستی باید بنویسی بجاش تو خوده gemini لیسا مدلای موجود تو
-                # gemini نشون بده طرف انتخاب کنه بجز تو کاستوم باید طرف
-                # خودش بنویسه»: مدل دستی حذف شد؛ دراپ‌داون + دکمهٔ ↻ —
-                # با کلیدهای همین صفحه فهرستِ مدلهایِ زنده از خودِ سرویس
-                # میآید (Gemini: فقط مدلهایِ ترجمهپذیر) و کاربر انتخاب
-                # میکند؛ در custom هم میشود از فهرستِ همان سرویس گرفت و
-                # هم آزادانه تایپ کرد (allow_custom_value).
-                # v1.14.231 — دستورِ سازنده: «انتخاب مدل فقط باید تو Gemini
-                # بیاد؛ بقیش باید دستی بنویسن و auto کلا نباید چیزی بیاد» —
-                # دراپ‌داونِ زنده + ↻ فقط رویِ Gemini؛ رویِ custom فیلدِ دستیِ
-                # ساده (لیبلِ جدا)؛ رویِ auto/مدلِ نامی کلِ ردیف پنهان است.
-                # v1.14.232 — دستورِ سازنده: «مدل هارو افلاین هم بزار …
-                # اگ اپدیتی چیزی شد خودشون رفرش میزنن» → دراپ‌داون از همان
-                # اول لیستِ آفلاینِ داخلِ کد را دارد (فقط flash و
-                # flash-lite و flash-preview)؛ ↻ همان لحظه از خودِ گوگل
-                # فهرستِ تازه میگیرد و جایگزین میکند.
+                #مدل دستی حذف شد؛ دراپ‌داون + دکمهٔ ↻ —
+# با کلیدهای همین صفحه فهرستِ مدلهایِ زنده از خودِ سرویس
+# میآید (Gemini: فقط مدلهایِ ترجمهپذیر) و کاربر انتخاب
+# میکند؛ در custom هم میشود از فهرستِ همان سرویس گرفت و
+# هم آزادانه تایپ کرد (allow_custom_value).
+                #
+# دراپ‌داونِ زنده + ↻ فقط رویِ Gemini؛ رویِ custom فیلدِ دستیِ
+# ساده (لیبلِ جدا)؛ رویِ auto/مدلِ نامی کلِ ردیف پنهان است.
+                # → دراپ‌داون از همان
+# اول لیستِ آفلاینِ داخلِ کد را دارد (فقط flash و
+# flash-lite و flash-preview)؛ ↻ همان لحظه از خودِ گوگل
+# فهرستِ تازه میگیرد و جایگزین میکند.
                 model = gr.Dropdown(
                     choices=_gemini_offline_models(), value="",
                     allow_custom_value=True,
@@ -2665,22 +2560,19 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     "↻ مدل‌ها", variant="secondary", scale=1,
                     elem_id="manga_model_ref",
                     visible=(_init_prov == "gemini"))
-            # ── v1.14.217/218/220 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
-            # جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
-            # (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند.
-            # v1.14.221 — حذفِ مدل فقط با ✖ِ کنارِ خودِ منو ──
-            # v1.14.222 — دستورِ سازنده: «افزودن ai فقط تو کاستوم بیاد نه بقیه
-            # چیزاش» → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom دیده میشوند
-            # (شروعِ صفحه همیشه auto/gemini است → هر دو از ابتدا پنهان)
+# /218/220 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
+# جدید» — دکمهٔ «+ افزودن به لیست مدل‌ها» مدلِ فعلیِ همین صفحه
+# (نام + دامنه + کلید + شناسهٔ مدل) را در لیست ثبت میکند.
+# حذفِ مدل فقط با ِ کنارِ خودِ منو ──
+            # → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom دیده میشوند
+# (شروعِ صفحه همیشه auto/gemini است → هر دو از ابتدا پنهان)
             add_model_btn = gr.Button(
                 "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
                 elem_id="manga_cm_add", visible=False)
-            # v1.14.223 — دستورِ سازنده: «کسی کاستوم سیو کرد و چیزی ک سیو زده
-            # بود بتونن ویرایش کنن ... اگ مدل خودشون رفتن اونجا سیو بیاد ...
-            # با قابلیت ویرایش ویرایش زدن گزینه سیو بیاد» →
-            # «✎ ویرایش» فقط رویِ مدلِ ذخیرهشدهٔ خودِ کاربر میآید؛ با زدنش
-            # مقادیرِ ذخیرهشده (لینک/کلید/مدل) در فیلدها میآید و «افزودن» جای
-            # خودش را به «💾 ذخیرهٔ ویرایش» میدهد (بجایِ گزینهٔ افزودن، ذخیره).
+            # →
+# « ویرایش» فقط رویِ مدلِ ذخیرهشدهٔ خودِ کاربر میآید؛ با زدنش
+# مقادیرِ ذخیرهشده (لینک/کلید/مدل) در فیلدها میآید و «افزودن» جای
+# خودش را به « ذخیرهٔ ویرایش» میدهد (بجایِ گزینهٔ افزودن، ذخیره).
             cm_edit_btn = gr.Button(
                 "✎ ویرایش این مدل", variant="secondary", scale=1,
                 elem_id="manga_cm_edit", visible=False)
@@ -2710,14 +2602,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             cm_json_box = gr.Textbox(
                 value=json.dumps(custom_models_state.value, ensure_ascii=False),
                 visible=False, elem_id="manga_cm_json", container=False)
-            # v1.14.219 — کانالهایِ مرورگر↔سرور باید در DOM بمانند (gradio 6
-            # کامپوننتِ visible=False را از DOM حذف میکند) → visible=True +
-            # کلاسِ مخفیِ CSS؛ در وب هم اندروید هم PC همین مرورگر است.
+# کانالهایِ مرورگر↔سرور باید در DOM بمانند (gradio 6
+# کامپوننتِ visible=False را از DOM حذف میکند) → visible=True +
+# کلاسِ مخفیِ CSS؛ در وب هم اندروید هم PC همین مرورگر است.
             cm_restore_box = gr.Textbox(
                 value="", visible=True, elem_id="manga_cm_restore",
                 elem_classes=["manga-hide-channel"], container=False)
-            # v1.14.218 — کانالِ افزودنِ مدل از سمتِ مرورگر
-            # (دکمهٔ «+ افزودن به لیست مدل‌ها»)
+# کانالِ افزودنِ مدل از سمتِ مرورگر
+# (دکمهٔ «+ افزودن به لیست مدل‌ها»)
             cm_add_box = gr.Textbox(
                 value="", visible=True, elem_id="manga_cm_add_box",
                 elem_classes=["manga-hide-channel"], container=False)
@@ -2734,7 +2626,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 elem_id="manga_ocr_lang",
                 info="زبان اصلی حباب‌ها — برای مانهوا فارسی/انگلیسی همان انگلیسی بماند.", scale=1)
 
-        
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۳</span> خروجی</div>')
             with gr.Row():
@@ -2743,7 +2634,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 quality = gr.Slider(60, 100, value=int(cfg.get("quality", 92)),
                                     step=1, label="کیفیت تصویر")
 
-        
         with gr.Accordion("✒️ فونت‌ها (اصلی + لحن‌ها — اختیاری، خالی = فونت سرور)", open=False):
             font_upload = gr.File(label="فونت اصلی (.ttf)",
                                   file_count="single", type="filepath",
@@ -2801,12 +2691,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                               step=1, label="حداکثر تلاش ترجمه")
                 reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
                                  step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
-            # v1.14.253 — دستورِ سازنده: «دکمه‌های temperature و top p میخوام
-            # مثلِ بالایی باشه هم گوشی هم پی‌سی نه اون شکل» → همان
-            # gr.Sliderِ هموارِ شش اسلایدرِ بالای همین صفحه (ورکر/حباب/
-            # بسته/تایم‌اوت/…). دکمههایِ کم/زیاد و کادرِ عددی حذف شدند.
-            # اندروید: extract_ui همین Slider را به اسلایدرِ نیتیو (گامِ
-            # ۰.۰۵ — عینِ تأخیرِ ۰.۵) تبدیل میکند؛ وب: اسلایدرِ گرادیو.
+            # → همان
+# gr.Sliderِ هموارِ شش اسلایدرِ بالای همین صفحه (ورکر/حباب/
+# بسته/تایم‌اوت/…). دکمههایِ کم/زیاد و کادرِ عددی حذف شدند.
+# اندروید: extract_ui همین Slider را به اسلایدرِ نیتیو (گامِ
+# ۰.۰۵ — عینِ تأخیرِ ۰.۵) تبدیل میکند؛ وب: اسلایدرِ گرادیو.
             with gr.Row():
                 temp = _safe(gr.Slider, 0.0, 1.5,
                              value=float(cfg.get("temperature", 0.7)),
@@ -2835,16 +2724,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     value=bool(cfg.get("clean_only", False)))
                 web_debug = gr.Checkbox(label="حالت دیباگ",
                                         value=bool(cfg.get("web_debug", False)))
-            # v1.14.145: گزینهها جمع شد در یک دروپ‌داون (کلیک → گزینهها میآید)؛
-            # مقادیرِ انگلیسیِ خالص — دقیقاً همان که manga.py میپذیرد (فیکسِ invalid choice).
-            # مقدارِ literal «auto» تا استخراجِ فرمِ گوشی (APK قدیمی) هم پیشفرض را ببیند — v1.14.146
-            # v1.14.246 — classic حذف شد (دستورِ سازنده) — فقط auto/professional/lite
+# گزینهها جمع شد در یک دروپ‌داون (کلیک → گزینهها میآید)
+# مقادیرِ انگلیسیِ خالص — دقیقاً همان که manga.py میپذیرد (فیکسِ invalid choice).
+# مقدارِ literal «auto» تا استخراجِ فرمِ گوشی (APK قدیمی) هم پیشفرض را ببیند —
+# classic حذف شد (دستورِ سازنده) — فقط auto/professional/lite
             prompt_mode = gr.Dropdown(
                 choices=["auto", "professional", "lite"],
                 value=PROMPT_MODE_DEFAULT,
                 label="سبک پرامپت مترجم", scale=1)
-            # v1.14.145: پرامپتِ دستیِ جدا حذف شد — خودِ پرامپتِ اصلی قابلِ ویرایش است.
-            # v1.14.147: تیترِ «پرامپت فعلی: ⚡…» هم حذف شد — فقط دروپ‌داون + کادرِ متن.
+# پرامپتِ دستیِ جدا حذف شد — خودِ پرامپتِ اصلی قابلِ ویرایش است.
+# تیترِ «پرامپت فعلی: …» هم حذف شد — فقط دروپ‌داون + کادرِ متن.
             _pp_body0 = resolve_prompt_preview(
                 PROMPT_MODE_DEFAULT, cfg.get("provider"), cfg.get("model"),
                 str(cfg.get("instruction_text") or ""))
@@ -2853,16 +2742,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 lines=10, max_lines=25, interactive=True,
                 placeholder="خالی = پرامپتِ خودکارِ بر اساسِ سبک و مدل…",
                 value=_pp_body0)
-            # v1.14.242 — چکباکسِ «بریف داستان» حذف شد: دیکدِ مرجع نشان داد
-            # پاسِ خلاصهٔ داستان وجود ندارد (دستورِ سازنده: «نداشته باشه
-            # مال منم حذف کن») — همهٔ متنها در همان یک درخواستِ ترجمه میروند.
+# چکباکسِ «بریف داستان» حذف شد: دیکدِ مرجع نشان داد
+            #) — همهٔ متنها در همان یک درخواستِ ترجمه میروند.
+# پاسِ خلاصهٔ داستان وجود ندارد (
 
-        # ── v1.14.217/218 — بکاپ و بازیابی: «گرفتنِ بکاپ» فایلِ JSONِ همهٔ
-        # چیزها را میدهد؛ «Import» همان فایل را کامل برمیگرداند ──
-        # v1.14.219 — دستورِ سازنده: «تنظیمات بکاپ همینجوری باز نباشه وقتی
-        # زدم باز شه» → آکاردئونِ بسته؛ و «بکاپ زدم خودکار دانلود کنه نه این ک
-        # مجدد برم دکمه دانلود بزنم» → با یک کلیک، فایل خودکار دانلود میشود
-        # (JS رویِ changeِ فایلِ خروجی — URLِ سرو شده + orig_name).
+# /218 — بکاپ و بازیابی: «گرفتنِ بکاپ» فایلِ JSONِ همهٔ
+# چیزها را میدهد؛ «Import» همان فایل را کامل برمیگرداند ──
+        # → آکاردئونِ بسته؛ و «بکاپ زدم خودکار دانلود کنه نه این ک
+# مجدد برم دکمه دانلود بزنم» → با یک کلیک، فایل خودکار دانلود میشود
+# (JS رویِ changeِ فایلِ خروجی — URLِ سرو شده + orig_name).
         with gr.Accordion("💾 بکاپ و بازیابی — مدلها + تنظیمات", open=False,
                           elem_classes=["stepcard"]):
             gr.Markdown("<div class='hint'>دکمهٔ «⬇️ گرفتن بکاپ» = با یکِ کلیک، "
@@ -2876,10 +2764,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 backup_btn = gr.Button("⬇️ گرفتن بکاپ (دانلود JSON)",
                                        variant="primary", scale=1,
                                        elem_id="manga_backup_btn")
-                # v1.14.220 — دستورِ سازنده: «نمیشد دکمه import مثل همون
-                # backup باشه بزرگ نباشه» → بهجایِ باکسِ بزرگِ drag&drop،
-                # UploadButtonِ هم‌اندازهٔ دکمهٔ بکاپ: کلیک = پنجرهٔ انتخابِ
-                # فایل (اندروید/PC/لینوکس/وب همه همان مرورگرند)
+                # → بهجایِ باکسِ بزرگِ drag&drop
+# UploadButtonِ هم‌اندازهٔ دکمهٔ بکاپ: کلیک = پنجرهٔ انتخابِ
+# فایل (اندروید/PC/لینوکس/وب همه همان مرورگرند)
                 import_file = gr.UploadButton(
                     "⬆️ Import — بازیابی از بکاپ",
                     file_count="single", type="filepath",
@@ -2892,13 +2779,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 label="", show_label=False, interactive=False, visible=False,
                 elem_id="manga_backup_status")
 
-        # v1.14.176–180 — «آزمایشگاهِ سرعتِ استخراج» و دکمهٔ «تستِ سرعت».
-        # v1.14.181 — دستورِ سازنده: «خب ml kit بزار… بقیش حذف کن تو گوشی
-        # استفاده نکنه و اون دکمه تست همه استخراج حذف کن» → دکمه کامل
-        # حذف شد؛ برندهٔ ذخیرهشدهٔ تستِ ۱۷۹ (mlkit) و پاکسازیِ مدلهایِ
-        # بازنده را خودِ پایتون (speed_lab_env) انجام میدهد.
-        # v1.14.33: سیوِ فرم در «مرورگر وب» ۳۰ دقیقه می‌ماند (خواستهٔ کاربر).
-        # در پنجرهٔ دسکتاپ (?desktop=1) و اپ اندروید (UA مخصوص) ذخیره دائمی است.
+# 180 — «آزمایشگاهِ سرعتِ استخراج» و دکمهٔ «تستِ سرعت».
+        # → دکمه کامل
+# حذف شد؛ برندهٔ ذخیرهشدهٔ تستِ ۱۷۹ (mlkit) و پاکسازیِ مدلهایِ
+# بازنده را خودِ پایتون (speed_lab_env) انجام میدهد.
+# سیوِ فرم در «مرورگر وب» ۳۰ دقیقه می‌ماند (خواستهٔ کاربر).
+# در پنجرهٔ دسکتاپ (?desktop=1) و اپ اندروید (UA مخصوص) ذخیره دائمی است.
         SESSION_TTL = 30 * 60
         JOB_TTL = 12 * 3600
         _perm_js = (
@@ -3023,10 +2909,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 return {}
 
         def _append_job_logfile(sid: str, text: str) -> None:
-            # v1.14.200 — لاگِ کاملِ رویِ دیسک (خواستهٔ سازنده: «لاگ کامل بگیره
-            # ناقص نباشه» برایِ گزارشِ باگ). بافرِ زندهٔ UI برایِ سبکماندن فقط
-            # ۱۲۰ خطِ آخر را نشان میدهد؛ این فایلِ کامل هرگز بریده نمیشود و
-            # دکمهٔ «دانلود لاگ» همین را کامل میدهد — از اولِ کار تا آخر.
+            # برایِ گزارشِ باگ). بافرِ زندهٔ UI برایِ سبکماندن فقط
+# لاگِ کاملِ رویِ دیسک (
+# ۱۲۰ خطِ آخر را نشان میدهد؛ این فایلِ کامل هرگز بریده نمیشود و
+# دکمهٔ «دانلود لاگ» همین را کامل میدهد — از اولِ کار تا آخر.
             if not sid or not text:
                 return
             try:
@@ -3036,7 +2922,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     f.write(text if text.endswith("\n") else text + "\n")
             except Exception:
                 pass
-
 
         def _find_active_sid(preferred: str = "") -> str:
             
@@ -3189,7 +3074,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             if not imgs and str(target).lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
                 imgs = [target]
 
-            
             pdf_for_view = None
             if not imgs:
                 for cand in (out_v, target):
@@ -3205,7 +3089,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 view_dir = os.path.join(parent, "_pdf_view")
                 imgs = _pdf_to_reader_imgs(pdf_for_view, view_dir)
 
-            
             if not debug_imgs:
                 debug_imgs = _collect_imgs([cache_debug])
 
@@ -3236,7 +3119,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 print(f"[!] ذخیره reader.html ناموفق: {e}")
                 reader_path = None
 
-            
             download_debug = debug_pdf if os.path.isfile(debug_pdf) else None
             if not download_debug and debug_imgs:
                 try:
@@ -3280,10 +3162,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 buf = list(job.get("buf") or [])
                 n = 0
                 partial = b""
-                # v1.14.200 — فایلِ کاملِ لاگِ این نشست: هر خطِ stdoutِ پروسه
-                # همین‌جا رویِ دیسک مینشیند. نمایشِ زنده عمداً ۱۲۰ خطِ آخر را
-                # نشان میدهد (سبک برایِ مرورگر) ولی «دانلود لاگ» باید کامل
-                # باشد نه ناقص — پس جریان کامل، خطبهخط، مینشیند.
+# فایلِ کاملِ لاگِ این نشست: هر خطِ stdoutِ پروسه
+# همین‌جا رویِ دیسک مینشیند. نمایشِ زنده عمداً ۱۲۰ خطِ آخر را
+# نشان میدهد (سبک برایِ مرورگر) ولی «دانلود لاگ» باید کامل
+# باشد نه ناقص — پس جریان کامل، خطبهخط، مینشیند.
                 log_fh = None
                 try:
                     os.makedirs(SESS_DIR, exist_ok=True)
@@ -3423,10 +3305,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
 
         with gr.Accordion("📡 لاگ زنده", open=True):
-            # v1.14.200 — «دانلود لاگ» کنارِ «کپی لاگ» (خواستهٔ سازنده برایِ PC/لینوکس):
-            # کپی، همان ۱۲۰ خطِ نمایشِ زنده را میدهد؛ دانلود، فایلِ کاملِ لاگِ
-            # رویِ دیسک را (از اولِ کار تا همین لحظه) — برایِ گزارشِ باگ. مسیرِ
-            # پوشهٔ نشستها در data-sessdir میآید تا JS همان را از روتِ /file بخواهد.
+# «دانلود لاگ» کنارِ «کپی لاگ» (خواستهٔ سازنده برایِ PC/لینوکس):
+# کپی، همان ۱۲۰ خطِ نمایشِ زنده را میدهد؛ دانلود، فایلِ کاملِ لاگِ
+# رویِ دیسک را (از اولِ کار تا همین لحظه) — برایِ گزارشِ باگ. مسیرِ
+# پوشهٔ نشستها در data-sessdir میآید تا JS همان را از روتِ /file بخواهد.
             gr.HTML(
                 f"""
 <div id="manga_status_chip"></div>
@@ -3440,18 +3322,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             show_label=False, interactive=True,
                             elem_id="manga_live_log",
                             value="— لاگ بعد از شروع ترجمه اینجا می‌آید —")
-            # v1.14.236 — نوارِ پیشرفتِ زیرِ لاگ: فاز + «صفحهٔ n از N» +
-            # درصد — مثلِ اعلانِ اپ اندروید؛ هر ۱ ثانیه از همان لاگ
-            # بهروزرسانی میشود (تایمرِ _poll_job_status).
+# نوارِ پیشرفتِ زیرِ لاگ: فاز + «صفحهٔ n از N» +
+# درصد — مثلِ اعلانِ اپ اندروید؛ هر ۱ ثانیه از همان لاگ
+# بهروزرسانی میشود (تایمرِ _poll_job_status).
             prog_html = _safe(gr.HTML, elem_id="manga_prog_row",
                               visible=False, value="")
 
         html_state = gr.State("")
         html_debug_state = gr.State("")
-        # v1.14.31: فقط «یک» نمایش — دکمه‌های «نمایش اصلی» و «صفحه دیباگ» حذف شدند.
-        # دیباگ با همان دکمهٔ 🔍 داخل خود نمایش عوض می‌شود (خواستهٔ کاربر).
-        # کامپوننت‌های قدیمی فقط به‌عنوان hidden-stub می‌مانند تا امضای خروجی‌ها نشکند؛
-        # همه‌جا visible=False اجباری می‌شود.
+# فقط «یک» نمایش — دکمه‌های «نمایش اصلی» و «صفحه دیباگ» حذف شدند.
+# دیباگ با همان دکمهٔ داخل خود نمایش عوض می‌شود (خواستهٔ کاربر).
+# کامپوننت‌های قدیمی فقط به‌عنوان hidden-stub می‌مانند تا امضای خروجی‌ها نشکند
+# همه‌جا visible=False اجباری می‌شود.
         with gr.Group(elem_classes=["stepcard"], visible=False) as result_group:
             gr.HTML('<div class="steptitle"><span class="stepnum">📖</span> '
                     'نمایش</div>')
@@ -3773,10 +3655,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       if (raw) {{
         const d = JSON.parse(raw);
         if (d && (!d.ts || PERM || (Date.now() - d.ts) <= TTL)) {{
-          // v1.14.222 — کلید/مدلِ اسنپ‌شات مالِ providerِ لحظهٔ ذخیره است؛
+          // کلید/مدلِ اسنپ‌شات مالِ providerِ لحظهٔ ذخیره است
           // اگر منو الآن رویِ providerِ دیگری است پر نمیشود تا مقادیرِ
-          // کاستوم زیرِ Gemini نشان داده نشود (دستورِ سازنده: «میرم
-          // Gemini مال کاستوم ک سیو زدم نشون میده»)
+          // کاستوم زیرِ Gemini نشان داده نشود.
           let curProv = "";
           try {{
             const pe = document.querySelector("#manga_provider_row input, #manga_provider_row select, #manga_provider_row textarea");
@@ -3797,7 +3678,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         }}
       }}
 
-      // v1.14.217 — مدلهایِ سفارشیِ مرورگر → پایتون (ادغام با دیسک)
+      // مدلهایِ سفارشیِ مرورگر → پایتون (ادغام با دیسک)
       try {{
         const cmRaw = (localStorage.getItem("manga_custom_models") || "").trim();
         if (cmRaw && cmRaw.charAt(0) === "[") {{
@@ -3872,7 +3753,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   setInterval(syncSidHolder, 1000);
   [200, 500, 1000, 2000, 4000].forEach((t) => setTimeout(syncSidHolder, t));
 
-  // v1.14.192 — خواستهٔ سازنده (PC/لینوکس = همین رابطِ وب): «وقتی لاگ میده
+  // خواستهٔ سازنده (PC/لینوکس = همین رابطِ وب): «وقتی لاگ میده
   // باید خودش با لاگ بره پایین نه ثابت بمونه تا وقتی ک خودم دست نزدم
   // بخوام برم بالا». Gradio فقط هنگامِ streaming اسکرول میکند و با
   // بهروزرسانیِ poll رها میشود — اینجا دنبالکردنِ دستی: اگر کاربر
@@ -3912,8 +3793,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     [1200, 4000].forEach((t) => setTimeout(attachFollow, t));
   }} catch (e) {{}}
 
-  // v1.14.223 — دستورِ سازنده: «کلید ک وارد میکنن بشه هاید کرد پیشفرض
-  // هاید باشه زدن روش دیده بشه» — فیلدِ کلید از سمتِ سرور type="password"
+  // فیلدِ کلید از سمتِ سرور type="password"
   // است (پیشفرضِ مخفی) و دکمهٔ 👁 داخلِ فیلد آن را نشان/مخفی میکند
   // (gradio 6 دکمهٔ خودکارِ چشم ندارد؛ وبِ PC/لینوکس/گوشی همه همین است)
   try {{
@@ -3948,7 +3828,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     attachEye();
     [300, 800, 1500, 3000, 5000].forEach((t) => setTimeout(attachEye, t));
     if (!window.__mangaEyeObs) {{
-      // v1.14.224 — ریشهٔ «وقتی دکمه ویرایش میزنم شکل نمایش کلید نمیاد
+      // ریشهٔ «وقتی دکمه ویرایش میزنم شکل نمایش کلید نمیاد
       // تو Gemini میاد ولی تو کاستوم خودم نمیاد»: gradio وقتی ردیفِ کلید
       // پنهان/آشکار میشود (انتخابِ مدلِ ذخیرهشده → ✎ ویرایش) فیلد را از
       // DOM میبرد و دوباره میسازد؛ آبسرورِ چسبیدهبه خودِ فیلد با فیلدِ
@@ -3972,7 +3852,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 }}
 """
 
-
         def _do_test_key(provider_v, api_keys_v, model_v, api_base_v,
                          models_v=None):
             try:
@@ -3981,7 +3860,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 return gr.update(value=f"خطا در تست: {e}", visible=True)
             prov = str(provider_v or "").strip()
             if prov == "auto":
-                # v1.14.218 — تستِ همهٔ مدلها (gemini + مدلهایِ کاربر)
+# تستِ همهٔ مدلها (gemini + مدلهایِ کاربر)
                 lines = []
                 _cands = [("Gemini", "gemini", "", str(api_keys_v or ""),
                            str(model_v or ""))]
@@ -3998,7 +3877,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     except Exception as _e:
                         lines.append(f"—— {_lb} ——\nخطا: {_e}")
                 return gr.update(value="\n\n".join(lines), visible=True)
-            # v1.14.218 — مدلِ مشخصِ کاربر از منویِ AI → resolve به فیلدهایش
+# مدلِ مشخصِ کاربر از منویِ AI → resolve به فیلدهایش
             _nm = resolve_ai_named(models_v, prov,
                                    str(api_keys_v or ""), str(model_v or ""))
             if _nm is not None:
@@ -4021,7 +3900,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             api_base_v,
                             models_v,
                             *tone_args):
-            _t_prep = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
+            _t_prep = time.time()  # زمانِ آماده‌سازیِ اپ
             sid = (sid or sid_box_v or "").strip()
             sid = _find_active_sid(sid) or sid
             if not sid:
@@ -4034,8 +3913,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
             def _pack(btn, log, dl=None, view=None, group=None, viewer=None, html="",
                       dl_dbg=None, view_dbg=None, dbg_row=None, html_dbg=""):
-                # v1.14.31: «نمایش اصلی» و «نمایش دیباگ» برای همیشه مخفی —
-                # فقط یک نمایش (دکمهٔ 📖) وجود دارد.
+# «نمایش اصلی» و «نمایش دیباگ» برای همیشه مخفی —
+# فقط یک نمایش (دکمهٔ ) وجود دارد.
                 return (
                     sid,
                     gr.update(value=sid),
@@ -4064,13 +3943,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             up_files = [u for u in up_files if u and os.path.isfile(u)]
             src = (inp_path_v or "").strip()
             multi_base = ""
-            _batch_no_stitch = False  # v1.14.210 — بچِ چند-فایلی: هر فایل عینِ حالتِ تکی
+            _batch_no_stitch = False  # بچِ چند-فایلی: هر فایل عینِ حالتِ تکی
             if up_files:
                 if len(up_files) == 1:
                     src = up_files[0]
                 else:
-                    # چند فایل انتخاب شده — همه در یک پوشهٔ دسته‌ای قرار می‌گیرند
-                    # و همان پوشه به‌عنوان ورودی به موتور داده می‌شود.
+# چند فایل انتخاب شده — همه در یک پوشهٔ دسته‌ای قرار می‌گیرند
+# و همان پوشه به‌عنوان ورودی به موتور داده می‌شود.
                     batch_dir = os.path.join(OUT_DIR, sid[:12], "input_batch")
                     shutil.rmtree(batch_dir, ignore_errors=True)
                     os.makedirs(batch_dir, exist_ok=True)
@@ -4082,14 +3961,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         except Exception:
                             shutil.copyfile(bf, os.path.join(
                                 batch_dir, f"file_{bi:03d}" + ext_b.replace(".", "_")))
-                    # v1.14.210 — ریشهٔ «تکی اوکیه، دستِ جمعی خراب»: پوشهٔ بچ مسیرِ
-                    # چسباندن/برشِ ۸۰۰۰px میرفت (نرمالِ عرضِ گروهی + استیچ +
-                    # برش از وسطِ محتوا) — یعنی مسیری کاملاً متفاوت از حالتِ تکی.
-                    # حالا فایلها «کاما-جدا» به موتور داده میشوند (=
-                    # صفحاتِ مستقل، عینِ حالتِ تکی) و --stitch-max-height 0
-                    # چسباندن/برش را خاموش میکند؛ فقط متنِ ردشده از مرزِ دو فایل
-                    # (برشِ خوردهٔ کاربر) با ترمیمِ مرز وصل میشود، هیچ برشی از وسطِ
-                    # متن زده نمیشود.
+# ریشهٔ «تکی اوکیه، دستِ جمعی خراب»: پوشهٔ بچ مسیرِ
+# چسباندن/برشِ ۸۰۰۰px میرفت (نرمالِ عرضِ گروهی + استیچ +
+# برش از وسطِ محتوا) — یعنی مسیری کاملاً متفاوت از حالتِ تکی.
+# حالا فایلها «کاما-جدا» به موتور داده میشوند (=
+# صفحاتِ مستقل، عینِ حالتِ تکی) و --stitch-max-height 0
+# چسباندن/برش را خاموش میکند؛ فقط متنِ ردشده از مرزِ دو فایل
+# (برشِ خوردهٔ کاربر) با ترمیمِ مرز وصل میشود، هیچ برشی از وسطِ
+# متن زده نمیشود.
                     _bf_sorted = sorted(os.listdir(batch_dir))
                     src = ",".join(
                         os.path.join(batch_dir, _bn) for _bn in _bf_sorted)
@@ -4102,8 +3981,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 return _pack("🚀  شروع ترجمه",
                              "❌ ورودی خالی است — فایل آپلود کنید یا URL بدهید.")
 
-            # v1.14.66 — اگر فونت‌هایِ لحن از استارتِ اپ جامانده‌اند (اینترنتِ
-            # موقعِ استارت قطع بوده)، همین‌جا دوباره تلاش کن — نه فقط استارت.
+# اگر فونت‌هایِ لحن از استارتِ اپ جامانده‌اند (اینترنتِ
+# موقعِ استارت قطع بوده)، همین‌جا دوباره تلاش کن — نه فقط استارت.
             try:
                 if any(not os.path.isfile(os.path.join(FONT_DIR, _fb[1]))
                        for _fb in FONT_BUNDLES):
@@ -4117,9 +3996,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                              "❌ فونت فارسی روی سرور نیست — یک .ttf آپلود کنید.")
 
             prov_s = str(provider_v or "").strip()
-            # ── v1.14.218 — resolveِ منویِ AI در manga_app.py (manga.py
-            # دستنخورده): «auto» = اولینِ در دسترس از [gemini + مدلهایِ کاربر]؛
-            # مدلِ مشخصِ کاربر = فقط و فقط همان؛ gemini/custom = قبلی ──
+# resolveِ منویِ AI در manga_app.py (manga.py
+# دستنخورده): «auto» = اولینِ در دسترس از [gemini + مدلهایِ کاربر]
+# مدلِ مشخصِ کاربر = فقط و فقط همان؛ gemini/custom = قبلی ──
             _models_now = [m for m in (models_v or [])
                            if isinstance(m, dict)
                            and str(m.get("name") or "").strip()]
@@ -4145,7 +4024,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 prov_s, api_base_v, api_keys_v, model_v = _ap, _ab, _ak, _am
                 provider_v = prov_s
             elif prov_s and prov_s not in ("gemini", "custom"):
-                # نامی که دیگر در لیست نیست (مثلاً حذفشده) → gemini
+# نامی که دیگر در لیست نیست (مثلاً حذفشده) → gemini
                 prov_s, provider_v = "gemini", "gemini"
             if prov_s == "custom":
                 _ab = normalize_api_base(str(api_base_v or ""))
@@ -4166,24 +4045,24 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             _prev_src = ""
             with job["lock"]:
                 _prev_src = str(job.get("src") or "")
-            # v1.14.210 — ریشهٔ «کلا نمیپاکه رد میشه»: بچِ دوباره در همان جلسه
-            # srcِ یکسانی داشت (input_batch) → پوشهٔ خروجی پاک نمیشد →
-            # کشِ resume سرِ جایه ماند → همهٔ صفحه‌ها «از کش» رد میشدند و
-            # خروجیِ قدیمی (باگ‌دار) برمیگشت. حالا هر اجرایِ آپلودی
-            # پوشهٔ خروجی را از نو پاک میکند = هر تست واقعاً از صفر
-            # اجرا میشود.
-            # v1.14.235 — فیکسِ «فایلِ محلیِ عکس میدم ارور میده» (No
-            # connection adapters): این پاک‌سازی «همهٔ» زیرپوشه‌های
-            # user_out_dir را برمیداشت — از جمله input_batch که فایلهایِ
-            # ورودیِ «همین» اجرا چند خط بالاتر در آن کپی شده بودند!
-            # موتور بعداً مسیرها را «نبود» میدید → C:\… به requests
-            # سپرده میشد → «No connection adapters were found for
-            # 'C:\…\file_001.jpg'» → «هیچ تصویری دانلود نشد».
-            # input_batch از پاک‌سازی مستثنی شد — در هر اجرا فقط وقتی
-            # آپلودِ چندفایلی باشد از نو ساخته میشود، پس محتوایش همیشه
-            # تازه است و کشِ کهنه در آن معنا ندارد؛ بقیهٔ زیرپوشه‌ها
-            # (کشِ resume/خروجی/…) مثل قبل کامل پاک میشوند = v1.14.210
-            # سرِ جایش میماند.
+# ریشهٔ «کلا نمیپاکه رد میشه»: بچِ دوباره در همان جلسه
+# srcِ یکسانی داشت (input_batch) → پوشهٔ خروجی پاک نمیشد →
+# کشِ resume سرِ جایه ماند → همهٔ صفحه‌ها «از کش» رد میشدند و
+# خروجیِ قدیمی (باگ‌دار) برمیگشت. حالا هر اجرایِ آپلودی
+# پوشهٔ خروجی را از نو پاک میکند = هر تست واقعاً از صفر
+# اجرا میشود.
+# فیکسِ «فایلِ محلیِ عکس میدم ارور میده» (No
+# connection adapters): این پاک‌سازی «همهٔ» زیرپوشه‌های
+# user_out_dir را برمیداشت — از جمله input_batch که فایلهایِ
+# ورودیِ «همین» اجرا چند خط بالاتر در آن کپی شده بودند!
+# موتور بعداً مسیرها را «نبود» میدید → C:\… به requests
+# سپرده میشد → «No connection adapters were found for
+# 'C:\…\file_001.jpg'» → «هیچ تصویری دانلود نشد».
+# input_batch از پاک‌سازی مستثنی شد — در هر اجرا فقط وقتی
+# آپلودِ چندفایلی باشد از نو ساخته میشود، پس محتوایش همیشه
+# تازه است و کشِ کهنه در آن معنا ندارد؛ بقیهٔ زیرپوشه‌ها
+# (کشِ resume/خروجی/…) مثل قبل کامل پاک میشوند =
+# سرِ جایش میماند.
             if up_files or (_prev_src and _prev_src != str(src)):
                 try:
                     for _n in os.listdir(user_out_dir):
@@ -4211,8 +4090,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                    "--batch-workers", str(int(batchw_v)),
                    "--max-retries", str(int(maxre_v)),
                    "--request-delay", str(float(reqdelay_v)),
-                   "--temperature", str(float(temp_v if temp_v not in (None, "") else 0.7)),  # v1.14.244 — گاردِ کادرِ خالی
-                   "--top-p", str(float(top_p_v if top_p_v not in (None, "") else 0.9)),  # v1.14.243 — تنظیمِ top_p
+                   "--temperature", str(float(temp_v if temp_v not in (None, "") else 0.7)),  # گاردِ کادرِ خالی
+                   "--top-p", str(float(top_p_v if top_p_v not in (None, "") else 0.9)),  # تنظیمِ top_p
                    "--reading-order", str(readord_v)]
             if prov_s == "custom" and str(api_base_v or "").strip():
                 cmd += ["--api-base", str(api_base_v).strip()]
@@ -4248,8 +4127,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 _cm_v = "lama-manga"
             cmd += ["--clean-method", _cm_v]
             if _batch_no_stitch:
-                # v1.14.210 — بچِ آپلودی: چسباندن/برشِ ۸۰۰۰px خاموش — هر فایل
-                # مثلِ حالتِ تکی پردازش میشود
+# بچِ آپلودی: چسباندن/برشِ ۸۰۰۰px خاموش — هر فایل
+# مثلِ حالتِ تکی پردازش میشود
                 cmd += ["--stitch-max-height", "0"]
             if not two_pass_v:
                 cmd += ["--no-two-pass-ocr"]
@@ -4269,7 +4148,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             t0 = time.time()
             try:
                 print(f"[TIME] app-prep={time.time() - _t_prep:.1f}s",
-                      flush=True)  # v1.14.68
+                      flush=True)
             except Exception:
                 pass
             with job["lock"]:
@@ -4290,8 +4169,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 job["log"] = ("\n".join(_auto_log_lines) + "\n"
                               if _auto_log_lines else "") + "▶ در حال شروع…"
                 job["ts"] = time.time()
-            # v1.14.200 — سطرِ اولِ لاگِ کامل: نسخه + زمانِ شروع — برایِ
-            # گزارشِ باگِ سازنده لازم است (فایلِ کامل از همینجا بسته میشود).
+# سطرِ اولِ لاگِ کامل: نسخه + زمانِ شروع — برایِ
+# گزارشِ باگِ سازنده لازم است (فایلِ کامل از همینجا بسته میشود).
             _append_job_logfile(
                 sid, f"═══ Manga-AutoTranslate v{APP_VER} — شروعِ کارِ جدید — "
                      f"{time.strftime('%Y-%m-%d %H:%M:%S')} ═══")
@@ -4301,10 +4180,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             live_dir = os.path.join(user_out_dir, "live")
             shutil.rmtree(live_dir, ignore_errors=True)
             os.makedirs(live_dir, exist_ok=True)
-            # v1.14.159 — فیکسِ «دکمهٔ دیباگ فعال نیست ولی می‌آید»: پوشهٔ
-            # live_debug فقط وقتی ساخته/پاس داده میشود که کاربر «حالت دیباگ»
-            # را روشن کرده باشد؛ قبلاً همیشه ساخته میشد → دکمهٔ 🔍 دیباگِ
-            # خوانندهٔ زنده همیشه میآمد ولی هیچ‌وقت چیزی نشان نمیداد.
+# فیکسِ «دکمهٔ دیباگ فعال نیست ولی می‌آید»: پوشهٔ
+# live_debug فقط وقتی ساخته/پاس داده میشود که کاربر «حالت دیباگ»
+# را روشن کرده باشد؛ قبلاً همیشه ساخته میشد → دکمهٔ دیباگِ
+# خوانندهٔ زنده همیشه میآمد ولی هیچ‌وقت چیزی نشان نمیداد.
             _dbg_on = bool(web_debug_v)
             live_dbg_dir = ""
             if _dbg_on:
@@ -4323,8 +4202,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             _env = os.environ.copy()
             _env["PYTHONUNBUFFERED"] = "1"
             _env["PYTHONIOENCODING"] = "utf-8"
-            # v1.14.181 — دکمهٔ «تستِ سرعت» حذف شد؛ کلیدِ محیطیِ کهنهٔ
-            # نشستهایِ قبلی هم پاک میشود تا مسیرِ آزمایشگاه بیدار نشود.
+# دکمهٔ «تستِ سرعت» حذف شد؛ کلیدِ محیطیِ کهنهٔ
+# نشستهایِ قبلی هم پاک میشود تا مسیرِ آزمایشگاه بیدار نشود.
             _env.pop("MANGA_SPEED_TEST", None)
             _env["MANGA_LIVE_DIR"] = live_dir
             if _dbg_on:
@@ -4365,8 +4244,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             )
 
         def _on_provider_change(p, models, bank, cur_base, cur_key, cur_model):
-            """v1.14.222 — رفتارِ منو:
-            (۱) دستورِ سازنده «افزودن ai فقط تو کاستوم بیاد نه بقیه چیزاش» →
+            """ — رفتارِ منو:
+            (۱) →
             دکمهٔ «+ افزودن» و راهنما فقط رویِ custom دیده میشوند.
             (۲) رویِ «auto» هیچ فیلدی نمیماند («وقتی رو auto بزارن اونجا نشه
             مدلی چیزی وارد کرد») و رویِ مدلِ نامی هم فیلدها پنهاناند —
@@ -4376,8 +4255,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             خودش را دارد — رفتن به Gemini دیگر مقادیرِ کاستوم را نشان
             نمیدهد («میرم Gemini مال کاستوم ک سیو زدم نشون میده»)؛ مقادیرِ
             providerِ جدید همیشه از بانک میآید (بانکِ خالی = فیلدهایِ خالی).
-            v1.14.223 — «✎ ویرایش» فقط رویِ مدلِ ذخیرهشدهٔ خودِ کاربر میآید
-            و هر تغییرِ منو حالتِ ویرایش را لغو میکند («💾 ذخیرهٔ ویرایش»
+             — « ویرایش» فقط رویِ مدلِ ذخیرهشدهٔ خودِ کاربر میآید
+            و هر تغییرِ منو حالتِ ویرایش را لغو میکند (« ذخیرهٔ ویرایش»
             پنهان میشود)."""
             bank = dict(bank or {})
             v = str(p or "").strip()
@@ -4385,16 +4264,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             is_custom = (v == "custom")
             mine = v in _cm_names(models)
             last = str(bank.get("_last") or "").strip()
-            # ذخیرهٔ مقادیرِ فعلی مالِ providerِ قبلی (فقط gemini/custom —
-            # رویِ auto/مدلِ نامی فیلدها پنهاناند و چیزی برایِ ذخیره نیست)
+# ذخیرهٔ مقادیرِ فعلی مالِ providerِ قبلی (فقط gemini/custom —
+# رویِ auto/مدلِ نامی فیلدها پنهاناند و چیزی برایِ ذخیره نیست)
             if last in ("gemini", "custom") and last != v:
                 bank[last] = {"base": str(cur_base or ""),
                               "key": str(cur_key or ""),
                               "model": str(cur_model or "")}
             bank["_last"] = v
-            # v1.14.222 — مقادیرِ providerِ جدید همیشه از بانک میآید (بانکِ
-            # خالی = فیلدهای خالی) — هرگز مقادیرِ providerِ قبلی زیرِ منویِ
-            # جدید نمیماند («میرم Gemini مال کاستوم ک سیو زدم نشون میده»)
+# مقادیرِ providerِ جدید همیشه از بانک میآید (بانکِ
+# خالی = فیلدهای خالی) — هرگز مقادیرِ providerِ قبلی زیرِ منویِ
+# جدید نمیماند («میرم Gemini مال کاستوم ک سیو زدم نشون میده»)
             saved = bank.get(v) if v in ("gemini", "custom") else {}
             saved = saved if isinstance(saved, dict) else {}
             nb = str(saved.get("base") or "")
@@ -4406,15 +4285,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 nk, nm = "", ""   # رویِ auto/مدلِ نامی فیلدی برایِ ورود نیست
             info = _cm_info_html(models, v) if mine else ""
             row_vis = not on_auto and not mine
-            # v1.14.231 — لیبلِ فیلدِ مدل به ازایِ هر provider: رویِ Gemini
-            # دراپ‌داونِ زنده + ↻؛ بقیه (custom/ویرایشِ مدلِ نامی) دستی —
-            # «بقیش باید دستی مینوشتن»؛ ↻ هم فقط رویِ gemini دیده میشود
-            # v1.14.232 — فیکسِ «وقتی میرم کاستوم مدلهایِ gemini نشون
-            # میده فقط باید رو خودش میومد»: منویِ دراپ‌داون رویِ هر
-            # providerِ غیرِ gemini خالی میشود (choices=[]) تا مدلهایِ
-            # Gemini فقط و فقط در خودِ Gemini دیده شوند؛ رویِ Gemini
-            # لیستِ آفلاینِ داخلِ کد برمیگردد (دستور: «مدل هارو افلاین
-            # هم بزار»).
+# لیبلِ فیلدِ مدل به ازایِ هر provider: رویِ Gemini
+# دراپ‌داونِ زنده + ↻؛ بقیه (custom/ویرایشِ مدلِ نامی) دستی —
+# «بقیش باید دستی مینوشتن»؛ ↻ هم فقط رویِ gemini دیده میشود
+# فیکسِ «وقتی میرم کاستوم مدلهایِ gemini نشون
+# میده فقط باید رو خودش میومد»: منویِ دراپ‌داون رویِ هر
+# providerِ غیرِ gemini خالی میشود (choices=) تا مدلهایِ
+# Gemini فقط و فقط در خودِ Gemini دیده شوند؛ رویِ Gemini
+# لیستِ آفلاینِ داخلِ کد برمیگردد (دستور: «مدل هارو افلاین
+# هم بزار»).
             if v == "gemini":
                 mdl_label = ("مدل — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
                              "فهرستِ زنده (یا خودت بنویس) | خالی = پیش‌فرض")
@@ -4433,16 +4312,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=mine, value=info),
                     gr.update(visible=mine),
                     bank,
-                    gr.update(visible=mine),    # cm_edit_btn (v1.14.223)
+                    gr.update(visible=mine),    # cm_edit_btn
                     gr.update(visible=False),   # cm_save_btn — خروج از ویرایش
                     gr.update(visible=(v == "gemini")))  # ↻ فقط Gemini (231)
 
-        # ── v1.14.223 — ویرایشِ مدلِ ذخیرهشده ─────────────────────
+# ویرایشِ مدلِ ذخیرهشده ─────────────────────
         def _cm_edit_start(prov, models):
-            """دستورِ سازنده: «چیزی ک سیو زده بود بتونن ویرایش کنن ... با
-            قابلیت ویرایش ویرایش زدن گزینه سیو بیاد» — با «✎ ویرایش»
+            """با « ویرایش»
             مقادیرِ ذخیرهشدهٔ مدلِ انتخابشده (لینک/کلید/مدل) در فیلدها
-            بارگذاری میشود، «افزودن» پنهان و «💾 ذخیرهٔ ویرایش» میآید."""
+            بارگذاری میشود، «افزودن» پنهان و « ذخیرهٔ ویرایش» میآید."""
             nm = str(prov or "").strip()
             m = next((x for x in (models or [])
                       if str(x.get("name") or "").strip() == nm), None)
@@ -4456,15 +4334,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=True,
                               value=str(m.get("model") or ""),
                               label="مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض",
-                              choices=[]),  # v1.14.232 — ویرایشِ مدلِ نامی هم دستی؛ منویِ Gemini نمیآید
+                              choices=[]),  # ویرایشِ مدلِ نامی هم دستی؛ منویِ Gemini نمیآید
                     gr.update(visible=False),   # «+ افزودن» پنهان
-                    gr.update(visible=False),   # «✎ ویرایش» پنهان
-                    gr.update(visible=True),    # «💾 ذخیرهٔ ویرایش»
+                    gr.update(visible=False),   # « ویرایش» پنهان
+                    gr.update(visible=True),    # « ذخیرهٔ ویرایش»
                     gr.update(visible=False),   # راهنما
-                    gr.update(visible=False))   # ↻ مدل — دستی (v1.14.231)
+                    gr.update(visible=False))   # ↻ مدل — دستی
 
         def _cm_save_edits(prov, models, base, key, mdl):
-            """«💾 ذخیرهٔ ویرایش»: همان مدلِ انتخابشده با مقادیرِ جدیدِ
+            """« ذخیرهٔ ویرایش»: همان مدلِ انتخابشده با مقادیرِ جدیدِ
             فیلدها بهروزرسانی میشود (نام عوض نمیشود)؛ بعد برگشت به حالتِ
             نمایش (فیلدها پاک/پنهان، مشخصاتِ زیرِ منو تازه میشود)."""
             nm = str(prov or "").strip()
@@ -4472,8 +4350,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             idx = next((i for i, x in enumerate(new_models)
                         if str(x.get("name") or "").strip() == nm), -1)
             if idx < 0 or not nm:
-                # v1.14.239 — فیکسِ همان رده: فهرستِ خروجیها ۱۵ مؤلفه
-                # دارد (پایین: cm_save_btn.click) ولی این شاخه ۱۴ برمیگرداند.
+# فیکسِ همان رده: فهرستِ خروجیها ۱۵ مؤلفه
+# دارد (پایین: cm_save_btn.click) ولی این شاخه ۱۴ برمیگرداند.
                 return (gr.update(),) * 15
             entry = {"name": nm,
                      "api_base": str(base or "").strip(),
@@ -4489,7 +4367,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=True,
                               value=_cm_info_html(new_models, nm)),
                     gr.update(visible=False),            # ذخیرهٔ ویرایش
-                    gr.update(visible=True),             # ✎ ویرایش
+                    gr.update(visible=True),             # ویرایش
                     gr.update(visible=False, value=""),  # دامنهٔ API
                     gr.update(visible=False),            # ردیفِ کلید/مدل
                     gr.update(visible=False, value=""),  # کلید
@@ -4497,7 +4375,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=False),            # افزودن
                     gr.update(visible=False),            # راهنما
                     gr.update(value=msg, visible=True),
-                    gr.update(visible=False))            # ↻ مدل (v1.14.231)
+                    gr.update(visible=False))            # ↻ مدل
 
         try:
             provider.change(
@@ -4512,13 +4390,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             )
         except Exception:
             pass
-        # v1.14.231 — گاردِ سمتِ مرورگر برایِ دکمهٔ «↻ مدل‌ها»: در gradio 6
-        # گاهی updateِ visibleِ دکمهٔ داخلِ ردیفِ کلید/مدل اعمال نمیشود
-        # (سرور visible=False میفرستد ولی DOM دکمه را نشان میدهد — باتِ
-        # «انتخاب مدل فقط تو Gemini») — این رویدادِ JSِ محضِ بعدِ همان
-        # provider.change، نمایشِ دکمه را مستقیم در DOM تنظیم میکند:
-        # فقط رویِ gemini دیده شود؛ رویِ custom فقط تایپِ دستی؛ رویِ
-        # auto/مدلِ نامی هم ردیفِ کلید/مدل پنهان است.
+# گاردِ سمتِ مرورگر برایِ دکمهٔ «↻ مدل‌ها»: در gradio 6
+# گاهی updateِ visibleِ دکمهٔ داخلِ ردیفِ کلید/مدل اعمال نمیشود
+# (سرور visible=False میفرستد ولی DOM دکمه را نشان میدهد — باتِ
+# «انتخاب مدل فقط تو Gemini») — این رویدادِ JSِ محضِ بعدِ همان
+# provider.change، نمایشِ دکمه را مستقیم در DOM تنظیم میکند:
+# فقط رویِ gemini دیده شود؛ رویِ custom فقط تایپِ دستی؛ رویِ
+# auto/مدلِ نامی هم ردیفِ کلید/مدل پنهان است.
         try:
             provider.change(
                 fn=None,
@@ -4534,8 +4412,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
 
-        # ── v1.14.229 — ↻ فهرستِ مدل‌ها از خودِ سرویس (دستورِ سازنده:
-        # «مدلای موجود تو gemini نشون بده طرف انتخاب کنه») ──
+# ↻ فهرستِ مدل‌ها از خودِ سرویس ──
         def _refresh_model_list(provider_v, api_keys_v, api_base_v, model_v):
             try:
                 from manga import list_provider_models
@@ -4544,7 +4421,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             prov = str(provider_v or "").strip()
             if prov in ("", "auto"):
                 raise gr.Error("روی «auto» مدلی وارد نمیشود — یک سرویس انتخاب کنید.")
-            # مدلِ نامی (مدلهایِ من) → مشخصاتِ ذخیرهشدهٔ خودش
+# مدلِ نامی (مدلهایِ من) → مشخصاتِ ذخیرهشدهٔ خودش
             _nm = None
             try:
                 _nm = resolve_ai_named(custom_models_state.value, prov,
@@ -4558,10 +4435,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             models, err = list_provider_models(
                 prov, str(api_keys_v or ""), str(api_base_v or ""))
             keep = str(model_v or "").strip()
-            # v1.14.232 — دستورِ سازنده: «اگ اپدیتی چیزی شد خودشون رفرش
-            # میزنن» → ↻ فهرستِ زنده میگیرد؛ اگر اتصال/کلید برقرار نشد،
-            # به‌جای خطا، فهرستِ آفلاینِ داخلِ کد برمیگردد (کاربر بی‌درنگ
-            # گزینه دارد) و دلیلِ قطعی در لیبل میآید.
+            # → ↻ فهرستِ زنده میگیرد؛ اگر اتصال/کلید برقرار نشد
+# به‌جای خطا، فهرستِ آفلاینِ داخلِ کد برمیگردد (کاربر بی‌درنگ
+# گزینه دارد) و دلیلِ قطعی در لیبل میآید.
             if not models:
                 if prov == "gemini":
                     offline = _gemini_offline_models()
@@ -4585,11 +4461,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
 
-        # ── v1.14.217/218/219 — رویدادهایِ مدیرِ مدلهایِ سفارشی ──
-        # v1.14.219 — دراپ‌داونِ «انتخاب مدل» و دکمههایِ ⬆/⬇/🗑 حذف شدند؛
-        # _cm_pack دیگر خروجیِ cm_pick ندارد (۴تایی است).
+# /218/219 — رویدادهایِ مدیرِ مدلهایِ سفارشی ──
+# دراپ‌داونِ «انتخاب مدل» و دکمههایِ // حذف شدند
+# _cm_pack دیگر خروجیِ cm_pick ندارد (۴تایی است).
         def _cm_pack(models, prov_cur=None):
-            """v1.14.221 — (مدلها، JSONِ مرورگر، منویِ AI، ✖ِ کنارِ منو).
+            """ — (مدلها، JSONِ مرورگر، منویِ AI، ِ کنارِ منو).
             مقدارِ نهاییِ منو = انتخابِ فعلی اگر هنوز معتبر است؛ وگرنه
             «auto» اگر مدلی داریم وگرنه «gemini»."""
             models = list(models or [])
@@ -4604,7 +4480,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=_val in _cm_names(models)))
 
         def _cm_add_box(raw, models, prov_cur):
-            """v1.14.218 — دکمهٔ «+ افزودن به لیست مدل‌ها»: مرورگر مدلِ فعلی
+            """ — دکمهٔ «+ افزودن به لیست مدل‌ها»: مرورگر مدلِ فعلی
             (نامِ دلخواه + دامنه + کلید + شناسهٔ مدل) را میفرستد؛ نامِ تکراری
             = بهروزرسانیِ همان مدل. مدل کنارِ Gemini در لیست می‌ماند (دیسک در
             اجرایِ محلی، localStorage مرورگر در وب) و در منویِ AI هم می‌آید."""
@@ -4623,8 +4499,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             models = [m for m in (models or [])
                       if str(m.get("name") or "") != name]
             models.append(entry)
-            # v1.14.222 — دستورِ سازنده: «وقتی یک چیز کاستوم سیو میکنم لینکش
-            # هم باید نشون بده» — پیامِ ذخیره لینکِ مدل را هم نشان میدهد
+            # پیامِ ذخیره لینکِ مدل را هم نشان میدهد
             _link = entry["api_base"] or "Gemini رسمی (بدونِ دامنهٔ سفارشی)"
             _mdl = f" — مدلِ هوش: {entry['model']}" if entry["model"] else ""
             return (*_cm_pack(models, prov_cur),
@@ -4635,7 +4510,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                               visible=True))
 
         def _cm_del_selected(prov, models):
-            """v1.14.221 — ضربدرِ ✖ِ کنارِ منویِ انتخابِ AI: مدلِ «انتخابشده»
+            """ — ضربدرِ ِ کنارِ منویِ انتخابِ AI: مدلِ «انتخابشده»
             را از لیست و منو پاک میکند (localStorage مرورگر با changeِ
             cm_json_box همگام میماند)."""
             nm = str(prov or "").strip()
@@ -4645,7 +4520,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             return _cm_pack(models, None)
 
         def _cm_restore(raw, models, prov_cur):
-            """v1.14.217 — بازگردانیِ مدلها از localStorage مرورگر (وب) —
+            """ — بازگردانیِ مدلها از localStorage مرورگر (وب) —
             فقط وقتی چیزِ بیشتری از دیسک دارد ادغام میشود."""
             try:
                 data = json.loads(raw) if raw else []
@@ -4667,12 +4542,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                "model": str(it.get("model") or "")})
             return _cm_pack(merged, prov_cur)
 
-        # v1.14.218 — جاوااسکریپتِ دکمهٔ «+ افزودن به لیست مدل‌ها»: نام را با
-        # پنجرهٔ prompt میپرسد (خالی = نامِ خودِ مدل)، در localStorage مینویسد
-        # و از کانالِ manga_cm_add_box به سرور میدهد تا لیست + منویِ AI شود.
-        # v1.14.220 — دکمه مستقل از custom شد: provider از ورودیِ رویداد
-        # میآید؛ «دامنهٔ API» فقط وقتی provider=custom است در مدل ثبت
-        # میشود (چون در بقیهٔ حالتها فیلدش از DOM پنهان است).
+# جاوااسکریپتِ دکمهٔ «+ افزودن به لیست مدل‌ها»: نام را با
+# پنجرهٔ prompt میپرسد (خالی = نامِ خودِ مدل)، در localStorage مینویسد
+# و از کانالِ manga_cm_add_box به سرور میدهد تا لیست + منویِ AI شود.
+# دکمه مستقل از custom شد: provider از ورودیِ رویداد
+# میآید؛ «دامنهٔ API» فقط وقتی provider=custom است در مدل ثبت
+# میشود (چون در بقیهٔ حالتها فیلدش از DOM پنهان است).
         _cm_add_js = """
 (prov) => {
   try {
@@ -4746,7 +4621,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 api_name="cm_del_sel")
         except Exception:
             pass
-        # ── v1.14.223 — ویرایشِ مدلِ ذخیرهشده ──
+# ویرایشِ مدلِ ذخیرهشده ──
         try:
             cm_edit_btn.click(
                 _cm_edit_start,
@@ -4771,11 +4646,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
         try:
-            # مرورگرِ وب: هر تغییرِ فهرست → localStorage
-            # v1.14.222 — بعدِ حذف/افزودن، اگر متنِ نمایشیِ منویِ AI مدلی
-            # باشد که دیگر در فهرست نیست (باگِ نمایشیِ gradio 6 — مقدارِ
-            # سرور درست است ولی برچسبِ منو کهنه میماند)، همان لحظه به
-            # فالبکِ درست (auto با مدل، وگرنه gemini) برمیگردد
+# مرورگرِ وب: هر تغییرِ فهرست → localStorage
+# بعدِ حذف/افزودن، اگر متنِ نمایشیِ منویِ AI مدلی
+# باشد که دیگر در فهرست نیست (باگِ نمایشیِ gradio 6 — مقدارِ
+# سرور درست است ولی برچسبِ منو کهنه میماند)، همان لحظه به
+# فالبکِ درست (auto با مدل، وگرنه gemini) برمیگردد
             cm_json_box.change(
                 fn=None, inputs=[cm_json_box], outputs=[],
                 js="""(js) => {
@@ -4811,7 +4686,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   } catch (e) {}
   return [];
 }""")
-            # بارگذاریِ صفحه: مدلهایِ مرورگر → پایتون (ادغام با دیسک)
+# بارگذاریِ صفحه: مدلهایِ مرورگر → پایتون (ادغام با دیسک)
             cm_restore_box.change(
                 _cm_restore,
                 inputs=[cm_restore_box, custom_models_state, provider],
@@ -4821,9 +4696,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
 
-        # ── v1.14.217/218 — پشتیبان‌گیری/بازیابی: «چیزای ک وارد کردن بکاپ
-        # بگیره از مدل بگیرع تا تنظیماتشون» — دکمهٔ «گرفتن بکاپ» جدا از
-        # Import؛ داخلِ بکاپ همه‌چیز است (لیستِ مدلها + تمامِ تنظیمات) ──
+# /218 — پشتیبان‌گیری/بازیابی: «چیزای ک وارد کردن بکاپ
+# بگیره از مدل بگیرع تا تنظیماتشون» — دکمهٔ «گرفتن بکاپ» جدا از
+# Import؛ داخلِ بکاپ همه‌چیز است (لیستِ مدلها + تمامِ تنظیمات) ──
         _BACKUP_FIELDS = [
             ("provider", provider), ("api_base", api_base),
             ("api_keys", api_keys), ("model", model),
@@ -4857,8 +4732,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 path = os.path.join(WORK_DIR, f"manga_backup_{ts}.json")
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
-                # v1.14.219 — دانلودِ خودکار: فایلِ خروجی در backup_out ست
-                # میشود و JSِ رویِ changeِ آن بلافاصله دانلودش میکند
+# دانلودِ خودکار: فایلِ خروجی در backup_out ست
+# میشود و JSِ رویِ changeِ آن بلافاصله دانلودش میکند
                 return (gr.update(value=path, visible=True),
                         gr.update(value=f"✅ پشتیبان ساخته شد و دانلودِ خودکارش "
                                         f"شروع شد: {len(models)} مدل + "
@@ -4879,7 +4754,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             try:
                 path = (file_info or "").strip() if isinstance(file_info, str) \
                     else (file_info.get("name") if isinstance(file_info, dict) else "")
-                # gr.File با type=filepath مسیرِ موقت را میدهد
+# gr.File با type=filepath مسیرِ موقت را میدهد
                 if isinstance(file_info, str):
                     path = file_info
                 elif isinstance(file_info, dict):
@@ -4901,8 +4776,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 for i, (k, _comp) in enumerate(_BACKUP_FIELDS):
                     if k in st and st[k] is not None:
                         ups[i] = gr.update(value=st[k])
-                # v1.14.218 — بازیابیِ کامل: لیستِ مدلهایِ فایلِ بکاپ جایگزین
-                # میشود (Import = برگشتنِ دقیقِ همه‌چیز به حالتِ بکاپ)
+# بازیابیِ کامل: لیستِ مدلهایِ فایلِ بکاپ جایگزین
+# میشود (Import = برگشتنِ دقیقِ همه‌چیز به حالتِ بکاپ)
                 merged = []
                 for it in (payload.get("custom_models") or []):
                     if isinstance(it, dict) and str(it.get("name") or "").strip():
@@ -4919,8 +4794,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 _newv = _imp if _imp in _ch else (
                     _old if _old in _ch
                     else ("auto" if "auto" in _ch else "gemini"))
-                # v1.14.222 — بانکِ فیلدها هم از بکاپ بازسازی میشود تا
-                # provider.changeِ بعدی مقادیرِ تازه را جابهجا نکند
+# بانکِ فیلدها هم از بکاپ بازسازی میشود تا
+# provider.changeِ بعدی مقادیرِ تازه را جابهجا نکند
                 try:
                     _bank = dict(bank_cur or {}) if isinstance(bank_cur, dict) else {}
                 except Exception:
@@ -4949,10 +4824,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             backup_btn.click(
                 _do_backup, inputs=_backup_inputs,
                 outputs=[backup_out, backup_status], api_name="backup_settings")
-            # v1.14.219 — دستورِ سازنده: «بکاپ زدم خودکار دانلود کنه نه این ک
-            # مجدد برم دکمه دانلود بزنم» — به محضِ آمادهشدنِ فایل (changeِ
-            # backup_out) مرورگر همان را با a[download] دانلود میکند؛ رویِ
-            # اندروید/PC/لینوکس/وب یکجاست (همه مرورگرِ webview/کروم):
+            # به محضِ آمادهشدنِ فایل (changeِ
+# backup_out) مرورگر همان را با a[download] دانلود میکند؛ رویِ
+# اندروید/PC/لینوکس/وب یکجاست (همه مرورگرِ webview/کروم):
             backup_out.change(
                 fn=None, inputs=[backup_out], outputs=[],
                 js="""(v) => {
@@ -4976,8 +4850,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   return [];
 }""",
             )
-            # v1.14.220 — UploadButton رویدادِ upload دارد (بعد از انتخابِ
-            # فایل) — همان هندلرِ قبلیِ _do_import
+# UploadButton رویدادِ upload دارد (بعد از انتخابِ
+# فایل) — همان هندلرِ قبلیِ _do_import
             import_file.upload(
                 _do_import,
                 inputs=[import_file, custom_models_state, provider,
@@ -4990,7 +4864,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             pass
 
         def _prompt_preview_update(mode_v, prov_v, mdl_v):
-            # v1.14.147: بدونِ تیتر — فقط متنِ کادرِ پرامپت رفرش میشود
+# بدونِ تیتر — فقط متنِ کادرِ پرامپت رفرش میشود
             try:
                 return gr.update(value=resolve_prompt_preview(mode_v, prov_v, mdl_v, None))
             except Exception as e:
@@ -5038,7 +4912,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         custom_models_state],
                 outputs=[test_key_out],
             )
-            # پنهان‌سازی بعد از ۶۰ ثانیه — جدا از رویداد اصلی تا ورودی‌ها خراب نشوند
+# پنهان‌سازی بعد از ۶۰ ثانیه — جدا از رویداد اصلی تا ورودی‌ها خراب نشوند
             try:
                 _test_evt.then(fn=None, inputs=None, outputs=None, js=_hide_test_js)
             except Exception:
@@ -5057,8 +4931,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                            **_click_kw)
                 except TypeError:
                     _ev = run_btn.click(run_translation, **_click_kw)
-            # v1.14.181 — کلیدِ یک‌بارمصرفِ «تستِ سرعت» (v1.14.178) با خودِ
-            # دکمه حذف شد؛ کارهایِ بعدی همیشه ترجمهٔ عادیاند.
+# کلیدِ یک‌بارمصرفِ «تستِ سرعت»  با خودِ
+# دکمه حذف شد؛ کارهایِ بعدی همیشه ترجمهٔ عادیاند.
         except Exception:
             pass
 
@@ -5117,15 +4991,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             else:
                 sid = ""
             if not sid:
-                # v1.14.250 — فیکسِ ارورِ «needed: 28, returned: 27»:
-                # _restore_outputs از v1.14.236 بیست‌وهشت مؤلفه دارد
-                # (session_id, sid_box, run_btn, log_box, dl_btn, btn_view,
-                # result_group, viewer_html, html_state + ۱۹ فیلدِ فرم)
-                # ولی این شاخهٔ خالی هنوز ۲۷تایی بود.
+# فیکسِ ارورِ «needed: 28, returned: 27»:
+# _restore_outputs از بیست‌وهشت مؤلفه دارد
+# (session_id, sid_box, run_btn, log_box, dl_btn, btn_view,
+# result_group, viewer_html, html_state + ۱۹ فیلدِ فرم)
+# ولی این شاخهٔ خالی هنوز ۲۷تایی بود.
                 return (gr.update(),) * 28
             job = _get_job(sid)
             meta = _load_job_meta(sid) if sid else {}
-            
             
             client_log = (data.get("_jobLog") or "").strip()
             client_running = bool(data.get("_jobRunning"))
@@ -5260,8 +5133,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             clean_method, two_pass, fake_test, clean_only,
         ]
 
-        # فرم از localStorage: جاوااسکریپت مقدار hidden ترباکس را روی load پر می‌کند،
-        # بعد change همان ترباکس، فن سرورِ ری‌استور را با JSON کامل صدا می‌زند.
+# فرم از localStorage: جاوااسکریپت مقدار hidden ترباکس را روی load پر می‌کند
+# بعد change همان ترباکس، فن سرورِ ری‌استور را با JSON کامل صدا می‌زند.
         hidden_restore_tb = gr.Textbox(visible=False, elem_id="manga_hidden_restore", container=False)
         try:
             demo.load(
@@ -5342,7 +5215,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=vis),
                     gr.update(visible=False),
                     html if vis else gr.update(),
-                    # v1.14.33: دکمهٔ «دانلود دیباگ» بعد از پایان کار دیده می‌شود
+# دکمهٔ «دانلود دیباگ» بعد از پایان کار دیده می‌شود
                     gr.update(value=dl_dbg,
                               label="⬇ دانلود دیباگ" + _dbg_sz,
                               visible=bool(show_dbg and dl_dbg and vis)),
@@ -5372,8 +5245,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 mem_log = job.get("log") or ""
                 meta_log = meta.get("log") or ""
                 running = _job_running(job)
-                # لاگ متادیتا فقط وقتی کار واقعاً در جریان است برمی‌گردد —
-                # وگرنه نتیجهٔ تازهٔ کاربر هر ثانیه با لاگ قدیمی جلسهٔ قبل بازنویسی می‌شد!
+# لاگ متادیتا فقط وقتی کار واقعاً در جریان است برمی‌گردد —
+# وگرنه نتیجهٔ تازهٔ کاربر هر ثانیه با لاگ قدیمی جلسهٔ قبل بازنویسی می‌شد!
                 if running and meta_log and (
                         len(meta_log) > len(mem_log) or not mem_log
                         or mem_log.startswith("—")):
@@ -5391,8 +5264,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 
                 running = _job_running(job)
                 log = job.get("log") or ""
-                # لاگ فقط وقتی از نظر سرور تغییر کرده به مرورگر فرستاده می‌شود —
-                # وگرنه هر ثانیه لاگ قدیمی روی تعامل تازهٔ کاربر بازنویسی می‌شد.
+# لاگ فقط وقتی از نظر سرور تغییر کرده به مرورگر فرستاده می‌شود —
+# وگرنه هر ثانیه لاگ قدیمی روی تعامل تازهٔ کاربر بازنویسی می‌شد.
                 _last_pushed = job.get("_last_poll_log")
                 log_changed = bool(log) and log != _last_pushed
                 if log_changed:
@@ -5413,10 +5286,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 want_dbg = bool(job.get("want_debug") or meta.get("want_debug") or has_dbg)
                 
                 show_dbg = bool(want_dbg and (vis or running))
-            # وقتی هیچ کاری در جریان نیست و لاگ همان جای‌نگهدارِ اولیه است،
-            # هیچ‌کدام از ۱۴ خروجی را هر ثانیه بازنویسی نکن (هم روان‌تر است
-            # هم جلوی پر شدن صفحه با حالت‌های قدیمی را می‌گیرد).
-            # ولی اگر کار تمام/خطا شده، وضعیت دکمه و لاگ تازه باید برسد.
+# وقتی هیچ کاری در جریان نیست و لاگ همان جای‌نگهدارِ اولیه است
+# هیچ‌کدام از ۱۴ خروجی را هر ثانیه بازنویسی نکن (هم روان‌تر است
+# هم جلوی پر شدن صفحه با حالت‌های قدیمی را می‌گیرد).
+# ولی اگر کار تمام/خطا شده، وضعیت دکمه و لاگ تازه باید برسد.
             default_log = "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
             if not running and not vis and (not log or log.strip() == default_log):
                 return empty
@@ -5431,8 +5304,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     _dbg_sz = f" ({human_size(os.path.getsize(dl_dbg))})"
             except Exception:
                 pass
-            # v1.14.236 — نوارِ پیشرفتِ زیرِ لاگ (مثلِ اپ اندروید): فاز +
-            # «صفحهٔ n از N» + درصد؛ از همان لاگ و total.txt پوشهٔ live.
+# نوارِ پیشرفتِ زیرِ لاگ (مثلِ اپ اندروید): فاز +
+# «صفحهٔ n از N» + درصد؛ از همان لاگ و total.txt پوشهٔ live.
             _prog_upd = gr.update()
             try:
                 if (running or vis) and log:
@@ -5447,7 +5320,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             visible=True)
             except Exception:
                 _prog_upd = gr.update()
-            # v1.14.31: نمایش اصلی/دیباگ حذف — همه‌جا مخفی؛ فقط «نمایش» (دکمهٔ 📖) می‌ماند
+# نمایش اصلی/دیباگ حذف — همه‌جا مخفی؛ فقط «نمایش» (دکمهٔ ) می‌ماند
             return (
                 sid,
                 gr.update(value=sid),
@@ -5459,7 +5332,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 gr.update(visible=show_card),
                 gr.update(),
                 gr.update(),
-                # v1.14.33: «دانلود دیباگ» — بعد از پایان کار در دسترس است
+# «دانلود دیباگ» — بعد از پایان کار در دسترس است
                 gr.update(value=dl_dbg,
                           label="⬇ دانلود دیباگ" + _dbg_sz,
                           visible=bool(dl_dbg and vis)),
@@ -5468,7 +5341,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 gr.update(),
                 _prog_upd,
             )
-
 
         _poll_outputs = [session_id, sid_box, sid_holder, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
                          dl_btn_debug, btn_view_debug, debug_row, html_debug_state, prog_html]
@@ -5542,7 +5414,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 running = bool(job.get("running")) and (
                     job.get("proc") is None or job["proc"].poll() is None)
             if files == prev and dbg_files == prev_dbg:
-                # هیچ تغییر — ولی وضعیتِ در حال اجرا/پایان باید دیده شود
+# هیچ تغییر — ولی وضعیتِ در حال اجرا/پایان باید دیده شود
                 was_running = bool(job.get("_live_was_running"))
                 if running == was_running:
                     return gr.update(), gr.update(), gr.update()
@@ -5552,8 +5424,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 job["_live_was_running"] = running
                 job["ts"] = time.time()
             if not running:
-                # v1.14.31: بعد از پایان هم همان «نمایش» می‌ماند (پوشهٔ live همهٔ
-                # صفحه‌های نهایی را دارد) — دیگر پنهان نمی‌شود.
+# بعد از پایان هم همان «نمایش» می‌ماند (پوشهٔ live همهٔ
+# صفحه‌های نهایی را دارد) — دیگر پنهان نمی‌شود.
                 tot_end = _live_total_of(live_dir) if live_dir else 0
                 n_end = len(files)
                 if n_end > 0 or tot_end > 0:
@@ -5670,13 +5542,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     pass
                 time.sleep(60)
 
-
         def _sid_box_sync(sid_v, sid_box_v):
             preferred = (sid_v or sid_box_v or "").strip()
             if not preferred:
-                # v1.14.239 — فیکسِ ارورِ «needed: 15, returned: 14»:
-                # _poll_outputs از v1.14.236 پانزده مؤلفه دارد (با
-                # prog_html) ولی این شاخهٔ خالی هنوز ۱۴تایی بود.
+# فیکسِ ارورِ «needed: 15, returned: 14»:
+# _poll_outputs از پانزده مؤلفه دارد (با
+# prog_html) ولی این شاخهٔ خالی هنوز ۱۴تایی بود.
                 return (gr.update(),) * 15
             return _poll_job_status(preferred, preferred)
 
@@ -5689,7 +5560,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
 
-        
         _direct_restore_js = f"""
 () => {{
   try {{
@@ -5746,7 +5616,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 gr.update(value=final_log) if final_log else gr.update(),
             )
 
-        
         try:
             demo.load(
                 fn=None,
@@ -5764,12 +5633,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             except Exception:
                 pass
 
-        
         def _hydrate_after_js(sid, holder):
             preferred = (sid or holder or "").strip()
             if not preferred:
-                # v1.14.239 — همان فیکسِ ۱۵-خروجی (ارورِ گوشی روی
-                # بارگذاریِ صفحهٔ وب — needed: 15, returned: 14).
+# همان فیکسِ ۱۵-خروجی (ارورِ گوشی روی
+# بارگذاریِ صفحهٔ وب — needed: 15, returned: 14).
                 return (gr.update(),) * 15
             return _poll_job_status(preferred, preferred)
 
@@ -5782,11 +5650,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
 
-
-        # v1.14.31: نمایش دیباگ جدا حذف شد — دیباگ داخل خود «نمایش» است؛
-        # ورودی web_debug فقط علامت می‌زند که موتور دیباگ بسازد.
+# نمایش دیباگ جدا حذف شد — دیباگ داخل خود «نمایش» است
+# ورودی web_debug فقط علامت می‌زند که موتور دیباگ بسازد.
         threading.Thread(target=_cleanup_old_jobs, daemon=True).start()
-
 
         def _reader_file_url(path: str) -> str:
             if not path or not os.path.isfile(path):
@@ -5810,7 +5676,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     if (!isDesk) { alert("هنوز صفحه‌ای آماده نشده — چند لحظه بعد دوباره بزن."); }
     return [];
   }
-  // v1.14.34: در پنجرهٔ دسکتاپ (pywebview) هرگز window.open نزن —
+  // در پنجرهٔ دسکتاپ (pywebview) هرگز window.open نزن —
   // پنجرهٔ مرورگرِ سیستم باز می‌شد (خواستهٔ کاربر: نمایش داخل خود برنامه).
   if (isDesk) { window.location.href = u; return []; }
   let w = window.__mangaPopup;
@@ -5864,10 +5730,10 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             except Exception:
                 pass
 
-        # گارد پاپ‌آپ: با کلیک روی دکمه‌های نمایش، یک پنجرهٔ خالی «همزمان با
-        # کلیک» باز می‌شود تا مرورگر آن را مسدود نکند (رفعِ «هیچی نشون نداد»)
-        # v1.14.34: در پنجرهٔ دسکتاپ اجرا نشود — window.open خالی همان‌جا
-        # مرورگرِ سیستم را باز می‌کرد (بازشدن خودکار مرورگر روی PC).
+# گارد پاپ‌آپ: با کلیک روی دکمه‌های نمایش، یک پنجرهٔ خالی «همزمان با
+# کلیک» باز می‌شود تا مرورگر آن را مسدود نکند (رفعِ «هیچی نشون نداد»)
+# در پنجرهٔ دسکتاپ اجرا نشود — window.open خالی همان‌جا
+# مرورگرِ سیستم را باز می‌کرد (بازشدن خودکار مرورگر روی PC).
         _popup_guard_js = """
 () => {
   try {
@@ -5923,8 +5789,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 """
         )
 
-    
-    
     dark_js = r"""
 () => {
   document.body.classList.add('dark');
@@ -5969,7 +5833,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   } catch (e) {}
 }
 """
-    # ثبت dark_js حالا داخل بلاک Blocks انجام می‌شود (نسخهٔ بیرون context کار نمی‌کرد)
+# ثبت dark_js حالا داخل بلاک Blocks انجام می‌شود (نسخهٔ بیرون context کار نمی‌کرد)
     on_colab = ("google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG")))
     on_codespace = _detect_codespace()
     codespace_name = (os.environ.get("CODESPACE_NAME")
@@ -5992,8 +5856,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         allowed_paths=[str(WORK_DIR), str(OUT_DIR), str(UPLOAD_DIR), str(FONT_DIR)],
         **launch_kw,
     )
-
-
 
 def main():
     ensure_dirs()
@@ -6030,7 +5892,6 @@ def main():
         run_desktop()
         return
 
-    
     on_colab = "google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG"))
     headless = (not has_display()) or bool(os.environ.get("SSH_CONNECTION")) or on_colab
     if headless:
@@ -6046,7 +5907,6 @@ def main():
     except Exception as e:
         print(f"[!] دسکتاپ ممکن نشد ({e}) → رابط وب")
         run_web()
-
 
 if __name__ == "__main__":
     main()

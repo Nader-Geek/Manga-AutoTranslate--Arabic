@@ -12,7 +12,6 @@ import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-
 try:
     from manga_app import (
         APP_NAME, APP_VER, PROVIDERS, WEB_CSS,
@@ -27,7 +26,6 @@ import manga
 
 LOCK = threading.Lock()
 JOBS = {}
-
 
 def _bubbles_html():
     rows = "".join(
@@ -46,7 +44,6 @@ def _bubbles_html():
         ]
     )
     return rows
-
 
 PAGE = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -141,10 +138,8 @@ function poll(sid){
 document.getElementById('run').onclick=start;
 </script></body></html>"""
 
-
 def _providers_html():
     return "".join('<option>%s</option>' % p for p in PROVIDERS)
-
 
 def _save_upload(handler, dest):
     ctype = handler.headers.get("Content-Type", "")
@@ -190,7 +185,6 @@ def _save_upload(handler, dest):
             fields[nm.group(1)] = data.decode("utf-8", "replace")
     return fields
 
-
 def _run_job(sid, cfg):
     job = JOBS[sid]
     log = job["log"]
@@ -235,7 +229,6 @@ def _run_job(sid, cfg):
         log("❌ خطا:\n" + traceback.format_exc()[-3000:])
         with LOCK:
             job["done"] = True
-
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "MangaApp/1.5"
@@ -292,7 +285,7 @@ class Handler(BaseHTTPRequestHandler):
         fields = _save_upload(self, work) or {}
         sid = str(int(time.time() * 1000))
         src = fields.get("file") or fields.get("url") or ""
-        # چند فایل → پوشهٔ دسته‌ای
+# چند فایل → پوشهٔ دسته‌ای
         _flist = fields.get("_files") or []
         if len(_flist) > 1:
             try:
@@ -335,7 +328,6 @@ class Handler(BaseHTTPRequestHandler):
 
         threading.Thread(target=_run_job, args=(sid, cfg), daemon=True).start()
         self._send(200, json.dumps({"sid": sid}).encode(), "application/json")
-
 
 def serve_forever(files_dir, port=8080):
     os.environ["MANGA_FILES_DIR"] = files_dir

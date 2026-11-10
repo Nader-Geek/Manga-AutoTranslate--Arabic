@@ -13,7 +13,7 @@ _GITHUB_RAW = ("https://raw.githubusercontent.com/"
                "amirwolf512k/Manga-AutoTranslate/main/")
 _UPDATE_FILES = ("manga.py", "manga_app.py")
 
-# 🩹 v1.14.15 — آپدیت خودکار در ایران کار نمی‌کرد: raw.githubusercontent.com
+# آپدیت خودکار در ایران کار نمی‌کرد: raw.githubusercontent.com
 # برای خیلی از ISPهای ایران بلاک/محدود است. زنجیرهٔ چندمنبعی (اولی که جواب
 # داد): raw گیت‌هاب → jsDelivr CDN (در ایران باز است) → gh-proxy آینهٔ مستقیم.
 _UPDATE_MIRRORS = (
@@ -22,13 +22,11 @@ _UPDATE_MIRRORS = (
     "https://gh-proxy.com/raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/",
 )
 
-
 def _fetch_bytes(url, timeout=20):
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
-
 
 def _local_ver(files_dir, name):
 
@@ -41,12 +39,10 @@ def _local_ver(files_dir, name):
             pass
     return "0"
 
-
 def _log(msg):
     LOGS.append(str(msg))
     del LOGS[:-40]
     print("[launcher] %s" % msg, flush=True)
-
 
 def status():
     try:
@@ -63,11 +59,9 @@ def status():
     except Exception as e:
         return "status error: %s" % e
 
-
 def _read_ver_from_str(src):
     m = re.search(r'APP_VER\s*=\s*"([^"]+)"', src or "")
     return m.group(1) if m else "0"
-
 
 def _cmp_ver(a, b):
     try:
@@ -81,14 +75,12 @@ def _cmp_ver(a, b):
         pb.append(0)
     return (pa > pb) - (pa < pb)
 
-
 def _file_ver(upd_dir, name):
     try:
         with open(os.path.join(upd_dir, ".ver_" + name), encoding="utf-8") as f:
             return f.read().strip()
     except Exception:
         return "0"
-
 
 def _stamp(upd_dir, name, ver):
     try:
@@ -97,14 +89,12 @@ def _stamp(upd_dir, name, ver):
     except Exception:
         pass
 
-
 def _pyfile_ver(path):
     try:
         with open(path, encoding="utf-8") as f:
             return _read_ver_from_str(f.read(8192))
     except Exception:
         return "0"
-
 
 def check_bundled(files_dir):
 
@@ -119,9 +109,8 @@ def check_bundled(files_dir):
             except Exception:
                 pass
 
-
 def _fetch_mirrors(name, min_size=8, timeout=20):
-    """v1.14.251 — دانلود از زنجیرهٔ میرورها (برای فایلهای کوچک مثل
+    """ — دانلود از زنجیرهٔ میرورها (برای فایلهای کوچک مثل
     MANIFEST که چکِ «فایل ناقص»ِ _download با حداقلِ ۱۰۰۰۰ بایت ردشان میکند)."""
     last_err = None
     for base in _UPDATE_MIRRORS:
@@ -134,18 +123,17 @@ def _fetch_mirrors(name, min_size=8, timeout=20):
             last_err = e
     raise last_err if last_err else RuntimeError("همهٔ منابع ناموفق")
 
-
 def _update_engine_sections(upd_dir, engine_ver):
-    """v1.14.251 — بخشهایِ پلاگینیِ موتور (manga_sections/) را همگام میکند.
+    """ — بخشهایِ پلاگینیِ موتور (manga_sections/) را همگام میکند.
 
-    از v1.14.251 فایلِ manga.py «لودر» است و بدنهٔ موتور از پوشهٔ
+    از فایلِ manga.py «لودر» است و بدنهٔ موتور از پوشهٔ
     manga_sections/ خوانده میشود. این تابع MANIFEST ریپو را میگیرد و
     فایلهایِ فهرستشده را در updates/manga_sections/ میگذارد. فقط وقتی
     دانلود میکند که نسخهٔ مهرشده با نسخهٔ موتورِ دانلودشده فرق کند
     (هر تغییرِ موتور با بامپِ APP_VER همراه است). فایلهایِ زامبیِ
     آپدیتِ قبلی هم پاک میشوند تا لودر فایلِ تکراری/مرده نبیند.
 
-    v1.14.253 — (۱) همهٔ فایلها اول stage میشوند و فقط بعد ازِ موفقیتِ
+     — (۱) همهٔ فایلها اول stage میشوند و فقط بعد ازِ موفقیتِ
     «همه» commit (00_base.py آخر) — شکستِ وسطِ راه دیگر نسخهٔ مخلوط
     نمیگذارد؛ (۲) خودِ MANIFEST هم ذخیره میشود تا لودر (که مسیرِ
     تازهسازیِ خودش را از رویِ MANIFEST میفهمد) زنده بماند؛ (۳) این
@@ -172,7 +160,7 @@ def _update_engine_sections(upd_dir, engine_ver):
         return
     names = [os.path.basename(n) for n in names]
     os.makedirs(sec_dir, exist_ok=True)
-    # مرحلهٔ stage: همه را بگیر؛ هر کدام شکست خورد → هیچ کدام نصب نمیشود
+# مرحلهٔ stage: همه را بگیر؛ هر کدام شکست خورد → هیچ کدام نصب نمیشود
     staged = []
     for n in names:
         try:
@@ -188,7 +176,7 @@ def _update_engine_sections(upd_dir, engine_ver):
                 except Exception:
                     pass
             return
-    # commit: MANIFEST اول (سفیدنامه)، 00_base.py آخر (نشانگرِ نسخه)
+# commit: MANIFEST اول (سفیدنامه)، 00_base.py آخر (نشانگرِ نسخه)
     try:
         with open(os.path.join(sec_dir, "MANIFEST.new"), "wb") as f:
             f.write(man)
@@ -202,7 +190,7 @@ def _update_engine_sections(upd_dir, engine_ver):
     for n in ordered:
         os.replace(os.path.join(sec_dir, n + ".new"),
                    os.path.join(sec_dir, n))
-    # زامبیها: فایلهایِ عددیِ خارج از MANIFESTِ جدید
+# زامبیها: فایلهایِ عددیِ خارج از MANIFESTِ جدید
     for n in os.listdir(sec_dir):
         if n.endswith(".py") and n[:1].isdigit() and n not in names:
             try:
@@ -217,7 +205,6 @@ def _update_engine_sections(upd_dir, engine_ver):
         pass
     _log("بخشهایِ موتور همگام شد (%d فایل، v%s)." % (len(names), engine_ver))
 
-
 def apply_updates(files_dir):
 
     upd_dir = os.path.join(files_dir, "updates")
@@ -228,7 +215,7 @@ def apply_updates(files_dir):
         sys.path.insert(0, upd_dir)
 
     def _download(name, dst):
-        # 🩹 v1.14.15: زنجیرهٔ میرور — تا وقتی یکی جواب ندهد ادامه بده
+# زنجیرهٔ میرور — تا وقتی یکی جواب ندهد ادامه بده
         last_err = None
         for base in _UPDATE_MIRRORS:
             try:
@@ -244,10 +231,10 @@ def apply_updates(files_dir):
                 _log("منبع %s برای %s جواب نداد: %s" % (host, name, str(e)[:60]))
         raise last_err if last_err else RuntimeError("همهٔ منابع ناموفق")
 
-    # ── فاز ۱: دانلود (هنوز نصب نکن) ─────────────────────────────────
-    # v1.14.253 — نسخهٔ موتور از «دادهٔ دانلودشده» خوانده میشود؛ قبلاً از
-    # manga.py.newِ «هنوزدانلودنشده» میخواندند → همیشه None → بخشها هرگز
-    # با تغییرِ نسخه همگام نمیشدند (گوشی رویِ بخشهایِ کهنه گیر میکرد).
+# فاز ۱: دانلود (هنوز نصب نکن) ─────────────────────────────────
+# نسخهٔ موتور از «دادهٔ دانلودشده» خوانده میشود؛ قبلاً از
+# manga.py.newِ «هنوزدانلودنشده» میخواندند → همیشه None → بخشها هرگز
+# با تغییرِ نسخه همگام نمیشدند (گوشی رویِ بخشهایِ کهنه گیر میکرد).
     downloads = {}
     for name in _UPDATE_FILES:
         new_p = os.path.join(upd_dir, name + ".new")
@@ -270,14 +257,14 @@ def apply_updates(files_dir):
         if name == "manga.py" and remote_ver != "0":
             engine_remote_ver = remote_ver
 
-    # ── فاز ۱٫۵: بخشهایِ پلاگینی «قبل از» نصبِ لودرِ جدید ─────────────
-    # تا بینِ نصبِ manga.py و رسیدنِ بخشها موتورِ بی‌بدنه نبینیم.
+# فاز ۱٫۵: بخشهایِ پلاگینی «قبل از» نصبِ لودرِ جدید ─────────────
+# تا بینِ نصبِ manga.py و رسیدنِ بخشها موتورِ بی‌بدنه نبینیم.
     try:
         _update_engine_sections(upd_dir, engine_remote_ver)
     except Exception:
         traceback.print_exc()
 
-    # ── فاز ۲: نصب (مقایسهٔ نسخه/هش — عینِ قبل) ────────────────────────
+# فاز ۲: نصب (مقایسهٔ نسخه/هش — عینِ قبل) ────────────────────────
     for name in _UPDATE_FILES:
         if name not in downloads:
             continue
@@ -287,11 +274,11 @@ def apply_updates(files_dir):
             cur = _file_ver(upd_dir, name)
             if cur == "0":
                 cur = _local_ver(files_dir, name)
-            # 🩹 v1.14.58: اگر APP_VER از قلم bump نشده بود ولی محتوای فایل
-            # عوض شده باشد (هشِ متفاوت)، باز هم نصب کن — وگرنه موتورِ گوشی
-            # برای همیشه روی نسخهٔ قدیمی گیر می‌کند (باگِ «آپدیت خودکار عمل
-            # نمی‌کند»: v1.14.56/57 با APP_VER=1.14.55 منتشر شدند و گوشی
-            # هرگز آن‌ها را نکشید).
+# اگر APP_VER از قلم bump نشده بود ولی محتوای فایل
+# عوض شده باشد (هشِ متفاوت)، باز هم نصب کن — وگرنه موتورِ گوشی
+# برای همیشه روی نسخهٔ قدیمی گیر می‌کند (باگِ «آپدیت خودکار عمل
+# نمی‌کند»: /57 با APP_VER= منتشر شدند و گوشی
+# هرگز آن‌ها را نکشید).
             installed_p = os.path.join(upd_dir, name)
             try:
                 with open(installed_p, "rb") as f:
@@ -318,7 +305,6 @@ def apply_updates(files_dir):
             traceback.print_exc()
 
     return upd_dir
-
 
 def _pip_runtime(files_dir):
 
@@ -375,7 +361,6 @@ def _pip_runtime(files_dir):
     except Exception:
         pass
 
-
 def main(files_dir=None):
     files_dir = files_dir or os.environ.get("MANGA_FILES_DIR") or os.getcwd()
     os.environ["MANGA_FILES_DIR"] = files_dir
@@ -387,9 +372,9 @@ def main(files_dir=None):
     except Exception:
         pass
 
-    # v1.14.111 — faulthandlerِ سراسری: هر سیگ‌فالت/SIGABRT در هر نقطه‌ای
-    # از پروسهٔ پایتون، پشتهٔ پایتونِ همهٔ ترد‌ها را در fault_log.txt
-    # مینویسد → استارتِ بعدیِ اپ لاگِ واقعیِ کرش را دارد (درخواستِ کاربر)
+# faulthandlerِ سراسری: هر سیگ‌فالت/SIGABRT در هر نقطه‌ای
+# از پروسهٔ پایتون، پشتهٔ پایتونِ همهٔ ترد‌ها را در fault_log.txt
+# مینویسد → استارتِ بعدیِ اپ لاگِ واقعیِ کرش را دارد (درخواستِ کاربر)
     try:
         import faulthandler as _fhd
         try:
@@ -443,7 +428,6 @@ def main(files_dir=None):
                          args=(files_dir, ), daemon=True).start()
     except Exception:
         traceback.print_exc()
-
 
 def _bg_updates_fonts(files_dir):
     try:

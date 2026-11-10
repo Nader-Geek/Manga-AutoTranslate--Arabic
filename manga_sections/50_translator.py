@@ -1,6 +1,5 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# 📦 MangaTranslator (۱ از ۷) — شروعِ کلاس: __init__، سختافزار، آبشارِ مدل/کلید
+# MangaTranslator (۱ از ۷) — شروعِ کلاس: __init__، سختافزار، آبشارِ مدل/کلید
 # «class MangaTranslator:» اینجا باز میشود و در بخشهای 60..95 ادامه مییابد.
 # (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
@@ -95,7 +94,7 @@ class MangaTranslator:
             return True
         if cm == "lama-big":
             if not has_torch:
-                # v1.14.29: torch فقط با انتخاب lama-big نصب می‌شود (بار اول)
+# torch فقط با انتخاب lama-big نصب می‌شود (بار اول)
                 has_torch = _ensure_torch_cpu()
             if not has_torch:
                 print("[*] lama-big این‌جا torch ندارد → lama.onnx.")
@@ -149,7 +148,7 @@ class MangaTranslator:
             return True
 
         if has_ort and not _on_android():
-            # v1.14.29: دسکتاپ بدون torch → پیش‌فرض lama.onnx (سبک و سریع)، نه OpenCV
+# دسکتاپ بدون torch → پیش‌فرض lama.onnx (سبک و سریع)، نه OpenCV
             print("[*] دسکتاپ → پاک‌سازی پیش‌فرض با lama.onnx + flat (سبک و سریع). "
                   "برای big-lama: --clean-method lama-big | برای OpenCV: --clean-method opencv")
             return True
@@ -185,9 +184,9 @@ class MangaTranslator:
         img_quality: int = 90,
         max_workers: int = 1,
         mag_ratio: float = 1.35,
-        translation_temperature: float = 0.7,  # v1.14.244 — دستور: ۰.۷ (عینِ مرجع)
-        # v1.14.243 — تنظیمِ top_p (ذخیره در تنظیمات؛ پیشفرض 0.9؛ کلمپ 0..1)
-        # — حالا مثلِ خودِ مرجع از تنظیمات میآید نه هاردکد
+        translation_temperature: float = 0.7,  # دستور: ۰.۷ (عینِ مرجع)
+# تنظیمِ top_p (ذخیره در تنظیمات؛ پیشفرض 0.9؛ کلمپ 0..1)
+# حالا مثلِ خودِ مرجع از تنظیمات میآید نه هاردکد
         translation_top_p: float = 0.9,
         two_pass_ocr: bool = True,
         max_output_width: Optional[int] = None,
@@ -207,19 +206,19 @@ class MangaTranslator:
     ):
         self.fake_translate = bool(fake_translate)
         self.clean_only = bool(clean_only)
-        # v1.14.70 — پاکسازیِ افکت‌های صوتی/متنِ استایل‌دارِ بیرونِ حباب
-        # (پیش‌فرض خاموش: SFX هنر حساب می‌شود و دست‌نخورده می‌ماند)
+# پاکسازیِ افکت‌های صوتی/متنِ استایل‌دارِ بیرونِ حباب
+# (پیش‌فرض خاموش: SFX هنر حساب می‌شود و دست‌نخورده می‌ماند)
         self.clean_sfx = bool(clean_sfx) or (
             os.environ.get("MANGA_CLEAN_SFX", "0").strip() == "1")
         self.style_fonts = bool(style_fonts)
         self.active_tones = (set(active_tones) if active_tones else None)
-        # v1.14.146 — متنِ برابرِ پیشفرضهایِ شناختهشده «سفارشی» نیست
-        # (فیکسِ گوشی: فیلدِ پُرشده با متنِ کلاسیک باعثِ غیرِ auto شدن میشد)
+# متنِ برابرِ پیشفرضهایِ شناختهشده «سفارشی» نیست
+# (فیکسِ گوشی: فیلدِ پُرشده با متنِ کلاسیک باعثِ غیرِ auto شدن میشد)
         _raw_instr = (instruction_text or "").strip() or ""
         if _raw_instr and is_known_default_instruction(_raw_instr):
             _raw_instr = ""
         self.custom_instruction = _raw_instr
-        # v1.14.144 — سبکِ پرامپت: auto بر اساسِ سرویس/مدل انتخاب میکند
+# سبکِ پرامپت: auto بر اساسِ سرویس/مدل انتخاب میکند
         _pm = ((prompt_mode if prompt_mode is not None
                 else os.environ.get("MANGA_PROMPT_MODE", "")) or "auto").lower().strip()
         self.prompt_mode = _pm if _pm in PROMPT_MODES else "auto"
@@ -254,21 +253,20 @@ class MangaTranslator:
         self.gemini_rpm_budget = 5
         self._daily_dead: Dict[Tuple[str, str], bool] = {}
 
-
         self.model_name = (model_name or self.provider_cfg.get("default_model") or "gemini-3.5-flash-lite").strip()
         self._model_cascade: List[str] = []
         self._model_index: int = 0
         self._last_good_model: str = ""
-        # v1.14.160 — قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
-        # پیگیر اون مدل نشه؛ فقط اونای که یک بار کار کرده تست بزنه»
+# قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
+# پیگیر اون مدل نشه؛ فقط اونای که یک بار کار کرده تست بزنه»
         self._model_fail_counts: Dict[str, int] = {}
         self._model_ok_counts: Dict[str, int] = {}
         self._model_banned: set = set()
         _user_base = (api_base or "").strip()
         self.api_base = normalize_api_base(_user_base) if _user_base \
             else self.provider_cfg.get("base_url")
-        # کلید کاستوم: فرمت API از خودِ لینک شناخته می‌شود —
-        # …/chat/completions | …/responses | …/messages | …:generateContent
+# کلید کاستوم: فرمت API از خودِ لینک شناخته می‌شود —
+# …/chat/completions | …/responses | …/messages | …:generateContent
         if _user_base and self.api_base:
             _ftype, _fbase = detect_custom_api_format(self.api_base)
             if _ftype != "openai" or re.search(
@@ -318,9 +316,9 @@ class MangaTranslator:
 
         self.min_translate_batch = max(1, int(getattr(self, "min_translate_batch", 15) or 15))
 
-        # v1.14.196 — سبکِ مرجع: «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن» — کلِ
-        # متنهایِ استخراجشدهٔ فصل در «یک» درخواستِ ترجمه میروند (استریم +
-        # پارسرِ افزایشی)؛ ردیفِ ترجمهٔ ۱۵تاییِ میانهٔ کار دیگر نیست.
+# سبکِ مرجع: «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن» — کلِ
+# متنهایِ استخراجشدهٔ فصل در «یک» درخواستِ ترجمه میروند (استریم +
+# پارسرِ افزایشی)؛ ردیفِ ترجمهٔ ۱۵تاییِ میانهٔ کار دیگر نیست.
         self.chapter_one_request = True
 
         self.erase_bubble_interior = False
@@ -333,7 +331,7 @@ class MangaTranslator:
         self.img_quality = img_quality
         self.max_workers = max(1, int(max_workers))
         self.mag_ratio = mag_ratio
-        # v1.14.243 — clamp عینِ مرجع (Math.Clamp(temperature 0..2, topP 0..1))
+# clamp عینِ مرجع (Math.Clamp(temperature 0..2, topP 0..1))
         try:
             self.translation_temperature = min(2.0, max(0.0, float(translation_temperature)))
         except Exception:
@@ -343,9 +341,9 @@ class MangaTranslator:
         except Exception:
             self.translation_top_p = 0.9
         self.two_pass_ocr = bool(two_pass_ocr)
-        # v1.14.123 — پاسِ دومِ OCR رویِ اندروید هم مثلِ PC روشن است
-        # (قبلاً کلاً خاموش بود → «کمتر استخراج شده»). خاموشیِ دستی:
-        # MANGA_ANDROID_TWO_PASS=0
+# پاسِ دومِ OCR رویِ اندروید هم مثلِ PC روشن است
+# (قبلاً کلاً خاموش بود → «کمتر استخراج شده»). خاموشیِ دستی:
+# MANGA_ANDROID_TWO_PASS=0
         if _on_android() and os.environ.get(
                 "MANGA_ANDROID_TWO_PASS", "").strip().lower() in (
                 "0", "false", "no"):
@@ -354,22 +352,22 @@ class MangaTranslator:
         self.stitch_max_height = int(stitch_max_height) if stitch_max_height else 0
         self.stitch_short_threshold = int(stitch_short_threshold) if stitch_short_threshold else 0
         self.stitch_keep_first = bool(stitch_keep_first)
-        # v1.14.106 — کاربرِ CLI خودش --stitch-max-height داده یا پیش‌فرض است؟
-        # در «حالت صفحات مستقل» (چند لینک/فایلِ مستقیم) برش/چسباندن انجام
-        # نمی‌شود مگر کاربر صراحتاً فلگ را داده باشد یا محیط (اندروید) خواسته باشد.
+# کاربرِ CLI خودش --stitch-max-height داده یا پیش‌فرض است؟
+# در «حالت صفحات مستقل» (چند لینک/فایلِ مستقیم) برش/چسباندن انجام
+# نمی‌شود مگر کاربر صراحتاً فلگ را داده باشد یا محیط (اندروید) خواسته باشد.
         self.stitch_explicit = bool(stitch_explicit)
-        # v1.14.106 — حالتِ صفحاتِ مستقل: هر لینک/فایلِ مستقیم = یک رانِ تکی.
-        # باگِ کاربر: در بچِ چند-لینکی، ریسایزِ گروهیِ عرض (900→800) + چسباندنِ
-        # صفحه‌ها + برشِ دوبارهٔ ~8000px باعث می‌شد (۱) متن‌های تایتلی مثل
-        # GREEN MOON نصف/نپاک بمانند (۲) برشِ داخلِ باندِ سیاهِ هنر، لبهٔ سیاه
-        # بسازد (۳) آستانه‌هایِ گاردِ ترمیم که رویِ مقیاسِ بومی کالیبره شده‌اند
-        # رویِ نسخهٔ ریسایزشده درست کار نکنند. در حالتِ تکی هیچ‌کدام رخ نمی‌دهد.
+# حالتِ صفحاتِ مستقل: هر لینک/فایلِ مستقیم = یک رانِ تکی.
+# باگِ کاربر: در بچِ چند-لینکی، ریسایزِ گروهیِ عرض (900→800) + چسباندنِ
+# صفحه‌ها + برشِ دوبارهٔ ~8000px باعث می‌شد (۱) متن‌های تایتلی مثل
+# GREEN MOON نصف/نپاک بمانند (۲) برشِ داخلِ باندِ سیاهِ هنر، لبهٔ سیاه
+# بسازد (۳) آستانه‌هایِ گاردِ ترمیم که رویِ مقیاسِ بومی کالیبره شده‌اند
+# رویِ نسخهٔ ریسایزشده درست کار نکنند. در حالتِ تکی هیچ‌کدام رخ نمی‌دهد.
         self._independent_pages = False
-        # v1.14.213 — سدِ دو-فازیِ «اول استخراجِ همه، بعد ترجمه»:
-        # پیشفرض True = مسیرهایِ قدیمی (تک‌صفحه‌ایِ اندروید/process_core)
-        # دست‌نخورده؛ run() فقط برای فازِ استخراجِ بچ False میکند و بعد
-        # از joinِ دو کارگرِ استخراج دوباره True — هر فراخوانیِ مترجم در
-        # فازِ استخراج = رگرسیون و با لاگِ بلند اعلام میشود.
+# سدِ دو-فازیِ «اول استخراجِ همه، بعد ترجمه»:
+# پیشفرض True = مسیرهایِ قدیمی (تک‌صفحه‌ایِ اندروید/process_core)
+# دست‌نخورده؛ run فقط برای فازِ استخراجِ بچ False میکند و بعد
+# از joinِ دو کارگرِ استخراج دوباره True — هر فراخوانیِ مترجم در
+# فازِ استخراج = رگرسیون و با لاگِ بلند اعلام میشود.
         self._extraction_done = True
         self.repair_page_seams = bool(repair_page_seams)
         self.debug = bool(debug)
@@ -380,14 +378,14 @@ class MangaTranslator:
         self._lama_preload_started = False
         self._title_skip_patterns: List[str] = []
         MangaTranslator._title_skip_patterns = []
-        # v1.14.210 — قفلِ سریالِ پاکسازیِ صفحه: پاکسازیِ دو صفحهٔ بچ در
-        # دو کارگرِ فازِ دوم همزمان میشد و وضعیتِ صفحه‌محورِ مشترک
-        # (self._page_regions / _compose_text_mask / _page_protect /
-        # _donor_boxes / _lama_force_rect_boxes …) بینِ دو صفحه قاطی
-        # میشد → کامپوزِ صفحهٔ A با نواحی/ماسکِ صفحهٔ B ساخته میشد =
-        # «متنِ قبلی میمونه» + «کلِ حباب انتقال پیدا میکنه / حباب خراب»
-        # فقط در بچ (در حالتِ تکی هرگز همزمانی نیست). حالا بدنهٔ
-        # پاکسازیِ هر صفحه زیرِ این قفلِ کلاسی اجرا میشود.
+# قفلِ سریالِ پاکسازیِ صفحه: پاکسازیِ دو صفحهٔ بچ در
+# دو کارگرِ فازِ دوم همزمان میشد و وضعیتِ صفحه‌محورِ مشترک
+# (self._page_regions / _compose_text_mask / _page_protect /
+# _donor_boxes / _lama_force_rect_boxes …) بینِ دو صفحه قاطی
+# میشد → کامپوزِ صفحهٔ A با نواحی/ماسکِ صفحهٔ B ساخته میشد =
+# «متنِ قبلی میمونه» + «کلِ حباب انتقال پیدا میکنه / حباب خراب»
+# فقط در بچ (در حالتِ تکی هرگز همزمانی نیست). حالا بدنهٔ
+# پاکسازیِ هر صفحه زیرِ این قفلِ کلاسی اجرا میشود.
         if not hasattr(MangaTranslator, "_page_clean_lock"):
             MangaTranslator._page_clean_lock = threading.Lock()
         self.client = None
@@ -399,8 +397,8 @@ class MangaTranslator:
                 "پیشنهاد: فونت Vazirmatn (رایگان و متن‌باز)."
             )
 
-        # v1.14.31: فونت مخصوص «پنجرهٔ سیستم» — اگر --font-system داده نشد،
-        # خودکار دنبال فونت UI (Sahel/System/Code/Mono) کنار فونت اصلی بگرد.
+# فونت مخصوص «پنجرهٔ سیستم» — اگر --font-system داده نشد
+# خودکار دنبال فونت UI (Sahel/System/Code/Mono) کنار فونت اصلی بگرد.
         try:
             _sys_fp = (self.font_by_style or {}).get("system")
             _sys_default = (not _sys_fp
@@ -436,9 +434,9 @@ class MangaTranslator:
             pass
 
         if gpu is None:
-            # v1.14.232 — DirectML هم مسیرِ GPU است (AMD/Intel رویِ ویندوز؛
-            # گزارشِ سازنده: RX 5700 XT هرگز GPU نمیگرفت چون فقط CUDA
-            # بررسی میشد). اولویت: paddle/torch/CUDA → بعد DML.
+# DirectML هم مسیرِ GPU است (AMD/Intel رویِ ویندوز
+# RX 5700 XT هرگز GPU نمیگرفت چون فقط CUDA
+# بررسی میشد). اولویت: paddle/torch/CUDA → بعد DML.
             _dml = False
             try:
                 _dml = (os.name == "nt") and _ort_has_dml()
@@ -446,11 +444,11 @@ class MangaTranslator:
                 _dml = False
             ocr_gpu = (self._detect_paddle_gpu() or self._detect_torch_cuda()
                        or _ort_has_cuda() or _dml)
-            # v1.14.230 — کارتِ انویدیا هست ولی بیلدِ ORT بدونِ CUDA است
-            # (نصبِ قدیمی/دستیِ onnxruntime): دیگر «GPU پیدا نشد» نمیگوییم —
-            # وضعیتِ واقعی + راه‌حل چاپ میشود تا «گرافیک صفر درصد» معما
-            # نمانَد. بوت‌استرپ هم حالا NVIDIA را در ویندوز میبیند و
-            # onnxruntime-gpu را خودش نصب میکند.
+# کارتِ انویدیا هست ولی بیلدِ ORT بدونِ CUDA است
+# (نصبِ قدیمی/دستیِ onnxruntime): دیگر «GPU پیدا نشد» نمیگوییم —
+# وضعیتِ واقعی + راه‌حل چاپ میشود تا «گرافیک صفر درصد» معما
+# نمانَد. بوت‌استرپ هم حالا NVIDIA را در ویندوز میبیند و
+# onnxruntime-gpu را خودش نصب میکند.
             try:
                 _nv = _nvidia_gpu_present()
             except Exception:
@@ -465,8 +463,8 @@ class MangaTranslator:
                       "→ OCR روی CPU. (بارِ بعدی استارت، onnxruntime-gpu خودکار "
                       "نصب میشود؛ یا دستی: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0')")
             else:
-                # v1.14.232 — GPUِ ویندوزیِ بدونِ DirectML: راهنمای روشن
-                # (بوت‌استرپ همان اول باید onnxruntime-directml نصب کند)
+# GPUِ ویندوزیِ بدونِ DirectML: راهنمای روشن
+# (بوت‌استرپ همان اول باید onnxruntime-directml نصب کند)
                 _dx = False
                 try:
                     _dx = _directx_gpu_present()
@@ -504,8 +502,8 @@ class MangaTranslator:
         }
         main_lang = "en"
         for lang in self.ocr_langs:
-            # v1.14.190 — چندزبانه: اندروید = موتورِ دوئلیِ «multi»؛ PC =
-            # مثلِ قبل (ko اولِ لیستِ قدیمی بود)
+# چندزبانه: اندروید = موتورِ دوئلیِ «multi»؛ PC =
+# مثلِ قبل (ko اولِ لیستِ قدیمی بود)
             if str(lang).lower().strip() == "multi":
                 main_lang = "multi" if _on_android() else "korean"
                 break
@@ -523,9 +521,9 @@ class MangaTranslator:
                 print(f"[*] RAM آزاد کم است ({avail_ram:.1f} GB) → workers={self.max_workers} به ۲ محدود شد.")
                 self.max_workers = 2
         if self.max_workers <= 1:
-            # v1.14.167 — بودجهٔ موازیِ سیستم (cpu+ram+gpu) به‌جایِ عددِ
-            # خجالتیِ ۲/۳: همهٔ نواحیِ متن همزمان استخراج و پاک میشوند
-            # (دستور: «حداکثر توانش»)
+# بودجهٔ موازیِ سیستم (cpu+ram+gpu) به‌جایِ عددِ
+# خجالتیِ ۲/۳: همهٔ نواحیِ متن همزمان استخراج و پاک میشوند
+# (دستور: «حداکثر توانش»)
             try:
                 self.max_workers = _parallel_budget("ocr")
             except Exception:
@@ -591,27 +589,27 @@ class MangaTranslator:
                 print(f"[!] PaddleOCR لود نشد ({e}) → RapidOCR ONNX")
 
         if self.ocr is None and _on_android():
-            # v1.14.163 — سبکِ «استخراج و پاکسازی»ٔ مخصوصِ گوشی کلاً حذف
-            # شد (دستورِ سازنده: «سبکِ استخراج و پاکسازی رو گوشی کامل حذف
-            # کنی؛ مالِ پی سی لینوکس استفاده کنه») — نه کاسکاد، نه پاسِ
-            # تمامصفحه. استخراجِ متنِ گوشی = همان سبکِ PC/لینوکس:
-            # detector-v4-s_int8.onnx مکانِ متن را پیدا میکند و OCR فقط
-            # رویِ همان کراپها اجرا میشود.
-            # v1.14.170→187 — موتورِ OCRِ کراپ = رپیدِ رسمیِ اندروید
-            # (PP-OCRv4_mobileِ ONNX؛ ML Kitِ قبلی کامل حذف شد).
+# سبکِ «استخراج و پاکسازی»ٔ مخصوصِ گوشی کلاً حذف
+            #) — نه کاسکاد، نه پاسِ
+# شد (
+# تمامصفحه. استخراجِ متنِ گوشی = همان سبکِ PC/لینوکس:
+# detector-v4-s_int8.onnx مکانِ متن را پیدا میکند و OCR فقط
+# رویِ همان کراپها اجرا میشود.
+# →187 — موتورِ OCRِ کراپ = رپیدِ رسمیِ اندروید
+# (PP-OCRv4_mobileِ ONNX؛ ML Kitِ قبلی کامل حذف شد).
             try:
                 self.ocr = RapidOCRBackend(
                     lang=main_lang, prefer_gpu=self.use_gpu)
                 self._ocr_backend_name = "rapidocr"
                 print("[*] اندروید: استخراجِ متن = فقط رویِ کراپهایِ "
-                      "detector-v4-s (سبکِ PC — v1.14.163)")
+                      "detector-v4-s (سبکِ PC)")
             except Exception as e:
                 print(f"[!] موتورِ OCR گوشی لود نشد ({e})")
                 raise
 
-        # v1.14.120 — اوررایدِ عمومیِ تعدادِ ورکر (MANGA_OCR_WORKERS) —
-        # قبلاً فقط در مسیرِ paddlelite خوانده میشد؛ حالا بعد از انتخابِ
-        # بکاند برایِ همهٔ موتورها اعمال میشود (تستِ ARM-CI: W1/W2/W6).
+# اوررایدِ عمومیِ تعدادِ ورکر (MANGA_OCR_WORKERS) —
+# قبلاً فقط در مسیرِ paddlelite خوانده میشد؛ حالا بعد از انتخابِ
+# بکاند برایِ همهٔ موتورها اعمال میشود (تستِ ARM-CI: W1/W2/W6).
         try:
             _nw_env = int(os.environ.get("MANGA_OCR_WORKERS", "0") or 0)
             if _nw_env > 0:
@@ -631,11 +629,11 @@ class MangaTranslator:
                     "  یا: pip install rapidocr  (یا rapidocr-onnxruntime)"
                 ) from e
 
-        # v1.14.191 — همترازیِ workers × threads ≈ هسته‌ها (همان اصلیِ
-        # LaMa در پاکسازی): با intra=2 رویِ PC، ورکرِ بیشتر از هسته÷۲ فقط
-        # تشتت است (۸ هسته × ۷ ورکر × ۸ نخِ قبل = ۵۶ نخ رویِ ۸ هسته؛
-        # بنچمارکِ کلاسِ PCِ قدیم: صفحهٔ lang_zh.jpg — detِ medium
-        # ۲۹.۷s → ستِ گوشی ۱۸.۴s). اندروید دستنخورده (پلِ خودش میچیند).
+# همترازیِ workers × threads ≈ هسته‌ها (همان اصلیِ
+# LaMa در پاکسازی): با intra=2 رویِ PC، ورکرِ بیشتر از هسته÷۲ فقط
+# تشتت است (۸ هسته × ۷ ورکر × ۸ نخِ قبل = ۵۶ نخ رویِ ۸ هسته
+# بنچمارکِ کلاسِ PCِ قدیم: صفحهٔ lang_zh.jpg — detِ medium
+# ۲۹.۷s → ستِ گوشی ۱۸.۴s). اندروید دستنخورده (پلِ خودش میچیند).
         if self.ocr is not None and not _on_android():
             _thr = int(getattr(self.ocr, "ocr_threads", 0) or 0)
             if _thr > 0:
@@ -653,7 +651,6 @@ class MangaTranslator:
 
         print(f"[*] OCR: {self._ocr_backend_name} | workers={self.max_workers}")
 
-
         self.det = None
         self.det_confidence = float(getattr(self, "det_confidence", 0.28) or 0.28)
         try:
@@ -662,18 +659,18 @@ class MangaTranslator:
                 prefer_gpu=self.use_gpu,
                 conf_thresh=self.det_confidence,
                 iou_thresh=0.45,
-                # v1.14.113-speed — اندروید: 4 نخِ مستقل از workers (فازِ
-                # bubble-det همپوشانی با OCR ندارد؛ قبلاً به workers گره
-                # خورده بود و با workers=2 ناخواسته کند میشد)
+# speed — اندروید: 4 نخِ مستقل از workers (فازِ
+# bubble-det همپوشانی با OCR ندارد؛ قبلاً به workers گره
+# خورده بود و با workers=2 ناخواسته کند میشد)
                 threads=4 if _on_android() else max(1, int(self.max_workers or 2)),
-                # v1.14.123 — multi_scale رویِ اندروید هم (عینِ PC) وقتی
-                # موتورِ OCR = PP-OCRv4_mobileِ ONNX است. کیفیتِ تشخیصِ حباب = PC.
+# multi_scale رویِ اندروید هم (عینِ PC) وقتی
+# موتورِ OCR = PP-OCRv4_mobileِ ONNX است. کیفیتِ تشخیصِ حباب = PC.
                 multi_scale=(not _IS_ANDROID)
                             or (self._ocr_backend_name == "rapidocr"),
             )
         except Exception as e:
             print(f"[!] RT-DETR (detector-v4-s) لود نشد ({e}) → استخراجِ متن و "
-                  "برشِ امن کار نمیکند (مدلِ تشخیص الزامی است — v1.14.163)")
+                  "برشِ امن کار نمیکند (مدلِ تشخیص الزامی است)")
             self.det = None
 
         if self.provider_type == "gemini":
@@ -690,10 +687,10 @@ class MangaTranslator:
                 )
 
             self._key_index = 0
-            # v1.14.70 — در clean-only یا fake-translate هیچ درخواستی به
-            # API زده نمی‌شود؛ ساختِ کلاینتِ واقعی (genai/openai) هم لازم
-            # نیست و رویِ بعضی شبکه‌ها (پروکسیِ IPv6 در no_proxy) حتی
-            # کرش می‌کند.
+# در clean-only یا fake-translate هیچ درخواستی به
+# API زده نمی‌شود؛ ساختِ کلاینتِ واقعی (genai/openai) هم لازم
+# نیست و رویِ بعضی شبکه‌ها (پروکسیِ IPv6 در no_proxy) حتی
+# کرش می‌کند.
             if not self.clean_only and not self.fake_translate:
                 self._apply_api_key(self._api_keys[0])
             else:
@@ -712,8 +709,8 @@ class MangaTranslator:
                     "  pip install openai"
                 )
             self._key_index = 0
-            # v1.14.70 — clean-only/fake-translate: بدونِ کلاینتِ API
-            # (مثلِ شاخهٔ gemini)
+# clean-only/fake-translate: بدونِ کلاینتِ API
+# (مثلِ شاخهٔ gemini)
             if not self.clean_only and not self.fake_translate:
                 self._apply_api_key(self._api_keys[0])
             else:
@@ -757,7 +754,7 @@ class MangaTranslator:
             self._lama_preload_started = False
 
     def _get_lama(self, threads: int = 0, force: bool = False):
-        _t_lw = time.time()  # v1.14.68 — انتظارِ ساختِ سشن
+        _t_lw = time.time()  # انتظارِ ساختِ سشن
         with self._lama_lock:
             try:
                 _lw = time.time() - _t_lw
@@ -767,22 +764,22 @@ class MangaTranslator:
             except Exception:
                 pass
             _l = self._get_lama_locked()
-            # v1.14.45: سرعتِ LaMa — دورِ دوم. وقتی پچِ موازی کم است، تک‌نخی
-            # بودنِ هر پچ یعنی بیشترِ هسته‌ها بیکار (لاگِ POCO F4 کاربر:
-            # ۲ پچ × ۱ نخ = 17.8s). سشن با نخِ بیشتر بازسازی می‌شود تا هر
-            # پچ چندنخی شود؛ محدودیت در _lama_switch_ok.
-            # v1.14.51: force=True — سوئیچِ نخ در لحظهٔ زمان‌بندیِ پچ‌ها یک
-            # بارِ آگاهانه است، نه رگبار؛ خنک‌کاریِ ۲ثانیه‌ای باعث می‌شد اولین
-            # سوئیچ (بعدِ لودِ پس‌زمینه‌ایِ مدل) رد شود و زمان‌بند با
-            # «۲ پچ × ۴ نخ» (کند روی big.LITTLE) کار می‌کرد به‌جای
-            # «۴ پچ × ۲ نخ» (تنظیمِ سریعِ v47 روی POCO F4).
+# سرعتِ LaMa — دورِ دوم. وقتی پچِ موازی کم است، تک‌نخی
+# بودنِ هر پچ یعنی بیشترِ هسته‌ها بیکار (لاگِ POCO F4 کاربر:
+# ۲ پچ × ۱ نخ = 17.8s). سشن با نخِ بیشتر بازسازی می‌شود تا هر
+# پچ چندنخی شود؛ محدودیت در _lama_switch_ok.
+# force=True — سوئیچِ نخ در لحظهٔ زمان‌بندیِ پچ‌ها یک
+# بارِ آگاهانه است، نه رگبار؛ خنک‌کاریِ ۲ثانیه‌ای باعث می‌شد اولین
+# سوئیچ (بعدِ لودِ پس‌زمینه‌ایِ مدل) رد شود و زمان‌بند با
+# «۲ پچ × ۴ نخ» (کند روی big.LITTLE) کار می‌کرد به‌جای
+# «۴ پچ × ۲ نخ» (تنظیمِ سریعِ v47 روی POCO F4).
             _want_sw = (threads and _l is not None and self.use_lama
                         and int(threads) != int(getattr(self, "_lama_threads", 0) or 0)
                         and isinstance(_l, LamaMangaONNX))
             if _want_sw and str(getattr(_l, "ep_used", "") or "cpu").lower() \
                     not in ("", "cpu", "none"):
-                # v1.14.52: دیگر نباید رخ بدهد (ep_used صادق شد) ولی اگر
-                # شد، بی‌صدا نماند
+# دیگر نباید رخ بدهد (ep_used صادق شد) ولی اگر
+# شد، بی‌صدا نماند
                 try:
                     print(f"    [~] سوئیچِ LaMa به {threads} نخ رد شد "
                           f"(EP: {getattr(_l, 'ep_used', '?')})", flush=True)
@@ -791,9 +788,9 @@ class MangaTranslator:
                 _want_sw = False
             if _want_sw and not self._lama_switch_ok(int(threads),
                                                      force=force):
-                # v1.14.52: چراییِ ردِ سوئیچ لاگ شود — شکستِ بی‌صدا = لاگِ
-                # بدونِ سرنخ (لاگِ v1.14.51: هیچ «سشنِ LaMa → ۲ نخ»ی چاپ نشده
-                # بود و نمی‌شد فهمید چرا). فقط یک بار به‌ازایِ درخواست.
+# چراییِ ردِ سوئیچ لاگ شود — شکستِ بی‌صدا = لاگِ
+# بدونِ سرنخ (لاگِ : هیچ «سشنِ LaMa → ۲ نخ»ی چاپ نشده
+# بود و نمی‌شد فهمید چرا). فقط یک بار به‌ازایِ درخواست.
                 try:
                     _av = self._available_ram_gb()
                     _old = int(getattr(self, "_lama_threads", 0) or 0)
@@ -818,7 +815,7 @@ class MangaTranslator:
                     except Exception:
                         pass
                 else:
-                    # v1.14.52: ساختِ سشنِ جدید شکست خورد — دلیلش لاگ شود
+# ساختِ سشنِ جدید شکست خورد — دلیلش لاگ شود
                     try:
                         _av = self._available_ram_gb()
                         print(f"    [!] ساختِ سشنِ LaMa با {threads} نخ ناموفق "
@@ -830,9 +827,9 @@ class MangaTranslator:
 
     def _lama_switch_ok(self, threads: int, force: bool = False) -> bool:
         """محدودِ تغییرِ نخِ سشنِ LaMa — از رگبارِ بازسازی جلوگیری می‌کند.
-        v1.14.48: گاردِ رم ۰.۳۵→۰.۲۸GB (نخِ بیشتر فقط arena کمی بزرگ‌تر
+        : گاردِ رم ۰.۳۵→۰.۲۸GB (نخِ بیشتر فقط arena کمی بزرگ‌تر
         می‌کند، وزن‌ها همان است) + تفاوتِ کمِ نخ (±۱) سوئیچ نمی‌کند تا
-        بازسازیِ پیاپی رخ ندهد. v1.14.51: force=True فقط خنک‌کاریِ ۲s را
+        بازسازیِ پیاپی رخ ندهد. : force=True فقط خنک‌کاریِ ۲s را
         رد می‌کند (گاردِ رم و ±۱ و سقفِ ۴ برقرار می‌ماند)."""
         try:
             _now = time.time()
@@ -845,9 +842,9 @@ class MangaTranslator:
             if not (1 <= int(threads) <= 4):
                 return False
             _av = self._available_ram_gb()
-            # v1.14.51: سوئیچِ روبه‌پایین (۴→۲) arena را «کوچک‌تر» می‌کند —
-            # گاردِ رم برایش سخت‌گیریِ بی‌مورد است (لاگِ POCO F4: همین گارد
-            # سوئیچ را می‌خورد و زمان‌بند روی «۲ پچ × ۴ نخ»یِ کند می‌ماند).
+# سوئیچِ روبه‌پایین (۴→۲) arena را «کوچک‌تر» می‌کند —
+# گاردِ رم برایش سخت‌گیریِ بی‌مورد است (لاگِ POCO F4: همین گارد
+# سوئیچ را می‌خورد و زمان‌بند روی «۲ پچ × ۴ نخ»یِ کند می‌ماند).
             _thr_min = 0.12 if int(threads) < _old else 0.28
             if _av and _av < _thr_min:
                 return False
@@ -862,7 +859,7 @@ class MangaTranslator:
             return None
 
     def _get_lama_cpu_safe(self):
-        """v1.14.65 — سشنِ امنِ CPU برایِ نجاتِ پچِ LaMa وقتی EPِ اصلی
+        """ — سشنِ امنِ CPU برایِ نجاتِ پچِ LaMa وقتی EPِ اصلی
         (xnnpack/nnapi) وسطِ کارِ واقعی ORT_FAIL می‌دهد (پروبِ شکلِ ثابت
         پاس می‌شود ولی پچِ داینامیک نه — ریشهٔ «لکهٔ قرمزِ» POCO F4).
         فقط بارِ اول ساخته می‌شود و کش می‌ماند؛ مدل از همان کش می‌آید."""
@@ -871,7 +868,7 @@ class MangaTranslator:
             return _s
         if getattr(self, "_lama_cpu_safe_failed", False):
             return None
-        # v1.14.65b — قفل: دو پچِ موازی نباید دو سشنِ CPU بسازند (رمِ گوشی)
+# قفل: دو پچِ موازی نباید دو سشنِ CPU بسازند (رمِ گوشی)
         _lk = getattr(self, "_lama_cpu_safe_lock", None)
         if _lk is None:
             import threading as _th
@@ -891,7 +888,7 @@ class MangaTranslator:
                 except Exception:
                     _av = None
                 if _av and _av < 0.30:
-                    # رمِ آزادِ خیلی کم — ساختِ سشنِ دوم خطرِ OOM دارد
+# رمِ آزادِ خیلی کم — ساختِ سشنِ دوم خطرِ OOM دارد
                     self._lama_cpu_safe_failed = True
                     try:
                         print(f"    [~] سشنِ CPUِ امنِ LaMa ساخته نشد "
@@ -916,9 +913,9 @@ class MangaTranslator:
 
     def _force_box_gradient_fill(self, image: np.ndarray,
                                  cx0: int, cy0: int, cx1: int, cy1: int):
-        """v1.14.65 — آخرین فال‌بکِ بلوکِ «متنِ روشن روی محفظهٔ تیره»
+        """ — آخرین فال‌بکِ بلوکِ «متنِ روشن روی محفظهٔ تیره»
         وقتی هم EP شکست خورد هم سشنِ CPU: کلِ داخلِ باکس با همان ریاضیِ
-        پرکنندهٔ گرادیانیِ v1.14.60/62 (میانهٔ محلیِ پیکسل‌هایِ تیره) پر
+        پرکنندهٔ گرادیانیِ /62 (میانهٔ محلیِ پیکسل‌هایِ تیره) پر
         می‌شود. چرا نه اسنپ‌شات؟ چون در مسیرِ block-rect∪ink هیچ
         پرکنندهٔ فوری‌ای اجرا نشده و اسنپ‌شات هنوز خودِ متن را دارد
         (بازتولیدِ سندباکس: pastingِ متنِ اصلی!). قابِ تزئینی با فرسایشِ
@@ -967,7 +964,6 @@ class MangaTranslator:
         return None
 
     def _get_lama_locked(self):
-
 
         if self._lama is None and self.use_lama:
             if _on_android():
@@ -1021,7 +1017,7 @@ class MangaTranslator:
             if _backend == "onnx":
                 _want_torch = False
             elif _backend == "torch":
-                # v1.14.29: کاربر lama-big خواسته → torch همین‌جا نصب می‌شود (بار اول)
+# کاربر lama-big خواسته → torch همین‌جا نصب می‌شود (بار اول)
                 if not _torch_available():
                     _ensure_torch_cpu()
                 _want_torch = _torch_available()
@@ -1040,8 +1036,8 @@ class MangaTranslator:
                 print("    [*] بارگذاری lama.onnx ...")
             if self._lama is None and self.use_lama:
                 try:
-                    # نخِ هر نشست LaMa را با تعداد پچ‌های موازی تنظیم کن تا
-                    # CPU اشباعِ درست شود (workers × threads ≈ هسته‌ها)
+# نخِ هر نشست LaMa را با تعداد پچ‌های موازی تنظیم کن تا
+# CPU اشباعِ درست شود (workers × threads ≈ هسته‌ها)
                     try:
                         _awa = int(self._lama_workers_auto())
                     except Exception:
@@ -1050,16 +1046,16 @@ class MangaTranslator:
                         _nc = int(self._cpu_core_count())
                     except Exception:
                         _nc = os.cpu_count() or 4
-                    # v1.14.48: لاگِ POCO F4 (۸ هسته) نشان داد سشن با ۲ نخ باز
-                    # می‌شد (۸÷min(awa,4)=۲) و سوئیچِ بعدی هم با گاردِ رم رد
-                    # می‌شد → ۴ هسته بیکار. حالا سشنِ اولیه با هسته‌ها÷۲ (تا سقف
-                    # ۴) باز می‌شود: ۲ پچ × ۴ نخ = ۸ هسته = CPUِ کامل بدونِ بازسازی
+# لاگِ POCO F4 (۸ هسته) نشان داد سشن با ۲ نخ باز
+# می‌شد (۸÷min(awa,4)=۲) و سوئیچِ بعدی هم با گاردِ رم رد
+# می‌شد → ۴ هسته بیکار. حالا سشنِ اولیه با هسته‌ها÷۲ (تا سقف
+# ۴) باز می‌شود: ۲ پچ × ۴ نخ = ۸ هسته = CPUِ کامل بدونِ بازسازی
                     _thr = max(1, min(4, _nc // 2))
                     self._lama = LamaMangaONNX(
                         prefer_gpu=self.use_gpu,
                         threads=_thr,
                     )
-                    # v1.14.65: مسیرِ مدل برایِ سشنِ امنِ CPU (نجاتِ پچ)
+# مسیرِ مدل برایِ سشنِ امنِ CPU (نجاتِ پچ)
                     try:
                         self._lama_model_path = getattr(
                             self._lama, "model_path", None)
@@ -1079,8 +1075,8 @@ class MangaTranslator:
                         self.use_lama = False
                         self._lama = None
                         self._inpainter_name = "OpenCV"
-        # v1.14.45: نخِ واقعیِ سشنِ اولیه ثبت شود تا اولین سوئیچِ تطبیقیِ
-        # _get_lama(threads=…) بی‌دلیل بازسازی نکند
+# نخِ واقعیِ سشنِ اولیه ثبت شود تا اولین سوئیچِ تطبیقیِ
+# _get_lama(threads=…) بی‌دلیل بازسازی نکند
         if self._lama is not None and not getattr(self, "_lama_threads_seen", False):
             self._lama_threads = int(getattr(self._lama, "thr_used", 0) or 0)
             self._lama_threads_seen = True
@@ -1168,18 +1164,17 @@ class MangaTranslator:
 
     @staticmethod
     def _static_fallback_models(primary: str) -> List[str]:
-        # v1.14.230 — لیستِ ثابت با مدل‌هایِ «واقعاً موجود» (نوامبر ۲۰۲۶ —
-        # مستنداتِ رسمیِ Gemini / فهرستِ models): قبلاً gemini-3.7-flash و
-        # gemini-3.5-flash (غیرِ Lite) در لیست بودند که هرگز/دیگر وجود
-        # ندارند — گزارشِ سازنده: «بعضی هاش کلا از کار افتادن فیک داده
-        # … لیستش اپدیت نیست». حالا: پایدارها (3.5-flash-lite،
-        # 3.1-flash-lite، 3.6-flash) + پرچمدارِ gemini-4-argon + previewِ
-        # 3.8-flash + اسم‌هایِ -latest. لیستِ ثابت فقط وقتی استفاده
-        # میشود که کشفِ زندهٔ API هیچ مدلی برنگرداند.
-        # v1.14.232 — دستورِ سازنده: «فقط مدلای flash و flash-lite و
-        # flash-preview این لیست هارو باید بگیره بقیش نباید بگیره» →
-        # argon و pro از فهرستِ ثابت حذف شدند؛ همانِ
-        # GEMINI_FLASH_MODELS_OFFLINE (یک منبعِ واحد).
+# لیستِ ثابت با مدل‌هایِ «واقعاً موجود» (نوامبر ۲۰۲۶ —
+# مستنداتِ رسمیِ Gemini / فهرستِ models): قبلاً gemini-3.7-flash و
+# gemini-3.5-flash (غیرِ Lite) در لیست بودند که هرگز/دیگر وجود
+        #. حالا: پایدارها (3.5-flash-lite
+# ندارند —
+# 3.1-flash-lite، 3.6-flash) + پرچمدارِ gemini-4-argon + previewِ
+# 3.8-flash + اسم‌هایِ -latest. لیستِ ثابت فقط وقتی استفاده
+# میشود که کشفِ زندهٔ API هیچ مدلی برنگرداند.
+        # →
+# argon و pro از فهرستِ ثابت حذف شدند؛ همانِ
+# GEMINI_FLASH_MODELS_OFFLINE (یک منبعِ واحد).
         preferred = list(GEMINI_FLASH_MODELS_OFFLINE)
         cascade = [primary] if primary else []
         for m in preferred:
@@ -1206,8 +1201,8 @@ class MangaTranslator:
             "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest"
         )
 
-        # v1.14.160 — خواستهٔ کاربر: «چرا از Flash-Lite استفاده نمیکنه؟»
-        # Lite اول (سبک‌تر/ارزون‌تر)، بعد Flash، بعد preview/pro.
+# خواستهٔ کاربر: «چرا از Flash-Lite استفاده نمیکنه؟»
+# Lite اول (سبک‌تر/ارزون‌تر)، بعد Flash، بعد preview/pro.
         if is_lite:
             type_rank = 0
         elif is_flash:
@@ -1247,9 +1242,8 @@ class MangaTranslator:
                     continue
                 if not low.startswith("gemini"):
                     continue
-                # v1.14.232 — دستورِ سازنده: «فقط مدلای flash و flash-lite
-                # و flash-preview … بقیش نباید بگیره» → کشفِ SDK هم فقط
-                # flash؛ pro/argon دیگر در چرخِ کشف نمیآیند.
+                # → کشفِ SDK هم فقط
+# flash؛ pro/argon دیگر در چرخِ کشف نمیآیند.
                 if "flash" not in low:
                     continue
                 if "preview" in low and "flash" not in low:
@@ -1271,9 +1265,9 @@ class MangaTranslator:
             _msg = str(e).split(chr(10))[0][:120]
             print(f"    [!] کشفِ SDK مدل ناموفق: {_msg} → تلاشِ REST")
 
-        # v1.14.160 — خواستهٔ کاربر: «مدل‌ها همیشه از سایتِ گوگل گرفته شوند» —
-        # اگر خودِ SDK لیست نداد، مستقیم از REST سرورِ گوگل پرسیده میشود تا
-        # مدل‌هایِ مرده (مثلِ gemini-2.5-flash که از رفته) اصلاً در چرخ نیایند.
+# خواستهٔ کاربر: «مدل‌ها همیشه از سایتِ گوگل گرفته شوند» —
+# اگر خودِ SDK لیست نداد، مستقیم از REST سرورِ گوگل پرسیده میشود تا
+# مدل‌هایِ مرده (مثلِ gemini-2.5-flash که از رفته) اصلاً در چرخ نیایند.
         if not names:
             names = self._discover_models_via_rest()
         if not names:
@@ -1283,7 +1277,7 @@ class MangaTranslator:
         return uniq
 
     def _discover_models_via_rest(self) -> List[str]:
-        """v1.14.160 — کشفِ مدل با REST مستقیم (v1beta/models) وقتی SDK لیست
+        """ — کشفِ مدل با REST مستقیم (v1beta/models) وقتی SDK لیست
         نداد. خروجی فقط مدل‌هایِ زندهٔ همین لحظهٔ گوگل است."""
         import requests as _rq
         key = ""
@@ -1319,8 +1313,8 @@ class MangaTranslator:
                     continue
                 if any(b in low for b in ban_substrings):
                     continue
-                # v1.14.232 — فقط flash/flash-lite/flash-preview (دستورِ
-                # سازنده) — pro/argon از کشفِ REST هم حذف شدند.
+# فقط flash/flash-lite/flash-preview (دستورِ
+# سازنده) — pro/argon از کشفِ REST هم حذف شدند.
                 if "flash" not in low:
                     continue
                 if "preview" in low and "flash" not in low:
@@ -1350,18 +1344,17 @@ class MangaTranslator:
             return True
         if not low.startswith("gemini"):
             return True
-        # v1.14.230 — «argon» نامِ پرچمدارِ نسلِ ۴ است (بدونِ flash/pro)
+# «argon» نامِ پرچمدارِ نسلِ ۴ است (بدونِ flash/pro)
         if "argon" in low:
             return False
         if "flash" not in low and "pro" not in low:
             return True
-        # v1.14.230 — مدل‌هایِ مُردهٔ نسلِ ۱/۲ (گزارشِ سازنده: «بعضی هاش
-        # کلا از کار افتادن … مثلا مدل gemini 2.5 flash وجود نداره از
-        # کجا میگیره»): سرویسِ gوگل در models.list هنوز اسمهایِ مُرده را
-        # برمیگرداند ولی generateContent رویشان 404 میدهد (تاییدِ رسمی:
-        # gemini-2.0-flash و 2.0-flash-lite خاموش؛ 2.5-flash/pro بهمرور
-        # ۱ دسامبر ۲۰۲۶). هر gemini-1.x/2.x از چرخ/لیست حذف میشود —
-        # کاربر همچنان میتواند دستی تایپ کند (allow_custom_value).
+        #): سرویسِ gوگل در models.list هنوز اسمهایِ مُرده را
+# مدل‌هایِ مُردهٔ نسلِ ۱/۲ (
+# برمیگرداند ولی generateContent رویشان 404 میدهد (تاییدِ رسمی:
+# gemini-2.0-flash و 2.0-flash-lite خاموش؛ 2.5-flash/pro بهمرور
+# ۱ دسامبر ۲۰۲۶). هر gemini-1.x/2.x از چرخ/لیست حذف میشود —
+# کاربر همچنان میتواند دستی تایپ کند (allow_custom_value).
         _m = re.match(r"gemini-(\d+)", low)
         if _m:
             try:
@@ -1373,10 +1366,8 @@ class MangaTranslator:
 
     @staticmethod
     def _is_bad_list_model(name: str) -> bool:
-        """v1.14.232 — صافیِ «فهرستِ مدلها» (دراپ‌داونِ وب / ↻ اندروید /
-        کشفِ زندهٔ API): فقط flash و flash-lite و flash-preview (دستورِ
-        سازنده: «فقط مدلای flash و flash-lite و flash-preview این لیست
-        هارو باید بگیره بقیش نباید بگیره») — pro و argon دیگر در هیچ
+        """ — صافیِ «فهرستِ مدلها» (دراپ‌داونِ وب / ↻ اندروید /
+        کشفِ زندهٔ API): فقط flash و flash-lite و flash-preview () — pro و argon دیگر در هیچ
         فهرستی نمیآیند. این صافی فقط برایِ فهرست است؛ تایپِ دستیِ
         مدلهایِ دیگر (argon/pro) در فیلدِ مدل همچنان آزاد و در ترجمه
         پذیرفته میشود (_is_bad_translate_model سرِ جایش است)."""
@@ -1411,7 +1402,7 @@ class MangaTranslator:
         if client is not None:
             discovered = self._discover_models_from_api(client)
 
-        # v1.14.160 — مدل‌هایِ بنشده (۳ بار ناموجود) برنمیگردند
+# مدل‌هایِ بنشده (۳ بار ناموجود) برنمیگردند
         discovered = [m for m in discovered
                       if m not in getattr(self, "_model_banned", set())]
 
@@ -1448,7 +1439,7 @@ class MangaTranslator:
         return kept or static
 
     def _note_model_ok(self, name: str = "") -> None:
-        """v1.14.160 — مدلی که یک بار جوابِ درست داد «اثباتشده» میشود:
+        """ — مدلی که یک بار جوابِ درست داد «اثباتشده» میشود:
         شمارندهٔ خطایش صفر میشود و دیگر با قاعدهٔ ۳-مردن بن نمیشود."""
         try:
             name = (name or self._thread_model() or "").replace("models/", "").strip()
@@ -1460,7 +1451,7 @@ class MangaTranslator:
         self._model_fail_counts.pop(name, None)
 
     def _note_model_fail(self, name: str = "", ban_after: int = 3) -> bool:
-        """v1.14.160 — قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
+        """ — قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
         پیگیر اون مدل نشه». خطایِ دسترسیِ مدل (404/gone/UNAVAILABLE/bad)
         شمرده میشود؛ ۳ بار بدونِ حتی یک جوابِ درست → بنِ نشست. مدلی که
         حداقل یک بار کار کرده بن نمیشود. quota/rate شمرده نمیشود
@@ -1515,7 +1506,7 @@ class MangaTranslator:
         local = getattr(tls, "local_cascade", None) if tls is not None else None
         if local:
             li = int(getattr(tls, "local_index", 0) or 0)
-            # v1.14.160 — مدل‌هایِ بنشده (۳ بار ناموجود) در چرخ رد میشوند
+# مدل‌هایِ بنشده (۳ بار ناموجود) در چرخ رد میشوند
             while li + 1 < len(local) and local[li + 1] in banned:
                 li += 1
             li += 1
@@ -1545,9 +1536,9 @@ class MangaTranslator:
         return True
 
     def _reset_model_cascade(self, reason: str = "") -> None:
-        # v1.14.160 — اگر اولِ کاسکاد مدلی بنشده باشد (۳ بار ناموجود)،
-        # کاسکاد باید از نو ساخته شود وگرنه همان مدلِ مرده دوباره اول
-        # میآمد و چرخِ بن تکرار میشد.
+# اگر اولِ کاسکاد مدلی بنشده باشد (۳ بار ناموجود)
+# کاسکاد باید از نو ساخته شود وگرنه همان مدلِ مرده دوباره اول
+# میآمد و چرخِ بن تکرار میشد.
         banned = getattr(self, "_model_banned", set())
         _head_dead = bool(self._model_cascade) \
             and self._model_cascade[0] in banned
@@ -1576,7 +1567,6 @@ class MangaTranslator:
             f"    [*] ریست cascade مدل → {self.model_name} "
             f"[1/{len(self._model_cascade)}]{extra}"
         )
-
 
     def _switch_to_next_key(self, reason: str = "", cycle: bool = False) -> bool:
 
@@ -1777,8 +1767,8 @@ class MangaTranslator:
 
         langs = [str(x).lower().strip() for x in (getattr(self, "ocr_langs", None) or ["en"])]
         if "multi" in langs:
-            # v1.14.190 — چندزبانه = همهٔ خطها مجاز (وگرنه فیلترِ
-            # ضدِ چرت، متنِ CJK را «غیرِ انگلیسی» میپنداشت و حذف میکرد)
+# چندزبانه = همهٔ خطها مجاز (وگرنه فیلترِ
+# ضدِ چرت، متنِ CJK را «غیرِ انگلیسی» میپنداشت و حذف میکرد)
             return True, True, True, True
         allow_en = any(l == "en" or l.startswith("en") for l in langs)
         allow_ko = any(l == "ko" or l.startswith("ko") or l in ("korean", "hangul") for l in langs)
@@ -1789,5 +1779,3 @@ class MangaTranslator:
             allow_ko = allow_ja = allow_zh = False
             allow_en = True
         return allow_en, allow_ko, allow_ja, allow_zh
-
-

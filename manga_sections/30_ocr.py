@@ -1,11 +1,10 @@
 # BUILD-STRIP-START
-# ─────────────────────────────────────────────────────────────
-# 📦 OCR — موتورهای متن‌خوانی (Paddle/RapidOCR/نردبان) + تستِ سرعت
+# OCR — موتورهای متن‌خوانی (Paddle/RapidOCR/نردبان) + تستِ سرعت
 # PaddleAndroidOCR، MtLadderOCR و لولهٔ سنجشِ سرعتِ OCR.
 # (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 def _cjk_dominant(t: str) -> bool:
-    """v1.14.154 — «بعد فارسی بحرف چرا چینی میحرفی» — ریشهٔ واقعی:
+    """ — «بعد فارسی بحرف چرا چینی میحرفی» — ریشهٔ واقعی:
     dictِ PP-OCRv6 medium (ppocrv6_chars.txt) = ۱۸۷۰۷ نویسه که ۱۵۷۴۵
     تایش CJK است و فقط ۵۲ تا لاتین؛ با ocr_lang=en رویِ متنِ استایل‌دار،
     argmax میافتد رویِ نویسههایِ CJK → خطِ «انگلیسی» پر از 汉字 میشود
@@ -26,28 +25,20 @@ def _cjk_dominant(t: str) -> bool:
     except Exception:
         return False
 
-
-# ═══════════════════════════════════════════════════════════════════════
-# v1.14.187 — موتورِ OCRِ گوشی = RapidOCRِ اندروید (ONNXِ خالص — تنها روش).
-# دستورِ سازنده: «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا
-# ۱.۱۴.۱۸۶ https://github.com/RapidAI/RapidOcrAndroidOnnx ببین چجور به
-# این خوبی استخراج میکنه همونو رو گوشی بزار … این خیلی خوب استخراج
-# میزنه متن هاش خوب در میاره» — یعنی سهگانهٔ RapidOcrAndroidOnnx:
-#   det = ch_PP-OCRv4_det_mobile.onnx (DBNet 4.5MB) + cls =
-#   ch_ppocr_mobile_v2.0_cls (AngleNet) + rec = ch_PP-OCRv4_rec_mobile
-#   (CRNN 10.4MB) — داخلِ ماژولِ «ppocr-sdk» رویِ همان ORTِ رسمی،
-#   بیت‌به‌بیتِ پیشپردازش/پسپردازشِ RapidOCR (dilate 2×2، clsِ 192×48،
-#   recِ ارتفاعِ ۴۸ + CTCِ blank=۰ + دیکشنریِ متنی).
-#   • استخراج فقط رویِ «کراپهایِ detector-v4-s_int8.onnx» صدا زده میشود
-#     (همان مسیرِ _ocr_crop → RapidOCRBackend.ocr → self._mobile.ocr)
-#     — هیچ پاسِ تمامصفحهای نیست (دستورِ همیشگیِ سازنده: «باید اول
-#     detector-v4-s_int8.onnx خوب قسمت های متن پیدا کنه بعد همون قسمت
-#     باید استخراج متن استفاده کنه»).
-#   • موتور رویِ هر کراپ det+recِ کامل اجرا میکند: DetPreprocessor →
-#     DBPostProcessor → QuadTextCrop → cls → RecPreprocessor → CTCDecoder.
-#   • قراردادِ خروجی = سطرِ META|lang|n + سطرهایِ ang|conf|box|text|blk
-#     (همان قراردادِ همیشه) — پارسرِ مشترک بدونِ تغییر.
-# ═══════════════════════════════════════════════════════════════════════
+# موتورِ OCRِ گوشی = RapidOCRِ اندروید (ONNXِ خالص — تنها روش).
+# یعنی سهگانهٔ RapidOcrAndroidOnnx:
+# det = ch_PP-OCRv4_det_mobile.onnx (DBNet 4.5MB) + cls =
+# ch_ppocr_mobile_v2.0_cls (AngleNet) + rec = ch_PP-OCRv4_rec_mobile
+# (CRNN 10.4MB) — داخلِ ماژولِ «ppocr-sdk» رویِ همان ORTِ رسمی
+# بیت‌به‌بیتِ پیشپردازش/پسپردازشِ RapidOCR (dilate 2×2، clsِ 192×48
+# recِ ارتفاعِ ۴۸ + CTCِ blank=۰ + دیکشنریِ متنی).
+# • استخراج فقط رویِ «کراپهایِ detector-v4-s_int8.onnx» صدا زده میشود
+# (همان مسیرِ _ocr_crop → RapidOCRBackend.ocr → self._mobile.ocr)
+# — هیچ پاسِ تمامصفحهای نیست.
+# • موتور رویِ هر کراپ det+recِ کامل اجرا میکند: DetPreprocessor →
+# DBPostProcessor → QuadTextCrop → cls → RecPreprocessor → CTCDecoder.
+# • قراردادِ خروجی = سطرِ META|lang|n + سطرهایِ ang|conf|box|text|blk
+# (همان قراردادِ همیشه) — پارسرِ مشترک بدونِ تغییر.
 
 _MOBILE_LANG_MAP = {
     "en": "latin", "latin": "latin", "english": "latin", "fa": "latin",
@@ -55,40 +46,34 @@ _MOBILE_LANG_MAP = {
     "japan": "ja", "ja": "ja", "japanese": "ja",
     "ch": "zh", "zh": "zh", "chinese": "zh", "ch_sim": "zh",
     "zh_hans": "zh", "zh_hant": "zh", "zh-tw": "zh", "zh_tw": "zh",
-    # v1.14.190 — چندزبانه: پاسِ اول با recِ پیشفرضِ v6_medium + دوئلِ
-    # koِ لازمالآمد (PaddleAndroidOCR._ocr_multi) — «همشو یکجا دانلود نزنه»
+# چندزبانه: پاسِ اول با recِ پیشفرضِ v6_medium + دوئلِ
+# koِ لازمالآمد (PaddleAndroidOCR._ocr_multi) — «همشو یکجا دانلود نزنه»
     "multi": "multi",
 }
-
 
 def _mobile_lang(lang):
     """نرمالسازیِ زبان برایِ سطرِ METAِ موتورِ گوشی."""
     return _MOBILE_LANG_MAP.get(str(lang or "en").lower(), "latin")
 
-
-# ═══════════════════════════════════════════════════════════════════
-# v1.14.187 — موتورِ OCRِ کراپ = RapidOCRِ اندروید (RapidOcrAndroidOnnx)
-# داخلِ ppocr-sdkِ وندورشده رویِ ORTِ رسمی. دستورِ سازنده: «ببین چجور
-# به این خوبی استخراج میکنه همونو رو گوشی بزار» + دستورِ قبلی: «اول
+# موتورِ OCRِ کراپ = RapidOCRِ اندروید (RapidOcrAndroidOnnx)
+# + دستورِ قبلی: «اول
+# داخلِ ppocr-sdkِ وندورشده رویِ ORTِ رسمی.
 # detector-v4-s همه قسمت هایِ متن پیدا کنه فقط همون قسمت ها استخراج
 # کنه تا سریعتر باشه». پلِ Kotlin = PaddleOcrBridge (پلِ نازک رویِ
 # RapidOcr.create) با قراردادِ سطرهایِ META
 # (META|lang|n + ang|conf|box|text|blk) تا پارسرِ مشترک کار کند.
-# v1.14.188 — دستورِ سازنده: «چرت پرت هم زیاد استخراج میکنه … همون
-# مدل onnx v6 ocr … مدل v6_medium استفاده کن» → مدلها = detِ
+# → مدلها = detِ
 # PP-OCRv6_small (10MB — همان detِ PC) + cls (0.6MB) + recِ
 # PP-OCRv6_MEDIUM (73MB؛ charsetِ ۱۸۷۰۸یِ ppocrv6_chars) + واریانتهایِ
-# زبانِ rec (ja/ko) — دانلودیِ زمانِ اجرا (v1.14.189)؛ latin/zh = recِ mediumِ
+# زبانِ rec (ja/ko) — دانلودیِ زمانِ اجرا ؛ latin/zh = recِ mediumِ
 # پیشفرض (واریانتِ rec_enِ v4 حذف شد).
-# (تاریخچهٔ v1.14.187: سهگانهٔ PP-OCRv4_mobile — det 4.5MB + rec 10.4MB
-# + ppocr_keys_v1) انتخابِ زبان (v1.14.188: latin/zh = recِ mediumِ
+# (تاریخچهٔ : سهگانهٔ PP-OCRv4_mobile — det 4.5MB + rec 10.4MB
+# + ppocr_keys_v1) انتخابِ زبان (: latin/zh = recِ mediumِ
 # پیشفرض؛ فقط ja/ko سشن عوض میکنند) →
 # recognizeAuto زبانِ هر کراپ را میفرستد و سشنِ rec رویِ واریانتِ همان
 # زبان گرم میشود (ja→japan، ko→korean، بقیه→mediumِ پیشفرض).
 # فالبکی نیست؛ خطایِ موتور = خروجیِ خالیِ همان کراپ.
-# ═══════════════════════════════════════════════════════════════════
 _PAD_STATS = {"ms": 0.0, "n": 0, "lines": 0}
-
 
 def _pad_stats_note(t0, nlines):
     try:
@@ -103,10 +88,9 @@ def _pad_stats_note(t0, nlines):
     except Exception:
         pass
 
-
 class PaddleAndroidOCR:
     """OCRِ کراپ با موتورِ RapidOCRِ اندروید (RapidOcrAndroidOnnx —
-    v1.14.187). det (ch_PP-OCRv4_det_mobile) → DBPostProcess (dilate 2×2،
+    ). det (ch_PP-OCRv4_det_mobile) → DBPostProcess (dilate 2×2
     unclip 1.6) → کراپِ پرسپکتیو → cls (AngleNetِ 192×48) → rec
     (ch_PP-OCRv4_rec_mobileِ واریانتِ زبان، ارتفاعِ ۴۸، بچِ پدشده) →
     CTC با دیکشنریِ متنی (blank=۰ + سطرها + فاصله). خروجی:
@@ -121,17 +105,16 @@ class PaddleAndroidOCR:
         except Exception as e:
             raise RuntimeError(
                 "پلِ PaddleOcrBridge در APKِ نصب‌شده نیست — APKِ جدید "
-                "(v1.14.187+) را نصب کن: " + str(e)[:90])
+                " را نصب کن: " + str(e)[:90])
         self.lang = _mobile_lang(lang)
         self.debug = True
-        # v1.14.190 — وضعیتِ دوئلِ چندزبانه (حافظهٔ کوتاهِ کراپ به کراپ)
+# وضعیتِ دوئلِ چندزبانه (حافظهٔ کوتاهِ کراپ به کراپ)
         self._multi_pref = None
         self._multi_ko_logged = False
-        # v1.14.190 — پیشرفتِ دانلودِ مدلها به لاگِ اپ (دستورِ سازنده:
-        # «وقتی داره onnx دانلود میزنه نشون نمیده تو لاگش چقدر دانلود
-        # شده») — sinkِ پایتونی به OcrModelStore داده میشود؛ خطوطِ
-        # [دانلود] دقیقاً به همان جریانِ لاگی میروند که کاربر میبیند.
-        # رویِ APKِ قدیمی/PC بیاثر (best-effort)
+# پیشرفتِ دانلودِ مدلها به لاگِ اپ —
+# sinkِ پایتونی به OcrModelStore داده میشود؛ خطوطِ
+# [دانلود] دقیقاً به همان جریانِ لاگی میروند که کاربر میبیند.
+# رویِ APKِ قدیمی/PC بیاثر (best-effort)
         try:
             from java import jclass as _jc, dynamic_proxy as _dp
 
@@ -146,10 +129,10 @@ class PaddleAndroidOCR:
                 ).setProgressSink(_PyDlSink())
         except Exception:
             pass
-        # v1.14.189 — مدلها دیگر باندلِ APK نیستند (دستورِ سازنده: «onnx
-        # تو گوشی واسه استخراج با نصب نیاد … حجم اپ زیاد میشه»)؛ اپ در
-        # اولین استفاده فقط مدلهایِ زبانِ انتخابی را از ریلیزِ «models»
-        # دانلود میکند (OcrModelStore) و در filesDir/models نگه میدارد.
+        #)؛ اپ در
+# مدلها دیگر باندلِ APK نیستند (
+# اولین استفاده فقط مدلهایِ زبانِ انتخابی را از ریلیزِ «models»
+# دانلود میکند (OcrModelStore) و در filesDir/models نگه میدارد.
         try:
             _cpu_n = os.cpu_count() or 4
         except Exception:
@@ -162,16 +145,16 @@ class PaddleAndroidOCR:
         except Exception:
             pass
         try:
-            # v1.14.189 — زبانِ انتخابی به init میرود تا فقط مدلِ همان
-            # زبان (اگ نبود) دانلود شود؛ نه همهٔ مدلها با هم
+# زبانِ انتخابی به init میرود تا فقط مدلِ همان
+# زبان (اگ نبود) دانلود شود؛ نه همهٔ مدلها با هم
             _ok_init = bool(self._bridge.init(_intra, str(self.lang or "en")))
         except TypeError:
             _ok_init = bool(self._bridge.init(_intra))
         if not _ok_init:
             raise RuntimeError(
                 "initِ PaddleOcrBridge ناموفق بود (RapidOCR/APK/دانلودِ مدل؟)")
-        # سلف‌تستِ دسترسپذیری: کراپِ ریزِ سفید → باید سطرِ META برگردد؛
-        # شکستِ یک‌باره = خطایِ صریح (فالبکی نیست — ML Kit حذف شده).
+# سلف‌تستِ دسترسپذیری: کراپِ ریزِ سفید → باید سطرِ META برگردد
+# شکستِ یک‌باره = خطایِ صریح (فالبکی نیست — ML Kit حذف شده).
         try:
             _img = np.full((64, 64, 3), 255, dtype=np.uint8)
             _ok, _buf = cv2.imencode(".png", _img)
@@ -190,11 +173,11 @@ class PaddleAndroidOCR:
         print(f"[+] OCR گوشی: RapidOCRِ اندروید آماده | "
               f"RapidOcrAndroidOnnx | det=PP-OCRv6_small "
               f"cls=v2.0_cls rec=PP-OCRv6_medium/{self.lang} "
-              f"(دانلودی — v1.14.194) | threads={_intra}")
+              f"(دانلودی) | threads={_intra}")
 
-    # v1.14.190 — آستانهٔ دوئلِ چندزبانه: زیرِ این اطمینان، تلاشِ ko هم
-    # میشود (متنِ کره‌ای با recِ پیشفرضِ v6 چرت میزند — charsetِ v6
-    # هیچ هانگولی ندارد؛ بنچمارکِ دیکشنری: ۰ از ۱۸۷۰۸)
+# آستانهٔ دوئلِ چندزبانه: زیرِ این اطمینان، تلاشِ ko هم
+# میشود (متنِ کره‌ای با recِ پیشفرضِ v6 چرت میزند — charsetِ v6
+# هیچ هانگولی ندارد؛ بنچمارکِ دیکشنری: ۰ از ۱۸۷۰۸)
     _MULTI_CONF_FLOOR = 0.72
 
     def _call_auto(self, buf, lang):
@@ -229,8 +212,7 @@ class PaddleAndroidOCR:
         return texts, (sum(confs) / len(confs) if confs else 0.0)
 
     def _ocr_multi(self, buf):
-        """چندزبانه (v1.14.190 — دستورِ سازنده: «دکمه چند زبانه خودش
-        همه زبان هارو استخراج میزنه کار نمیکنه»): پاسِ اول با recِ
+        """چندزبانه ( — ): پاسِ اول با recِ
         پیشفرضِ v6_medium (latin/zh/ja را میخواند). اگر ضعیف بود =
         مظنونِ کره‌ای (v6 هانگول ندارد) → یک تلاشِ ko؛ بهترِ دو پاس
         برمیگردد. واریانتِ ko همینجا و فقط با اولین کراپِ کره‌ای دانلود
@@ -279,7 +261,7 @@ class PaddleAndroidOCR:
                 ".png", np.ascontiguousarray(image_bgr))
             if not _ok:
                 return None
-            # v1.14.190 — چندزبانه: دوئلِ واریانتِ rec (سمتِ manga)
+# چندزبانه: دوئلِ واریانتِ rec (سمتِ manga)
             if self.lang == "multi":
                 out = self._ocr_multi(_buf.tobytes())
             else:
@@ -317,7 +299,6 @@ class PaddleAndroidOCR:
         _pad_stats_note(_t0, len(lines))
         return [lines] if lines else None
 
-
 def _mt_boost_crop(crop_bgr: np.ndarray):
     """گامِ «افزایشِ کیفیتِ کراپ»ٔ مرجع: پدِ سفید دورِ کراپ (متنِ چسبیده به
     لبه — مثلِ img6 «You're the real attraction here.» که رویِ لبهٔ چپِ
@@ -341,7 +322,6 @@ def _mt_boost_crop(crop_bgr: np.ndarray):
                          interpolation=cv2.INTER_CUBIC)
     return out, pad, scale
 
-
 def _mt_map_boxes(lines, pad: float, scale: float):
     """باکسهایِ کراپِ تقویتشده → مختصاتِ کراپِ اصلی."""
     out = []
@@ -356,9 +336,7 @@ def _mt_map_boxes(lines, pad: float, scale: float):
             continue
     return out
 
-
 _MT_STATS = {"n": 0, "ms": 0.0, "st1": 0, "st2": 0, "st3": 0}
-
 
 def _mt_stats_note(t0: float, stage: int) -> None:
     try:
@@ -373,12 +351,10 @@ def _mt_stats_note(t0: float, stage: int) -> None:
     except Exception:
         pass
 
-
 class MtLadderOCR:
-    """v1.14.187 — استخراجِ کراپ با RapidOCRِ اندروید (ONNXِ خالص).
+    """ — استخراجِ کراپ با RapidOCRِ اندروید (ONNXِ خالص).
 
-    دستورِ سازنده: «ببین چجور به این خوبی استخراج میکنه همونو رو گوشی
-    بزار» (RapidOcrAndroidOnnx) → سهگانهٔ RapidOCR (detِ v4 + cls + recِ
+    (RapidOcrAndroidOnnx) → سهگانهٔ RapidOCR (detِ v4 + cls + recِ
     v4ِ واریانتِ زبان) جایگزینِ PP-OCRv6_small شد؛ نردبانِ چندپلهای
     قدیمی (پدلِ ONNXِ medium / رپیدِ small / فلاتر-پدلِ tiny و
     مقایسههایِ پوشش/اطمینان) همچنان حذف است. فقط:
@@ -387,27 +363,25 @@ class MtLadderOCR:
       برگرداندنِ مختصات. هیچ پاسِ تمامصفحهای نیست (بهجز مسیرِ جانبیِ
       قدیمیِ crop_mode=False) و هیچ فالبکی وجود ندارد (خالی = خالی)."""
 
-    # v1.14.187 — تنها روشِ استخراجِ گوشی = RapidOCRِ اندروید
-    # (دستورِ سازنده: «ببین چجور به این خوبی استخراج میکنه همونو رو
-    # گوشی بزار»). مقدارهایِ کهنهٔ MANGA_MT_MODE
-    # (full/fast/rapid/paddle/flutter/mlkit/…) همگی نادیده گرفته میشوند.
+# تنها روشِ استخراجِ گوشی = RapidOCRِ اندروید؛ مقدارهایِ کهنهٔ MANGA_MT_MODE
+# (full/fast/rapid/paddle/flutter/mlkit/…) همگی نادیده گرفته میشوند.
     _MT_MODES = ("padandroid",)
 
     def __init__(self, lang: str, build_onnx=None, build_pad=None):
-        # v1.14.184 — build_onnx دیگر «هرگز» صدا زده نمیشود (هیچ موتورِ
-        # ONNXِ دیگری رویِ گوشی وجود ندارد؛ پارامتر فقط برایِ سازگاریِ
-        # امضایِ قدیمی نگاه داشته شده). فقط build_pad = RapidOCRِ اندروید.
+# build_onnx دیگر «هرگز» صدا زده نمیشود (هیچ موتورِ
+# ONNXِ دیگری رویِ گوشی وجود ندارد؛ پارامتر فقط برایِ سازگاریِ
+# امضایِ قدیمی نگاه داشته شده). فقط build_pad = RapidOCRِ اندروید.
         self._lang = lang
         self._build_onnx = None
-        self._build_pad = build_pad    # callable() → RapidOCRِ اندروید (ppocr-sdk)
+        self._build_pad = build_pad    # callable → RapidOCRِ اندروید (ppocr-sdk)
         self._pad = None
         self._pad_tried = False
-        # v1.14.184 — هر مقدارِ کهنه (full/fast/rapid/paddle/flutter/
-        # mlkit/…) نادیده گرفته میشود؛ تنها روش = «padandroid».
+# هر مقدارِ کهنه (full/fast/rapid/paddle/flutter/
+# mlkit/…) نادیده گرفته میشود؛ تنها روش = «padandroid».
         self._mode = "padandroid"
 
     def _engine_pad(self):
-        """v1.14.187 — موتورِ «RapidOCRِ اندروید» با کشِ خودش.
+        """ — موتورِ «RapidOCRِ اندروید» با کشِ خودش.
         هر خطا/نبودِ پل → None (کراپِ بدونِ موتور = خروجیِ خالی)."""
         if self._pad_tried:
             return self._pad
@@ -425,8 +399,8 @@ class MtLadderOCR:
         if image_bgr is None or getattr(image_bgr, "size", 0) == 0:
             return None
         _t0 = time.time()
-        # مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → RapidOCR؛ استخراجِ
-        # اصلی فقط رویِ کراپ است (دستورِ مرجع: «نه رو تمام صفحه»).
+# مسیرِ تمامصفحه (مسیرهایِ جانبیِ قدیمی) → RapidOCR؛ استخراجِ
+# اصلی فقط رویِ کراپ است (دستورِ مرجع: «نه رو تمام صفحه»).
         if not crop_mode:
             eng0 = self._engine_pad()
             if eng0 is None:
@@ -439,7 +413,7 @@ class MtLadderOCR:
                 _mt_stats_note(_t0, 1)
                 return None
 
-        # ── RapidOCR رویِ کراپِ تقویتشده (تنها پله؛ بدونِ پلههایِ ۲/۳) ──
+# RapidOCR رویِ کراپِ تقویتشده (تنها پله؛ بدونِ پلههایِ ۲/۳) ──
         eng0 = self._engine_pad()
         if eng0 is None:
             _mt_stats_note(_t0, 1)
@@ -455,17 +429,16 @@ class MtLadderOCR:
         _mt_stats_note(_t0, 1)
         return [lines1] if lines1 else None
 
-
-# ── v1.14.187 — انتخابِ موتورِ OCRِ گوشی ─────────────────────────────
-#   تنها روش = «RapidOCRِ اندروید» (سهگانهٔ RapidOcrAndroidOnnx با
-#   PP-OCRv4_mobileِ باندل در assetsِ APK) — MANGA_ANDROID_OCR /
-#   MANGA_MOBILE_OCR_ENGINE و مقدارهایِ کهنهٔ MANGA_MT_MODE همگی
-#   نادیده گرفته میشوند (دستورِ سازنده: «همونو رو گوشی بزار»).
-# ── v1.14.176 — «آزمایشگاهِ سرعتِ استخراج» ────────────────────────────
-# تنظیمها از پنلِ اپ میآیند → bridge آنها را به speed_lab_env() میدهد →
+# انتخابِ موتورِ OCRِ گوشی ─────────────────────────────
+# تنها روش = «RapidOCRِ اندروید» (سهگانهٔ RapidOcrAndroidOnnx با
+# PP-OCRv4_mobileِ باندل در assetsِ APK) — MANGA_ANDROID_OCR /
+# MANGA_MOBILE_OCR_ENGINE و مقدارهایِ کهنهٔ MANGA_MT_MODE همگی
+# نادیده گرفته میشوند .
+# «آزمایشگاهِ سرعتِ استخراج» ────────────────────────────
+# تنظیمها از پنلِ اپ میآیند → bridge آنها را به speed_lab_env میدهد →
 # envهایِ مانده ست/پاک میشوند. پیشفرضِ هر کلید = رفتارِ همین نسخه.
 
-# v1.14.187 — RapidOCR رویِ CPU اجرا میشود؛ EPهایِ ONNXِ قدیمی
+# RapidOCR رویِ CPU اجرا میشود؛ EPهایِ ONNXِ قدیمی
 # (nnapi/xnnpack/cpu) دیگر معنا ندارند. روشِ یگانه = padandroid.
 
 # اسمِ فارسیِ هر روش برایِ لاگها (کلیدِ انگلیسی هم کنارش میآید تا لاگ
@@ -474,25 +447,24 @@ _MT_MODE_FA = {
     "padandroid": "رپیدِ رسمیِ اندروید",
 }
 
-# v1.14.181 — پاکسازیِ یکبارِ مصرفِ مدلهایِ ONNXِ بازنده از گوشی.
-# دستورِ سازنده: «بقیش حذف کن تو گوشی استفاده نکنه». v1.14.183 —
-# ML Kit هم کلاً حذف شد (دستور: «ml kit حذف کن خوب نیست»). v1.14.184 —
-# مدلهایِ medium هم بازنده شدند. v1.14.187 — استخراج = RapidOCRِ
+# پاکسازیِ یکبارِ مصرفِ مدلهایِ ONNXِ بازنده از گوشی.
+# . —
+# ML Kit هم کلاً حذف شد (دستور: «ml kit حذف کن خوب نیست»). —
+# مدلهایِ medium هم بازنده شدند. — استخراج = RapidOCRِ
 # اندروید (RapidOcrAndroidOnnx) با سهگانهٔ PP-OCRv4_mobileِ باندلشده
 # در APK (هیچ مدلِ OCRی دانلود نمیشود).
 # سه مجموعهٔ مدلِ بازنده از پوشهٔ rapidocr_modelsِ گوشی حذف میشوند:
-#   رپید (small): PP-OCRv6_det_small[.int8]/rec_small + cls + ja/ko
-#   پدل (medium): PP-OCRv6_medium_det/rec + korean v5 + ch v4
-#   فلاتر-پدل (tiny): PP-OCRv6_tiny_det/rec + dictِ tiny
+# رپید (small): PP-OCRv6_det_small[.int8]/rec_small + cls + ja/ko
+# پدل (medium): PP-OCRv6_medium_det/rec + korean v5 + ch v4
+# فلاتر-پدل (tiny): PP-OCRv6_tiny_det/rec + dictِ tiny
 # فهرستِ نامها از خودِ _RAPIDOCR_FILES میآید (بدونِ تغییرِ آن dict —
 # PC از همان helper برایِ مجموعهٔ سبکِ خودش استفاده میکند و بیت‌به‌بیت
 # دستنخورده میماند) + نوعِ int8ِ detِ رپید.
 _MT_PURGE_EXTRA = ("PP-OCRv6_det_small.int8.onnx",)
 _PURGE_MARKER = ".onnx_loser_models_purged"
 
-
 def _purge_loser_onnx_models() -> str:
-    """v1.14.181 — حذفِ یکبارِ مدلهایِ ONNXِ بازنده از گوشی.
+    """ — حذفِ یکبارِ مدلهایِ ONNXِ بازنده از گوشی.
 
     فقط اندروید (گیتِ MANGA_PURGE_ONNX_MODELS) — PC بیت‌به‌بیت
     دستنخورده (پوشهٔ هم‌نام رویِ PC مدلهایِ موتورِ خودش را دارد و
@@ -512,8 +484,8 @@ def _purge_loser_onnx_models() -> str:
         if os.path.isfile(_mk):
             return ""
         _names = set(_RAPIDOCR_FILES) | set(_MT_PURGE_EXTRA)
-        # v1.14.187 — موتورِ گوشی = RapidOCR با سهگانهٔ PP-OCRv4_mobileِ
-        # باندل در APK — هیچ فایلِ مدلی در rapidocr_models نگه داشته نمیشود.
+# موتورِ گوشی = RapidOCR با سهگانهٔ PP-OCRv4_mobileِ
+# باندل در APK — هیچ فایلِ مدلی در rapidocr_models نگه داشته نمیشود.
         _keep = ()
         _freed = 0
         _n = 0
@@ -538,35 +510,33 @@ def _purge_loser_onnx_models() -> str:
         except Exception:
             pass
         if _n:
-            print("[🧹] v1.14.181 — %d فایلِ مدلِ بازنده (%s) از گوشی حذف شد"
+            print("[🧹] %d فایلِ مدلِ بازنده (%s) از گوشی حذف شد"
                   % (_n, _fmt_mb(_freed)))
             return ("مدلهایِ بازنده حذف شد: %d فایل / %s آزاد شد — "
-                    "روشِ فعالِ v1.14.187 = RapidOCRِ اندروید"
+                    "روشِ فعال = RapidOCRِ اندروید"
                     % (_n, _fmt_mb(_freed)))
         return ""
     except Exception:
         return ""
 
-
 def speed_lab_env(p: dict) -> str:
-    """v1.14.187 — روشِ استخراجِ گوشی = RapidOCRِ اندروید
+    """ — روشِ استخراجِ گوشی = RapidOCRِ اندروید
     (RapidOcrAndroidOnnx با سهگانهٔ PP-OCRv4_mobileِ باندل).
 
-    تاریخچه: 1.14.176 سوییچهایِ پنل؛ 1.14.178 دکمهٔ «تستِ سرعت»؛
-    1.14.181 forceِ برنده + پاکسازیِ مدلهایِ بازنده؛ 1.14.182/183 پدلِ
-    رسمیِ اندروید و حذفِ ML Kit؛ 1.14.184 — تنها روش = SDKِ رسمی؛
-    1.14.187 — دستورِ سازنده: «متن هاش اشتباهه بعضی وقتا … همونو رو
-    گوشی بزار» → تنها روش = RapidOCRِ اندروید؛ پارامترِ p خوانده نمیشود
+    تاریخچه: سوییچهایِ پنل؛ دکمهٔ «تستِ سرعت»
+     forceِ برنده + پاکسازیِ مدلهایِ بازنده؛ /183 پدلِ
+    رسمیِ اندروید و حذفِ ML Kit؛ — تنها روش = SDKِ رسمی
+     — → تنها روش = RapidOCRِ اندروید؛ پارامترِ p خوانده نمیشود
     (سازگاریِ امضا با bridge)."""
     try:
-        # کلیدهایِ قدیمیِ سوییچها هرگز از این نسخه ست نمیشوند — پاککاری
-        # برایِ اینکه envِ ماندهٔ پروسههایِ قدیمی اثر نگذارد.
+# کلیدهایِ قدیمیِ سوییچها هرگز از این نسخه ست نمیشوند — پاککاری
+# برایِ اینکه envِ ماندهٔ پروسههایِ قدیمی اثر نگذارد.
         for _k in ("MANGA_OCR_THREADS", "MANGA_XNN_THREADS",
                    "MANGA_CROP_DET_CAP", "MANGA_CROP_ENH_SCALE"):
             os.environ.pop(_k, None)
 
-        # v1.14.187 — RapidOCR رویِ CPU اجرا میشود؛ هر EPِ کهنه پاک
-        # میشود و روشِ فعال همیشه «padandroid» است.
+# RapidOCR رویِ CPU اجرا میشود؛ هر EPِ کهنه پاک
+# میشود و روشِ فعال همیشه «padandroid» است.
         os.environ.pop("MANGA_MOBILE_OCR_EP", None)
         _w = speed_test_load()
         _lad = "padandroid"
@@ -580,10 +550,10 @@ def speed_lab_env(p: dict) -> str:
         except Exception:
             _ms_l = ""
 
-        # v1.14.181 — پاکسازیِ یکبارِ مدلهایِ ONNXِ بازنده از گوشی
+# پاکسازیِ یکبارِ مدلهایِ ONNXِ بازنده از گوشی
         _purge = _purge_loser_onnx_models()
 
-        # سنجههایِ سرعت = مالِ «این اجرا» — بینِ کارها ریست
+# سنجههایِ سرعت = مالِ «این اجرا» — بینِ کارها ریست
         for _k in ("n", "ms", "st1", "st2", "st3"):
             _MT_STATS[_k] = 0 if _k != "ms" else 0.0
         for _k in ("ms", "n", "lines"):
@@ -602,11 +572,8 @@ def speed_lab_env(p: dict) -> str:
     except Exception:
         return ""
 
-
-# ── v1.14.178 — «تستِ سرعت»: یک دکمه، همهٔ حالتها ───────────────────
-# دستورِ سازنده پس از دو باگِ زنجیرهٔ پنل (176/177): «حذفش کن — یک
-# دکمه بذار، فعال کردم همه حالت تست کنه، تایم بگیره یک دقیقه
-# هرکدومشون، بعد ببینم کدومش سریعه». پس: نه سوییچ، نه انتقالِ تنظیم
+# «تستِ سرعت»: یک دکمه، همهٔ حالتها ───────────────────
+#. پس: نه سوییچ، نه انتقالِ تنظیم
 # از پنل — خودِ موتور همهٔ حالتها را رویِ کراپهایِ واقعیِ همین تصویر
 # اندازه میگیرد (هر حالت یک پنجرهٔ ۶۰ ثانیهای) و برنده را در
 # speed_test.json ذخیره میکند؛ speed_lab_env از همان فایل هر کار را
@@ -615,11 +582,9 @@ def speed_lab_env(p: dict) -> str:
 
 _SPEED_TEST_FILE = "speed_test.json"
 
-
 def _speed_test_path() -> str:
     return os.path.join(os.environ.get("MANGA_FILES_DIR") or os.getcwd(),
                         _SPEED_TEST_FILE)
-
 
 def speed_test_load():
     """نتیجهٔ ذخیرهشدهٔ «تستِ سرعت» — dict یا None."""
@@ -632,14 +597,12 @@ def speed_test_load():
         pass
     return None
 
-
 def _speed_test_save(d: dict) -> None:
     try:
         with open(_speed_test_path(), "w", encoding="utf-8") as _f:
             json.dump(d, _f, ensure_ascii=False, indent=2)
     except Exception as _e:
         print(f"[!] ذخیرهٔ نتیجهٔ «تستِ سرعت» ناموفق: {str(_e)[:120]}")
-
 
 def _speed_test_pool(page, det0, cap: int = 24):
     """کراپهایِ واقعیِ متن از پاسِ تشخیصِ کاملصفحه — بزرگترینها تا
@@ -672,9 +635,8 @@ def _speed_test_pool(page, det0, cap: int = 24):
     except Exception:
         return []
 
-
 def _speed_test_tiles(page, cap: int = 24):
-    """v1.14.179 — کراپهایِ جایگزین: وقتی تشخیصِ تمامصفحه چیزی نداد
+    """ — کراپهایِ جایگزین: وقتی تشخیصِ تمامصفحه چیزی نداد
     (لاگِ 178: «در تصویر متنِ خواندنی پیدا نشد» → کلِ تست قطع شد و فقط
     یک حالت «تست» شده بود)، صفحه به کاشیهایِ واقعی (~512px) بریده
     میشود تا تستِ سرعت هیچوقت بنبست پیدا نکند و همهٔ روشها همیشه
@@ -706,7 +668,6 @@ def _speed_test_tiles(page, cap: int = 24):
     except Exception:
         return []
 
-
 def _speed_test_window(runner, pool, per_mode, should_stop=None):
     """یک پنجرهٔ زمانی رویِ pool: کراپِ اول = گرمکردنِ مدلها (بیرونِ
     سنجه)؛ بعد تا پرشدنِ پنجره کراپها لوپ میشود. خروجی =
@@ -737,20 +698,19 @@ def _speed_test_window(runner, pool, per_mode, should_stop=None):
             break
     return _n, _tsum, _err, _stopped
 
-
 def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
                    should_stop=None, backend=None):
-    """«تستِ سرعتِ استخراج» — یک پنجره رویِ روشِ یگانهٔ v1.14.187.
+    """«تستِ سرعتِ استخراج» — یک پنجره رویِ روشِ یگانهٔ .
 
     ۱) تصویر ورودی باز میشود؛ RapidOCRِ اندروید یک پاسِ تشخیصِ
        کاملصفحه میزند و کراپهایِ واقعیِ متن را میدهد (تا ۲۴ کراپ).
        اگر تشخیص چیزی نداد — صفحه به کاشیهایِ واقعیِ (~۵۱۲px) بریده
-       میشود؛ تست هیچوقت بنبست پیدا نمیکند (v1.14.179).
+       میشود؛ تست هیچوقت بنبست پیدا نمیکند ().
     ۲) یک پنجرهٔ روش (padandroid = RapidOCRِ اندروید با
        PP-OCRv4_mobileِ باندل) رویِ همان کراپها؛ موتورِ واقعی
        اندازهگیری میشود. پنجرههایِ روشها/شتاب‌دهندههایِ قدیمی
        (full/fast/rapid/paddle/flutter + cpu/xnnpack/nnapi) حذف شدند —
-       فقط یک روش وجود دارد (دستورِ سازنده: «همونو رو گوشی بزار»).
+       فقط یک روش وجود دارد ().
     ۳) نتیجه در speed_test.json ذخیره میشود (speed_lab_env) — دیگر
        هیچ انتخابی در کار نیست؛ فقط برایِ لاگِ سازنده.
     خروجی: dictِ نتیجه (یا None با پیامِ لاگ). backend فقط برایِ تست
@@ -790,13 +750,13 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     _prev = speed_test_load() or {}
     _nnapi_pending = bool(_prev.get("nnapi_pending"))
 
-    # v1.14.187 — تنها موتورِ اندازهگیری = RapidOCRِ اندروید
+# تنها موتورِ اندازهگیری = RapidOCRِ اندروید
     try:
         _padbe = be._build_paddle_android(lang)
     except Exception:
         _padbe = None
 
-    # ── استخرِ کراپها: یک پاسِ تشخیصِ کاملصفحه با RapidOCR ──
+# استخرِ کراپها: یک پاسِ تشخیصِ کاملصفحه با RapidOCR ──
     log("[⚡] استخرِ کراپهایِ واقعی از تصویر…")
     _res0 = None
     if _padbe is not None:
@@ -807,10 +767,10 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
             log("[!] تشخیصِ تمامصفحه خطا داد: %s" % str(_e)[:140])
     pool = _speed_test_pool(page, _res0)
     if not pool:
-        # v1.14.179 — پایانِ بنبستِ ۱۷۸: بهجایِ قطعِ کلِ تست (لاگ:
-        # «در تصویر متنِ خواندنی پیدا نشد» → فقط یک حالت «تست» شده بود)
-        # صفحه به کاشیهایِ واقعیِ خودش بریده میشود؛ همهٔ پنجرهها همیشه
-        # پیموده میشوند.
+# پایانِ بنبستِ ۱۷۸: بهجایِ قطعِ کلِ تست (لاگ:
+# «در تصویر متنِ خواندنی پیدا نشد» → فقط یک حالت «تست» شده بود)
+# صفحه به کاشیهایِ واقعیِ خودش بریده میشود؛ همهٔ پنجرهها همیشه
+# پیموده میشوند.
         pool = _speed_test_tiles(page)
         log("[⚡] تشخیصِ تمامصفحه چیزی ندید — با %d کاشیِ واقعیِ خودِ "
             "صفحه ادامه میدهیم؛ همهٔ روشها اندازهگیری میشوند." % len(pool))
@@ -830,7 +790,7 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     _total = len(_modes)
     _wi = 0
 
-    # ── پنجرههایِ روشِ استخراج ──
+# پنجرههایِ روشِ استخراج ──
     for _mode in _modes:
         _wi += 1
         _need_ok = {"padandroid": _padbe is not None}[_mode]
@@ -869,9 +829,9 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
                    _n, _ms))
         _speed_test_save(_res)  # بعد از هر پنجره ذخیره — کرش = از دست نمیرود
 
-    # ── v1.14.187 — پنجرههایِ شتاب‌دهنده حذف شدند: RapidOCR رویِ CPU ──
+# پنجرههایِ شتاب‌دهنده حذف شدند: RapidOCR رویِ CPU ──
 
-    # ── برندهها + جدولها ──
+# برندهها + جدولها ──
     _ok_l = {k: v for k, v in _res["ladder_ms"].items() if v}
     _ok_e = {k: v for k, v in _res["ep_ms"].items() if v}
     if not _ok_l and not _ok_e:
@@ -888,8 +848,8 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
                       for k, v in sorted(_ok_l.items(), key=lambda kv: kv[1]))
     log("[⚡] جدولِ روشها (سریع → کند): %s" % (_tbl or "—"))
     log("[⚡] شتاب‌دهندهٔ جداگانه ندارد — RapidOCR رویِ CPU با "
-        "EngineConfig.numThreads اجرا میشود (v1.14.184).")
-    log("[⚡] برنده: روشِ %s (%s؛ %s) → ذخیره شد (v1.14.184: تنها روش — "
+        "EngineConfig.numThreads اجرا میشود.")
+    log("[⚡] برنده: روشِ %s (%s؛ %s) → ذخیره شد (تنها روش — "
         "شتاب‌دهندهٔ جداگانه ندارد)."
         % (_MT_MODE_FA.get(_best_l, _best_l), _best_l,
            ("%.0fms/کراپ" % _ok_l[_best_l]) if _best_l in _ok_l else "—"))
@@ -899,7 +859,6 @@ def speed_test_run(src, langs=("en",), per_mode=60.0, log=print,
     except Exception:
         pass
     return _res
-
 
 def _mt_speed_report() -> str:
     """گزارشِ سرعتِ «این اجرا» — bridge بعد از پایانِ هر کار لاگش میکند
@@ -928,9 +887,7 @@ def _mt_speed_report() -> str:
     except Exception:
         return ""
 
-
 _RAPIDOCR_RECOVER_LOCK = threading.Lock()
-
 
 class RapidOCRBackend:
 
@@ -938,35 +895,35 @@ class RapidOCRBackend:
         self.lang = lang
         self._new_api = False
         self._mobile = None
-        # v1.14.154 — گاردِ CJK برایِ زبانِ لاتین (اندروید؛ PC بدونِ گیت
-        # همیشه خاموش — رفتارِ PC بیت‌به‌بیت)
+# گاردِ CJK برایِ زبانِ لاتین (اندروید؛ PC بدونِ گیت
+# همیشه خاموش — رفتارِ PC بیت‌به‌بیت)
         try:
             self._cjk_guard = _android_gate("MANGA_CJK_GUARD") and \
                 str(lang).lower() in ("en", "latin", "english")
         except Exception:
             self._cjk_guard = False
-        # v1.14.123 — اندروید: موتورِ PP-OCRv6 ONNX (عینِ PC/مرجع) از
-        # rapidocr_mobile (بدونِ پکیجِ rapidocr/pyclipper/shapely).
-        # زمینه: دیکدِ اپِ مرجع نشان داد مرجع رویِ گوشی هم همین پایپلاینِ
-        # ONNX را اجرا میکند (RunRapidOcrPipelineOnCrop + _ppOcrDict +
-        # ppocrv6_dict.txt) و دقیق/سریع استخراج میزند. درخواستِ کاربر:
-        # «استخراجِ مالِ پی‌سی لینوکس هستو رو گوشی اوکی کرد».
+# اندروید: موتورِ PP-OCRv6 ONNX (عینِ PC/مرجع) از
+# rapidocr_mobile (بدونِ پکیجِ rapidocr/pyclipper/shapely).
+# زمینه: دیکدِ اپِ مرجع نشان داد مرجع رویِ گوشی هم همین پایپلاینِ
+# ONNX را اجرا میکند (RunRapidOcrPipelineOnCrop + _ppOcrDict +
+# ppocrv6_dict.txt) و دقیق/سریع استخراج میزند. درخواستِ کاربر:
+# «استخراجِ مالِ پی‌سی لینوکس هستو رو گوشی اوکی کرد».
         if _IS_ANDROID:
             self._init_mobile_engine(lang)
             return
-        # v1.14.96-speed — prefer_gpu از MangaTranslator.use_gpu می‌آید
-        # (همان تصمیمِ auto/--cpuِ OCR). None = رفتارِ قبل (فقط CPU).
+# speed — prefer_gpu از MangaTranslator.use_gpu می‌آید
+# (همان تصمیمِ auto/--cpuِ OCR). None = رفتارِ قبل (فقط CPU).
         self._prefer_gpu = prefer_gpu
         try:
-            # v1.14.29: rapidocr فقط همین‌جا (وقتی موتور ONNX واقعاً لازم است) نصب می‌شود
+# rapidocr فقط همین‌جا (وقتی موتور ONNX واقعاً لازم است) نصب می‌شود
             if not _ensure_rapidocr_pkg():
                 raise ImportError("rapidocr نصب نیست و نصب خودکار ناموفق بود")
             from rapidocr import RapidOCR as NewRapidOCR
-            # v1.14.95 — سکوتِ لاگِ RapidOCR: هر کراپِ خالی یک خطِ
-            # [WARNING] «The text detection result is empty» می‌نوشت و
-            # کنسول/وب را پر می‌کرد (شکایتِ «لاگِ اضافه» کاربر).
-            # نکته: موتور در init خودش level را INFO می‌کند → setLevel
-            # کافی نیست؛ «فیلتر» رویِ همان لاگر ماندگار است.
+# سکوتِ لاگِ RapidOCR: هر کراپِ خالی یک خطِ
+# [WARNING] «The text detection result is empty» می‌نوشت و
+# کنسول/وب را پر می‌کرد (شکایتِ «لاگِ اضافه» کاربر).
+# نکته: موتور در init خودش level را INFO می‌کند → setLevel
+# کافی نیست؛ «فیلتر» رویِ همان لاگر ماندگار است.
             try:
                 import logging as _lg
 
@@ -1016,27 +973,27 @@ class RapidOCRBackend:
             _base = {"Global.model_root_dir": _mdir} if _mdir else {}
             if _mdir:
                 try:
-                    # v1.14.29: فقط مدل‌های همین زبان دانلود می‌شود — نه همهٔ زبان‌ها
-                    # (det مشترک است؛ rec مخصوص زبان؛ cls دیگر استفاده نمی‌شود)
-                    # v1.14.152 — مجموعهٔ مرجع با helperِ مشترک
+# فقط مدل‌های همین زبان دانلود می‌شود — نه همهٔ زبان‌ها
+# (det مشترک است؛ rec مخصوص زبان؛ cls دیگر استفاده نمی‌شود)
+# مجموعهٔ مرجع با helperِ مشترک
                     _det_n, _rec_n = _rapidocr_model_pair(
-                        lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
+                        lang, small=_pc_ocr_small())  # PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
                     _ensure_rapidocr_models(_mdir,
                                             files=[_det_n, _rec_n])
                 except Exception as _e:
                     print(f"[!] پیش‌دانلود مدل‌ها ناموفق: {_e}")
-            # v1.14.96-speed — مدل‌هایِ det/rec (و cls اگر فایلش موجود باشد)
-            # «صریحاً» از فایل‌هایِ دانلودشدهٔ ریلیزِ «models» (GitHub) به
-            # موتور داده می‌شوند: rapidocr دیگر خودش دانلود/بررسیِ SHA از
-            # modelscope انجام نمی‌دهد و دقیقاً همان فایلِ کش‌شده (که از
-            # ریلیزِ models آمده) استفاده می‌شود. فایل نبود؟ → همان رفتارِ
-            # قبل: rapidocr خودش برمی‌دارد (model_root_dir).
+# speed — مدل‌هایِ det/rec (و cls اگر فایلش موجود باشد)
+# «صریحاً» از فایل‌هایِ دانلودشدهٔ ریلیزِ «models» (GitHub) به
+# موتور داده می‌شوند: rapidocr دیگر خودش دانلود/بررسیِ SHA از
+# modelscope انجام نمی‌دهد و دقیقاً همان فایلِ کش‌شده (که از
+# ریلیزِ models آمده) استفاده می‌شود. فایل نبود؟ → همان رفتارِ
+# قبل: rapidocr خودش برمی‌دارد (model_root_dir).
             _gpu_flags = {}
             if _mdir:
                 try:
-                    # v1.14.152 — مسیرِ صریحِ مدلها از helperِ مجموعهٔ مرجع
+# مسیرِ صریحِ مدلها از helperِ مجموعهٔ مرجع
                     _det_n, _rec_n = _rapidocr_model_pair(
-                        lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
+                        lang, small=_pc_ocr_small())  # PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
                     for _sec, _fn in (
                             ("Det", _det_n),
                             ("Rec", _rec_n),
@@ -1045,11 +1002,11 @@ class RapidOCRBackend:
                         if _os.path.isfile(_mp) \
                                 and _os.path.getsize(_mp) > 100_000:
                             _base[f"{_sec}.model_path"] = _mp
-                    # v1.14.152 — مدلهایِ رسمیِ PaddlePaddle (medium/korean)
-                    # dict را داخلِ metadata ندارند → rapidocr بدونِ
-                    # rec_keys_path دنبالِ dict_url میگردد و «Missing key
-                    # dict_url» میدهد. فایلِ dict محلیِ همان مدل را میدهیم
-                    # (ch v4 و japan خودشان dictِ داخلی دارند — دست نمیخورند).
+# مدلهایِ رسمیِ PaddlePaddle (medium/korean)
+# dict را داخلِ metadata ندارند → rapidocr بدونِ
+# rec_keys_path دنبالِ dict_url میگردد و «Missing key
+# dict_url» میدهد. فایلِ dict محلیِ همان مدل را میدهیم
+# (ch v4 و japan خودشان dictِ داخلی دارند — دست نمیخورند).
                     if _rec_n in ("PP-OCRv6_medium_rec_onnx.onnx",
                                     "PP-OCRv5_korean_rec.onnx"):
                         _keys = ("ppocrv6_chars.txt"
@@ -1065,24 +1022,24 @@ class RapidOCRBackend:
                             _base["Rec.rec_keys_path"] = _kp
                 except Exception as _e2:
                     print(f"[!] مسیرِ صریحِ مدلِ OCR نشد ({_e2}) → auto")
-            # v1.14.96-speed — EPِ سشن‌هایِ OCR هم از انتخابگرِ مرکزیِ
-            # _best_providers_for: اگر CUDA/Dml/CoreML واقعاً موجود است و
-            # --cpu نزده، rapidocr هم رویِ همان EP می‌رود (همان مدلِ
-            # PP-OCRv6؛ فقط سریع‌تر). در بیلدِ CPU-only هیچ فرقی با قبل
-            # ندارد و ساختِ سشنِ GPU شکست بخورد → بدونِ GPU دوباره ساخته
-            # می‌شود (فال‌بکِ امن).
+# speed — EPِ سشن‌هایِ OCR هم از انتخابگرِ مرکزیِ
+# _best_providers_for: اگر CUDA/Dml/CoreML واقعاً موجود است و
+# cpu نزده، rapidocr هم رویِ همان EP می‌رود (همان مدلِ
+# PP-OCRv6؛ فقط سریع‌تر). در بیلدِ CPU-only هیچ فرقی با قبل
+# ندارد و ساختِ سشنِ GPU شکست بخورد → بدونِ GPU دوباره ساخته
+# می‌شود (فال‌بکِ امن).
             try:
                 _want = bool(prefer_gpu) and (_ORT_CUDA_OK is not False)
                 _ocr_head = (_best_providers_for("ocr", prefer_gpu=_want)
                                or ["CPUExecutionProvider"])[0]
-                # v1.14.230 — پروبِ «واقعیِ» CUDA قبل از سپردنِ موتورِ OCR
-                # به rapidocr: «CUDA در get_available_providers» فقط یعنی
-                # بیلدِ GPU نصب است — نه اینکه DLLهایِ cudnn/cublas لود
-                # شوند. سشنِ آزمایشی رویِ همان مدلِ det ساخته میشود؛ اگر
-                # EPِ فعالِ سشن CUDA نبود، use_cuda هرگز تنظیم نمیشود و
-                # کاربر پیامِ روشن میبیند (گزارشِ سازنده: «چک میزنم
-                # گرافیک صفر درصده»). فایلِ مدلِ det همین بالا دانلود
-                # شده است (_ensure_rapidocr_models).
+# پروبِ «واقعیِ» CUDA قبل از سپردنِ موتورِ OCR
+# به rapidocr: «CUDA در get_available_providers» فقط یعنی
+# بیلدِ GPU نصب است — نه اینکه DLLهایِ cudnn/cublas لود
+# شوند. سشنِ آزمایشی رویِ همان مدلِ det ساخته میشود؛ اگر
+# EPِ فعالِ سشن CUDA نبود، use_cuda هرگز تنظیم نمیشود و
+                #). فایلِ مدلِ det همین بالا دانلود
+# کاربر پیامِ روشن میبیند (
+# شده است (_ensure_rapidocr_models).
                 _ep_active = ""
                 if _ocr_head == "CUDAExecutionProvider":
                     _cuda_ok = False
@@ -1107,13 +1064,13 @@ class RapidOCRBackend:
                         _ep_active = str(_pe)[:90]
                     if _cuda_ok:
                         _gpu_flags["EngineConfig.onnxruntime.use_cuda"] = True
-                        # v1.14.96-speed (SRV-G phase2) — CUDA EP options برایِ
-                        # سشن‌هایِ OCR هم (فقط وقتی مسیرِ GPU فعال است تا فال‌بکِ
-                        # CPU را آلوده نکند؛ در فال‌بک حذف می‌شود)
+# speed (SRV-G phase2) — CUDA EP options برایِ
+# سشن‌هایِ OCR هم (فقط وقتی مسیرِ GPU فعال است تا فال‌بکِ
+# CPU را آلوده نکند؛ در فال‌بک حذف می‌شود)
                         _gpu_flags["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_use_max_workspace"] = "1"
-                        # v1.14.98-speed (SRV-H3) — OCR هم MANGA_CUDNN_ALGO را
-                        # رعایت کند (سشن‌هایِ det/rec رویِ CUDA بدونِ
-                        # EXHAUSTIVE re-search وقتی heuristic خواسته شده)
+# speed (SRV-H3) — OCR هم MANGA_CUDNN_ALGO را
+# رعایت کند (سشن‌هایِ det/rec رویِ CUDA بدونِ
+# EXHAUSTIVE re-search وقتی heuristic خواسته شده)
                         _algo_h3 = _cudnn_algo_search()
                         if _algo_h3:
                             _gpu_flags["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search"] = _algo_h3
@@ -1123,11 +1080,11 @@ class RapidOCRBackend:
                               f"'onnxruntime-gpu[cuda,cudnn]==1.26.0'")
                         _ocr_head = "CPUExecutionProvider"
                 if _ocr_head == "DmlExecutionProvider":
-                    # v1.14.233 — پروبِ واقعیِ DML رویِ «هر دو» مدلِ det و
-                    # rec + یک اینفرنسِ واقعی (لاگِ 232: سشنها ساخته شدند
-                    # ولی اولین Run با 887A0006 مرد). همهٔ فراخوانیهایِ
-                    # موتور هم از این پس زیرِ قفلِ سراسریِ DML میروند
-                    # (مستندات: DML اجرایِ موازی ندارد).
+# پروبِ واقعیِ DML رویِ «هر دو» مدلِ det و
+# rec + یک اینفرنسِ واقعی (لاگِ 232: سشنها ساخته شدند
+# ولی اولین Run با 887A0006 مرد). همهٔ فراخوانیهایِ
+# موتور هم از این پس زیرِ قفلِ سراسریِ DML میروند
+# (مستندات: DML اجرایِ موازی ندارد).
                     _dml_ok = False
                     try:
                         _probe = []
@@ -1164,12 +1121,12 @@ class RapidOCRBackend:
                 _cpu_n = _os2.cpu_count() or 4
             except Exception:
                 _cpu_n = 4
-            # v1.14.66 — MANGA_OCR_THREADS همچنان مقدم است (اگر تنظیم شود).
-            # v1.14.99 (SRV-H4) — wiringِ SRV-G (‎-1/emulator=1) خنثی شد و
-            # wiringِ e32bccf (PC: cores÷2 تا ۴؛ اندروید: ۱/۲) برگشت —
-            # «پیش‌فرضِ خودِ rapidocr» (-1 = ORT auto) همان رگرسیونِ
-            # extract را می‌داد. MANGA_ORT_THREADS فقط با تنظیمِ صریح به
-            # OCR هم اعمال می‌شود (opt-in tuning).
+# MANGA_OCR_THREADS همچنان مقدم است (اگر تنظیم شود).
+# (SRV-H4) — wiringِ SRV-G (‎-1/emulator=1) خنثی شد و
+# wiringِ e32bccf (PC: cores÷2 تا ۴؛ اندروید: ۱/۲) برگشت —
+# «پیش‌فرضِ خودِ rapidocr» (-1 = ORT auto) همان رگرسیونِ
+# extract را می‌داد. MANGA_ORT_THREADS فقط با تنظیمِ صریح به
+# OCR هم اعمال می‌شود (opt-in tuning).
             try:
                 _ocr_th = int(_os2.environ.get("MANGA_OCR_THREADS", "0") or 0)
             except Exception:
@@ -1184,35 +1141,35 @@ class RapidOCRBackend:
             elif _env_ort_h4 > 0:
                 _intra = max(1, _env_ort_h4)
             elif _on_android():
-                # v1.14.66 — اندروید مثلِ قبل (رم)
+# اندروید مثلِ قبل (رم)
                 _intra = 1 if _cpu_n <= 4 else 2
             else:
-                # v1.14.191 — PC هم عینِ گوشی: ۲ نخ برایِ هر سشنِ OCR.
-                # چرا؟ از v1.14.163 به بعد OCR فقط رویِ کراپهایِ کوچکِ
-                # detector-v4-s اجرا میشود (نه پاسِ تمامصفحه) — هزینهٔ
-                # اصلی = rec (CRNN) که بالایِ ۲ نخ بهرهٔ کمی میگیرد؛
-                # موازیِ واقعی از workers میآید (ورکرِ بیشتر × نخِ کمتر).
-                # «۸ نخ» (SRV-L رویِ سرور) مالِ دورانِ پاسِ تمامصفحه بود؛
-                # رویِ کراپ فقط سربارِ context-switch شد — و با ورکرهایِ
-                # چندگانه، workers×8 = تشتتِ کامل (۸ هسته → ۵۶ نخ).
-                # MANGA_OCR_THREADS/MANGA_ORT_THREADS همچنان مقدمند.
+# PC هم عینِ گوشی: ۲ نخ برایِ هر سشنِ OCR.
+# چرا؟ از به بعد OCR فقط رویِ کراپهایِ کوچکِ
+# detector-v4-s اجرا میشود (نه پاسِ تمامصفحه) — هزینهٔ
+# اصلی = rec (CRNN) که بالایِ ۲ نخ بهرهٔ کمی میگیرد
+# موازیِ واقعی از workers میآید (ورکرِ بیشتر × نخِ کمتر).
+# «۸ نخ» (SRV-L رویِ سرور) مالِ دورانِ پاسِ تمامصفحه بود
+# رویِ کراپ فقط سربارِ context-switch شد — و با ورکرهایِ
+# چندگانه، workers×8 = تشتتِ کامل (۸ هسته → ۵۶ نخ).
+# MANGA_OCR_THREADS/MANGA_ORT_THREADS همچنان مقدمند.
                 _intra = 2
             _threads = {
                 "EngineConfig.onnxruntime.intra_op_num_threads": int(_intra),
                 "EngineConfig.onnxruntime.inter_op_num_threads": 1,
             }
-            # v1.14.237 — سیاستِ تغییرِ اندازهٔ detِ کراپ (لاتین = 960/maxِ
-            # رسمیِ PaddleOCR — ۲.۲..۲.۳× سریعتر؛ CJK = همان 736/minِ
-            # rapidocr برایِ حفظِ خواندنِ کانجیِ ریز). جزئیات و بنچمارک:
-            # _ocr_det_resize_policy
+# سیاستِ تغییرِ اندازهٔ detِ کراپ (لاتین = 960/maxِ
+# رسمیِ PaddleOCR — ۲.۲..۲.۳× سریعتر؛ CJK = همان 736/minِ
+# rapidocr برایِ حفظِ خواندنِ کانجیِ ریز). جزئیات و بنچمارک:
+# _ocr_det_resize_policy
             _det_speed = _ocr_det_resize_policy(lang) or {}
             _det_disp = ""
             if _det_speed:
                 _det_disp = (f" | det={_det_speed.get('Det.limit_side_len', 736)}"
                                 f"/{_det_speed.get('Det.limit_type', 'min')}")
             _intra_disp = _intra
-            # v1.14.191 — برایِ همترازیِ workers×threads≈هسته‌ها (MangaTranslator
-            # بعد از ساختِ موتور این را میخواند)
+# برایِ همترازیِ workers×threads≈هسته‌ها (MangaTranslator
+# بعد از ساختِ موتور این را میخواند)
             self.ocr_threads = int(_intra)
             if _rec_params is not None:
                 _p = dict(_rec_params)
@@ -1223,15 +1180,15 @@ class RapidOCRBackend:
                     self.engine = NewRapidOCR(params=_p)
                     self._eng_params = _p
                 except Exception as _eg:
-                    # v1.14.96-speed — اگر ساختِ سشنِ GPU شکست، بدونِ EPِ GPU
-                    # دوباره (تا فال‌بکِ legacyِ PP-OCRv3 فعال نشود)
+# speed — اگر ساختِ سشنِ GPU شکست، بدونِ EPِ GPU
+# دوباره (تا فال‌بکِ legacyِ PP-OCRv3 فعال نشود)
                     if not _gpu_flags:
                         raise
                     print(f"[!] EPِ GPU برایِ OCR نشد ({str(_eg)[:130]}) → CPU")
                     _p2 = {k: v for k, v in _p.items() if k not in _gpu_flags}
                     self.engine = NewRapidOCR(params=_p2)
                     self._eng_params = _p2
-                    # v1.14.233 — موتور CPU شد؛ قفلِ DML بی‌مورد است
+# موتور CPU شد؛ قفلِ DML بی‌مورد است
                     self._dml_locked = False
                 self._new_api = True
                 _ep_disp = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
@@ -1252,7 +1209,7 @@ class RapidOCRBackend:
                 _pb2 = {k: v for k, v in _pb.items() if k not in _gpu_flags}
                 self.engine = NewRapidOCR(params=_pb2)
                 self._eng_params = _pb2
-                # v1.14.233 — موتور CPU شد؛ قفلِ DML بی‌مورد است
+# موتور CPU شد؛ قفلِ DML بی‌مورد است
                 self._dml_locked = False
             self._new_api = True
             _ep_disp = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
@@ -1270,12 +1227,11 @@ class RapidOCRBackend:
         print(f"[+] RapidOCR (ONNX, PP-OCRv3 قدیمی) آماده | lang={lang}")
 
     def _init_mobile_engine(self, lang: str) -> None:
-        """v1.14.187 — موتورِ یگانهٔ استخراجِ گوشی = RapidOCRِ اندروید
+        """ — موتورِ یگانهٔ استخراجِ گوشی = RapidOCRِ اندروید
         (ppocr-sdkِ وندورشده — سهگانهٔ RapidOcrAndroidOnnx با
         PP-OCRv4_mobileِ باندل در assets).
 
-        دستورِ سازنده: «متن هاش اشتباهه بعضی وقتا … ببین چجور به این
-        خوبی استخراج میکنه همونو رو گوشی بزار» → همهٔ موتورهایِ دیگر (پدلِ ONNXِ
+        → همهٔ موتورهایِ دیگر (پدلِ ONNXِ
         medium، رپیدِ small، فلاتر-پدلِ tiny و envهایِ کهنهٔ انتخابِ
         موتور) حذف شدند؛ فالبکی وجود ندارد — خطایِ
         ساختِ موتور = استخراجِ خالیِ صریح (با لاگ). استخراج همچنان فقط
@@ -1285,16 +1241,13 @@ class RapidOCRBackend:
             self._mobile = _pb
             return
         print("[!] RapidOCRِ اندروید آماده نشد — استخراجِ گوشی "
-              "خالی میماند (فالبکی نیست — همهٔ روشهایِ دیگر حذف شدند؛ "
-              "دستورِ سازنده: «همونو رو گوشی بزار»)")
+              "خالی میماند (فالبکی نیست)")
         self._mobile = None
 
     def _build_paddle_android(self, lang: str):
-        """v1.14.187 — ساختِ موتورِ «RapidOCRِ اندروید»
+        """ — ساختِ موتورِ «RapidOCRِ اندروید»
         (ppocr-sdkِ وندورشده — سهگانهٔ RapidOcrAndroidOnnx با
-        PP-OCRv4_mobileِ باندل در assets) — دستورِ سازنده:
-        «متن هاش اشتباهه بعضی وقتا … ببین چجور به این خوبی استخراج
-        میکنه همونو رو گوشی بزار». پلِ Kotlin = PaddleOcrBridge (پلِ
+        PP-OCRv4_mobileِ باندل در assets) — . پلِ Kotlin = PaddleOcrBridge (پلِ
         نازک رویِ RapidOcr.create). هر خطا (APKِ قدیمی/بیلدِ ناقص) → None
         (هیچ فالبکی نیست — همهٔ روشهایِ دیگر حذف شدهاند)."""
         try:
@@ -1313,14 +1266,14 @@ class RapidOCRBackend:
         except Exception:
             return txt
 
-    # v1.14.252 — موتورِ detِ جدا برایِ دیباگِ آبی (جعبههایِ خامِ تشخیصِ
-    # متن). چرا موتورِ جدا؟ فراخوانیِ use_rec=False رویِ «همان» موتورِ
-    # اصلی، use_rec آن را میچرخاند و کارگرِ موازی که همان لحظه OCRِ
-    # کامل میزند متنش را از دست میدهد (خرابیِ بیصدا) → موتورِ detِ
-    # اختصاصیِ تنبل: فقط کلیدهای Global/Det/EngineConfig از پارامترهایِ
-    # موتورِ اصلی کپی میشود (مدلِ det همان فایل) و چون use_rec=False
-    # است، مدلِ rec «هرگز» ساخته/لود نمیشود (~۱۰MB). EP = همیشه CPU
-    # (پرچمهایِ GPU حذف میشوند) تا قفلِ DML/سرعتِ کارگرها دست نخورد.
+# موتورِ detِ جدا برایِ دیباگِ آبی (جعبههایِ خامِ تشخیصِ
+# متن). چرا موتورِ جدا؟ فراخوانیِ use_rec=False رویِ «همان» موتورِ
+# اصلی، use_rec آن را میچرخاند و کارگرِ موازی که همان لحظه OCRِ
+# کامل میزند متنش را از دست میدهد (خرابیِ بیصدا) → موتورِ detِ
+# اختصاصیِ تنبل: فقط کلیدهای Global/Det/EngineConfig از پارامترهایِ
+# موتورِ اصلی کپی میشود (مدلِ det همان فایل) و چون use_rec=False
+# است، مدلِ rec «هرگز» ساخته/لود نمیشود (~۱۰MB). EP = همیشه CPU
+# (پرچمهایِ GPU حذف میشوند) تا قفلِ DML/سرعتِ کارگرها دست نخورد.
     def _det_dbg_engine(self):
         _e = getattr(self, "_det_dbg_eng252", None)
         if _e is not None:
@@ -1334,7 +1287,7 @@ class RapidOCRBackend:
             for _k, _v in (getattr(self, "_eng_params233", None) or {}).items():
                 if not str(_k).startswith(("Global.", "Det.", "EngineConfig.")):
                     continue
-                # بدونِ EPهایِ GPU (use_cuda/use_dml/use_coreml/cuda_ep_cfg)
+# بدونِ EPهایِ GPU (use_cuda/use_dml/use_coreml/cuda_ep_cfg)
                 if "use_cuda" in _k or "use_dml" in _k or "use_coreml" in _k \
                         or "cuda_ep_cfg" in _k:
                     continue
@@ -1346,7 +1299,7 @@ class RapidOCRBackend:
         return self._det_dbg_eng
 
     def det_only(self, image_bgr: np.ndarray) -> List[np.ndarray]:
-        """v1.14.252 — پاسِ فقط-det (بدونِ rec) برایِ دیباگِ آبیِ صفحه:
+        """ — پاسِ فقط-det (بدونِ rec) برایِ دیباگِ آبیِ صفحه:
         جعبههایِ خامِ تشخیصِ متن — همان چیزی که det «دیده» است، قبل ازِ
         اینکه rec بخواند یا فیلترِ امتیازِ موتور/188/225 حذف کند.
         خروجی = فهرستِ کواردهای ۴نقطهای به مختصاتِ «همان تصویرِ ورودی».
@@ -1390,7 +1343,7 @@ class RapidOCRBackend:
             return self.engine(image_bgr)
 
     def _engine_run(self, image_bgr):
-        """v1.14.233 — فراخوانیِ موتورِ OCR. رویِ DML زیرِ قفلِ سراسری:
+        """ — فراخوانیِ موتورِ OCR. رویِ DML زیرِ قفلِ سراسری:
         سشنهایِ داخلیِ rapidocr (det/rec) از چند کارگرِ موازی صدا زده
         میشوند و DML اجرایِ موازی ندارد (887A0006 رویِ RX 5700 XT —
         لاگِ 232). CPU/CUDA/اندروید بدونِ قفل."""
@@ -1400,7 +1353,7 @@ class RapidOCRBackend:
         return self._engine_run233_nolock(image_bgr)
 
     def _dml_recover(self, err) -> bool:
-        """v1.14.233 — خطایِ GPU (DirectML) در وسطِ OCR: موتور یک‌بار رویِ
+        """ — خطایِ GPU (DirectML) در وسطِ OCR: موتور یک‌بار رویِ
         CPU بازساخته میشود (همان APIِ جدید — بدونِ سقوط به «موتورِ
         قدیمی» که در لاگِ 232 نیمی از متنها را از دست داد). فقط
         خطاهایِ GPU؛ خطاهایِ عادیِ OCR دست‌نخورده میمانند. True = بازسازی
@@ -1414,10 +1367,10 @@ class RapidOCRBackend:
             return False
         with _RAPIDOCR_RECOVER_LOCK:
             if not getattr(self, "_dml_locked233", False):
-                # نخِ دیگری همین الان موتور را CPU کرد → همین موتورِ سالم
+# نخِ دیگری همین الان موتور را CPU کرد → همین موتورِ سالم
                 return True
             try:
-                # مثلِ __init__: importِ محلی (rapidocr ممکن است نصب نباشد)
+# مثلِ __init__: importِ محلی (rapidocr ممکن است نصب نباشد)
                 from rapidocr import RapidOCR as NewRapidOCR
                 _p = dict(getattr(self, "_eng_params233", None) or {})
                 if not _p:
@@ -1442,22 +1395,22 @@ class RapidOCRBackend:
 
         if image_bgr is None or image_bgr.size == 0:
             return None
-        # v1.14.123 — اندروید: موتورِ PP-OCRv6 ONNX (خروجی هم‌قالبِ
-        # مسیرهایِ دیگر: [ [box, (text, score)], ... ])
-        # v1.14.125 — crop_mode: detِ برشِ بدونِ بزرگنمایی با سقفِ
-        # det_cap (فقط مسیرهایِ برشِ کاسکاد/نجات میفرستند؛ صفحه = False)
+# اندروید: موتورِ PP-OCRv6 ONNX (خروجی هم‌قالبِ
+# مسیرهایِ دیگر: [ [box, (text, score)], ... ])
+# crop_mode: detِ برشِ بدونِ بزرگنمایی با سقفِ
+# det_cap (فقط مسیرهایِ برشِ کاسکاد/نجات میفرستند؛ صفحه = False)
         if self._mobile is not None:
             try:
-                # v1.14.163 — سبکِ جدید: OCR فقط رویِ کراپِ detector-v4-s
-                # صدا زده میشود (crop_mode=True). هیچ باندهای/کاسکادی
-                # نیست؛ فراخوانیِ تمامصفحه فقط برای مسیرهایِ قدیمیِ
-                # جانبی (detect_text) میماند.
+# سبکِ جدید: OCR فقط رویِ کراپِ detector-v4-s
+# صدا زده میشود (crop_mode=True). هیچ باندهای/کاسکادی
+# نیست؛ فراخوانیِ تمامصفحه فقط برای مسیرهایِ قدیمیِ
+# جانبی (detect_text) میماند.
                 _out = self._mobile.ocr(image_bgr, crop_mode=crop_mode)
             except Exception as _e:
-                # v1.14.164 — خطایِ بیصدا ممنوع: رگِ «متن پیدا نشد»ٔ
-                # 1.14.163 یک AttributeErrorِ بیصدا بود (رگرسیونِ
-                # تودرتوییِ _ocr_impl)؛ حالا هر خرابیِ OCR یک خطِ کوتاه
-                # و مشخص در لاگ میدهد تا ریشه فوراً دیده شود.
+# خطایِ بیصدا ممنوع: رگِ «متن پیدا نشد»ٔ
+# یک AttributeErrorِ بیصدا بود (رگرسیونِ
+# تودرتوییِ _ocr_impl)؛ حالا هر خرابیِ OCR یک خطِ کوتاه
+# و مشخص در لاگ میدهد تا ریشه فوراً دیده شود.
                 print(f"[!] خطایِ OCRِ موبایل: {str(_e)[:150]}")
                 return None
             if not _out or not _out[0]:
@@ -1478,13 +1431,13 @@ class RapidOCRBackend:
                     continue
             if _ncjk:
                 print(f"    [OCR] {_ncjk} خطِ پر از نویسهٔ چینی حذف شد "
-                      "(گاردِ لاتین — v1.14.154)")
+                      "(گاردِ لاتین)")
             return [_lines] if _lines else None
         if self._new_api:
-            # v1.14.233 — حداکثر ۲ تلاش: تلاشِ دوم فقط بعد از بازسازیِ
-            # موتور رویِ CPU در خطایِ GPU (_dml_recover233) — کیفیتِ
-            # نتایج حتی موقعِ خرابیِ GPU حفظ میشود (لاگِ 232: سقوط به
-            # «موتورِ قدیمی» ۸ ناحیه از ۱۱ را بی‌متن گذاشت).
+# حداکثر ۲ تلاش: تلاشِ دوم فقط بعد از بازسازیِ
+# موتور رویِ CPU در خطایِ GPU (_dml_recover233) — کیفیتِ
+# نتایج حتی موقعِ خرابیِ GPU حفظ میشود (لاگِ 232: سقوط به
+# «موتورِ قدیمی» ۸ ناحیه از ۱۱ را بی‌متن گذاشت).
             for _att in range(2):
                 try:
                     out = self._engine_run(image_bgr)
@@ -1519,7 +1472,7 @@ class RapidOCRBackend:
             msg = str(e).lower()
             if "text detection result is empty" in msg or "detection result is empty" in msg:
                 return None
-            # v1.14.233 — خطایِ GPU → موتور رویِ CPU + یک تلاشِ دیگر
+# خطایِ GPU → موتور رویِ CPU + یک تلاشِ دیگر
             if self._dml_recover(e):
                 try:
                     result, _ = self._engine_run(image_bgr)
@@ -1540,32 +1493,28 @@ class RapidOCRBackend:
             lines.append([box, (text, float(score))])
         return [lines] if lines else None
 
-
-# ═══════════════════════════════════════════════════════════════════════
-# v1.14.163 — سبکِ «استخراج و پاکسازی»ٔ مخصوصِ گوشی کلاً حذف شد (دستورِ
-# سازنده: «سبکِ استخراج و پاکسازی رو گوشی کامل حذف کنی؛ مالِ پی‌سی
-# لینوکس استفاده کنه»). حذفشده‌ها در این نسخه:
-#   • کاسکادِ مرجع (راهنمایِ ML Kit + پلهٔ Paddle-Lite + رپیدِ فالبک)
-#   • کلاسِ MlKitBackend و راهنمایِ برشِ امنِ ML Kit (_mlkit_guide)
-#   • _mobile_banded_ocr (خواندنِ باندبه‌باندِ تمامصفحه)
-#   • MlKitBridge.kt + PaddleLiteBridge.kt + PliteProbeService.kt
-#     + وابستگیهایِ mlkit/PaddlePredictor در build.gradle
+# سبکِ «استخراج و پاکسازی»ٔ مخصوصِ گوشی کلاً حذف شد.
+# حذفشده‌ها:
+# • کاسکادِ مرجع (راهنمایِ ML Kit + پلهٔ Paddle-Lite + رپیدِ فالبک)
+# • کلاسِ MlKitBackend و راهنمایِ برشِ امنِ ML Kit (_mlkit_guide)
+# • _mobile_banded_ocr (خواندنِ باندبه‌باندِ تمامصفحه)
+# • MlKitBridge.kt + PaddleLiteBridge.kt + PliteProbeService.kt
+# + وابستگیهایِ mlkit/PaddlePredictor در build.gradle
 # سبکِ جدید (PC/لینوکس/اندروید یکسان):
-#   • برشِ امن = فقط detector-v4-s_int8.onnx — باندِ ۷۵۰۰–۸۰۰۰، برش
-#     فقط جایی که هیچ باکسِ متنی نبیند (متن هرگز برش نمیخورد)
-#   • استخراجِ متن = detector-v4-s مکانِ متن را پیدا میکند و OCR فقط
-#     رویِ همان کراپها اجرا میشود — هیچ پاسِ تمامصفحه‌ای نیست
-# v1.14.166 — Paddle-Lite فقط به‌عنوانِ «موتورِ OCRِ کراپ» برگشت (بالا)؛
+# • برشِ امن = فقط detector-v4-s_int8.onnx — باندِ ۷۵۰۰–۸۰۰۰، برش
+# فقط جایی که هیچ باکسِ متنی نبیند (متن هرگز برش نمیخورد)
+# • استخراجِ متن = detector-v4-s مکانِ متن را پیدا میکند و OCR فقط
+# رویِ همان کراپها اجرا میشود — هیچ پاسِ تمامصفحه‌ای نیست
+# Paddle-Lite فقط به‌عنوانِ «موتورِ OCRِ کراپ» برگشت (بالا)
 # هیچ‌کدام از سبکهایِ حذفشدهٔ این بلاک (کاسکاد/تمامصفحه) بازنگشت.
-# v1.14.170 — موتورِ OCRِ کراپ = ML Kit شد (پدل کامل حذف شد)؛ همین
+# موتورِ OCRِ کراپ = ML Kit شد (پدل کامل حذف شد)؛ همین
 # قاعده پابرجاست: فقط کراپِ detector-v4-s، هیچ پاسِ تمامصفحهای نیست.
-# v1.14.183 — ML Kit هم کامل حذف شد (پلِ MlKitBridge.kt + وابستگیهایِ
+# ML Kit هم کامل حذف شد (پلِ MlKitBridge.kt + وابستگیهایِ
 # com.google.mlkit از APK)؛ موتورِ کراپ = رپیدِ رسمیِ اندروید (PP-OCRv4_mobile)
-# — قاعدهٔ «فقط کراپِ detector-v4-s» پابرجاست.
-# ═══════════════════════════════════════════════════════════════════════
+# قاعدهٔ «فقط کراپِ detector-v4-s» پابرجاست.
 
 def _dual_device_enabled() -> bool:
-    """v1.14.106 — دو-دستگاهه: GPU و CPU «همزمان» برایِ استخراج/پاکسازی.
+    """ — دو-دستگاهه: GPU و CPU «همزمان» برایِ استخراج/پاکسازی.
 
     MANGA_DUAL_DEVICE=1 → اجبارِ روشن | 0 → خاموش | پیش‌فرض: خودکار (روشن
     فقط وقتی EPِ سرِ سشن واقعاً GPU-گونه باشد؛ ساختهٔ CPU-خالص هرگز تغییر
@@ -1580,7 +1529,6 @@ def _dual_device_enabled() -> bool:
         pass
     return True  # خودکار: فقط وقتی EPِ GPU واقعاً هست فعال می‌شود
 
-
 def _gpu_head_of(session):
     """اولین EPِ سشن که CPU خالص نیست (CUDA/DML/NNAPI/XNNPACK/…) — یا None."""
     try:
@@ -1591,9 +1539,8 @@ def _gpu_head_of(session):
         pass
     return None
 
-
 def _android_like_env() -> bool:
-    """v1.14.96-speed — تشخیصِ مقاومِ محیطِ اندروید (مکملِ import java).
+    """-speed — تشخیصِ مقاومِ محیطِ اندروید (مکملِ import java).
 
     Chaquopy فقط با import java شناسایی می‌شود؛ بقیهٔ ران‌تایم‌هایِ
     اندروید (ترماکس و…) با نشانه‌هایِ محیطی: وجودِ /system/build.prop،
@@ -1609,8 +1556,7 @@ def _android_like_env() -> bool:
         pass
     return False
 
-
-# v1.14.110 — گاردِ کرشِ nativeِ Paddle-Lite رویِ گوشی: سیگ‌فالت از
+# گاردِ کرشِ nativeِ Paddle-Lite رویِ گوشی: سیگ‌فالت از
 # لاگ‌گیرِ جاوای اپ رد نمیشود → قبل از کارِ خطرناکِ native ردپا
 # میگذاریم؛ اگر پروسه مرد، استارتِ بعدیِ اپ لاگ را نشان میدهد و
 # موتورِ جایگزین (رپیدِ رسمیِ اندروید/ONNX) میآید — درخواستِ کاربر: «لاگ بزنه
@@ -1622,9 +1568,8 @@ def _on_android() -> bool:
     except Exception:
         return False
 
-
 def _android_gate(env_name: str) -> bool:
-    """v1.14.133 — گیتِ مشترکِ فیکسهایِ پاکسازیِ اندروید. پیشفرض = فقط
+    """ — گیتِ مشترکِ فیکسهایِ پاکسازیِ اندروید. پیشفرض = فقط
     اندروید (رفتارِ PC بایت‌به‌بایت مثلِ قبل میماند)؛ env=1/0 برایِ اجبار
     (تستِ مسیرِ اندروید رویِ PC)."""
     _v = str(os.environ.get(env_name, "") or "").strip().lower()
@@ -1634,19 +1579,14 @@ def _android_gate(env_name: str) -> bool:
         return False
     return bool(_on_android())
 
-
 def _gate_default_on(env_name: str) -> bool:
-    """v1.14.212 — گیتِ پیشفرضِ روشن رویِ «هر دو» پلتفرم (env=0 خاموش).
-    فلسفهٔ «PC بیت‌به‌بیت» با گزارشِ سازنده رویِ GitHub Actions (PC)
-    منسوخ شد: «همه عکس هارو تست کن مو به مو چک کن رد نکن … نه لگهٔ
-    سیاهی نه لگهٔ سفیدی یا هرنگی لگه بشه قبول نمیکنم» — کیفیتِ پاکسازی
+    """ — گیتِ پیشفرضِ روشن رویِ «هر دو» پلتفرم (env=0 خاموش).
+    فلسفهٔ «PC بیت‌به‌بیت» با کیفیتِ پاکسازی
     رویِ PC هم باید همانِ اندروید باشد."""
     return str(os.environ.get(env_name, "") or "").strip().lower() \
         not in ("0", "false", "no", "off")
 
-
 class PaddleOCRWrapper:
-
 
     def __init__(self, engine):
         self.engine = engine
@@ -1658,5 +1598,3 @@ class PaddleOCRWrapper:
             return self.engine.ocr(image_bgr)
         except Exception:
             return None
-
-

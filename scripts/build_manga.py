@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""build_manga.py — نگهبانِ بخشها + ساختِ توزیعِ تک‌فایلی (v1.14.251+)
+"""build_manga.py — نگهبانِ بخشها + ساختِ توزیعِ تک‌فایلی ()
 
-«manga.py» از v1.14.251 یک «لودرِ پلاگینی» است: کدِ اصلی در
+«manga.py» از یک «لودرِ پلاگینی» است: کدِ اصلی در
 manga_sections/ است و در زمانِ اجرا بههم چسبانده و اجرا میشود.
 این اسکریپت نگهبانِ سلامتِ همان پوشه است:
 
-    python scripts/build_manga.py            # MANIFEST + چکِ کامل
-    python scripts/build_manga.py --check    # فقط چک (CI — بدون نوشتن)
-    python scripts/build_manga.py --single   # + manga_single.py (توزیعِ تک‌فایلی)
-    python scripts/build_manga.py --list     # فهرستِ بخشها
+    python scripts/build_manga.py # MANIFEST + چکِ کامل
+    python scripts/build_manga.py --check # فقط چک (CI — بدون نوشتن)
+    python scripts/build_manga.py --single # + manga_single.py (توزیعِ تک‌فایلی)
+    python scripts/build_manga.py --list # فهرستِ بخشها
 
 چکها:
   • هر بخش بهتنهایی py_compile میشود (سینتکسِ سالم)
@@ -38,13 +38,11 @@ STRIP_END = "# BUILD-STRIP-END"
 
 VER_RE = re.compile(r'APP_VER\s*=\s*"([0-9][0-9.]*)"')
 
-
 def _sort_key(name: str):
     i = 0
     while i < len(name) and name[i].isdigit():
         i += 1
     return (int(name[:i]) if i else 10 ** 9, name)
-
 
 def disk_sections():
     if not os.path.isdir(SEC_DIR):
@@ -52,7 +50,6 @@ def disk_sections():
     return sorted((n for n in os.listdir(SEC_DIR)
                    if n.endswith(".py") and n[:1].isdigit()),
                   key=_sort_key)
-
 
 def manifest_sections():
     try:
@@ -63,7 +60,6 @@ def manifest_sections():
     return [n for n in names
             if n and not n.startswith("#") and n.endswith(".py")]
 
-
 def write_manifest(names):
     body = [
         "# manga_sections/MANIFEST — فهرستِ بخشها بهترتیبِ بارگذاری",
@@ -73,7 +69,6 @@ def write_manifest(names):
     ] + list(names) + [""]
     with open(MANIFEST_PATH, "w", encoding="utf-8", newline="") as f:
         f.write("\n".join(body))
-
 
 def read_stripped(path: str):
     """محتوای بخش بدونِ بلاکهایِ BUILD-STRIP — عینِ منطقِ لودر."""
@@ -93,7 +88,6 @@ def read_stripped(path: str):
         out = out[:-1]
     return out
 
-
 def combined(names):
     parts = []
     for n in names:
@@ -102,22 +96,20 @@ def combined(names):
             parts.append("\n".join(lines) + "\n")
     return "".join(parts)
 
-
 def _ver_of_source(src: str):
     m = VER_RE.search(src[:8192])
     return m.group(1) if m else None
-
 
 def run_checks(names, fix_manifest: bool):
     """همهٔ چکها — پیامهای شماره‌دار؛ True = سبز."""
     ok = True
 
-    # ۱) پوشه و حداقلِ یک بخش
+# ۱) پوشه و حداقلِ یک بخش
     if not names:
         print("❌ ۱) هیچ بخشی در manga_sections/ نیست.")
         return False
 
-    # ۲) MANIFEST همخوان
+# ۲) MANIFEST همخوان
     listed = manifest_sections()
     if listed is None:
         if fix_manifest:
@@ -144,7 +136,7 @@ def run_checks(names, fix_manifest: bool):
     else:
         print("✔ ۲) MANIFEST همخوان (%d بخش)." % len(names))
 
-    # ۳) py_compile تک‌تکِ بخشها
+# ۳) py_compile تک‌تکِ بخشها
     bad = []
     for n in names:
         try:
@@ -159,7 +151,7 @@ def run_checks(names, fix_manifest: bool):
     else:
         print("✔ ۳) هر %d بخش py_compile شد." % len(names))
 
-    # ۴) همخوانیِ نسخهٔ لودر و 00_base
+# ۴) همخوانیِ نسخهٔ لودر و 00_base
     base_ver = _ver_of_source(
         "\n".join(read_stripped(os.path.join(SEC_DIR, names[0]))))
     loader_src = ""
@@ -182,7 +174,7 @@ def run_checks(names, fix_manifest: bool):
     else:
         print("✔ ۴) APP_VER=%s در لودر و %s همخوان." % (loader_ver, names[0]))
 
-    # ۵) خروجیِ ترکیبی کامپایل میشود (همان که لودر اجرا میکند)
+# ۵) خروجیِ ترکیبی کامپایل میشود (همان که لودر اجرا میکند)
     src = combined(names)
     try:
         compile(src, "manga_combined", "exec")
@@ -194,7 +186,6 @@ def run_checks(names, fix_manifest: bool):
         ok = False
 
     return ok
-
 
 def main(argv):
     names = disk_sections()
@@ -227,7 +218,6 @@ def main(argv):
 
     print("✔ همهٔ چکها سبز است." if ok else "❌ — بالاتر را ببین.")
     return 0 if ok else 1
-
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
