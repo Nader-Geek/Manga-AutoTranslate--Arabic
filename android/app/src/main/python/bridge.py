@@ -606,7 +606,7 @@ def start_job(params_json, files_dir):
 # را رویِ «رندر و ذخیره» قفل میکرد؛ شمارهٔ صفحه از regexِ پایین
 # میآید. «لود نشد» = خطایِ بارگذاریِ موتور (v1.14.183 — فالبکی
 # نیست؛ کاربر در اعلان خطا را میبیند).
-_PROG_PHASES_1151 = (
+_PROG_PHASES = (
     ("بارگذاری موتور", "بارگذاری مدلها"),
     ("لود نشد", "خطا"),
     # v1.14.154 — نشانگرهایِ شروعِ فازِ هر صفحه (پرینتهایِ جدیدِ manga.py)
@@ -634,12 +634,12 @@ _PROG_PHASES_1151 = (
 )
 
 
-def _update_prog_1151(job, msg):
+def _update_prog(job, msg):
     """v1.14.151 — فازِ فعلی و شمارهٔ صفحه برای اعلانِ پیشزمینه."""
     try:
         m = re.search(r"(\d{1,4})\s+آماده شد", msg)
         ph = None
-        for _k, _v in _PROG_PHASES_1151:
+        for _k, _v in _PROG_PHASES:
             if _k in msg:
                 ph = _v
                 break
@@ -688,7 +688,7 @@ def _heal_models_dirs(job):
 
 
 def _log(job, msg):
-    _update_prog_1151(job, str(msg))
+    _update_prog(job, str(msg))
     with STATE["lock"]:
         txt = str(job.get("log") or "")
         job["log"] = (txt + "\n" + str(msg))[-12000:]
@@ -861,7 +861,7 @@ class _TeeStream:
         # پایپلاین (صفحهٔ N آماده شد / OCR: / فاز ۳) با print() از
         # _TeeStream میآیند → فاز هیچوقت عوض نمیشد. حالا هر خطِ
         # stdout هم فاز/شمارهٔ صفحه را بهروز میکند.
-        _update_prog_1151(self._job, ln)
+        _update_prog(self._job, ln)
         with STATE["lock"]:
             txt = str(self._job.get("log") or "")
             lines = txt.split("\n") if txt else []

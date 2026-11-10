@@ -104,17 +104,17 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
     # «۰ = ORT auto»یِ SRV-G رویِ سرور کندتر بود (SRV-H2: +30..+67٪ CPU)
     # و حذف شد. امولاتورِ x86_64 همان قراردادِ SRV-F (intra=1).
     # MANGA_ORT_THREADS=N همچنان اوررایدِ صریح دارد (اولاً بعد از cap1).
-    _cap1_67 = _android_x86_emulator()
-    _xnn67 = _cpu_ep_xnnpack()
+    _cap1 = _android_x86_emulator()
+    _xnn = _cpu_ep_xnnpack()
     try:
-        _env_t67 = int(os.environ.get("MANGA_ORT_THREADS", "0") or 0)
+        _env_t = int(os.environ.get("MANGA_ORT_THREADS", "0") or 0)
     except Exception:
-        _env_t67 = 0
-    if _cap1_67:
+        _env_t = 0
+    if _cap1:
         threads = 1
-    elif _env_t67 > 0:
-        threads = _env_t67
-    elif _xnn67:
+    elif _env_t > 0:
+        threads = _env_t
+    elif _xnn:
         # کانفیگِ رسمیِ XNNPACK (فقط MANGA_CPU_EP=xnnpack): threadpoolِ ORT
         # تک‌نخی؛ XNNPACK خودش threadpoolِ هسته‌هایِ فیزیکی را می‌سازد.
         threads = 1
@@ -146,19 +146,19 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
         except Exception:
             pass
     try:
-        _t67 = int(threads)
+        _t = int(threads)
     except Exception:
-        _t67 = 4
+        _t = 4
     # v1.14.99-speed (SRV-L) — گاردِ SIGABRTِ مسیرِ CUDA: با نخِ ۲۰ رویِ
     # سشن‌هایِ CUDA/TRT، per-patchِ LaMa رویِ سرورِ تازه ORT را با
     # SIGABRT (exit=134) می‌کشد (SRV-K g20). سقفِ سختِ ۱۶ فقط وقتی
     # سشنِ GPU خواسته شده؛ مسیرِ CPU دست‌نخورده می‌ماند.
     try:
-        if prefer_gpu and _t67 > 16:
-            _t67 = 16
+        if prefer_gpu and _t > 16:
+            _t = 16
     except Exception:
         pass
-    so.intra_op_num_threads = _t67 if _t67 > 0 else 0
+    so.intra_op_num_threads = _t if _t > 0 else 0
     so.inter_op_num_threads = 1
     so.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
     # پچ‌های موازی LaMa + OCR هم‌زمان اجرا می‌شوند؛ spin-wait هسته‌ها را می‌سوزاند
@@ -180,8 +180,8 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
         _spin_h4 = str(os.environ.get("MANGA_SPIN", "")).strip() == "1"
     except Exception:
         _spin_h4 = False
-    if _spin_h4 and (not _cap1_67) and (not _xnn67) \
-            and (not _android_like_env()) and (_t67 == 0 or _t67 > 1):
+    if _spin_h4 and (not _cap1) and (not _xnn) \
+            and (not _android_like_env()) and (_t == 0 or _t > 1):
         try:
             so.add_session_config_entry(
                 "session.intra_op.spin_duration_us", "1000")
@@ -189,7 +189,7 @@ def _ort_session_options(threads: int = 4, low_mem: Optional[bool] = None,
                 "session.intra_op.spin_backoff_max", "8")
         except Exception:
             pass
-    if _xnn67:
+    if _xnn:
         # کانفیگِ رسمیِ XNNPACK: spinning خاموش (نخِ ORT فقط هماهنگ می‌کند)
         try:
             so.add_session_config_entry(
@@ -274,11 +274,11 @@ def _best_providers_for(kind: str = "generic", prefer_gpu: bool = True):
         # LaMa ۱۶٪ کندتر و فقط در det ۲.۴× سریع‌تر است (سهمِ det از OCR
         # ~۱۸٪) → سوییچِ بی‌صدا = ضررِ خالص. فقط با MANGA_ALLOW_OV=1.
         try:
-            _allow_ov238 = str(os.environ.get(
+            _allow_ov = str(os.environ.get(
                 "MANGA_ALLOW_OV", "")).strip().lower() == "1"
         except Exception:
-            _allow_ov238 = False
-        if _allow_ov238 and "OpenVINOExecutionProvider" in avail:
+            _allow_ov = False
+        if _allow_ov and "OpenVINOExecutionProvider" in avail:
             out.append("OpenVINOExecutionProvider")
         # v1.14.96-speed (SRV-G) — A/Bِ XNNPACK (فقط MANGA_CPU_EP=xnnpack):
         # سشن‌هایِ CPU-EP از XNNPACK+CPU می‌روند با کانفیگِ رسمی
@@ -396,38 +396,38 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
     بتواند ساختِ سشن را خراب کند.
     v1.14.96-speed (SRV-G): provider_options اختیاری است (CUDA EP:
     cudnn_conv_use_max_workspace=1). None = دقیقاً رفتارِ قبل."""
-    _t69 = time.time()
-    _opt69 = None
+    _t = time.time()
+    _opt = None
     try:
         if str(os.environ.get("MANGA_LAMA_OPT_CACHE", "1")).strip() == "1" \
                 and isinstance(model_path, str):
-            _opt69 = _lama_opt_cache_path(model_path, providers)
+            _opt = _lama_opt_cache_path(model_path, providers)
     except Exception:
-        _opt69 = None
-    if _opt69 and os.path.isfile(_opt69) \
-            and os.path.getsize(_opt69) > 1_000_000:
+        _opt = None
+    if _opt and os.path.isfile(_opt) \
+            and os.path.getsize(_opt) > 1_000_000:
         try:
             # v1.14.233 — ساختِ سشنِ DML هم زیرِ قفلِ سراسری: هم‌زمانیِ
             # ساختِ سشن با runِ سشنِ دیگر رویِ درایورهایِ AMD همان
             # 887A0006 را میدهد (سشن CPU بدونِ قفل — بی‌تغییر)
             if "DmlExecutionProvider" in (providers or []):
                 with _DML_RUN_LOCK:
-                    _s69 = ort.InferenceSession(_opt69, sess_options=so,
+                    _s = ort.InferenceSession(_opt, sess_options=so,
                                                 providers=providers,
                                                 provider_options=provider_options)
             else:
-                _s69 = ort.InferenceSession(_opt69, sess_options=so,
+                _s = ort.InferenceSession(_opt, sess_options=so,
                                             providers=providers,
                                             provider_options=provider_options)
             try:
-                print(f"[TIME] lama-create={time.time() - _t69:.1f}s "
+                print(f"[TIME] lama-create={time.time() - _t:.1f}s "
                       f"(از کشِ بهینه‌شده)", flush=True)
             except Exception:
                 pass
-            return _s69
+            return _s
         except Exception:
             try:
-                os.remove(_opt69)
+                os.remove(_opt)
             except Exception:
                 pass
     # بارِ اول: مدلِ بهینه‌شده ذخیره می‌شود (اگر ORT پشتیبانی نکرد،
@@ -435,57 +435,57 @@ def _lama_session_cached(model_path, so, providers, provider_options=None):
     # ALLِ تک‌نخی بخشِ بزرگی از همان ۶۷s است و XNNPACKِ سنگین‌کارِ
     # اصلی را خودش انجام می‌دهد (رویِ PC: ALL→BASIC فقط ‎+۴٪ زمانِ
     # اجرا؛ ساخت ×۲.۵ سریع‌تر).
-    _part69 = None
+    _part = None
     try:
-        _android69 = _on_android()
+        _android = _on_android()
     except Exception:
-        _android69 = False
-    if _opt69 and _android69:
+        _android = False
+    if _opt and _android:
         try:
             so.graph_optimization_level = \
                 ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
         except Exception:
             pass
-    if _opt69:
-        _part69 = _opt69 + ".part"
+    if _opt:
+        _part = _opt + ".part"
         try:
-            so.optimized_model_filepath = _part69
+            so.optimized_model_filepath = _part
         except Exception:
-            _part69 = None
+            _part = None
     try:
         # v1.14.233 — ساختِ سشنِ DML زیرِ قفلِ سراسری (توضیح: بالا)
         if "DmlExecutionProvider" in (providers or []):
             with _DML_RUN_LOCK:
-                _s69 = ort.InferenceSession(model_path, sess_options=so,
+                _s = ort.InferenceSession(model_path, sess_options=so,
                                             providers=providers,
                                             provider_options=provider_options)
         else:
-            _s69 = ort.InferenceSession(model_path, sess_options=so,
+            _s = ort.InferenceSession(model_path, sess_options=so,
                                         providers=providers,
                                         provider_options=provider_options)
     finally:
         try:
-            if _part69 and os.path.isfile(_part69):
+            if _part and os.path.isfile(_part):
                 with _LAMA_OPT_LOCK:
                     try:
-                        os.replace(_part69, _opt69)
+                        os.replace(_part, _opt)
                         try:
-                            print(f"[TIME] lama-create={time.time() - _t69:.1f}s "
+                            print(f"[TIME] lama-create={time.time() - _t:.1f}s "
                                   f"(مدلِ بهینه‌شده ذخیره شد → کش)", flush=True)
                         except Exception:
                             pass
                     except Exception:
                         try:
-                            os.remove(_part69)
+                            os.remove(_part)
                         except Exception:
                             pass
         except Exception:
             pass
     try:
-        print(f"[TIME] lama-create={time.time() - _t69:.1f}s", flush=True)
+        print(f"[TIME] lama-create={time.time() - _t:.1f}s", flush=True)
     except Exception:
         pass
-    return _s69
+    return _s
 
 
 _ORT_CUDA_OK = None
@@ -507,8 +507,8 @@ _DML_RUN_LOCK = threading.RLock()
 def _dml_sess(sess) -> bool:
     """v1.14.233 — سرِ providersِ سشن DML است؟"""
     try:
-        _p233 = list(sess.get_providers())
-        return bool(_p233) and _p233[0] == "DmlExecutionProvider"
+        _p = list(sess.get_providers())
+        return bool(_p) and _p[0] == "DmlExecutionProvider"
     except Exception:
         return False
 
@@ -540,30 +540,30 @@ def _dml_probe_cache_get(model_path: str):
     try:
         if os.environ.get("MANGA_ORT_EP_REPROBE", "").strip() == "1":
             return None
-        _f233 = str(model_path) + ".dmlprobe"
-        if not os.path.isfile(_f233):
+        _f = str(model_path) + ".dmlprobe"
+        if not os.path.isfile(_f):
             return None
-        import json as _json233
-        with open(_f233, "r", encoding="utf-8") as _fh233:
-            _d233 = _json233.load(_fh233)
-        if int(_d233.get("size", -1)) != int(os.path.getsize(model_path)):
+        import json as _json
+        with open(_f, "r", encoding="utf-8") as _fh:
+            _d = _json.load(_fh)
+        if int(_d.get("size", -1)) != int(os.path.getsize(model_path)):
             return None
-        if str(_d233.get("ort", "")) != str(getattr(ort, "__version__", "")):
+        if str(_d.get("ort", "")) != str(getattr(ort, "__version__", "")):
             return None
-        return bool(_d233.get("ok"))
+        return bool(_d.get("ok"))
     except Exception:
         return None
 
 
 def _dml_probe_cache_set(model_path: str, ok: bool) -> None:
     try:
-        import json as _json233
-        _f233 = str(model_path) + ".dmlprobe"
-        with open(_f233, "w", encoding="utf-8") as _fh233:
-            _json233.dump({"ok": bool(ok),
+        import json as _json
+        _f = str(model_path) + ".dmlprobe"
+        with open(_f, "w", encoding="utf-8") as _fh:
+            _json.dump({"ok": bool(ok),
                           "size": int(os.path.getsize(model_path)),
                           "ort": str(getattr(ort, "__version__", ""))},
-                         _fh233)
+                         _fh)
     except Exception:
         pass
 
@@ -575,58 +575,58 @@ def _dml_probe_model(model_path: str) -> bool:
     Run با 887A0006 مرد. False = این مدل رویِ این GPU/DirectML کار
     نمیکند (مثلاً int8 کوانتیزه — 80070057). نتیجه در دیسک کش
     میشود (.dmlprobe) تا استارتِ بعدی پروبِ مجاز نخواهد."""
-    _c233 = _dml_probe_cache_get(model_path)
-    if _c233 is not None:
-        return _c233
-    _ok233 = _dml_probe_model_live(model_path)
-    _dml_probe_cache_set(model_path, _ok233)
-    return _ok233
+    _c = _dml_probe_cache_get(model_path)
+    if _c is not None:
+        return _c
+    _ok = _dml_probe_model_live(model_path)
+    _dml_probe_cache_set(model_path, _ok)
+    return _ok
 
 
 def _dml_probe_model_live(model_path: str) -> bool:
     try:
         if not model_path or not os.path.isfile(model_path):
             return False
-        _so233 = _ort_session_options(2, prefer_gpu=True)
+        _so = _ort_session_options(2, prefer_gpu=True)
         try:
             # مستنداتِ DML: الگویِ حافظه باید خاموش باشد
-            _so233.enable_mem_pattern = False
+            _so.enable_mem_pattern = False
         except Exception:
             pass
         # ساختِ سشن و run «هر دو» زیرِ قفل: در لحظهٔ پروب ممکن است
         # پیش‌بارگذاریِ پس‌زمینهٔ LaMa همینجا سشنِ DML بسازد/اجرا کند
         with _DML_RUN_LOCK:
-            _ps233 = ort.InferenceSession(
-                model_path, sess_options=_so233,
+            _ps = ort.InferenceSession(
+                model_path, sess_options=_so,
                 providers=["DmlExecutionProvider", "CPUExecutionProvider"])
-            if not _dml_sess(_ps233):
+            if not _dml_sess(_ps):
                 return False
-            _feed233 = _ep_ab_feed(_ps233, side=320)
-            if not _feed233:
+            _feed = _ep_ab_feed(_ps, side=320)
+            if not _feed:
                 return False
             # فیکسِ RT-DETR: ورودیِ int64ِ (B,2)ِ orig_target_sizes باید
             # هم‌بُعدِ batchِ تصویر باشد — فیدِ خام (2,2) میسازد که با
             # تصویرِ (1,...) mismatch میدهد و پروبِ سالم هم «مردود»
             # میشود. batch همهٔ ورودیها را با بزرگ‌ترین batchِ 4بُعدی
             # هم‌تراز میکنیم.
-            _b233 = 1
-            for _v233 in _feed233.values():
-                if getattr(_v233, "ndim", 0) == 4:
-                    _b233 = max(_b233, int(_v233.shape[0]))
-            for _k233, _v233 in list(_feed233.items()):
-                if getattr(_v233, "ndim", 0) == 2 \
-                        and _v233.dtype in (np.int64, np.int32) \
-                        and int(_v233.shape[0]) != _b233:
-                    _feed233[_k233] = np.full(
-                        (_b233, int(_v233.shape[1])), 320, dtype=_v233.dtype)
-            _outs233 = [o.name for o in _ps233.get_outputs()][:1]
-            _ps233.run(_outs233, _feed233)
+            _b = 1
+            for _v in _feed.values():
+                if getattr(_v, "ndim", 0) == 4:
+                    _b = max(_b, int(_v.shape[0]))
+            for _k, _v in list(_feed.items()):
+                if getattr(_v, "ndim", 0) == 2 \
+                        and _v.dtype in (np.int64, np.int32) \
+                        and int(_v.shape[0]) != _b:
+                    _feed[_k] = np.full(
+                        (_b, int(_v.shape[1])), 320, dtype=_v.dtype)
+            _outs = [o.name for o in _ps.get_outputs()][:1]
+            _ps.run(_outs, _feed)
         try:
-            del _ps233
+            del _ps
         except Exception:
             pass
-        import gc as _gc233
-        _gc233.collect()
+        import gc as _gc
+        _gc.collect()
         return True
     except Exception:
         return False
@@ -640,17 +640,17 @@ def _prepare_ort_cuda_dlls() -> None:
     # هندل میکنند — این بلوک فقط ویندوز است.
     try:
         if os.name == "nt":
-            import site as _site230
-            import glob as _glob230
-            for _sp230 in set(_site230.getsitepackages() or []):
-                for _nd230 in sorted(_glob230.glob(
-                        os.path.join(_sp230, "nvidia", "*", "bin"))):
+            import site as _site
+            import glob as _glob
+            for _sp in set(_site.getsitepackages() or []):
+                for _nd in sorted(_glob.glob(
+                        os.path.join(_sp, "nvidia", "*", "bin"))):
                     try:
-                        os.add_dll_directory(_nd230)
+                        os.add_dll_directory(_nd)
                     except Exception:
                         pass
-                for _nd230b in sorted(_glob230.glob(
-                        os.path.join(_sp230, "nvidia", "cuda_runtime", "bin"))):
+                for _nd230b in sorted(_glob.glob(
+                        os.path.join(_sp, "nvidia", "cuda_runtime", "bin"))):
                     try:
                         os.add_dll_directory(_nd230b)
                     except Exception:
@@ -935,7 +935,7 @@ def _lama_probeok_store(model_path, ep_name) -> None:
 
 def _ort_probe_ok(sess, threads: int, model_path=None,
                   ep_name: str = "") -> bool:
-    _t70 = time.time()
+    _t = time.time()
     # v1.14.70 — کشِ نتیجهٔ پروب: پروبِ سلامت/سریالی تا ۵ اینفرنسِ
     # ۳۸۴² رویِ xnnpack انجام می‌دهد (رویِ گوشی ده‌ها ثانیه) و در هر
     # استارت تکرار می‌شد؛ نتیجه برایِ (مدل، EP، نسخهٔ ORT، ساید، حجم)
@@ -992,12 +992,12 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
         # کم‌رم ده‌ها ثانیه به استارت اضافه می‌کند، درحالی‌که A/Bِ
         # واقعی (.epab) جداگانه EP را با CPU مقایسه کرده است.
         try:
-            _and70 = _on_android()
+            _and = _on_android()
         except Exception:
-            _and70 = False
-        if _and70:
+            _and = False
+        if _and:
             try:
-                print(f"[TIME] lama-probe={time.time() - _t70:.1f}s "
+                print(f"[TIME] lama-probe={time.time() - _t:.1f}s "
                       f"(اندروید: فقط اعتبارسنجی)", flush=True)
             except Exception:
                 pass
@@ -1007,8 +1007,8 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
         # x86_64 SIGFPE می‌دهد (تقسیمِ صحیحِ صفر در زمان‌بندِ thread-pool) —
         # پروبِ موازی رویِ x86 بی‌معناست (CI فقط درستی می‌سنجد) → پرش.
         try:
-            import platform as _pf67
-            if _pf67.machine().lower() in ("x86_64", "amd64"):
+            import platform as _pf
+            if _pf.machine().lower() in ("x86_64", "amd64"):
                 return True
         except Exception:
             pass
@@ -1031,7 +1031,7 @@ def _ort_probe_ok(sess, threads: int, model_path=None,
                 pass
             return False
         try:
-            print(f"[TIME] lama-probe={time.time() - _t70:.1f}s", flush=True)
+            print(f"[TIME] lama-probe={time.time() - _t:.1f}s", flush=True)
         except Exception:
             pass
         _lama_probeok_store(model_path, ep_name)
@@ -1185,24 +1185,24 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
     # پس: هیچ تورنمنت، هیچ پروب، هیچ سشنِ دوم — فقط یک سشنِ مستقیمِ
     # XNNPACK+CPU (گره‌هایِ پشتیبانی‌نشده خودکار به CPU برمی‌گردند).
     try:
-        import platform as _pf86
-        if _on_android() and _pf86.machine().lower() in ("x86_64", "amd64"):
-            so86 = _ort_session_options(1)
+        import platform as _pf
+        if _on_android() and _pf.machine().lower() in ("x86_64", "amd64"):
+            so2 = _ort_session_options(1)
             try:
-                so86.append_execution_provider("XnnpackExecutionProvider")
+                so2.append_execution_provider("XnnpackExecutionProvider")
             except Exception:
                 try:
-                    so86._eps = [("XnnpackExecutionProvider", {})]
+                    so2._eps = [("XnnpackExecutionProvider", {})]
                 except Exception:
                     pass
-            sess86 = ort.InferenceSession(
-                model_path, sess_options=so86,
+            sess2 = ort.InferenceSession(
+                model_path, sess_options=so2,
                 providers=["XnnpackExecutionProvider", "CPUExecutionProvider"])
             try:
                 print("[*] x86_64: سشنِ مستقیمِ XNNPACK (بدونِ تورنمنت/پروب)")
             except Exception:
                 pass
-            return sess86
+            return sess2
     except Exception as e:
         try:
             print(f"[!] x86_64 سشنِ مستقیمِ XNNPACK ناموفق: {str(e)[:110]}")
@@ -1387,8 +1387,8 @@ def _cpu_thread_fallback(session, model_path: str, use_threads: int,
 
     try:
         # v1.14.67 — x86_64: بازسازیِ سشنِ CPU = SIGFPE → دست‌نخورده برگرد
-        import platform as _pf86
-        if _on_android() and _pf86.machine().lower() in ("x86_64", "amd64"):
+        import platform as _pf
+        if _on_android() and _pf.machine().lower() in ("x86_64", "amd64"):
             return session, use_threads
         provs = list(session.get_providers())
         _cap = 4 if _on_android() else 8
@@ -1652,13 +1652,13 @@ class LamaMangaONNX:
             if (_on_android()
                     and not os.environ.get("MANGA_LAMA_PATCH_SIDE")
                     and _android_gate("MANGA_LAMA_PATCH512")):
-                _free_mb135 = 0
-                with open("/proc/meminfo", "r") as _mi135:
-                    for _ln135 in _mi135:
-                        if _ln135.startswith("MemAvailable:"):
-                            _free_mb135 = int(_ln135.split()[1]) // 1024
+                _free_mb2 = 0
+                with open("/proc/meminfo", "r") as _mi2:
+                    for _ln2 in _mi2:
+                        if _ln2.startswith("MemAvailable:"):
+                            _free_mb2 = int(_ln2.split()[1]) // 1024
                             break
-                if _free_mb135 >= 1200 and (os.cpu_count() or 2) >= 6:
+                if _free_mb2 >= 1200 and (os.cpu_count() or 2) >= 6:
                     os.environ["MANGA_LAMA_PATCH_SIDE"] = "512"
                     os.environ["MANGA_LAMA_STATIC_SIDE"] = "512"
                     globals()["_LAMA_STATIC_SIDE"] = None  # بازخوانیِ کش
@@ -1667,10 +1667,10 @@ class LamaMangaONNX:
         except Exception:
             pass
         try:
-            _pv66 = [str(p).lower()
+            _pv = [str(p).lower()
                      for p in (self.session.get_providers() or [])]
             if _lama_static_side() > 0 and any(
-                    p.startswith("xnnpack") for p in _pv66):
+                    p.startswith("xnnpack") for p in _pv):
                 self._static_bucket = int(_lama_static_side())
                 print(f"[*] LaMa xnnpack → پچِ ثابتِ "
                       f"{self._static_bucket}×{self._static_bucket} "
@@ -1880,13 +1880,13 @@ class LamaMangaONNX:
         s = self._dyn_size if self._fixed_size else min(self.SIZE, self._input_cap)
         _mx = max(ow, oh)
 
-        _bucket66 = int(getattr(self, "_static_bucket", 0) or 0)
-        if _bucket66 and not self._fixed_size:
+        _bucket = int(getattr(self, "_static_bucket", 0) or 0)
+        if _bucket and not self._fixed_size:
             # v1.14.66 — همهٔ ورودی‌ها دقیقاً _bucket66×_bucket66 → شکلِ
             # ثابت برایِ xnnpack (یک کامپایل، بدونِ ORT_FAILِ شکلِ تازه).
             # ماسک در ناحیهٔ پد صفر است و خروجی فقط داخلِ ناحیهٔ اصلی
             # برش می‌خورد — ریاضیِ خروجی مثلِ مسیرِ fixed-size است.
-            s = _bucket66
+            s = _bucket
             scale = s / _mx
             if scale < 1.0:
                 rw, rh = max(1, round(ow * scale)), max(1, round(oh * scale))
@@ -2237,72 +2237,72 @@ class RTDetrV2ONNXDetector:
         # اولینِ سالم رویِ GPU میرود. هیچکدام؟ → دیتکتور رویِ CPU (int8
         # سریعتر از fp32 رویِ CPU) تا تلاشِ خرابِ GPU پرچمِ «GPU ساخته نشد»
         # را قفل نکند و LaMa/OCR آزاد بمانند.
-        _dml_skip233 = False
+        _dml_skip = False
         try:
-            _dml_head233 = (
+            _dml_head = (
                 bool(prefer_gpu) and (os.name == "nt") and _ort_has_dml()
                 and (_best_providers_for("det", prefer_gpu=True)
                      or [""])[0] == "DmlExecutionProvider")
         except Exception:
-            _dml_head233 = False
-        if _dml_head233 and not _forced:
-            _cand233 = []
+            _dml_head = False
+        if _dml_head and not _forced:
+            _cand = []
             if model_path and os.path.isfile(model_path) \
                     and os.path.getsize(model_path) > 1000:
-                _cand233.append((os.path.basename(model_path), model_path))
+                _cand.append((os.path.basename(model_path), model_path))
             # v1.14.234 — «detector-v4.onnx» از کاندیدها حذف شد: فایلِ
             # مرده — نه در ریلیزِ mirror هست (404) نه در ریپویِ HF. هر
             # استارت یک mirror+HFِ بی‌فایده را امتحان میکرد و «ساکت»
             # میانداخت — ریشهٔ پرسشِ سازنده: «سیستمم داشتم چرا رفت
             # detector.onnx گرفت؟». کاندیدِ fp32 فقط detector.onnx است
             # (160.7MB — همان دیتکتور، بدونِ کوانتیزه).
-            for _f233 in ("detector.onnx",):
-                _cand233.append((_f233, None))
-            _seen233 = set()
-            _pick233 = None
-            for _fn233, _fp233 in _cand233:
-                if not _fn233 or _fn233 in _seen233:
+            for _f in ("detector.onnx",):
+                _cand.append((_f, None))
+            _seen = set()
+            _pick = None
+            for _fn, _fp in _cand:
+                if not _fn or _fn in _seen:
                     continue
-                _seen233.add(_fn233)
-                _c233 = _fp233
-                if not _c233:
+                _seen.add(_fn)
+                _c = _fp
+                if not _c:
                     try:
-                        _c233 = _mirror_model(_fn233)
+                        _c = _mirror_model(_fn)
                     except Exception:
-                        _c233 = None
-                if not _c233:
+                        _c = None
+                if not _c:
                     try:
-                        print(f"[*] دانلود {_fn233} برایِ GPU (DirectML) ...")
-                        _c233 = _hf_with_timeout(_fn233)
-                    except Exception as _e234:
+                        print(f"[*] دانلود {_fn} برایِ GPU (DirectML) ...")
+                        _c = _hf_with_timeout(_fn)
+                    except Exception as _e:
                         # v1.14.234 — دیگر بی‌صدا قورت داده نمیشود؛ در لاگ
                         # باید دیده شود چرا کاندید رد شد.
-                        print(f"    [!] {_fn233} از HF هم نیامد: {_e234}")
-                        _c233 = None
-                if not (_c233 and os.path.isfile(_c233)
-                        and os.path.getsize(_c233) > 1000):
+                        print(f"    [!] {_fn} از HF هم نیامد: {_e}")
+                        _c = None
+                if not (_c and os.path.isfile(_c)
+                        and os.path.getsize(_c) > 1000):
                     continue
-                if _dml_probe_model(_c233):
-                    _pick233 = _c233
+                if _dml_probe_model(_c):
+                    _pick = _c
                     break
-                print(f"    [~] {os.path.basename(_c233)} رویِ DirectML "
+                print(f"    [~] {os.path.basename(_c)} رویِ DirectML "
                       "پروب نشد → کاندیدِ بعدی …")
-            if _pick233:
+            if _pick:
                 if model_path and os.path.isfile(model_path) \
-                        and os.path.abspath(_pick233) != os.path.abspath(model_path):
-                    _why234 = (" (کوانتیزهٔ int8 — 80070057)"
+                        and os.path.abspath(_pick) != os.path.abspath(model_path):
+                    _why = (" (کوانتیزهٔ int8 — 80070057)"
                                if "int8" in os.path.basename(model_path).lower()
                                else "")
-                    print(f"[*] {os.path.basename(model_path)}{_why234} رویِ "
+                    print(f"[*] {os.path.basename(model_path)}{_why} رویِ "
                           "DirectML سشن نمی‌سازد → نسخهٔ fp32 "
-                          f"({os.path.basename(_pick233)}) جایگزین شد؛ حجمِ "
+                          f"({os.path.basename(_pick)}) جایگزین شد؛ حجمِ "
                           "fp32 چند برابرِ int8 است (همین دیتکتور، بدونِ "
                           "کوانتیزه) و فقط یک بار دانلود میشود.")
-                print(f"[+] DirectML: دیتکتور ({os.path.basename(_pick233)}) "
+                print(f"[+] DirectML: دیتکتور ({os.path.basename(_pick)}) "
                       f"رویِ GPU پروب شد → همین استفاده میشود.")
-                model_path = _pick233
+                model_path = _pick
             else:
-                _dml_skip233 = True
+                _dml_skip = True
                 print("[*] DirectML مدلِ دیتکتور را قبول نکرد → دیتکتور "
                       "رویِ CPU (همان int8)؛ LaMa/OCR همچنان GPU امتحان "
                       "میشوند.")
@@ -2342,7 +2342,7 @@ class RTDetrV2ONNXDetector:
                     try:
                         _sess = _make_ort_session(
                             cand,
-                            prefer_gpu=(False if _dml_skip233 else prefer_gpu),
+                            prefer_gpu=(False if _dml_skip else prefer_gpu),
                             threads=threads,
                             ep=_resolve_lama_ep(), ep_ab=_is_auto_ep())
                     except Exception as _se:
@@ -2367,7 +2367,7 @@ class RTDetrV2ONNXDetector:
             # نکن (ارورِ 80070057 و پیامِ گمراه‌کننده نمیآید؛ مستقیم CPU)
             self.session = _make_ort_session(
                 model_path,
-                prefer_gpu=(False if _dml_skip233 else prefer_gpu),
+                prefer_gpu=(False if _dml_skip else prefer_gpu),
                 threads=threads,
                 ep=_resolve_lama_ep(), ep_ab=_is_auto_ep())
 
@@ -2829,41 +2829,41 @@ def _ocr_det_resize_policy(lang: str):
     min|max (برایِ هر زبان — تستِ دستی). خروجی: dictِ پارامترهایِ
     rapidocr یا None (= پیشفرضِ rapidocr)."""
     try:
-        _v237 = str(os.environ.get("MANGA_OCR_DET_FAST", "")).strip().lower()
-        if _v237 in ("0", "false", "no", "off"):
+        _v = str(os.environ.get("MANGA_OCR_DET_FAST", "")).strip().lower()
+        if _v in ("0", "false", "no", "off"):
             return None
     except Exception:
         pass
-    _low237 = str(lang or "").lower()
-    _cjk237 = _low237 in ("japan", "ja", "japanese", "ko", "korean",
+    _low = str(lang or "").lower()
+    _cjk = _low in ("japan", "ja", "japanese", "ko", "korean",
                           "zh", "ch", "chinese", "ch_sim", "zh_hans",
                           "zh_hant", "zh-tw", "zh_tw", "multi")
     # اوررایدهای صریحِ کاربر
     try:
-        _e_lim237 = int(os.environ.get("MANGA_OCR_DET_LIMIT", "0") or 0)
+        _e_lim = int(os.environ.get("MANGA_OCR_DET_LIMIT", "0") or 0)
     except Exception:
-        _e_lim237 = 0
-    _e_typ237 = str(os.environ.get("MANGA_OCR_DET_TYPE", "") or "").strip().lower()
-    if _cjk237:
+        _e_lim = 0
+    _e_typ = str(os.environ.get("MANGA_OCR_DET_TYPE", "") or "").strip().lower()
+    if _cjk:
         # CJK: پیشفرضِ rapidocr (736/min) + اوررایدِ صریحِ کاربر
-        if _e_lim237 > 0 or _e_typ237 in ("min", "max"):
+        if _e_lim > 0 or _e_typ in ("min", "max"):
             out = {}
-            if _e_lim237 > 0:
-                out["Det.limit_side_len"] = int(_e_lim237)
-            if _e_typ237 in ("min", "max"):
-                out["Det.limit_type"] = _e_typ237
+            if _e_lim > 0:
+                out["Det.limit_side_len"] = int(_e_lim)
+            if _e_typ in ("min", "max"):
+                out["Det.limit_type"] = _e_typ
             return out or None
         return None
     # لاتین: 960/maxِ رسمیِ PaddleOCR (اورراید بر آن هم اعمال میشود)
     out = {"Det.limit_side_len": 960, "Det.limit_type": "max"}
-    if _e_lim237 > 0:
-        out["Det.limit_side_len"] = int(_e_lim237)
-    if _e_typ237 in ("min", "max"):
-        out["Det.limit_type"] = _e_typ237
+    if _e_lim > 0:
+        out["Det.limit_side_len"] = int(_e_lim)
+    if _e_typ in ("min", "max"):
+        out["Det.limit_type"] = _e_typ
     return out
 
 
-def _latin_lang188(tr) -> bool:
+def _latin_lang(tr) -> bool:
     """v1.14.188 — زبانِ صفحه لاتین است؟ (برایِ فیلترِ آشغالِ لاتین؛
     صفحاتِ ja/ko/zh هرگز این فیلتر را نمیگیرند.)"""
     try:
@@ -2877,7 +2877,7 @@ def _latin_lang188(tr) -> bool:
                        "zh_hant", "zh-tw", "zh_tw")
 
 
-def _line_is_foreign188(bb, block_rects, own_area: float) -> bool:
+def _line_is_foreign(bb, block_rects, own_area: float) -> bool:
     """v1.14.188 — مالکیتِ خط. خطی که مرکزش داخلِ مستطیلِ «ناحیهٔ
     همسایهٔ» تنگتر است (مساحتِ همسایه < ۸۵٪ ناحیهٔ خودی) و حداقل ۴۵٪
     خط در آن افتاده، متعلق به همان همسایه است — نه این کراپ. ریشهٔ
@@ -2912,7 +2912,7 @@ def _line_is_foreign188(bb, block_rects, own_area: float) -> bool:
     return False
 
 
-def _clamp_lines_to_det204(res, box, block_rects=None, tol: float = 10.0):
+def _clamp_lines_to_det(res, box, block_rects=None, tol: float = 10.0):
     """v1.14.206 — استخراج نباید از باکسِ detector بیرون بزند (دستورِ
     سازنده: «وقتی detector متن در اورد نباید استخراج از اون بیشتر بگیره —
     الان میشه دید کل سه حباب گرفته»). دو قاعدهٔ مالکیتِ خط:
@@ -2980,7 +2980,7 @@ def _clamp_lines_to_det204(res, box, block_rects=None, tol: float = 10.0):
         return res
 
 
-def _latin_junk_line188(text, region_has_letters: Optional[bool] = None):
+def _latin_junk_line(text, region_has_letters: Optional[bool] = None):
     """v1.14.188 — خطِ آشغالِ لاتین («چرت‌پرت») — فقط کلِ خط:
       • بدونِ هیچ حرفِ لاتین و کوتاه (≤۴ نویسه): «23»، «豊»، «H/»
       • همهٔ توکنها ≤۲ حرف و هیچ واکه‌ای ندارند: «FL»، «SS»، «Px»
@@ -2990,10 +2990,10 @@ def _latin_junk_line188(text, region_has_letters: Optional[bool] = None):
     v1.14.245 — عدد/نماد دیگر «حذفِ خط» نیست (دستورِ سازنده:
     «19 hi باید هردوشو بخونه حذف شه — اشتباه ک میکنه hi میخونه 19
     میپاکه» و «1233 نباید حذف شه»): سیاستِ عدد/نماد در «سطحِ ناحیه»
-    تعیین میشود (source_has_letters + no_touch230)، نه در سطحِ خط.
+    تعیین میشود (source_has_letters + no_touch)، نه در سطحِ خط.
     در ناحیهٔ حرف‌دار، خطِ عدد = محتوای دیالوگ است («19 hi»)؛ در
     ناحیهٔ بی‌حرف، ماندنِ خطها باعث میشود ناحیه «فقط-عدد/نماد» شناخته
-    شود (no_touch230 = دست‌نخورده) نه «OCR-خالی» که پاک میشود.
+    شود (no_touch = دست‌نخورده) نه «OCR-خالی» که پاک میشود.
     پارامترِ region_has_letters: متنِ کلِ ناحیه حرف دارد یا نه؛
     None = رفتارِ قدیمی (برایِ فراخوانی‌های بدونِ متنِ ناحیه)."""
     s = str(text or "").strip()
@@ -3020,11 +3020,11 @@ def _latin_junk_line188(text, region_has_letters: Optional[bool] = None):
             return False
         return len(s) <= 4
     # «77,I» / «1,I» — دو digits + حرفِ تک؛ خوانشِ اشتباهِ حرفِ ایتالیک
-    _alpha188 = [c for c in s if c.isascii() and c.isalpha()]
-    if sum(c.isdigit() for c in s) >= 2 and len(_alpha188) <= 2:
+    _alpha = [c for c in s if c.isascii() and c.isalpha()]
+    if sum(c.isdigit() for c in s) >= 2 and len(_alpha) <= 2:
         # v1.14.189 — اگر حرفها فقط I/i/l باشند، خط حذف نمیشود؛
         # به «I» ترمیم میشود («77,I» = «I'll» ناخوانا — لاگ گوشی ۱۸۸).
-        if _alpha188 and all(c in "Iil" for c in _alpha188):
+        if _alpha and all(c in "Iil" for c in _alpha):
             return "I"
         # v1.14.245 — «19 hi» / «19th»: عدد در متنِ حرف‌دار محتواست؛
         # در ناحیهٔ بی‌حرف هم خط میماند تا ناحیه no_touch شود.
@@ -3036,7 +3036,7 @@ def _latin_junk_line188(text, region_has_letters: Optional[bool] = None):
         if not any(any(c in _vow for c in t) for t in toks):
             # v1.14.253 — در ناحیهٔ بیحرف خط نباید بیفتد: «2B» /
             # «10,000G» (پسوندِ واحد — source_has_letters آنها را
-            # بیحرف میشمارد) باید بمانند تا ناحیه no_touch230 شود و
+            # بیحرف میشمارد) باید بمانند تا ناحیه no_touch شود و
             # دست‌نخورده بماند؛ در ناحیهٔ حرف‌دار همان آشغالِ
             # قبلی است («FL»، «SS» — خوانشِ غلطِ هنر).
             if region_has_letters is False:
@@ -3085,49 +3085,49 @@ def _dl_to(url, dst, name: str = "", attempts: int = 3):
     t0 = _t.time()
     done = 0
     total = 0
-    _n234 = max(1, int(attempts))
-    _part234 = dst + ".part"
-    _mark234 = _part234 + ".url"
-    for _try234 in range(_n234):
+    _n = max(1, int(attempts))
+    _part = dst + ".part"
+    _mark = _part + ".url"
+    for _try in range(_n):
         try:
-            _start234 = 0
-            if os.path.isfile(_part234):
-                _same234 = False
+            _start = 0
+            if os.path.isfile(_part):
+                _same = False
                 try:
-                    with open(_mark234, "r", encoding="utf-8") as _mf234:
-                        _same234 = _mf234.read().strip() == url.strip()
+                    with open(_mark, "r", encoding="utf-8") as _mf:
+                        _same = _mf.read().strip() == url.strip()
                 except Exception:
-                    _same234 = False
-                if _same234:
-                    _start234 = os.path.getsize(_part234)
+                    _same = False
+                if _same:
+                    _start = os.path.getsize(_part)
                 else:
                     # بی‌نشان یا از سرورِ دیگر → الحاق ممنوع
                     try:
-                        os.remove(_part234)
+                        os.remove(_part)
                     except Exception:
                         pass
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            if _start234 > 0:
-                req.add_header("Range", f"bytes={_start234}-")
+            if _start > 0:
+                req.add_header("Range", f"bytes={_start}-")
             with urllib.request.urlopen(req, timeout=900) as r:
-                _code234 = int(r.getcode() or 200)
-                _clen234 = int(r.headers.get("Content-Length") or 0)
-                if _start234 > 0 and _code234 == 206:
+                _code = int(r.getcode() or 200)
+                _clen = int(r.headers.get("Content-Length") or 0)
+                if _start > 0 and _code == 206:
                     # ادامهٔ همان فایلِ نیمه‌کاره از همان سرور
-                    total = _start234 + _clen234
-                    done = _start234
-                    _mode234 = "ab"
+                    total = _start + _clen
+                    done = _start
+                    _mode = "ab"
                 else:
                     # .part نبود یا سرور Range را نگرفد (200) → از صفر
-                    total = _clen234
+                    total = _clen
                     done = 0
-                    _mode234 = "wb"
-                with open(_part234, _mode234) as f:
+                    _mode = "wb"
+                with open(_part, _mode) as f:
                     # نشانِ منبع — پیش از بایتهای بعدی بنویس تا شکستِ
                     # میان‌راه نشان را با خود داشته باشد
                     try:
-                        with open(_mark234, "w", encoding="utf-8") as _mf234:
-                            _mf234.write(url)
+                        with open(_mark, "w", encoding="utf-8") as _mf:
+                            _mf.write(url)
                     except Exception:
                         pass
                     while True:
@@ -3140,30 +3140,30 @@ def _dl_to(url, dst, name: str = "", attempts: int = 3):
             if total and done < total:
                 raise RuntimeError(f"ناقص: {done}/{total} بایت")
             break
-        except Exception as _e234:
-            if isinstance(_e234, urllib.error.HTTPError) \
-                    and int(getattr(_e234, "code", 0) or 0) == 416 \
-                    and os.path.isfile(_part234):
+        except Exception as _e:
+            if isinstance(_e, urllib.error.HTTPError) \
+                    and int(getattr(_e, "code", 0) or 0) == 416 \
+                    and os.path.isfile(_part):
                 # .part از قبل کامل/بی‌اعتبار است → دورش بریز و تازه بگیر
-                for _del234 in (_part234, _mark234):
+                for _del in (_part, _mark):
                     try:
-                        if os.path.isfile(_del234):
-                            os.remove(_del234)
+                        if os.path.isfile(_del):
+                            os.remove(_del)
                     except Exception:
                         pass
-            if _try234 + 1 < _n234:
-                print(f"\n    [!] {name}: قطع شد ({_e234}) → "
-                      f"تلاشِ {_try234 + 2}/{_n234} از همان‌جا ...")
+            if _try + 1 < _n:
+                print(f"\n    [!] {name}: قطع شد ({_e}) → "
+                      f"تلاشِ {_try + 2}/{_n} از همان‌جا ...")
                 _t.sleep(2.0)
                 continue
             raise
-    if os.path.isfile(_part234) and os.path.getsize(_part234) > 1000:
+    if os.path.isfile(_part) and os.path.getsize(_part) > 1000:
         dt = _t.time() - t0
         print(f"\r    ✔ {name}: {_fmt_mb(done)} در {dt:.0f}s" + " " * 8)
-        os.replace(_part234, dst)
+        os.replace(_part, dst)
         try:
-            if os.path.isfile(_mark234):
-                os.remove(_mark234)
+            if os.path.isfile(_mark):
+                os.remove(_mark)
         except Exception:
             pass
         return dst

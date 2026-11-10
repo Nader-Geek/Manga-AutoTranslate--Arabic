@@ -4,7 +4,7 @@
 # PaddleAndroidOCR، MtLadderOCR و لولهٔ سنجشِ سرعتِ OCR.
 # (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
-def _cjk_dominant_154(t: str) -> bool:
+def _cjk_dominant(t: str) -> bool:
     """v1.14.154 — «بعد فارسی بحرف چرا چینی میحرفی» — ریشهٔ واقعی:
     dictِ PP-OCRv6 medium (ppocrv6_chars.txt) = ۱۸۷۰۷ نویسه که ۱۵۷۴۵
     تایش CJK است و فقط ۵۲ تا لاتین؛ با ocr_lang=en رویِ متنِ استایل‌دار،
@@ -488,7 +488,7 @@ _MT_MODE_FA = {
 # PC از همان helper برایِ مجموعهٔ سبکِ خودش استفاده میکند و بیت‌به‌بیت
 # دستنخورده میماند) + نوعِ int8ِ detِ رپید.
 _MT_PURGE_EXTRA = ("PP-OCRv6_det_small.int8.onnx",)
-_PURGE_MARKER = ".onnx_loser_models_purged_184"
+_PURGE_MARKER = ".onnx_loser_models_purged"
 
 
 def _purge_loser_onnx_models() -> str:
@@ -1019,10 +1019,10 @@ class RapidOCRBackend:
                     # v1.14.29: فقط مدل‌های همین زبان دانلود می‌شود — نه همهٔ زبان‌ها
                     # (det مشترک است؛ rec مخصوص زبان؛ cls دیگر استفاده نمی‌شود)
                     # v1.14.152 — مجموعهٔ مرجع با helperِ مشترک
-                    _det_n52, _rec_n52 = _rapidocr_model_pair(
+                    _det_n, _rec_n = _rapidocr_model_pair(
                         lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
                     _ensure_rapidocr_models(_mdir,
-                                            files=[_det_n52, _rec_n52])
+                                            files=[_det_n, _rec_n])
                 except Exception as _e:
                     print(f"[!] پیش‌دانلود مدل‌ها ناموفق: {_e}")
             # v1.14.96-speed — مدل‌هایِ det/rec (و cls اگر فایلش موجود باشد)
@@ -1031,40 +1031,40 @@ class RapidOCRBackend:
             # modelscope انجام نمی‌دهد و دقیقاً همان فایلِ کش‌شده (که از
             # ریلیزِ models آمده) استفاده می‌شود. فایل نبود؟ → همان رفتارِ
             # قبل: rapidocr خودش برمی‌دارد (model_root_dir).
-            _gpu_flags69 = {}
+            _gpu_flags = {}
             if _mdir:
                 try:
                     # v1.14.152 — مسیرِ صریحِ مدلها از helperِ مجموعهٔ مرجع
-                    _det_n52, _rec_n52 = _rapidocr_model_pair(
+                    _det_n, _rec_n = _rapidocr_model_pair(
                         lang, small=_pc_ocr_small())  # v1.14.188 — PC = ستِ medium (MANGA_OCR_SMALL/امولاتور = سبک)
-                    for _sec69, _fn69 in (
-                            ("Det", _det_n52),
-                            ("Rec", _rec_n52),
+                    for _sec, _fn in (
+                            ("Det", _det_n),
+                            ("Rec", _rec_n),
                             ("Cls", "ch_ppocr_mobile_v2.0_cls_mobile.onnx")):
-                        _mp69 = _os.path.join(_mdir, _fn69)
-                        if _os.path.isfile(_mp69) \
-                                and _os.path.getsize(_mp69) > 100_000:
-                            _base[f"{_sec69}.model_path"] = _mp69
+                        _mp = _os.path.join(_mdir, _fn)
+                        if _os.path.isfile(_mp) \
+                                and _os.path.getsize(_mp) > 100_000:
+                            _base[f"{_sec}.model_path"] = _mp
                     # v1.14.152 — مدلهایِ رسمیِ PaddlePaddle (medium/korean)
                     # dict را داخلِ metadata ندارند → rapidocr بدونِ
                     # rec_keys_path دنبالِ dict_url میگردد و «Missing key
                     # dict_url» میدهد. فایلِ dict محلیِ همان مدل را میدهیم
                     # (ch v4 و japan خودشان dictِ داخلی دارند — دست نمیخورند).
-                    if _rec_n52 in ("PP-OCRv6_medium_rec_onnx.onnx",
+                    if _rec_n in ("PP-OCRv6_medium_rec_onnx.onnx",
                                     "PP-OCRv5_korean_rec.onnx"):
-                        _keys52 = ("ppocrv6_chars.txt"
-                                   if _rec_n52.startswith("PP-OCRv6")
+                        _keys = ("ppocrv6_chars.txt"
+                                   if _rec_n.startswith("PP-OCRv6")
                                    else "korean_chars.txt")
                         try:
-                            _ensure_rapidocr_models(_mdir, files=[_keys52])
+                            _ensure_rapidocr_models(_mdir, files=[_keys])
                         except Exception:
                             pass
-                        _kp52 = _os.path.join(_mdir, _keys52)
-                        if _os.path.isfile(_kp52) \
-                                and _os.path.getsize(_kp52) > 100:
-                            _base["Rec.rec_keys_path"] = _kp52
-                except Exception as _e69:
-                    print(f"[!] مسیرِ صریحِ مدلِ OCR نشد ({_e69}) → auto")
+                        _kp = _os.path.join(_mdir, _keys)
+                        if _os.path.isfile(_kp) \
+                                and _os.path.getsize(_kp) > 100:
+                            _base["Rec.rec_keys_path"] = _kp
+                except Exception as _e2:
+                    print(f"[!] مسیرِ صریحِ مدلِ OCR نشد ({_e2}) → auto")
             # v1.14.96-speed — EPِ سشن‌هایِ OCR هم از انتخابگرِ مرکزیِ
             # _best_providers_for: اگر CUDA/Dml/CoreML واقعاً موجود است و
             # --cpu نزده، rapidocr هم رویِ همان EP می‌رود (همان مدلِ
@@ -1072,8 +1072,8 @@ class RapidOCRBackend:
             # ندارد و ساختِ سشنِ GPU شکست بخورد → بدونِ GPU دوباره ساخته
             # می‌شود (فال‌بکِ امن).
             try:
-                _want69 = bool(prefer_gpu) and (_ORT_CUDA_OK is not False)
-                _ocr_head69 = (_best_providers_for("ocr", prefer_gpu=_want69)
+                _want = bool(prefer_gpu) and (_ORT_CUDA_OK is not False)
+                _ocr_head = (_best_providers_for("ocr", prefer_gpu=_want)
                                or ["CPUExecutionProvider"])[0]
                 # v1.14.230 — پروبِ «واقعیِ» CUDA قبل از سپردنِ موتورِ OCR
                 # به rapidocr: «CUDA در get_available_providers» فقط یعنی
@@ -1083,82 +1083,82 @@ class RapidOCRBackend:
                 # کاربر پیامِ روشن میبیند (گزارشِ سازنده: «چک میزنم
                 # گرافیک صفر درصده»). فایلِ مدلِ det همین بالا دانلود
                 # شده است (_ensure_rapidocr_models).
-                _ep_active230 = ""
-                if _ocr_head69 == "CUDAExecutionProvider":
-                    _cuda_ok230 = False
+                _ep_active = ""
+                if _ocr_head == "CUDAExecutionProvider":
+                    _cuda_ok = False
                     try:
-                        _detn230 = ""
+                        _detn = ""
                         try:
-                            _detn230 = _det_n52
+                            _detn = _det_n
                         except Exception:
-                            _detn230 = ""
-                        _probe_p230 = _os.path.join(_mdir or "", _detn230 or "")
-                        if _os.path.isfile(_probe_p230):
-                            _ps230 = ort.InferenceSession(
-                                _probe_p230,
+                            _detn = ""
+                        _probe_p = _os.path.join(_mdir or "", _detn or "")
+                        if _os.path.isfile(_probe_p):
+                            _ps = ort.InferenceSession(
+                                _probe_p,
                                 providers=["CUDAExecutionProvider",
                                            "CPUExecutionProvider"])
-                            _cuda_ok230 = (
-                                _ps230.get_providers()[0]
+                            _cuda_ok = (
+                                _ps.get_providers()[0]
                                 == "CUDAExecutionProvider")
-                            _ep_active230 = ",".join(_ps230.get_providers())
-                    except Exception as _pe230:
-                        _cuda_ok230 = False
-                        _ep_active230 = str(_pe230)[:90]
-                    if _cuda_ok230:
-                        _gpu_flags69["EngineConfig.onnxruntime.use_cuda"] = True
+                            _ep_active = ",".join(_ps.get_providers())
+                    except Exception as _pe:
+                        _cuda_ok = False
+                        _ep_active = str(_pe)[:90]
+                    if _cuda_ok:
+                        _gpu_flags["EngineConfig.onnxruntime.use_cuda"] = True
                         # v1.14.96-speed (SRV-G phase2) — CUDA EP options برایِ
                         # سشن‌هایِ OCR هم (فقط وقتی مسیرِ GPU فعال است تا فال‌بکِ
                         # CPU را آلوده نکند؛ در فال‌بک حذف می‌شود)
-                        _gpu_flags69["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_use_max_workspace"] = "1"
+                        _gpu_flags["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_use_max_workspace"] = "1"
                         # v1.14.98-speed (SRV-H3) — OCR هم MANGA_CUDNN_ALGO را
                         # رعایت کند (سشن‌هایِ det/rec رویِ CUDA بدونِ
                         # EXHAUSTIVE re-search وقتی heuristic خواسته شده)
                         _algo_h3 = _cudnn_algo_search()
                         if _algo_h3:
-                            _gpu_flags69["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search"] = _algo_h3
+                            _gpu_flags["EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search"] = _algo_h3
                     else:
-                        print(f"[!] CUDA در عمل لود نشد ({_ep_active230 or 'بدونِ جزئیات'}) "
+                        print(f"[!] CUDA در عمل لود نشد ({_ep_active or 'بدونِ جزئیات'}) "
                               f"→ OCR روی CPU. راه‌حل: pip install "
                               f"'onnxruntime-gpu[cuda,cudnn]==1.26.0'")
-                        _ocr_head69 = "CPUExecutionProvider"
-                if _ocr_head69 == "DmlExecutionProvider":
+                        _ocr_head = "CPUExecutionProvider"
+                if _ocr_head == "DmlExecutionProvider":
                     # v1.14.233 — پروبِ واقعیِ DML رویِ «هر دو» مدلِ det و
                     # rec + یک اینفرنسِ واقعی (لاگِ 232: سشنها ساخته شدند
                     # ولی اولین Run با 887A0006 مرد). همهٔ فراخوانیهایِ
                     # موتور هم از این پس زیرِ قفلِ سراسریِ DML میروند
                     # (مستندات: DML اجرایِ موازی ندارد).
-                    _dml_ok233 = False
+                    _dml_ok = False
                     try:
-                        _probe233 = []
-                        for _nm233 in (_det_n52, _rec_n52):
+                        _probe = []
+                        for _nm in (_det_n, _rec_n):
                             try:
-                                _p233 = _os.path.join(_mdir or "",
-                                                      str(_nm233 or ""))
+                                _p3 = _os.path.join(_mdir or "",
+                                                      str(_nm or ""))
                             except Exception:
-                                _p233 = ""
-                            if _os.path.isfile(_p233) \
-                                    and _os.path.getsize(_p233) > 100_000:
-                                _probe233.append(_p233)
-                        _dml_ok233 = bool(_probe233) and all(
-                            _dml_probe_model(_p233) for _p233 in _probe233)
+                                _p3 = ""
+                            if _os.path.isfile(_p3) \
+                                    and _os.path.getsize(_p3) > 100_000:
+                                _probe.append(_p3)
+                        _dml_ok = bool(_probe) and all(
+                            _dml_probe_model(_p) for _p in _probe)
                     except Exception:
-                        _dml_ok233 = False
-                    if _dml_ok233:
-                        _gpu_flags69["EngineConfig.onnxruntime.use_dml"] = True
-                        self._dml_locked233 = True
+                        _dml_ok = False
+                    if _dml_ok:
+                        _gpu_flags["EngineConfig.onnxruntime.use_dml"] = True
+                        self._dml_locked = True
                     else:
                         print("[!] DirectML در عمل لود نشد (درایور/DirectX را "
                               "آپدیت کن) → OCR روی CPU.")
-                        _ocr_head69 = "CPUExecutionProvider"
-                elif _ocr_head69 == "CoreMLExecutionProvider":
-                    _gpu_flags69["EngineConfig.onnxruntime.use_coreml"] = True
-                if _gpu_flags69:
-                    _base.update(_gpu_flags69)
-                    print(f"[*] EPِ OCR: {_ocr_head69}")
-                self._ocr_ep_active = _ocr_head69
+                        _ocr_head = "CPUExecutionProvider"
+                elif _ocr_head == "CoreMLExecutionProvider":
+                    _gpu_flags["EngineConfig.onnxruntime.use_coreml"] = True
+                if _gpu_flags:
+                    _base.update(_gpu_flags)
+                    print(f"[*] EPِ OCR: {_ocr_head}")
+                self._ocr_ep_active = _ocr_head
             except Exception:
-                _gpu_flags69 = {}
+                _gpu_flags = {}
             try:
                 import os as _os2
                 _cpu_n = _os2.cpu_count() or 4
@@ -1205,11 +1205,11 @@ class RapidOCRBackend:
             # رسمیِ PaddleOCR — ۲.۲..۲.۳× سریعتر؛ CJK = همان 736/minِ
             # rapidocr برایِ حفظِ خواندنِ کانجیِ ریز). جزئیات و بنچمارک:
             # _ocr_det_resize_policy
-            _det_speed237 = _ocr_det_resize_policy(lang) or {}
-            _det_disp237 = ""
-            if _det_speed237:
-                _det_disp237 = (f" | det={_det_speed237.get('Det.limit_side_len', 736)}"
-                                f"/{_det_speed237.get('Det.limit_type', 'min')}")
+            _det_speed = _ocr_det_resize_policy(lang) or {}
+            _det_disp = ""
+            if _det_speed:
+                _det_disp = (f" | det={_det_speed.get('Det.limit_side_len', 736)}"
+                                f"/{_det_speed.get('Det.limit_type', 'min')}")
             _intra_disp = _intra
             # v1.14.191 — برایِ همترازیِ workers×threads≈هسته‌ها (MangaTranslator
             # بعد از ساختِ موتور این را میخواند)
@@ -1218,47 +1218,47 @@ class RapidOCRBackend:
                 _p = dict(_rec_params)
                 _p.update(_base)
                 _p.update(_threads)
-                _p.update(_det_speed237)
+                _p.update(_det_speed)
                 try:
                     self.engine = NewRapidOCR(params=_p)
-                    self._eng_params233 = _p
-                except Exception as _eg69:
+                    self._eng_params = _p
+                except Exception as _eg:
                     # v1.14.96-speed — اگر ساختِ سشنِ GPU شکست، بدونِ EPِ GPU
                     # دوباره (تا فال‌بکِ legacyِ PP-OCRv3 فعال نشود)
-                    if not _gpu_flags69:
+                    if not _gpu_flags:
                         raise
-                    print(f"[!] EPِ GPU برایِ OCR نشد ({str(_eg69)[:130]}) → CPU")
-                    _p2 = {k: v for k, v in _p.items() if k not in _gpu_flags69}
+                    print(f"[!] EPِ GPU برایِ OCR نشد ({str(_eg)[:130]}) → CPU")
+                    _p2 = {k: v for k, v in _p.items() if k not in _gpu_flags}
                     self.engine = NewRapidOCR(params=_p2)
-                    self._eng_params233 = _p2
+                    self._eng_params = _p2
                     # v1.14.233 — موتور CPU شد؛ قفلِ DML بی‌مورد است
-                    self._dml_locked233 = False
+                    self._dml_locked = False
                 self._new_api = True
-                _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
+                _ep_disp = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
                                if str(getattr(self, "_ocr_ep_active", "") or "").strip()
                                else "")
-                print(f"[+] RapidOCR (ONNX, PP-OCRv5) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230}{_det_disp237} | cls=خاموش")
+                print(f"[+] RapidOCR (ONNX, PP-OCRv5) آماده | lang={lang} | threads={_intra_disp}{_ep_disp}{_det_disp} | cls=خاموش")
                 return
             _pb = dict(_base)
             _pb.update(_threads)
-            _pb.update(_det_speed237)
+            _pb.update(_det_speed)
             try:
                 self.engine = NewRapidOCR(params=_pb)
-                self._eng_params233 = _pb
-            except Exception as _eg69:
-                if not _gpu_flags69:
+                self._eng_params = _pb
+            except Exception as _eg:
+                if not _gpu_flags:
                     raise
-                print(f"[!] EPِ GPU برایِ OCR نشد ({str(_eg69)[:130]}) → CPU")
-                _pb2 = {k: v for k, v in _pb.items() if k not in _gpu_flags69}
+                print(f"[!] EPِ GPU برایِ OCR نشد ({str(_eg)[:130]}) → CPU")
+                _pb2 = {k: v for k, v in _pb.items() if k not in _gpu_flags}
                 self.engine = NewRapidOCR(params=_pb2)
-                self._eng_params233 = _pb2
+                self._eng_params = _pb2
                 # v1.14.233 — موتور CPU شد؛ قفلِ DML بی‌مورد است
-                self._dml_locked233 = False
+                self._dml_locked = False
             self._new_api = True
-            _ep_disp230 = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
+            _ep_disp = (f" | EP={getattr(self, '_ocr_ep_active', '')}"
                            if str(getattr(self, "_ocr_ep_active", "") or "").strip()
                            else "")
-            print(f"[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang={lang} | threads={_intra_disp}{_ep_disp230}{_det_disp237} | cls=خاموش")
+            print(f"[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang={lang} | threads={_intra_disp}{_ep_disp}{_det_disp} | cls=خاموش")
             return
         except Exception as e:
             import traceback as _tb
@@ -1321,13 +1321,13 @@ class RapidOCRBackend:
     # موتورِ اصلی کپی میشود (مدلِ det همان فایل) و چون use_rec=False
     # است، مدلِ rec «هرگز» ساخته/لود نمیشود (~۱۰MB). EP = همیشه CPU
     # (پرچمهایِ GPU حذف میشوند) تا قفلِ DML/سرعتِ کارگرها دست نخورد.
-    def _det_dbg_engine_252(self):
+    def _det_dbg_engine(self):
         _e = getattr(self, "_det_dbg_eng252", None)
         if _e is not None:
             return _e
         if getattr(self, "_det_dbg_tried252", False):
             return None
-        self._det_dbg_tried252 = True
+        self._det_dbg_tried = True
         try:
             from rapidocr import RapidOCR as NewRapidOCR
             _p = {}
@@ -1339,11 +1339,11 @@ class RapidOCRBackend:
                         or "cuda_ep_cfg" in _k:
                     continue
                 _p[_k] = _v
-            self._det_dbg_eng252 = NewRapidOCR(params=_p)
-        except Exception as _e252:
-            print(f"[!] موتورِ detِ دیباگ ساخته نشد ({str(_e252)[:90]})")
-            self._det_dbg_eng252 = None
-        return self._det_dbg_eng252
+            self._det_dbg_eng = NewRapidOCR(params=_p)
+        except Exception as _e2:
+            print(f"[!] موتورِ detِ دیباگ ساخته نشد ({str(_e2)[:90]})")
+            self._det_dbg_eng = None
+        return self._det_dbg_eng
 
     def det_only(self, image_bgr: np.ndarray) -> List[np.ndarray]:
         """v1.14.252 — پاسِ فقط-det (بدونِ rec) برایِ دیباگِ آبیِ صفحه:
@@ -1359,7 +1359,7 @@ class RapidOCRBackend:
             return []
         if getattr(self, "_mobile", None) is not None:
             return []
-        eng = self._det_dbg_engine_252()
+        eng = self._det_dbg_engine()
         if eng is None:
             return []
         try:
@@ -1371,12 +1371,12 @@ class RapidOCRBackend:
             return []
         quads: List[np.ndarray] = []
         try:
-            for _b252 in np.asarray(boxes):
+            for _b in np.asarray(boxes):
                 try:
-                    _q252 = np.asarray(_b252, dtype=np.float32).reshape(-1, 2)
-                    if _q252.shape[0] >= 4 and np.ptp(_q252[:, 0]) >= 2 \
-                            and np.ptp(_q252[:, 1]) >= 2:
-                        quads.append(_q252)
+                    _q = np.asarray(_b, dtype=np.float32).reshape(-1, 2)
+                    if _q.shape[0] >= 4 and np.ptp(_q[:, 0]) >= 2 \
+                            and np.ptp(_q[:, 1]) >= 2:
+                        quads.append(_q)
                 except Exception:
                     continue
         except Exception:
@@ -1389,7 +1389,7 @@ class RapidOCRBackend:
         except TypeError:
             return self.engine(image_bgr)
 
-    def _engine_run233(self, image_bgr):
+    def _engine_run(self, image_bgr):
         """v1.14.233 — فراخوانیِ موتورِ OCR. رویِ DML زیرِ قفلِ سراسری:
         سشنهایِ داخلیِ rapidocr (det/rec) از چند کارگرِ موازی صدا زده
         میشوند و DML اجرایِ موازی ندارد (887A0006 رویِ RX 5700 XT —
@@ -1399,7 +1399,7 @@ class RapidOCRBackend:
                 return self._engine_run233_nolock(image_bgr)
         return self._engine_run233_nolock(image_bgr)
 
-    def _dml_recover233(self, err) -> bool:
+    def _dml_recover(self, err) -> bool:
         """v1.14.233 — خطایِ GPU (DirectML) در وسطِ OCR: موتور یک‌بار رویِ
         CPU بازساخته میشود (همان APIِ جدید — بدونِ سقوط به «موتورِ
         قدیمی» که در لاگِ 232 نیمی از متنها را از دست داد). فقط
@@ -1407,8 +1407,8 @@ class RapidOCRBackend:
         شد (یا نخِ دیگری کرد) → فراخواننده دوباره امتحان کند."""
         if not getattr(self, "_dml_locked233", False):
             return False
-        _m233 = str(err).lower()
-        if not any(_s233 in _m233 for _s233 in (
+        _m = str(err).lower()
+        if not any(_s in _m for _s in (
                 "887a0006", "80070057", "gpu will not respond",
                 "device hung", "device removed", "dml", "directml")):
             return False
@@ -1419,18 +1419,18 @@ class RapidOCRBackend:
             try:
                 # مثلِ __init__: importِ محلی (rapidocr ممکن است نصب نباشد)
                 from rapidocr import RapidOCR as NewRapidOCR
-                _p233 = dict(getattr(self, "_eng_params233", None) or {})
-                if not _p233:
+                _p = dict(getattr(self, "_eng_params233", None) or {})
+                if not _p:
                     return False
-                for _k233 in list(_p233.keys()):
-                    if _k233 in ("EngineConfig.onnxruntime.use_cuda",
+                for _k in list(_p.keys()):
+                    if _k in ("EngineConfig.onnxruntime.use_cuda",
                                  "EngineConfig.onnxruntime.use_dml",
                                  "EngineConfig.onnxruntime.use_coreml") \
-                            or "cuda_ep_cfg" in _k233:
-                        _p233.pop(_k233, None)
-                self.engine = NewRapidOCR(params=_p233)
-                self._eng_params233 = _p233
-                self._dml_locked233 = False
+                            or "cuda_ep_cfg" in _k:
+                        _p.pop(_k, None)
+                self.engine = NewRapidOCR(params=_p)
+                self._eng_params = _p
+                self._dml_locked = False
                 self._ocr_ep_active = "CPUExecutionProvider"
                 print("[!] خطایِ GPU در OCR → موتور رویِ CPU بازساخته شد "
                       "(کیفیت حفظ شد؛ بقیهٔ صفحات بدونِ وقفه)")
@@ -1453,12 +1453,12 @@ class RapidOCRBackend:
                 # نیست؛ فراخوانیِ تمامصفحه فقط برای مسیرهایِ قدیمیِ
                 # جانبی (detect_text) میماند.
                 _out = self._mobile.ocr(image_bgr, crop_mode=crop_mode)
-            except Exception as _e164:
+            except Exception as _e:
                 # v1.14.164 — خطایِ بیصدا ممنوع: رگِ «متن پیدا نشد»ٔ
                 # 1.14.163 یک AttributeErrorِ بیصدا بود (رگرسیونِ
                 # تودرتوییِ _ocr_impl)؛ حالا هر خرابیِ OCR یک خطِ کوتاه
                 # و مشخص در لاگ میدهد تا ریشه فوراً دیده شود.
-                print(f"[!] خطایِ OCRِ موبایل: {str(_e164)[:150]}")
+                print(f"[!] خطایِ OCRِ موبایل: {str(_e)[:150]}")
                 return None
             if not _out or not _out[0]:
                 return None
@@ -1469,7 +1469,7 @@ class RapidOCRBackend:
                     _t = self._deaccent(str(_pair[0])).strip()
                     if not _t:
                         continue
-                    if self._cjk_guard and _cjk_dominant_154(_t):
+                    if self._cjk_guard and _cjk_dominant(_t):
                         _ncjk += 1
                         continue
                     _s = float(_pair[1])
@@ -1485,9 +1485,9 @@ class RapidOCRBackend:
             # موتور رویِ CPU در خطایِ GPU (_dml_recover233) — کیفیتِ
             # نتایج حتی موقعِ خرابیِ GPU حفظ میشود (لاگِ 232: سقوط به
             # «موتورِ قدیمی» ۸ ناحیه از ۱۱ را بی‌متن گذاشت).
-            for _att233 in range(2):
+            for _att in range(2):
                 try:
-                    out = self._engine_run233(image_bgr)
+                    out = self._engine_run(image_bgr)
                     txts = getattr(out, "txts", None)
                     if not txts:
                         return None
@@ -1506,7 +1506,7 @@ class RapidOCRBackend:
                     msg = str(e).lower()
                     if "text detection result is empty" in msg or "detection result is empty" in msg:
                         return None
-                    if _att233 == 0 and self._dml_recover233(e):
+                    if _att == 0 and self._dml_recover(e):
                         continue  # موتور رویِ CPU بازساخته شد → تلاشِ دوم
                     print(f"    [OCR] rapidocr جدید خطا: {e} → موتور قدیمی")
                     self._new_api = False
@@ -1514,15 +1514,15 @@ class RapidOCRBackend:
                         return None
                     break
         try:
-            result, _ = self._engine_run233(image_bgr)
+            result, _ = self._engine_run(image_bgr)
         except Exception as e:
             msg = str(e).lower()
             if "text detection result is empty" in msg or "detection result is empty" in msg:
                 return None
             # v1.14.233 — خطایِ GPU → موتور رویِ CPU + یک تلاشِ دیگر
-            if self._dml_recover233(e):
+            if self._dml_recover(e):
                 try:
-                    result, _ = self._engine_run233(image_bgr)
+                    result, _ = self._engine_run(image_bgr)
                 except Exception:
                     return None
             else:

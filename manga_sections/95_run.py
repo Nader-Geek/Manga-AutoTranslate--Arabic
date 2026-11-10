@@ -17,7 +17,7 @@ class _MangaTranslatorBody_95:
         # کارگرِ استخراج دوباره True میشود (خطِ لاگِ مرز در همان جا).
         self._extraction_done = False
         self._independent_pages = False  # v1.14.106 — ریست در هر ران (run بازگشتی هم دارد)
-        _t_run67 = time.time()  # v1.14.67 — کلِ زمانِ ران
+        _t_run = time.time()  # v1.14.67 — کلِ زمانِ ران
         # v1.14.70 — سرعت: ساختِ سشنِ LaMa (۲۰۰MB) از همان اولِ کار شروع
         # می‌شود تا با دانلودِ تصویرها/آماده‌سازیِ صفحه‌ها هم‌پوشانی داشته
         # باشد. قبلاً بعد از آماده‌سازی شروع می‌شد → اولین صفحه منتظرِ
@@ -221,7 +221,7 @@ class _MangaTranslatorBody_95:
                 # بنرِ مشترکِ سری فقط در فصلِ اول میآید (ردِ خودکار در
                 # بقیه) و نامها شمارهٔ «فصل + صفحه» میگیرند تا سورتِ
                 # نهایی هرگز ترتیب را بهم نریزد.
-                _seen_ch230: set = set()
+                _seen_ch: set = set()
                 for i, url in enumerate(urls, 1):
                     if stop_requested():
                         raise JobCancelled("لغو توسط کاربر")
@@ -230,7 +230,7 @@ class _MangaTranslatorBody_95:
                     print(f"{'='*60}")
                     try:
                         files_i = self._download_images_from_url(
-                            url, src_dir, shared_seen=_seen_ch230)
+                            url, src_dir, shared_seen=_seen_ch)
                     except Exception as e:
                         print(f"[!] دانلود لینک {i} ناموفق: {str(e)[:120]}")
                         files_i = []
@@ -437,7 +437,7 @@ class _MangaTranslatorBody_95:
         except Exception:
             pass
         try:
-            print(f"[TIME] startup={time.time() - _t_run67:.1f}s "
+            print(f"[TIME] startup={time.time() - _t_run:.1f}s "
                   f"(اماده‌سازی تا اولین صفحه)", flush=True)
         except Exception:
             pass
@@ -445,7 +445,7 @@ class _MangaTranslatorBody_95:
         def _extract_one(item):
             page_i, f, out_file = item
             _raise_if_stop()
-            _t_ext66 = time.time()  # v1.14.66 — زمان‌گیریِ لود+استخراج
+            _t_ext = time.time()  # v1.14.66 — زمان‌گیریِ لود+استخراج
             # v1.14.197 — فقط صفحهٔ ۰ پرچم را ست/پاک میکند؛ در استخراجِ
             # دوطرفه کارگرِ دیگر نباید پرچمِ صفحهٔ ۰ را بینِ راه پاک کند.
             if page_i == 0:
@@ -462,7 +462,7 @@ class _MangaTranslatorBody_95:
                 regions, dbg = self.extract_regions_phase(image)
                 try:
                     print(f"[TIME] page#{page_i + 1} "
-                          f"load+extract={time.time() - _t_ext66:.1f}s",
+                          f"load+extract={time.time() - _t_ext:.1f}s",
                           flush=True)
                 except Exception:
                     pass
@@ -481,13 +481,13 @@ class _MangaTranslatorBody_95:
                 return page_i, out_file, None, dbg
             if not regions:
                 return page_i, out_file, image, dbg
-            _t_fin66 = time.time()  # v1.14.66 — زمان‌گیریِ پاکسازی+رندر
+            _t_fin = time.time()  # v1.14.66 — زمان‌گیریِ پاکسازی+رندر
             try:
                 result, page_debug = self.finish_page_phase(
                     image, regions, final=True)  # v1.14.193 — مسیرِ نهایی
                 try:
                     print(f"[TIME] page#{page_i + 1} "
-                          f"clean+render={time.time() - _t_fin66:.1f}s",
+                          f"clean+render={time.time() - _t_fin:.1f}s",
                           flush=True)
                 except Exception:
                     pass
@@ -550,13 +550,13 @@ class _MangaTranslatorBody_95:
                 if not regions:
                     results_by_i[page_i] = (out_file, image, dbg)
                     return
-                _t_fin66 = time.time()  # v1.14.66 — پاکسازی+رندر
+                _t_fin = time.time()  # v1.14.66 — پاکسازی+رندر
                 result, page_debug = self.finish_page_phase(
                     image, regions, skip_translate=True, precleaned=precleaned,
                     final=True)  # v1.14.193 — رندرِ نهایی با سدِ «تا همشو ترجمه کنه»
                 try:
                     print(f"[TIME] page#{page_i + 1} "
-                          f"clean+render={time.time() - _t_fin66:.1f}s",
+                          f"clean+render={time.time() - _t_fin:.1f}s",
                           flush=True)
                 except Exception:
                     pass
@@ -590,11 +590,11 @@ class _MangaTranslatorBody_95:
             # v1.14.229 — صفحهای که دیالوگهایش هنوز در صف‌شدن است
             # (_qd_inflight) نهایی نمی‌شود — ریشهٔ «عکس ۲/۳ رد میشه».
             with _qd_lock:
-                _inflight229 = set(_qd_inflight)
+                _inflight = set(_qd_inflight)
             for page_i in sorted(extracted_map.keys()):
                 if page_i in finished_pages:
                     continue
-                if page_i in _inflight229:
+                if page_i in _inflight:
                     continue
                 if pending_by_page.get(page_i, 0) > 0:
                     continue
@@ -693,8 +693,8 @@ class _MangaTranslatorBody_95:
                 # v1.14.242 — سبکِ مرجع: هر دیالوگ صفحه/فایلِ خودش را می‌شناسد
                 # تا درخواست به شکلِ [{filename, dialogues}] گروه‌بندی شود
                 r.page_index = page_i
-                _pf213 = _src_of_page.get(page_i)
-                r.page_file = (os.path.basename(_pf213) if _pf213
+                _pf = _src_of_page.get(page_i)
+                r.page_file = (os.path.basename(_pf) if _pf
                                else f"page_{page_i + 1:02d}.png")
                 global_id += 1
                 dialogue_buffer.append(r)
@@ -727,7 +727,7 @@ class _MangaTranslatorBody_95:
         trans_futures: list = []
         # v1.14.239 — شمارندهٔ پیشرفتِ ترجمه (نوارِ وب): بعد از هر بستهٔ
         # ۴۰تایی «ترجمه: n/N ناحیه» — N همان شمارندهٔ صفِ دیالوگ است.
-        _tr_prog239 = {"n": 0}
+        _tr_prog = {"n": 0}
         _tr_prog239_lock = threading.Lock()
 
         def _translate_chunk_bg(chunk: List[TextRegion]) -> None:
@@ -752,10 +752,10 @@ class _MangaTranslatorBody_95:
                     # v1.14.239 — نوارِ پیشرفتِ وب
                     try:
                         with _tr_prog239_lock:
-                            _tr_prog239["n"] += len(chunk)
-                            _n239 = _tr_prog239["n"]
-                            _t239 = max(int(global_id or 0), _n239)
-                        print(f"[*] ترجمه: {_n239}/{_t239} ناحیه",
+                            _tr_prog["n"] += len(chunk)
+                            _n = _tr_prog["n"]
+                            _t = max(int(global_id or 0), _n)
+                        print(f"[*] ترجمه: {_n}/{_t} ناحیه",
                               flush=True)
                     except Exception:
                         pass
@@ -783,7 +783,7 @@ class _MangaTranslatorBody_95:
         clean_claimed: set = set()   # v1.14.227 — ادعایِ اتمیکِ «در حالِ پاکسازیِ همین صفحه»
         # v1.14.239 — شمارندهٔ پیشرفتِ پاکسازی (نوارِ وب): هر صفحهٔ
         # «پردازش‌شده» (پاک‌شده یا بدونِ چیزیِ برایِ پاک‌کردن) یک بار.
-        clean_counted239: set = set()
+        clean_counted: set = set()
         clean_done_ev: Dict[int, threading.Event] = {}
         pending_clean: set = set()    # صفِ فاز ۱
         extraction_done = {"v": False}
@@ -826,9 +826,9 @@ class _MangaTranslatorBody_95:
             # هم همانجا پاک شود — وگرنه در استفادهِ مجددِ precleaned
             # جا میماند.
             if getattr(self, "clean_only", False):
-                _have225 = {id(x) for x in regs}
+                _have = {id(x) for x in regs}
                 regs = regs + [r for r in regions
-                               if r.kind == "junk" and id(r) not in _have225]
+                               if r.kind == "junk" and id(r) not in _have]
             return regs or None
 
         def _clean_one_page(_p: int) -> bool:
@@ -845,17 +845,17 @@ class _MangaTranslatorBody_95:
             # True = «این فراخوان کار را به پایان رساند» → فقط همان
             # caller حقِ زدنِ clean_done را دارد (علامتِ زودهنگام توسطِ
             # فازِ دیگر، رندرِ زودهنگامِ صفحهٔ نیمه‌پاک را بازمی‌گرداند).
-            _did227 = False
+            _did = False
             try:
                 if stop_requested():
                     return False
                 with _clean_cond:
                     if _p in finished_pages:
                         return False
-                    _e227 = extracted_map.get(_p)
-                    if _e227 is None:
+                    _e = extracted_map.get(_p)
+                    if _e is None:
                         return False
-                    _of, im, _pc, regions, _dbg = _e227
+                    _of, im, _pc, regions, _dbg = _e
                     if im is None:
                         return False
                     if _pc is not None:
@@ -863,7 +863,7 @@ class _MangaTranslatorBody_95:
                     if _p in clean_claimed:
                         return False  # کارگرِ دیگری همین حالا رویِ آن است
                     clean_claimed.add(_p)
-                _did227 = True
+                _did = True
                 regs = _clean_regions_for_page(_p)
                 if not regs:
                     return True
@@ -894,31 +894,31 @@ class _MangaTranslatorBody_95:
                 # بدونِ حدس از لاگِ سازنده پیدا شود.
                 if getattr(self, "debug", False):
                     try:
-                        import traceback as _tb201
-                        _tb201.print_exc()
+                        import traceback as _tb
+                        _tb.print_exc()
                     except Exception:
                         pass
             finally:
                 # v1.14.227 — آزادسازیِ ادعا؛ پاکسازیِ ناموفق → فازِ دیگر
                 # میتواند دوباره امتحان کند (فازِ پایانیِ finish_page_phase
                 # هم فالبکِ precleaned=Noneِ خودش را دارد).
-                if _did227:
+                if _did:
                     with _clean_cond:
                         clean_claimed.discard(_p)
                         # v1.14.239 — نوارِ پیشرفتِ وب: صفحهٔ پردازش‌شده
-                        if _p not in clean_counted239:
-                            clean_counted239.add(_p)
-                            _cn239 = len(clean_counted239)
-                            _ctot239 = len(pending)
+                        if _p not in clean_counted:
+                            clean_counted.add(_p)
+                            _cn = len(clean_counted)
+                            _ctot = len(pending)
                         else:
-                            _cn239 = None
-                    if _cn239 is not None:
+                            _cn = None
+                    if _cn is not None:
                         try:
-                            print(f"[*] پاکسازی متن: {_cn239}/{_ctot239} صفحه",
+                            print(f"[*] پاکسازی متن: {_cn}/{_ctot} صفحه",
                                   flush=True)
                         except Exception:
                             pass
-            return _did227
+            return _did
 
         def _clean_done_mark(_p: int) -> None:
             _ev = clean_done_ev.get(_p)
@@ -1026,14 +1026,14 @@ class _MangaTranslatorBody_95:
         # «استخراج متن: n/N صفحه» بعد از هر صفحه؛ موتورِ وب از همین خط
         # درصدِ زنده میسازد (قبلاً در سبکِ مرجع تا پایانِ کلِ استخراج هیچ
         # «صفحهٔ n آماده شد»ای چاپ نمیشد و درصد روی 0٪ گیر میکرد).
-        _ext_prog239 = {"n": 0}
+        _ext_prog = {"n": 0}
 
         def _ext_prog_tick() -> None:
             try:
                 with _ext_lock:
-                    _ext_prog239["n"] += 1
-                    _n239 = _ext_prog239["n"]
-                print(f"[*] استخراج متن: {_n239}/{len(pending)} صفحه",
+                    _ext_prog["n"] += 1
+                    _n = _ext_prog["n"]
+                print(f"[*] استخراج متن: {_n}/{len(pending)} صفحه",
                       flush=True)
             except Exception:
                 pass
@@ -1082,7 +1082,7 @@ class _MangaTranslatorBody_95:
                     if image is not None and regions:
                         try:
                             # v1.14.149 — نجاتِ OCR قبل از صفِ ترجمه
-                            self._rescue_empty_ocr_1149(image, regions)
+                            self._rescue_empty_ocr(image, regions)
                             with _qd_lock:
                                 _queue_dialogues(regions, page_i)
                         except GeminiQuotaExhausted as e:
@@ -1171,7 +1171,7 @@ class _MangaTranslatorBody_95:
                   f"(حالتِ فقط-پاکسازی).")
         if dialogue_buffer and not getattr(self, "clean_only", False):
             _flush_translate_buffer(force=True)
-        _t_trw67 = time.time()  # v1.14.67 — انتظارِ ترجمه
+        _t_trw = time.time()  # v1.14.67 — انتظارِ ترجمه
         # v1.14.160 — باگِ «تا کامل تموم نشه نشون نمیده»: قبلاً اینجا روی
         # «همهٔ» بسته‌های ترجمه بلوکه میشد و هیچ صفحه‌ای زنده رندر نمیشد.
         # حالا انتظارِ پیشرونده است: بعد از تمامِ هر بسته، صفحه‌های آماده
@@ -1207,7 +1207,7 @@ class _MangaTranslatorBody_95:
             _finish_ready_pages()
             _preview_ready_pages(force=True)
         try:
-            print(f"[TIME] translate_wait={time.time() - _t_trw67:.1f}s",
+            print(f"[TIME] translate_wait={time.time() - _t_trw:.1f}s",
                   flush=True)
         except Exception:
             pass
@@ -1262,39 +1262,39 @@ class _MangaTranslatorBody_95:
             _of, _im, _pc, _regs, _dbg = _entry
             if not _regs:
                 return
-            _f213 = _src_of_page.get(page_i)
-            if not _f213 or not os.path.isfile(_f213):
+            _f = _src_of_page.get(page_i)
+            if not _f or not os.path.isfile(_f):
                 return
-            _img213 = MangaTranslator._imread_any(_f213)
-            if _img213 is None:
+            _img = MangaTranslator._imread_any(_f)
+            if _img is None:
                 return
             try:
-                _res213, _pd213 = self.finish_page_phase(
-                    _img213, _regs, skip_translate=True,
+                _res, _pd = self.finish_page_phase(
+                    _img, _regs, skip_translate=True,
                     precleaned=None, final=True)
-                self._write_image(_res213, _of)
+                self._write_image(_res, _of)
                 try:
                     _live_page_dump(_of, key=_of, slot=page_i + 1)
                 except Exception:
                     pass
-                del _res213
+                del _res
                 print(f"  [✓] صفحهٔ {page_i + 1} با ترجمهٔ پسگیری‌شده دوباره "
                       f"رندر شد")
             except GeminiQuotaExhausted:
                 raise
-            except Exception as _e213:
+            except Exception as _e:
                 print(f"    [!] رندرِ دوبارهٔ صفحهٔ {page_i + 1} ناموفق: "
-                      f"{str(_e213)[:90]}")
+                      f"{str(_e)[:90]}")
 
         if (not getattr(self, "clean_only", False)
                 and not getattr(self, "fake_translate", False)):
             # شناسههایِ خالیها «قبل از» پسگیری — بعدش فقط صفحههایی که
             # واقعاً ترجمهٔ تازه گرفتند دوباره رندر میشوند.
             _empty_ids_before: Dict[int, int] = {}
-            for _r213 in _collect_empty_dialogues():
-                _pg213 = page_of_region.get(getattr(_r213, "id", -1), -1)
-                if _pg213 is not None and _pg213 >= 0:
-                    _empty_ids_before[getattr(_r213, "id", -1)] = int(_pg213)
+            for _r in _collect_empty_dialogues():
+                _pg = page_of_region.get(getattr(_r, "id", -1), -1)
+                if _pg is not None and _pg >= 0:
+                    _empty_ids_before[getattr(_r, "id", -1)] = int(_pg)
             for _er_round in range(1, 4):
                 if stop_requested() or quota_flag["dead"]:
                     break
@@ -1311,9 +1311,9 @@ class _MangaTranslatorBody_95:
                     self.translate_regions(_empties)
                 except (GeminiQuotaExhausted, JobCancelled):
                     raise
-                except Exception as _e213:
+                except Exception as _e:
                     print(f"    [!] دوبارهترجمهٔ خالیها ناموفق: "
-                          f"{str(_e213)[:90]}")
+                          f"{str(_e)[:90]}")
                 _still = _collect_empty_dialogues()
                 if len(_still) >= len(_empties):
                     # هیچ پیشرفتی نیست — مدل برای اینها جواب نمیدهد؛
@@ -1325,15 +1325,15 @@ class _MangaTranslatorBody_95:
             # باید دوباره رندر شوند («بزاره سرجاش ست کنه به عکس هاشون»)؛
             # صفحههایِ در صف، در جارویِ پایانی با ترجمهٔ تازه رندر میشوند.
             _refilled_pages = sorted({
-                _pg213 for _rid213, _pg213 in _empty_ids_before.items()
-                if _pg213 in finished_pages
+                _pg for _rid, _pg in _empty_ids_before.items()
+                if _pg in finished_pages
                 and any((_r213b.translated_text or "").strip()
-                        for _p213b in (_pg213,)
+                        for _p213b in (_pg,)
                         for _r213b in ((extracted_map.get(_p213b)
                                         or (None,) * 5)[3] or [])
-                        if getattr(_r213b, "id", None) == _rid213)})
-            for _p213 in _refilled_pages:
-                _rerender_page_after_empty(int(_p213))
+                        if getattr(_r213b, "id", None) == _rid)})
+            for _p in _refilled_pages:
+                _rerender_page_after_empty(int(_p))
 
         _finish_ready_pages()
         for page_i in sorted(extracted_map.keys()):
@@ -1352,7 +1352,7 @@ class _MangaTranslatorBody_95:
         except Exception:
             pass
 
-        _t_save67 = time.time()  # v1.14.67 — ذخیرهٔ نهایی
+        _t_save = time.time()  # v1.14.67 — ذخیرهٔ نهایی
         print("[*] ذخیرهٔ نهایی خروجی‌ها...", flush=True)
         debug_files = []
         for page_i in sorted(results_by_i.keys()):
@@ -1449,8 +1449,8 @@ class _MangaTranslatorBody_95:
                 print(f"    [!] ساخت HTML همراه ناموفق: {e}")
         # v1.14.67 — جمعِ زمان‌ها (ذخیره + کلِ ران)
         try:
-            print(f"[TIME] save={time.time() - _t_save67:.1f}s | "
-                  f"total={time.time() - _t_run67:.1f}s", flush=True)
+            print(f"[TIME] save={time.time() - _t_save:.1f}s | "
+                  f"total={time.time() - _t_run:.1f}s", flush=True)
         except Exception:
             pass
         # v1.14.215 — پایانِ موفقِ ران: هرچه از گیتِ ترتیبِ نمایش مانده

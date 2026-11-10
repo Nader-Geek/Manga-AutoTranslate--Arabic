@@ -378,15 +378,15 @@ def source_has_letters(text: str) -> bool:
     حرفی» (دستهٔ یونیکدِ L) ندارد — '123124'، './….'، '[] ,./???!?~' —
     به مترجم نمی‌رود و فقط پاکسازی میشود؛ «hi…» حرف دارد → ترجمه
     میشود. PC/لینوکس/اندروید یکسان."""
-    _t229 = str(text or "")
-    _letters229 = [_ch for _ch in _t229 if _ch.isalpha()]
-    if not _letters229:
+    _t = str(text or "")
+    _letters = [_ch for _ch in _t if _ch.isalpha()]
+    if not _letters:
         return False
     # «10,000G» (طلا/ارزِ بازی): یک حرفِ لاتینِ تنها چسبیده به رقم =
     # پسوندِ واحد، نه کلمه — ترجمه‌اش دور ریختنِ وقتِ AI است. «hi…»،
     # «A» (بدون رقم) و هر متنِ چندحرفیِ واقعی ترجمه میشوند.
-    if len(_letters229) == 1 and _letters229[0].isascii() \
-            and any(_c.isdigit() for _c in _t229):
+    if len(_letters) == 1 and _letters[0].isascii() \
+            and any(_c.isdigit() for _c in _t):
         return False
     return True
 
@@ -961,7 +961,7 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
     # چاپ نمیشد و نوارِ پیشرفتِ وب هیچ «رندرِ نهایی»ای نمیدید (ریشهٔ
     # «صفحهٔ 1 از 105 (0٪)» گیرکرده). به‌روزرسانیِ پیش‌نمایشِ همان اسلات
     # (فایلِ موجود) بی‌سروصدا میماند.
-    _first_write239 = not os.path.isfile(out_name)
+    _first_write = not os.path.isfile(out_name)
     cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
     # شمارندهٔ پوشه نباید عقبتر از اسلاتهایِ تخصیصی بماند (رفتارِ سابق)
     with open(_sent, "w", encoding="utf-8") as f:
@@ -972,7 +972,7 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
             f.write(f"{slot} {int(time.time() * 1000)}\n")
     except Exception:
         pass
-    if not dbg and (key is None or slot_new or _first_write239):
+    if not dbg and (key is None or slot_new or _first_write):
         print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
     # به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
 

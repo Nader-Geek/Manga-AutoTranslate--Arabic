@@ -199,10 +199,10 @@ class _MangaTranslatorBody_85:
         # (دستورِ سازنده: «19 hi باید هردوشو بخونه حذف شه»): قوانینِ
         # عددیِ junk فقط وقتی صدا میزنند که متن «هیچ حرفِ واقعی» نداشته
         # باشد (source_has_letters) — آن‌وقت سیاست در سطحِ ناحیه
-        # (no_touch230) دست میگیرد و ناحیه دست‌نخورده میماند. «1233»
+        # (no_touch) دست میگیرد و ناحیه دست‌نخورده میماند. «1233»
         # همچنان junk میماند (بدونِ حرف) ولی «19 hi» / «19th» دیالوگ.
-        _has_letters245 = source_has_letters(stripped)
-        if not _has_letters245:
+        _has_letters = source_has_letters(stripped)
+        if not _has_letters:
             if stripped.isdigit() or re.fullmatch(r"[\d\s.%oO]+", stripped):
                 return "junk"
             if re.fullmatch(r"[QOIl]?\d{2,}", stripped, re.I):
@@ -817,96 +817,96 @@ class _MangaTranslatorBody_85:
                 # ضلعِ «لبهٔ تصویر» (وبتونِ بریده — v1.14.165) مشمولِ
                 # این گارد نیست؛ فقط ضلعِ داخلیِ جعبه.
                 try:
-                    _cmc240 = (lal == ci)
-                    _sides240 = []
+                    _cmc2 = (lal == ci)
+                    _sides = []
                     if _cy0 <= 1:
-                        _sides240.append("t")
+                        _sides.append("t")
                     if _cy0 + chg >= (by1 - by0) - 1:
-                        _sides240.append("b")
+                        _sides.append("b")
                     if _cx0 <= 1:
-                        _sides240.append("l")
+                        _sides.append("l")
                     if _cx0 + cwd >= (bx1 - bx0) - 1:
-                        _sides240.append("r")
-                    _interior240 = {"t": by0 > 0, "b": by1 < ih,
+                        _sides.append("r")
+                    _interior = {"t": by0 > 0, "b": by1 < ih,
                                     "l": bx0 > 0, "r": bx1 < iw}
-                    if any(_interior240[_s] for _s in _sides240):
-                        _bright240 = float(bright.mean()) > float(dark.mean())
-                        _cont240 = False
-                        for _sd240 in _sides240:
-                            if not _interior240[_sd240]:
+                    if any(_interior[_s] for _s in _sides):
+                        _bright = float(bright.mean()) > float(dark.mean())
+                        _cont = False
+                        for _sd in _sides:
+                            if not _interior[_sd]:
                                 continue
-                            if _sd240 in ("t", "b"):
-                                _tr240 = (_cmc240[:2, :] if _sd240 == "t"
-                                          else _cmc240[-2:, :])
-                                _cols240 = np.nonzero(
-                                    _tr240.any(axis=0))[0]
-                                if _cols240.size == 0:
+                            if _sd in ("t", "b"):
+                                _tr = (_cmc2[:2, :] if _sd == "t"
+                                          else _cmc2[-2:, :])
+                                _cols = np.nonzero(
+                                    _tr.any(axis=0))[0]
+                                if _cols.size == 0:
                                     continue
-                                if _sd240 == "t":
-                                    _og240 = cv2.cvtColor(
+                                if _sd == "t":
+                                    _og = cv2.cvtColor(
                                         image[max(0, by0 - 6):by0,
                                               bx0:bx1],
                                         cv2.COLOR_BGR2GRAY)
-                                    _ig240 = g[:2, :]
+                                    _ig = g[:2, :]
                                 else:
-                                    _og240 = cv2.cvtColor(
+                                    _og = cv2.cvtColor(
                                         image[by1:min(ih, by1 + 6),
                                               bx0:bx1],
                                         cv2.COLOR_BGR2GRAY)
-                                    _ig240 = g[-2:, :]
-                                if _og240.shape[0] == 0:
+                                    _ig = g[-2:, :]
+                                if _og.shape[0] == 0:
                                     continue
-                                _out240 = _og240.min(axis=0)
-                                _in240 = (_ig240.max(axis=0)
-                                          if _bright240
-                                          else _ig240.min(axis=0))
+                                _out = _og.min(axis=0)
+                                _in = (_ig.max(axis=0)
+                                          if _bright
+                                          else _ig.min(axis=0))
                             else:
-                                _tc240 = (_cmc240[:, :2] if _sd240 == "l"
-                                          else _cmc240[:, -2:])
-                                _rows240 = np.nonzero(
-                                    _tc240.any(axis=1))[0]
-                                if _rows240.size == 0:
+                                _tc = (_cmc2[:, :2] if _sd == "l"
+                                          else _cmc2[:, -2:])
+                                _rows = np.nonzero(
+                                    _tc.any(axis=1))[0]
+                                if _rows.size == 0:
                                     continue
-                                if _sd240 == "l":
-                                    _og240 = cv2.cvtColor(
+                                if _sd == "l":
+                                    _og = cv2.cvtColor(
                                         image[by0:by1,
                                               max(0, bx0 - 6):bx0],
                                         cv2.COLOR_BGR2GRAY)
-                                    _ig240 = g[:, :2]
+                                    _ig = g[:, :2]
                                 else:
-                                    _og240 = cv2.cvtColor(
+                                    _og = cv2.cvtColor(
                                         image[by0:by1,
                                               bx1:min(iw, bx1 + 6)],
                                         cv2.COLOR_BGR2GRAY)
-                                    _ig240 = g[:, -2:]
-                                if _og240.shape[1] == 0:
+                                    _ig = g[:, -2:]
+                                if _og.shape[1] == 0:
                                     continue
-                                _out240 = _og240.min(axis=1)
-                                _in240 = (_ig240.max(axis=1)
-                                          if _bright240
-                                          else _ig240.min(axis=1))
-                            if _bright240:
-                                _hit240 = (
-                                    _out240[_cols240 if _sd240 in ("t", "b")
-                                            else _rows240]
+                                _out = _og.min(axis=1)
+                                _in = (_ig.max(axis=1)
+                                          if _bright
+                                          else _ig.min(axis=1))
+                            if _bright:
+                                _hit = (
+                                    _out[_cols if _sd in ("t", "b")
+                                            else _rows]
                                     >= np.minimum(
-                                        _in240[_cols240
-                                               if _sd240 in ("t", "b")
-                                               else _rows240] - 35.0,
+                                        _in[_cols
+                                               if _sd in ("t", "b")
+                                               else _rows] - 35.0,
                                         105.0))
                             else:
-                                _hit240 = (
-                                    _out240[_cols240 if _sd240 in ("t", "b")
-                                            else _rows240]
+                                _hit = (
+                                    _out[_cols if _sd in ("t", "b")
+                                            else _rows]
                                     <= np.maximum(
-                                        _in240[_cols240
-                                               if _sd240 in ("t", "b")
-                                               else _rows240] + 35.0,
+                                        _in[_cols
+                                               if _sd in ("t", "b")
+                                               else _rows] + 35.0,
                                         150.0))
-                            if float(_hit240.mean()) >= 0.35:
-                                _cont240 = True
+                            if float(_hit.mean()) >= 0.35:
+                                _cont = True
                                 break
-                        if _cont240:
+                        if _cont:
                             continue
                 except Exception:
                     pass
@@ -1049,47 +1049,47 @@ class _MangaTranslatorBody_85:
             # (همان نوارهایی که کامپوز منتقل می‌کند) + جوهرِ واقعیِ اطراف
             # (تیره یا روشن) تا هیچ مرکبِ جا‌مانده‌ای زنده نماند.
             try:
-                _k11 = np.ones((11, 11), np.uint8)
+                _k = np.ones((11, 11), np.uint8)
                 for region in (regions or []):
                     try:
-                        _pl74 = []
-                        for _p74 in (getattr(region, "ocr_polys", None)
+                        _pl = []
+                        for _p in (getattr(region, "ocr_polys", None)
                                      or []):
                             try:
-                                _pp74 = np.asarray(
-                                    _p74, dtype=np.float32).reshape(-1, 2)
+                                _pp = np.asarray(
+                                    _p, dtype=np.float32).reshape(-1, 2)
                             except Exception:
                                 continue
-                            if _pp74.shape[0] >= 3:
-                                _pl74.append(_pp74)
-                        if len(_pl74) < 2:
+                            if _pp.shape[0] >= 3:
+                                _pl.append(_pp)
+                        if len(_pl) < 2:
                             continue
-                        if not MangaTranslator._polys_dense(_pl74):
+                        if not MangaTranslator._polys_dense(_pl):
                             continue
-                        _res74 = self._compose_region_strips(image, region)
-                        _st74 = None
-                        if _res74:
-                            _m74, _f74 = _res74[0], _res74[1]
-                            if _m74 is None or _m74.shape != out.shape:
-                                _m74 = np.zeros(out.shape, np.uint8)
-                            if _f74 is None or _f74.shape != out.shape:
-                                _f74 = np.zeros(out.shape, np.uint8)
-                            _st74 = (_m74 > 0) | (_f74 > 0)
-                        if _st74 is None or not _st74.any():
+                        _res = self._compose_region_strips(image, region)
+                        _st = None
+                        if _res:
+                            _m, _f = _res[0], _res[1]
+                            if _m is None or _m.shape != out.shape:
+                                _m = np.zeros(out.shape, np.uint8)
+                            if _f is None or _f.shape != out.shape:
+                                _f = np.zeros(out.shape, np.uint8)
+                            _st = (_m > 0) | (_f > 0)
+                        if _st is None or not _st.any():
                             continue
-                        _bb74 = MangaTranslator._text_block_box(
-                            _pl74, region.rect, False)
-                        if not _bb74:
+                        _bb = MangaTranslator._text_block_box(
+                            _pl, region.rect, False)
+                        if not _bb:
                             continue
                         # خروجیِ _text_block_box = (x, y, w, h)
-                        _zx0 = max(0, int(_bb74[0]))
-                        _zy0 = max(0, int(_bb74[1]))
-                        _zx1 = min(w_img, _zx0 + int(_bb74[2]))
-                        _zy1 = min(h_img, _zy0 + int(_bb74[3]))
+                        _zx0 = max(0, int(_bb[0]))
+                        _zy0 = max(0, int(_bb[1]))
+                        _zx1 = min(w_img, _zx0 + int(_bb[2]))
+                        _zy1 = min(h_img, _zy0 + int(_bb[3]))
                         if _zx1 - _zx0 < 24 or _zy1 - _zy0 < 24:
                             continue
-                        _keep74 = cv2.dilate(
-                            _st74.astype(np.uint8), _k11) > 0
+                        _keep = cv2.dilate(
+                            _st.astype(np.uint8), _k) > 0
                         # جوهرِ واقعیِ داخلِ بلوک (تیره یا روشن) که نوارها
                         # نپوشانده‌اند — نوارِ نجاتِ مکمل؛ دیوار (protect)
                         # هرگز واردِ donor نمی‌شود.
@@ -1105,65 +1105,65 @@ class _MangaTranslatorBody_85:
                         # ~۴۵٪ بلوک شد، یعنی معیار جوهر نیست، بافت است →
                         # کلِ نجاتِ جوهر رد می‌شود (فقط نوارها می‌مانند).
                         try:
-                            _oc74 = image[_zy0:_zy1, _zx0:_zx1]
-                            _g74 = cv2.cvtColor(_oc74, cv2.COLOR_BGR2GRAY)
-                            _med74 = float(np.median(_g74))
+                            _oc = image[_zy0:_zy1, _zx0:_zx1]
+                            _g = cv2.cvtColor(_oc, cv2.COLOR_BGR2GRAY)
+                            _med = float(np.median(_g))
                             # v1.14.95b — فقط «بقایایِ پرکنتراست»: بازماندهٔ
                             # واقعیِ جوهر (آپاستروف/خطِ جاافتاده) در برابر
                             # زمینهٔ بلوک خیلی دور است (≥۹۰). بافتِ پشتِ
                             # شیشه/گرادیانِ پلاک در همین بازه نیست → دیگر
                             # واردِ ماسکِ LaMa نمی‌شود و لکهٔ سایه نمی‌سازد.
-                            _ink74 = ((_g74 < _med74 - 90.0)
-                                      | (_g74 > _med74 + 90.0))
-                            _ink_u8 = _ink74.astype(np.uint8)
-                            _nz74 = int(_ink_u8.sum())
+                            _ink = ((_g < _med - 90.0)
+                                      | (_g > _med + 90.0))
+                            _ink_u8 = _ink.astype(np.uint8)
+                            _nz = int(_ink_u8.sum())
                             _blk_area = max(1, (_zx1 - _zx0) * (_zy1 - _zy0))
-                            _wall_ok74 = True
-                            if _nz74 >= max(400, int(0.45 * _blk_area)):
+                            _wall_ok = True
+                            if _nz >= max(400, int(0.45 * _blk_area)):
                                 # بافت/گرادیان — نه جوهر؛ کلِ نجات رد.
-                                _wall_ok74 = False
+                                _wall_ok = False
                             else:
                                 try:
-                                    _n74, _lb74, _stt74, _ = \
+                                    _n, _lb, _stt, _ = \
                                         cv2.connectedComponentsWithStats(
                                             _ink_u8, 8)
-                                    _okc74 = np.zeros_like(_ink_u8)
-                                    for _i74 in range(1, _n74):
-                                        _cw74 = int(_stt74[_i74,
+                                    _okc = np.zeros_like(_ink_u8)
+                                    for _i in range(1, _n):
+                                        _cw = int(_stt[_i,
                                                           cv2.CC_STAT_WIDTH])
-                                        _ch74 = int(_stt74[_i74,
+                                        _ch = int(_stt[_i,
                                                           cv2.CC_STAT_HEIGHT])
-                                        _mx74 = max(_cw74, _ch74)
-                                        _mn74 = max(1, min(_cw74, _ch74))
+                                        _mx = max(_cw, _ch)
+                                        _mn = max(1, min(_cw, _ch))
                                         # خطِ بلندِ نازک = دیوار/قاب، نه حرف
-                                        if _mx74 >= 64 and _mn74 <= max(
-                                                12, int(0.09 * _mx74)):
+                                        if _mx >= 64 and _mn <= max(
+                                                12, int(0.09 * _mx)):
                                             continue
                                         # حلقه/قاب: کادرِ بزرگ با پرشدگیِ کم
-                                        _fa74 = _cw74 * _ch74
-                                        _px74 = int(_stt74[_i74,
+                                        _fa = _cw * _ch
+                                        _px = int(_stt[_i,
                                                           cv2.CC_STAT_AREA])
-                                        if _mx74 >= 96 and _fa74 > 0 and \
-                                                _px74 / _fa74 < 0.38:
+                                        if _mx >= 96 and _fa > 0 and \
+                                                _px / _fa < 0.38:
                                             continue
-                                        _okc74[_lb74 == _i74] = 1
-                                    _ink_u8 = _okc74
+                                        _okc[_lb == _i] = 1
+                                    _ink_u8 = _okc
                                 except Exception:
                                     pass
-                            if _wall_ok74:
-                                _ink74 = cv2.dilate(
+                            if _wall_ok:
+                                _ink = cv2.dilate(
                                     _ink_u8,
                                     np.ones((5, 5), np.uint8)) > 0
                                 if _protect is not None \
                                         and _protect.shape == out.shape:
-                                    _ink74 &= (_protect[_zy0:_zy1,
+                                    _ink &= (_protect[_zy0:_zy1,
                                                         _zx0:_zx1] == 0)
-                                _keep74[_zy0:_zy1, _zx0:_zx1] |= _ink74
+                                _keep[_zy0:_zy1, _zx0:_zx1] |= _ink
                         except Exception:
                             pass
                         # جایگزینی: داخلِ بلوک فقط نوارها + جوهر می‌ماند
                         out[_zy0:_zy1, _zx0:_zx1] = np.where(
-                            _keep74[_zy0:_zy1, _zx0:_zx1], 255, 0
+                            _keep[_zy0:_zy1, _zx0:_zx1], 255, 0
                         ).astype(out.dtype)
                     except Exception:
                         continue
@@ -1174,12 +1174,12 @@ class _MangaTranslatorBody_85:
             # بلوکهایِ متراکم میآید تا با np.where پاک نشود؛ دیوارها
             # (protect) از قبل در نقشهٔ روکش حذف شدهاند.
             try:
-                _anD212 = getattr(self, "_page_annotation_overlay", None)
-                if _anD212 is not None and _anD212.shape == out.shape:
-                    _addD212 = (_anD212 > 0) & (out == 0)
-                    if bool(_addD212.any()):
-                        out[_addD212] = 255
-                        _added += int(np.count_nonzero(_addD212))
+                _anD = getattr(self, "_page_annotation_overlay", None)
+                if _anD is not None and _anD.shape == out.shape:
+                    _addD = (_anD > 0) & (out == 0)
+                    if bool(_addD.any()):
+                        out[_addD] = 255
+                        _added += int(np.count_nonzero(_addD))
             except Exception:
                 pass
             # جعبه‌هایِ جستجو برایِ نجاتِ جوهرِ جا‌مانده (مثلِ قبل:
@@ -2052,14 +2052,14 @@ class _MangaTranslatorBody_85:
                 _hsv = cv2.cvtColor(image[wy0:wy1, wx0:wx1], cv2.COLOR_BGR2HSV)
                 _hue = _hsv[:, :, 0].astype(np.float32)
                 _sat = _hsv[:, :, 1]
-                _near13 = cv2.dilate(polyf, np.ones((13, 13), np.uint8))
-                _bg_m = ((_near13 > 0) & (polyf == 0) & (_sat > 60))
+                _near = cv2.dilate(polyf, np.ones((13, 13), np.uint8))
+                _bg_m = ((_near > 0) & (polyf == 0) & (_sat > 60))
                 if np.count_nonzero(_bg_m) >= 50:
                     _hue_bg = float(np.median(_hue[_bg_m]))
                     _dh = np.abs(_hue - _hue_bg)
                     _dh = np.minimum(_dh, 180.0 - _dh)
                     _colorful = (((_sat > 80) & (_dh > 40.0)
-                                  & (_near13 > 0)).astype(np.uint8) * 255)
+                                  & (_near > 0)).astype(np.uint8) * 255)
                     _colorful = cv2.morphologyEx(
                         _colorful, cv2.MORPH_CLOSE,
                         np.ones((5, 5), np.uint8))
@@ -2282,27 +2282,27 @@ class _MangaTranslatorBody_85:
         # v1.14.238 — نواحیِ چرخیده (|angle| ≥ ۳°): نوارها در فضای
         # همسطح‌شده (مسیرِ مشترکِ کامپوز). MANGA_ROT_STRIPS=0 = خاموش.
         try:
-            _ang238 = float(getattr(region, "angle", 0.0) or 0.0)
+            _ang = float(getattr(region, "angle", 0.0) or 0.0)
         except Exception:
-            _ang238 = 0.0
-        if 3.0 <= abs(_ang238) <= 45.0 \
+            _ang = 0.0
+        if 3.0 <= abs(_ang) <= 45.0 \
                 and os.environ.get("MANGA_ROT_STRIPS", "1") != "0":
             try:
-                _rot238 = self._rotated_region_strips(
-                    image, polys_raw, _ang238)
+                _rot = self._rotated_region_strips(
+                    image, polys_raw, _ang)
             except Exception:
-                _rot238 = None
-            if _rot238 is not None:
-                _m238 = _rot238[0]
-                _a238 = int(cv2.countNonZero(_m238))
+                _rot = None
+            if _rot is not None:
+                _m = _rot[0]
+                _a = int(cv2.countNonZero(_m))
                 try:
-                    _rw238 = float(region.rect[2])
-                    _rh238 = float(region.rect[3])
+                    _rw = float(region.rect[2])
+                    _rh = float(region.rect[3])
                 except Exception:
-                    _rw238 = float(w)
-                    _rh238 = float(h)
-                if 150 <= _a238 <= 0.95 * max(1.0, _rw238 * _rh238):
-                    return _m238
+                    _rw = float(w)
+                    _rh = float(h)
+                if 150 <= _a <= 0.95 * max(1.0, _rw * _rh):
+                    return _m
                 # بیرونِ دامنه → مسیرِ عادیِ محور-تراز
         lines = MangaTranslator._group_polys_to_lines(polys_raw)
         if not lines:
@@ -2407,7 +2407,7 @@ class _MangaTranslatorBody_85:
             # نوار) → اگر قطبِ انتخابیِ اکثریت از ۰٫۵۵ بیشتر شد، قطبِ
             # اقلیت جوهرِ واقعی است (تا نوارِ سالمِ متن رد نشود و به
             # failedِ چاق نیفتد).
-            _sw204 = False
+            _sw = False
             if _fb > _fd:
                 core = _bright
                 if _fb > 0.55 and 0.015 <= _fd <= 0.45:
@@ -2438,8 +2438,8 @@ class _MangaTranslatorBody_85:
                                         & (cv2.dilate(
                                             _dark.astype(np.uint8) * 255,
                                             np.ones((5, 5), np.uint8)) > 0))
-                        _sw204 = True
-                if not _sw204 and _fd > 0.004:
+                        _sw = True
+                if not _sw and _fd > 0.004:
                     # سایه/دورخطِ تیرهٔ چسبیده به حروفِ روشن هم جوهر است
                     _nc = cv2.dilate(core.astype(np.uint8) * 255,
                                      np.ones((7, 7), np.uint8)) > 0
@@ -2467,8 +2467,8 @@ class _MangaTranslatorBody_85:
                                           & (cv2.dilate(
                                               _bright.astype(np.uint8) * 255,
                                               np.ones((5, 5), np.uint8)) > 0))
-                        _sw204 = True
-                if not _sw204:
+                        _sw = True
+                if not _sw:
                     # v1.14.75 — متنِ تیره با دورخطِ روشن (حروفِ قهوه‌ایِ
                     # 01.jpg با دورخطِ سفید روی حبابِ زرد): بدنهٔ روشنِ
                     # دورخطِ چسبیده به حروف هم جوهر است؛ وگرنه فقط خطِ
@@ -2575,15 +2575,15 @@ class _MangaTranslatorBody_85:
                     # در 01.jpg)، نه هنر. هنرِ واقعی (قوسِ دیوار، افکتِ صدا)
                     # بیرونِ پالیهاست و مثلِ قبل رد می‌شود.
                     if _pm_ok and _android_gate("MANGA_LSM_POLY_RESCUE"):
-                        _cm133 = (lal == ci)
-                        _in133 = float(np.count_nonzero(_cm133 & (_pm > 0)))
-                        if _in133 >= 0.55 * float(max(1, ca)):
+                        _cm2 = (lal == ci)
+                        _in = float(np.count_nonzero(_cm2 & (_pm > 0)))
+                        if _in >= 0.55 * float(max(1, ca)):
                             if dbg:
                                 print(f"      [📐dbg] نجاتِ متنِ دورخط‌دار "
                                       f"ca={ca} {cwd}×{chg} "
-                                      f"درپالی={_in133 / max(1, ca):.2f}",
+                                      f"درپالی={_in / max(1, ca):.2f}",
                                       flush=True)
-                            kept |= _cm133
+                            kept |= _cm2
                             continue
                     if dbg:
                         print(f"      [📐dbg] رد: قطعهٔ هنر ca={ca} "
@@ -2712,12 +2712,12 @@ class _MangaTranslatorBody_85:
         try:
             h, w = image.shape[:2]
             # v1.14.238 — سقفهایِ سازگار با ارتفاعِ خط
-            _mh238 = float(med_h or 0.0)
-            _hh_max238 = max(64.0, 1.15 * _mh238 + 4.0) if _mh238 > 0 \
+            _mh = float(med_h or 0.0)
+            _hh_max = max(64.0, 1.15 * _mh + 4.0) if _mh > 0 \
                 else 64.0
-            _a_max238 = max(2600.0, 0.60 * _mh238 * _mh238) if _mh238 > 0 \
+            _a_max = max(2600.0, 0.60 * _mh * _mh) if _mh > 0 \
                 else 2600.0
-            _ww_max238 = max(180.0, 2.6 * _mh238) if _mh238 > 0 else 180.0
+            _ww_max = max(180.0, 2.6 * _mh) if _mh > 0 else 180.0
             rx, ry, rw, rh = [int(v) for v in rect]
             x0, y0 = max(0, rx), max(0, ry)
             x1, y1 = min(w, rx + rw), min(h, ry + rh)
@@ -2755,8 +2755,8 @@ class _MangaTranslatorBody_85:
                 a = int(st[i, cv2.CC_STAT_AREA])
                 hh = int(st[i, cv2.CC_STAT_HEIGHT])
                 ww = int(st[i, cv2.CC_STAT_WIDTH])
-                if 8 <= a <= _a_max238 and 3 <= hh <= _hh_max238 \
-                        and ww <= _ww_max238:
+                if 8 <= a <= _a_max and 3 <= hh <= _hh_max \
+                        and ww <= _ww_max:
                     gm[lbl == i] = 255
                     n_g += 1
             if n_g < 10:
@@ -2980,23 +2980,23 @@ class _MangaTranslatorBody_85:
                 # پالیِ واحدِ پهن (خطِ متنِ افقی) هم مجاز شد؛ شرطهایِ داخلیِ
                 # _line_strips_mask (سهمِ جوهر، سازگاریِ rect) همچنان رد
                 # میکنند.
-                _dense165 = MangaTranslator._polys_dense(_polys_raw)
-                if not _dense165:
+                _dense = MangaTranslator._polys_dense(_polys_raw)
+                if not _dense:
                     try:
-                        _pp165 = [np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                        _pp2 = [np.asarray(p, dtype=np.float32).reshape(-1, 2)
                                   for p in (_polys_raw or [])
                                   if np.asarray(p).size]
-                        if len(_pp165) == 1:
-                            _pw165 = float(_pp165[0][:, 0].max()
-                                           - _pp165[0][:, 0].min())
-                            _ph165 = float(_pp165[0][:, 1].max()
-                                           - _pp165[0][:, 1].min())
-                            _dense165 = (_pw165 >= 1.3 * _ph165
-                                         and _pw165 >= 18.0
-                                         and _ph165 >= 8.0)
+                        if len(_pp2) == 1:
+                            _pw2 = float(_pp2[0][:, 0].max()
+                                           - _pp2[0][:, 0].min())
+                            _ph2 = float(_pp2[0][:, 1].max()
+                                           - _pp2[0][:, 1].min())
+                            _dense = (_pw2 >= 1.3 * _ph2
+                                         and _pw2 >= 18.0
+                                         and _ph2 >= 8.0)
                     except Exception:
-                        _dense165 = False
-                if _dense165:
+                        _dense = False
+                if _dense:
                     if self.debug:
                         try:
                             print("  [🔍] → تلاشِ line-strips")
@@ -3131,16 +3131,16 @@ class _MangaTranslatorBody_85:
                                                 # بی‌بافت (412e9e: EXEC و
                                                 # GREEN MOON) → ماسکِ
                                                 # پالی‌به‌پالی ∪ جوهر.
-                                                _bgst96 = self._block_bg_stats(
+                                                _bgst = self._block_bg_stats(
                                                     image,
                                                     tuple([int(v) for v in
                                                            region.rect]),
                                                     _inkB)
-                                                if _bgst96 is not None and (
-                                                        _bgst96[1] > 36.0
-                                                        or _bgst96[2] > 0.12):
+                                                if _bgst is not None and (
+                                                        _bgst[1] > 36.0
+                                                        or _bgst[2] > 0.12):
                                                     try:
-                                                        _rm96 = np.zeros_like(m)
+                                                        _rm2 = np.zeros_like(m)
                                                         # v1.14.96e — پالیِ
                                                         # «خام» (نه ۱.۲×):
                                                         # گسترشِ ۱.۲× روی
@@ -3148,24 +3148,24 @@ class _MangaTranslatorBody_85:
                                                         # قاب را هم ماسک
                                                         # می‌کند → رگهٔ قاب
                                                         # در مرجع‌ها (412e9e)
-                                                        for _pl96 in (region.ocr_polys or []):
+                                                        for _pl2 in (region.ocr_polys or []):
                                                             try:
-                                                                _pq96 = np.asarray(
-                                                                    _pl96,
+                                                                _pq = np.asarray(
+                                                                    _pl2,
                                                                     dtype=np.float32).reshape(
                                                                     -1, 2)
                                                             except Exception:
                                                                 continue
-                                                            if _pq96.shape[0] < 3:
+                                                            if _pq.shape[0] < 3:
                                                                 continue
                                                             cv2.fillPoly(
-                                                                _rm96,
+                                                                _rm2,
                                                                 [np.rint(
-                                                                    _pq96
+                                                                    _pq
                                                                 ).astype(np.int32)],
                                                                 255)
                                                         _rm = cv2.bitwise_or(
-                                                            _inkB, _rm96)
+                                                            _inkB, _rm2)
                                                     except Exception:
                                                         _rm = _inkB
                                                     _rm = self._pad_dilate_wall_safe(
@@ -3179,8 +3179,8 @@ class _MangaTranslatorBody_85:
                                                                 "  [🔍] ماسکِ #مسیر: "
                                                                 "poly-bands∪ink "
                                                                 f"(زمینهٔ بافت‌مند "
-                                                                f"std={_bgst96[1]:.0f} "
-                                                                f"bright={_bgst96[2]:.2f})"
+                                                                f"std={_bgst[1]:.0f} "
+                                                                f"bright={_bgst[2]:.2f})"
                                                             )
                                                         except Exception:
                                                             pass
@@ -3387,86 +3387,86 @@ class _MangaTranslatorBody_85:
         # تمیزتر شد (تستِ مو‌به‌مو). MANGA_TEXTPANEL=1 برایِ اجبار.
         if _android_gate("MANGA_TEXTPANEL") and n_ok > 0:
             try:
-                _pg135 = float(max(1, w * h))
+                _pg = float(max(1, w * h))
                 _n_tp = 0
-                for _rg135 in regions:
-                    if getattr(_rg135, "kind", "") in ("promo", "sfx"):
+                for _rg in regions:
+                    if getattr(_rg, "kind", "") in ("promo", "sfx"):
                         continue
-                    _polys135 = getattr(_rg135, "ocr_polys", None) or []
-                    if not _polys135:
+                    _polys = getattr(_rg, "ocr_polys", None) or []
+                    if not _polys:
                         continue
                     try:
-                        _rx, _ry, _rw, _rh = [int(v) for v in _rg135.rect]
+                        _rx, _ry, _rw, _rh = [int(v) for v in _rg.rect]
                     except Exception:
                         continue
                     if _rw < 60 or _rh < 40:
                         continue
-                    if (_rw * _rh) > 0.06 * _pg135 or _rh > 0.12 * h:
+                    if (_rw * _rh) > 0.06 * _pg or _rh > 0.12 * h:
                         continue
-                    _pm135 = np.zeros((h, w), dtype=np.uint8)
-                    for _p135 in _polys135:
+                    _pm = np.zeros((h, w), dtype=np.uint8)
+                    for _p in _polys:
                         try:
-                            _pp135 = np.asarray(
-                                _p135, dtype=np.float32).reshape(-1, 2)
-                            if _pp135.shape[0] >= 3:
+                            _pp = np.asarray(
+                                _p, dtype=np.float32).reshape(-1, 2)
+                            if _pp.shape[0] >= 3:
                                 cv2.fillPoly(
-                                    _pm135,
-                                    [np.rint(_pp135).astype(np.int32)], 255)
+                                    _pm,
+                                    [np.rint(_pp).astype(np.int32)], 255)
                         except Exception:
                             continue
-                    if not int(_pm135.sum()):
+                    if not int(_pm.sum()):
                         continue
-                    _blk135 = np.zeros((h, w), dtype=np.uint8)
-                    _blk135[max(0, _ry):min(h, _ry + _rh),
+                    _blk = np.zeros((h, w), dtype=np.uint8)
+                    _blk[max(0, _ry):min(h, _ry + _rh),
                             max(0, _rx):min(w, _rx + _rw)] = 255
-                    _cov135 = float(cv2.countNonZero(
-                        cv2.bitwise_and(_pm135, _blk135))) / \
+                    _cov = float(cv2.countNonZero(
+                        cv2.bitwise_and(_pm, _blk))) / \
                         max(1.0, float(_rw * _rh))
-                    if _cov135 > 0.90:
+                    if _cov > 0.90:
                         continue  # متن کامل خوانده شده — دست نمی‌زنیم
-                    _pm135d = cv2.dilate(_pm135, np.ones((9, 9), np.uint8))
+                    _pm135d = cv2.dilate(_pm, np.ones((9, 9), np.uint8))
                     # v1.14.238 — med_hِ ناحیه برایِ سقفهایِ سازگار با
                     # فونتِ درشت (img6: بلندیِ خط ۶۹..۷۹)
-                    _mh135 = 0.0
+                    _mh = 0.0
                     try:
-                        _pl135 = []
-                        for _p135 in _polys135:
+                        _pl = []
+                        for _p in _polys:
                             try:
                                 _pp135b = np.asarray(
-                                    _p135, dtype=np.float32).reshape(-1, 2)
+                                    _p, dtype=np.float32).reshape(-1, 2)
                                 if _pp135b.shape[0] >= 3:
-                                    _pl135.append(_pp135b)
+                                    _pl.append(_pp135b)
                             except Exception:
                                 continue
-                        _ln135 = MangaTranslator._group_polys_to_lines(
-                            _pl135)
-                        if _ln135:
-                            _mh135 = float(np.median(
-                                [b[3] - b[1] for b in _ln135]))
+                        _ln = MangaTranslator._group_polys_to_lines(
+                            _pl)
+                        if _ln:
+                            _mh = float(np.median(
+                                [b[3] - b[1] for b in _ln]))
                     except Exception:
-                        _mh135 = 0.0
-                    _ink135 = MangaTranslator._panel_leftover_ink(
-                        image, _rg135.rect, _pm135d, med_h=_mh135)
-                    if _ink135 is None:
+                        _mh = 0.0
+                    _ink3 = MangaTranslator._panel_leftover_ink(
+                        image, _rg.rect, _pm135d, med_h=_mh)
+                    if _ink3 is None:
                         continue
-                    _ink135 = cv2.dilate(
-                        _ink135, np.ones((9, 9), np.uint8))
-                    m = cv2.bitwise_or(m, _ink135)
+                    _ink3 = cv2.dilate(
+                        _ink3, np.ones((9, 9), np.uint8))
+                    m = cv2.bitwise_or(m, _ink3)
                     _n_tp += 1
                     if self.debug:
                         try:
                             print(
                                 f"  [🔍] پنلِ متنی (گلیفِ جامانده "
-                                f"n={int(cv2.countNonZero(_ink135))}px) → "
+                                f"n={int(cv2.countNonZero(_ink3))}px) → "
                                 f"ماسکِ گلیف rect={(_rx, _ry, _rw, _rh)}")
                         except Exception:
                             pass
                 if _n_tp and self.debug:
                     print(f"  [🔍] پنلِ متنی: {_n_tp} بلوکِ ناقص‌خوانده → "
                           f"گلیفهای جامانده به ماسک رفت")
-            except Exception as _e135:
+            except Exception as _e2:
                 if self.debug:
-                    print("  [!] پنلِ متنی خطا:", _e135)
+                    print("  [!] پنلِ متنی خطا:", _e2)
         # v1.14.134 — پسگیرِ جوهرِ جامانده: قطعههایِ
         # گلیفِ همسایهٔ ماسک که OCRِ ناقص بیرونِ پالی گذاشته
         # ('Yo'/'th'/'a' — حبابِ چپبالای 01.jpg) به ماسک برمیگردند.
@@ -3476,13 +3476,13 @@ class _MangaTranslatorBody_85:
         if (os.environ.get("MANGA_INK_RECLAIM", "1") != "0") \
                 and n_ok > 0:
             try:
-                _add134 = self._stray_ink_reclaim(image, m, regions)
-                if _add134 is not None and np.any(_add134):
-                    m = cv2.bitwise_or(m, _add134)
+                _add = self._stray_ink_reclaim(image, m, regions)
+                if _add is not None and np.any(_add):
+                    m = cv2.bitwise_or(m, _add)
                     if self.debug:
                         try:
                             print(f"  [🔍]پسگیرِ جوهر: +"
-                                  f"{int(cv2.countNonZero(_add134))}px به ماسک")
+                                  f"{int(cv2.countNonZero(_add))}px به ماسک")
                         except Exception:
                             pass
             except Exception:
@@ -3787,7 +3787,7 @@ class _MangaTranslatorBody_85:
                 _cor = cv2.dilate(
                     _cor, np.ones((2 * reach + 1, 2 * reach + 1), np.uint8))
                 _cand2 = []
-                _wh132, _ww132 = g.shape[:2]
+                _wh, _ww = g.shape[:2]
                 # v1.14.213 — گاردِ رنگ: قطعه باید همرنگِ جوهرِ خودِ ناحیه
                 # باشد (دستورِ سازنده: «یک کاری کن حباب متن خراب نشه» —
                 # پسگیرِ ۲۰۶ رویِ img6 ضربهٔ صورتیِ SFXِ «あ» کنارِ متن را
@@ -3795,18 +3795,18 @@ class _MangaTranslatorBody_85:
                 # هنر). متنِ آبیِ تیره (هیو ~۱۱۰) و صورتیِ SFX (هیو ~۳۰۰)
                 # از رویِ فاصلهٔ هیو جدا میشوند؛ متنِ خاکستری/سیاه/سفید
                 # (اشباعِ کم) هرگز قطعهٔ اشباعِ رنگی نمیگیرد.
-                _sub_bgr213 = image[wy0:wy1, wx0:wx1]
-                _seed_ink213 = (seed & ink)
-                _seed_h213 = _seed_s213 = None
-                if int(np.count_nonzero(_seed_ink213)) >= 30:
+                _sub_bgr = image[wy0:wy1, wx0:wx1]
+                _seed_ink = (seed & ink)
+                _seed_h = _seed_s = None
+                if int(np.count_nonzero(_seed_ink)) >= 30:
                     try:
-                        _hsv213 = cv2.cvtColor(
-                            _sub_bgr213, cv2.COLOR_BGR2HSV)
-                        _sv213 = _hsv213[_seed_ink213]
-                        _seed_h213 = float(np.median(_sv213[:, 0])) * 2.0
-                        _seed_s213 = float(np.median(_sv213[:, 1]))
+                        _hsv = cv2.cvtColor(
+                            _sub_bgr, cv2.COLOR_BGR2HSV)
+                        _sv = _hsv[_seed_ink]
+                        _seed_h = float(np.median(_sv[:, 0])) * 2.0
+                        _seed_s = float(np.median(_sv[:, 1]))
                     except Exception:
-                        _seed_h213 = _seed_s213 = None
+                        _seed_h = _seed_s = None
                 for ci in range(1, n):
                     ca = int(st[ci, cv2.CC_STAT_AREA])
                     if ca < 6 or ca > 2.5 * med_h * med_h:
@@ -3817,11 +3817,11 @@ class _MangaTranslatorBody_85:
                         continue
                     # قطعهٔ بریدهشده به مرزِ پنجره = ساختارِ بزرگِ ادامهدار
                     # (هنر/دیوار) → رد (همان گاردِ _ink_absorb_mask)
-                    _cx132 = int(st[ci, cv2.CC_STAT_LEFT])
-                    _cy132 = int(st[ci, cv2.CC_STAT_TOP])
-                    if (_cx132 <= 1 or _cy132 <= 1
-                            or _cx132 + cwd >= _ww132 - 1
-                            or _cy132 + chg >= _wh132 - 1):
+                    _cx = int(st[ci, cv2.CC_STAT_LEFT])
+                    _cy = int(st[ci, cv2.CC_STAT_TOP])
+                    if (_cx <= 1 or _cy <= 1
+                            or _cx + cwd >= _ww - 1
+                            or _cy + chg >= _wh - 1):
                         continue
                     _cm = (lab == ci)
                     if not bool((_cm & _near).any()):
@@ -3830,38 +3830,38 @@ class _MangaTranslatorBody_85:
                         continue
                     # v1.14.213 — همرنگی با جوهرِ ناحیه (گاردِ رنگِ بالا)؛
                     # MANGA_RECLAIM_COLORGUARD=0 برایِ خاموشکردنِ دستی
-                    if _seed_h213 is not None \
+                    if _seed_h is not None \
                             and os.environ.get(
                                 "MANGA_RECLAIM_COLORGUARD", "1") != "0":
                         try:
-                            _pc213 = _sub_bgr213[_cm]
-                            _ph213 = cv2.cvtColor(
-                                _pc213.reshape(-1, 1, 3).astype(
+                            _pc = _sub_bgr[_cm]
+                            _ph = cv2.cvtColor(
+                                _pc.reshape(-1, 1, 3).astype(
                                     np.uint8), cv2.COLOR_BGR2HSV)
-                            _phh213 = float(np.median(_ph213[:, 0, 0])) * 2.0
-                            _phs213 = float(np.median(_ph213[:, 0, 1]))
-                            _hue_d213 = abs(_phh213 - _seed_h213)
-                            _hue_d213 = min(_hue_d213, 360.0 - _hue_d213)
+                            _phh = float(np.median(_ph[:, 0, 0])) * 2.0
+                            _phs = float(np.median(_ph[:, 0, 1]))
+                            _hue_d = abs(_phh - _seed_h)
+                            _hue_d = min(_hue_d, 360.0 - _hue_d)
                             # v1.14.213b — فقطِ عدمِتطابقِ «قوی»: آستانهٔ
                             # سختگیرانه (S≥۹۰ / هیو≥۷۰) تا قطعههایِ
                             # سفیدِ کمی-رنگگرفته (JPEG bleed رویِ پنل — img4)
                             # که متنِ واقعیاند رد نشوند (رگرسیونِ img4:
                             # گاردِ ساده نصفِ گلیفها را ازِ پسگیر میگرفت و
                             # پرِ LaMa را کلاً عوض میکرد).
-                            if _phs213 > 120.0 and _seed_s213 < 45.0:
+                            if _phs > 120.0 and _seed_s < 45.0:
                                 continue  # قطعهٔ رنگی، متنِ بی‌رنگ
-                            if (_phs213 > 110.0 and _seed_s213 > 110.0
-                                    and _hue_d213 > 70.0):
+                            if (_phs > 110.0 and _seed_s > 110.0
+                                    and _hue_d > 70.0):
                                 continue  # رنگِ غلط (SFX/هنرِ همسایه)
                         except Exception:
                             pass
                     # فقط «پیکسلِ تازه» (بیرونِ ماسکِ فعلی) شمرده شود —
                     # بازجذبِ خودِ متنِ ازقبل-ماسکشده هم سقف را پُر میکرد
                     # و دیلیتِ بعدی هالویِ بیفایده حولِ متن میداد
-                    _new132 = int(np.count_nonzero(_cm & (~seed)))
-                    if _new132 < 6:
+                    _new = int(np.count_nonzero(_cm & (~seed)))
+                    if _new < 6:
                         continue
-                    _cand2.append((_new132, ci))
+                    _cand2.append((_new, ci))
                 _cand2.sort(key=lambda t: t[0])
                 _cap = 0.35 * float(max(1, int(seed.sum())))
                 _got = 0
@@ -4077,27 +4077,27 @@ class _MangaTranslatorBody_85:
                                 and r1.shape[0] >= 24 \
                                 and float(_ys1.max() - _ys1.min()) >= 20:
                             try:
-                                _A226 = np.stack([
+                                _A2 = np.stack([
                                     np.ones(r1.shape[0], np.float32),
                                     _xs1.astype(np.float32),
                                     _ys1.astype(np.float32)], axis=1)
-                                _c226, *_ = np.linalg.lstsq(
-                                    _A226, r1, rcond=None)
-                                _p226 = _A226 @ _c226
-                                _r226 = np.sqrt(
-                                    ((_p226 - r1) ** 2).sum(axis=1))
-                                _rs226 = np.sort(_r226)
-                                _k226 = max(8, int(_rs226.shape[0] * 0.8))
-                                if float(_rs226[:_k226].mean()) <= 10.0:
-                                    _bx226 = float(np.abs(_c226[1]).max())
-                                    _by226 = float(np.abs(_c226[2]).max())
-                                    _pw226 = float(pp[:, 0].max()
+                                _c, *_ = np.linalg.lstsq(
+                                    _A2, r1, rcond=None)
+                                _p = _A2 @ _c
+                                _r = np.sqrt(
+                                    ((_p - r1) ** 2).sum(axis=1))
+                                _rs = np.sort(_r)
+                                _k = max(8, int(_rs.shape[0] * 0.8))
+                                if float(_rs[:_k].mean()) <= 10.0:
+                                    _bx2 = float(np.abs(_c[1]).max())
+                                    _by2 = float(np.abs(_c[2]).max())
+                                    _pw = float(pp[:, 0].max()
                                                    - pp[:, 0].min())
-                                    _ph226 = float(pp[:, 1].max()
+                                    _ph = float(pp[:, 1].max()
                                                    - pp[:, 1].min())
-                                    if (_bx226 * _pw226
-                                            + _by226 * _ph226) >= 8.0:
-                                        fill_plane = _c226
+                                    if (_bx2 * _pw
+                                            + _by2 * _ph) >= 8.0:
+                                        fill_plane = _c
                                         fill_col = avg1
                                         fill_exp = 1.05
                             except Exception:
@@ -4133,10 +4133,10 @@ class _MangaTranslatorBody_85:
                                     # نمونهها (هنرِ بیرونِ پنل/لبهٔ قاب)
                                     # خطایِ میانگین را کور میکرد (۴e2e77:
                                     # mean=11.2 رد، بدونِ کانیوت=۸.۶)
-                                    _rgs226 = np.sort(_rg)
-                                    _kg226 = max(12, int(
-                                        _rgs226.shape[0] * 0.75))
-                                    if float(_rgs226[:_kg226].mean()) <= 10.0:
+                                    _rgs = np.sort(_rg)
+                                    _kg = max(12, int(
+                                        _rgs.shape[0] * 0.75))
+                                    if float(_rgs[:_kg].mean()) <= 10.0:
                                         _bxg = float(np.abs(_cg[1]).max())
                                         _byg = float(np.abs(_cg[2]).max())
                                         _pwg = float(pp[:, 0].max()
@@ -4180,18 +4180,18 @@ class _MangaTranslatorBody_85:
                                     # (لگهٔ سفیدِ img4 — آسمانِ ابری).
                                     # چنین خطی به LaMa/TELEA واگذار میشود.
                                     try:
-                                        _ym226 = float(np.median(
+                                        _ym = float(np.median(
                                             _ys2f[_close]))
-                                        _top226 = _close & (_ys2f <= _ym226)
-                                        _bot226 = _close & (_ys2f > _ym226)
-                                        if int(_top226.sum()) >= 8 \
-                                                and int(_bot226.sum()) >= 8:
-                                            _mt226 = np.median(
-                                                r2[_top226], axis=0)
-                                            _mb226 = np.median(
-                                                r2[_bot226], axis=0)
+                                        _top = _close & (_ys2f <= _ym)
+                                        _bot = _close & (_ys2f > _ym)
+                                        if int(_top.sum()) >= 8 \
+                                                and int(_bot.sum()) >= 8:
+                                            _mt = np.median(
+                                                r2[_top], axis=0)
+                                            _mb = np.median(
+                                                r2[_bot], axis=0)
                                             if float(np.abs(
-                                                    _mt226 - _mb226).max()) \
+                                                    _mt - _mb).max()) \
                                                     > 16.0:
                                                 continue
                                     except Exception:
@@ -4577,8 +4577,8 @@ class _MangaTranslatorBody_85:
             # حلقه — نتیجه: پرِ دیوارِ یکدست بدونِ آلودگیِ هنرِ تیره.
             # (پیشفرض light_ring=False → رفتارِ PC بیت‌به‌بیت همان است)
             try:
-                _gl135 = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
-                ring &= (_gl135 >= 170.0)
+                _gl = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
+                ring &= (_gl >= 170.0)
             except Exception:
                 return None
         if int(np.count_nonzero(ring)) < 60:
@@ -4820,9 +4820,9 @@ class _MangaTranslatorBody_85:
             for _pg in (getattr(self, "_promo_rect_boxes", None) or []):
                 if not (gx1 < int(_pg[0]) or gx0 > int(_pg[2])
                         or gy1 < int(_pg[1]) or gy0 > int(_pg[3])):
-                    _pp65 = int(np.clip(round(0.55 * max(bw, bh)), 48, 200))
-                    pad_x = max(pad_x, _pp65)
-                    pad_y = max(pad_y, _pp65)
+                    _pp2 = int(np.clip(round(0.55 * max(bw, bh)), 48, 200))
+                    pad_x = max(pad_x, _pp2)
+                    pad_y = max(pad_y, _pp2)
                     break
         except Exception:
             pass
@@ -5074,10 +5074,10 @@ class _MangaTranslatorBody_85:
                 # باشد (زمینهٔ مختلط)، این QCِ کورِ سطحِ کلاستر پرش را رد
                 # نمیکند؛ اعتبارسنجیِ محلیِ هر عضو (گاردِ ضدتوهم) خودش
                 # درست قضاوت میکند.
-                _darkqc207 = float((_bg_px < 110.0).mean())
+                _darkqc = float((_bg_px < 110.0).mean())
                 if (_bright.size >= max(50, int(0.02 * _bg_px.size))
                         and _bright.size >= 0.55 * _bg_px.size
-                        and _darkqc207 < 0.10):
+                        and _darkqc < 0.10):
                     _bg_med = float(np.median(_bright))
                     _fill_med = float(np.median(_g[_fm]))
                     # v1.14.133 — اندروید: رویِ حلقهٔ تختِ روشن (حبابِ زرد)،
@@ -5099,14 +5099,14 @@ class _MangaTranslatorBody_85:
                     # حبابِ جرقهٔ صفحهٔ ژاپنیِ v1.14.184). حالا هر پرِ
                     # محسوسِ تیره‌تر از حلقهٔ روشن (≥۴۲ واحد) هم رد میشود
                     # و پرِ تختِ نجاتِ حلقه جایگزینش میشود. PC بیت‌به‌بیت.
-                    _gray185 = False
+                    _gray = False
                     if _android_gate("MANGA_GRAYQC"):
                         try:
-                            _gray185 = (_bg_med >= 185.0
+                            _gray = (_bg_med >= 185.0
                                         and _fill_med < _bg_med - 42.0)
                         except Exception:
-                            _gray185 = False
-                    if _gray185 or (_fill_med < 115.0
+                            _gray = False
+                    if _gray or (_fill_med < 115.0
                                     and _fill_med < _bg_med - _dqc_thr):
                         # v1.14.65 — لاگ شود؛ این ردِ خاموش = فال‌بکِ OpenCV
                         try:
@@ -5121,7 +5121,7 @@ class _MangaTranslatorBody_85:
                         # پرِ موفق → return نمی‌خوریم تا کامیتِ پایینی اجرا
                         # شود؛ اعتبارسنجیِ عضویِ بعدی رویِ پرِ تختِ
                         # نجات‌یافته badf≈۰ می‌گیرد و دست نمی‌زند.
-                        _rescued133 = False
+                        _rescued = False
                         # v1.14.212 — پیشفرضِ روشن رویِ PC هم: گروهِ ردشده
                         # (پرِ تیره) بدونِ نجات، یا متنِ اورجینال جا میماند
                         # یا فال‌بکِ Telea اسمیر میسازد (img6: 88 vs bg 226).
@@ -5138,16 +5138,16 @@ class _MangaTranslatorBody_85:
                                 # رنگِ محلیِ همان خط + گرادیانِ عمودیِ
                                 # حفظشده؛ عضوی که حلقهٔ معتبر ندارد به پرِ
                                 # تختِ محلیِ خودش برمیگردد.
-                                _sub_g213 = cv2.cvtColor(
+                                _sub_g = cv2.cvtColor(
                                     sub_img, cv2.COLOR_BGR2GRAY)
                                 _resc_px = 0
                                 _resc_rows = 0
                                 sub_bgr = sub_bgr.copy()
-                                for _mem213 in members:
+                                for _mem in members:
                                     try:
                                         _mx0, _my0, _mx1, _my1, _mm = \
-                                            _mem213[:5]
-                                        _mm213 = np.zeros(
+                                            _mem[:5]
+                                        _mm2 = np.zeros(
                                             sub_img.shape[:2], np.uint8)
                                         _ox0 = max(0, int(_mx0) - ex0)
                                         _oy0 = max(0, int(_my0) - ey0)
@@ -5163,23 +5163,23 @@ class _MangaTranslatorBody_85:
                                             _mmk = np.ones(
                                                 (_oy1 - _oy0, _ox1 - _ox0),
                                                 bool)
-                                        _mm213[_oy0:_oy1, _ox0:_ox1] = \
+                                        _mm2[_oy0:_oy1, _ox0:_ox1] = \
                                             (_mmk.astype(np.uint8)) * 255
-                                        _mm213 = cv2.dilate(
-                                            _mm213, page_kernel)
-                                        _mfm = (_mm213 > 0) & _fm
+                                        _mm2 = cv2.dilate(
+                                            _mm2, page_kernel)
+                                        _mfm = (_mm2 > 0) & _fm
                                         if not _mfm.any():
                                             continue
-                                        _tmask213 = (_mfm.astype(np.uint8)) * 255
-                                        _inp213 = cv2.inpaint(
-                                            sub_bgr, _tmask213, 5,
+                                        _tmask = (_mfm.astype(np.uint8)) * 255
+                                        _inp = cv2.inpaint(
+                                            sub_bgr, _tmask, 5,
                                             cv2.INPAINT_TELEA)
-                                        sub_bgr[_mfm] = _inp213[_mfm]
+                                        sub_bgr[_mfm] = _inp[_mfm]
                                         _resc_px += int(_mfm.sum())
                                     except Exception:
                                         continue
                                 if _resc_px > 0:
-                                    _rescued133 = True
+                                    _rescued = True
                                     print(f"    [✓] پرِ عضو-به-عضویِ نجات از "
                                           f"حلقهٔ محلی ({_resc_px}px، "
                                           f"{_resc_rows} ردیفِ گرادیانی)",
@@ -5187,30 +5187,30 @@ class _MangaTranslatorBody_85:
                                 else:
                                     # هیچ عضوی حلقهٔ معتبر نداشت → پرِ تختِ
                                     # کل (رفتارِ ۲۱۲)
-                                    _src133 = _ring
-                                    _b133 = _bg_px >= 160.0
-                                    if float(_b133.mean()) < 0.98:
-                                        _ri133 = np.where(_ring)
-                                        _bi = np.where(_b133)[0]
-                                        _src133 = (_ri133[0][_bi],
-                                                   _ri133[1][_bi])
-                                    _px133 = sub_img[_src133].astype(
+                                    _src = _ring
+                                    _b = _bg_px >= 160.0
+                                    if float(_b.mean()) < 0.98:
+                                        _ri2 = np.where(_ring)
+                                        _bi = np.where(_b)[0]
+                                        _src = (_ri2[0][_bi],
+                                                   _ri2[1][_bi])
+                                    _px2 = sub_img[_src].astype(
                                         np.float32)
-                                    _rc133 = np.median(_px133, axis=0)
-                                    _sd133 = float(np.std(_px133))
-                                    if _sd133 <= 40.0 and np.isfinite(
-                                            _rc133).all():
+                                    _rc2 = np.median(_px2, axis=0)
+                                    _sd = float(np.std(_px2))
+                                    if _sd <= 40.0 and np.isfinite(
+                                            _rc2).all():
                                         sub_bgr[_fm] = np.clip(
-                                            np.rint(_rc133), 0, 255).astype(
+                                            np.rint(_rc2), 0, 255).astype(
                                                 np.uint8)
-                                        _rescued133 = True
+                                        _rescued = True
                                         print(f"    [✓] پرِ تختِ نجات از حلقه "
                                               f"(rgb="
-                                              f"{_rc133.round(0).tolist()})",
+                                              f"{_rc2.round(0).tolist()})",
                                               flush=True)
                             except Exception:
-                                _rescued133 = False
-                        if not _rescued133:
+                                _rescued = False
+                        if not _rescued:
                             return
         except Exception:
             pass
@@ -5229,9 +5229,9 @@ class _MangaTranslatorBody_85:
         try:
             if _android_gate("MANGA_DARKSMOKE") and _fm.any() \
                     and _ring.any():
-                _g140 = cv2.cvtColor(sub_bgr, cv2.COLOR_BGR2GRAY)
-                _rmed140 = float(np.median(_g140[_ring]))
-                _fmed140 = float(np.median(_g140[_fm]))
+                _g2 = cv2.cvtColor(sub_bgr, cv2.COLOR_BGR2GRAY)
+                _rmed = float(np.median(_g2[_ring]))
+                _fmed = float(np.median(_g2[_fm]))
                 # v1.14.186 — اندروید (MANGA_SOFTQC): کلاسِ جدیدِ «لکهٔ
                 # شیری» — پرِ LaMa رویِ زمینهٔ بافت‌دار (کتِ بژِ صفحهٔ
                 # ژاپنیِ v1.14.184) که روشناییاش به حلقه نزدیک است
@@ -5239,39 +5239,39 @@ class _MangaTranslatorBody_85:
                 # صفر است در حالیکه حلقه بافتِ واقعی دارد = اسمیرِ
                 # نیمه‌شفافِ لباس/هنر. دروازهٔ ارزان: stdِ حلقه؛ بعد
                 # سنجشِ hf. PC بیت‌به‌بیت.
-                _soft186 = False
-                _rstd186 = 0.0
+                _soft = False
+                _rstd = 0.0
                 if _android_gate("MANGA_SOFTQC") \
-                        and abs(_fmed140 - _rmed140) <= 22.0 \
-                        and _rmed140 >= 140.0:
+                        and abs(_fmed - _rmed) <= 22.0 \
+                        and _rmed >= 140.0:
                     try:
-                        _rstd186 = float(_g140[_ring].std())
-                        if _rstd186 >= 14.0:
-                            _med186 = cv2.medianBlur(_g140, 31)
-                            _hf186 = np.abs(
-                                _g140.astype(np.int16)
-                                - _med186.astype(np.int16))
-                            _hf_in = float(np.median(_hf186[_fm]))
-                            _hf_rg = float(np.median(_hf186[_ring]))
-                            _hf_sd = float(_hf186[_fm].std())
-                            _soft186 = (_hf_rg >= 7.0
+                        _rstd = float(_g2[_ring].std())
+                        if _rstd >= 14.0:
+                            _med2 = cv2.medianBlur(_g2, 31)
+                            _hf2 = np.abs(
+                                _g2.astype(np.int16)
+                                - _med2.astype(np.int16))
+                            _hf_in = float(np.median(_hf2[_fm]))
+                            _hf_rg = float(np.median(_hf2[_ring]))
+                            _hf_sd = float(_hf2[_fm].std())
+                            _soft = (_hf_rg >= 7.0
                                         and _hf_in < max(3.0,
                                                          0.35 * _hf_rg)
                                         and _hf_sd <= 3.0)
                     except Exception:
-                        _soft186 = False
-                if _soft186 or abs(_fmed140 - _rmed140) > 22.0 or \
-                        _rmed140 < 140.0:
-                    if not _soft186:
-                        _med140 = cv2.medianBlur(_g140, 31)
-                        _hf140 = np.abs(
-                            _g140.astype(np.int16)
-                            - _med140.astype(np.int16))
-                        _hf_in = float(np.median(_hf140[_fm]))
-                        _hf_rg = float(np.median(_hf140[_ring]))
-                    if _soft186 or (_hf_in > 2.2 * _hf_rg + 4.0
+                        _soft = False
+                if _soft or abs(_fmed - _rmed) > 22.0 or \
+                        _rmed < 140.0:
+                    if not _soft:
+                        _med = cv2.medianBlur(_g2, 31)
+                        _hf = np.abs(
+                            _g2.astype(np.int16)
+                            - _med.astype(np.int16))
+                        _hf_in = float(np.median(_hf[_fm]))
+                        _hf_rg = float(np.median(_hf[_ring]))
+                    if _soft or (_hf_in > 2.2 * _hf_rg + 4.0
                                     and _hf_in > 6.0) or \
-                            abs(_fmed140 - _rmed140) > 22.0:
+                            abs(_fmed - _rmed) > 22.0:
                         # v1.14.140b — پرِ «ردیفی» از حلقهٔ همان ردیف
                         # (بهجایِ پرِ تختِ کل): هر ردیفِ ماسک که نمونهٔ
                         # آزادِ کافیِ یکدست دارد با میانهٔ همان ردیف
@@ -5279,13 +5279,13 @@ class _MangaTranslatorBody_85:
                         # چینِ کت (stdِ کلِ حلقه بالا ولی هر ردیف صاف)
                         # هم پوشش داده میشود؛ ردیفِ شلوغ (هنر) همان
                         # LaMa را نگه میدارد.
-                        _hW140 = _fm.shape[1]
+                        _hW = _fm.shape[1]
                         _rOK = np.zeros(_fm.shape[0], bool)
                         _rC = np.zeros((_fm.shape[0], 3), np.float32)
                         for _ri in range(_fm.shape[0]):
                             _free = ~_fm[_ri]
                             _nf = int(_free.sum())
-                            if _nf < 12 or _nf > int(0.9 * _hW140):
+                            if _nf < 12 or _nf > int(0.9 * _hW):
                                 continue
                             _px = sub_img[_ri][_free].astype(
                                 np.float32)
@@ -5314,19 +5314,19 @@ class _MangaTranslatorBody_85:
                                         float(_yb2 - _ya2)
                                     _rC[_ri] = _rC[_ya2] * \
                                         (1.0 - _t2) + _rC[_yb2] * _t2
-                            _fill140 = np.repeat(
-                                _rC[:, None, :], _hW140, axis=1)
+                            _fill = np.repeat(
+                                _rC[:, None, :], _hW, axis=1)
                             sub_bgr = sub_bgr.copy()
                             sub_bgr[_fm] = np.clip(
-                                _fill140, 0, 255).astype(
+                                _fill, 0, 255).astype(
                                     np.uint8)[_fm]
                             # v1.14.186b — f-stringِ چندخطی در 3.11
                             # سینتکس-ارور میداد (PEP 701 = 3.12) → لیبل
                             # قبل از print محاسبه میشود
-                            _tag140 = ("ضدِ لکهٔ شیری (SOFTQC)"
-                                       if _soft186 else
+                            _tag = ("ضدِ لکهٔ شیری (SOFTQC)"
+                                       if _soft else
                                        "ضدِ دودِ زمینهٔ تیره")
-                            print(f"    [✓] {_tag140}: "
+                            print(f"    [✓] {_tag}: "
                                   f"hf={_hf_in:.1f} vs "
                                   f"حلقه={_hf_rg:.1f} → پرِ ردیفیِ "
                                   f"حلقه ({int(_okI.size)}/"
@@ -5344,10 +5344,10 @@ class _MangaTranslatorBody_85:
         # کوچک (متنِ کنارِ عکسِ داخلِ حباب) اعتبارسنجی نمی‌شود تا عکس
         # قانونی قربانی نشود.
         try:
-            _k49 = getattr(self, "_qc_kernel31", None)
-            if _k49 is None:
-                _k49 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
-                self._qc_kernel31 = _k49
+            _k = getattr(self, "_qc_kernel31", None)
+            if _k is None:
+                _k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
+                self._qc_kernel31 = _k
             _g_org = cv2.cvtColor(sub_img, cv2.COLOR_BGR2GRAY)
             _g_out = cv2.cvtColor(sub_bgr, cv2.COLOR_BGR2GRAY)
             _n_rej = 0
@@ -5392,75 +5392,75 @@ class _MangaTranslatorBody_85:
                 # پنجره‌هایِ مرزی (حلقهٔ مخلوط) سنجیده نمیشوند تا هنرِ
                 # قانونی (سکرین‌تون/گرادیان/مرز) قربانی نشود.
                 try:
-                    _sic227 = sub_img[oy:oy + dm.shape[0],
+                    _sic2 = sub_img[oy:oy + dm.shape[0],
                                       ox:ox + dm.shape[1]]
-                    _rc227 = sub_bgr[oy:oy + dm.shape[0],
+                    _rc3 = sub_bgr[oy:oy + dm.shape[0],
                                      ox:ox + dm.shape[1]]
-                    _ch227, _cw227 = mm.shape[:2]
-                    _cell227 = 112
+                    _ch, _cw = mm.shape[:2]
+                    _cell = 112
 
-                    _wins227 = []
-                    _tofix227 = []
+                    _wins = []
+                    _tofix = []
                     # انرژیِ فرکانس-بالای زمینه (ضدِ هنرِ هموارنما):
                     # مو/پوستِ رگه‌دار (img4_s02: پیشانی) رنگِ غالب و
                     # stdِ پایین دارد ولی بافتِ ریزش hf بالا است — حباب/
                     # آسمانِ تخت hf≈۰. فقط حلقههایِ تختِ واقعی سنجیده
                     # میشوند.
                     try:
-                        _gS227 = cv2.cvtColor(_sic227,
+                        _gS = cv2.cvtColor(_sic2,
                                               cv2.COLOR_BGR2GRAY)
-                        _hfS227 = np.abs(
-                            _gS227.astype(np.float32)
-                            - cv2.medianBlur(_gS227, 31).astype(
+                        _hfS = np.abs(
+                            _gS.astype(np.float32)
+                            - cv2.medianBlur(_gS, 31).astype(
                                 np.float32))
                     except Exception:
-                        _hfS227 = None
-                    _gy227 = 0
-                    while _gy227 < _ch227:
-                        _gx227 = 0
-                        while _gx227 < _cw227:
-                            _win227 = mm[_gy227:_gy227 + _cell227,
-                                         _gx227:_gx227 + _cell227]
-                            if int(_win227.sum()) >= 200:
-                                _pad227 = np.zeros(mm.shape, np.uint8)
-                                _pad227[_gy227:_gy227 + _cell227,
-                                        _gx227:_gx227 + _cell227] = \
-                                    _win227.astype(np.uint8) * 255
-                                _ring227 = (cv2.dilate(
-                                    _pad227, _k49) > 0) & (~mm)
-                                if int(_ring227.sum()) >= 40:
-                                    _rngC227 = _sic227[
-                                        _ring227].astype(np.float32)
-                                    _flC227 = _rc227[
-                                        _gy227:_gy227 + _cell227,
-                                        _gx227:_gx227 + _cell227][
-                                            _win227].astype(np.float32)
-                                    if _flC227.shape[0] >= 40:
-                                        _rmedC227 = np.median(
-                                            _rngC227, axis=0)
+                        _hfS = None
+                    _gy = 0
+                    while _gy < _ch:
+                        _gx = 0
+                        while _gx < _cw:
+                            _win = mm[_gy:_gy + _cell,
+                                         _gx:_gx + _cell]
+                            if int(_win.sum()) >= 200:
+                                _pad = np.zeros(mm.shape, np.uint8)
+                                _pad[_gy:_gy + _cell,
+                                        _gx:_gx + _cell] = \
+                                    _win.astype(np.uint8) * 255
+                                _ring2 = (cv2.dilate(
+                                    _pad, _k) > 0) & (~mm)
+                                if int(_ring2.sum()) >= 40:
+                                    _rngC = _sic2[
+                                        _ring2].astype(np.float32)
+                                    _flC = _rc3[
+                                        _gy:_gy + _cell,
+                                        _gx:_gx + _cell][
+                                            _win].astype(np.float32)
+                                    if _flC.shape[0] >= 40:
+                                        _rmedC = np.median(
+                                            _rngC, axis=0)
                                         # رنگِ غالب: سهمِ پیکسلهایِ حلقه
                                         # که در ≤۳۰ از میانهاند — بهتر از
                                         # std (خطِ دیوار/دورخطِ نازک در
                                         # حلقهٔ سالم دیگر رد نمیکند)
-                                        _fracC227 = float((np.max(
-                                            np.abs(_rngC227
-                                                   - _rmedC227),
+                                        _fracC = float((np.max(
+                                            np.abs(_rngC
+                                                   - _rmedC),
                                             axis=1) <= 30.0).mean())
-                                        _fmedC227 = np.median(
-                                            _flC227, axis=0)
-                                        _fstdC227 = float(np.std(
-                                            _flC227, axis=0).max())
-                                        _rstdC227 = float(np.std(
-                                            _rngC227, axis=0).max())
-                                        _hfC227 = 0.0
-                                        if _hfS227 is not None:
+                                        _fmedC = np.median(
+                                            _flC, axis=0)
+                                        _fstdC = float(np.std(
+                                            _flC, axis=0).max())
+                                        _rstdC = float(np.std(
+                                            _rngC, axis=0).max())
+                                        _hfC = 0.0
+                                        if _hfS is not None:
                                             try:
-                                                _hfC227 = float(np.median(
-                                                    _hfS227[_ring227]))
+                                                _hfC = float(np.median(
+                                                    _hfS[_ring2]))
                                             except Exception:
-                                                _hfC227 = 0.0
-                                        _dch227 = float(np.max(np.abs(
-                                            _fmedC227 - _rmedC227)))
+                                                _hfC = 0.0
+                                        _dch = float(np.max(np.abs(
+                                            _fmedC - _rmedC)))
                                         # v1.14.227b — قانونِ «کروما یا
                                         # قطب»: پرِ غلطِ قابلِ درمان فقط
                                         # (الف) جابهجاییِ کرومایی است
@@ -5474,16 +5474,16 @@ class _MangaTranslatorBody_85:
                                         # پوست/مو — img4_s02: پیشانی) =
                                         # بازسازیِ قانونیِ LaMa → دست
                                         # نمیزیم.
-                                        _rel227 = ((_rmedC227 - _fmedC227)
-                                                   / np.maximum(_rmedC227,
+                                        _rel = ((_rmedC - _fmedC)
+                                                   / np.maximum(_rmedC,
                                                                 40.0))
-                                        _chroma227 = float(np.max(np.abs(
-                                            _rel227 - np.median(_rel227)))) \
+                                        _chroma = float(np.max(np.abs(
+                                            _rel - np.median(_rel)))) \
                                             >= 0.25
-                                        _extreme227 = (
-                                            (float(np.min(_rmedC227))
+                                        _extreme = (
+                                            (float(np.min(_rmedC))
                                              >= 200.0)
-                                            or (float(np.max(_rmedC227))
+                                            or (float(np.max(_rmedC))
                                                 <= 70.0))
                                         # گاردِ سه‌گانه: رنگِ غالب ≥۵۵٪
                                         # «و» stdِ کانالیِ حلقه ≤۳۴ «و»
@@ -5491,13 +5491,13 @@ class _MangaTranslatorBody_85:
                                         # (مو/پوست) بافت/پراکندگی دارد؛
                                         # بازسازیِ LaMa رویِ چنین حلقههایی
                                         # قانونی است و دست نمی‌زنیم.
-                                        if (_fracC227 >= 0.55
-                                                and _rstdC227 <= 34.0
-                                                and _hfC227 <= 6.0
-                                                and _fstdC227 <= 46.0
-                                                and _dch227 >= 48.0
-                                                and (_chroma227
-                                                     or _extreme227)):
+                                        if (_fracC >= 0.55
+                                                and _rstdC <= 34.0
+                                                and _hfC <= 6.0
+                                                and _fstdC <= 46.0
+                                                and _dch >= 48.0
+                                                and (_chroma
+                                                     or _extreme)):
                                             # v1.14.241 — گاردِ «حلقه باید
                                             # نمایندهٔ زمینهٔ زیرِ پنجره
                                             # باشد» (همان درسِ 228): پنجرهٔ
@@ -5523,22 +5523,22 @@ class _MangaTranslatorBody_85:
                                             # حلقه (که هنرِ مجاور را
                                             # میبیند — مویِ قهوهای/کتِ
                                             # تیره) حقِ قضاوت ندارد.
-                                            _skip241 = False
+                                            _skip = False
                                             try:
-                                                _uw241 = _sic227[
-                                                    _gy227:_gy227 + _cell227,
-                                                    _gx227:_gx227 + _cell227
-                                                ][_win227]
-                                                if _uw241.shape[0] >= 40:
+                                                _uw = _sic2[
+                                                    _gy:_gy + _cell,
+                                                    _gx:_gx + _cell
+                                                ][_win]
+                                                if _uw.shape[0] >= 40:
                                                     _ul241b = float(np.percentile(
-                                                        0.299 * _uw241[:, 2]
-                                                        + 0.587 * _uw241[:, 1]
-                                                        + 0.114 * _uw241[:, 0],
+                                                        0.299 * _uw[:, 2]
+                                                        + 0.587 * _uw[:, 1]
+                                                        + 0.114 * _uw[:, 0],
                                                         75.0))
                                                     _fl241b = float(
-                                                        0.299 * _fmedC227[2]
-                                                        + 0.587 * _fmedC227[1]
-                                                        + 0.114 * _fmedC227[0])
+                                                        0.299 * _fmedC[2]
+                                                        + 0.587 * _fmedC[1]
+                                                        + 0.114 * _fmedC[0])
                                                     if abs(_fl241b
                                                            - _ul241b) < 45.0:
                                                         if os.environ.get(
@@ -5546,8 +5546,8 @@ class _MangaTranslatorBody_85:
                                                             print(
                                                                 f"      [227d"
                                                                 f"241] win@("
-                                                                f"{_gx227 + cx0},"
-                                                                f"{_gy227 + cy0})"
+                                                                f"{_gx + cx0},"
+                                                                f"{_gy + cy0})"
                                                                 f" پر==زمینهٔ"
                                                                 f" زیر ({_fl241b:.0f}"
                                                                 f"≈{_ul241b:.0f})"
@@ -5558,71 +5558,71 @@ class _MangaTranslatorBody_85:
                                                         # زیرِ پنجره نیست؛
                                                         # سرایت هم حقِ
                                                         # ترمیم ندارد
-                                                        _wins227.append(
-                                                            (False, _gy227,
-                                                             _gx227,
-                                                             _win227,
-                                                             _fmedC227,
-                                                             _dch227,
-                                                             _rmedC227,
-                                                             _fstdC227,
-                                                             _fracC227,
-                                                             _rstdC227,
-                                                             _hfC227))
-                                                        _skip241 = True
+                                                        _wins.append(
+                                                            (False, _gy,
+                                                             _gx,
+                                                             _win,
+                                                             _fmedC,
+                                                             _dch,
+                                                             _rmedC,
+                                                             _fstdC,
+                                                             _fracC,
+                                                             _rstdC,
+                                                             _hfC))
+                                                        _skip = True
                                             except Exception:
                                                 pass
-                                            if not _skip241:
-                                                _tofix227.append(
-                                                    (_gy227, _gx227, _win227,
-                                                     _fmedC227, _dch227,
-                                                     _rmedC227, "",
-                                                     _fracC227, _rstdC227,
-                                                     _hfC227, _fstdC227))
+                                            if not _skip:
+                                                _tofix.append(
+                                                    (_gy, _gx, _win,
+                                                     _fmedC, _dch,
+                                                     _rmedC, "",
+                                                     _fracC, _rstdC,
+                                                     _hfC, _fstdC))
                                         else:
-                                            _wins227.append(
-                                                (True, _gy227, _gx227,
-                                                 _win227, _fmedC227,
-                                                 _dch227, _rmedC227,
-                                                 _fstdC227, _fracC227,
-                                                 _rstdC227, _hfC227))
-                            _gx227 += _cell227
-                        _gy227 += _cell227
+                                            _wins.append(
+                                                (True, _gy, _gx,
+                                                 _win, _fmedC,
+                                                 _dch, _rmedC,
+                                                 _fstdC, _fracC,
+                                                 _rstdC, _hfC))
+                            _gx += _cell
+                        _gy += _cell
                     # دورِ سرایتِ رنگ: پنجرهٔ ترمیم‌نشده که «پرِ»اش همان
                     # رنگِ غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲ — همان لکهٔ
                     # LaMa ادامه دارد) و با رنگِ غالبِ حلقهٔ خودش هم
                     # نمیخواند (غالبِ ≥۴۰٪، Δ≥۴۸) → همان درمان؛ تا لبهٔ
                     # لکه نصفه نماند (پنجره‌های مرزیِ آسمان+زرد).
-                    _fm227 = [t[3] for t in _tofix227]
-                    for (_dmy227, _gy227, _gx227, _win227, _fmedC227,
-                         _dch227, _rmedC227, _fstdC227, _fracC227,
-                         _rstdC227, _hfC227) in _wins227:
+                    _fm2 = [t[3] for t in _tofix]
+                    for (_dmy, _gy, _gx, _win, _fmedC,
+                         _dch, _rmedC, _fstdC, _fracC,
+                         _rstdC, _hfC) in _wins:
                         # سرایت بدونِ گاردِ rstd: پرِ این پنجره عینِ پرِ
                         # غلطِ پنجرهٔ ترمیم‌شده است (Δ≤۱۲) — یعنی همان
                         # لکهی LaMa ادامه دارد، نه بازسازیِ هنر؛ گاردِ
                         # هنرِ متقارن لازم نیست. مرزهایِ دو رنگِ همپوشان
                         # (آسمان+زرد) همین‌جا ترمیم میشوند. hfِ هنری همچنان
                         # رد میشود (بافتِ ریز = بازسازیِ قانونیِ LaMa).
-                        if not _dmy227:
+                        if not _dmy:
                             continue  # v1.14.241 — پنجرهٔ «حلقه≠زمینه» ترمیم/سرایت ممنوع
-                        if _fstdC227 > 46.0 or _hfC227 > 6.0 \
-                                or _fracC227 < 0.40 or _dch227 < 48.0:
+                        if _fstdC > 46.0 or _hfC > 6.0 \
+                                or _fracC < 0.40 or _dch < 48.0:
                             continue
                         # قانونِ کروما/قطب اینجا هم (لنگرِ سرایت معاف
                         # نیست — پرِ همفامِ تیرهتر تناسبی رد).
                         if any(float(np.max(np.abs(
-                                _fmedC227 - _f2_227))) <= 12.0
-                               for _f2_227 in _fm227):
-                            _tofix227.append(
-                                (_gy227, _gx227, _win227, _fmedC227,
-                                 _dch227, _rmedC227, "(سرایت)",
-                                 _fracC227, _rstdC227, _hfC227,
-                                 _fstdC227))
+                                _fmedC - _f2))) <= 12.0
+                               for _f2 in _fm2):
+                            _tofix.append(
+                                (_gy, _gx, _win, _fmedC,
+                                 _dch, _rmedC, "(سرایت)",
+                                 _fracC, _rstdC, _hfC,
+                                 _fstdC))
                     # یک پخشِ واحد برای «همهٔ» پنجرههایِ تصمیمشده:
                     # مرز = پیکسلهایِ اصلِ بیرونِ ماسک + پرهایِ درستِ
                     # داخلِ ماسک (پنجرهٔ زرد-روی-زرد مرزِ درست میماند)؛
                     # نه پخشِ تک‌پنجره‌ای که از لکهٔ همسایه آلوده میشد.
-                    if _tofix227:
+                    if _tofix:
                         # پرِ «محلی» به‌ازایِ پنجره: برازشِ صفحهٔ
                         # z=a+bx+cy رویِ زیرمجموعهٔ غالبِ حلقهٔ «همان
                         # پنجره» (بدون نشتِ رنگِ حبابِ همسایه — پخش/
@@ -5630,22 +5630,22 @@ class _MangaTranslatorBody_85:
                         # میکشید)؛ بعدِ پر، نوارِ لبهٔ ۴px با تار کردن
                         # نرم میشود تا درزِ پنجرهها/findها دیده نشود.
                         try:
-                            _union227 = np.zeros(mm.shape, bool)
+                            _union = np.zeros(mm.shape, bool)
                             for (_gyF, _gxF, _winF, _fmedF, _dchF,
                                  _rmedF, _whyF, _frac227d, _rstd227d,
-                                 _hf227d, _fstd227d) in _tofix227:
-                                _union227[_gyF:_gyF + _cell227,
-                                          _gxF:_gxF + _cell227] |= _winF
+                                 _hf227d, _fstd227d) in _tofix:
+                                _union[_gyF:_gyF + _cell,
+                                          _gxF:_gxF + _cell] |= _winF
                             for (_gyF, _gxF, _winF, _fmedF, _dchF,
                                  _rmedF, _whyF, _frac227d, _rstd227d,
-                                 _hf227d, _fstd227d) in _tofix227:
+                                 _hf227d, _fstd227d) in _tofix:
                                 _padF = np.zeros(mm.shape, np.uint8)
-                                _padF[_gyF:_gyF + _cell227,
-                                      _gxF:_gxF + _cell227] = \
+                                _padF[_gyF:_gyF + _cell,
+                                      _gxF:_gxF + _cell] = \
                                     _winF.astype(np.uint8) * 255
                                 _winfF = _padF > 0
                                 _ringF = (cv2.dilate(
-                                    _padF, _k49) > 0) & (~mm)
+                                    _padF, _k) > 0) & (~mm)
                                 _wyF, _wxF = np.nonzero(_winfF)
                                 if _wyF.size == 0:
                                     continue
@@ -5659,7 +5659,7 @@ class _MangaTranslatorBody_85:
                                 _selOFok = None
                                 if int(_ringF.sum()) >= 60:
                                     _ryF, _rxF = np.nonzero(_ringF)
-                                    _rcF = _sic227[_ringF].astype(
+                                    _rcF = _sic2[_ringF].astype(
                                         np.float32)
                                     _domF = (np.max(np.abs(
                                         _rcF - _rmedF),
@@ -5720,7 +5720,7 @@ class _MangaTranslatorBody_85:
                                                                     1:, :])))
                                                     except Exception:
                                                         _mSlO = 999.0
-                                                    if (_mSlO * _cell227
+                                                    if (_mSlO * _cell
                                                             <= 110.0):
                                                         _syO, _sxO = \
                                                             np.nonzero(
@@ -5752,7 +5752,7 @@ class _MangaTranslatorBody_85:
                                                             _syO, _sxO] = \
                                                             True
                                                         _selOFok = _selOF
-                                                        _union227 |= \
+                                                        _union |= \
                                                             _selOF
                                         except Exception:
                                             pass
@@ -5777,7 +5777,7 @@ class _MangaTranslatorBody_85:
                                                         _coefF[1:, :])))
                                             except Exception:
                                                 _maxSlopeF = 999.0
-                                            if (_maxSlopeF * _cell227
+                                            if (_maxSlopeF * _cell
                                                     <= 110.0
                                                     and _selF.any()):
                                                 _syF, _sxF = np.nonzero(
@@ -5804,13 +5804,13 @@ class _MangaTranslatorBody_85:
                                             pass
                                 _useF = _selF if _selOFok is None \
                                     else (_selF | _selOFok)
-                                _union227 |= _useF
+                                _union |= _useF
                                 if not _useF.any():
                                     continue
-                                _subF = _rc227[_gyF:_gyF + _cell227,
-                                               _gxF:_gxF + _cell227]
-                                _subW = _useF[_gyF:_gyF + _cell227,
-                                              _gxF:_gxF + _cell227]
+                                _subF = _rc3[_gyF:_gyF + _cell,
+                                               _gxF:_gxF + _cell]
+                                _subW = _useF[_gyF:_gyF + _cell,
+                                              _gxF:_gxF + _cell]
                                 _flatF = np.clip(
                                     np.rint(np.asarray(
                                         _rmedF, np.float32)),
@@ -5819,11 +5819,11 @@ class _MangaTranslatorBody_85:
                                     _subF[_subW] = _flatF
                                 else:
                                     _pwF = _planeImgF[
-                                        _gyF:_gyF + _cell227,
-                                        _gxF:_gxF + _cell227]
+                                        _gyF:_gyF + _cell,
+                                        _gxF:_gxF + _cell]
                                     _hwF = _hasPF[
-                                        _gyF:_gyF + _cell227,
-                                        _gxF:_gxF + _cell227]
+                                        _gyF:_gyF + _cell,
+                                        _gxF:_gxF + _cell]
                                     _subF[_subW] = _flatF
                                     _selP = _subW & _hwF
                                     if _selP.any():
@@ -5834,31 +5834,31 @@ class _MangaTranslatorBody_85:
                             # نرمسازیِ لبه: نوارِ ۴px دورِ اجتماعِ
                             # پنجرههایِ پرشده با میانگینِ ۹px مینشیند
                             _edgeF = cv2.erode(
-                                _union227.astype(np.uint8),
+                                _union.astype(np.uint8),
                                 np.ones((9, 9), np.uint8)) > 0
-                            _bandF = _union227 & (~_edgeF)
+                            _bandF = _union & (~_edgeF)
                             if _bandF.any():
                                 _blE = cv2.blur(
-                                    _rc227.astype(np.float32), (9, 9))
-                                _rc227[_bandF] = np.clip(
+                                    _rc3.astype(np.float32), (9, 9))
+                                _rc3[_bandF] = np.clip(
                                     np.rint(_blE), 0,
                                     255).astype(np.uint8)[_bandF]
                         except Exception:
                             for (_gyF, _gxF, _winF, _fmedF, _dchF,
                                  _rmedF, _whyF, _frac227d, _rstd227d,
-                                 _hf227d, _fstd227d) in _tofix227:
-                                _colF = np.zeros(_rc227.shape, np.uint8)
+                                 _hf227d, _fstd227d) in _tofix:
+                                _colF = np.zeros(_rc3.shape, np.uint8)
                                 _colF[:, :] = np.clip(
                                     np.rint(_rmedF),
                                     0, 255).astype(np.uint8)
-                                _subF = _rc227[_gyF:_gyF + _cell227,
-                                               _gxF:_gxF + _cell227]
+                                _subF = _rc3[_gyF:_gyF + _cell,
+                                               _gxF:_gxF + _cell]
                                 _subF[_winF] = _colF[
-                                    _gyF:_gyF + _cell227,
-                                    _gxF:_gxF + _cell227][_winF]
+                                    _gyF:_gyF + _cell,
+                                    _gxF:_gxF + _cell][_winF]
                         for (_gyF, _gxF, _winF, _fmedF, _dchF, _rmedF,
                              _whyF, _frac227d, _rstd227d, _hf227d,
-                             _fstd227d) in _tofix227:
+                             _fstd227d) in _tofix:
                             _n_rej += 1
                             print(f"    [🛡227] پرِ رنگِ غلط رد شد "
                                   f"@({cx0 + _gxF},{cy0 + _gyF}) "
@@ -5976,13 +5976,13 @@ class _MangaTranslatorBody_85:
                 # و خروجیِ LaMa (بازسازیِ هنر) قبول می‌شود.
                 _m_in_i = (float(np.count_nonzero(mm & (_intm > 0)))
                            / max(1, _n_mm))
-                _ok49 = (_med_i >= 185.0 and _cov >= 0.45 and not _ring_blk
+                _ok = (_med_i >= 185.0 and _cov >= 0.45 and not _ring_blk
                          and _wall_ok and _uni >= 0.80 and _t4 < 4
                          and _m_in_i >= 0.55)
                 if _dbg:
                     print(f"      [🛡dbg] m_in_i={_m_in_i:.2f}", flush=True)
                 _fb_comp = None
-                if not _ok49:
+                if not _ok:
                     try:
                         _bmk = (_gcr >= 180.0).astype(np.uint8) * 255
                         _bmk = cv2.morphologyEx(
@@ -6058,7 +6058,7 @@ class _MangaTranslatorBody_85:
                         continue
                 elif _cov < 0.45:
                     continue  # حفرهٔ کوچک → LaMa امن است
-                ring = (cv2.dilate(dm, _k49) > 0) & (~mm)
+                ring = (cv2.dilate(dm, _k) > 0) & (~mm)
                 if int(ring.sum()) < 80:
                     continue
                 rg = _gcr[ring]
@@ -6296,11 +6296,11 @@ class _MangaTranslatorBody_85:
                 # دست‌نخورده می‌ماند (بازتولید: b03 و OH BOY تمیز).
                 _rc = sub_bgr[oy:oy + dm.shape[0], ox:ox + dm.shape[1]]
                 _sic = sub_img[oy:oy + dm.shape[0], ox:ox + dm.shape[1]]
-                _pp49 = getattr(self, "_page_protect", None)
+                _pp = getattr(self, "_page_protect", None)
                 _ppc = None
-                if _pp49 is not None:
+                if _pp is not None:
                     try:
-                        _pt = _pp49[cy0:cy1, cx0:cx1]
+                        _pt = _pp[cy0:cy1, cx0:cx1]
                         if _pt.shape[:2] == _rc.shape[:2]:
                             _ppc = _pt
                     except Exception:
@@ -6316,8 +6316,8 @@ class _MangaTranslatorBody_85:
                     # residue-sweep بعداً برای پاک کردنش دیوار را هم می‌بلعید
                     # (حبابِ کامل پاک می‌شد — chapter-264/8).
                     _ffc = self._fill_holes_mask(_fb_comp)
-                    _cm49 = float(np.median(_gcr[_fb_comp]))
-                    _ink8 = ((_gcr < _cm49 - 40.0) & (dm > 0) & _ffc)
+                    _cm2 = float(np.median(_gcr[_fb_comp]))
+                    _ink8 = ((_gcr < _cm2 - 40.0) & (dm > 0) & _ffc)
                     _ink8 = _ink8.astype(np.uint8) * 255
                     _ink8 = cv2.morphologyEx(_ink8, cv2.MORPH_CLOSE,
                                              np.ones((5, 5), np.uint8))
@@ -6325,7 +6325,7 @@ class _MangaTranslatorBody_85:
                     _ink8[~_ffc] = 0  # سقف: هرگز بیرونِ نسخهٔ پرشده (دیوار)
                     # v1.14.70 — نشتِ اینتریور (دمِ بازِ حباب) نباید متن را
                     # زنده بگذارد: جوهرِ تیرهٔ داخلِ ماسک (بدونِ گیتِ comp)
-                    _ink8b = self._mask_ink_only(_gcr, dm, _cm49 - 40.0)
+                    _ink8b = self._mask_ink_only(_gcr, dm, _cm2 - 40.0)
                     _pnt = mm & ((cv2.dilate(
                         _fb_comp.astype(np.uint8),
                         np.ones((3, 3), np.uint8)) > 0) | (_ink8 > 0)
@@ -6379,14 +6379,14 @@ class _MangaTranslatorBody_85:
                     # «جوهرمانند» است (تفاوتِ >۴۲ با زمینهٔ محلیِ تخمینیِ
                     # 207b) هم پر میشود؛ پیکسلِ همرنگِ زمینه (دیوار/بافت)
                     # مثلِ قبل به اصل برمیگردد.
-                    _fill207 = None
+                    _fill2 = None
                     try:
-                        _kn207 = (~mm).astype(np.float32)
-                        _sicf207 = _sic.astype(np.float32) * _kn207[..., None]
-                        _den207 = cv2.boxFilter(_kn207, -1, (25, 25))
-                        _num207 = cv2.boxFilter(_sicf207, -1, (25, 25))
-                        _loc207 = (_num207
-                                   / np.maximum(_den207, 1e-3)[..., None])
+                        _kn = (~mm).astype(np.float32)
+                        _sicf = _sic.astype(np.float32) * _kn[..., None]
+                        _den = cv2.boxFilter(_kn, -1, (25, 25))
+                        _num = cv2.boxFilter(_sicf, -1, (25, 25))
+                        _loc = (_num
+                                   / np.maximum(_den, 1e-3)[..., None])
                         # v1.14.207b — میانگینِ ساده رویِ زمینهٔ «دوقطبی»
                         # (بنرِ سیاه + حروفِ سفیدِ کنارِ ماسک — img1018)
                         # رنگِ خاکستریِ ناخالص میدهد. پس پرِ محلی =
@@ -6398,32 +6398,32 @@ class _MangaTranslatorBody_85:
                         try:
                             _g207b = cv2.cvtColor(
                                 _sic, cv2.COLOR_BGR2GRAY).astype(np.float32)
-                            _drk207 = ((_g207b < 110.0)
-                                       & (_kn207 > 0)).astype(np.float32)
-                            _brt207 = ((_g207b >= 110.0)
-                                       & (_kn207 > 0)).astype(np.float32)
-                            _denD = cv2.boxFilter(_drk207, -1, (25, 25))
-                            _denB = cv2.boxFilter(_brt207, -1, (25, 25))
+                            _drk = ((_g207b < 110.0)
+                                       & (_kn > 0)).astype(np.float32)
+                            _brt = ((_g207b >= 110.0)
+                                       & (_kn > 0)).astype(np.float32)
+                            _denD = cv2.boxFilter(_drk, -1, (25, 25))
+                            _denB = cv2.boxFilter(_brt, -1, (25, 25))
                             _locD = (cv2.boxFilter(
-                                _sic.astype(np.float32) * _drk207[..., None],
+                                _sic.astype(np.float32) * _drk[..., None],
                                 -1, (25, 25))
                                 / np.maximum(_denD, 1e-3)[..., None])
                             _locB = (cv2.boxFilter(
-                                _sic.astype(np.float32) * _brt207[..., None],
+                                _sic.astype(np.float32) * _brt[..., None],
                                 -1, (25, 25))
                                 / np.maximum(_denB, 1e-3)[..., None])
                             _poleD = (_denD >= _denB)[..., None]
                             _locP = np.where(_poleD, _locD, _locB)
                             _valP = np.maximum(_denD, _denB)
-                            _loc207 = np.where(
-                                (_valP >= 0.03)[..., None], _locP, _loc207)
+                            _loc = np.where(
+                                (_valP >= 0.03)[..., None], _locP, _loc)
                         except Exception:
                             pass
-                        _fill207 = np.where(
-                            (_den207 >= 0.03)[..., None],
-                            _loc207.astype(np.uint8),
+                        _fill2 = np.where(
+                            (_den >= 0.03)[..., None],
+                            _loc.astype(np.uint8),
                             np.broadcast_to(np.asarray(
-                                _fill_col, dtype=np.uint8), _loc207.shape))
+                                _fill_col, dtype=np.uint8), _loc.shape))
                         try:
                             # v1.14.207i — پسگیریِ «متنِ جامانده» به روشِ
                             # کامپوننت‌محور: تخمینِ پیکسلیِ 207b کنارِ
@@ -6473,11 +6473,11 @@ class _MangaTranslatorBody_85:
                         except Exception:
                             _cc207i = []
                     except Exception:
-                        _fill207 = None
+                        _fill2 = None
                         _cc207i = []
                     if _pnt.any():
-                        if _fill207 is not None:
-                            _rc[_pnt] = _fill207[_pnt]
+                        if _fill2 is not None:
+                            _rc[_pnt] = _fill2[_pnt]
                         else:
                             _rc[_pnt] = _fill_col
                         # v1.14.207i — رنگِ قطبِ حلقهٔ هر کامپوننتِ
@@ -6916,16 +6916,16 @@ class _MangaTranslatorBody_85:
             try:
                 _ib81f = getattr(self, "_lama_ink_boxes", None) or []
                 if _ib81f:
-                    _rx81, _ry81, _rw81, _rh81 = [
+                    _rx, _ry, _rw, _rh = [
                         int(v) for v in region.rect]
-                    _hit81 = False
+                    _hit = False
                     for _ib in _ib81f:
-                        if not (_rx81 + _rw81 < _ib[0] or _rx81 > _ib[2]
-                                or _ry81 + _rh81 < _ib[1]
-                                or _ry81 > _ib[3]):
-                            _hit81 = True
+                        if not (_rx + _rw < _ib[0] or _rx > _ib[2]
+                                or _ry + _rh < _ib[1]
+                                or _ry > _ib[3]):
+                            _hit = True
                             break
-                    if _hit81:
+                    if _hit:
                         continue
             except Exception:
                 pass
@@ -6977,12 +6977,12 @@ class _MangaTranslatorBody_85:
                         # حالاseed = ماسکِ خامِ متن (_compose_text_mask)؛
                         # اگر خالی بود fallback به enc.
                         try:
-                            _ctm81 = getattr(self, "_compose_text_mask",
+                            _ctm = getattr(self, "_compose_text_mask",
                                              None)
                             _mk81w = None
-                            if (_ctm81 is not None
-                                    and _ctm81.shape == enc.shape):
-                                _mk81w = ((_ctm81[y0:y1, x0:x1] > 0)
+                            if (_ctm is not None
+                                    and _ctm.shape == enc.shape):
+                                _mk81w = ((_ctm[y0:y1, x0:x1] > 0)
                                           .astype(np.uint8))
                             if (int(cv2.countNonZero(_mk81w)) < 50
                                     if _mk81w is not None else True):
@@ -7332,14 +7332,14 @@ class _MangaTranslatorBody_85:
             # حباب رد میشود (لکهٔ رنگِ قاطی) و لبه‌اش حروف را میبرد
             # (نقطه‌های سیاه). MANGA_ROT_STRIPS=0 = خاموش.
             try:
-                _ang238 = float(getattr(region, "angle", 0.0) or 0.0)
+                _ang = float(getattr(region, "angle", 0.0) or 0.0)
             except Exception:
-                _ang238 = 0.0
-            if 3.0 <= abs(_ang238) <= 45.0 \
+                _ang = 0.0
+            if 3.0 <= abs(_ang) <= 45.0 \
                     and os.environ.get("MANGA_ROT_STRIPS", "1") != "0":
-                _rot238 = self._rotated_region_strips(image, polys, _ang238)
-                if _rot238 is not None:
-                    return _rot238
+                _rot = self._rotated_region_strips(image, polys, _ang)
+                if _rot is not None:
+                    return _rot
             lines = MangaTranslator._group_polys_to_lines(polys)
             if not lines:
                 return None, np.zeros((1, 1), dtype=np.uint8)
@@ -7404,16 +7404,16 @@ class _MangaTranslatorBody_85:
                 # پرقاومت (|Δ|>۱۴ — حصارِ پشتِ ARTICLEها) همچنان از
                 # اورجینال میماند.
                 try:
-                    _g205 = cv2.cvtColor(image[sy0:sy1, sx0:sx1],
+                    _g = cv2.cvtColor(image[sy0:sy1, sx0:sx1],
                                          cv2.COLOR_BGR2GRAY)
-                    _med205 = float(np.median(_g205))
-                    _lite205 = (np.abs(_g205.astype(np.float32) - _med205)
+                    _med = float(np.median(_g))
+                    _lite = (np.abs(_g.astype(np.float32) - _med)
                                 <= 14.0)
-                    _kd205 = cv2.dilate(kept.astype(np.uint8),
+                    _kd = cv2.dilate(kept.astype(np.uint8),
                                         np.ones((7, 7), np.uint8)) > 0
-                    _add205 = _kd205 & _lite205 & (~kept)
-                    if _add205.any():
-                        m[sy0:sy1, sx0:sx1][_add205] = 255
+                    _add2 = _kd & _lite & (~kept)
+                    if _add2.any():
+                        m[sy0:sy1, sx0:sx1][_add2] = 255
                 except Exception:
                     pass
                 n += 1
@@ -7446,13 +7446,13 @@ class _MangaTranslatorBody_85:
             # کند؛ env=0 خاموش میکند).
             if os.environ.get("MANGA_INK_RECLAIM", "1") != "0":
                 try:
-                    _base134 = cv2.bitwise_or(m, failed)
-                    _add134 = self._stray_ink_reclaim(image, _base134,
+                    _base = cv2.bitwise_or(m, failed)
+                    _add = self._stray_ink_reclaim(image, _base,
                                                       [region])
-                    if _add134 is not None and np.any(_add134):
-                        _add134 = cv2.bitwise_and(
-                            _add134, cv2.bitwise_not(_base134))
-                        m = cv2.bitwise_or(m, _add134)
+                    if _add is not None and np.any(_add):
+                        _add = cv2.bitwise_and(
+                            _add, cv2.bitwise_not(_base))
+                        m = cv2.bitwise_or(m, _add)
                 except Exception:
                     pass
             # v1.14.206m — ساختارِ محافظتشده (دیوار/قابِ رنگی) هرگز از
@@ -7618,55 +7618,55 @@ class _MangaTranslatorBody_85:
                             # v1.14.241 — هماهنگ با گیتِ ماسک: فقطِ اندروید
                             elif _android_gate("MANGA_TEXTPANEL"):
                                 try:
-                                    _ex135 = cv2.dilate(
+                                    _ex = cv2.dilate(
                                         ((_strips > 0) | (_failed > 0))
                                         .astype(np.uint8),
                                         np.ones((9, 9), np.uint8))
                                     # v1.14.238 — med_hِ ناحیه (فونتِ
                                     # درشتِ img6: بلندیِ خط ۶۹..۷۹)
-                                    _mh35 = 0.0
+                                    _mh = 0.0
                                     try:
-                                        _pl35 = []
-                                        for _p35 in (getattr(
+                                        _pl = []
+                                        for _p2 in (getattr(
                                                 _rg, "ocr_polys", None)
                                                 or []):
                                             try:
-                                                _pp35 = np.asarray(
-                                                    _p35,
+                                                _pp = np.asarray(
+                                                    _p2,
                                                     dtype=np.float32
                                                 ).reshape(-1, 2)
-                                                if _pp35.shape[0] >= 3:
-                                                    _pl35.append(_pp35)
+                                                if _pp.shape[0] >= 3:
+                                                    _pl.append(_pp)
                                             except Exception:
                                                 continue
-                                        _ln35 = MangaTranslator \
-                                            ._group_polys_to_lines(_pl35)
-                                        if _ln35:
-                                            _mh35 = float(np.median(
+                                        _ln = MangaTranslator \
+                                            ._group_polys_to_lines(_pl)
+                                        if _ln:
+                                            _mh = float(np.median(
                                                 [b[3] - b[1]
-                                                 for b in _ln35]))
+                                                 for b in _ln]))
                                     except Exception:
-                                        _mh35 = 0.0
-                                    _ink_35 = \
+                                        _mh = 0.0
+                                    _ink = \
                                         MangaTranslator._panel_leftover_ink(
                                             image,
                                             (_bx0, _by0,
                                              _bx1 - _bx0, _by1 - _by0),
-                                            _ex135, med_h=_mh35)
-                                    if _ink_35 is not None:
+                                            _ex, med_h=_mh)
+                                    if _ink is not None:
                                         # فقط گلیفهای جامانده از donor —
                                         # نه کلِ بلوک (LaMaِ بلوکِ کامل
                                         # رویِ زمینهٔ عکسی توهم/نویز)
-                                        _im35 = _ink_35 > 0
-                                        out[_im35] = True
-                                        _sweep[_im35] = True
+                                        _im = _ink > 0
+                                        out[_im] = True
+                                        _sweep[_im] = True
                                         if self.debug:
                                             try:
                                                 print(
                                                     f"  [*]پنلِ متنی → "
                                                     f"گلیفهای جامانده از "
                                                     f"donor ("
-                                                    f"{int(cv2.countNonZero(_ink_35))}"
+                                                    f"{int(cv2.countNonZero(_ink))}"
                                                     f"px @({_bx0},{_by0})")
                                             except Exception:
                                                 pass
@@ -7681,18 +7681,18 @@ class _MangaTranslatorBody_85:
                 # طبقِ قاعدهٔ همیشگی از عکسِ اصلی می‌ماند.
                 try:
                     if getattr(_rg, "sys_split", False):
-                        _cov104 = getattr(_rg, "cover_rect", None)
-                        if _cov104 is not None:
-                            _sys_done104 = getattr(
+                        _cov = getattr(_rg, "cover_rect", None)
+                        if _cov is not None:
+                            _sys_done = getattr(
                                 self, "_compose_sys_done", None)
-                            if _sys_done104 is None:
-                                _sys_done104 = set()
-                                self._compose_sys_done = _sys_done104
-                            _key104 = tuple(
-                                int(v) for v in _cov104[:4])
-                            if _key104 not in _sys_done104:
-                                _sys_done104.add(_key104)
-                                _seeds104 = []
+                            if _sys_done is None:
+                                _sys_done = set()
+                                self._compose_sys_done = _sys_done
+                            _key = tuple(
+                                int(v) for v in _cov[:4])
+                            if _key not in _sys_done:
+                                _sys_done.add(_key)
+                                _seeds = []
                                 for _rgs2 in _regions:
                                     if not getattr(_rgs2, "sys_split",
                                                    False):
@@ -7701,21 +7701,21 @@ class _MangaTranslatorBody_85:
                                                     None)
                                     if _cv2b is None or tuple(
                                             int(v) for v in _cv2b[:4]) \
-                                            != _key104:
+                                            != _key:
                                         continue
                                     try:
                                         _qx, _qy, _qw, _qh = [
                                             int(v) for v in _rgs2.rect]
                                     except Exception:
                                         continue
-                                    _seeds104.append((_qx, _qy,
+                                    _seeds.append((_qx, _qy,
                                                       _qx + _qw,
                                                       _qy + _qh))
-                                if len(_seeds104) >= 2:
-                                    _intr104 = \
+                                if len(_seeds) >= 2:
+                                    _intr = \
                                         MangaTranslator._system_box_interior(
-                                            image, _key104, _seeds104)
-                                    if _intr104 is not None:
+                                            image, _key, _seeds)
+                                    if _intr is not None:
                                         # v1.14.209 — قانونِ دو-عکسیِ سازنده:
                                         # اینتریورِ کاملِ باکسِ سیستم هم دیگر
                                         # یکجا منتقل نمیشود — فقط نوارهایِ
@@ -7726,7 +7726,7 @@ class _MangaTranslatorBody_85:
                                                 print(f"  [*]بالنِ سیستم → "
                                                       f"فقطِ نوارِ خط "
                                                       f"(اینتریورِ "
-                                                      f"{int(_intr104.sum())}px "
+                                                      f"{int(_intr.sum())}px "
                                                       f"یکجا ممنوع)")
                                             except Exception:
                                                 pass
@@ -7864,11 +7864,11 @@ class _MangaTranslatorBody_85:
             # منتقل شود — وگرنه قابِ سبز در خروجیِ نهایی زنده میماند
             # («هرنگی لگه بشه قبول نمیکنم»).
             try:
-                _anW212 = getattr(self, "_page_annotation_overlay", None)
-                if _anW212 is not None and _anW212.shape == out.shape \
-                        and bool((_anW212 > 0).any()):
-                    out |= (_anW212 > 0)
-                    _sweep[(_anW212 > 0)] = 255
+                _anW = getattr(self, "_page_annotation_overlay", None)
+                if _anW is not None and _anW.shape == out.shape \
+                        and bool((_anW > 0).any()):
+                    out |= (_anW > 0)
+                    _sweep[(_anW > 0)] = 255
             except Exception:
                 pass
             return (out.astype(np.uint8)) * 255
@@ -7909,10 +7909,10 @@ class _MangaTranslatorBody_85:
             # v1.14.213b — فقطِ شبحِ «محو» (کنتراستِ ۲۲..۶۰): خطِ تیرهٔ
             # واقعی (هنر/دست/مو — کنتراستِ ۸۰+) هرگز پر نمیشود (img4:
             # ضربههایِ دست رویِ میز داخلِ نوار، پاک نشود).
-            _d213 = (bg - g.astype(np.int16))
-            _b213 = (g.astype(np.int16) - bg)
-            dark = (_d213 > 22) & (_d213 < 60)
-            bright = (_b213 > 22) & (_b213 < 60)
+            _d = (bg - g.astype(np.int16))
+            _b = (g.astype(np.int16) - bg)
+            dark = (_d > 22) & (_d < 60)
+            bright = (_b > 22) & (_b < 60)
             cand = (dark | bright) & m
             if not cand.any():
                 return cleaned, 0
@@ -7935,20 +7935,20 @@ class _MangaTranslatorBody_85:
             # v1.14.213c — «باندِ لبهٔ نوار»: شبحِ LaMa پدِّ تراسِ لبهٔ
             # ماسک است و همیشه به لبهٔ نوارِ کامپوز چسبیده؛ ضربهٔ هنر
             # (دست/مو داخلِ نوار — img4) وسطِ نوار است و رد میشود.
-            _core213 = cv2.erode(m.astype(np.uint8),
+            _core = cv2.erode(m.astype(np.uint8),
                                  np.ones((13, 13), np.uint8)) > 0
-            _edge213 = m & ~_core213
+            _edge = m & ~_core
             # نقشههایِ حفاظت: دیوار/قاب/روکش هرگز پر نمیشوند
-            _prot213 = None
+            _prot = None
             try:
                 for _pmN in (getattr(self, "_page_protect", None),
                              getattr(self, "_page_wall_band", None),
                              getattr(self, "_page_colored_protect", None)):
                     if _pmN is not None and _pmN.shape == (h, w):
-                        _prot213 = (_pmN > 0) if _prot213 is None \
-                            else (_prot213 | (_pmN > 0))
+                        _prot = (_pmN > 0) if _prot is None \
+                            else (_prot | (_pmN > 0))
             except Exception:
-                _prot213 = None
+                _prot = None
             n, lab, st, _ = cv2.connectedComponentsWithStats(thin, 8)
             fills = np.zeros((h, w), bool)
             for i in range(1, n):
@@ -7958,13 +7958,13 @@ class _MangaTranslatorBody_85:
                 if a < 6 or a > 1600 or max(cw, ch) > 220:
                     continue
                 comp = (lab == i)
-                if _prot213 is not None and bool((comp & _prot213).any()):
+                if _prot is not None and bool((comp & _prot).any()):
                     continue  # دیوار/قاب → رد
                 if not (comp & oink_near).any():
                     continue  # دور از متنِ اصلی → هنر است نه شبح
-                _eb213 = cv2.dilate(comp.astype(np.uint8),
+                _eb = cv2.dilate(comp.astype(np.uint8),
                                     np.ones((9, 9), np.uint8)) > 0
-                if not bool((_eb213 & _edge213).any()):
+                if not bool((_eb & _edge).any()):
                     continue  # وسطِ نوار = محتوای واقعی، نه تراسِ لبه
                 ring = cv2.dilate(comp.astype(np.uint8),
                                   np.ones((15, 15), np.uint8)) > 0
@@ -7985,8 +7985,8 @@ class _MangaTranslatorBody_85:
             tgt &= (m | fills)
             tgt |= (cand & cv2.dilate(fills.astype(np.uint8),
                                       np.ones((9, 9), np.uint8)) > 0)
-            if _prot213 is not None:
-                tgt &= ~_prot213
+            if _prot is not None:
+                tgt &= ~_prot
             faint = (np.abs(bg - g.astype(np.int16)) > 12)
             near_m = cv2.dilate(m.astype(np.uint8),
                                 np.ones((5, 5), np.uint8)) > 0
@@ -8053,7 +8053,7 @@ class _MangaTranslatorBody_85:
             # «اورجینال» باشد وگرنه هالهٔ donor رنگِ فلتن را می‌شکند
             # (نمونه: پرِ نوارهایِ حبابِ زرد با بژِ خاکستری).
             _m9 = cv2.dilate(m, np.ones((9, 9), np.uint8)) > 0
-            _k25 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
+            _k2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
             for i in range(1, n):
                 x = int(st[i, cv2.CC_STAT_LEFT])
                 y = int(st[i, cv2.CC_STAT_TOP])
@@ -8073,7 +8073,7 @@ class _MangaTranslatorBody_85:
                 subm = (lab[y0:y1, x0:x1] == i)
                 if not subm.any():
                     continue
-                ring = cv2.dilate(subm.astype(np.uint8), _k25) > 0
+                ring = cv2.dilate(subm.astype(np.uint8), _k2) > 0
                 ring &= ~subm
                 ring &= ~_m9[y0:y1, x0:x1]
                 # v1.14.73 — حلقه فقط از پیکسل‌هایِ «اورجینال» ساخته شود:
@@ -8132,11 +8132,11 @@ class _MangaTranslatorBody_85:
                 # پس فقط ترکیبِ «بافت‌مند + حلقهٔ بافت‌مند» رد میشود.
                 if rstd is not None and rstd > 12.0:
                     try:
-                        _vT82 = rg[subm].astype(np.float32)
-                        if _vT82.size >= 200:
-                            _lapT82 = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
-                            if (float(np.std(_vT82)) > 12.0
-                                    or float(np.mean(_lapT82[subm])) > 2.5):
+                        _vT = rg[subm].astype(np.float32)
+                        if _vT.size >= 200:
+                            _lapT = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
+                            if (float(np.std(_vT)) > 12.0
+                                    or float(np.mean(_lapT[subm])) > 2.5):
                                 # v1.14.226d — استثنایِ بلوکِ اجباری-LaMa:
                                 # «بافتِ» نوارِ بلوکهایِ اجباری، خودِ شبحِ
                                 # حروفِ LaMa است نه هنر (SFXِ 4e2e77:
@@ -8160,8 +8160,8 @@ class _MangaTranslatorBody_85:
                                     if _pdbg:
                                         print(f"  [dbg-polish] SKIP-textured "
                                               f"comp x={x} y={y} {w}x{h} "
-                                              f"std={float(np.std(_vT82)):.1f} "
-                                              f"lap={float(np.mean(_lapT82[subm])):.2f}",
+                                              f"std={float(np.std(_vT)):.1f} "
+                                              f"lap={float(np.mean(_lapT[subm])):.2f}",
                                               flush=True)
                                     continue
                                 if _pdbg:
@@ -8173,11 +8173,11 @@ class _MangaTranslatorBody_85:
                         pass
                 elif rstd is None:
                     try:
-                        _vT82 = rg[subm].astype(np.float32)
-                        if _vT82.size >= 200:
-                            _lapT82 = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
-                            if (float(np.std(_vT82)) > 12.0
-                                    or float(np.mean(_lapT82[subm])) > 2.5):
+                        _vT = rg[subm].astype(np.float32)
+                        if _vT.size >= 200:
+                            _lapT = np.abs(cv2.Laplacian(rg, cv2.CV_32F))
+                            if (float(np.std(_vT)) > 12.0
+                                    or float(np.mean(_lapT[subm])) > 2.5):
                                 continue
                     except Exception:
                         pass
@@ -8198,30 +8198,30 @@ class _MangaTranslatorBody_85:
                 # — پولیشِ فلتِ خاکستری‌فکر کلِ بلوک را با «میانهٔ حلقه»
                 # یک‌رنگ می‌کند = لگهٔ قرمزِ مستطیلی. سنجه = بیشینهٔ
                 # stdِ کانال‌هایِ BGR رویِ حلقهٔ اورجینال + اکثریتِ هر کانال.
-                _cstd104 = None
+                _cstd = None
                 try:
-                    _roc104 = image[y0:y1, x0:x1][ring].astype(np.float32)
-                    if _roc104.shape[0] >= 40:
-                        _cstd104 = float(_roc104.std(axis=0).max())
+                    _roc = image[y0:y1, x0:x1][ring].astype(np.float32)
+                    if _roc.shape[0] >= 40:
+                        _cstd = float(_roc.std(axis=0).max())
                 except Exception:
-                    _cstd104 = None
-                _cmaj104 = None
+                    _cstd = None
+                _cmaj = None
                 try:
                     _roc104b = image[y0:y1, x0:x1][ring].astype(np.float32)
                     if _roc104b.shape[0] >= 40:
-                        _cmaj104 = min(
+                        _cmaj = min(
                             float((np.abs(_roc104b[:, _c] -
                                           np.median(_roc104b[:, _c]))
                                    <= 12.0).mean())
                             for _c in range(3))
                 except Exception:
-                    _cmaj104 = None
+                    _cmaj = None
                 _can_flat = False
-                _gate82 = ""
+                _gate2 = ""
                 if rstd is not None and rstd <= 10.0 and (
-                        _cstd104 is None or _cstd104 <= 10.0):
+                        _cstd is None or _cstd <= 10.0):
                     _can_flat = True
-                    _gate82 = "A:rstd<=10"
+                    _gate2 = "A:rstd<=10"
                 elif rstd is not None and rstd <= 60.0:
                     # v1.14.75 — اکثریتِ یکنواختِ حلقه (حباب با لبهٔ هنر):
                     try:
@@ -8229,10 +8229,10 @@ class _MangaTranslatorBody_85:
                         _rmv = float(np.median(_rvv))
                         if (float((np.abs(_rvv.astype(np.float32) - _rmv)
                                   <= 12.0).mean()) >= 0.75
-                                and (_cmaj104 is None
-                                     or _cmaj104 >= 0.75)):
+                                and (_cmaj is None
+                                     or _cmaj >= 0.75)):
                             _can_flat = True
-                            _gate82 = "B:ring-majority"
+                            _gate2 = "B:ring-majority"
                     except Exception:
                         pass
                 if not _can_flat and _pdbg:
@@ -8261,31 +8261,31 @@ class _MangaTranslatorBody_85:
                                 # v1.14.104 — گیتِ C هم رنگی: کامپوننتِ
                                 # گرادیانِ رنگی (کارتِ 890fb1 در خاکستری
                                 # «اکثریت‌یکنواخت» است!) فلت نشود.
-                                _gdC104 = None
+                                _gdC = None
                                 try:
-                                    _subC104 = sub[subm].astype(np.float32)
-                                    if _subC104.shape[0] >= 40:
-                                        _gdC104 = min(
+                                    _subC = sub[subm].astype(np.float32)
+                                    if _subC.shape[0] >= 40:
+                                        _gdC = min(
                                             float((np.abs(
-                                                _subC104[:, _c]
+                                                _subC[:, _c]
                                                 - np.median(
-                                                    _subC104[:, _c]))
+                                                    _subC[:, _c]))
                                                 <= 10.0).mean())
                                             for _c in range(3))
                                 except Exception:
-                                    _gdC104 = None
+                                    _gdC = None
                                 if (float((np.abs(
                                         _gd.astype(np.float32) - _gmode)
                                         <= 10.0).mean()) >= 0.80
-                                        and (_gdC104 is None
-                                             or _gdC104 >= 0.80)):
+                                        and (_gdC is None
+                                             or _gdC >= 0.80)):
                                     _can_flat = True
-                                    _gate82 = "C:comp-majority"
+                                    _gate2 = "C:comp-majority"
                         except Exception:
                             pass
                 if _can_flat and _pdbg:
                     print(f"  [dbg-polish] FLATTEN comp x={x} y={y} "
-                          f"{w}x{h} gate={_gate82} rstd="
+                          f"{w}x{h} gate={_gate2} rstd="
                           f"{rstd if rstd is None else round(rstd, 2)} "
                           f"ring_n={_ring_n}", flush=True)
                 if _can_flat:
@@ -8307,13 +8307,13 @@ class _MangaTranslatorBody_85:
                     # فلت می‌شوند — دیوارِ ضخیم/خشنِ بیرونِ protect (خطِ
                     # دست‌کشیدهٔ کیمتسو) و هنرِ چسبیده به نوار محفوظ می‌مانند.
                     try:
-                        _fm73 = float(np.median(rg[subm]))
+                        _fm = float(np.median(rg[subm]))
                         # v1.14.226b — استثنایِ هستهٔ نوار: بقایایِ روشنِ
                         # حروف (خاکستریِ ۲۵۰ در برابرِ میانهٔ ۱۶۰) از گیتِ
                         # رنگ بیرون میافتادند و همان شبحهایِ سفید زنده
                         # میماندند (پنجرهٔ 4e2e77) — گیت فقط برایِ هاله.
                         _flat_dom &= ((np.abs(
-                            rg.astype(np.float32) - _fm73) <= 26.0) | subm)
+                            rg.astype(np.float32) - _fm) <= 26.0) | subm)
                     except Exception:
                         pass
                     try:
@@ -8363,94 +8363,94 @@ class _MangaTranslatorBody_85:
                         # میان‌یابی‌شده میگیرد — گرادیان زنده میماند،
                         # لکههایِ LaMa هم پاک میشوند.
                         try:
-                            _prof26 = None
+                            _prof = None
                             try:
                                 # v1.14.226b — پنجرهٔ پروفایلِ بازتر
                                 # (±۶۰): در بلوکهایِ چندخطی، ماسکهایِ
                                 # خطوط، پنجرهٔ ۱۸px را میبلعند و مدل از
                                 # ۲-۳ ردیفِ باقیمانده ساخته میشد (رنگِ
                                 # غلط → دوختِ عمودی).
-                                _py026 = max(0, y - 60)
-                                _py126 = min(m.shape[0], y + h + 60)
-                                _bgw26 = (m[_py026:_py126, x0:x1] == 0)
-                                if int(_bgw26.sum()) >= 60:
-                                    _subO26 = image[_py026:_py126, x0:x1]
-                                    _rows26 = []
-                                    _cols26 = []
-                                    _free26 = max(
-                                        6, int(0.45 * _bgw26.shape[1]))
-                                    for _rr26 in range(
-                                            _bgw26.shape[0]):
-                                        _selr26 = _bgw26[_rr26]
-                                        if int(_selr26.sum()) >= _free26:
-                                            _rows26.append(
-                                                _rr26 + _py026 - y0)
-                                            _cols26.append(np.median(
-                                                _subO26[_rr26][_selr26],
+                                _py = max(0, y - 60)
+                                _py2 = min(m.shape[0], y + h + 60)
+                                _bgw = (m[_py:_py2, x0:x1] == 0)
+                                if int(_bgw.sum()) >= 60:
+                                    _subO = image[_py:_py2, x0:x1]
+                                    _rows = []
+                                    _cols = []
+                                    _free = max(
+                                        6, int(0.45 * _bgw.shape[1]))
+                                    for _rr in range(
+                                            _bgw.shape[0]):
+                                        _selr = _bgw[_rr]
+                                        if int(_selr.sum()) >= _free:
+                                            _rows.append(
+                                                _rr + _py - y0)
+                                            _cols.append(np.median(
+                                                _subO[_rr][_selr],
                                                 axis=0))
-                                    if len(_rows26) >= 2 \
-                                            and (_rows26[-1] - _rows26[0]) \
+                                    if len(_rows) >= 2 \
+                                            and (_rows[-1] - _rows[0]) \
                                             >= 24:
-                                        _rarr26 = np.asarray(
-                                            _rows26, np.float32)
-                                        _carr26 = np.asarray(
-                                            _cols26, np.float32)
-                                        _q26 = max(
-                                            1, len(_rows26) // 4)
-                                        _mt26 = np.median(
-                                            _carr26[:_q26], axis=0)
-                                        _mb26 = np.median(
-                                            _carr26[-_q26:], axis=0)
-                                        _dr26 = float(np.abs(
-                                            _mt26 - _mb26).max())
+                                        _rarr = np.asarray(
+                                            _rows, np.float32)
+                                        _carr = np.asarray(
+                                            _cols, np.float32)
+                                        _q = max(
+                                            1, len(_rows) // 4)
+                                        _mt = np.median(
+                                            _carr[:_q], axis=0)
+                                        _mb = np.median(
+                                            _carr[-_q:], axis=0)
+                                        _dr = float(np.abs(
+                                            _mt - _mb).max())
                                         if _pdbg:
                                             try:
                                                 print(
                                                     f"  [dbg-grad26] comp "
                                                     f"x={x} y={y} {w}x{h} "
-                                                    f"drift={_dr26:.1f} "
-                                                    f"nrows={len(_rows26)}",
+                                                    f"drift={_dr:.1f} "
+                                                    f"nrows={len(_rows)}",
                                                     flush=True)
                                             except Exception:
                                                 pass
-                                        if _dr26 > 6.0:
-                                            _prof26 = (
-                                                _rarr26, _carr26)
+                                        if _dr > 6.0:
+                                            _prof = (
+                                                _rarr, _carr)
                             except Exception:
-                                _prof26 = None
-                            if _prof26 is not None:
-                                _rarr26, _carr26 = _prof26
-                                _h26 = sub.shape[0]
-                                _allr26 = np.arange(_h26, dtype=np.float32)
-                                _rowc26 = np.zeros((_h26, 3), np.float32)
-                                for _ch26 in range(3):
-                                    _rowc26[:, _ch26] = np.interp(
-                                        _allr26, _rarr26, _carr26[:, _ch26])
-                                _sF26 = sub.copy()
-                                _rowg26 = (0.299 * _rowc26[:, 2]
-                                           + 0.587 * _rowc26[:, 1]
-                                           + 0.114 * _rowc26[:, 0])
-                                for _rr26 in range(_h26):
-                                    _rd26 = _flat_dom[_rr26]
-                                    if not _rd26.any():
+                                _prof = None
+                            if _prof is not None:
+                                _rarr, _carr = _prof
+                                _h = sub.shape[0]
+                                _allr = np.arange(_h, dtype=np.float32)
+                                _rowc = np.zeros((_h, 3), np.float32)
+                                for _ch in range(3):
+                                    _rowc[:, _ch] = np.interp(
+                                        _allr, _rarr, _carr[:, _ch])
+                                _sF2 = sub.copy()
+                                _rowg = (0.299 * _rowc[:, 2]
+                                           + 0.587 * _rowc[:, 1]
+                                           + 0.114 * _rowc[:, 0])
+                                for _rr in range(_h):
+                                    _rd = _flat_dom[_rr]
+                                    if not _rd.any():
                                         continue
-                                    _gate26 = np.abs(
-                                        rg[_rr26].astype(np.float32)
-                                        - float(_rowg26[_rr26])) <= 26.0
+                                    _gate = np.abs(
+                                        rg[_rr].astype(np.float32)
+                                        - float(_rowg[_rr])) <= 26.0
                                     # v1.14.226b — گیتِ رنگ فقط رویِ هاله:
                                     # هستهٔ نوار (= خودِ متن) همیشه بازپر
                                     # میشود — بقایایِ سفیدِ حروف از مدل
                                     # >۲۶ فاصله داشتند و گیت، همان شبحها
                                     # را زنده نگه میداشت (خطوطِ سفیدِ
                                     # پایینِ پنجرهٔ 4e2e77).
-                                    _gate26 |= subm[_rr26]
-                                    _rd26 = _rd26 & _gate26
-                                    if not _rd26.any():
+                                    _gate |= subm[_rr]
+                                    _rd = _rd & _gate
+                                    if not _rd.any():
                                         continue
-                                    _sF26[_rr26][_rd26] = np.clip(
-                                        np.rint(_rowc26[_rr26]), 0,
+                                    _sF2[_rr][_rd] = np.clip(
+                                        np.rint(_rowc[_rr]), 0,
                                         255).astype(np.uint8)
-                                sub[:] = _sF26
+                                sub[:] = _sF2
                                 out[y0:y1, x0:x1] = sub
                                 continue
                         except Exception:
@@ -8568,19 +8568,19 @@ class _MangaTranslatorBody_85:
                                       + 0.587 * _modelc26c[..., 1]
                                       + 0.114 * _modelc26c[..., 0])
                             # انحرافِ پرِ فعلی از مدل (فقط روی نوار)
-                            _fillrows26 = []
-                            _modelrows26 = []
+                            _fillrows = []
+                            _modelrows = []
                             for _rr26c in range(_h26c):
                                 _sr26c = subm[_rr26c]
                                 if int(_sr26c.sum()) >= 6:
-                                    _fillrows26.append(float(np.median(
+                                    _fillrows.append(float(np.median(
                                         rg[_rr26c][_sr26c])))
-                                    _modelrows26.append(float(np.median(
+                                    _modelrows.append(float(np.median(
                                         _mg26c[_rr26c][_sr26c])))
                             _dev26c = (float(np.mean(np.abs(
-                                np.asarray(_fillrows26)
-                                - np.asarray(_modelrows26))))
-                                if len(_fillrows26) >= 4 else 99.0)
+                                np.asarray(_fillrows)
+                                - np.asarray(_modelrows))))
+                                if len(_fillrows) >= 4 else 99.0)
                             if _pdbg:
                                 try:
                                     print(f"  [dbg-grad26c] x={x} y={y} "
@@ -8672,7 +8672,7 @@ class _MangaTranslatorBody_85:
             resid_max = np.max(np.abs(resid), axis=2)
             n, lb, stt, _ = cv2.connectedComponentsWithStats(
                 cmp_mask.astype(np.uint8), 8)
-            _dbg96 = bool(os.environ.get("MANGA_TR_DBG"))
+            _dbg = bool(os.environ.get("MANGA_TR_DBG"))
             for i in range(1, n):
                 cx, cy, cw, ch, _a = [int(v) for v in stt[i]]
                 if cw < 24 or ch > 380 or ch < 6:
@@ -8700,15 +8700,15 @@ class _MangaTranslatorBody_85:
                 # بازپر می‌شوند؛ جایی که donor = اصلِ عکس است (ماسکِ
                 # تنگِ پالی‌به‌پالی) بافتِ اورجینال دست‌نخورده می‌ماند —
                 # نویزِ مصنوعی هرگز جایِ بافتِ واقعی را نمی‌گیرد.
-                _chg96 = (np.abs(crop_d.astype(np.int16)
+                _chg = (np.abs(crop_d.astype(np.int16)
                                  - original[y0:y1, x0:x1].astype(np.int16))
                           .max(axis=2) > 6)
-                _chg96 = cv2.dilate(_chg96.astype(np.uint8),
+                _chg = cv2.dilate(_chg.astype(np.uint8),
                                     np.ones((5, 5), np.uint8)) > 0
-                _tgt96 = comp & _chg96
-                if int(np.count_nonzero(_tgt96)) < 300:
+                _tgt = comp & _chg
+                if int(np.count_nonzero(_tgt)) < 300:
                     continue
-                if int(np.count_nonzero(_tgt96)) < \
+                if int(np.count_nonzero(_tgt)) < \
                         0.25 * max(1, int(np.count_nonzero(comp))):
                     # تغییراتِ جزئی → donor همین‌جا سالم است
                     continue
@@ -8749,11 +8749,11 @@ class _MangaTranslatorBody_85:
                     # با هم قاطی می‌کند (خاکستری!) → شکلِ (1,W,3) لازم است
                     # v1.14.96g — میانهٔ پهنِ跨-ستون (۴۱): نوارِ تیره/روشنِ
                     # قاب و شیارها (۱۰–۲۵px) را حذف می‌کند
-                    ref96 = np.clip(ref, 0, 255).astype(
+                    ref2 = np.clip(ref, 0, 255).astype(
                         np.uint8).reshape(1, -1, 3)
-                    ref96 = cv2.medianBlur(ref96, 41)
-                    ref96 = cv2.GaussianBlur(ref96, (0, 0), 3.0)
-                    return ref96.reshape(-1, 3).astype(np.float32)
+                    ref2 = cv2.medianBlur(ref2, 41)
+                    ref2 = cv2.GaussianBlur(ref2, (0, 0), 3.0)
+                    return ref2.reshape(-1, 3).astype(np.float32)
 
                 tref_full = _band_ref(tband, tvalid)
                 bref_full = _band_ref(bband, bvalid)
@@ -8763,23 +8763,23 @@ class _MangaTranslatorBody_85:
                 # (قاب/شیار از باند عبور می‌کند — پلاکِ GREEN MOON:
                 # tref std=35 در برابرِ bref std=13) فقط باندِ پایدار
                 # ملاک می‌شود؛ وگرنه میان‌یابیِ قائمِ کامل.
-                _tstd96 = float(np.std(tref_full.mean(axis=1))) \
+                _tstd = float(np.std(tref_full.mean(axis=1))) \
                     if tref_full is not None else 1e9
-                _bstd96 = float(np.std(bref_full.mean(axis=1))) \
+                _bstd = float(np.std(bref_full.mean(axis=1))) \
                     if bref_full is not None else 1e9
-                if min(_tstd96, _bstd96) > 0 and \
-                        max(_tstd96, _bstd96) > 1.8 * min(_tstd96, _bstd96) \
-                        and min(_tstd96, _bstd96) <= 20.0:
-                    _const96 = bref_full if _bstd96 <= _tstd96 else tref_full
+                if min(_tstd, _bstd) > 0 and \
+                        max(_tstd, _bstd) > 1.8 * min(_tstd, _bstd) \
+                        and min(_tstd, _bstd) <= 20.0:
+                    _const = bref_full if _bstd <= _tstd else tref_full
                 else:
-                    _const96 = None
+                    _const = None
                 _ref_fail = False
-                for x in np.nonzero(_tgt96.any(axis=0))[0]:
-                    yy = np.nonzero(_tgt96[:, x])[0]
+                for x in np.nonzero(_tgt.any(axis=0))[0]:
+                    yy = np.nonzero(_tgt[:, x])[0]
                     if yy.size == 0:
                         continue
-                    if _const96 is not None:
-                        lowf[yy, x] = _const96[x][None, :]
+                    if _const is not None:
+                        lowf[yy, x] = _const[x][None, :]
                         continue
                     tref = tref_full[x] if tref_full is not None else None
                     bref = bref_full[x] if bref_full is not None else None
@@ -8798,7 +8798,7 @@ class _MangaTranslatorBody_85:
                     (~clean).astype(np.uint8), cv2.DIST_L2, 5,
                     labelType=cv2.DIST_LABEL_PIXEL)
                 cy_i, cx_i = np.nonzero(clean)
-                mys, mxs = np.nonzero(_tgt96)
+                mys, mxs = np.nonzero(_tgt)
                 idx = np.clip(lab[mys, mxs] - 1, 0, cy_i.size - 1)
                 hf_map = np.zeros_like(lowf)
                 hf_map[mys, mxs] = \
@@ -8808,29 +8808,29 @@ class _MangaTranslatorBody_85:
                 hf_map = cv2.GaussianBlur(hf_map, (0, 0), 0.8)
                 fill = np.clip(lowf + hf_map, 0, 255).astype(np.uint8)
                 sub = crop_d.copy()
-                sub[_tgt96] = fill[_tgt96]
+                sub[_tgt] = fill[_tgt]
                 donor[y0:y1, x0:x1] = sub
                 try:
-                    _trd96 = os.environ.get("MANGA_TR_DUMP", "")
-                    if _trd96:
+                    _trd = os.environ.get("MANGA_TR_DUMP", "")
+                    if _trd:
                         cv2.imwrite(os.path.join(
-                            _trd96, f"comp_{cx}_{cy}_before.png"),
+                            _trd, f"comp_{cx}_{cy}_before.png"),
                             crop_d.astype(np.uint8))
                         cv2.imwrite(os.path.join(
-                            _trd96, f"comp_{cx}_{cy}_fill.png"), fill)
+                            _trd, f"comp_{cx}_{cy}_fill.png"), fill)
                         if tref_full is not None:
                             cv2.imwrite(os.path.join(
-                                _trd96, f"comp_{cx}_{cy}_tref.png"),
+                                _trd, f"comp_{cx}_{cy}_tref.png"),
                                 np.clip(tref_full, 0, 255).astype(
                                     np.uint8).reshape(1, -1, 3))
                         if bref_full is not None:
                             cv2.imwrite(os.path.join(
-                                _trd96, f"comp_{cx}_{cy}_bref.png"),
+                                _trd, f"comp_{cx}_{cy}_bref.png"),
                                 np.clip(bref_full, 0, 255).astype(
                                     np.uint8).reshape(1, -1, 3))
                 except Exception:
                     pass
-                if _dbg96:
+                if _dbg:
                     try:
                         print(f"  [🔍]texture-refill comp@({cx},{cy}) "
                               f"{cw}x{ch} ring_std="
@@ -8838,10 +8838,10 @@ class _MangaTranslatorBody_85:
                     except Exception:
                         pass
         except Exception:
-            if _dbg96:
-                import traceback as _tb96
+            if _dbg:
+                import traceback as _tb
                 print("  [!]texture-refill error:")
-                _tb96.print_exc()
+                _tb.print_exc()
 
     def _fill_harmony_qc(self, donor: np.ndarray, original: np.ndarray,
                          zone: np.ndarray, verbose: bool = True) -> int:
@@ -8897,8 +8897,8 @@ class _MangaTranslatorBody_85:
                 cv2.connectedComponentsWithStats(
                     zm_c.astype(np.uint8), 8)
             H, W = zm.shape[:2]
-            _k17 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
-            _dbg228 = os.environ.get("MANGA_HQC_DBG", "0") == "1"
+            _k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
+            _dbg = os.environ.get("MANGA_HQC_DBG", "0") == "1"
             n_fix = 0
             n_px = 0
             for _i in range(1, _n_lab):
@@ -8942,14 +8942,14 @@ class _MangaTranslatorBody_85:
                     # نامزدها = دورِ قطعه − مرز − «همهٔ پیکسلهایِ پروشده»
                     # (خودِ قطعه و خطهایِ مجاور) → حلقه = پسزمینهٔ واقعیِ
                     # دستنخورده (بینخط/حاشیه)، هرگز رنگِ خودِ پرها.
-                    cand = (cv2.dilate(_pcp, _k17) > 0) \
+                    cand = (cv2.dilate(_pcp, _k) > 0) \
                         & (~_edc) & (~_chc)
                     if int(cand.sum()) < 80:
                         cand = (cv2.dilate(_pcp, _ker31) > 0) \
                             & (~_edc) & (~_chc)
                     _nr = int(cand.sum())
                     if _nr < 80:
-                        if _dbg228:
+                        if _dbg:
                             print(f"    [228d] قطعه@({x0},{y0}) "
                                   f"حلقهکم={_nr}", flush=True)
                         continue
@@ -8960,7 +8960,7 @@ class _MangaTranslatorBody_85:
                     if int(_hist[_mb]) < 0.22 * _nr:
                         # هیچ خوشهای حتی ۱۲٪ هم نیست (هنرِ کاملاً مرکب)
                         # → نه آمارِ معتبر نه میدانِ امن؛ دستنخورده.
-                        if _dbg228:
+                        if _dbg:
                             print(f"    [228d] قطعه@({x0},{y0}) "
                                   f"حلقهٔ بیخوشه "
                                   f"({_hist[_mb]}/{_nr}) رد",
@@ -8973,7 +8973,7 @@ class _MangaTranslatorBody_85:
                     _m0 = float(0.5 * (_edges[_mb] + _edges[_mb + 1]))
                     fbm = cand & (np.abs(_lum_map - _m0) <= 40.0)
                     if int(fbm.sum()) < 80:
-                        if _dbg228:
+                        if _dbg:
                             print(f"    [228d] قطعه@({x0},{y0}) "
                                   f"خوشهکم={int(fbm.sum())}", flush=True)
                         continue
@@ -9002,7 +9002,7 @@ class _MangaTranslatorBody_85:
                     if _fsp <= 12.0 and rsp >= 30.0:
                         _thr = min(_thr, 14.0)  # پرِ خنثی رویِ رنگی
                     if d < _thr:
-                        if _dbg228:
+                        if _dbg:
                             print(f"    [228d] قطعه@({x0},{y0}) "
                                   f"سالم d={d:.0f} پ={fmed.round(0)} "
                                   f"ح={rmed.round(0)}", flush=True)
@@ -9020,21 +9020,21 @@ class _MangaTranslatorBody_85:
                     # حلقه زمینهٔ «دیگری» را توصیف میکند → قطعه
                     # دستنخورده میماند.
                     try:
-                        _ul241 = _lum_map[pch_p]
-                        if _ul241.size >= 40:
-                            _umed241 = float(np.median(_ul241))
-                            if abs(_umed241 - _m0) > 60.0:
-                                if _dbg228:
+                        _ul = _lum_map[pch_p]
+                        if _ul.size >= 40:
+                            _umed = float(np.median(_ul))
+                            if abs(_umed - _m0) > 60.0:
+                                if _dbg:
                                     print(
                                         f"    [228d] قطعه@({x0},{y0}) "
                                         f"حلقه=زمینهٔ دیگر "
-                                        f"(زیرِ قطعه {_umed241:.0f} vs "
+                                        f"(زیرِ قطعه {_umed:.0f} vs "
                                         f"حلقه {_m0:.0f}) → رد",
                                         flush=True)
                                 continue
                     except Exception:
                         pass
-                    if _dbg228:
+                    if _dbg:
                         print(f"    [228d] قطعه@({x0},{y0}) d={d:.0f} "
                               f"پ={fmed.round(0)} ح={rmed.round(0)} "
                               f"rsp={rsp:.0f}", flush=True)
@@ -9063,7 +9063,7 @@ class _MangaTranslatorBody_85:
                                     ((_A @ _coef - _rpx) ** 2)
                                     .sum(axis=1)).mean()
                                 if _res > 13.0:
-                                    if _dbg228:
+                                    if _dbg:
                                         print(f"    [228d] قطعه@({x0},{y0}) "
                                               f"حلقهشلوغ res={_res:.0f} رد",
                                               flush=True)
@@ -9072,7 +9072,7 @@ class _MangaTranslatorBody_85:
                             except Exception:
                                 continue
                         else:
-                            if _dbg228:
+                            if _dbg:
                                 print(f"    [228d] قطعه@({x0},{y0}) "
                                       f"پربافت fstd={fstd:.0f} رد",
                                       flush=True)
@@ -9237,19 +9237,19 @@ class _MangaTranslatorBody_85:
             try:
                 _ppC = getattr(self, "_page_protect", None)
                 if _ppC is not None and _ppC.shape == _cmp.shape:
-                    _excl96 = (_ppC > 0) & _cmp
-                    if int(_excl96.sum()) > 0:
-                        _nE96, _lE96, _sE96, _ = \
+                    _excl = (_ppC > 0) & _cmp
+                    if int(_excl.sum()) > 0:
+                        _nE, _lE, _sE, _ = \
                             cv2.connectedComponentsWithStats(
-                                _excl96.astype(np.uint8), 8)
-                        _keep96 = np.zeros_like(_cmp)
-                        for _jE96 in range(1, _nE96):
-                            _aE96 = int(_sE96[_jE96, cv2.CC_STAT_AREA])
-                            _wE96 = int(_sE96[_jE96, cv2.CC_STAT_WIDTH])
-                            _hE96 = int(_sE96[_jE96, cv2.CC_STAT_HEIGHT])
-                            if _aE96 <= 1200 and max(_wE96, _hE96) <= 90:
-                                _keep96 |= (_lE96 == _jE96)
-                        _cmp &= ~((_ppC > 0) & (~_keep96))
+                                _excl.astype(np.uint8), 8)
+                        _keep = np.zeros_like(_cmp)
+                        for _jE in range(1, _nE):
+                            _aE = int(_sE[_jE, cv2.CC_STAT_AREA])
+                            _wE = int(_sE[_jE, cv2.CC_STAT_WIDTH])
+                            _hE = int(_sE[_jE, cv2.CC_STAT_HEIGHT])
+                            if _aE <= 1200 and max(_wE, _hE) <= 90:
+                                _keep |= (_lE == _jE)
+                        _cmp &= ~((_ppC > 0) & (~_keep))
                     else:
                         _cmp &= (_ppC == 0)
             except Exception:
@@ -9272,11 +9272,11 @@ class _MangaTranslatorBody_85:
             try:
                 _pcC = getattr(self, "_page_colored_protect", None)
                 if _pcC is not None and _pcC.shape == _cmp.shape:
-                    _anC212 = getattr(self,
+                    _anC = getattr(self,
                                       "_page_annotation_overlay", None)
-                    if _anC212 is not None \
-                            and _anC212.shape == _cmp.shape:
-                        _cmp &= ((_pcC == 0) | (_anC212 > 0))
+                    if _anC is not None \
+                            and _anC.shape == _cmp.shape:
+                        _cmp &= ((_pcC == 0) | (_anC > 0))
                     else:
                         _cmp &= (_pcC == 0)
             except Exception:
@@ -9307,8 +9307,8 @@ class _MangaTranslatorBody_85:
             # مرزِ OOM می‌رسد؛ هر MB آزادشده اینجا کمکه (فقط semantics
             # reference-counting — بدونِ تغییرِ داده)
             try:
-                import gc as _gc105
-                _gc105.collect()
+                import gc as _gc
+                _gc.collect()
             except Exception:
                 pass
             self._compose_final_cmp = _cmp.copy()
@@ -9320,16 +9320,16 @@ class _MangaTranslatorBody_85:
             # ناحیهٔ شسته‌شده خودش شستشو را زمینه میپندارد و سبز میسازد.
             # (MANGA_212_FLAT=0 خاموش — برایِ مقایسهٔ A/B)
             try:
-                _anF212 = getattr(self, "_page_annotation_fill", None)
-                _anFl212 = getattr(self, "_page_annotation_flat", None)
+                _anF = getattr(self, "_page_annotation_fill", None)
+                _anFl = getattr(self, "_page_annotation_flat", None)
                 if os.environ.get("MANGA_212_FLAT", "1") != "0" \
-                        and _anF212 is not None \
-                        and _anFl212 is not None \
-                        and _anF212.shape[:2] == _out.shape[:2] \
-                        and _anFl212.shape == _cmp.shape:
-                    _sel212 = (_anFl212 > 0) & _cmp
-                    if bool(_sel212.any()):
-                        _out[_sel212] = _anF212[_sel212]
+                        and _anF is not None \
+                        and _anFl is not None \
+                        and _anF.shape[:2] == _out.shape[:2] \
+                        and _anFl.shape == _cmp.shape:
+                    _sel = (_anFl > 0) & _cmp
+                    if bool(_sel.any()):
+                        _out[_sel] = _anF[_sel]
             except Exception:
                 pass
             # v1.14.139 — ضدِ «باندِ سفید» در کامپوز (فقط اندروید —
@@ -9355,7 +9355,7 @@ class _MangaTranslatorBody_85:
             # همان ردیف تراز میکند (گاردها: std/هدفِ ناهوار/دلتا ۱۵-۶۰).
             if _gate_default_on("MANGA_STRIP_HARM"):
                 try:
-                    _hH139, _wH139 = _cmp.shape
+                    _hH, _wH = _cmp.shape
                     _org32H = original.astype(np.float32)
                     _out32H = _out.astype(np.float32)
                     _nfixH = 0
@@ -9371,13 +9371,13 @@ class _MangaTranslatorBody_85:
                             continue
                         for (lx0, ly0, lx1, ly1) in (_lnsH or []):
                             _yA = max(0, int(ly0) - 1)
-                            _yZ = min(_hH139, int(ly1) + 2)
+                            _yZ = min(_hH, int(ly1) + 2)
                             # ±۱۸px بیرونِ باکسِ خط = نمونهٔ زمینهٔ
                             # اطرافِ خط (گپِ کلمه + حاشیهٔ دو سر) —
                             # پالیِ OCR تاِ لبهٔ متن است و بدونِ
                             # این بسط، ستونِ آزادِ کافی وجود ندارد
                             _xA = max(0, int(lx0) - 18)
-                            _xZ = min(_wH139, int(lx1) + 19)
+                            _xZ = min(_wH, int(lx1) + 19)
                             _bh = _yZ - _yA
                             if _bh < 12 or _bh > 220 or \
                                     _xZ - _xA < 40:
@@ -9421,9 +9421,9 @@ class _MangaTranslatorBody_85:
                                 # ردیفش یکدست است → همساز همچنان کار
                                 # میکند).
                                 try:
-                                    _rf241 = _orgB[_ri][_free]
+                                    _rf = _orgB[_ri][_free]
                                     if float(np.max(np.std(
-                                            _rf241, axis=0))) > 18.0:
+                                            _rf, axis=0))) > 18.0:
                                         continue
                                 except Exception:
                                     pass
@@ -9467,8 +9467,8 @@ class _MangaTranslatorBody_85:
                             # مجاورِ ناخوانده مقاوم است.
                             _vtA = max(0, _yA - 9)
                             _vtB = max(0, _yA - 3)
-                            _vbA = min(_hH139, _yZ + 4)
-                            _vbB = min(_hH139, _yZ + 10)
+                            _vbA = min(_hH, _yZ + 4)
+                            _vbB = min(_hH, _yZ + 10)
                             _vok = []
                             if _vtB > _vtA:
                                 _vok.append(np.median(
@@ -9569,10 +9569,10 @@ class _MangaTranslatorBody_85:
                     # گیتِ «اکثریتِ سفید»: اینتریورِ عکس‌دار/متنیِ سنگین
                     # فلت نشود (رفتارِ خط‌به‌خطِ قبلی محفوظ)
                     try:
-                        _g104 = cv2.cvtColor(
+                        _g = cv2.cvtColor(
                             image, cv2.COLOR_BGR2GRAY)
-                        _px104 = _g104[_intr]
-                        if float((_px104 >= 180).mean()) < 0.45:
+                        _px = _g[_intr]
+                        if float((_px >= 180).mean()) < 0.45:
                             _intr = None
                     except Exception:
                         _intr = None
@@ -9660,33 +9660,33 @@ class _MangaTranslatorBody_85:
             # شد و کل کارت با رنگ پر شد).
             try:
                 _warmfree = (warm & (~m0)).astype(np.uint8)
-                _nw82, _lw82 = cv2.connectedComponents(_warmfree, 8)
-                if _nw82 > 1:
-                    _k82 = 2 * int(band) * 3 + 1
-                    _out82 = (cv2.dilate(
+                _nw, _lw = cv2.connectedComponents(_warmfree, 8)
+                if _nw > 1:
+                    _k = 2 * int(band) * 3 + 1
+                    _out = (cv2.dilate(
                         m0.astype(np.uint8),
-                        np.ones((_k82, _k82), np.uint8)) > 0)
-                    _far82 = (warm & (~_out82) & (~m0))
-                    _tot82 = np.bincount(
-                        _lw82[_warmfree > 0].ravel(), minlength=_nw82)
+                        np.ones((_k, _k), np.uint8)) > 0)
+                    _far = (warm & (~_out) & (~m0))
+                    _tot2 = np.bincount(
+                        _lw[_warmfree > 0].ravel(), minlength=_nw)
                     _far82c = np.bincount(
-                        _lw82[_far82].ravel(), minlength=_nw82)
+                        _lw[_far].ravel(), minlength=_nw)
                 else:
-                    _lw82 = None
+                    _lw = None
             except Exception:
-                _lw82 = None
+                _lw = None
             hgt, wdt = halo.shape
             for i in range(1, n):
                 if stats[i, cv2.CC_STAT_AREA] < 12:
                     continue
-                if _lw82 is not None:
+                if _lw is not None:
                     try:
-                        _wid82 = int(np.bincount(
-                            _lw82[lab == i].ravel(),
-                            minlength=_nw82).argmax())
-                        if _wid82 != 0:
-                            _tot = int(_tot82[_wid82])
-                            _fr = int(_far82c[_wid82])
+                        _wid = int(np.bincount(
+                            _lw[lab == i].ravel(),
+                            minlength=_nw).argmax())
+                        if _wid != 0:
+                            _tot = int(_tot2[_wid])
+                            _fr = int(_far82c[_wid])
                             if _tot > 0 and _fr > 0.30 * _tot:
                                 continue
                     except Exception:
@@ -9736,14 +9736,14 @@ class _MangaTranslatorBody_85:
         # صفحه دست‌نخورده میماند. ناحیهٔ «جوهرِ بی‌متن» (ocr_empty:
         # حبابِ واقعی که OCR نخواند) همچنان پاک میشود — متنِ واقعی
         # گم نشود.
-        _nt230 = [r for r in (regions or [])
-                  if getattr(r, "no_touch230", False)]
-        if _nt230:
+        _nt = [r for r in (regions or [])
+                  if getattr(r, "no_touch", False)]
+        if _nt:
             regions = [r for r in (regions or [])
-                       if not getattr(r, "no_touch230", False)]
+                       if not getattr(r, "no_touch", False)]
             self._page_regions = list(regions)
             try:
-                print(f"    [*] {len(_nt230)} ناحیهٔ فقط عدد/نماد "
+                print(f"    [*] {len(_nt)} ناحیهٔ فقط عدد/نماد "
                       f"→ دست‌نخورده (نه ترجمه، نه پاکسازی)")
             except Exception:
                 pass
@@ -9752,13 +9752,13 @@ class _MangaTranslatorBody_85:
         # v1.14.185 — اندروید: پروفایلرِ سبکِ مرحله‌هایِ پاکسازی — هر
         # مرحله چند ثانیه میگیرد را در لاگ نشان میدهد تا کندیِ «پاکسازیِ
         # کلی یک کم طول میکشه» دقیق پیدا شود. PC هیچ چیزی چاپ نمیکند.
-        _tc185 = time.time()
+        _tc = time.time()
 
-        def _stage185(tag: str) -> None:
+        def _stage(tag: str) -> None:
             try:
                 if _on_android():
                     print(f"  [⏱] پاکسازی | {tag} | "
-                          f"{time.time() - _tc185:.1f}s", flush=True)
+                          f"{time.time() - _tc:.1f}s", flush=True)
             except Exception:
                 pass
 
@@ -9803,18 +9803,18 @@ class _MangaTranslatorBody_85:
         # قبل از اسنپ‌شاتِ کامپوز و همهٔ مسیرهایِ پاکسازی به ماسک می‌چسبد
         # تا نوارِ ترکیبِ دو-عکسی هم هاله را بپوشاند (خروجی = بدونِ لکه).
         try:
-            _t66 = time.time()
-            _n66 = int((mask > 0).sum())
-            _mask66 = MangaTranslator._absorb_text_halo(image, mask)
-            if _mask66 is not mask:
-                mask = _mask66
+            _t = time.time()
+            _n2 = int((mask > 0).sum())
+            _mask = MangaTranslator._absorb_text_halo(image, mask)
+            if _mask is not mask:
+                mask = _mask
                 if self.debug:
                     print(f"  [+]هالهٔ گلو → ماسک "
-                          f"(+{int((mask > 0).sum()) - _n66}px, "
-                          f"{time.time() - _t66:.2f}s)", flush=True)
+                          f"(+{int((mask > 0).sum()) - _n2}px, "
+                          f"{time.time() - _t:.2f}s)", flush=True)
         except Exception:
             pass
-        _stage185("ماسک+هاله")
+        _stage("ماسک+هاله")
 
         # v1.14.63 — ماسکِ کامپوزِ «خط‌به‌خط»: نسخهٔ خامِ ماسکِ متنِ همین
         # لحظه (بعدِ کارو/پروتکت، «قبلِ» کِیلِ پرکننده‌هایِ فوری و «قبلِ»
@@ -9852,20 +9852,20 @@ class _MangaTranslatorBody_85:
         self._prot_glow = None
         self._prot_all = None
         try:
-            _ink81 = getattr(self, "_compose_text_mask", None)
-            if (_ink81 is not None
-                    and _ink81.shape == image.shape[:2]
-                    and int(cv2.countNonZero(_ink81))):
-                _g81 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                _near81 = cv2.dilate(
-                    _ink81, np.ones((31, 31), np.uint8)) > 0
-                _pb81 = (((_g81 >= 150) & (~_near81))
+            _ink = getattr(self, "_compose_text_mask", None)
+            if (_ink is not None
+                    and _ink.shape == image.shape[:2]
+                    and int(cv2.countNonZero(_ink))):
+                _g3 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                _near = cv2.dilate(
+                    _ink, np.ones((31, 31), np.uint8)) > 0
+                _pb3 = (((_g3 >= 150) & (~_near))
                          .astype(np.uint8)) * 255
-                if int(cv2.countNonZero(_pb81)):
-                    self._prot_bright = _pb81
+                if int(cv2.countNonZero(_pb3)):
+                    self._prot_bright = _pb3
                     if self.debug:
                         print(f"  [✓]حفاظتِ ساختارِ روشن — "
-                              f"{int(cv2.countNonZero(_pb81))}px قفل شد")
+                              f"{int(cv2.countNonZero(_pb3))}px قفل شد")
                 # v1.14.81b — قفلِ «تابِ نورِ پس‌زمینه»: مؤلفهٔ روشنِ (≥۱۰۰)
                 # که بخشِ بزرگی‌اش (≥۲۰۰۰px) بیش از ~۱۰۰px از متن فاصله
                 # دارد = نورِ صحنه/پنل است، نه هالهٔ حروف — نمونه: پرتوِ
@@ -9873,47 +9873,47 @@ class _MangaTranslatorBody_85:
                 # قرمزِ اشباع (خاکستریِ ~۷۶) عمداً زیرِ آستانه می‌ماند تا
                 # لکهٔ قرمزِ کارتِ عنوان طبقِ v1.14.66/67 پاک شود.
                 try:
-                    _b100 = (_g81 >= 100).astype(np.uint8)
-                    _d81 = cv2.distanceTransform(
-                        (cv2.dilate(_ink81,
+                    _b = (_g3 >= 100).astype(np.uint8)
+                    _d = cv2.distanceTransform(
+                        (cv2.dilate(_ink,
                                     np.ones((5, 5), np.uint8)) == 0)
                         .astype(np.uint8), cv2.DIST_L2, 3)
-                    _far100 = (_d81 > 100.0) & (_b100 > 0)
-                    if int(_far100.sum()) >= 2000:
-                        _cnt81, _lbl81 = cv2.connectedComponents(
-                            _b100, connectivity=8)
+                    _far = (_d > 100.0) & (_b > 0)
+                    if int(_far.sum()) >= 2000:
+                        _cnt, _lbl = cv2.connectedComponents(
+                            _b, connectivity=8)
                         _fcnt = np.bincount(
-                            _lbl81[_far100].ravel(), minlength=_cnt81)
-                        _fids = np.unique(_lbl81[_far100])
+                            _lbl[_far].ravel(), minlength=_cnt)
+                        _fids = np.unique(_lbl[_far])
                         _fids = _fids[_fids != 0]
                         _keep = [int(i) for i in _fids if _fcnt[i] >= 2000]
                         if _keep:
-                            _lut = np.zeros(_cnt81, dtype=np.uint8)
+                            _lut = np.zeros(_cnt, dtype=np.uint8)
                             _lut[_keep] = 255
-                            _pg81 = _lut[_lbl81]
-                            _pg81 &= cv2.dilate(
-                                _ink81, np.ones((5, 5), np.uint8)) == 0
-                            _pg81 = (_pg81 > 0).astype(np.uint8) * 255
-                            if int(cv2.countNonZero(_pg81)):
-                                self._prot_glow = _pg81
+                            _pg = _lut[_lbl]
+                            _pg &= cv2.dilate(
+                                _ink, np.ones((5, 5), np.uint8)) == 0
+                            _pg = (_pg > 0).astype(np.uint8) * 255
+                            if int(cv2.countNonZero(_pg)):
+                                self._prot_glow = _pg
                                 if self.debug:
                                     print(f"  [✓]قفلِ تابِ نور — "
-                                          f"{int(cv2.countNonZero(_pg81))}px "
+                                          f"{int(cv2.countNonZero(_pg))}px "
                                           f"({len(_keep)} مؤلفه)")
                 except Exception:
                     self._prot_glow = None
                 # قفل‌ها از ماسکِ پاکسازی خارج می‌شوند (LaMa/پرکننده‌ها
                 # حقِ بازنویسی‌شان را ندارند)
                 try:
-                    _pa81 = None
+                    _pa = None
                     if self._prot_bright is not None:
-                        _pa81 = self._prot_bright.copy()
+                        _pa = self._prot_bright.copy()
                     if self._prot_glow is not None:
-                        _pa81 = (self._prot_glow.copy() if _pa81 is None
-                                 else _pa81 | self._prot_glow)
-                    if _pa81 is not None and int(cv2.countNonZero(_pa81)):
-                        mask[_pa81 > 0] = 0
-                        self._prot_all = _pa81
+                        _pa = (self._prot_glow.copy() if _pa is None
+                                 else _pa | self._prot_glow)
+                    if _pa is not None and int(cv2.countNonZero(_pa)):
+                        mask[_pa > 0] = 0
+                        self._prot_all = _pa
                     # v1.14.106 — قفلِ خطِ سراسری (کادرِ پنل) هم در
                     # _prot_all: ترمیمها/جارو/چسباندنِ LaMa حقِ بازنویسی
                     # قاب را ندارند
@@ -9934,16 +9934,16 @@ class _MangaTranslatorBody_85:
                     pass
                 # v1.14.81 — پروبِ وضعیتِ قفلِ پیکسل
                 try:
-                    _pv81 = os.environ.get("MANGA_PROBE", "")
-                    if _pv81 and "," in _pv81:
-                        _qx81, _qy81 = [int(v) for v in _pv81.split(",")]
+                    _pv2 = os.environ.get("MANGA_PROBE", "")
+                    if _pv2 and "," in _pv2:
+                        _qx, _qy = [int(v) for v in _pv2.split(",")]
                         _inb = bool(self._prot_bright is not None
-                                    and self._prot_bright[_qy81, _qx81] > 0)
+                                    and self._prot_bright[_qy, _qx] > 0)
                         _ing = bool(self._prot_glow is not None
-                                    and self._prot_glow[_qy81, _qx81] > 0)
-                        _inm = bool(mask[_qy81, _qx81] > 0)
-                        print(f"  [🔍PROBE] ({_qx81},{_qy81}) "
-                              f"gray={int(_g81[_qy81, _qx81])} "
+                                    and self._prot_glow[_qy, _qx] > 0)
+                        _inm = bool(mask[_qy, _qx] > 0)
+                        print(f"  [🔍PROBE] ({_qx},{_qy}) "
+                              f"gray={int(_g3[_qy, _qx])} "
                               f"prot_bright={_inb} prot_glow={_ing} "
                               f"in_mask_after_sub={_inm}", flush=True)
                 except Exception:
@@ -9951,7 +9951,7 @@ class _MangaTranslatorBody_85:
         except Exception:
             self._prot_bright = None
             self._prot_glow = None
-        _stage185("قفلها")
+        _stage("قفلها")
         try:
             _pv81p = os.environ.get("MANGA_PROBE", "")
             if _pv81p and "," in _pv81p:
@@ -9966,19 +9966,19 @@ class _MangaTranslatorBody_85:
         # ادغام می‌شود تا همهٔ مسیرها (پرکنندهٔ فوری، LaMa، paste) آن را
         # محترم بشمارند.
         try:
-            _fbs94 = (getattr(self, "_lama_force_rect_boxes", None) or [])
-            if _fbs94:
-                _slk94 = self._rect_structure_lock(image, _fbs94)
-                if _slk94 is not None and int(cv2.countNonZero(_slk94)):
+            _fbs2 = (getattr(self, "_lama_force_rect_boxes", None) or [])
+            if _fbs2:
+                _slk = self._rect_structure_lock(image, _fbs2)
+                if _slk is not None and int(cv2.countNonZero(_slk)):
                     if getattr(self, "_prot_all", None) is None:
-                        self._prot_all = _slk94
+                        self._prot_all = _slk
                     else:
                         self._prot_all = cv2.bitwise_or(
-                            self._prot_all, _slk94)
+                            self._prot_all, _slk)
                     if self.debug:
                         print(f"  [✓]قفلِ ساختارِ روشن — "
-                              f"{int(cv2.countNonZero(_slk94))}px از "
-                              f"{len(_fbs94)} بلوک محافظت شد", flush=True)
+                              f"{int(cv2.countNonZero(_slk))}px از "
+                              f"{len(_fbs2)} بلوک محافظت شد", flush=True)
         except Exception:
             pass
 
@@ -9991,13 +9991,13 @@ class _MangaTranslatorBody_85:
         # سقفِ ترکیب هنرِ بیرونِ بلوک را سالم نگه می‌دارد.
         try:
             _fb_list = (getattr(self, "_lama_force_rect_boxes", None) or [])
-            _h59, _w59 = mask.shape[:2]
+            _h, _w = mask.shape[:2]
             _fb_new = []
             for _fb in _fb_list:
                 _fx0 = max(0, int(_fb[0]) - 4)
                 _fy0 = max(0, int(_fb[1]) - 4)
-                _fx1 = min(_w59, int(_fb[2]) + 5)
-                _fy1 = min(_h59, int(_fb[3]) + 5)
+                _fx1 = min(_w, int(_fb[2]) + 5)
+                _fy1 = min(_h, int(_fb[3]) + 5)
                 if _fx1 - _fx0 < 8 or _fy1 - _fy0 < 8:
                     _fb_new.append([int(_fb[0]), int(_fb[1]),
                                     int(_fb[2]), int(_fb[3])])
@@ -10014,16 +10014,16 @@ class _MangaTranslatorBody_85:
                 _bx0, _by0 = _fx0, _fy0
                 _bx1, _by1 = _fx1, _fy1
                 try:
-                    _sub94 = mask[_fy0:_fy1, _fx0:_fx1]
-                    _ys94, _xs94 = np.nonzero(_sub94)
-                    if _ys94.size >= 400:
-                        _p94 = 12
-                        _nx0 = max(0, _fx0 + int(_xs94.min()) - _p94)
-                        _ny0 = max(0, _fy0 + int(_ys94.min()) - _p94)
-                        _nx1 = min(_w59,
-                                   _fx0 + int(_xs94.max()) + 1 + _p94)
-                        _ny1 = min(_h59,
-                                   _fy0 + int(_ys94.max()) + 1 + _p94)
+                    _sub3 = mask[_fy0:_fy1, _fx0:_fx1]
+                    _ys2, _xs2 = np.nonzero(_sub3)
+                    if _ys2.size >= 400:
+                        _p = 12
+                        _nx0 = max(0, _fx0 + int(_xs2.min()) - _p)
+                        _ny0 = max(0, _fy0 + int(_ys2.min()) - _p)
+                        _nx1 = min(_w,
+                                   _fx0 + int(_xs2.max()) + 1 + _p)
+                        _ny1 = min(_h,
+                                   _fy0 + int(_ys2.max()) + 1 + _p)
                         _bx0, _by0, _bx1, _by1 = _nx0, _ny0, _nx1, _ny1
                 except Exception:
                     pass
@@ -10035,7 +10035,7 @@ class _MangaTranslatorBody_85:
                 # می‌کند (فلسفهٔ «خط به خط» کاربر) و جعبه‌هایِ
                 # اسنپ‌شات/مقایسه هم نواریند.
                 _strips = []
-                _p94 = 12
+                _p = 12
                 try:
                     # v1.14.95 — جدایشِ خطی از پالی‌هایِ OCR: پروفیلِ جوهر
                     # وقتی هالهٔ درخشش بینِ خط‌ها پُرش کند (نمونهٔ «The
@@ -10045,214 +10045,214 @@ class _MangaTranslatorBody_85:
                     # ولی گسترهٔ باند از «جوهرِ خامِ» همان باند — وگرنه
                     # پالیِ فونتِ تزئینی (بلندیِ ۱۳۲px) باز کلِ بلوک را
                     # می‌پوشاند (v1.14.95c).
-                    _src94 = None
-                    if _sub94 is not None and _ys94.size >= 400:
-                        _src94 = _sub94
+                    _src = None
+                    if _sub3 is not None and _ys2.size >= 400:
+                        _src = _sub3
                         try:
-                            _rawS94 = getattr(
+                            _rawS = getattr(
                                 self, "_page_raw_text_mask", None)
-                            if (_rawS94 is not None
-                                    and _rawS94.shape == mask.shape[:2]):
-                                _rsub94 = _rawS94[
+                            if (_rawS is not None
+                                    and _rawS.shape == mask.shape[:2]):
+                                _rsub = _rawS[
                                     _fy0:_fy1, _fx0:_fx1]
-                                if int(cv2.countNonZero(_rsub94)) >= 400:
-                                    _src94 = _rsub94
+                                if int(cv2.countNonZero(_rsub)) >= 400:
+                                    _src = _rsub
                         except Exception:
                             pass
-                    _pl94 = []
+                    _pl = []
                     try:
-                        _rid94 = int(_fb[4]) if len(_fb) > 4 else -1
-                        if _rid94 >= 0:
+                        _rid = int(_fb[4]) if len(_fb) > 4 else -1
+                        if _rid >= 0:
                             for _r94o in (getattr(self, "_page_regions",
                                                   None) or []):
-                                if int(getattr(_r94o, "id", -2)) == _rid94:
+                                if int(getattr(_r94o, "id", -2)) == _rid:
                                     for _p94b in (
                                             getattr(_r94o, "ocr_polys",
                                                     None) or []):
                                         try:
-                                            _pp94 = np.asarray(
+                                            _pp2 = np.asarray(
                                                 _p94b,
                                                 dtype=np.float32).reshape(-1, 2)
-                                            if _pp94.shape[0] >= 3:
-                                                _pl94.append(_pp94)
+                                            if _pp2.shape[0] >= 3:
+                                                _pl.append(_pp2)
                                         except Exception:
                                             continue
                                     break
                     except Exception:
-                        _pl94 = []
-                    if len(_pl94) >= 2:
+                        _pl = []
+                    if len(_pl) >= 2:
                         # بازهٔ خامِ y (بدونِ پد) — اگر پدِ قبل از ادغام
                         # اضافه شود، خط‌هایِ نزدیک (پلاکِ «The Crimson
                         # Dragon,») در هم می‌لغزند و یک باند می‌شوند.
                         # مختصاتِ پالی = مطلق؛ بازه‌ها نسبت به باکس‌اند.
-                        _ivs94 = []
-                        for _pp94 in _pl94:
+                        _ivs = []
+                        for _pp2 in _pl:
                             _iy0 = max(0, int(np.floor(
-                                _pp94[:, 1].min())) - _fy0)
+                                _pp2[:, 1].min())) - _fy0)
                             _iy1 = min(_fy1 - _fy0, int(np.ceil(
-                                _pp94[:, 1].max())) + 1 - _fy0)
+                                _pp2[:, 1].max())) + 1 - _fy0)
                             _ix0 = max(0, int(np.floor(
-                                _pp94[:, 0].min())) - _fx0 - _p94)
+                                _pp2[:, 0].min())) - _fx0 - _p)
                             _ix1 = min(_fx1 - _fx0, int(np.ceil(
-                                _pp94[:, 0].max())) + 1 - _fx0 + _p94)
+                                _pp2[:, 0].max())) + 1 - _fx0 + _p)
                             if _iy1 - _iy0 >= 8 and _ix1 - _ix0 >= 8:
-                                _ivs94.append([_iy0, _iy1, _ix0, _ix1])
-                        _ivs94.sort(key=lambda _v: (_v[0], _v[1]))
-                        _mrg94 = []
-                        for _iv in _ivs94:
-                            if _mrg94 and _iv[0] < _mrg94[-1][1]:
-                                _mrg94[-1][1] = max(_mrg94[-1][1], _iv[1])
-                                _mrg94[-1][2] = min(_mrg94[-1][2], _iv[2])
-                                _mrg94[-1][3] = max(_mrg94[-1][3], _iv[3])
+                                _ivs.append([_iy0, _iy1, _ix0, _ix1])
+                        _ivs.sort(key=lambda _v: (_v[0], _v[1]))
+                        _mrg = []
+                        for _iv in _ivs:
+                            if _mrg and _iv[0] < _mrg[-1][1]:
+                                _mrg[-1][1] = max(_mrg[-1][1], _iv[1])
+                                _mrg[-1][2] = min(_mrg[-1][2], _iv[2])
+                                _mrg[-1][3] = max(_mrg[-1][3], _iv[3])
                             else:
-                                _mrg94.append(list(_iv))
-                        if not (2 <= len(_mrg94) <= 12):
+                                _mrg.append(list(_iv))
+                        if not (2 <= len(_mrg) <= 12):
                             # تلاشِ ۲ — شکافِ مرکزها: فونت‌هایِ تزئینی پالیِ
                             # بلند می‌سازند و بازه‌هایِ y خط‌ها همپوشانی
                             # دارند (پلاک: [5-137]/[76-205]). مرزِ خط‌ها =
                             # میانهٔ بزرگ‌ترینِ شکافِ بینِ مرکزِ خط‌ها؛
                             # هر باند در مرز کِیل می‌شود.
                             try:
-                                _cents94 = sorted(
-                                    (v[0] + v[1]) / 2.0 for v in _ivs94)
-                                _gaps94 = [(_cents94[_i94 + 1]
-                                            - _cents94[_i94], _i94)
-                                           for _i94
-                                           in range(len(_cents94) - 1)]
-                                if _gaps94:
-                                    _gmax94, _gi94 = max(
-                                        _gaps94, key=lambda t: t[0])
-                                    if _gmax94 >= 14.0:
-                                        _bnd94 = (_cents94[_gi94]
-                                                  + _cents94[_gi94 + 1]) / 2.0
-                                        _up94 = [v for v in _ivs94
-                                                 if (v[0] + v[1]) / 2.0 < _bnd94]
-                                        _dn94 = [v for v in _ivs94
-                                                 if (v[0] + v[1]) / 2.0 >= _bnd94]
-                                        if _up94 and _dn94:
-                                            _mrg94 = [
-                                                [min(v[0] for v in _up94),
-                                                 min(_bnd94,
-                                                     max(v[1] for v in _up94)),
-                                                 min(v[2] for v in _up94),
-                                                 max(v[3] for v in _up94)],
-                                                [max(_bnd94,
-                                                     min(v[0] for v in _dn94)),
-                                                 max(v[1] for v in _dn94),
-                                                 min(v[2] for v in _dn94),
-                                                 max(v[3] for v in _dn94)]]
+                                _cents = sorted(
+                                    (v[0] + v[1]) / 2.0 for v in _ivs)
+                                _gaps = [(_cents[_i + 1]
+                                            - _cents[_i], _i)
+                                           for _i
+                                           in range(len(_cents) - 1)]
+                                if _gaps:
+                                    _gmax, _gi = max(
+                                        _gaps, key=lambda t: t[0])
+                                    if _gmax >= 14.0:
+                                        _bnd = (_cents[_gi]
+                                                  + _cents[_gi + 1]) / 2.0
+                                        _up = [v for v in _ivs
+                                                 if (v[0] + v[1]) / 2.0 < _bnd]
+                                        _dn = [v for v in _ivs
+                                                 if (v[0] + v[1]) / 2.0 >= _bnd]
+                                        if _up and _dn:
+                                            _mrg = [
+                                                [min(v[0] for v in _up),
+                                                 min(_bnd,
+                                                     max(v[1] for v in _up)),
+                                                 min(v[2] for v in _up),
+                                                 max(v[3] for v in _up)],
+                                                [max(_bnd,
+                                                     min(v[0] for v in _dn)),
+                                                 max(v[1] for v in _dn),
+                                                 min(v[2] for v in _dn),
+                                                 max(v[3] for v in _dn)]]
                             except Exception:
-                                _mrg94 = []
-                        if 2 <= len(_mrg94) <= 12:
+                                _mrg = []
+                        if 2 <= len(_mrg) <= 12:
                             # v1.14.95c — گسترهٔ باند از «جوهرِ خامِ همان
                             # باند» نه از bboxِ پالی (فونتِ تزئینی پالیِ
                             # بلند می‌سازد → نوارها همپوشان می‌شوند و
                             # حفرهٔ LaMa باز کلِ بلوک می‌شود).
-                            _profC94 = None
-                            if _src94 is not None:
-                                _profC94 = (_src94 > 0).sum(axis=1)
-                                _thrC94 = max(3.0, 0.04 * (_fx1 - _fx0))
-                            for (_ay94, _qy94, _ax94, _qx94) in _mrg94:
-                                _ay94 = int(round(_ay94))
-                                _qy94 = int(round(_qy94))
-                                _ax94 = int(round(_ax94))
-                                _qx94 = int(round(_qx94))
-                                if _profC94 is not None:
-                                    _seg94 = _profC94[_ay94:_qy94]
-                                    _rr94 = np.nonzero(
-                                        _seg94 >= _thrC94)[0]
-                                    if _rr94.size >= 8:
-                                        _ny0 = max(0, _ay94
-                                                   + int(_rr94.min()) - 6)
+                            _profC = None
+                            if _src is not None:
+                                _profC = (_src > 0).sum(axis=1)
+                                _thrC = max(3.0, 0.04 * (_fx1 - _fx0))
+                            for (_ay, _qy2, _ax, _qx2) in _mrg:
+                                _ay = int(round(_ay))
+                                _qy2 = int(round(_qy2))
+                                _ax = int(round(_ax))
+                                _qx2 = int(round(_qx2))
+                                if _profC is not None:
+                                    _seg = _profC[_ay:_qy2]
+                                    _rr = np.nonzero(
+                                        _seg >= _thrC)[0]
+                                    if _rr.size >= 8:
+                                        _ny0 = max(0, _ay
+                                                   + int(_rr.min()) - 6)
                                         _ny1 = min(_fy1 - _fy0,
-                                                   _ay94
-                                                   + int(_rr94.max()) + 7)
+                                                   _ay
+                                                   + int(_rr.max()) + 7)
                                         if _ny1 - _ny0 >= 10:
-                                            _ay94, _qy94 = _ny0, _ny1
+                                            _ay, _qy2 = _ny0, _ny1
                                 # v1.14.95f — پدِ ۲۰px: هالهٔ درخششِ
                                 # متن تا ~۲۰px بیرونِ جوهر می‌رود؛ اگر
                                 # نوار تنگ باشد، هاله دورِ پرِ تازه
                                 # می‌ماند و «قابِ روشنِ» محسوس می‌سازد
                                 # (اسکرین‌شاتِ پلاکِ کاربر).
-                                _ay94 = max(0, _ay94 - 20)
-                                _qy94 = min(_fy1 - _fy0, _qy94 + 20)
-                                if _qy94 - _ay94 < 10:
+                                _ay = max(0, _ay - 20)
+                                _qy2 = min(_fy1 - _fy0, _qy2 + 20)
+                                if _qy2 - _ay < 10:
                                     continue
-                                _strips.append([_fx0 + _ax94, _fy0 + _ay94,
-                                                _fx0 + _qx94, _fy0 + _qy94])
+                                _strips.append([_fx0 + _ax, _fy0 + _ay,
+                                                _fx0 + _qx2, _fy0 + _qy2])
                             if self.debug and _strips:
                                 print(f"  [🔍] bands از پالیِ OCR: "
                                       f"{len(_strips)} خط")
                         elif self.debug:
                             try:
                                 _ivs_dbg = [f"[{v[0]}-{v[1]}]"
-                                            for v in _ivs94]
+                                            for v in _ivs]
                             except Exception:
                                 _ivs_dbg = []
-                            print(f"  [🔍] poly-bands رد شد: rid={_rid94 if len(_fb) > 4 else '-'} "
-                                  f"polys={len(_pl94)} mrg={len(_mrg94)} "
+                            print(f"  [🔍] poly-bands رد شد: rid={_rid if len(_fb) > 4 else '-'} "
+                                  f"polys={len(_pl)} mrg={len(_mrg)} "
                                   f"iv={' '.join(_ivs_dbg)}")
-                    if not _strips and _sub94 is not None \
-                            and _ys94.size >= 400:
+                    if not _strips and _sub3 is not None \
+                            and _ys2.size >= 400:
                         # v1.14.94d — پروفیلِ سطر/ستون از «جوهرِ خام»
                         # (قبلِ هاله‌گیریِ v1.14.66) — هاله، سطرها را به
                         # هم می‌چسباند و جدایشِ خطی را می‌کُشد
-                        _src94 = _sub94
+                        _src = _sub3
                         try:
-                            _rawS94 = getattr(
+                            _rawS = getattr(
                                 self, "_page_raw_text_mask", None)
-                            if (_rawS94 is not None
-                                    and _rawS94.shape == mask.shape[:2]):
-                                _rsub94 = _rawS94[
+                            if (_rawS is not None
+                                    and _rawS.shape == mask.shape[:2]):
+                                _rsub = _rawS[
                                     _fy0:_fy1, _fx0:_fx1]
-                                if int(cv2.countNonZero(_rsub94)) >= 400:
-                                    _src94 = _rsub94
+                                if int(cv2.countNonZero(_rsub)) >= 400:
+                                    _src = _rsub
                         except Exception:
-                            _src94 = _sub94
-                        _prof94 = (_src94 > 0).sum(axis=1)
-                        _thr94 = max(3.0, 0.04 * (_fx1 - _fx0))
-                        _rows94 = _prof94 >= _thr94
-                        _bands94 = []
-                        _s94 = None
-                        _g94 = 0
-                        for _r94 in range(_rows94.size):
-                            if _rows94[_r94]:
-                                if _s94 is None:
-                                    _s94 = _r94
-                                _g94 = 0
-                            elif _s94 is not None:
-                                _g94 += 1
-                                if _g94 > 6:
-                                    _bands94.append(
-                                        (_s94, _r94 - _g94 + 1))
-                                    _s94 = None
-                                    _g94 = 0
-                        if _s94 is not None:
-                            _bands94.append((_s94, _rows94.size))
-                        _pg94 = 8
-                        for (_a94, _b94) in _bands94:
-                            _ay94 = max(0, _a94 - _pg94)
-                            _qy94 = min(_fy1 - _fy0, _b94 + _pg94)
-                            if _qy94 - _ay94 < 10:
+                            _src = _sub3
+                        _prof = (_src > 0).sum(axis=1)
+                        _thr = max(3.0, 0.04 * (_fx1 - _fx0))
+                        _rows = _prof >= _thr
+                        _bands = []
+                        _s = None
+                        _g4 = 0
+                        for _r in range(_rows.size):
+                            if _rows[_r]:
+                                if _s is None:
+                                    _s = _r
+                                _g4 = 0
+                            elif _s is not None:
+                                _g4 += 1
+                                if _g4 > 6:
+                                    _bands.append(
+                                        (_s, _r - _g4 + 1))
+                                    _s = None
+                                    _g4 = 0
+                        if _s is not None:
+                            _bands.append((_s, _rows.size))
+                        _pg2 = 8
+                        for (_a, _b2) in _bands:
+                            _ay = max(0, _a - _pg2)
+                            _qy2 = min(_fy1 - _fy0, _b2 + _pg2)
+                            if _qy2 - _ay < 10:
                                 continue
-                            _colp94 = (_src94[_a94:_b94] > 0).sum(axis=0)
-                            _cols94 = np.nonzero(_colp94 > 0)[0]
-                            if _cols94.size < 8:
+                            _colp = (_src[_a:_b2] > 0).sum(axis=0)
+                            _cols = np.nonzero(_colp > 0)[0]
+                            if _cols.size < 8:
                                 continue
-                            _ax94 = max(0, int(_cols94.min()) - _p94
-                                        if _ys94.size >= 400 else 4)
-                            _qx94 = min(_fx1 - _fx0,
-                                        int(_cols94.max()) + 1 + _p94
-                                        if _ys94.size >= 400 else _fx1 - _fx0)
-                            if _qx94 - _ax94 < 8:
+                            _ax = max(0, int(_cols.min()) - _p
+                                        if _ys2.size >= 400 else 4)
+                            _qx2 = min(_fx1 - _fx0,
+                                        int(_cols.max()) + 1 + _p
+                                        if _ys2.size >= 400 else _fx1 - _fx0)
+                            if _qx2 - _ax < 8:
                                 continue
-                            _strips.append([_fx0 + _ax94, _fy0 + _ay94,
-                                            _fx0 + _qx94, _fy0 + _qy94])
+                            _strips.append([_fx0 + _ax, _fy0 + _ay,
+                                            _fx0 + _qx2, _fy0 + _qy2])
                 except Exception as _e95s:
                     if self.debug:
-                        import traceback as _tb95
+                        import traceback as _tb2
                         print(f"  [!] strips builder error: {_e95s}")
-                        _tb95.print_exc()
+                        _tb2.print_exc()
                     _strips = []
                 if len(_strips) < 1 or len(_strips) > 12:
                     if self.debug:
@@ -10273,14 +10273,14 @@ class _MangaTranslatorBody_85:
                         mask[_sy0:_sy1, _sx0:_sx1] = 255
                         # v1.14.81 — ساختارِ روشن/تابِ نور از بلوکِ اجباری خارج
                         try:
-                            _pa81 = getattr(self, "_prot_all", None)
-                            if _pa81 is not None:
-                                _sub81 = _pa81[_sy0:_sy1, _sx0:_sx1] > 0
-                                if int(_sub81.sum()):
-                                    mask[_sy0:_sy1, _sx0:_sx1][_sub81] = 0
+                            _pa = getattr(self, "_prot_all", None)
+                            if _pa is not None:
+                                _sub2 = _pa[_sy0:_sy1, _sx0:_sx1] > 0
+                                if int(_sub2.sum()):
+                                    mask[_sy0:_sy1, _sx0:_sx1][_sub2] = 0
                                     if self.debug:
                                         print(f"  [✓]"
-                                              f"{int(_sub81.sum())}px ساختارِ "
+                                              f"{int(_sub2.sum())}px ساختارِ "
                                               f"روشن از بلوکِ اجباری خارج شد")
                         except Exception:
                             pass
@@ -10307,10 +10307,10 @@ class _MangaTranslatorBody_85:
         # سیستم (یک واحد — خط‌ها + بینِ خط‌ها) قبل از هر پرکنندهٔ دیگر.
         # جزئیاتِ چرایی → docstringِ _fill_system_box_interiors.
         try:
-            _n_sys104 = self._fill_system_box_interiors(
+            _n_sys = self._fill_system_box_interiors(
                 image, regions, mask, cleaned)
-            if _n_sys104 and self.debug:
-                print(f"  [*]{_n_sys104} اینتریورِ بالنِ سیستم → "
+            if _n_sys and self.debug:
+                print(f"  [*]{_n_sys} اینتریورِ بالنِ سیستم → "
                       f"پرِ فلتِ قطعی (بدونِ LaMa)")
         except Exception:
             pass
@@ -10328,17 +10328,17 @@ class _MangaTranslatorBody_85:
                 print(f"  [*] {_n_inst} lines instantly filled")
         except Exception:
             pass
-        _stage185("پرکنندهٔ فوری")
+        _stage("پرکنندهٔ فوری")
         # v1.14.81 — قفلِ ساختارِ روشن/تابِ نور: پرکننده‌هایِ فوری حقِ
         # دست‌زدن به این پیکسل‌ها را ندارند — خطِ سفیدِ حباب و پرتوِ نور
         # باید زنده بمانند (خطایِ img2: «حباب به کل حذف زده»)
         try:
-            _pa81 = getattr(self, "_prot_all", None)
-            if _pa81 is not None and int(cv2.countNonZero(_pa81)):
-                _sel81 = _pa81 > 0
-                cleaned[_sel81] = image[_sel81]
+            _pa = getattr(self, "_prot_all", None)
+            if _pa is not None and int(cv2.countNonZero(_pa)):
+                _sel2 = _pa > 0
+                cleaned[_sel2] = image[_sel2]
                 if self.debug:
-                    print(f"  [✓]{int(_sel81.sum())}px قفلِ روشن "
+                    print(f"  [✓]{int(_sel2.sum())}px قفلِ روشن "
                           f"بعد از پرکنندهٔ فوری ترمیم شد")
                 try:
                     _pv81r = os.environ.get("MANGA_PROBE", "")
@@ -10366,13 +10366,13 @@ class _MangaTranslatorBody_85:
                     # v1.14.81 — همان حفاظت (بعد از کِیلِ پرکننده‌های فوری
                     # هم بلوک دوباره توپر می‌شود)
                     try:
-                        _pa81 = getattr(self, "_prot_all", None)
-                        if _pa81 is not None:
-                            _sub81 = _pa81[_fb[1]:_fb[3],
+                        _pa = getattr(self, "_prot_all", None)
+                        if _pa is not None:
+                            _sub2 = _pa[_fb[1]:_fb[3],
                                            _fb[0]:_fb[2]] > 0
-                            if int(_sub81.sum()):
+                            if int(_sub2.sum()):
                                 mask[_fb[1]:_fb[3],
-                                     _fb[0]:_fb[2]][_sub81] = 0
+                                     _fb[0]:_fb[2]][_sub2] = 0
                     except Exception:
                         pass
         except Exception:
@@ -10387,11 +10387,11 @@ class _MangaTranslatorBody_85:
         # انحرافِ لکه‌ای بزرگ داشت، همان اسنپ‌شات جایگزین می‌شود.
         self._force_pre_snap = None
         try:
-            _fbs62 = (getattr(self, "_lama_force_rect_boxes", None) or [])
-            if _fbs62:
+            _fbs = (getattr(self, "_lama_force_rect_boxes", None) or [])
+            if _fbs:
                 _hS, _wS = mask.shape[:2]
                 _snaps = []
-                for _fb in _fbs62:
+                for _fb in _fbs:
                     _sx0 = max(0, int(_fb[0]) - 6)
                     _sy0 = max(0, int(_fb[1]) - 6)
                     _sx1 = min(_wS, int(_fb[2]) + 7)
@@ -10456,7 +10456,7 @@ class _MangaTranslatorBody_85:
         # خوشه‌ها همزمان پر شوند (بودجهٔ موازیِ سیستم — «پاکسازیش
         # همینجور»): هر خوشه فقط result میسازد و رویِ cleaned نمینویسد؛
         # نوشتنِ نتیجه‌ها همان مسیرِ ترتیبیِ بعدِ LaMa است.
-        _clusters_l167 = list(self._mask_clusters(mask, pad=3))
+        _clusters_l = list(self._mask_clusters(mask, pad=3))
 
         def _fill_one_cluster(bx0, by0, bx1, by1):
             cx0, cy0 = max(0, bx0 - 29), max(0, by0 - 29)
@@ -10531,7 +10531,7 @@ class _MangaTranslatorBody_85:
                         if _pf is not None:
                             result = _pf
                             _pf_ok = True
-                _keep_flat135 = False
+                _keep_flat = False
                 if result is None and not _q_lama:
                     result = self._flat_fill_cluster(crop_img, crop_msk)
                 elif result is None and _q_lama \
@@ -10555,19 +10555,19 @@ class _MangaTranslatorBody_85:
                         # گاردِ بافتِ کل-کراپ (بهخاطرِ همان اقلیتِ تیره)
                         # textured بگوید.
                         try:
-                            _gr135 = cv2.cvtColor(crop_img,
+                            _gr = cv2.cvtColor(crop_img,
                                                   cv2.COLOR_BGR2GRAY)
-                            _m135 = crop_msk > 0
-                            _rg135 = (cv2.dilate(
+                            _m = crop_msk > 0
+                            _rg = (cv2.dilate(
                                 crop_msk, np.ones((9, 9), np.uint8)) > 0) \
-                                & (~_m135)
-                            _rv135 = _gr135[_rg135].astype(np.float32)
-                            if _rv135.size >= 200:
-                                _rm135 = float(np.median(_rv135))
-                                _share135 = float((np.abs(
-                                    _rv135 - _rm135) <= 26.0).mean())
-                                if (_rm135 >= 170.0 and _share135 >= 0.55):
-                                    _keep_flat135 = True
+                                & (~_m)
+                            _rv = _gr[_rg].astype(np.float32)
+                            if _rv.size >= 200:
+                                _rm = float(np.median(_rv))
+                                _share = float((np.abs(
+                                    _rv - _rm) <= 26.0).mean())
+                                if (_rm >= 170.0 and _share >= 0.55):
+                                    _keep_flat = True
                         except Exception:
                             pass
                     elif result is None and _android_gate(
@@ -10577,12 +10577,12 @@ class _MangaTranslatorBody_85:
                         # دیوار/کاغذِ روشن هنوز حاکم است، fit فقط از
                         # پیکسلهایِ روشنِ حلقه → پرِ تمیز بهجایِ
                         # LaMaِ توهمزن.
-                        _lrg135 = self._flat_fill_cluster(
+                        _lrg = self._flat_fill_cluster(
                             crop_img, crop_msk, light_ring=True,
                             fit_tol=13.0)
-                        if _lrg135 is not None:
-                            result = _lrg135
-                            _keep_flat135 = True
+                        if _lrg is not None:
+                            result = _lrg
+                            _keep_flat = True
                             if self.debug:
                                 try:
                                     print(f"  [⚡]حفرهٔ بزرگ → پرِ حلقهٔ "
@@ -10599,41 +10599,41 @@ class _MangaTranslatorBody_85:
                     # سفیداند). گاردِ بافتِ پایین (textured) اگر پرِ تخت
                     # را نپسندد به LaMa برمیگرداند — کیفیتِ وبتونِ
                     # گرادیانی دست‌نخورده میماند.
-                    _rf135 = MangaTranslator._ring_flat_stats(crop_img,
+                    _rf = MangaTranslator._ring_flat_stats(crop_img,
                                                               crop_msk)
-                    if _rf135 is not None:
+                    if _rf is not None:
                         result = self._flat_fill_cluster(crop_img, crop_msk)
                         if result is not None and self.debug:
                             try:
-                                print(f"  [⚡]حلقهٔ تخت (med={_rf135[0]:.0f} "
-                                      f"std={_rf135[1]:.0f}) → پرِ حلقه "
+                                print(f"  [⚡]حلقهٔ تخت (med={_rf[0]:.0f} "
+                                      f"std={_rf[1]:.0f}) → پرِ حلقه "
                                       f"بهجایِ LaMa @({cx0},{cy0})")
                             except Exception:
                                 pass
                 if (result is not None and not _pf_ok
-                        and not _keep_flat135
+                        and not _keep_flat
                         and self._bg_is_textured(crop_img, crop_msk,
                                                  strong=True)):
                     result = None
             return [cx0, cy0, cx1, cy1, crop_msk, result, method]
 
-        _fill_w167 = 1
+        _fill_w = 1
         try:
-            _fill_w167 = _parallel_budget("clean")
+            _fill_w = _parallel_budget("clean")
         except Exception:
-            _fill_w167 = 1
-        if len(_clusters_l167) >= 2 and _fill_w167 > 1:
+            _fill_w = 1
+        if len(_clusters_l) >= 2 and _fill_w > 1:
             try:
                 with ThreadPoolExecutor(max_workers=min(
-                        _fill_w167, len(_clusters_l167))) as _fillx:
+                        _fill_w, len(_clusters_l))) as _fillx:
                     crops = list(_fillx.map(
                         lambda _cc: _fill_one_cluster(*_cc),
-                        _clusters_l167))
+                        _clusters_l))
             except Exception:
                 crops = [_fill_one_cluster(*_cc)
-                         for _cc in _clusters_l167]
+                         for _cc in _clusters_l]
         else:
-            crops = [_fill_one_cluster(*_cc) for _cc in _clusters_l167]
+            crops = [_fill_one_cluster(*_cc) for _cc in _clusters_l]
         try:
             _pv81c = os.environ.get("MANGA_PROBE", "")
             if _pv81c and "," in _pv81c:
@@ -10891,7 +10891,7 @@ class _MangaTranslatorBody_85:
                         print(f"  [!] LaMa failed ({e}); using OpenCV fallback.")
             else:
                 print("  [!] LaMa unavailable → OpenCV for remaining clusters")
-        _stage185("LaMa/پرکننده‌ها")
+        _stage("LaMa/پرکننده‌ها")
 
         for cx0, cy0, cx1, cy1, crop_msk, result, method in crops:
             if os.environ.get("MANGA_FILL_DBG"):
@@ -10958,33 +10958,33 @@ class _MangaTranslatorBody_85:
                                     # img2: پنلِ تیرهٔ ~۶۰ → LaMa سیاهِ ~۱۲
                                     # داد («کامل سیاه کرده» کاربر) → منطقِ
                                     # v1.14.62 (جایگزینی با اسنپ‌شات) بسنجد.
-                                    _keep81 = True
+                                    _keep3 = True
                                     try:
-                                        _gA81 = cv2.cvtColor(
+                                        _gA = cv2.cvtColor(
                                             np.clip(_ra, 0, 255).astype(np.uint8),
                                             cv2.COLOR_BGR2GRAY)
-                                        _gB81 = cv2.cvtColor(
+                                        _gB = cv2.cvtColor(
                                             np.clip(_rb, 0, 255).astype(np.uint8),
                                             cv2.COLOR_BGR2GRAY)
-                                        _gO81 = cv2.cvtColor(
+                                        _gO2 = cv2.cvtColor(
                                             image[_iy0:_iy1, _ix0:_ix1],
                                             cv2.COLOR_BGR2GRAY)
-                                        _txt81 = cv2.dilate(
-                                            (_gO81 >= 150).astype(np.uint8),
+                                        _txt = cv2.dilate(
+                                            (_gO2 >= 150).astype(np.uint8),
                                             np.ones((5, 5), np.uint8)) > 0
-                                        _bg81 = ~_txt81
-                                        if int(_bg81.sum()) >= 300:
-                                            _mA81 = float(np.median(_gA81[_bg81]))
-                                            _mB81 = float(np.median(_gB81[_bg81]))
-                                            if abs(_mA81 - _mB81) > 30.0:
-                                                _keep81 = False
+                                        _bg2 = ~_txt
+                                        if int(_bg2.sum()) >= 300:
+                                            _mA = float(np.median(_gA[_bg2]))
+                                            _mB2 = float(np.median(_gB[_bg2]))
+                                            if abs(_mA - _mB2) > 30.0:
+                                                _keep3 = False
                                                 print(f"  [!]LaMa زمینه را "
-                                                      f"{_mB81:.0f} → {_mA81:.0f} تغییرِ شدید داد "
+                                                      f"{_mB2:.0f} → {_mA:.0f} تغییرِ شدید داد "
                                                       f"→ اسنپ‌شاتْ مرجع",
                                                       flush=True)
                                     except Exception:
-                                        _keep81 = True
-                                    if _keep81:
+                                        _keep3 = True
+                                    if _keep3:
                                         if self.debug:
                                             try:
                                                 print(f"  [✓]بلوکِ "
@@ -11007,27 +11007,27 @@ class _MangaTranslatorBody_85:
                         # ممنوع — وگرنه متنِ انگلیسی برمی‌گشت. سنجش:
                         # انرژیِ فرکانسِ بالا نسبت به میانهٔ محلی (حروف نازک
                         # = ساختار؛ لکه/گرادیانِ نرم = بی‌ساختار).
-                        _gs62 = cv2.cvtColor(
+                        _gs = cv2.cvtColor(
                             np.clip(_rb, 0, 255).astype(np.uint8),
                             cv2.COLOR_BGR2GRAY)
-                        _gl62 = cv2.cvtColor(
+                        _gl = cv2.cvtColor(
                             np.clip(_ra, 0, 255).astype(np.uint8),
                             cv2.COLOR_BGR2GRAY)
-                        _mk62 = (41 if min(_gs62.shape) >= 41
-                                 else 31 if min(_gs62.shape) >= 31 else 15)
-                        _ms62 = cv2.medianBlur(_gs62, _mk62)
-                        _ml62 = cv2.medianBlur(_gl62, _mk62)
-                        _fs62 = float((np.abs(
-                            _gs62.astype(np.int16)
-                            - _ms62.astype(np.int16)) > 30).mean())
-                        _fl62 = float((np.abs(
-                            _gl62.astype(np.int16)
-                            - _ml62.astype(np.int16)) > 30).mean())
-                        if _fs62 > _fl62 * 1.6 + 0.02:
+                        _mk = (41 if min(_gs.shape) >= 41
+                                 else 31 if min(_gs.shape) >= 31 else 15)
+                        _ms = cv2.medianBlur(_gs, _mk)
+                        _ml = cv2.medianBlur(_gl, _mk)
+                        _fs = float((np.abs(
+                            _gs.astype(np.int16)
+                            - _ms.astype(np.int16)) > 30).mean())
+                        _fl = float((np.abs(
+                            _gl.astype(np.int16)
+                            - _ml.astype(np.int16)) > 30).mean())
+                        if _fs > _fl * 1.6 + 0.02:
                             if self.debug:
                                 print(f"  [✓]اسنپ‌شاتِ بلوک هنوز "
-                                      f"متن دارد (جوهرِ اسنپ={_fs62:.3f} > "
-                                      f"LaMa={_fl62:.3f}) → نتیجهٔ LaMa "
+                                      f"متن دارد (جوهرِ اسنپ={_fs:.3f} > "
+                                      f"LaMa={_fl:.3f}) → نتیجهٔ LaMa "
                                       f"نگه داشته شد (جلوگیری از متنِ شبح)",
                                       flush=True)
                             continue
@@ -11041,32 +11041,32 @@ class _MangaTranslatorBody_85:
                         # سنجشِ مستقیم روی «هستهٔ ماسک» (جایی که میدانیم
                         # متن بوده) با آستانهٔ ۲۰ + برتریِ ۲× از LaMa.
                         try:
-                            _mc226 = None
+                            _mc = None
                             try:
-                                _mc226 = (crop_msk > 0) \
-                                    if crop_msk.shape[:2] == _gs62.shape \
+                                _mc = (crop_msk > 0) \
+                                    if crop_msk.shape[:2] == _gs.shape \
                                     else None
                             except Exception:
-                                _mc226 = None
-                            if _mc226 is not None \
-                                    and int(_mc226.sum()) >= 200:
-                                _ds226 = np.abs(
-                                    _gs62.astype(np.int16)
-                                    - _ms62.astype(np.int16))
-                                _dl226 = np.abs(
-                                    _gl62.astype(np.int16)
-                                    - _ml62.astype(np.int16))
-                                _iks226 = float(
-                                    (_ds226[_mc226] > 20).mean())
-                                _ikl226 = float(
-                                    (_dl226[_mc226] > 20).mean())
-                                if _iks226 > 0.045 and \
-                                        _iks226 > _ikl226 * 2.0 + 0.02:
+                                _mc = None
+                            if _mc is not None \
+                                    and int(_mc.sum()) >= 200:
+                                _ds = np.abs(
+                                    _gs.astype(np.int16)
+                                    - _ms.astype(np.int16))
+                                _dl = np.abs(
+                                    _gl.astype(np.int16)
+                                    - _ml.astype(np.int16))
+                                _iks = float(
+                                    (_ds[_mc] > 20).mean())
+                                _ikl = float(
+                                    (_dl[_mc] > 20).mean())
+                                if _iks > 0.045 and \
+                                        _iks > _ikl * 2.0 + 0.02:
                                     if self.debug:
                                         print(
                                             f"  [✓]جوهرِ متن در اسنپ‌شات "
-                                            f"(هسته={_iks226:.3f} > "
-                                            f"LaMa={_ikl226:.3f}) → LaMa "
+                                            f"(هسته={_iks:.3f} > "
+                                            f"LaMa={_ikl:.3f}) → LaMa "
                                             f"نگه داشته شد (ضدِ شبح)",
                                             flush=True)
                                     continue
@@ -11120,12 +11120,12 @@ class _MangaTranslatorBody_85:
                 # قرمزِ POCO F4). اسنپ‌شاتِ قبلِ LaMa هم قابلِ اعتماد نیست —
                 # در مسیرِ block-rect∪ink هنوز خودِ متن را دارد.
                 try:
-                    _res65 = self._force_box_gradient_fill(
+                    _res3 = self._force_box_gradient_fill(
                         image, cx0, cy0, cx1, cy1)
                 except Exception:
-                    _res65 = None
-                if _res65 is not None:
-                    result = _res65
+                    _res3 = None
+                if _res3 is not None:
+                    result = _res3
                     if self.debug:
                         print(f"  [✓]LaMaِ بلوکِ تیره در دسترس "
                               f"نبود → پرِ گرادیانیِ توپرِ باکس (ضدِ لکهٔ "
@@ -11146,26 +11146,26 @@ class _MangaTranslatorBody_85:
                 # v1.14.65 — هالهٔ گلو (متنِ روشن روی پنلِ تیره): رویِ
                 # زمینهٔ تیره، ماسکِ فال‌بک باید هالهٔ دورِ گلیف را هم
                 # بپوشاند وگرنه جوهرِ قرمز/روشنِ دورِ حرف می‌ماند
-                _bg_med65 = None
+                _bg_med2 = None
                 try:
-                    _g65 = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
-                    _m65 = _dil > 0
-                    _ring65 = (cv2.dilate(_dil,
+                    _g2 = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
+                    _m = _dil > 0
+                    _ring2 = (cv2.dilate(_dil,
                                           np.ones((13, 13), np.uint8)) > 0) \
-                        & (~_m65)
-                    if int(_ring65.sum()) >= 60:
-                        _bg_med65 = float(np.median(_g65[_ring65]))
-                        if _bg_med65 < 100.0:
-                            _glow65 = (_g65 >= _bg_med65 + 26.0) & \
+                        & (~_m)
+                    if int(_ring2.sum()) >= 60:
+                        _bg_med2 = float(np.median(_g2[_ring2]))
+                        if _bg_med2 < 100.0:
+                            _glow = (_g2 >= _bg_med2 + 26.0) & \
                                 (cv2.dilate(_dil, np.ones(
                                     (15, 15), np.uint8)) > 0)
-                            _glow65 = cv2.morphologyEx(
-                                _glow65.astype(np.uint8), cv2.MORPH_CLOSE,
+                            _glow = cv2.morphologyEx(
+                                _glow.astype(np.uint8), cv2.MORPH_CLOSE,
                                 np.ones((7, 7), np.uint8))
                             _dil = cv2.bitwise_or(
-                                _dil, (_glow65 > 0).astype(np.uint8) * 255)
+                                _dil, (_glow > 0).astype(np.uint8) * 255)
                 except Exception:
-                    _bg_med65 = None
+                    _bg_med2 = None
                 try:
                     _thick = float(cv2.distanceTransform(
                         (_dil > 0).astype(np.uint8), cv2.DIST_L2, 3).max())
@@ -11173,7 +11173,7 @@ class _MangaTranslatorBody_85:
                     _thick = _thick0
                 # v1.14.65 — رویِ پنلِ تیره هرگز «نازک» حساب نشو (گلو)
                 _thin = (_thick <= 28.0) and not (
-                    _bg_med65 is not None and _bg_med65 < 100.0)
+                    _bg_med2 is not None and _bg_med2 < 100.0)
                 # v1.14.48: استروکِ نازک روی گرادیان → پرکردنِ صفحه‌ایِ حلقه
                 # (قبل از TELEA که رنگِ هنرِ نزدیک را می‌کشد)
                 if _thick0 <= 14.0:
@@ -11188,19 +11188,19 @@ class _MangaTranslatorBody_85:
                 # دورِ حرف زنده می‌ماند (بازتولیدِ لکهٔ قرمزِ POCO F4)
                 # + برایِ خوشهٔ تبلیغ (promo) هرگز refine نکن — ماسکِ توپرِ
                 # بنر باید توپر بماند وگرنه بینِ حروفِ بنر بنفش می‌ماند
-                _is_promo65 = False
+                _is_promo = False
                 try:
-                    for _pb65 in (getattr(self, "_promo_rect_boxes",
+                    for _pb2 in (getattr(self, "_promo_rect_boxes",
                                           None) or []):
-                        if not (cx1 < int(_pb65[0]) or cx0 > int(_pb65[2])
-                                or cy1 < int(_pb65[1]) or cy0 > int(_pb65[3])):
-                            _is_promo65 = True
+                        if not (cx1 < int(_pb2[0]) or cx0 > int(_pb2[2])
+                                or cy1 < int(_pb2[1]) or cy0 > int(_pb2[3])):
+                            _is_promo = True
                             break
                 except Exception:
-                    _is_promo65 = False
+                    _is_promo = False
                 if self._bg_is_textured(crop_img, _dil) and \
-                        not _is_promo65 and \
-                        (_bg_med65 is None or _bg_med65 >= 100.0):
+                        not _is_promo and \
+                        (_bg_med2 is None or _bg_med2 >= 100.0):
                     _refined = self._glyph_refine_mask(crop_img, _dil)
                     if _refined is not None:
                         _tl = self._opencv_inpaint_hq(crop_img, _refined)
@@ -11212,7 +11212,7 @@ class _MangaTranslatorBody_85:
                     if _sm is not None:
                         crop_msk = _dil
                         result = _sm
-                    elif _thin and not _is_promo65:
+                    elif _thin and not _is_promo:
                         _refined = self._glyph_refine_mask(crop_img, _dil)
                         if _refined is not None:
                             _sm2 = self._smooth_bg_fill(crop_img, _refined)
@@ -11254,11 +11254,11 @@ class _MangaTranslatorBody_85:
                             # تنظیمِ رنگِ نتیجهٔ LaMa نباید رد شود، وگرنه
                             # نوارها به‌صورتِ «مستطیلِ کثیفِ کدر» می‌مانند.
                             try:
-                                _rq81 = np.percentile(
+                                _rq = np.percentile(
                                     _dstc[_ring].astype(np.float32),
                                     [25, 75])
                                 _ring_ok = (_ring_std <= 26.0) or (
-                                    float(_rq81[1] - _rq81[0]) <= 42.0)
+                                    float(_rq[1] - _rq[0]) <= 42.0)
                             except Exception:
                                 _ring_ok = _ring_std <= 26.0
                             if _ring_ok:
@@ -11299,119 +11299,119 @@ class _MangaTranslatorBody_85:
                         # «صاف/گرادیانی» (کارتِ عنوان) اجرا شود؛ رویِ
                         # زمینهٔ بافت‌مند میدانِ دیفرانسِ باکسِ بزرگ خودش
                         # باندِ موج‌دار می‌سازد (تستِ 412e9e) → خودکار رد.
-                        _go94 = False
+                        _go = False
                         if method == "LaMa" \
                                 and os.environ.get(
                                     "MANGA_NO_LFCM", "0") != "1":
                             try:
-                                _mbT94 = (crop_msk > 0)
-                                if int(_mbT94.sum()) >= 2000:
-                                    _ri94 = cv2.dilate(
-                                        _mbT94.astype(np.uint8),
+                                _mbT = (crop_msk > 0)
+                                if int(_mbT.sum()) >= 2000:
+                                    _ri = cv2.dilate(
+                                        _mbT.astype(np.uint8),
                                         np.ones((19, 19), np.uint8)) > 0
-                                    _ro94 = cv2.dilate(
-                                        _mbT94.astype(np.uint8),
+                                    _ro = cv2.dilate(
+                                        _mbT.astype(np.uint8),
                                         np.ones((41, 41), np.uint8)) > 0
-                                    _rt94 = _ro94 & (~_ri94)
-                                    _gT94 = cv2.cvtColor(
+                                    _rt = _ro & (~_ri)
+                                    _gT = cv2.cvtColor(
                                         image[cy0:cy1, cx0:cx1],
                                         cv2.COLOR_BGR2GRAY)
-                                    _rs94 = (float(_gT94[_rt94].std())
-                                             if int(_rt94.sum()) >= 200
+                                    _rs = (float(_gT[_rt].std())
+                                             if int(_rt.sum()) >= 200
                                              else 99.0)
-                                    _go94 = (_rs94 <= 34.0)
+                                    _go = (_rs <= 34.0)
                                     if self.debug:
                                         print(f"  [🔍]LFCM "
                                               f"gate crop@({cx0},{cy0}) "
-                                              f"ring_std={_rs94:.0f} → "
-                                              f"{'RUN' if _go94 else 'skip'}",
+                                              f"ring_std={_rs:.0f} → "
+                                              f"{'RUN' if _go else 'skip'}",
                                               flush=True)
                             except Exception:
-                                _go94 = False
-                        _mB94 = (crop_msk > 0) if crop_msk.dtype != np.uint8 \
+                                _go = False
+                        _mB3 = (crop_msk > 0) if crop_msk.dtype != np.uint8 \
                             else (crop_msk > 0)
-                        _nMB94 = int(_mB94.sum())
-                        if _go94 and _nMB94 >= 2000:
-                            _th94 = float(cv2.distanceTransform(
-                                _mB94.astype(np.uint8), cv2.DIST_L2, 3).max())
+                        _nMB = int(_mB3.sum())
+                        if _go and _nMB >= 2000:
+                            _th = float(cv2.distanceTransform(
+                                _mB3.astype(np.uint8), cv2.DIST_L2, 3).max())
                             # v1.14.95d — پنجرهٔ LFCM باید نسبت به «پهنایِ
                             # نوار» هم مقیاس شود؛ وگرنه در انتهایِ نوارهایِ
                             # عریض (پلاکِ ۶۰۰px) پروفیلِ افقیِ وینیت را
                             # نمی‌گیرد و لبهٔ روشن/تیرهٔ نوار پیدا می‌ماند.
-                            _cw94 = int(crop_msk.shape[1])
-                            _k94 = int(np.clip(
-                                round(max(_th94 * 3.0, _cw94 * 0.45)),
+                            _cw = int(crop_msk.shape[1])
+                            _k = int(np.clip(
+                                round(max(_th * 3.0, _cw * 0.45)),
                                 41, 331))
-                            if _k94 % 2 == 0:
-                                _k94 += 1
-                            _img94 = image[cy0:cy1, cx0:cx1].astype(
+                            if _k % 2 == 0:
+                                _k += 1
+                            _img = image[cy0:cy1, cx0:cx1].astype(
                                 np.float32)
-                            _res94 = result.astype(np.float32)
-                            _wb94 = (~_mB94).astype(np.float32)
+                            _res4 = result.astype(np.float32)
+                            _wb = (~_mB3).astype(np.float32)
                             try:
-                                _raw94 = getattr(
+                                _raw = getattr(
                                     self, "_page_raw_text_mask", None)
-                                if (_raw94 is not None
-                                        and _raw94.shape
+                                if (_raw is not None
+                                        and _raw.shape
                                         == image.shape[:2]):
-                                    _rd94 = cv2.dilate(
-                                        _raw94[cy0:cy1, cx0:cx1],
+                                    _rd = cv2.dilate(
+                                        _raw[cy0:cy1, cx0:cx1],
                                         np.ones((9, 9), np.uint8))
-                                    _wb94[(_rd94 > 0) & (~_mB94)] = 0.0
+                                    _wb[(_rd > 0) & (~_mB3)] = 0.0
                             except Exception:
                                 pass
                             # v1.14.94 — پیکسل‌هایِ قفلِ ساختار (قاب/نوارِ
                             # روشن) هم نمونهٔ زمینه نیستند؛ وگرنه بلورِ
                             # بزرگ رنگِ نقره‌ایِ قاب را وسطِ حفره می‌کشد
                             try:
-                                _pa94 = getattr(self, "_prot_all", None)
-                                if (_pa94 is not None
-                                        and _pa94.shape
+                                _pa2 = getattr(self, "_prot_all", None)
+                                if (_pa2 is not None
+                                        and _pa2.shape
                                         == image.shape[:2]):
-                                    _pd94 = cv2.dilate(
-                                        _pa94[cy0:cy1, cx0:cx1],
+                                    _pd = cv2.dilate(
+                                        _pa2[cy0:cy1, cx0:cx1],
                                         np.ones((5, 5), np.uint8))
-                                    _wb94[(_pd94 > 0)
-                                          & (~_mB94)] = 0.0
+                                    _wb[(_pd > 0)
+                                          & (~_mB3)] = 0.0
                             except Exception:
                                 pass
-                            _den94 = cv2.boxFilter(
-                                _wb94, -1, (_k94, _k94))
-                            _num94 = cv2.boxFilter(
-                                _img94 * _wb94[..., None], -1,
-                                (_k94, _k94))
-                            _bg94 = _num94 / np.maximum(
-                                _den94, 1e-3)[..., None]
-                            _fl94 = cv2.boxFilter(
-                                _res94, -1, (_k94, _k94))
-                            _d94 = np.clip(_bg94 - _fl94, -44.0, 44.0)
-                            _w94 = cv2.GaussianBlur(
+                            _den = cv2.boxFilter(
+                                _wb, -1, (_k, _k))
+                            _num = cv2.boxFilter(
+                                _img * _wb[..., None], -1,
+                                (_k, _k))
+                            _bg3 = _num / np.maximum(
+                                _den, 1e-3)[..., None]
+                            _fl2 = cv2.boxFilter(
+                                _res4, -1, (_k, _k))
+                            _d2 = np.clip(_bg3 - _fl2, -44.0, 44.0)
+                            _w2 = cv2.GaussianBlur(
                                 (cv2.dilate(
-                                    _mB94.astype(np.uint8),
+                                    _mB3.astype(np.uint8),
                                     np.ones((3, 3), np.uint8)) * 255),
                                 (0, 0), 3.0).astype(np.float32) / 255.0
-                            _w94 = np.clip(_w94, 0.0, 1.0)[..., None]
+                            _w2 = np.clip(_w2, 0.0, 1.0)[..., None]
                             # v1.14.94 — جاهایی که زمینهٔ نمونه‌گیریِ کافی
                             # ندارند وزنِ نرمِ پایین (نه cutoffِ بلوکی)
                             try:
-                                _low94 = (_den94 < 0.05).astype(np.float32)
-                                if float(_low94.mean()) > 0.001:
-                                    _low94 = cv2.GaussianBlur(
-                                        _low94, (31, 31), 8.0)
-                                    _w94 = _w94 * (
-                                        1.0 - 0.65 * _low94[..., None])
+                                _low = (_den < 0.05).astype(np.float32)
+                                if float(_low.mean()) > 0.001:
+                                    _low = cv2.GaussianBlur(
+                                        _low, (31, 31), 8.0)
+                                    _w2 = _w2 * (
+                                        1.0 - 0.65 * _low[..., None])
                             except Exception:
                                 pass
-                            _res94 = _res94 + _d94 * _w94
+                            _res4 = _res4 + _d2 * _w2
                             result = np.clip(
-                                _res94, 0, 255).astype(np.uint8)
+                                _res4, 0, 255).astype(np.uint8)
                             if self.debug:
                                 try:
-                                    _dm94 = float(np.abs(
-                                        _d94 * _w94).mean())
+                                    _dm2 = float(np.abs(
+                                        _d2 * _w2).mean())
                                     print(f"  [✓]LFCM "
                                           f"crop@({cx0},{cy0}) "
-                                          f"k={_k94} |Δ|={_dm94:.1f}",
+                                          f"k={_k} |Δ|={_dm2:.1f}",
                                           flush=True)
                                 except Exception:
                                     pass
@@ -11426,91 +11426,91 @@ class _MangaTranslatorBody_85:
                     # کاملِ قائم جایگزینِ فرکانسِ پایینِ پر می‌شود —
                     # بافتِ فرکانس‌بالا دست‌نخورده می‌ماند).
                     try:
-                        _mB95 = (crop_msk > 0)
-                        _h95, _w95 = _mB95.shape
-                        if int(_mB95.sum()) >= 8000 and _w95 >= 260:
-                            _ysB95, _xsB95 = np.nonzero(_mB95)
-                            _ty95, _by95 = (int(_ysB95.min()),
-                                            int(_ysB95.max()))
-                            _gO95 = cv2.cvtColor(
+                        _mB4 = (crop_msk > 0)
+                        _h2, _w3 = _mB4.shape
+                        if int(_mB4.sum()) >= 8000 and _w3 >= 260:
+                            _ysB, _xsB = np.nonzero(_mB4)
+                            _ty, _by = (int(_ysB.min()),
+                                            int(_ysB.max()))
+                            _gO3 = cv2.cvtColor(
                                 image[cy0:cy1, cx0:cx1],
                                 cv2.COLOR_BGR2GRAY).astype(np.float32)
-                            _top95 = max(0, _ty95 - 16)
-                            _top95b = max(1, _ty95 - 3)
-                            _bot95 = min(_h95, _by95 + 4)
-                            _bot95b = min(_h95, _by95 + 17)
-                            if (_by95 - _ty95) >= 40 and \
-                                    (_top95b - _top95) >= 6 and \
-                                    (_bot95b - _bot95) >= 6:
+                            _top = max(0, _ty - 16)
+                            _top95b = max(1, _ty - 3)
+                            _bot = min(_h2, _by + 4)
+                            _bot95b = min(_h2, _by + 17)
+                            if (_by - _ty) >= 40 and \
+                                    (_top95b - _top) >= 6 and \
+                                    (_bot95b - _bot) >= 6:
                                 _res95f = result.astype(np.float32)
-                                _corr95 = np.zeros(
-                                    (_h95, _w95, 3), dtype=np.float32)
-                                _nok95 = 0
-                                for _x95 in range(_w95):
-                                    if not _mB95[_ty95:_by95 + 1,
-                                                 _x95].any():
+                                _corr = np.zeros(
+                                    (_h2, _w3, 3), dtype=np.float32)
+                                _nok = 0
+                                for _x in range(_w3):
+                                    if not _mB4[_ty:_by + 1,
+                                                 _x].any():
                                         continue
-                                    if _mB95[_top95:_top95b, _x95].any() \
-                                            or _mB95[_bot95:_bot95b,
-                                                     _x95].any():
+                                    if _mB4[_top:_top95b, _x].any() \
+                                            or _mB4[_bot:_bot95b,
+                                                     _x].any():
                                         continue
-                                    _rt95 = _gO95[_top95:_top95b, _x95]
-                                    _rb95 = _gO95[_bot95:_bot95b, _x95]
-                                    if _rt95.size < 4 or _rb95.size < 4:
+                                    _rt2 = _gO3[_top:_top95b, _x]
+                                    _rb2 = _gO3[_bot:_bot95b, _x]
+                                    if _rt2.size < 4 or _rb2.size < 4:
                                         continue
-                                    if max(_rt95.std(), _rb95.std()) > 22.0:
+                                    if max(_rt2.std(), _rb2.std()) > 22.0:
                                         continue
-                                    _yy95 = np.linspace(
-                                        0.0, 1.0, _by95 - _ty95 + 1,
+                                    _yy = np.linspace(
+                                        0.0, 1.0, _by - _ty + 1,
                                         dtype=np.float32)[:, None]
-                                    for _c95 in range(3):
-                                        _mt95 = float(np.median(
-                                            image[cy0 + _top95:
+                                    for _c2 in range(3):
+                                        _mt = float(np.median(
+                                            image[cy0 + _top:
                                                   cy0 + _top95b,
-                                                  cx0 + _x95,
-                                                  _c95]).astype(np.float32))
-                                        _mb95 = float(np.median(
-                                            image[cy0 + _bot95:
+                                                  cx0 + _x,
+                                                  _c2]).astype(np.float32))
+                                        _mb = float(np.median(
+                                            image[cy0 + _bot:
                                                   cy0 + _bot95b,
-                                                  cx0 + _x95,
-                                                  _c95]).astype(np.float32))
-                                        _tgt95 = (_mt95 * (1.0 - _yy95)
-                                                  + _mb95 * _yy95)
-                                        _lo95 = cv2.GaussianBlur(
-                                            _res95f[_ty95:_by95 + 1,
-                                                    _x95, _c95],
+                                                  cx0 + _x,
+                                                  _c2]).astype(np.float32))
+                                        _tgt = (_mt * (1.0 - _yy)
+                                                  + _mb * _yy)
+                                        _lo = cv2.GaussianBlur(
+                                            _res95f[_ty:_by + 1,
+                                                    _x, _c2],
                                             (0, 0), 0.02 * max(
-                                                8.0, _by95 - _ty95))
-                                        _corr95[_ty95:_by95 + 1, _x95,
-                                                _c95] = np.clip(
-                                            _tgt95 - _lo95, -26.0, 26.0
+                                                8.0, _by - _ty))
+                                        _corr[_ty:_by + 1, _x,
+                                                _c2] = np.clip(
+                                            _tgt - _lo, -26.0, 26.0
                                         ).reshape(-1)
-                                    _nok95 += 1
-                                if _nok95 >= max(40, int(0.35 * _w95)):
-                                    _corr95[:, :, 0] = cv2.GaussianBlur(
-                                        _corr95[:, :, 0], (0, 0), 9.0)
-                                    _corr95[:, :, 1] = cv2.GaussianBlur(
-                                        _corr95[:, :, 1], (0, 0), 9.0)
-                                    _corr95[:, :, 2] = cv2.GaussianBlur(
-                                        _corr95[:, :, 2], (0, 0), 9.0)
-                                    _wcol95 = (cv2.GaussianBlur(
+                                    _nok += 1
+                                if _nok >= max(40, int(0.35 * _w3)):
+                                    _corr[:, :, 0] = cv2.GaussianBlur(
+                                        _corr[:, :, 0], (0, 0), 9.0)
+                                    _corr[:, :, 1] = cv2.GaussianBlur(
+                                        _corr[:, :, 1], (0, 0), 9.0)
+                                    _corr[:, :, 2] = cv2.GaussianBlur(
+                                        _corr[:, :, 2], (0, 0), 9.0)
+                                    _wcol = (cv2.GaussianBlur(
                                         (cv2.dilate(
-                                            _mB95.astype(np.uint8),
+                                            _mB4.astype(np.uint8),
                                             np.ones((3, 3),
                                                     np.uint8)) * 255),
                                         (0, 0), 3.0
                                     ).astype(np.float32) / 255.0)
-                                    _res95e = _res95f + _corr95 \
-                                        * _wcol95[..., None]
+                                    _res95e = _res95f + _corr \
+                                        * _wcol[..., None]
                                     result = np.clip(
                                         _res95e, 0, 255).astype(np.uint8)
                                     if self.debug:
-                                        _act95 = float(np.abs(
-                                            _corr95).mean())
+                                        _act = float(np.abs(
+                                            _corr).mean())
                                         print(f"  [✓]col-harmonize "
                                               f"crop@({cx0},{cy0}) "
-                                              f"cols={_nok95} "
-                                              f"|corr|={_act95:.1f}",
+                                              f"cols={_nok} "
+                                              f"|corr|={_act:.1f}",
                                               flush=True)
                     except Exception:
                         pass
@@ -11704,13 +11704,13 @@ class _MangaTranslatorBody_85:
                                                   np.ones((31, 31), np.uint8))
                                        > 0) & (_boxW == 0))
                             try:
-                                _rawW94 = getattr(
+                                _rawW = getattr(
                                     self, "_page_raw_text_mask", None)
-                                if (_rawW94 is not None
-                                        and _rawW94.shape
+                                if (_rawW is not None
+                                        and _rawW.shape
                                         == image.shape[:2]):
                                     _ringW &= (cv2.dilate(
-                                        _rawW94[_ry0W:_ry1W,
+                                        _rawW[_ry0W:_ry1W,
                                                 _rx0W:_rx1W],
                                         np.ones((5, 5), np.uint8)) == 0)
                             except Exception:
@@ -11756,22 +11756,22 @@ class _MangaTranslatorBody_85:
                         # به سویپ برگردانده می‌شوند. قاب/پرتوِ
                         # کشیده دست‌نخورده می‌ماند.
                         try:
-                            _bP96 = (_sub >= 140) & (
+                            _bP = (_sub >= 140) & (
                                 _protW[_wy0:_wy1, _wx0:_wx1] > 0)
-                            if int(_bP96.sum()) > 0:
-                                _nP96, _lP96, _sP96, _ = \
+                            if int(_bP.sum()) > 0:
+                                _nP, _lP, _sP, _ = \
                                     cv2.connectedComponentsWithStats(
-                                        _bP96.astype(np.uint8), 8)
-                                for _jP96 in range(1, _nP96):
-                                    _aP96 = int(_sP96[_jP96,
+                                        _bP.astype(np.uint8), 8)
+                                for _jP in range(1, _nP):
+                                    _aP = int(_sP[_jP,
                                                       cv2.CC_STAT_AREA])
-                                    _wP96 = int(_sP96[_jP96,
+                                    _wP = int(_sP[_jP,
                                                       cv2.CC_STAT_WIDTH])
-                                    _hP96 = int(_sP96[_jP96,
+                                    _hP = int(_sP[_jP,
                                                       cv2.CC_STAT_HEIGHT])
-                                    if _aP96 <= 1200 and \
-                                            max(_wP96, _hP96) <= 90:
-                                        _bright |= (_lP96 == _jP96)
+                                    if _aP <= 1200 and \
+                                            max(_wP, _hP) <= 90:
+                                        _bright |= (_lP == _jP)
                         except Exception:
                             pass
                     _bright = cv2.morphologyEx(
@@ -11785,14 +11785,14 @@ class _MangaTranslatorBody_85:
                     # امن است که پیکسل‌هایِ تیرهٔ داخلِ باکس یکدست باشند
                     # (کارتِ سیاه/سرخِ صاف). محفظهٔ بافت‌مند/گرادیانی
                     # (نئبولای EXEC) با std تیره‌هایِ بالا رد می‌شود.
-                    _darkM96 = ((_sub < 120).astype(np.uint8))
-                    _dkV96 = _sub[_darkM96 > 0]
-                    if _dkV96.size >= 200 and \
-                            float(_dkV96.std()) > 30.0:
+                    _darkM2 = ((_sub < 120).astype(np.uint8))
+                    _dkV = _sub[_darkM2 > 0]
+                    if _dkV.size >= 200 and \
+                            float(_dkV.std()) > 30.0:
                         if self.debug:
                             print(f"  [✓]سویپِ جوهرِ روشن رد شد — "
                                   f"محفظهٔ یکدست نیست "
-                                  f"(std={float(_dkV96.std()):.0f})",
+                                  f"(std={float(_dkV.std()):.0f})",
                                   flush=True)
                         continue
                     _subC = cleaned[_wy0:_wy1, _wx0:_wx1]
@@ -11848,17 +11848,17 @@ class _MangaTranslatorBody_85:
         _sdd = os.environ.get("MANGA_STAGE_DUMP", "")
         # v1.14.81 — پروبِ نقطه‌ای: MANGA_PROBE="x,y" → مقدارِ cleaned در
         # هر مرحله چاپ می‌شود (ریشه‌یابیِ «چه مرحله‌ای پیکسل را کشت»)
-        _probe81 = None
+        _probe = None
         try:
             _pv = os.environ.get("MANGA_PROBE", "")
             if _pv and "," in _pv:
-                _px81, _py81 = [int(v) for v in _pv.split(",")]
-                _probe81 = (_px81, _py81)
+                _px2, _py2 = [int(v) for v in _pv.split(",")]
+                _probe = (_px2, _py2)
         except Exception:
-            _probe81 = None
-        if _probe81 is not None:
-            print(f"  [🔍PROBE] start=({cleaned[_probe81[1], _probe81[0]]}) "
-                  f"orig=({image[_probe81[1], _probe81[0]]})", flush=True)
+            _probe = None
+        if _probe is not None:
+            print(f"  [🔍PROBE] start=({cleaned[_probe[1], _probe[0]]}) "
+                  f"orig=({image[_probe[1], _probe[0]]})", flush=True)
         if _sdd:
             try:
                 _si = int(getattr(self, "_stage_i", 0))
@@ -11866,8 +11866,8 @@ class _MangaTranslatorBody_85:
                 _sd = os.path.join(_sdd, f"s{_si:02d}")
                 os.makedirs(_sd, exist_ok=True)
                 cv2.imwrite(os.path.join(_sd, "pre_compose.jpg"), cleaned)
-                if _probe81 is not None:
-                    print(f"  [🔍PROBE] pre_compose={cleaned[_probe81[1], _probe81[0]]}", flush=True)
+                if _probe is not None:
+                    print(f"  [🔍PROBE] pre_compose={cleaned[_probe[1], _probe[0]]}", flush=True)
             except Exception:
                 _sd = ""
         # v1.14.63 — کامپوزِ دو-عکسیِ «خط‌به‌خطِ سخت»: فقط نوارِ متنِ خام
@@ -11888,8 +11888,8 @@ class _MangaTranslatorBody_85:
         if _sdd and _sd:
             try:
                 cv2.imwrite(os.path.join(_sd, "post_compose.jpg"), cleaned)
-                if _probe81 is not None:
-                    print(f"  [🔍PROBE] post_compose={cleaned[_probe81[1], _probe81[0]]}", flush=True)
+                if _probe is not None:
+                    print(f"  [🔍PROBE] post_compose={cleaned[_probe[1], _probe[0]]}", flush=True)
             except Exception:
                 pass
 
@@ -11949,7 +11949,7 @@ class _MangaTranslatorBody_85:
             import traceback as _tb
             print("  [!] Residue sweep error:")
             _tb.print_exc()
-        _stage185("جارویِ پسماند")
+        _stage("جارویِ پسماند")
         if _sdd and _sd:
             try:
                 cv2.imwrite(os.path.join(_sd, "post_sweep.jpg"), cleaned)
@@ -11966,7 +11966,7 @@ class _MangaTranslatorBody_85:
             import traceback as _tb
             print("  [!] Bubble interior sweep error:")
             _tb.print_exc()
-        _stage185("جارویِ حباب")
+        _stage("جارویِ حباب")
 
         # v1.14.75 — «گارانتیِ کامپوزِ دوباره»: بعدازِ همهٔ سویپ‌ها/سویپ
         # نجات/پولیش، خروجیِ نهایی دوباره با _compose_two_image روی
@@ -11990,21 +11990,21 @@ class _MangaTranslatorBody_85:
                     if _pa81f is not None and int(cv2.countNonZero(_pa81f)):
                         _sel81f = _pa81f > 0
                         try:
-                            _ins96 = _sel81f & (_cmp2 > 0)
-                            if int(_ins96.sum()) > 0:
-                                _nG96, _lG96, _sG96, _ = \
+                            _ins = _sel81f & (_cmp2 > 0)
+                            if int(_ins.sum()) > 0:
+                                _nG, _lG, _sG, _ = \
                                     cv2.connectedComponentsWithStats(
-                                        _ins96.astype(np.uint8), 8)
-                                for _jG96 in range(1, _nG96):
-                                    _aG96 = int(_sG96[_jG96,
+                                        _ins.astype(np.uint8), 8)
+                                for _jG in range(1, _nG):
+                                    _aG = int(_sG[_jG,
                                                       cv2.CC_STAT_AREA])
-                                    _wG96 = int(_sG96[_jG96,
+                                    _wG = int(_sG[_jG,
                                                       cv2.CC_STAT_WIDTH])
-                                    _hG96 = int(_sG96[_jG96,
+                                    _hG = int(_sG[_jG,
                                                       cv2.CC_STAT_HEIGHT])
-                                    if _aG96 <= 1200 and \
-                                            max(_wG96, _hG96) <= 90:
-                                        _sel81f &= ~(_lG96 == _jG96)
+                                    if _aG <= 1200 and \
+                                            max(_wG, _hG) <= 90:
+                                        _sel81f &= ~(_lG == _jG)
                         except Exception:
                             pass
                         cleaned[_sel81f] = image[_sel81f]
@@ -12043,10 +12043,10 @@ class _MangaTranslatorBody_85:
         if _cmp2 is not None \
                 and os.environ.get("MANGA_GHOST_POLISH", "1") != "0":
             try:
-                cleaned, _n_gp213 = self._strip_ghost_polish(
+                cleaned, _n_gp = self._strip_ghost_polish(
                     image, cleaned, _cmp2)
-                if _n_gp213 and self.debug:
-                    print(f"  [*] پولیشِ شبحِ نوار: {_n_gp213} پیکسل "
+                if _n_gp and self.debug:
+                    print(f"  [*] پولیشِ شبحِ نوار: {_n_gp} پیکسل "
                           f"پاک شد")
             except Exception:
                 pass
@@ -12084,40 +12084,40 @@ class _MangaTranslatorBody_85:
                         image, cv2.COLOR_BGR2GRAY).astype(np.float32)
                     _m78a = cv2.blur(_g78o, (11, 11))
                     _m78b = cv2.blur(_g78o * _g78o, (11, 11))
-                    _std78 = np.sqrt(np.maximum(
+                    _std = np.sqrt(np.maximum(
                         _m78b - _m78a * _m78a, 0))
                     # v1.14.78e — علاوه بر «تخت»، «بی‌لبه» هم لازم است:
                     # پس‌زمینهٔ بوکهٔ ساختمان/نرده محلی-تخت است ولی
                     # لبه‌هایِ ساختاری دارد (میلهٔ نرده، قاب پنجره) —
                     # پیازی آن لبه‌ها را می‌بَرد (img4 PARAGRAPH2).
                     # تخت + بدونِ لبه = حباب/گرادیانِ نرم → پیازی اوکی.
-                    _lap78 = np.abs(cv2.Laplacian(
+                    _lap = np.abs(cv2.Laplacian(
                         _g78o, cv2.CV_32F))
-                    _edgef78 = cv2.blur(
-                        (_lap78 > 25.0).astype(np.float32),
+                    _edgef = cv2.blur(
+                        (_lap > 25.0).astype(np.float32),
                         (31, 31))
-                    _flatf78 = ((cv2.blur(
-                        (_std78 < 12.0).astype(np.float32),
+                    _flatf = ((cv2.blur(
+                        (_std < 12.0).astype(np.float32),
                         (31, 31)) > 0.55)
-                        & (_edgef78 < 0.06))
+                        & (_edgef < 0.06))
                 except Exception:
-                    _flatf78 = None
+                    _flatf = None
                 for _dbT in (getattr(self, "_donor_boxes", None) or []):
                     _tx0, _ty0, _tx1, _ty1 = [int(v) for v in _dbT]
                     _tx0 = max(0, _tx0); _ty0 = max(0, _ty0)
                     _tx1 = min(cleaned.shape[1], _tx1)
                     _ty1 = min(cleaned.shape[0], _ty1)
                     if _tx1 - _tx0 >= 10 and _ty1 - _ty0 >= 10:
-                        if _flatf78 is not None:
+                        if _flatf is not None:
                             try:
                                 _ry0, _ry1 = max(0, _ty0 - 12), min(
-                                    _flatf78.shape[0], _ty1 + 12)
+                                    _flatf.shape[0], _ty1 + 12)
                                 _rx0, _rx1 = max(0, _tx0 - 12), min(
-                                    _flatf78.shape[1], _tx1 + 12)
+                                    _flatf.shape[1], _tx1 + 12)
                                 _rg = np.zeros(
                                     (_ry1 - _ry0, _rx1 - _rx0),
                                     dtype=bool)
-                                _rg[:, :] = _flatf78[_ry0:_ry1,
+                                _rg[:, :] = _flatf[_ry0:_ry1,
                                                      _rx0:_rx1]
                                 _rg[_ty0 - _ry0:_ty1 - _ry0,
                                     _tx0 - _rx0:_tx1 - _rx0] = False
@@ -12141,27 +12141,27 @@ class _MangaTranslatorBody_85:
                     # هستند. پیکسلِ متنِ پاک‌شده (تیره در اورجینال، روشن
                     # در خروجی) باز هم «ناشناخته» می‌ماند و پر می‌شود.
                     try:
-                        _gO78 = cv2.cvtColor(
+                        _gO = cv2.cvtColor(
                             image, cv2.COLOR_BGR2GRAY).astype(np.float32)
-                        _gC78 = cv2.cvtColor(
+                        _gC = cv2.cvtColor(
                             cleaned, cv2.COLOR_BGR2GRAY).astype(np.float32)
-                        _bg78 = cv2.medianBlur(
-                            _gO78.astype(np.uint8), 31).astype(np.float32)
-                        _drk78 = (_gO78 < 120.0) | (
-                            (_bg78 - _gO78) > 45.0)
-                        _keep78 = cv2.dilate(
-                            (_drk78 & (np.abs(_gC78 - _gO78) < 22.0)
+                        _bg = cv2.medianBlur(
+                            _gO.astype(np.uint8), 31).astype(np.float32)
+                        _drk = (_gO < 120.0) | (
+                            (_bg - _gO) > 45.0)
+                        _keep2 = cv2.dilate(
+                            (_drk & (np.abs(_gC - _gO) < 22.0)
                              ).astype(np.uint8),
                             np.ones((3, 3), np.uint8)) > 0
-                        _keep78 &= _sel
-                        if bool(_keep78.any()):
-                            _sel = _sel & (~_keep78)
+                        _keep2 &= _sel
+                        if bool(_keep2.any()):
+                            _sel = _sel & (~_keep2)
                             _known = np.maximum(
                                 _known,
-                                _keep78.astype(np.float32))
+                                _keep2.astype(np.float32))
                             if self.debug:
                                 print(f"  [🛡]"
-                                      f"{int(_keep78.sum())}px دیوارِ "
+                                      f"{int(_keep2.sum())}px دیوارِ "
                                       f"حفظ‌شده = سدِ پیازی")
                     except Exception:
                         pass
@@ -12282,14 +12282,14 @@ class _MangaTranslatorBody_85:
                         image.shape[0], _by1 + 7)
                     _rx0, _rx1 = max(0, _bx0 - 7), min(
                         image.shape[1], _bx1 + 7)
-                    _ring78 = ~cv2.dilate(
+                    _ring3 = ~cv2.dilate(
                         _mB.astype(np.uint8),
                         np.ones((5, 5), np.uint8)).astype(bool)
-                    _ring78[:_ry0, :] = False
-                    _ring78[_ry1:, :] = False
-                    _ring78[:, :_rx0] = False
-                    _ring78[:, _rx1:] = False
-                    _rgv = _gC78c[_ring78]  # v1.14.78c2 — زمینه از
+                    _ring3[:_ry0, :] = False
+                    _ring3[_ry1:, :] = False
+                    _ring3[:, :_rx0] = False
+                    _ring3[:, _rx1:] = False
+                    _rgv = _gC78c[_ring3]  # v1.14.78c2 — زمینه از
                     # «خروجیِ پاک‌شده» نه اورجینال؛ وگرنه گلیف‌های
                     # اطرافِ متن std را منفجر می‌کنند و تیکِ واقعی
                     # رد می‌شد. اسکرین‌تون/هنر در خروجی هم ناهموار
@@ -12357,18 +12357,18 @@ class _MangaTranslatorBody_85:
         if os.environ.get("MANGA_HQC_FINAL", "1") == "1" \
                 and os.environ.get("MANGA_NO_HQC", "0") != "1":
             try:
-                _zq228 = getattr(self, "_compose_final_cmp", None)
-                if not isinstance(_zq228, np.ndarray) \
-                        or _zq228.ndim < 2 or not bool(_zq228.any()):
-                    _zq228 = _cmp2
-                if isinstance(_zq228, np.ndarray) and _zq228.any():
-                    self._fill_harmony_qc(cleaned, image, _zq228,
+                _zq = getattr(self, "_compose_final_cmp", None)
+                if not isinstance(_zq, np.ndarray) \
+                        or _zq.ndim < 2 or not bool(_zq.any()):
+                    _zq = _cmp2
+                if isinstance(_zq, np.ndarray) and _zq.any():
+                    self._fill_harmony_qc(cleaned, image, _zq,
                                           verbose=self.debug or True)
                     _hqcd = os.environ.get("MANGA_HQC_DUMP", "")
                     if _hqcd:
                         cv2.imwrite(_hqcd, cleaned)
                         cv2.imwrite(_hqcd + ".zone.png",
-                                    (_zq228.astype(np.uint8)) * 255)
+                                    (_zq.astype(np.uint8)) * 255)
                         print(f"  [*] HQC dump -> {_hqcd}", flush=True)
             except Exception:
                 pass
@@ -12500,13 +12500,13 @@ class _MangaTranslatorBody_85:
                                 or _cx + ww >= _sub_w - 1 \
                                 or _cy + hh >= _sub_h - 1:
                             continue
-                        _cm238 = (lab == i)
+                        _cm = (lab == i)
                         # داخلِ نوارِ کامپوز = لکهٔ خودِ پرکننده — فقط
                         # خرده‌لکهٔ ریز مجاز (نه تکهٔ بزرگِ احتمالیِ هنر)
-                        if bool((_cm238 & ex).any()):
+                        if bool((_cm & ex).any()):
                             if a > 300 or ww > 64 or hh > 44:
                                 continue
-                        gm[_cm238] = 255
+                        gm[_cm] = 255
                         n_g += 1
                     if n_g <= 0:
                         continue
@@ -12790,22 +12790,22 @@ class _MangaTranslatorBody_85:
                 pass
             if r.kind == "dialogue" and not getattr(r, "ocr_empty", False):
                 try:
-                    _bx30, _by30 = max(0, x0 - 34), max(0, y0 - 34)
-                    _bx31 = min(w, x1 + 34)
-                    _by31 = min(h, y1 + 34)
-                    if _bx31 - _bx30 < 20 or _by31 - _by30 < 20:
+                    _bx, _by = max(0, x0 - 34), max(0, y0 - 34)
+                    _bx2 = min(w, x1 + 34)
+                    _by2 = min(h, y1 + 34)
+                    if _bx2 - _bx < 20 or _by2 - _by < 20:
                         continue
-                    _dseed = ((_mdil[_by30:_by31, _bx30:_bx31] > 0)
+                    _dseed = ((_mdil[_by:_by2, _bx:_bx2] > 0)
                               .astype(np.uint8) * 255)
                     _ddom = self._bubble_domain_local(
-                        image[_by30:_by31, _bx30:_bx31], _dseed,
-                        rect_box=(x0 - _bx30, y0 - _by30,
+                        image[_by:_by2, _bx:_bx2], _dseed,
+                        rect_box=(x0 - _bx, y0 - _by,
                                   x1 - x0, y1 - y0))
                     _paper_mode = False
                     if _ddom is None:
                         try:
                             _hc = cv2.cvtColor(
-                                image[_by30:_by31, _bx30:_bx31],
+                                image[_by:_by2, _bx:_bx2],
                                 cv2.COLOR_BGR2HSV)
                             _frac = float(((_hc[..., 2] >= 170.0)
                                            & (_hc[..., 1] <= 60.0)).mean())
@@ -13694,26 +13694,26 @@ class _MangaTranslatorBody_85:
             # تصویر + ماسکِ خام + تعدادِ ناحیه؛ و محلِ فراخوانی بعد از
             # بارِ دوم آن را پاک میکند (self._spm_cache = None) تا کش
             # هیچ‌وقت کهنه نشود. PC بدونِ کش — بیت‌به‌بیت.
-            _spc186 = None
-            _key186 = None
+            _spc = None
+            _key = None
             if _android_gate("MANGA_PROT_CACHE"):
                 try:
-                    _key186 = (
+                    _key = (
                         image.__array_interface__["data"][0],
                         image.shape,
                         _raw_mask.__array_interface__["data"][0],
                         len(regions or []))
                 except Exception:
-                    _key186 = None
-                _spc186 = getattr(self, "_spm_cache", None)
-            _ln = _vl106 = _hl106 = None
-            _hit186 = bool(_spc186 is not None and _key186 is not None
-                           and _spc186[0] == _key186
-                           and len(_spc186) == 7)
-            if _hit186:
-                dark_full, poly_all = _spc186[1], _spc186[2]
-                out = _spc186[3].copy()
-                _ln, _vl106, _hl106 = _spc186[4], _spc186[5], _spc186[6]
+                    _key = None
+                _spc = getattr(self, "_spm_cache", None)
+            _ln = _vl = _hl = None
+            _hit = bool(_spc is not None and _key is not None
+                           and _spc[0] == _key
+                           and len(_spc) == 7)
+            if _hit:
+                dark_full, poly_all = _spc[1], _spc[2]
+                out = _spc[3].copy()
+                _ln, _vl, _hl = _spc[4], _spc[5], _spc[6]
                 # بخشهایِ وابسته به near_px — ارزان — از نو
                 _nk = 25 if int(near_px) >= 25 \
                     else (13 if int(near_px) >= 13 else 9)
@@ -13733,8 +13733,8 @@ class _MangaTranslatorBody_85:
                 # روی زمینهٔ روشن) با آستانهٔ مطلقِ ۱۲۰ گم می‌شد و بخشی از دیوار
                 # باز هم لکه می‌شد. medianBlurِ ۳۱ زمینهٔ محلی است.
                 try:
-                    _bg31 = cv2.medianBlur(g, 31)
-                    dark_rel = ((_bg31.astype(np.int16)
+                    _bg = cv2.medianBlur(g, 31)
+                    dark_rel = ((_bg.astype(np.int16)
                                  - g.astype(np.int16)) > 45)
                     dark = ((g < 120) | dark_rel).astype(np.uint8) * 255
                 except Exception:
@@ -13771,23 +13771,23 @@ class _MangaTranslatorBody_85:
                 # ماسکِ لوگو/حباب قابِ چپِ پنل را در میان بریده بود و تکههای
                 # یتیم مثل «لبهٔ سیاه» دیده میشدند.
                 try:
-                    _vl106 = cv2.morphologyEx(
+                    _vl = cv2.morphologyEx(
                         dark_full, cv2.MORPH_OPEN,
                         np.ones((60, 1), np.uint8))
-                    _hl106 = cv2.morphologyEx(
+                    _hl = cv2.morphologyEx(
                         dark_full, cv2.MORPH_OPEN,
                         np.ones((1, 60), np.uint8))
-                    if int(cv2.countNonZero(_vl106)) or \
-                            int(cv2.countNonZero(_hl106)):
+                    if int(cv2.countNonZero(_vl)) or \
+                            int(cv2.countNonZero(_hl)):
                         # v1.14.106b — ضخامتِ بدونِ پخش: erodeِ بدونِ dilate
                         # تا هستهٔ توپر حذف شود ولی خطِ نازکِ چسبیده به آن زنده
                         # بماند (dilateِ ±۷px قابِ ۵px کناری را هم میکشت —
                         # کیسِ ۱۰۱۸: کلِ قابِ چپِ پنل)
-                        _vth = cv2.erode(_vl106,
+                        _vth = cv2.erode(_vl,
                                          np.ones((1, 15), np.uint8))
-                        _hth = cv2.erode(_hl106,
+                        _hth = cv2.erode(_hl,
                                          np.ones((15, 1), np.uint8))
-                        _ln = ((_vl106 | _hl106) & ~_vth & ~_hth
+                        _ln = ((_vl | _hl) & ~_vth & ~_hth
                                & (poly_all == 0)).astype(np.uint8) * 255
                         _ln = cv2.morphologyEx(
                             _ln, cv2.MORPH_CLOSE,
@@ -13831,28 +13831,28 @@ class _MangaTranslatorBody_85:
                                   flush=True)
                 except Exception:
                     if self.debug:
-                        import traceback as _tb106
+                        import traceback as _tb
                         print("  [!]قفلِ خط خطا:", flush=True)
-                        _tb106.print_exc()
-                if _key186 is not None:
+                        _tb.print_exc()
+                if _key is not None:
                     try:
-                        self._spm_cache = (_key186, dark_full, poly_all,
-                                           out.copy(), _ln, _vl106,
-                                           _hl106)
+                        self._spm_cache = (_key, dark_full, poly_all,
+                                           out.copy(), _ln, _vl,
+                                           _hl)
                     except Exception:
                         pass
             try:
-                import os as _os106
-                _dp = _os106.environ.get("MANGA_DUMP_PROTECT")
+                import os as _os
+                _dp = _os.environ.get("MANGA_DUMP_PROTECT")
                 if _dp:
                     cv2.imwrite(_dp + "_ln.png", _ln)
-                    cv2.imwrite(_dp + "_vl.png", _vl106)
+                    cv2.imwrite(_dp + "_vl.png", _vl)
                     cv2.imwrite(_dp + "_dark.png", dark_full)
                     cv2.imwrite(_dp + "_poly.png", poly_all)
                     cv2.imwrite(_dp + "_out.png", out)
                     print("[DUMP] protect →", _dp, flush=True)
-            except Exception as _e106:
-                print("[DUMP] fail", _e106, flush=True)
+            except Exception as _e:
+                print("[DUMP] fail", _e, flush=True)
             for i in range(1, n):
                 a = int(st[i, cv2.CC_STAT_AREA])
                 if a < (90 if int(min_len) >= 60 else 48):
@@ -14014,9 +14014,9 @@ class _MangaTranslatorBody_85:
             # سفیدِ دورش سفیدِ تمیز پر میکند. حبابِ رنگی (زردِ img6)
             # و آسمانِ اشباعِ وبتون → حلقه S بالاست → رد (بی‌خطر).
             try:
-                _anl212 = np.zeros((h, w), dtype=np.uint8)
+                _anl = np.zeros((h, w), dtype=np.uint8)
                 _flat212m = np.zeros((h, w), dtype=np.uint8)
-                _fill212 = np.zeros((h, w, 3), dtype=np.uint8)
+                _fill = np.zeros((h, w, 3), dtype=np.uint8)
                 _hsv_an = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
                 _gray_an = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 _nsat_an = 0
@@ -14060,7 +14060,7 @@ class _MangaTranslatorBody_85:
                         # شکاف = سفیدِ تخت. روکش رویِ هنر (پنلِ راستِ
                         # up0822): شکاف = پوست/بافت — حلقهٔ بیرونی به
                         # حاشیهٔ سفیدِ صفحه می‌رسد و غلط می‌شد.
-                        _gap212 = cv2.subtract(
+                        _gap = cv2.subtract(
                             cv2.dilate(_hz_raw, np.ones((55, 55),
                                                         np.uint8)),
                             cv2.dilate(_hz_raw, np.ones((13, 13),
@@ -14074,11 +14074,11 @@ class _MangaTranslatorBody_85:
                             cv2.dilate(_hz, np.ones((31, 31), np.uint8)))
                         # محدود به حوالیِ ناحیه (نه فراتر از ۶۰px بیرونِ
                         # مستطیلِ ناحیه — دور از هنرِ بی‌ربط)
-                        _cl212 = np.zeros((h, w), dtype=np.uint8)
-                        _cl212[max(0, _ry - 60):min(h, _ry + _rh2 + 60),
+                        _cl = np.zeros((h, w), dtype=np.uint8)
+                        _cl[max(0, _ry - 60):min(h, _ry + _rh2 + 60),
                                max(0, _rx - 60):
                                min(w, _rx + _rw2 + 60)] = 255
-                        _rz = cv2.bitwise_and(_rz, _cl212)
+                        _rz = cv2.bitwise_and(_rz, _cl)
                         _n_rz = int(np.count_nonzero(_rz))
                         if _n_rz < 400:
                             continue
@@ -14093,22 +14093,22 @@ class _MangaTranslatorBody_85:
                         # مشکی (lang_ko — S=۲۴..۶۰) شاهد نیست؛ فقط قلبِ
                         # اشباعِ قاب.
                         try:
-                            _cin212 = (_hz > 0) \
+                            _cin = (_hz > 0) \
                                 & (_hsv_an[..., 1] >= 60) \
                                 & (_hsv_an[..., 2] >= 60)
-                            _chue212 = _hsv_an[..., 0][_cin212]
-                            _gproof212 = False
-                            if _chue212.size >= 200:
-                                _dH212 = np.abs(_chue212 - 60.0)
-                                _dH212 = np.minimum(_dH212,
-                                                    180.0 - _dH212)
-                                _gproof212 = float(
-                                    (_dH212 <= 25.0).mean()) >= 0.60
+                            _chue = _hsv_an[..., 0][_cin]
+                            _gproof = False
+                            if _chue.size >= 200:
+                                _dH = np.abs(_chue - 60.0)
+                                _dH = np.minimum(_dH,
+                                                    180.0 - _dH)
+                                _gproof = float(
+                                    (_dH <= 25.0).mean()) >= 0.60
                             else:
-                                _gproof212 = False
+                                _gproof = False
                         except Exception:
-                            _gproof212 = False
-                        if not _gproof212:
+                            _gproof = False
+                        if not _gproof:
                             # v1.14.212b — حلقه فقط «روشنِ» خودش را نشانِ
                             # زمینه میدهد: باندِ دورِ بلوک، دیوارِ تیرهٔ
                             # حباب/هنر هم دارد (rstd تا ۱۰۰ رویِ up0822)؛
@@ -14117,18 +14117,18 @@ class _MangaTranslatorBody_85:
                             _rzpx = _rz > 0
                             _rv_an = _hsv_an[..., 2][_rzpx]
                             _rs_an = _hsv_an[..., 1][_rzpx]
-                            _br212 = (_rv_an >= 160.0) \
+                            _br = (_rv_an >= 160.0) \
                                 & (_rs_an <= 35.0)
-                            _bfrac212 = float(_br212.mean()) \
-                                if _br212.size else 0.0
-                            if _bfrac212 < 0.35:
+                            _bfrac = float(_br.mean()) \
+                                if _br.size else 0.0
+                            if _bfrac < 0.35:
                                 continue
-                            _rgray = _gray_an[_rzpx][_br212] \
-                                if bool(_br212.any()) else None
+                            _rgray = _gray_an[_rzpx][_br] \
+                                if bool(_br.any()) else None
                             if _rgray is None \
                                     or float(np.std(_rgray)) > 26.0:
                                 continue  # حتی روشنها هم ناهموار — هنر
-                            _rsv = _hsv_an[_rzpx][_br212]
+                            _rsv = _hsv_an[_rzpx][_br]
                             if float(np.median(_rsv[:, 1])) > 30.0:
                                 continue  # حلقهٔ رنگی (زرد/آسمان) — رد
                         # v1.14.212d — «سفیدِ تختِ واقعی» از «شکافِ درونِ
@@ -14139,31 +14139,31 @@ class _MangaTranslatorBody_85:
                         # روشن کرده، «بافت» دارد (هاشور/اسکرین‌تون —
                         # انرژیِ فرکانسِ بالا) → LaMa (پنلِ راستِ up0822).
                         try:
-                            _gpx212 = _gap212 > 0
-                            _gv212 = _hsv_an[..., 2][_gpx212]
-                            _gs212 = _hsv_an[..., 1][_gpx212]
-                            _gb212 = (_gv212 >= 220.0) & (_gs212 <= 25.0)
-                            _gfrac212 = float(_gb212.mean()) \
-                                if _gb212.size else 0.0
-                            _hf212 = 99.0
+                            _gpx = _gap > 0
+                            _gv = _hsv_an[..., 2][_gpx]
+                            _gs = _hsv_an[..., 1][_gpx]
+                            _gb = (_gv >= 220.0) & (_gs <= 25.0)
+                            _gfrac = float(_gb.mean()) \
+                                if _gb.size else 0.0
+                            _hf = 99.0
                             try:
-                                _med212 = cv2.medianBlur(
+                                _med = cv2.medianBlur(
                                     _gray_an, 5)
-                                _hf_in212 = np.abs(
+                                _hf_in = np.abs(
                                     _gray_an.astype(np.int16)
-                                    - _med212.astype(np.int16))
-                                _hf212 = float(np.median(
-                                    _hf_in212[_gpx212]))
+                                    - _med.astype(np.int16))
+                                _hf = float(np.median(
+                                    _hf_in[_gpx]))
                             except Exception:
                                 pass
-                            _whiteflat212 = (
-                                _gfrac212 >= 0.45
-                                and bool(_gb212.any())
-                                and float(np.median(_gv212[_gb212]))
+                            _whiteflat = (
+                                _gfrac >= 0.45
+                                and bool(_gb.any())
+                                and float(np.median(_gv[_gb]))
                                 >= 240.0
-                                and _hf212 <= 3.0)
+                                and _hf <= 3.0)
                         except Exception:
-                            _whiteflat212 = False
+                            _whiteflat = False
                         if os.environ.get("MANGA_212DBG") == "2":
                             try:
                                 _ovw = int(np.count_nonzero(
@@ -14173,11 +14173,11 @@ class _MangaTranslatorBody_85:
                                 print(f"    [212] rect=({_rx},{_ry},"
                                       f"{_rw2}x{_rh2}) "
                                       f"colpx={_ovw} "
-                                      f"gap={int((_gap212 > 0).sum())} "
-                                      f"gfrac={_gfrac212:.2f} "
-                                      f"gV={float(np.median(_gv212[_gb212])) if bool(_gb212.any()) else -1:.0f} "
-                                      f"ghf={_hf212:.1f} "
-                                      f"flat={_whiteflat212}",
+                                      f"gap={int((_gap > 0).sum())} "
+                                      f"gfrac={_gfrac:.2f} "
+                                      f"gV={float(np.median(_gv[_gb])) if bool(_gb.any()) else -1:.0f} "
+                                      f"ghf={_hf:.1f} "
+                                      f"flat={_whiteflat}",
                                       flush=True)
                             except Exception:
                                 pass
@@ -14190,19 +14190,19 @@ class _MangaTranslatorBody_85:
                         # + «قابِ سبزِ اشباع» (S≥۶۰، هیویِ سبزِ ۴۰..۸۰،
                         # ≥۱۵۰px): fringeیِ JPEG (lang_ko — هیویِ آبیِ
                         # ۱۰۰..۱۲۰) و متنِ آبی-خاکستری قابِ سبز ندارند.
-                        _n60_212 = 0
+                        _n = 0
                         try:
-                            _hue212 = _hsv_an[..., 0].astype(np.int32)
-                            _n60_212 = int(np.count_nonzero(
+                            _hue = _hsv_an[..., 0].astype(np.int32)
+                            _n = int(np.count_nonzero(
                                 (_hz > 0)
                                 & (_hsv_an[..., 1] >= 60)
                                 & (_hsv_an[..., 2] >= 60)
-                                & (_hue212 >= 40) & (_hue212 <= 80)))
+                                & (_hue >= 40) & (_hue <= 80)))
                         except Exception:
-                            _n60_212 = 0
+                            _n = 0
                         if _n_ov < max(400, int(0.03 * int(
                                 np.count_nonzero(_hz)))) \
-                                or _n60_212 < 150:
+                                or _n < 150:
                             continue
                         # v1.14.212e — ناحیهٔ روکش = هالِ متن + ۲۵px
                         # (داخلِ جعبه) ∪ کمانهایِ نازکِ رنگیِ قاب تا
@@ -14212,43 +14212,43 @@ class _MangaTranslatorBody_85:
                         # پشتِ جعبه اساساً در اورجینال هم پنهان است.
                         _ov = (_hz > 0)
                         try:
-                            _clb212 = np.zeros((h, w), dtype=np.uint8)
-                            _clb212[max(0, _ry - 24):
+                            _clb = np.zeros((h, w), dtype=np.uint8)
+                            _clb[max(0, _ry - 24):
                                     min(h, _ry + _rh2 + 24),
                                     max(0, _rx - 24):
                                     min(w, _rx + _rw2 + 24)] = 255
                             _hz_far2 = cv2.dilate(
                                 _hz, np.ones((163, 163), np.uint8))
-                            _far212 = ((_hz_far2 > 0) & _col_an
+                            _far = ((_hz_far2 > 0) & _col_an
                                        & (~(_hz > 0))
-                                       & (_clb212 > 0))
-                            if bool(_far212.any()):
-                                _nz212, _lbb212, _stb212, _ = \
+                                       & (_clb > 0))
+                            if bool(_far.any()):
+                                _nz, _lbb, _stb, _ = \
                                     cv2.connectedComponentsWithStats(
-                                        _far212.astype(np.uint8), 8)
-                                _thin212 = np.zeros_like(_far212)
-                                for _ci212 in range(1, _nz212):
-                                    _ar212 = int(_stb212[
-                                        _ci212, cv2.CC_STAT_AREA])
-                                    if _ar212 < 4 or _ar212 > 12000:
+                                        _far.astype(np.uint8), 8)
+                                _thin = np.zeros_like(_far)
+                                for _ci in range(1, _nz):
+                                    _ar = int(_stb[
+                                        _ci, cv2.CC_STAT_AREA])
+                                    if _ar < 4 or _ar > 12000:
                                         continue
-                                    _cm212 = (_lbb212 == _ci212)
+                                    _cm = (_lbb == _ci)
                                     try:
-                                        _dt212 = cv2.distanceTransform(
-                                            _cm212.astype(np.uint8),
+                                        _dt3 = cv2.distanceTransform(
+                                            _cm.astype(np.uint8),
                                             cv2.DIST_L2, 3)
-                                        if float(_dt212.max()) * 2.0 > 14.0:
+                                        if float(_dt3.max()) * 2.0 > 14.0:
                                             continue  # قطور = هنر
                                     except Exception:
                                         continue
-                                    _thin212 |= _cm212
+                                    _thin |= _cm
                                 # حاشیهٔ آنتیآلیاسِ قاب (سبزِ کماشباعِ
                                 # S<۲۴ زیرِ آستانه میماند = ردِ کم‌رنگ)
                                 # → ۳px دیلیت دورِ هر کمان
-                                _thin212 = cv2.dilate(
-                                    _thin212.astype(np.uint8),
+                                _thin = cv2.dilate(
+                                    _thin.astype(np.uint8),
                                     np.ones((7, 7), np.uint8)) > 0
-                                _ov = _ov | _thin212
+                                _ov = _ov | _thin
                         except Exception:
                             pass
                         # دیوار/ساختارِ تیره (protect) هرگز پاک نشود
@@ -14256,48 +14256,48 @@ class _MangaTranslatorBody_85:
                         _n_ov = int(np.count_nonzero(_ov))
                         if _n_ov < 400:
                             continue
-                        _anl212[_ov] = 255
+                        _anl[_ov] = 255
                         # رنگِ پر = میانهٔ پیکسلهایِ «روشنِ» حلقه — فقط
                         # برایِ نواحیِ «سفیدِ تختِ واقعی»؛ نواحیِ هنری از
                         # donor (LaMa) می‌گیرند. LaMa رویِ ناحیهٔ شسته‌شده
                         # خودش شستشو را زمینه میپندارد و سبز میسازد؛ پرِ
                         # تختِ حلقه چون حلقه تخت است درست است (عینِ 133).
-                        if _whiteflat212:
+                        if _whiteflat:
                             _flat212m[_ov] = 255
                             # رنگِ پر = میانهٔ «سفیدِ شکاف» (داخلِ جعبه) —
                             # جعبهٔ حاشیه‌نویسی خودش سفید است؛ حلقهٔ بیرونی
                             # ممکن است هنر/خاکستری باشد (پنلِ راست = 224).
                             try:
-                                _fc212 = np.median(
-                                    image[_gpx212][_gb212], axis=0)
-                                _fill212[_ov] = np.clip(
-                                    np.rint(_fc212), 0, 255).astype(
+                                _fc = np.median(
+                                    image[_gpx][_gb], axis=0)
+                                _fill[_ov] = np.clip(
+                                    np.rint(_fc), 0, 255).astype(
                                         np.uint8)
                             except Exception:
                                 pass
                         _nsat_an += 1
                     except Exception:
                         continue
-                self._page_annotation_overlay = _anl212 \
-                    if int(np.count_nonzero(_anl212)) else None
+                self._page_annotation_overlay = _anl \
+                    if int(np.count_nonzero(_anl)) else None
                 self._page_annotation_flat = _flat212m \
-                    if int(np.count_nonzero(_anl212)) else None
-                self._page_annotation_fill = _fill212 \
-                    if int(np.count_nonzero(_anl212)) else None
+                    if int(np.count_nonzero(_anl)) else None
+                self._page_annotation_fill = _fill \
+                    if int(np.count_nonzero(_anl)) else None
                 try:
-                    _dp212 = os.environ.get("MANGA_DUMP_212", "")
-                    if _dp212:
-                        cv2.imwrite(_dp212 + "_overlay.png", _anl212)
-                        cv2.imwrite(_dp212 + "_flat.png", _flat212m)
-                        cv2.imwrite(_dp212 + "_fill.png", _fill212)
-                        print("[DUMP] 212 ->", _dp212, flush=True)
+                    _dp2 = os.environ.get("MANGA_DUMP", "")
+                    if _dp2:
+                        cv2.imwrite(_dp2 + "_overlay.png", _anl)
+                        cv2.imwrite(_dp2 + "_flat.png", _flat212m)
+                        cv2.imwrite(_dp2 + "_fill.png", _fill)
+                        print("[DUMP] 212 ->", _dp2, flush=True)
                 except Exception:
                     pass
                 if _nsat_an and (self.debug
                                  or os.environ.get("MANGA_212DBG")):
                     try:
                         print(f"  [*]روکشِ حاشیه‌نویسی: "
-                              f"{int(np.count_nonzero(_anl212))}px در "
+                              f"{int(np.count_nonzero(_anl))}px در "
                               f"{_nsat_an} ناحیه — پاک میشود",
                               flush=True)
                     except Exception:
@@ -14711,7 +14711,6 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
             pass
-        _stage185("پایانِ پاکسازی — مجموع")
 
     # v1.14.106 — جاروی بازماندهٔ تیره: لبه/نوارِ سیاهی که بعد از پاکسازی
     # همسایهٔ مستقیمِ نواحیِ پاکشده میماند (سایهٔ لوگو/بنرِ بیرونِ ماسکِ
@@ -14864,9 +14863,9 @@ class _MangaTranslatorBody_85:
                     if int(r_.sum()) >= 80 else 0.0
                 return ink_m, ink_r
 
-            md25 = cv2.dilate(m, np.ones((21, 21), np.uint8))
+            md = cv2.dilate(m, np.ones((21, 21), np.uint8))
             mdin = cv2.dilate(m, np.ones((13, 13), np.uint8))
-            ring = (md25 > 0) & (mdin == 0) & (m == 0)
+            ring = (md > 0) & (mdin == 0) & (m == 0)
             if int(ring.sum()) < 80:
                 return
             # v1.14.105b — ارزیابی/نوشتن تا ۹px بیرونِ ماسک (هاله/گلو):
@@ -15178,12 +15177,12 @@ class _MangaTranslatorBody_85:
             # در نهایت پرِ تخت/سفید برنده است (~۲۰-۴۰ ثانیهٔ هدررفت در
             # هر ناحیهٔ بد) → مستقیم به نردبانِ ارزان (هموار/TELEA/تخت).
             # PC دست‌نخورده.
-            _skip_lama135 = (_android_gate("MANGA_VERIFY_FASTFILL")
+            _skip_lama = (_android_gate("MANGA_VERIFY_FASTFILL")
                              and bool(white_flat))
             _lama_cap = 400_000
             lama = None
             try:
-                if not _skip_lama135 and \
+                if not _skip_lama and \
                         out.shape[0] * out.shape[1] <= _lama_cap * 4:
                     lama = self._get_lama()
             except Exception:
@@ -15195,11 +15194,11 @@ class _MangaTranslatorBody_85:
             # بعدش هم تخت)، دورِ بعدی هم بیاثر است → دورِ بعدی و
             # (برایِ جوهرِ ضعیفِ هنرمانند) تلاشِ ×۲ هم حذف — صرفهٔ
             # ۱-۲ اینفرنسِ LaMa در هر ناحیهٔ بیاثر. PC دست‌نخورده.
-            _fx138 = _android_gate("MANGA_VERIFY_FASTEXIT")
-            _lama_gain138 = True
+            _fx = _android_gate("MANGA_VERIFY_FASTEXIT")
+            _lama_gain = True
             if lama is not None:
                 for _dk in (17, 33):
-                    if _fx138 and not _lama_gain138:
+                    if _fx and not _lama_gain:
                         if self.debug:
                             try:
                                 print(f"    [🔍]ترمیم: LaMa بیاثر "
@@ -15227,11 +15226,11 @@ class _MangaTranslatorBody_85:
                     if res1 is None:
                         continue
                     g1 = cv2.cvtColor(res1, cv2.COLOR_BGR2GRAY)
-                    ok_b, ok_s, _im138 = _quality(g1, f"LaMa×{_dk}")
+                    ok_b, ok_s, _im = _quality(g1, f"LaMa×{_dk}")
                     if ok_s:
                         _blend(res1)
                         return
-                    _lama_gain138 = bool(_im138 < ink_m - 0.02)
+                    _lama_gain = bool(_im < ink_m - 0.02)
                     if ok_b and fallback is None:
                         fallback = (res1, f"LaMa×{_dk}")
 
@@ -15335,11 +15334,11 @@ class _MangaTranslatorBody_85:
             # PC بایت‌به‌بیت دست‌نخورده.
             if lama is not None and _android_gate("MANGA_VERIFY_UP2") \
                     and out.shape[0] * out.shape[1] <= 400_000 \
-                    and not (_fx138 and not _lama_gain138 and ink_m < 0.30):
+                    and not (_fx and not _lama_gain and ink_m < 0.30):
                 try:
-                    _wb17 = _bounded(17)
-                    if _wb17 is None:
-                        _wb17 = m
+                    _wb = _bounded(17)
+                    if _wb is None:
+                        _wb = m
                     _uh = out.shape[0] * 2
                     _uw = out.shape[1] * 2
                     if _uh <= 1600 and _uw <= 1600:
@@ -15347,7 +15346,7 @@ class _MangaTranslatorBody_85:
                             orig, (_uw, _uh),
                             interpolation=cv2.INTER_CUBIC)
                         _m2 = cv2.resize(
-                            _wb17, (_uw, _uh),
+                            _wb, (_uw, _uh),
                             interpolation=cv2.INTER_NEAREST)
                         _r2raw = None
                         try:
@@ -15525,9 +15524,9 @@ class _MangaTranslatorBody_85:
             # جوهرِ ضعیف + حلقهٔ بافت‌مند + زمینهٔ رنگی = سایه/بوتهٔ
             # هنر — نه متن؛ در آن حالت «خروجیِ فعلی» میماند (هرگز
             # اورجینالِ متن برنمیگردد، هیچ پُری هم رویِ هنر نمیرود).
-            _art_like225 = bool(
+            _art_like = bool(
                 rs > 22.0 and ink_m < 0.30 and neutr >= 40.0)
-            if _art_like225:
+            if _art_like:
                 if self.debug:
                     try:
                         print(f"  [🔍225] جوهرِ ضعیف + زمینهٔ هنریِ "
@@ -15537,9 +15536,9 @@ class _MangaTranslatorBody_85:
                         pass
             else:
                 try:
-                    _rf225 = _row_fill_res()
-                    if _rf225 is not None:
-                        _blend(_rf225)
+                    _rf2 = _row_fill_res()
+                    if _rf2 is not None:
+                        _blend(_rf2)
                         if self.debug:
                             try:
                                 print(f"  [✓225] پرِ ردیفیِ نهاییِ "
@@ -15548,15 +15547,15 @@ class _MangaTranslatorBody_85:
                             except Exception:
                                 pass
                     else:
-                        _col225 = np.median(
+                        _col = np.median(
                             out[ring].astype(np.float32),
                             axis=0).astype(np.float32) \
                             if int(ring.sum()) else np.array(
                                 [252.0, 252.0, 252.0], np.float32)
-                        _flat225 = np.repeat(
-                            _col225[None, None, :], out.shape[0],
+                        _flat = np.repeat(
+                            _col[None, None, :], out.shape[0],
                             axis=0).repeat(out.shape[1], axis=1)
-                        _blend(_flat225.astype(np.uint8))
+                        _blend(_flat.astype(np.uint8))
                         if self.debug:
                             try:
                                 print(f"  [✓225] پرِ تختِ نهاییِ "

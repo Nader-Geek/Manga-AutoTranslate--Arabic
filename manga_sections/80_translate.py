@@ -796,15 +796,15 @@ class _MangaTranslatorBody_80:
         # v1.14.229 — «اگ متنی عدد یا شکل بود کلا نره ترجمه»: ناحیه‌ای که
         # متنش هیچ حرفی ندارد ('123124'، './….'، '[] ,./???!?~') به مترجم
         # نمی‌رود — الکی وقتِ AI نمیگیرد؛ «hi…» حرف دارد → میرود.
-        # v1.14.230 — این نواحی دیگر پاک هم نمیشوند (no_touch230 در
+        # v1.14.230 — این نواحی دیگر پاک هم نمیشوند (no_touch در
         # extract_regions_phase نشانهگذاری میشود و _clean_image_page
         # کنارشان میگذارد) — دستورِ سازنده: «نباید پاک کنه هیچ دستی
         # بهش نزنه».
-        _keep229 = [r for r in regions if source_has_letters(r.source_text)]
-        _drop229 = len(regions) - len(_keep229)
-        if _drop229:
-            print(f"    [*] {_drop229} ناحیه فقط عدد/علامت → دست‌نخورده (نه ترجمه، نه پاکسازی)")
-            regions = _keep229
+        _keep = [r for r in regions if source_has_letters(r.source_text)]
+        _drop = len(regions) - len(_keep)
+        if _drop:
+            print(f"    [*] {_drop} ناحیه فقط عدد/علامت → دست‌نخورده (نه ترجمه، نه پاکسازی)")
+            regions = _keep
         if not regions:
             return
 
@@ -942,10 +942,10 @@ class _MangaTranslatorBody_80:
         # اینجا تضمینِ نهایی: هر ناحیهٔ بامتن حداقل متنِ مبدأ را میگیرد.
         if any(not (r.translated_text or "").strip() for r in regions):
             try:
-                if self._force_translate_missing_1189(regions):
+                if self._force_translate_missing(regions):
                     print("    [✓] 192: نجاتِ نهایی در translate_regions انجام شد.")
-            except Exception as _e192:
-                print(f"    [!] نجاتِ نهاییِ 192: {str(_e192)[:80]}")
+            except Exception as _e:
+                print(f"    [!] نجاتِ نهاییِ 192: {str(_e)[:80]}")
         still = sum(1 for r in regions if not (r.translated_text or "").strip())
         if still:
             print(f"    [!] در نهایت {still} دیالوگ بدون ترجمه ماند.")
@@ -1082,9 +1082,9 @@ class _MangaTranslatorBody_80:
                         print(f"    ← بالن[{r.id}]{extra}: {r.translated_text}")
                 # v1.14.189 — مشکل۳: هرگز حبابِ خالی تحویل نمیشود
                 try:
-                    self._force_translate_missing_1189(regions)
-                except Exception as _e189:
-                    print(f"    [!] نجاتِ نهایی: {str(_e189)[:80]}")
+                    self._force_translate_missing(regions)
+                except Exception as _e:
+                    print(f"    [!] نجاتِ نهایی: {str(_e)[:80]}")
                 if self.request_delay > 0:
                     time.sleep(self.request_delay)
                 return
@@ -1448,13 +1448,13 @@ class _MangaTranslatorBody_80:
         print(f"    [!] ترجمه‌ی این بخش بعد از {self.max_retries}+1 تلاش ناموفق موند.")
         # v1.14.189 — مشکل۳: آخرین خطِ دفاع — هیچ حبابِ خالی تحویل نمیشود
         try:
-            if self._force_translate_missing_1189(regions):
+            if self._force_translate_missing(regions):
                 print("    [✓] حبابهای خالی نجات یافتند (189).")
-        except Exception as _e189:
-            print(f"    [!] نجاتِ نهایی: {str(_e189)[:80]}")
+        except Exception as _e:
+            print(f"    [!] نجاتِ نهایی: {str(_e)[:80]}")
 
     # ── v1.14.189 — مشکل۳: «هرجور شده ترجمه کن» — هیچ حبابِ خالی نمیماند ──
-    def _force_translate_missing_1189(self, regions: List[TextRegion]) -> int:
+    def _force_translate_missing(self, regions: List[TextRegion]) -> int:
         """برای هر حبابِ بدونِ ترجمه: اول درخواستِ تکآیتمیِ کوتاه (متنیِ ساده —
         مدلهایی که JSONشان خراب است متنی جواب میدهند)، بعد همان آیتم در حالتِ
         JSON ساختاریافته. v1.14.193 — دیگر متنِ مبدأ جایگزین نمیشود («عکسِ

@@ -4021,7 +4021,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             api_base_v,
                             models_v,
                             *tone_args):
-            _t_prep68 = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
+            _t_prep = time.time()  # v1.14.68 — زمانِ آماده‌سازیِ اپ
             sid = (sid or sid_box_v or "").strip()
             sid = _find_active_sid(sid) or sid
             if not sid:
@@ -4268,7 +4268,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             cmd += ["--prompt-mode", sanitize_prompt_mode(prompt_mode_v)]
             t0 = time.time()
             try:
-                print(f"[TIME] app-prep={time.time() - _t_prep68:.1f}s",
+                print(f"[TIME] app-prep={time.time() - _t_prep:.1f}s",
                       flush=True)  # v1.14.68
             except Exception:
                 pass
@@ -5046,17 +5046,17 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         except Exception:
             pass
         try:
-            _ev178 = None
+            _ev = None
             try:
-                _ev178 = run_btn.click(run_translation,
+                _ev = run_btn.click(run_translation,
                                        show_progress="hidden", **_click_kw)
             except TypeError:
                 try:
-                    _ev178 = run_btn.click(run_translation,
+                    _ev = run_btn.click(run_translation,
                                            show_progress=False,
                                            **_click_kw)
                 except TypeError:
-                    _ev178 = run_btn.click(run_translation, **_click_kw)
+                    _ev = run_btn.click(run_translation, **_click_kw)
             # v1.14.181 — کلیدِ یک‌بارمصرفِ «تستِ سرعت» (v1.14.178) با خودِ
             # دکمه حذف شد؛ کارهایِ بعدی همیشه ترجمهٔ عادیاند.
         except Exception:

@@ -507,7 +507,7 @@ class _MangaTranslatorBody_60:
         from bs4 import BeautifulSoup
         from urllib.parse import urljoin, urlparse
 
-        _t_dl66 = time.time()
+        _t_dl = time.time()
         os.makedirs(dest_dir, exist_ok=True)
         headers = {
             "User-Agent": (
@@ -707,11 +707,11 @@ class _MangaTranslatorBody_60:
         # ها بهم میریزه». نامها هم (بالا) شمارهٔ ترتیب گرفتند تا سورتِ
         # نهاییِ فصلها (01_001_ … 02_001_ …) هرگز بهم نریزد.
         if shared_seen is not None and img_urls:
-            _b230 = len(img_urls)
+            _b = len(img_urls)
             img_urls = [u for u in img_urls
                         if u.split("?")[0].lower() not in shared_seen]
-            if _b230 > len(img_urls):
-                print(f"    [*] {_b230 - len(img_urls)} تصویر مشترک با فصلِ "
+            if _b > len(img_urls):
+                print(f"    [*] {_b - len(img_urls)} تصویر مشترک با فصلِ "
                       f"قبلی (کاور/بنرِ سری) رد شد.")
             for u in img_urls:
                 shared_seen.add(u.split("?")[0].lower())
@@ -757,7 +757,7 @@ class _MangaTranslatorBody_60:
 
 
         print(f"    {len(saved)} تصویر از {url} دانلود شد "
-              f"({time.time() - _t_dl66:.1f}s).")
+              f"({time.time() - _t_dl:.1f}s).")
         return saved
 
     @staticmethod

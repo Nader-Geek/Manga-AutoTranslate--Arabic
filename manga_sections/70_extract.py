@@ -332,22 +332,22 @@ class _MangaTranslatorBody_70:
         # ۶۷ فراخوانی برایِ ۳۱ ناحیه). کلید = مختصاتِ برش + ابعادِ
         # تصویر؛ عمرِ کش = یک صفحه (بازیابی در extract_regions_phase).
         try:
-            _ck226 = (x1, y1, x2, y2, w, h,
+            _ck = (x1, y1, x2, y2, w, h,
                       tuple(map(tuple, block_rects)) if block_rects else None)
-            _cc226 = getattr(self, "_ocr_crop_cache226", None)
-            if _cc226 is not None and _ck226 in _cc226:
-                return _cc226[_ck226]
+            _cc = getattr(self, "_ocr_crop_cache226", None)
+            if _cc is not None and _ck in _cc:
+                return _cc[_ck]
         except Exception:
             pass
-        _rv226 = self._ocr_crop_run(image_bgr, rect, block_rects)
+        _rv = self._ocr_crop_run(image_bgr, rect, block_rects)
         try:
             if getattr(self, "_ocr_crop_cache226", None) is None:
-                self._ocr_crop_cache226 = {}
-            if len(self._ocr_crop_cache226) < 512:
-                self._ocr_crop_cache226[_ck226] = _rv226
+                self._ocr_crop_cache = {}
+            if len(self._ocr_crop_cache) < 512:
+                self._ocr_crop_cache[_ck] = _rv
         except Exception:
             pass
-        return _rv226
+        return _rv
 
     def _ocr_crop_run(self, image_bgr: np.ndarray, rect,
                       block_rects: Optional[List[Tuple[int, int, int, int]]] = None) \
@@ -386,18 +386,18 @@ class _MangaTranslatorBody_70:
                 # v1.14.125 — اندروید: OCRِ برش با crop_mode (detِ بدونِ
                 # بزرگنمایی) — نردبانِ variantها ۴-۶× ارزانتر میشود؛
                 # PC بیت‌به‌بیت دستنخورده.
-                _oc125 = self.ocr
-                if _on_android() and getattr(_oc125, "_mobile", None) \
+                _oc = self.ocr
+                if _on_android() and getattr(_oc, "_mobile", None) \
                         is not None:
-                    results = _oc125.ocr(crop_bgr, crop_mode=True)
+                    results = _oc.ocr(crop_bgr, crop_mode=True)
                 else:
-                    results = _oc125.ocr(crop_bgr)
-            except Exception as _e164:
+                    results = _oc.ocr(crop_bgr)
+            except Exception as _e:
                 # v1.14.164 — خرابیِ OCRِ برش دیگر بیصدا نمیماند
                 # (دیباگ: خطِ کوتاهِ خطا — ریشهِ «متن پیدا نشد» فوراً
                 # در لاگ دیده میشود).
                 if getattr(self, "debug", False):
-                    print(f"    [!] OCRِ برش خطا داد: {str(_e164)[:140]}")
+                    print(f"    [!] OCRِ برش خطا داد: {str(_e)[:140]}")
                 return "", [], 0.0, []
             if not results or not results[0]:
                 return "", [], 0.0, []
@@ -444,8 +444,8 @@ class _MangaTranslatorBody_70:
                             if scale > 1.01:
                                 poly = poly / scale
                             if apply_offset:
-                                _ox86, _oy86 = origin if origin is not None else (x1, y1)
-                                poly = poly + np.array([_ox86, _oy86], dtype=np.float32)
+                                _ox, _oy = origin if origin is not None else (x1, y1)
+                                poly = poly + np.array([_ox, _oy], dtype=np.float32)
                             polys.append(poly.astype(np.int32))
                             entry_poly = poly.astype(np.float32)
                     entries.append((text, conf, entry_poly,
@@ -462,19 +462,19 @@ class _MangaTranslatorBody_70:
         # صفحهٔ ژاپنی، واریانتِ آشغالِ لاتینِ با confِ تصادفیِ بالاتر
         # خوانشِ درستِ CJK را می‌بَرد (نمونه: «描いて精神統一» ← «bI 2 2い»).
         # PC بیت‌به‌بیت فرمولِ قدیمی.
-        _sc_cjk_185 = _on_android()
+        _sc_cjk = _on_android()
 
         def _score(txt: str, conf: float) -> float:
             if not txt:
                 return -1.0
             latin = sum(1 for c in txt if c.isascii() and c.isalpha())
-            if _sc_cjk_185:
-                _cjk185 = sum(
+            if _sc_cjk:
+                _cjk = sum(
                     1 for c in txt
                     if (0x3040 <= ord(c) <= 0x30FF)
                     or (0x3400 <= ord(c) <= 0x9FFF)
                     or (0xAC00 <= ord(c) <= 0xD7AF))
-                return (max(latin, _cjk185) * 2.0 + conf * 3.0
+                return (max(latin, _cjk) * 2.0 + conf * 3.0
                         + min(len(txt), 24) * 0.15)
 
             return latin * 2.0 + conf * 3.0 + min(len(txt), 24) * 0.15
@@ -507,15 +507,15 @@ class _MangaTranslatorBody_70:
         # هر ناحیه (پروفایلِ up0822: ۱۶ فراخوانیِ نردبان برایِ ۵ ناحیه)
         # که هیچ واریانتِ تازهای نمیآورد. رویِ کراپِ کمکنتراست/سایهدار
         # (دلیلِ وجودِ CLAHE) همچنان اجرا میشود.
-        _clahe_skip228 = False
+        _clahe_skip = False
         try:
-            _gc228 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
-            _p10_228 = float(np.percentile(_gc228, 10))
-            _p90_228 = float(np.percentile(_gc228, 90))
-            _clahe_skip228 = (_p90_228 - _p10_228) >= 120.0
+            _gc = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _p10 = float(np.percentile(_gc, 10))
+            _p90 = float(np.percentile(_gc, 90))
+            _clahe_skip = (_p90 - _p10) >= 120.0
         except Exception:
-            _clahe_skip228 = False
-        if not _clahe_skip228:
+            _clahe_skip = False
+        if not _clahe_skip:
             try:
                 lab = cv2.cvtColor(core, cv2.COLOR_BGR2LAB)
                 l, a, b = cv2.split(lab)
@@ -574,20 +574,20 @@ class _MangaTranslatorBody_70:
         # کنتراست نجاتِ خودش را دارد). پوششِ جوهر = بازهٔ عمودیِ خطهایِ
         # یافتشده در برابرِ بازهٔ عمودیِ جوهرِ کراپ — اگر نصفِ حبابِ پر-
         # متن ناخوانده مانده باشد، تک‌پاس قبول نمیشود.
-        _ink_rows230 = None
+        _ink_rows = None
         try:
-            _g230 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
-            _med230 = float(np.median(_g230))
-            _rowink230 = ((_g230 < max(60.0, _med230 - 45.0)).mean(axis=1))
-            _rows230 = np.flatnonzero(_rowink230 > 0.02)
-            if len(_rows230) >= 4:
-                _ink_rows230 = (int(_rows230[0]), int(_rows230[-1]))
+            _g2 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
+            _med2 = float(np.median(_g2))
+            _rowink = ((_g2 < max(60.0, _med2 - 45.0)).mean(axis=1))
+            _rows = np.flatnonzero(_rowink > 0.02)
+            if len(_rows) >= 4:
+                _ink_rows = (int(_rows[0]), int(_rows[-1]))
         except Exception:
-            _ink_rows230 = None
+            _ink_rows = None
 
-        _vi230 = -1
+        _vi = -1
         for name, crop_v, sc in variants:
-            _vi230 += 1
+            _vi += 1
             txt, polys, conf, entries = _run(crop_v, sc)
             if inset_used and entries:
                 polys = [p + inset_used for p in polys]
@@ -605,41 +605,41 @@ class _MangaTranslatorBody_70:
             #   ب) خطِ آشغالِ لاتین: خطِ تکقسمتیِ بیواکل/بیحرفِ کوتاه
             #   («FL»، «SS»، «23»، «豊») که فقط جوهرِ هنر است.
             # هر دو رویِ مختصاتِ صفحه (بعد از جبرانِ inset) اعمال میشوند.
-            _own188 = max(1.0, float((x2 - x1) * (y2 - y1)))
+            _own = max(1.0, float((x2 - x1) * (y2 - y1)))
             if entries:
                 # v1.14.245 — سیاستِ عدد/سمبل در سطحِ ناحیه: متنِ «کلِ»
                 # کاندید (قبل از فیلتر) تعیین میکند که خطِ عدد محتواست
                 # («19 hi») یا ناحیهٔ فقط-عدد است (no_touch میشود).
                 try:
-                    _rhas245 = source_has_letters(
-                        " ".join(str(_e245[0]) for _e245 in entries))
+                    _rhas3 = source_has_letters(
+                        " ".join(str(_e[0]) for _e in entries))
                 except Exception:
-                    _rhas245 = None
-                _keep188 = []
-                _fix188 = False
-                for _e188 in entries:
-                    _bb188 = _bb_of(_e188[2]) if _e188[2] is not None else None
-                    if _bb188 is not None and _line_is_foreign188(
-                            _bb188, block_rects, _own188):
+                    _rhas3 = None
+                _keep = []
+                _fix = False
+                for _e in entries:
+                    _bb = _bb_of(_e[2]) if _e[2] is not None else None
+                    if _bb is not None and _line_is_foreign(
+                            _bb, block_rects, _own):
                         if self.debug:
                             print(f"    [🔍188] خطِ ناحیهٔ مجاور حذف شد: "
-                                  f"{str(_e188[0])[:36]!r}")
+                                  f"{str(_e[0])[:36]!r}")
                         continue
-                    _j188 = _latin_junk_line188(_e188[0], _rhas245) \
-                        if _latin_lang188(self) else False
-                    if _j188:
-                        if isinstance(_j188, str):
+                    _j = _latin_junk_line(_e[0], _rhas3) \
+                        if _latin_lang(self) else False
+                    if _j:
+                        if isinstance(_j, str):
                             # v1.14.189 — ترمیمِ «77,I» → «I» بهجایِ حذف
-                            _e188 = (_j188,) + tuple(_e188[1:])
-                            _fix188 = True
+                            _e = (_j,) + tuple(_e[1:])
+                            _fix = True
                         else:
                             if self.debug:
                                 print(f"    [🔍188] خطِ آشغالِ لاتین حذف شد: "
-                                      f"{str(_e188[0])[:36]!r}")
+                                      f"{str(_e[0])[:36]!r}")
                             continue
-                    _keep188.append(_e188)
-                if _fix188 or len(_keep188) != len(entries):
-                    entries = _keep188
+                    _keep.append(_e)
+                if _fix or len(_keep) != len(entries):
+                    entries = _keep
                     txt = " ".join(e[0] for e in entries).strip()
                     polys = [np.asarray(e[2], dtype=np.int32)
                              for e in entries if e[2] is not None]
@@ -680,34 +680,34 @@ class _MangaTranslatorBody_70:
             # موفقِ raw زده میشدند). شرطها: متنِ واقعی (لاتین ≥ ۳ یا
             # CJK ≥ ۲) + conf ≥ ۰٫۸۰ + پوششِ عمودیِ جوهر (خطهایِ
             # یافته ≥ ۶۰٪ بازهٔ جوهر — حبابِ نصفه‌خوانده قبول نیست).
-            if os.environ.get("MANGA_DBG_230") and _vi230 == 0:
+            if os.environ.get("MANGA_DBG") and _vi == 0:
                 print(f"    [DBG230] vi0 name={name} conf={conf:.3f} "
                       f"latin={_latin_n} entries={len(entries)} "
-                      f"tilt={_tilted0} ink={_ink_rows230}", flush=True)
-            if (_vi230 == 0 and not _tilted0 and entries
+                      f"tilt={_tilted0} ink={_ink_rows}", flush=True)
+            if (_vi == 0 and not _tilted0 and entries
                     and conf >= 0.80
                     and (_latin_n >= 3
                          or sum(1 for _ch in (txt or "")
                                 if 0x3040 <= ord(_ch) <= 0x30FF
                                 or 0x3400 <= ord(_ch) <= 0x9FFF
                                 or 0xAC00 <= ord(_ch) <= 0xD7AF) >= 2)):
-                if os.environ.get("MANGA_DBG_230"):
-                    print(f"    [DBG230] gate-pass vi={_vi230} conf={conf:.2f} "
+                if os.environ.get("MANGA_DBG"):
+                    print(f"    [DBG230] gate-pass vi={_vi} conf={conf:.2f} "
                           f"latin={_latin_n} entries={len(entries)} "
-                          f"ink={_ink_rows230}", flush=True)
-                _cover_ok230 = True
-                if _ink_rows230 is not None and merged:
-                    _ys230 = [_bb_of(m[2]) for m in merged
+                          f"ink={_ink_rows}", flush=True)
+                _cover_ok = True
+                if _ink_rows is not None and merged:
+                    _ys = [_bb_of(m[2]) for m in merged
                               if m[2] is not None]
-                    _ys230 = [b for b in _ys230 if b is not None]
-                    if _ys230:
-                        _fy0230 = min(b[1] for b in _ys230)
-                        _fy1230 = max(b[3] for b in _ys230)
-                        _span230 = max(1.0, float(
-                            _ink_rows230[1] - _ink_rows230[0]))
-                        _cov230 = (_fy1230 - _fy0230) / _span230
-                        _cover_ok230 = _cov230 >= 0.60
-                if _cover_ok230:
+                    _ys = [b for b in _ys if b is not None]
+                    if _ys:
+                        _fy0 = min(b[1] for b in _ys)
+                        _fy1 = max(b[3] for b in _ys)
+                        _span = max(1.0, float(
+                            _ink_rows[1] - _ink_rows[0]))
+                        _cov = (_fy1 - _fy0) / _span
+                        _cover_ok = _cov >= 0.60
+                if _cover_ok:
                     early_stop = True
                     break
 
@@ -738,96 +738,96 @@ class _MangaTranslatorBody_70:
         # کراپِ سالم (شکافِ نرمال) = صفر هزینهٔ اضافه.
         try:
             if merged and not _tilted0:
-                _mx189, _mn189 = max(ch0, cw0), min(ch0, cw0)
-                if _mx189 >= 260 and _mx189 / max(1, _mn189) >= 1.5:
-                    _bxs189 = [_bb_of(m[2]) for m in merged
+                _mx, _mn = max(ch0, cw0), min(ch0, cw0)
+                if _mx >= 260 and _mx / max(1, _mn) >= 1.5:
+                    _bxs = [_bb_of(m[2]) for m in merged
                                if m[2] is not None]
-                    _bxs189 = [b for b in _bxs189 if b is not None]
-                    if 2 <= len(_bxs189) <= 30:
-                        _dims189 = [max(2.0, min(b[2] - b[0], b[3] - b[1]))
-                                    for b in _bxs189]
-                        _med189 = float(np.median(_dims189))
-                        _vert189 = sum(
-                            1 for b in _bxs189
+                    _bxs = [b for b in _bxs if b is not None]
+                    if 2 <= len(_bxs) <= 30:
+                        _dims = [max(2.0, min(b[2] - b[0], b[3] - b[1]))
+                                    for b in _bxs]
+                        _med = float(np.median(_dims))
+                        _vert = sum(
+                            1 for b in _bxs
                             if (b[3] - b[1]) > (b[2] - b[0])
-                        ) > len(_bxs189) / 2
-                        _sb189 = sorted(_bxs189, key=(
-                            (lambda b: b[0]) if _vert189
+                        ) > len(_bxs) / 2
+                        _sb = sorted(_bxs, key=(
+                            (lambda b: b[0]) if _vert
                             else (lambda b: b[1])))
-                        _maxgap189 = 0.0
-                        for _i189 in range(len(_sb189) - 1):
-                            _g189 = (
-                                (_sb189[_i189 + 1][0] - _sb189[_i189][2])
-                                if _vert189 else
-                                (_sb189[_i189 + 1][1] - _sb189[_i189][3]))
-                            if _g189 > _maxgap189:
-                                _maxgap189 = _g189
-                        if _maxgap189 > 2.0 * _med189:
-                            _halves189 = []
+                        _maxgap = 0.0
+                        for _i in range(len(_sb) - 1):
+                            _g = (
+                                (_sb[_i + 1][0] - _sb[_i][2])
+                                if _vert else
+                                (_sb[_i + 1][1] - _sb[_i][3]))
+                            if _g > _maxgap:
+                                _maxgap = _g
+                        if _maxgap > 2.0 * _med:
+                            _halves = []
                             if ch0 >= cw0:
-                                _oh189 = max(60, int(ch0 * 0.58))
-                                if 60 <= _oh189 < ch0:
-                                    _halves189 = [
-                                        ("half-top", crop0[0:_oh189], 0, 0),
-                                        ("half-bot", crop0[ch0 - _oh189:],
-                                         0, ch0 - _oh189)]
+                                _oh = max(60, int(ch0 * 0.58))
+                                if 60 <= _oh < ch0:
+                                    _halves = [
+                                        ("half-top", crop0[0:_oh], 0, 0),
+                                        ("half-bot", crop0[ch0 - _oh:],
+                                         0, ch0 - _oh)]
                             else:
-                                _ow189 = max(60, int(cw0 * 0.58))
-                                if 60 <= _ow189 < cw0:
-                                    _halves189 = [
-                                        ("half-left", crop0[:, 0:_ow189],
+                                _ow = max(60, int(cw0 * 0.58))
+                                if 60 <= _ow < cw0:
+                                    _halves = [
+                                        ("half-left", crop0[:, 0:_ow],
                                          0, 0),
                                         ("half-right",
-                                         crop0[:, cw0 - _ow189:],
-                                         cw0 - _ow189, 0)]
-                            if _halves189 and self.debug:
-                                print(f"    [🔍189] شکافِ خط {_maxgap189:.0f}px "
-                                      f"(میانه {_med189:.0f}px) → OCRِ نیمهها")
-                            for _hn189, _hc189, _hox189, _hoy189 in _halves189:
+                                         crop0[:, cw0 - _ow:],
+                                         cw0 - _ow, 0)]
+                            if _halves and self.debug:
+                                print(f"    [🔍189] شکافِ خط {_maxgap:.0f}px "
+                                      f"(میانه {_med:.0f}px) → OCRِ نیمهها")
+                            for _hn, _hc, _hox, _hoy in _halves:
                                 try:
                                     _t2, _p2, _c2, _e2 = _run(
-                                        _hc189, base_scale,
-                                        origin=(x1 + _hox189, y1 + _hoy189))
+                                        _hc, base_scale,
+                                        origin=(x1 + _hox, y1 + _hoy))
                                 except Exception:
                                     continue
-                                for _e189 in (_e2 or []):
-                                    _bb2 = (_bb_of(_e189[2])
-                                            if _e189[2] is not None else None)
+                                for _e3 in (_e2 or []):
+                                    _bb2 = (_bb_of(_e3[2])
+                                            if _e3[2] is not None else None)
                                     if _bb2 is None:
                                         continue
-                                    if _line_is_foreign188(
-                                            _bb2, block_rects, _own188):
+                                    if _line_is_foreign(
+                                            _bb2, block_rects, _own):
                                         continue
                                     # v1.14.245 — ناحیه = merged + نیمه‌ها
                                     try:
-                                        _rhas189 = source_has_letters(
+                                        _rhas = source_has_letters(
                                             " ".join(
-                                                [str(_m245[0]) for _m245 in merged]
-                                                + [str(_e245[0]) for _e245 in (_e2 or [])]))
+                                                [str(_m2[0]) for _m2 in merged]
+                                                + [str(_e5[0]) for _e5 in (_e2 or [])]))
                                     except Exception:
-                                        _rhas189 = None
-                                    _j189 = _latin_junk_line188(_e189[0], _rhas189) \
-                                        if _latin_lang188(self) else False
-                                    if _j189:
-                                        if isinstance(_j189, str):
-                                            _e189 = (_j189,) + tuple(_e189[1:])
+                                        _rhas = None
+                                    _j2 = _latin_junk_line(_e3[0], _rhas) \
+                                        if _latin_lang(self) else False
+                                    if _j2:
+                                        if isinstance(_j2, str):
+                                            _e3 = (_j2,) + tuple(_e3[1:])
                                         else:
                                             continue
                                     _hit2 = None
-                                    for _m189 in merged:
-                                        _bm189 = _bb_of(_m189[2])
-                                        if _bm189 is not None and \
-                                                _overlap_frac(_bb2, _bm189) > 0.35:
-                                            _hit2 = _m189
+                                    for _m in merged:
+                                        _bm = _bb_of(_m[2])
+                                        if _bm is not None and \
+                                                _overlap_frac(_bb2, _bm) > 0.35:
+                                            _hit2 = _m
                                             break
                                     if _hit2 is None:
                                         merged.append(
-                                            [_e189[0], float(_e189[1]), _e189[2],
-                                             float(_e189[3]) if len(_e189) > 3 else 0.0,
-                                             (int(_e189[4]) if len(_e189) > 4 else -1)])
+                                            [_e3[0], float(_e3[1]), _e3[2],
+                                             float(_e3[3]) if len(_e3) > 3 else 0.0,
+                                             (int(_e3[4]) if len(_e3) > 4 else -1)])
                                         if self.debug:
                                             print(f"    [🔍189] خطِ بازیابی‌شده از "
-                                                  f"{_hn189}: {str(_e189[0])[:36]!r}")
+                                                  f"{_hn}: {str(_e3[0])[:36]!r}")
         except Exception:
             pass
 
@@ -843,124 +843,124 @@ class _MangaTranslatorBody_70:
         # نوار جذب نمی‌شود).
         try:
             if merged and not _tilted0:
-                _dbg90 = bool(os.environ.get("MANGA_R90_DBG"))
-                _edge86 = 3 + int(inset_used or 0)
-                for _side86 in (0, 1):
-                    if _side86 == 0:
-                        _clip86 = [m for m in merged if m[2] is not None
-                                   and _bb_of(m[2])[0] <= x1 + _edge86]
+                _dbg = bool(os.environ.get("MANGA_R90_DBG"))
+                _edge = 3 + int(inset_used or 0)
+                for _side in (0, 1):
+                    if _side == 0:
+                        _clip = [m for m in merged if m[2] is not None
+                                   and _bb_of(m[2])[0] <= x1 + _edge]
                     else:
-                        _clip86 = [m for m in merged if m[2] is not None
-                                   and _bb_of(m[2])[2] >= x2 - _edge86]
-                    if not _clip86:
+                        _clip = [m for m in merged if m[2] is not None
+                                   and _bb_of(m[2])[2] >= x2 - _edge]
+                    if not _clip:
                         continue
-                    _ext86 = min(110, int((x2 - x1) * 0.35))
-                    if _ext86 < 12:
+                    _ext = min(110, int((x2 - x1) * 0.35))
+                    if _ext < 12:
                         continue
-                    if _side86 == 0:
-                        _nb86 = max(0, x1 - _ext86)
+                    if _side == 0:
+                        _nb = max(0, x1 - _ext)
                         if block_rects:
                             for (_bx1, _by1, _bx2, _by2) in block_rects:
                                 try:
-                                    if (_bx1 < x1 and _bx2 > _nb86
+                                    if (_bx1 < x1 and _bx2 > _nb
                                             and _by1 < y2 and _by2 > y1):
-                                        _nb86 = max(_nb86,
+                                        _nb = max(_nb,
                                                     min(x1 - 2, _bx2 + 6))
                                 except Exception:
                                     continue
-                        if _nb86 >= x1 - 4:
+                        if _nb >= x1 - 4:
                             continue
-                        _crop86 = image_bgr[y1:y2, _nb86:x2]
-                        _org86 = (_nb86, y1)
+                        _crop = image_bgr[y1:y2, _nb:x2]
+                        _org = (_nb, y1)
                     else:
-                        _nb86 = min(w, x2 + _ext86)
+                        _nb = min(w, x2 + _ext)
                         if block_rects:
                             for (_bx1, _by1, _bx2, _by2) in block_rects:
                                 try:
-                                    if (_bx2 > x2 and _bx1 < _nb86
+                                    if (_bx2 > x2 and _bx1 < _nb
                                             and _by1 < y2 and _by2 > y1):
-                                        _nb86 = min(_nb86,
+                                        _nb = min(_nb,
                                                     max(x2 + 2, _bx1 - 6))
                                 except Exception:
                                     continue
-                        if _nb86 <= x2 + 4:
+                        if _nb <= x2 + 4:
                             continue
-                        _crop86 = image_bgr[y1:y2, x1:_nb86]
-                        _org86 = (x1, y1)
-                    if _crop86.size == 0 or _crop86.shape[0] < 12 \
-                            or _crop86.shape[1] < 12:
+                        _crop = image_bgr[y1:y2, x1:_nb]
+                        _org = (x1, y1)
+                    if _crop.size == 0 or _crop.shape[0] < 12 \
+                            or _crop.shape[1] < 12:
                         continue
-                    _ylo86 = min(_bb_of(m[2])[1] for m in _clip86) - 10
-                    _yhi86 = max(_bb_of(m[2])[3] for m in _clip86) + 10
-                    if _dbg90:
+                    _ylo = min(_bb_of(m[2])[1] for m in _clip) - 10
+                    _yhi = max(_bb_of(m[2])[3] for m in _clip) + 10
+                    if _dbg:
                         print(f"    [r90] crop=({x1},{y1},{x2},{y2}) side="
-                              f"{'L' if _side86 == 0 else 'R'} → تاِ {_nb86} | "
-                              f"بریده: {[m[0] for m in _clip86]}", flush=True)
+                              f"{'L' if _side == 0 else 'R'} → تاِ {_nb} | "
+                              f"بریده: {[m[0] for m in _clip]}", flush=True)
                     _txtE, _polE, _confE, _entE = _run(
-                        _crop86, base_scale, apply_offset=True, origin=_org86)
-                    for _e86 in (_entE or []):
-                        _tE = str(_e86[0] or "").strip()
-                        _pE = _e86[2] if len(_e86) > 2 else None
+                        _crop, base_scale, apply_offset=True, origin=_org)
+                    for _e6 in (_entE or []):
+                        _tE = str(_e6[0] or "").strip()
+                        _pE = _e6[2] if len(_e6) > 2 else None
                         if not _tE or _pE is None:
                             continue
                         _bE = _bb_of(_pE)
                         if _bE is None or (_bE[3] - _bE[1]) < 8:
                             continue
                         # v1.14.188 — همان دو فیلترِ ضدِ چرت‌پرت رویِ نجاتِ لبه
-                        if _line_is_foreign188(_bE, block_rects, _own188):
+                        if _line_is_foreign(_bE, block_rects, _own):
                             continue
                         # v1.14.245 — ناحیه = merged + خطِ نجات‌یافته
                         try:
                             _rhasE = source_has_letters(
                                 " ".join(
-                                    [str(_m245[0]) for _m245 in merged]
+                                    [str(_m2[0]) for _m2 in merged]
                                     + [_tE]))
                         except Exception:
                             _rhasE = None
-                        _jE = _latin_junk_line188(_tE, _rhasE) \
-                            if _latin_lang188(self) else False
+                        _jE = _latin_junk_line(_tE, _rhasE) \
+                            if _latin_lang(self) else False
                         if _jE:
                             if isinstance(_jE, str):
                                 _tE = _jE  # v1.14.189 — ترمیم
                             else:
                                 continue
-                        _oyE = min(_yhi86, _bE[3]) - max(_ylo86, _bE[1])
+                        _oyE = min(_yhi, _bE[3]) - max(_ylo, _bE[1])
                         if _oyE <= 0.3 * max(1.0, _bE[3] - _bE[1]):
                             continue
-                        if _side86 == 0 and _bE[0] >= x1 - 2:
+                        if _side == 0 and _bE[0] >= x1 - 2:
                             continue
-                        if _side86 == 1 and _bE[2] <= x2 + 2:
+                        if _side == 1 and _bE[2] <= x2 + 2:
                             continue
                         _hitE = None
-                        for _m86 in merged:
-                            _bM = _bb_of(_m86[2]) if _m86[2] is not None else None
+                        for _m3 in merged:
+                            _bM = _bb_of(_m3[2]) if _m3[2] is not None else None
                             if _bM is not None and _overlap_frac(_bE, _bM) > 0.40:
-                                _hitE = _m86
+                                _hitE = _m3
                                 break
                         if _hitE is None:
-                            merged.append([_tE, float(_e86[1]), _pE,
-                                           float(_e86[3]) if len(_e86) > 3 else 0.0,
-                                           (int(_e86[4]) if len(_e86) > 4 else -1)])
-                            if _dbg90:
+                            merged.append([_tE, float(_e6[1]), _pE,
+                                           float(_e6[3]) if len(_e6) > 3 else 0.0,
+                                           (int(_e6[4]) if len(_e6) > 4 else -1)])
+                            if _dbg:
                                 print(f"    [r90]   + «{_tE}» "
                                       f"x[{_bE[0]:.0f}-{_bE[2]:.0f}] "
                                       f"y[{_bE[1]:.0f}-{_bE[3]:.0f}]", flush=True)
-                        elif _hitE in _clip86 and (
+                        elif _hitE in _clip and (
                                 len(_tE) >= len(_hitE[0] or "")):
                             # تکهٔ بریده جایگزینِ کامل‌تر می‌شود؛ خوانشِ
                             # کراپِ بازشده کلِ خط را دیده (حتی اگر هم‌طول
                             # باشد، خوانشِ ناقصِ لبه اعتمادِ کمتری دارد)
-                            if _dbg90:
+                            if _dbg:
                                 print(f"    [r90]   ~ «{_hitE[0]}» → «{_tE}»",
                                       flush=True)
                             _hitE[0] = _tE
-                            _hitE[1] = float(_e86[1])
+                            _hitE[1] = float(_e6[1])
                             _hitE[2] = _pE
-                            if len(_e86) > 3:
-                                _hitE[3] = float(_e86[3])
-                            if len(_hitE) > 4 and len(_e86) > 4:
-                                _hitE[4] = int(_e86[4])
-                        elif _dbg90 and _hitE is not None:
+                            if len(_e6) > 3:
+                                _hitE[3] = float(_e6[3])
+                            if len(_hitE) > 4 and len(_e6) > 4:
+                                _hitE[4] = int(_e6[4])
+                        elif _dbg and _hitE is not None:
                             print(f"    [r90]   . نگهِ «{_hitE[0]}» "
                                   f"(جدید: «{_tE}»)", flush=True)
         except Exception:
@@ -998,37 +998,37 @@ class _MangaTranslatorBody_70:
             # PC بیت‌به‌بیت بدونِ این فیلتر.
             if _on_android() and len(merged) >= 3:
                 try:
-                    _bbsF185 = [_bb_of(m[2]) for m in merged]
-                    _vF185 = [b for b in _bbsF185 if b is not None]
-                    if len(_vF185) >= 3:
-                        _medhF185 = float(np.median(
-                            [b[3] - b[1] for b in _vF185]))
-                        _medwF185 = float(np.median(
-                            [b[2] - b[0] for b in _vF185]))
-                        _tallF185 = sum(
-                            1 for b in _vF185
+                    _bbsF = [_bb_of(m[2]) for m in merged]
+                    _vF = [b for b in _bbsF if b is not None]
+                    if len(_vF) >= 3:
+                        _medhF = float(np.median(
+                            [b[3] - b[1] for b in _vF]))
+                        _medwF = float(np.median(
+                            [b[2] - b[0] for b in _vF]))
+                        _tallF = sum(
+                            1 for b in _vF
                             if (b[3] - b[1]) > 1.4 * (b[2] - b[0]))
-                        _wideF185 = len(_vF185) - _tallF185
-                        _keepF185 = None
-                        if _tallF185 * 20 >= len(_vF185) * 11:
-                            _keepF185 = [
-                                m for m, b in zip(merged, _bbsF185)
+                        _wideF = len(_vF) - _tallF
+                        _keepF = None
+                        if _tallF * 20 >= len(_vF) * 11:
+                            _keepF = [
+                                m for m, b in zip(merged, _bbsF)
                                 if b is None or not (
                                     (b[2] - b[0]) > max(
-                                        1.7 * _medwF185, _medwF185 + 28.0)
+                                        1.7 * _medwF, _medwF + 28.0)
                                     and (b[2] - b[0]) > 1.6 * (b[3] - b[1]))
                             ]
-                        elif _wideF185 * 20 >= len(_vF185) * 11:
-                            _keepF185 = [
-                                m for m, b in zip(merged, _bbsF185)
+                        elif _wideF * 20 >= len(_vF) * 11:
+                            _keepF = [
+                                m for m, b in zip(merged, _bbsF)
                                 if b is None or not (
                                     (b[3] - b[1]) > max(
-                                        1.7 * _medhF185, _medhF185 + 28.0)
+                                        1.7 * _medhF, _medhF + 28.0)
                                     and (b[3] - b[1]) > 1.6 * (b[2] - b[0]))
                             ]
-                        if (_keepF185 is not None and len(_keepF185) >= 2
-                                and len(_keepF185) < len(merged)):
-                            merged = _keepF185
+                        if (_keepF is not None and len(_keepF) >= 2
+                                and len(_keepF) < len(merged)):
+                            merged = _keepF
                 except Exception:
                     pass
             hts = []
@@ -1045,18 +1045,18 @@ class _MangaTranslatorBody_70:
                 # (کوچکتر از گامِ خط) → هیچ برخوردی. برایِ ستون‌هایِ عمودیِ
                 # ژاپنی/کره‌ای (اکثریتِ باکس‌ها بلند): ترتیبِ راست‌به‌چپِ
                 # واقعیِ منگا با x نزولی (rtl) — قدیمی x صعودی می‌خواند.
-                _bbsS185 = [_bb_of(m[2]) for m in merged]
-                _vS185 = [b for b in _bbsS185 if b is not None]
-                if _vS185:
-                    _medhS185 = float(np.median(
-                        [b[3] - b[1] for b in _vS185]))
-                    _tallS185 = sum(
-                        1 for b in _vS185
+                _bbsS = [_bb_of(m[2]) for m in merged]
+                _vS = [b for b in _bbsS if b is not None]
+                if _vS:
+                    _medhS = float(np.median(
+                        [b[3] - b[1] for b in _vS]))
+                    _tallS = sum(
+                        1 for b in _vS
                         if (b[3] - b[1]) > 1.4 * (b[2] - b[0]))
-                    _rtlS185 = (
+                    _rtlS = (
                         getattr(self, "reading_order", "rtl") == "rtl")
-                    if len(_vS185) >= 2 and _tallS185 * 2 >= len(_vS185):
-                        if _rtlS185:
+                    if len(_vS) >= 2 and _tallS * 2 >= len(_vS):
+                        if _rtlS:
                             merged.sort(key=lambda m_item: (
                                 (-(_bb_of(m_item[2])[0])
                                  if m_item[2] is not None else 0.0),
@@ -1069,10 +1069,10 @@ class _MangaTranslatorBody_70:
                                 (_bb_of(m_item[2])[1]
                                  if m_item[2] is not None else 0.0)))
                     else:
-                        _rh185 = max(8.0, _medhS185 * 0.75)
+                        _rh = max(8.0, _medhS * 0.75)
                         merged.sort(key=lambda m_item: (
                             ((_bb_of(m_item[2])[1]
-                              if m_item[2] is not None else 0.0) // _rh185),
+                              if m_item[2] is not None else 0.0) // _rh),
                             (_bb_of(m_item[2])[0]
                              if m_item[2] is not None else 0.0)))
             else:
@@ -1096,26 +1096,26 @@ class _MangaTranslatorBody_70:
             # هر ستون متنِ خودش را می‌گیرد و ستون‌ها با \n جدا می‌شوند
             # (مترجم دو متنِ جدا را با \n ترجمه/رندر می‌کند).
             try:
-                _cg86 = MangaTranslator._column_line_groups(
+                _cg = MangaTranslator._column_line_groups(
                     list(range(len(merged))),
                     [_bb_of(m_item[2]) for m_item in merged],
                     rtl=(getattr(self, "reading_order", "rtl") == "rtl"))
             except Exception:
-                _cg86 = None
-            if _cg86 and len(_cg86) > 1:
-                _parts86 = []
-                for _g86 in _cg86:
-                    _gs86 = sorted(_g86, key=lambda _k86: (
-                        (_bb_of(merged[_k86][2])[1]
-                         if merged[_k86][2] is not None else 0.0),
-                        (_bb_of(merged[_k86][2])[0]
-                         if merged[_k86][2] is not None else 0.0)))
-                    _tg86 = " ".join(
-                        str(merged[_k86][0] or "").strip() for _k86 in _gs86
+                _cg = None
+            if _cg and len(_cg) > 1:
+                _parts = []
+                for _g3 in _cg:
+                    _gs = sorted(_g3, key=lambda _k: (
+                        (_bb_of(merged[_k][2])[1]
+                         if merged[_k][2] is not None else 0.0),
+                        (_bb_of(merged[_k][2])[0]
+                         if merged[_k][2] is not None else 0.0)))
+                    _tg = " ".join(
+                        str(merged[_k][0] or "").strip() for _k in _gs
                     ).strip()
-                    if _tg86:
-                        _parts86.append(_tg86)
-                u_txt = "\n".join(_parts86)
+                    if _tg:
+                        _parts.append(_tg)
+                u_txt = "\n".join(_parts)
             else:
                 u_txt = " ".join(m_item[0] for m_item in merged).strip()
             u_txt = u_txt.strip()
@@ -1202,98 +1202,98 @@ class _MangaTranslatorBody_70:
         # فقط در این حالت) زده میشود و چندضلعیها به مختصاتِ صفحه
         # برمیگردند.
         try:
-            _latin_b230 = len(re.sub(r"[^A-Za-z]", "", best[0] or ""))
-            _tall230 = False
+            _latin_b = len(re.sub(r"[^A-Za-z]", "", best[0] or ""))
+            _tall = False
             if merged:
-                _hb230 = []
+                _hb = []
                 for m_item in merged:
                     mb = _bb_of(m_item[2])
                     if mb is not None:
-                        _hb230.append((mb[3] - mb[1], mb[2] - mb[0]))
-                if _hb230:
-                    _mh230 = float(np.median([b[0] for b in _hb230]))
-                    _mw230 = float(np.median([b[1] for b in _hb230]))
-                    _tall230 = _mh230 > max(1.3 * _mw230, 1.15 * cw0)
-            _need90230 = (
+                        _hb.append((mb[3] - mb[1], mb[2] - mb[0]))
+                if _hb:
+                    _mh = float(np.median([b[0] for b in _hb]))
+                    _mw = float(np.median([b[1] for b in _hb]))
+                    _tall = _mh > max(1.3 * _mw, 1.15 * cw0)
+            _need = (
                 cw0 >= 40 and ch0 >= 1.2 * cw0
-                and ((not merged) or _tall230
-                     or (_latin_b230 < 4 and bool(merged))))
+                and ((not merged) or _tall
+                     or (_latin_b < 4 and bool(merged))))
             # ستونِ عمودیِ واقعیِ CJK (ژاپنی/کره‌ایِ مانگا) متنِ درستِ
             # عمودی است — چرخشِ ±۹۰ آن را خراب میکند. اگر متنِ موجودِ
             # حروفِ CJK دارد، نجاتِ ۹۰ درجه اجرا نمیشود.
-            if _need90230 and merged:
-                _cjk_b230 = sum(
+            if _need and merged:
+                _cjk_b = sum(
                     1 for _ch in (best[0] or "")
                     if 0x3040 <= ord(_ch) <= 0x30FF
                     or 0x3400 <= ord(_ch) <= 0x9FFF
                     or 0xAC00 <= ord(_ch) <= 0xD7AF)
-                if _cjk_b230 >= 2:
-                    _need90230 = False
-            if _need90230:
-                for _rotk230 in (cv2.ROTATE_90_CLOCKWISE,
+                if _cjk_b >= 2:
+                    _need = False
+            if _need:
+                for _rotk in (cv2.ROTATE_90_CLOCKWISE,
                                  cv2.ROTATE_90_COUNTERCLOCKWISE):
                     try:
-                        _rot_img230 = cv2.rotate(crop0, _rotk230)
-                        _rt230, _rp230, _rc230, _re230 = _run(
-                            _rot_img230, base_scale, apply_offset=False)
-                        if not _re230:
+                        _rot_img = cv2.rotate(crop0, _rotk)
+                        _rt, _rp, _rc, _re = _run(
+                            _rot_img, base_scale, apply_offset=False)
+                        if not _re:
                             continue
-                        _keep230 = []
+                        _keep2 = []
                         # v1.14.245 — سیاستِ عدد در سطحِ ناحیه برایِ نجاتِ ۹۰°
                         try:
-                            _rhas230 = source_has_letters(
-                                " ".join(str(_e245[0])
-                                          for _e245 in (_re230 or [])))
+                            _rhas2 = source_has_letters(
+                                " ".join(str(_e[0])
+                                          for _e in (_re or [])))
                         except Exception:
-                            _rhas230 = None
-                        for _e230 in (_re230 or []):
-                            if _e230[2] is None:
+                            _rhas2 = None
+                        for _e4 in (_re or []):
+                            if _e4[2] is None:
                                 continue
-                            _j230 = _latin_junk_line188(_e230[0], _rhas230) \
-                                if _latin_lang188(self) else False
-                            if _j230:
-                                if isinstance(_j230, str):
-                                    _e230 = (_j230,) + tuple(_e230[1:])
+                            _j3 = _latin_junk_line(_e4[0], _rhas2) \
+                                if _latin_lang(self) else False
+                            if _j3:
+                                if isinstance(_j3, str):
+                                    _e4 = (_j3,) + tuple(_e4[1:])
                                 else:
                                     continue
-                            _keep230.append(_e230)
-                        if not _keep230:
+                            _keep2.append(_e4)
+                        if not _keep2:
                             continue
-                        _back230 = []
-                        for _e230 in _keep230:
-                            _pp230 = np.asarray(_e230[2], np.float32).reshape(-1, 2)
-                            if _rotk230 == cv2.ROTATE_90_CLOCKWISE:
+                        _back = []
+                        for _e4 in _keep2:
+                            _pp = np.asarray(_e4[2], np.float32).reshape(-1, 2)
+                            if _rotk == cv2.ROTATE_90_CLOCKWISE:
                                 # (x',y') → (x,y) = (y', ch0-1-x')
-                                _bx230 = _pp230[:, 1].copy()
-                                _by230 = (ch0 - 1.0) - _pp230[:, 0]
+                                _bx = _pp[:, 1].copy()
+                                _by = (ch0 - 1.0) - _pp[:, 0]
                             else:
                                 # (x',y') → (x,y) = (cw0-1-y', x')
-                                _bx230 = (cw0 - 1.0) - _pp230[:, 1]
-                                _by230 = _pp230[:, 0].copy()
-                            _bp230 = np.stack(
-                                [_bx230 + x1, _by230 + y1], axis=1)
+                                _bx = (cw0 - 1.0) - _pp[:, 1]
+                                _by = _pp[:, 0].copy()
+                            _bp2 = np.stack(
+                                [_bx + x1, _by + y1], axis=1)
                             if inset_used:
-                                _bp230 += float(inset_used)
-                            _back230.append(np.rint(_bp230).astype(np.int32))
-                        _btxt230 = " ".join(str(e[0]) for e in _keep230).strip()
-                        _bconf230 = float(np.mean([e[1] for e in _keep230]))
-                        _scv230 = _score(_btxt230, _bconf230)
-                        _bl230 = len(re.sub(r"[^A-Za-z]", "", _btxt230))
-                        if _scv230 > best[2] and _bl230 >= _latin_b230:
-                            _bangs230 = []
-                            for _bp230 in _back230:
+                                _bp2 += float(inset_used)
+                            _back.append(np.rint(_bp2).astype(np.int32))
+                        _btxt = " ".join(str(e[0]) for e in _keep2).strip()
+                        _bconf = float(np.mean([e[1] for e in _keep2]))
+                        _scv = _score(_btxt, _bconf)
+                        _bl = len(re.sub(r"[^A-Za-z]", "", _btxt))
+                        if _scv > best[2] and _bl >= _latin_b:
+                            _bangs = []
+                            for _bp2 in _back:
                                 try:
-                                    _bangs230.append(float(
-                                        MangaTranslator._poly_long_side_angle(_bp230)))
+                                    _bangs.append(float(
+                                        MangaTranslator._poly_long_side_angle(_bp2)))
                                 except Exception:
-                                    _bangs230.append(0.0)
-                            best = (_btxt230, _back230, _scv230, _bangs230,
-                                    [str(e[0]) for e in _keep230],
+                                    _bangs.append(0.0)
+                            best = (_btxt, _back, _scv, _bangs,
+                                    [str(e[0]) for e in _keep2],
                                     [(int(e[4]) if len(e) > 4 else -1)
-                                     for e in _keep230])
+                                     for e in _keep2])
                             if self.debug:
                                 print(f"    [🔍230] نجاتِ ±۹۰°: "
-                                      f"{_btxt230[:60]!r}")
+                                      f"{_btxt[:60]!r}")
                             break
                     except Exception:
                         continue
@@ -1430,7 +1430,7 @@ class _MangaTranslatorBody_70:
             except Exception:
                 return [rect]
 
-    def _ocr_guard_line_boxes_239(self, crop: np.ndarray):
+    def _ocr_guard_line_boxes(self, crop: np.ndarray):
         """v1.14.239 — جعبههایِ خطِ متنِ داخلِ کراپ (برایِ گاردِ برش).
 
         از همان فراخوانیِ عادیِ ocr() استفاده میکند (مثلِ کارگرهایِ
@@ -1441,39 +1441,39 @@ class _MangaTranslatorBody_70:
         امن است. خروجی: [(x0,y0,x1,y1,h), …] در مختصاتِ کراپ."""
         try:
             try:
-                _res239 = self.ocr.ocr(crop, crop_mode=True)
+                _res = self.ocr.ocr(crop, crop_mode=True)
             except TypeError:
                 # PaddleOCRWrapper امضایِ crop_mode ندارد (بدونِ تغییرِ
                 # رفتار — همان پاسِ عادی کافی است)
-                _res239 = self.ocr.ocr(crop)
+                _res = self.ocr.ocr(crop)
             boxes = []
-            for _pg239 in (_res239 or []):
-                for _it239 in (_pg239 or []):
+            for _pg in (_res or []):
+                for _it in (_pg or []):
                     try:
                         boxes.append(np.asarray(
-                            _it239[0], dtype=np.float32).reshape(-1, 2))
+                            _it[0], dtype=np.float32).reshape(-1, 2))
                     except Exception:
                         continue
         except Exception:
             return []
         out = []
-        for _p239 in (boxes or []):
+        for _p in (boxes or []):
             try:
-                _pp239 = np.asarray(_p239, dtype=np.float32).reshape(-1, 2)
-                if _pp239.shape[0] < 4:
+                _pp = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                if _pp.shape[0] < 4:
                     continue
-                _w239 = float(_pp239[:, 0].max() - _pp239[:, 0].min())
-                _h239 = float(_pp239[:, 1].max() - _pp239[:, 1].min())
-                if _w239 >= 12.0 and _h239 >= 6.0:
-                    out.append((float(_pp239[:, 0].min()),
-                                float(_pp239[:, 1].min()),
-                                float(_pp239[:, 0].max()),
-                                float(_pp239[:, 1].max()), _h239))
+                _w = float(_pp[:, 0].max() - _pp[:, 0].min())
+                _h = float(_pp[:, 1].max() - _pp[:, 1].min())
+                if _w >= 12.0 and _h >= 6.0:
+                    out.append((float(_pp[:, 0].min()),
+                                float(_pp[:, 1].min()),
+                                float(_pp[:, 0].max()),
+                                float(_pp[:, 1].max()), _h))
             except Exception:
                 continue
         return out
 
-    def _split_cuts_text_239(self, image: np.ndarray, full_rect, parts) -> bool:
+    def _split_cuts_text(self, image: np.ndarray, full_rect, parts) -> bool:
         """v1.14.239 — آیا برشِ حبابهایِ چسبیده از وسطِ «خطِ متن» میگذرد؟
 
         ریشهٔ باگِ فصلِ Green-Skin 22 (لاگِ سازنده): کپشنِ یک‌خطیِ
@@ -1487,62 +1487,62 @@ class _MangaTranslatorBody_70:
         لغو و باکسِ کامل حفظ میشود. خطی که کامل داخلِ یک پارت است
         (حبابهایِ واقعیِ چسبیده با متنِ جدا) برش را بازنمیگرداند."""
         try:
-            _ocr239 = getattr(self, "ocr", None)
-            if _ocr239 is None:
+            _ocr = getattr(self, "ocr", None)
+            if _ocr is None:
                 return False
             x1, y1, x2, y2 = [int(v) for v in full_rect[:4]]
-            _pad239 = 6
-            _cx1 = max(0, x1 - _pad239)
-            _cy1 = max(0, y1 - _pad239)
-            _cx2 = min(int(image.shape[1]), x2 + _pad239)
-            _cy2 = min(int(image.shape[0]), y2 + _pad239)
+            _pad = 6
+            _cx1 = max(0, x1 - _pad)
+            _cy1 = max(0, y1 - _pad)
+            _cx2 = min(int(image.shape[1]), x2 + _pad)
+            _cy2 = min(int(image.shape[0]), y2 + _pad)
             if _cx2 - _cx1 < 24 or _cy2 - _cy1 < 24:
                 return False
             crop = image[_cy1:_cy2, _cx1:_cx2]
             if crop is None or crop.size == 0:
                 return False
-            lines = self._ocr_guard_line_boxes_239(crop)
+            lines = self._ocr_guard_line_boxes(crop)
             if not lines:
                 return False
             # خطهای عمدتاً داخلِ باکس (نه لکهٔ لبهٔ کراپِ همسایه)
             _bx0, _by0 = float(x1 - _cx1), float(y1 - _cy1)
             _bx1, _by1 = float(x2 - _cx1), float(y2 - _cy1)
             _good = []
-            for _L239 in lines:
-                _lx0, _ly0, _lx1, _ly1, _lh = _L239
+            for _L in lines:
+                _lx0, _ly0, _lx1, _ly1, _lh = _L
                 _mxc = (_lx0 + _lx1) * 0.5
                 _myc = (_ly0 + _ly1) * 0.5
                 if _bx0 - 2 <= _mxc <= _bx1 + 2 and _by0 - 2 <= _myc <= _by1 + 2:
-                    _good.append(_L239)
+                    _good.append(_L)
             if not _good:
                 return False
-            _parts239 = sorted(
+            _parts = sorted(
                 [[int(v) for v in p[:4]] for p in parts],
                 key=lambda p: (p[0], p[1]))
-            for _a239, _b239 in zip(_parts239, _parts239[1:]):
+            for _a, _b in zip(_parts, _parts[1:]):
                 # کنارهم (درزِ عمودی) یا رویهم (درزِ افقی)؟
-                _ovx = min(_a239[2], _b239[2]) - max(_a239[0], _b239[0])
-                _ovy = min(_a239[3], _b239[3]) - max(_a239[1], _b239[1])
-                _wa = max(1, _a239[2] - _a239[0])
-                _ha = max(1, _a239[3] - _a239[1])
-                _side = (_ovy >= 0.5 * min(_ha, max(1, _b239[3] - _b239[1])))
-                _stack = (_ovx >= 0.5 * min(_wa, max(1, _b239[2] - _b239[0])))
+                _ovx = min(_a[2], _b[2]) - max(_a[0], _b[0])
+                _ovy = min(_a[3], _b[3]) - max(_a[1], _b[1])
+                _wa = max(1, _a[2] - _a[0])
+                _ha = max(1, _a[3] - _a[1])
+                _side = (_ovy >= 0.5 * min(_ha, max(1, _b[3] - _b[1])))
+                _stack = (_ovx >= 0.5 * min(_wa, max(1, _b[2] - _b[0])))
                 if not _side and not _stack:
                     continue
                 if _side:
-                    _lo = max(_a239[0], _b239[0])
-                    _hi = min(_a239[2], _b239[2])
+                    _lo = max(_a[0], _b[0])
+                    _hi = min(_a[2], _b[2])
                     if _hi <= _lo:            # دو پارتِ جدا از هم → درز = فاصله
-                        _lo, _hi = min(_a239[2], _b239[2]), max(_a239[0], _b239[0])
+                        _lo, _hi = min(_a[2], _b[2]), max(_a[0], _b[0])
                     for _lx0, _ly0, _lx1, _ly1, _lh in _good:
                         _tol = min(24.0, max(4.0, 0.12 * max(1.0, _lh)))
                         if (_lo - _lx0) >= _tol and (_lx1 - _hi) >= _tol:
                             return True
                 if _stack:
-                    _lo = max(_a239[1], _b239[1])
-                    _hi = min(_a239[3], _b239[3])
+                    _lo = max(_a[1], _b[1])
+                    _hi = min(_a[3], _b[3])
                     if _hi <= _lo:
-                        _lo, _hi = min(_a239[3], _b239[3]), max(_a239[1], _b239[1])
+                        _lo, _hi = min(_a[3], _b[3]), max(_a[1], _b[1])
                     for _lx0, _ly0, _lx1, _ly1, _lh in _good:
                         _tol = min(24.0, max(4.0, 0.12 * max(1.0, _lh)))
                         if (_lo - _ly0) >= _tol and (_ly1 - _hi) >= _tol:
@@ -1559,7 +1559,7 @@ class _MangaTranslatorBody_70:
         if len(regions) < 2:
             return regions
 
-        def _line_min_dims_1189(r):
+        def _line_min_dims(r):
             """ضخامتِ هر خطِ OCR (minِ عرض/ارتفاع — برایِ متنِ عمودی هم درست)."""
             out = []
             for p in (getattr(r, "ocr_polys", None) or []):
@@ -1574,7 +1574,7 @@ class _MangaTranslatorBody_70:
                     continue
             return out
 
-        def _incoherent_lines_1189(a, b):
+        def _incoherent_lines(a, b):
             """v1.14.189 — مشکل۱: دو متنِ جدا در یک ناحیه ممنوع.
             سناریوی img6 (گوشی): باکسِ detِ شلِ حبابِ زرد برچسبِ کوچکِ
             «You're the real attraction here.» را میبلعید؛ merge با
@@ -1582,8 +1582,8 @@ class _MangaTranslatorBody_70:
             قاطی میشدند. اگر هر دو ناحیه چندخطیاند و بلندیِ خطهایشان
             ناهماهنگ است (دو فونتِ متفاوت) و متنِ یکی داخلِ دیگری
             نیست → این جفت نباید ادغام شود."""
-            ha = _line_min_dims_1189(a)
-            hb = _line_min_dims_1189(b)
+            ha = _line_min_dims(a)
+            hb = _line_min_dims(b)
             if len(ha) < 2 or len(hb) < 2:
                 return False
             ma, mb = float(np.median(ha)), float(np.median(hb))
@@ -1620,7 +1620,7 @@ class _MangaTranslatorBody_70:
         # نباید استخراج از اون بیشتر بگیره — الان میشه دید کل سه حباب
         # گرفته» — detector سه حباب/تایتلِ کج را جدا داده بود؛ ادغامِ
         # مستطیلیِ همپوشانیِ گسترشیافته آنها را یکجا میگرفت.
-        def _det_box204(r):
+        def _det_box(r):
             try:
                 bs = getattr(r, "boxes", None) or []
                 if not bs:
@@ -1648,7 +1648,7 @@ class _MangaTranslatorBody_70:
             cur = a
             used[i] = True
             ca = rect_xyxy(cur)
-            _cur_det204 = [d for d in [_det_box204(cur)] if d]
+            _cur_det = [d for d in [_det_box(cur)] if d]
             changed = True
             while changed:
                 changed = False
@@ -1656,13 +1656,13 @@ class _MangaTranslatorBody_70:
                     if used[j]:
                         continue
                     cb = rect_xyxy(b)
-                    _db204 = _det_box204(b)
-                    if _cur_det204 and _db204:
+                    _db = _det_box(b)
+                    if _cur_det and _db:
                         if not any(
-                                iou(cd, _db204) >= iou_thresh
-                                or contain_ratio(_db204, cd) >= contain_thresh
-                                or contain_ratio(cd, _db204) >= contain_thresh
-                                for cd in _cur_det204):
+                                iou(cd, _db) >= iou_thresh
+                                or contain_ratio(_db, cd) >= contain_thresh
+                                or contain_ratio(cd, _db) >= contain_thresh
+                                for cd in _cur_det):
                             # v1.14.206 — باکسِ detectorِ جدا = متنِ جدا؛
                             # مستطیلِ گسترشیافته حقِ جذبِ همسایه را ندارد
                             continue
@@ -1684,7 +1684,7 @@ class _MangaTranslatorBody_70:
                         joined = ta
                     elif ta.lower() in tb.lower():
                         joined = tb
-                    elif _incoherent_lines_1189(cur, b):
+                    elif _incoherent_lines(cur, b):
                         # v1.14.189 — مشکل۱: دو متنِ مستقل با فونتِ متفاوت —
                         # جدا بمانند (img6: حبابِ زرد + برچسبِ کوچک)
                         continue
@@ -1716,8 +1716,8 @@ class _MangaTranslatorBody_70:
                         + list(getattr(b, "ocr_polys", None) or []),
                     )
                     ca = [nx0, ny0, nx1, ny1]
-                    if _db204 is not None:
-                        _cur_det204.append(_db204)
+                    if _db is not None:
+                        _cur_det.append(_db)
                     used[j] = True
                     n_merged += 1
                     changed = True
@@ -1816,9 +1816,9 @@ class _MangaTranslatorBody_70:
                     return None
 
             for _ink_b in _cands:
-                _r213 = _sup(_ink_b)
-                if _r213 is not None:
-                    return _r213
+                _r = _sup(_ink_b)
+                if _r is not None:
+                    return _r
             return None
         except Exception:
             return None
@@ -2217,7 +2217,7 @@ class _MangaTranslatorBody_70:
                 # بینِ پارتها عبور کند، باکسِ کامل حفظ میشود (کپشنِ
                 # یک‌خطیِ Green-Skin 22 دیگر نصف نمیشود).
                 try:
-                    if self._split_cuts_text_239(image, b["rect"], parts):
+                    if self._split_cuts_text(image, b["rect"], parts):
                         print(f"    [*] برشِ باکس {b['rect']} به {len(parts)} "
                               f"حباب لغو شد — خطِ متن از مرز میگذشت (باکس کامل حفظ شد)")
                         parts = [[int(v) for v in b["rect"][:4]]]
@@ -2283,15 +2283,15 @@ class _MangaTranslatorBody_70:
             # v1.14.90 — باکس‌هایِ همسایه به _ocr_crop داده میشود تا
             # نجاتِ خطِ لبه‌بریده، کراپ را تا باکسِ ناحیهٔ دیگر باز نکند
             # (جذبِ متنِ حبابِ مجاور ممنوع).
-            _all_rects90 = [(t[2], t[3], t[4], t[5]) for t in cand]
+            _all_rects = [(t[2], t[3], t[4], t[5]) for t in cand]
 
-            def _ocr_one90(k: int):
-                _t90 = cand[k]
-                _blk90 = [_all_rects90[j]
-                          for j in range(len(_all_rects90)) if j != k]
+            def _ocr_one(k: int):
+                _t = cand[k]
+                _blk = [_all_rects[j]
+                          for j in range(len(_all_rects)) if j != k]
                 return self._ocr_crop(
-                    image, [_t90[2], _t90[3], _t90[4], _t90[5]],
-                    block_rects=_blk90)
+                    image, [_t[2], _t[3], _t[4], _t[5]],
+                    block_rects=_blk)
 
             n_workers = max(1, min(int(getattr(self, "max_workers", 3) or 1), len(cand)))
             # v1.14.167 — همهٔ ناحیهها همزمان (حداکثرِ توانِ سیستم):
@@ -2299,16 +2299,16 @@ class _MangaTranslatorBody_70:
             # thread-safe هستند؛ موتورِ Paddle-Lite هم حالا با «استخرِ
             # predictor» در پلِ جاوا موازی شد (هر کارگر یک نمونهٔ
             # predictor خودش را برمیدارد — قفلِ سراسریِ run حذف شد).
-            _ocr_ts90 = isinstance(self.ocr, RapidOCRBackend)
-            if n_workers > 1 and _ocr_ts90:
+            _ocr_ts = isinstance(self.ocr, RapidOCRBackend)
+            if n_workers > 1 and _ocr_ts:
                 if self.debug and not getattr(self, "_par_note90", False):
-                    self._par_note90 = True
+                    self._par_note = True
                     print(f"    [*] استخراجِ موازی: {len(cand)} ناحیه × "
                           f"{n_workers} کارگر (cpu={os.cpu_count()})")
                 with ThreadPoolExecutor(max_workers=n_workers) as ex:
-                    ocr_results = list(ex.map(_ocr_one90, range(len(cand))))
+                    ocr_results = list(ex.map(_ocr_one, range(len(cand))))
             else:
-                ocr_results = [_ocr_one90(k) for k in range(len(cand))]
+                ocr_results = [_ocr_one(k) for k in range(len(cand))]
 
         # v1.14.206 — خطِ بیرونِ باکسِ detector مالِ این ناحیه نیست
         # (توضیحِ کامل در helper) — هر ناحیه فقط متنِ داخلِ باکسِ خودش
@@ -2316,11 +2316,11 @@ class _MangaTranslatorBody_70:
         # ناحیهٔ بزرگ هم خطِ حبابهایِ کوچکِ داخلِ باکسش را برنمیدارد
         # (مسیرِ deskewِ _ocr_crop از فیلترِ ۱۸۸ رد میشود — اینجا
         # بعد ازِ خروجیِ نهایی پوشش داده میشود).
-        for _k204 in range(len(cand)):
-            _t204 = cand[_k204]
-            ocr_results[_k204] = _clamp_lines_to_det204(
-                ocr_results[_k204], (_t204[2], _t204[3], _t204[4], _t204[5]),
-                _all_rects90)
+        for _k in range(len(cand)):
+            _t = cand[_k]
+            ocr_results[_k] = _clamp_lines_to_det(
+                ocr_results[_k], (_t[2], _t[3], _t[4], _t[5]),
+                _all_rects)
 
         if split_groups:
             for idxs, full_rect in split_groups:
@@ -2334,7 +2334,7 @@ class _MangaTranslatorBody_70:
                 if any_text:
                     continue
                 full_txt, full_polys, full_angs, _full_lts, _full_blks = \
-                    _clamp_lines_to_det204(
+                    _clamp_lines_to_det(
                         self._ocr_crop(
                             image, full_rect,
                             block_rects=[(cand[j][2], cand[j][3], cand[j][4],
@@ -2383,37 +2383,37 @@ class _MangaTranslatorBody_70:
                     # ناحیهٔ خالی حذف میشود: نه پاکسازیِ دوباره، نه
                     # نجاتِ OCR با متنِ همسایه (ریشهٔ «AHHH!!!» دوبار).
                     try:
-                        _dupe239 = None
-                        for _j239 in range(len(cand)):
-                            if _j239 == i:
+                        _dupe = None
+                        for _j in range(len(cand)):
+                            if _j == i:
                                 continue
-                            _jt239 = ""
-                            if _j239 < len(ocr_results):
-                                _jt239 = str(
-                                    (ocr_results[_j239][0] if ocr_results[_j239]
+                            _jt = ""
+                            if _j < len(ocr_results):
+                                _jt = str(
+                                    (ocr_results[_j][0] if ocr_results[_j]
                                      else "") or "").strip()
-                            if not _jt239:
+                            if not _jt:
                                 continue
-                            _jc239 = cand[_j239]
-                            _jx1, _jy1 = float(_jc239[2]), float(_jc239[3])
-                            _jx2, _jy2 = float(_jc239[4]), float(_jc239[5])
-                            _ix239 = max(0.0, min(x2, _jx2) - max(x1, _jx1))
-                            _iy239 = max(0.0, min(y2, _jy2) - max(y1, _jy1))
-                            _inter239 = _ix239 * _iy239
-                            if _inter239 <= 0:
+                            _jc = cand[_j]
+                            _jx1, _jy1 = float(_jc[2]), float(_jc[3])
+                            _jx2, _jy2 = float(_jc[4]), float(_jc[5])
+                            _ix3 = max(0.0, min(x2, _jx2) - max(x1, _jx1))
+                            _iy3 = max(0.0, min(y2, _jy2) - max(y1, _jy1))
+                            _inter = _ix3 * _iy3
+                            if _inter <= 0:
                                 continue
-                            _aA239 = max(1e-6, float((x2 - x1) * (y2 - y1)))
-                            _aB239 = max(1e-6, (_jx2 - _jx1) * (_jy2 - _jy1))
-                            _iom239 = _inter239 / min(_aA239, _aB239)
-                            if _iom239 >= 0.28:
-                                _dupe239 = (_j239, _iom239)
+                            _aA = max(1e-6, float((x2 - x1) * (y2 - y1)))
+                            _aB = max(1e-6, (_jx2 - _jx1) * (_jy2 - _jy1))
+                            _iom = _inter / min(_aA, _aB)
+                            if _iom >= 0.28:
+                                _dupe = (_j, _iom)
                                 break
-                        if _dupe239 is not None:
+                        if _dupe is not None:
                             if self.debug:
                                 print(f"    [*] Region [{i}] باکسِ تکراریِ "
                                       f"حبابِ متن‌دار (هم‌پوشانیِ "
-                                      f"{_dupe239[1]*100:.0f}% با کاندیدِ "
-                                      f"{_dupe239[0]}) → حذف شد")
+                                      f"{_dupe[1]*100:.0f}% با کاندیدِ "
+                                      f"{_dupe[0]}) → حذف شد")
                             continue
                     except Exception:
                         pass
@@ -2425,7 +2425,7 @@ class _MangaTranslatorBody_70:
                     # «نباید پاک کنه هیچ دستی بهش نزنه»). متنِ واقعیِ
                     # ناخوانده (دست‌خط/فونتِ عجیب) حروفِ بزرگ دارد و
                     # از این گارد رد میشود.
-                    _dots230 = False
+                    _dots = False
                     try:
                         _gx1, _gy1 = max(0, int(x1)), max(0, int(y1))
                         _gx2 = min(image.shape[1], int(x2))
@@ -2454,10 +2454,10 @@ class _MangaTranslatorBody_70:
                             _maxh2 = max(_maxh2, _h2)
                         if _ncomp2 <= 10 and \
                                 _maxh2 < 0.18 * max(1, _gy2 - _gy1):
-                            _dots230 = True
+                            _dots = True
                     except Exception:
-                        _dots230 = False
-                    if _dots230:
+                        _dots = False
+                    if _dots:
                         if self.debug:
                             print(f"    [*] Region [{i}] جوهرِ نقطه/نمادِ "
                                   f"ریز است → دست‌نخورده")
@@ -2638,29 +2638,29 @@ class _MangaTranslatorBody_70:
                     # (تکهٔ حبابِ مجاور چسبیده به تایتلِ کج) نباید مستطیلِ
                     # ناحیه را تا رویِ حبابِ مجاور بکشد (همان «کلِ سه حباب
                     # گرفته») — خودِ خط برایِ ترجمه/پاکسازی میماند.
-                    _rx_pts204 = []
-                    for _p204 in line_polys:
+                    _rx_pts = []
+                    for _p in line_polys:
                         try:
-                            _pp204 = np.asarray(_p204,
+                            _pp = np.asarray(_p,
                                                 dtype=np.float32).reshape(-1, 2)
-                            _qx1 = float(_pp204[:, 0].min())
-                            _qy1 = float(_pp204[:, 1].min())
-                            _qx2 = float(_pp204[:, 0].max())
-                            _qy2 = float(_pp204[:, 1].max())
-                            _qa204 = max(1.0, (_qx2 - _qx1) * (_qy2 - _qy1))
-                            _ix204 = max(0.0, min(_qx2, float(x2))
+                            _qx1 = float(_pp[:, 0].min())
+                            _qy1 = float(_pp[:, 1].min())
+                            _qx2 = float(_pp[:, 0].max())
+                            _qy2 = float(_pp[:, 1].max())
+                            _qa = max(1.0, (_qx2 - _qx1) * (_qy2 - _qy1))
+                            _ix = max(0.0, min(_qx2, float(x2))
                                          - max(_qx1, float(x1)))
-                            _iy204 = max(0.0, min(_qy2, float(y2))
+                            _iy = max(0.0, min(_qy2, float(y2))
                                          - max(_qy1, float(y1)))
-                            if (_ix204 * _iy204) / _qa204 >= 0.60:
-                                _rx_pts204.append(_pp204)
+                            if (_ix * _iy) / _qa >= 0.60:
+                                _rx_pts.append(_pp)
                         except Exception:
-                            _rx_pts204.append(
-                                np.asarray(_p204).reshape(-1, 2))
-                    if not _rx_pts204:
-                        _rx_pts204 = [np.asarray(p).reshape(-1, 2)
+                            _rx_pts.append(
+                                np.asarray(_p).reshape(-1, 2))
+                    if not _rx_pts:
+                        _rx_pts = [np.asarray(p).reshape(-1, 2)
                                       for p in line_polys]
-                    pts = np.concatenate(_rx_pts204)
+                    pts = np.concatenate(_rx_pts)
                     px1, py1 = int(pts[:, 0].min()), int(pts[:, 1].min())
                     px2, py2 = int(pts[:, 0].max()) + 1, int(pts[:, 1].max()) + 1
                     rx1, ry1 = min(rx1, px1), min(ry1, py1)
@@ -2793,41 +2793,41 @@ class _MangaTranslatorBody_70:
         if not regions or len(regions) < 2:
             return regions
 
-        def _norm225(t) -> str:
+        def _norm(t) -> str:
             try:
                 return re.sub(r"[\W_]+", "", str(t or "").lower())
             except Exception:
                 return str(t or "").lower()
 
-        def _sim225(a: str, b: str) -> float:
+        def _sim(a: str, b: str) -> float:
             """شباهتِ دو متنِ نرمال — ۱٫۰ = یکی."""
             if a == b:
                 return 1.0
             try:
-                import difflib as _dl225
-                return _dl225.SequenceMatcher(None, a, b).ratio()
+                import difflib as _dl
+                return _dl.SequenceMatcher(None, a, b).ratio()
             except Exception:
                 return 0.0
 
-        def _xyxy225(r):
+        def _xyxy(r):
             try:
                 x, y, w, h = [float(v) for v in r.rect]
                 return (x, y, x + w, y + h)
             except Exception:
                 return (0.0, 0.0, 0.0, 0.0)
 
-        def _inter225(a, b):
+        def _inter(a, b):
             ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
             iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
             return max(0.0, ix) * max(0.0, iy)
 
-        def _area225(a):
+        def _area(a):
             return max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
 
         infos = []
         for r in regions:
             try:
-                n = _norm225(getattr(r, "source_text", ""))
+                n = _norm(getattr(r, "source_text", ""))
             except Exception:
                 n = ""
             if not n:
@@ -2836,7 +2836,7 @@ class _MangaTranslatorBody_70:
                 npol = len(getattr(r, "ocr_polys", None) or [])
             except Exception:
                 npol = 0
-            infos.append((r, n, _xyxy225(r), _area225(_xyxy225(r)), npol))
+            infos.append((r, n, _xyxy(r), _area(_xyxy(r)), npol))
         if len(infos) < 2:
             return regions
 
@@ -2871,7 +2871,7 @@ class _MangaTranslatorBody_70:
                         continue
                 except Exception:
                     pass
-                inter = _inter225(ba, bb)
+                inter = _inter(ba, bb)
                 if inter <= 0.0:
                     continue
                 amin = min(aa, ab) or 1.0
@@ -2886,7 +2886,7 @@ class _MangaTranslatorBody_70:
                     len(na) >= 6 and len(nb) >= 6
                     and sorted(na) == sorted(nb))
                 if not _same_txt and len(na) >= 6 and len(nb) >= 6:
-                    _same_txt = _sim225(na, nb) >= 0.62
+                    _same_txt = _sim(na, nb) >= 0.62
                 if _same_txt:
                     if ov_min >= 0.18 or max(cont_ba, cont_ab) >= 0.45:
                         # بزرگتر/پرخطتر میماند؛ کوچکتر حذف میشود
@@ -2963,7 +2963,7 @@ class _MangaTranslatorBody_70:
         # از همهٔ گاردها رد شود، این سقف جلویِ «دومین استخراجِ کاملِ صفحه»
         # را میگیرد؛ خطِ یتیمِ واقعی (≥۶ حرفِ خوانا) تقریباً همیشه در
         # پاسهایِ اولِ همان ناحیه پیدا میشود.
-        _orphan_budget230 = max(12, 2 * len(parents))
+        _orphan_budget = max(12, 2 * len(parents))
         for r in parents:
             try:
                 x, y, rw_, rh_ = [int(v) for v in r.rect]
@@ -3066,32 +3066,32 @@ class _MangaTranslatorBody_70:
                     # خرده‌نویزهایِ ریز دارد. cv2.connectedComponents ~۱ms
                     # است در برابرِ ~۱.۳s هر پاسِ OCR.
                     try:
-                        _nlab230, _labs230, _stat230, _cent230 = \
+                        _nlab, _labs, _stat, _cent = \
                             cv2.connectedComponentsWithStats(
                                 _sub.astype(np.uint8), connectivity=8)
-                        _letters230 = 0
-                        _bots230: List[int] = []
-                        for _li230 in range(1, _nlab230):
-                            _sx230, _sy230, _sw230, _sh230, _sa230 = \
-                                _stat230[_li230]
-                            if _sa230 < 8:
+                        _letters = 0
+                        _bots: List[int] = []
+                        for _li in range(1, _nlab):
+                            _sx, _sy, _sw, _sh, _sa = \
+                                _stat[_li]
+                            if _sa < 8:
                                 continue
-                            if not (3 <= _sh230 <= max(12.0, lh * 1.6)):
+                            if not (3 <= _sh <= max(12.0, lh * 1.6)):
                                 continue
-                            if _sw230 <= max(14.0, lh * 1.2):
-                                _letters230 += 1
-                                _bots230.append(int(_sy230 + _sh230))
-                            elif _sw230 <= max(30.0, lh * 3.5):
-                                _letters230 += 2  # حروفِ چسبیده (فونتِ ضخیم)
-                                _bots230.append(int(_sy230 + _sh230))
-                        if _letters230 < 5:
+                            if _sw <= max(14.0, lh * 1.2):
+                                _letters += 1
+                                _bots.append(int(_sy + _sh))
+                            elif _sw <= max(30.0, lh * 3.5):
+                                _letters += 2  # حروفِ چسبیده (فونتِ ضخیم)
+                                _bots.append(int(_sy + _sh))
+                        if _letters < 5:
                             continue
                         # v1.14.230 — هم‌ترازیِ بیس‌لاین: حروفِ یک خطِ واقعی
                         # پایینِ تقریباً یکسان دارند (واریانسِ کوچک)؛ لکهها/
                         # بافتهایِ هنریِ حرف‌اندازه به‌طورِ تصادفی پخش‌اند.
-                        if len(_bots230) >= 5:
-                            _bstd230 = float(np.std(_bots230))
-                            if _bstd230 > max(6.0, 0.45 * lh):
+                        if len(_bots) >= 5:
+                            _bstd = float(np.std(_bots))
+                            if _bstd > max(6.0, 0.45 * lh):
                                 continue
                     except Exception:
                         pass
@@ -3152,69 +3152,69 @@ class _MangaTranslatorBody_70:
                     # دارایِ صاحب → بدونِ OCR رد میشود (عینِ گاردِ ۲۲۵،
                     # فقط این‌بار روی جوهرِ واقعی نه جعبهٔ خامِ هنر-آلود).
                     try:
-                        _inkys226, _inkxs226 = np.nonzero(
+                        _inkys, _inkxs = np.nonzero(
                             ink[_r0:_r1, :])
-                        if _inkys226.size >= 12:
-                            _gx226 = _inkxs226.astype(np.int32) + _x0
-                            _gy226 = _inkys226.astype(np.int32) + _b0
-                            _inany226 = np.zeros(
-                                _gx226.shape, bool)
-                            for _rp226 in regions:
-                                for _rpoly226 in (
-                                        getattr(_rp226, "ocr_polys", None)
+                        if _inkys.size >= 12:
+                            _gx = _inkxs.astype(np.int32) + _x0
+                            _gy = _inkys.astype(np.int32) + _b0
+                            _inany = np.zeros(
+                                _gx.shape, bool)
+                            for _rp in regions:
+                                for _rpoly in (
+                                        getattr(_rp, "ocr_polys", None)
                                         or []):
                                     try:
-                                        _pp226 = np.asarray(
-                                            _rpoly226,
+                                        _pp3 = np.asarray(
+                                            _rpoly,
                                             np.float32).reshape(-1, 2)
-                                        _bx226a = int(_pp226[:, 0].min())
-                                        _by226a = int(_pp226[:, 1].min())
+                                        _bx226a = int(_pp3[:, 0].min())
+                                        _by226a = int(_pp3[:, 1].min())
                                         _bx226b = int(
-                                            _pp226[:, 0].max()) + 1
+                                            _pp3[:, 0].max()) + 1
                                         _by226b = int(
-                                            _pp226[:, 1].max()) + 1
-                                        _selb226 = (
-                                            (_gx226 >= _bx226a)
-                                            & (_gx226 < _bx226b)
-                                            & (_gy226 >= _by226a)
-                                            & (_gy226 < _by226b))
-                                        if not _selb226.any():
+                                            _pp3[:, 1].max()) + 1
+                                        _selb = (
+                                            (_gx >= _bx226a)
+                                            & (_gx < _bx226b)
+                                            & (_gy >= _by226a)
+                                            & (_gy < _by226b))
+                                        if not _selb.any():
                                             continue
-                                        _bw226 = max(
+                                        _bw = max(
                                             1, _bx226b - _bx226a)
-                                        _bh226 = max(
+                                        _bh = max(
                                             1, _by226b - _by226a)
-                                        _pm226 = np.zeros(
-                                            (_bh226, _bw226), np.uint8)
+                                        _pm = np.zeros(
+                                            (_bh, _bw), np.uint8)
                                         cv2.fillPoly(
-                                            _pm226,
+                                            _pm,
                                             [np.rint(
-                                                _pp226
+                                                _pp3
                                                 - [_bx226a,
                                                    _by226a]).astype(
                                                 np.int32)], 255)
-                                        _inany226[_selb226] |= (
-                                            _pm226[
-                                                _gy226[_selb226]
+                                        _inany[_selb] |= (
+                                            _pm[
+                                                _gy[_selb]
                                                 - _by226a,
-                                                _gx226[_selb226]
+                                                _gx[_selb]
                                                 - _bx226a] > 0)
                                     except Exception:
                                         continue
                                 if float(
-                                        _inany226.mean()) >= 0.55:
+                                        _inany.mean()) >= 0.55:
                                     break
-                            if float(_inany226.mean()) >= 0.55:
+                            if float(_inany.mean()) >= 0.55:
                                 continue
                     except Exception:
                         pass
-                    if _orphan_budget230 <= 0:
+                    if _orphan_budget <= 0:
                         continue
                     try:
                         _oc = self._ocr_crop(
                             image, (max(0, gx0 - 6), max(0, gy0 - 6),
                                     min(w_img, gx1 + 6), min(h_img, gy1 + 6)))
-                        _orphan_budget230 -= 1
+                        _orphan_budget -= 1
                         _txt = (_oc[0] or "").strip()
                         _polys = list(_oc[1] or []) if len(_oc) > 1 else []
                     except Exception:
@@ -3238,34 +3238,34 @@ class _MangaTranslatorBody_70:
                     # دومی که detector ندید) بیرونِ همهٔ ناحیههاست
                     # و زنده میماند.
                     try:
-                        _ta225 = 0.0
-                        _ca225 = 0.0
-                        for _p225 in _polys:
+                        _ta = 0.0
+                        _ca = 0.0
+                        for _p2 in _polys:
                             try:
-                                _pp225 = np.asarray(
-                                    _p225, np.float32).reshape(-1, 2)
-                                _pbx0 = float(_pp225[:, 0].min())
-                                _pby0 = float(_pp225[:, 1].min())
-                                _pbx1 = float(_pp225[:, 0].max())
-                                _pby1 = float(_pp225[:, 1].max())
+                                _pp2 = np.asarray(
+                                    _p2, np.float32).reshape(-1, 2)
+                                _pbx0 = float(_pp2[:, 0].min())
+                                _pby0 = float(_pp2[:, 1].min())
+                                _pbx1 = float(_pp2[:, 0].max())
+                                _pby1 = float(_pp2[:, 1].max())
                                 _pba = max(1.0, (_pbx1 - _pbx0)
                                            * (_pby1 - _pby0))
                                 _pin = 0.0
-                                for _c225 in covered:
-                                    _ix225 = max(
-                                        0.0, min(_pbx1, _c225[2])
-                                        - max(_pbx0, _c225[0]))
-                                    _iy225 = max(
-                                        0.0, min(_pby1, _c225[3])
-                                        - max(_pby0, _c225[1]))
-                                    _pin = max(_pin, (_ix225 * _iy225)
+                                for _c in covered:
+                                    _ix = max(
+                                        0.0, min(_pbx1, _c[2])
+                                        - max(_pbx0, _c[0]))
+                                    _iy = max(
+                                        0.0, min(_pby1, _c[3])
+                                        - max(_pby0, _c[1]))
+                                    _pin = max(_pin, (_ix * _iy)
                                                / _pba)
-                                _ta225 += _pba
-                                _ca225 += _pba * min(1.0, _pin)
+                                _ta += _pba
+                                _ca += _pba * min(1.0, _pin)
                             except Exception:
                                 continue
-                        if _ta225 > 0.0 and \
-                                _ca225 / _ta225 >= 0.55:
+                        if _ta > 0.0 and \
+                                _ca / _ta >= 0.55:
                             if self.debug:
                                 print(f"    [🔍225] یتیمِ بازخوانیِ "
                                       f"متنِ پوشیدهشده رد شد: "
@@ -3394,12 +3394,12 @@ class _MangaTranslatorBody_70:
                     # کجی واقعی است و وتو نمیشود (img3: ‎-۶٫۷°/-۱۳٫۲°
                     # واقعی بودند و به‌غلط صفر میشدند — «بعد چرخش همچین
                     # بعضی متن ها درست نمیچرخه»).
-                    _sup213 = MangaTranslator._ink_slant_support(
+                    _sup = MangaTranslator._ink_slant_support(
                         image[y1:y2, x1:x2], ang)
-                    if _sup213 is not None and _sup213 >= 1.10:
+                    if _sup is not None and _sup >= 1.10:
                         if os.environ.get("MANGA_DBG_VERIFY"):
                             print(f"    [dbg-verify] {r.id} ang={ang:+.1f}° "
-                                  f"تأییدِ جوهر (پشتیبانی={_sup213:.2f}) — "
+                                  f"تأییدِ جوهر (پشتیبانی={_sup:.2f}) — "
                                   f"وتو نشد")
                         continue
                     print(f"    [!] حذف کجیِ کاذب [{r.id}]: {ang:+.1f}° → 0.0° "
@@ -3505,7 +3505,7 @@ class _MangaTranslatorBody_70:
         except Exception:
             return regions
 
-    def _dbg_collect_det_quads_252(self, image: np.ndarray,
+    def _dbg_collect_det_quads(self, image: np.ndarray,
                                    regions: List[TextRegion]) -> None:
         """v1.14.252 — جعبههایِ خامِ detِ OCR برایِ دیباگِ آبیِ صفحه.
 
@@ -3521,57 +3521,57 @@ class _MangaTranslatorBody_70:
         فقط با self.debug — هیچ اثری روی استخراجِ اصلی ندارد (کراپ/نردبان
         دستنخورده؛ پاسِ detِ جدا رویِ همان RECTهایِ detector)."""
 
-        self._dbg_det_quads_252 = []
-        _fn252 = getattr(self.ocr, "det_only", None)
-        if not callable(_fn252):
+        self._dbg_det_quads = []
+        _fn = getattr(self.ocr, "det_only", None)
+        if not callable(_fn):
             return
-        _bubbles252 = list(getattr(self, "_page_bubble_boxes", None) or [])
-        if not _bubbles252:
+        _bubbles = list(getattr(self, "_page_bubble_boxes", None) or [])
+        if not _bubbles:
             return
         try:
-            _h252, _w252 = image.shape[:2]
+            _h, _w = image.shape[:2]
         except Exception:
             return
-        _quads252: List[np.ndarray] = []
-        _t252 = time.time()
-        for _b252 in _bubbles252:
+        _quads: List[np.ndarray] = []
+        _t = time.time()
+        for _b in _bubbles:
             try:
-                _bx1, _by1, _bx2, _by2 = [int(v) for v in _b252[:4]]
-                _pad252 = 8
-                _x1252 = max(0, _bx1 - _pad252)
-                _y1252 = max(0, _by1 - _pad252)
-                _x2252 = min(_w252, _bx2 + _pad252)
-                _y2252 = min(_h252, _by2 + _pad252)
-                if _x2252 - _x1252 < 8 or _y2252 - _y1252 < 8:
+                _bx1, _by1, _bx2, _by2 = [int(v) for v in _b[:4]]
+                _pad = 8
+                _x1 = max(0, _bx1 - _pad)
+                _y1 = max(0, _by1 - _pad)
+                _x2 = min(_w, _bx2 + _pad)
+                _y2 = min(_h, _by2 + _pad)
+                if _x2 - _x1 < 8 or _y2 - _y1 < 8:
                     continue
-                _crop252 = image[_y1252:_y2252, _x1252:_x2252]
-                if _crop252 is None or _crop252.size == 0:
+                _crop = image[_y1:_y2, _x1:_x2]
+                if _crop is None or _crop.size == 0:
                     continue
                 # همان بُستِ نردبانِ _ocr_crop برایِ متنِ ریز (کوچک = بُست)
-                _m252 = max(_crop252.shape[:2])
-                if _m252 < 200:
-                    _sc252 = 2.4
-                elif _m252 < 360:
-                    _sc252 = 1.8
-                elif _m252 < 600:
-                    _sc252 = 1.35
+                _m = max(_crop.shape[:2])
+                if _m < 200:
+                    _sc = 2.4
+                elif _m < 360:
+                    _sc = 1.8
+                elif _m < 600:
+                    _sc = 1.35
                 else:
-                    _sc252 = 1.0
-                _passes252 = [(_crop252, 1.0)]
-                if _sc252 > 1.01:
-                    _passes252.append(
-                        (cv2.resize(_crop252, None, fx=_sc252, fy=_sc252,
-                                    interpolation=cv2.INTER_CUBIC), _sc252))
-                for _cimg252, _cs252 in _passes252:
-                    for _q252 in (_fn252(_cimg252) or []):
+                    _sc = 1.0
+                _passes = [(_crop, 1.0)]
+                if _sc > 1.01:
+                    _passes.append(
+                        (cv2.resize(_crop, None, fx=_sc, fy=_sc,
+                                    interpolation=cv2.INTER_CUBIC), _sc))
+                for _cimg, _cs in _passes:
+                    for _q in (_fn(_cimg) or []):
                         try:
-                            _qf252 = np.asarray(
-                                _q252, dtype=np.float32).reshape(-1, 2).copy()
-                            if _cs252 > 1.01:
-                                _qf252 = _qf252 / _cs252
-                            _qf252[:, 0] += _x1252
-                            _qf252[:, 1] += _y1252
-                            _quads252.append(_qf252)
+                            _qf = np.asarray(
+                                _q, dtype=np.float32).reshape(-1, 2).copy()
+                            if _cs > 1.01:
+                                _qf = _qf / _cs
+                            _qf[:, 0] += _x1
+                            _qf[:, 1] += _y1
+                            _quads.append(_qf)
                         except Exception:
                             continue
             except Exception:
@@ -3579,91 +3579,91 @@ class _MangaTranslatorBody_70:
         # دداپ — پاسهایِ ۱×/بُست همان خط را دوبار میآورند (همپوشانیِ
         # ≥۰٫۶ → یکی میماند)
         try:
-            _keep252: List[np.ndarray] = []
-            _bb252 = []
-            for _q252 in _quads252:
-                _bx1_ = float(np.min(_q252[:, 0])); _by1_ = float(np.min(_q252[:, 1]))
-                _bx2_ = float(np.max(_q252[:, 0])); _by2_ = float(np.max(_q252[:, 1]))
-                _dup252 = False
-                for _kb in _bb252:
-                    _ix252 = max(0.0, min(_bx2_, _kb[2]) - max(_bx1_, _kb[0]))
-                    _iy252 = max(0.0, min(_by2_, _kb[3]) - max(_by1_, _kb[1]))
-                    _inter252 = _ix252 * _iy252
-                    if _inter252 <= 0:
+            _keep: List[np.ndarray] = []
+            _bb = []
+            for _q in _quads:
+                _bx1_ = float(np.min(_q[:, 0])); _by1_ = float(np.min(_q[:, 1]))
+                _bx2_ = float(np.max(_q[:, 0])); _by2_ = float(np.max(_q[:, 1]))
+                _dup = False
+                for _kb in _bb:
+                    _ix = max(0.0, min(_bx2_, _kb[2]) - max(_bx1_, _kb[0]))
+                    _iy = max(0.0, min(_by2_, _kb[3]) - max(_by1_, _kb[1]))
+                    _inter = _ix * _iy
+                    if _inter <= 0:
                         continue
-                    _aq252 = max(1e-6, (_bx2_ - _bx1_) * (_by2_ - _by1_))
-                    _bq252 = max(1e-6, (_kb[2] - _kb[0]) * (_kb[3] - _kb[1]))
-                    if _inter252 / min(_aq252, _bq252) >= 0.6:
-                        _dup252 = True
+                    _aq = max(1e-6, (_bx2_ - _bx1_) * (_by2_ - _by1_))
+                    _bq = max(1e-6, (_kb[2] - _kb[0]) * (_kb[3] - _kb[1]))
+                    if _inter / min(_aq, _bq) >= 0.6:
+                        _dup = True
                         break
-                if not _dup252:
-                    _keep252.append(_q252)
-                    _bb252.append((_bx1_, _by1_, _bx2_, _by2_))
-            _quads252 = _keep252
+                if not _dup:
+                    _keep.append(_q)
+                    _bb.append((_bx1_, _by1_, _bx2_, _by2_))
+            _quads = _keep
         except Exception:
             pass
-        self._dbg_det_quads_252 = _quads252
+        self._dbg_det_quads = _quads
         # لاگِ تشخیصی — پاسخِ مستقیمِ «det دید یا rec نگرفت؟»: جعبهٔ آبی
         # که هیچ ناحیهٔ نهایی (rect یا پالیِ OCR) نپوشانده = دیدهشده توسطِ
         # det ولی استخراج نشده
         try:
-            _cov252 = []
-            for _r252 in (regions or []):
+            _cov = []
+            for _r in (regions or []):
                 try:
-                    _rx252, _ry252, _rw252, _rh252 = [int(v) for v in _r252.rect]
-                    _cov252.append((_rx252, _ry252,
-                                    _rx252 + _rw252, _ry252 + _rh252))
+                    _rx, _ry, _rw, _rh = [int(v) for v in _r.rect]
+                    _cov.append((_rx, _ry,
+                                    _rx + _rw, _ry + _rh))
                 except Exception:
                     pass
-                for _p252 in (getattr(_r252, "ocr_polys", None) or []):
+                for _p in (getattr(_r, "ocr_polys", None) or []):
                     try:
-                        _pp252 = np.asarray(_p252, dtype=np.float32).reshape(-1, 2)
-                        _cov252.append((float(np.min(_pp252[:, 0])),
-                                        float(np.min(_pp252[:, 1])),
-                                        float(np.max(_pp252[:, 0])),
-                                        float(np.max(_pp252[:, 1]))))
+                        _pp = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                        _cov.append((float(np.min(_pp[:, 0])),
+                                        float(np.min(_pp[:, 1])),
+                                        float(np.max(_pp[:, 0])),
+                                        float(np.max(_pp[:, 1]))))
                     except Exception:
                         continue
-            _miss252 = []
-            for _q252 in _quads252:
+            _miss = []
+            for _q in _quads:
                 try:
-                    _qx1_ = float(np.min(_q252[:, 0])); _qy1_ = float(np.min(_q252[:, 1]))
-                    _qx2_ = float(np.max(_q252[:, 0])); _qy2_ = float(np.max(_q252[:, 1]))
+                    _qx1_ = float(np.min(_q[:, 0])); _qy1_ = float(np.min(_q[:, 1]))
+                    _qx2_ = float(np.max(_q[:, 0])); _qy2_ = float(np.max(_q[:, 1]))
                 except Exception:
                     continue
-                _hit252 = False
-                for _cb in _cov252:
-                    _ix252 = max(0.0, min(_qx2_, _cb[2]) - max(_qx1_, _cb[0]))
-                    _iy252 = max(0.0, min(_qy2_, _cb[3]) - max(_qy1_, _cb[1]))
-                    if _ix252 * _iy252 <= 0:
+                _hit = False
+                for _cb in _cov:
+                    _ix = max(0.0, min(_qx2_, _cb[2]) - max(_qx1_, _cb[0]))
+                    _iy = max(0.0, min(_qy2_, _cb[3]) - max(_qy1_, _cb[1]))
+                    if _ix * _iy <= 0:
                         continue
-                    _aq252 = max(1e-6, (_qx2_ - _qx1_) * (_qy2_ - _qy1_))
-                    if (_ix252 * _iy252) / _aq252 >= 0.35:
-                        _hit252 = True
+                    _aq = max(1e-6, (_qx2_ - _qx1_) * (_qy2_ - _qy1_))
+                    if (_ix * _iy) / _aq >= 0.35:
+                        _hit = True
                         break
-                if not _hit252:
-                    _miss252.append((int(_qx1_), int(_qy1_),
+                if not _hit:
+                    _miss.append((int(_qx1_), int(_qy1_),
                                      int(_qx2_ - _qx1_), int(_qy2_ - _qy1_)))
-            if _quads252 or _miss252:
-                _ms252 = ""
-                if _miss252:
-                    _ms252 = (" | " + str(len(_miss252)) + " خط: det دید ولی "
+            if _quads or _miss:
+                _ms = ""
+                if _miss:
+                    _ms = (" | " + str(len(_miss)) + " خط: det دید ولی "
                               "rec/فیلتر نگرفت → " +
                               ", ".join(f"({a},{b} {c}x{d})"
-                                        for a, b, c, d in _miss252[:8]))
-                print(f"    [🔍252] دیباگِ det (آبی): {len(_quads252)} جعبهٔ خام"
-                      f" در {time.time() - _t252:.1f}s{_ms252}")
+                                        for a, b, c, d in _miss[:8]))
+                print(f"    [🔍252] دیباگِ det (آبی): {len(_quads)} جعبهٔ خام"
+                      f" در {time.time() - _t:.1f}s{_ms}")
         except Exception:
             pass
 
     def extract_regions_phase(self, image: np.ndarray) -> Tuple[List[TextRegion], Optional[np.ndarray]]:
         # v1.14.226 — عمرِ کشِ OCR = یک صفحه (کلید = مختصات؛ محتوا عوض
         # میشود بین صفحات)
-        self._ocr_crop_cache226 = {}
+        self._ocr_crop_cache = {}
         # v1.14.252 — جعبههایِ خامِ det (دیباگِ آبی) هم هر صفحه از نو
-        self._dbg_det_quads_252 = []
+        self._dbg_det_quads = []
         h, w = image.shape[:2]
-        _t_ext150 = time.time()  # v1.14.150 — کرونومترِ استخراج (نمایشِ سرعت)
+        _t_ext = time.time()  # v1.14.150 — کرونومترِ استخراج (نمایشِ سرعت)
         # v1.14.154 — نشانگرِ شروعِ فاز برایِ اعلان (فقط اندروید؛ PC بدونِ
         # این خط = لاگِ PC بیت‌به‌بیت)
         if _android_gate("MANGA_PHASE_PRINTS"):
@@ -3704,16 +3704,16 @@ class _MangaTranslatorBody_70:
         # پاکسازی (فیلترِ ۲۲۹ فقط ترجمه را میبست؛ پاکسازی میماند و
         # هنرِ عدد/نقطه را پاک میکرد — دستورِ سازنده: «نباید پاک کنه
         # هیچ دستی بهش نزنه»). «hi...» حرف دارد → کاملاً عادی.
-        _nt_n230 = 0
-        for _r230 in unique_regions:
-            _t230 = (_r230.source_text or "").strip()
-            if _t230 and not source_has_letters(_t230):
-                _r230.no_touch230 = True
-                _nt_n230 += 1
+        _nt_n = 0
+        for _r in unique_regions:
+            _t = (_r.source_text or "").strip()
+            if _t and not source_has_letters(_t):
+                _r.no_touch = True
+                _nt_n += 1
             else:
-                _r230.no_touch230 = False
-        if _nt_n230:
-            print(f"[*] {_nt_n230} ناحیهٔ فقط عدد/نماد → دست‌نخورده "
+                _r.no_touch = False
+        if _nt_n:
+            print(f"[*] {_nt_n} ناحیهٔ فقط عدد/نماد → دست‌نخورده "
                   f"(نه ترجمه، نه پاکسازی)")
 
         # v1.14.70 — پاکسازیِ SFX: افکتِ صوتی/متنِ استایل‌دارِ بیرونِ حباب
@@ -3743,9 +3743,9 @@ class _MangaTranslatorBody_70:
             # v1.14.252 — پاسِ فقط-det رویِ کراپهایِ حباب → جعبههایِ آبی +
             # لاگِ «det دید ولی rec/فیلتر نگرفت» (پاسخِ مستقیمِ سؤالِ سازنده)
             try:
-                self._dbg_collect_det_quads_252(image, unique_regions)
+                self._dbg_collect_det_quads(image, unique_regions)
             except Exception:
-                self._dbg_det_quads_252 = []
+                self._dbg_det_quads = []
         if self.debug and unique_regions:
             dbg = self._draw_debug_regions(image, unique_regions)
             # دیباگِ متنیِ کامل — متنِ استخراجی + مکان + زاویه + فاصلهٔ خط‌ها
@@ -3792,11 +3792,11 @@ class _MangaTranslatorBody_70:
         except Exception:
             pass
 
-        _ob150 = getattr(self, "_ocr_backend_name", "") or "?"
-        _dt150 = time.time() - _t_ext150
+        _ob2 = getattr(self, "_ocr_backend_name", "") or "?"
+        _dt = time.time() - _t_ext
         if unique_regions:
             print(f"[+] متن استخراج شد: {len(unique_regions)} ناحیه | "
-                  f"زمانِ استخراج: {_dt150:.1f} ثانیه | موتور: {_ob150}")
+                  f"زمانِ استخراج: {_dt:.1f} ثانیه | موتور: {_ob2}")
         else:
             print("[!] هیچ متن/حبابی یافت نشد.")
         return unique_regions, dbg
@@ -3901,10 +3901,10 @@ class _MangaTranslatorBody_70:
                     # بنرِ دورِ نوارِ بلند (img1: y≈11000) همیشه به نوبت
                     # برسد — رتبه‌بندیِ سراسری بنرِ دور را قربانیِ بلاب‌هایِ
                     # بالای صفحه می‌کرد (رگرسیونِ اکشن).
-                    _edge67 = 0 if min(int(X0), w - int(X1)) <= 40 else 1
+                    _edge = 0 if min(int(X0), w - int(X1)) <= 40 else 1
                     _cands.append((
                         int(_ty0),
-                        _edge67,
+                        _edge,
                         -float(_sr),
                         -float(_fill),
                         cx0, cy0, cx1, cy1))
@@ -3919,10 +3919,10 @@ class _MangaTranslatorBody_70:
                 _nt = max(1, int((h + _tile - 1) // max(1, _tile - _ovl)))
                 _max_calls = min(40, 24 + 6 * max(0, _nt - 2))
             _buckets: dict = {}
-            for _c67 in _cands:
-                _buckets.setdefault(_c67[0], []).append(_c67)
-            for _b67 in _buckets.values():
-                _b67.sort(key=lambda t: (t[1], t[2], t[3]))
+            for _c3 in _cands:
+                _buckets.setdefault(_c3[0], []).append(_c3)
+            for _b in _buckets.values():
+                _b.sort(key=lambda t: (t[1], t[2], t[3]))
             _ordered: list = []
             while any(_buckets.values()):
                 for _tk in sorted(_buckets):
@@ -3930,47 +3930,47 @@ class _MangaTranslatorBody_70:
                         _ordered.append(_buckets[_tk].pop(0))
             if self.debug:
                 try:
-                    _top67 = ", ".join(
+                    _top = ", ".join(
                         f"({c[4]},{c[5]},edge{c[1]},s{-c[2]:.2f})"
                         for c in _ordered[:12])
                     print(f"  [🔍] جارویِ بنر: {len(_cands)} کاندید | "
-                          f"بودجه {_max_calls} | ترتیبِ گردشی: {_top67}")
+                          f"بودجه {_max_calls} | ترتیبِ گردشی: {_top}")
                 except Exception:
                     pass
             _ocr_calls = 0
-            _stop_all68 = False  # v1.14.68 — توقفِ زودهنگام
+            _stop_all = False  # v1.14.68 — توقفِ زودهنگام
             try:
-                _empty_max68 = int(os.environ.get(
+                _empty_max = int(os.environ.get(
                     "MANGA_BANNER_EARLY_STOP", "8") or 0)
             except Exception:
-                _empty_max68 = 8
-            _empty_streak68 = 0
+                _empty_max = 8
+            _empty_streak = 0
             # v1.14.69 — سقفِ زمانیِ جارو (MANGA_BANNER_TLIMIT ثانیه؛
             # ‎0=خاموش). OCRِ خالی رویِ PC (RapidOCR) ~۲.۳s است و ۱۲+
             # کاندید = ~۳۰s فقط جارو؛ موتورِ گوشی سریع است و سقف
             # نمی‌خورد. کاندیدهایِ رتبهٔ بالا (لبه/تراکم) اول مصرف
             # می‌شوند پس بنرِ واقعی همیشه در اولین‌هاست.
             try:
-                _tlimit69 = float(os.environ.get(
+                _tlimit = float(os.environ.get(
                     "MANGA_BANNER_TLIMIT", "0") or 0)
             except Exception:
-                _tlimit69 = 0.0
-            if _tlimit69 <= 0:
+                _tlimit = 0.0
+            if _tlimit <= 0:
                 try:
                     if _on_android():
-                        _tlimit69 = 0.0
+                        _tlimit = 0.0
                     else:
                         # PC: کاندیدهایِ هر کاشی به نوبت مصرف می‌شوند؛ سقف
                         # با تعدادِ کاشی‌ها می‌سد تا بنرِ دورِ نوارِ بلند
                         # (نوبتِ کاشیِ آخر) قربانیِ نشود، ولی جارو هم
                         # بی‌نهایت OCRِ خالی (RapidOCR ~۱.۹s/فراخوانی)
                         # خرج نکند.
-                        _nt69 = max(1, int((h + _tile - 1)
+                        _nt2 = max(1, int((h + _tile - 1)
                                            // max(1, _tile - _ovl)))
-                        _tlimit69 = max(8.0, 3.0 * _nt69)
+                        _tlimit = max(8.0, 3.0 * _nt2)
                 except Exception:
-                    _tlimit69 = 8.0
-            _t069 = time.time()
+                    _tlimit = 8.0
+            _t = time.time()
             # v1.14.148 — کاندیدها بچهای (W=workerِ OCR) موازی OCR میشوند؛
             # داوری/بودجه/streak در همان ترتیبِ قبل اعمال میشود → نتیجه
             # همان (یا یادآوریِ بیشترِ محدود به W-1 کاندیدِ اضافه). پلّهٔ
@@ -3978,8 +3978,8 @@ class _MangaTranslatorBody_70:
             _wm_pw = self._ocr_pool_workers(len(_ordered))
             _wm_i = 0
 
-            def _wm_scan_one(_c148):
-                (_s0, _s1, _s2, _s3, cx0, cy0, cx1, cy1) = _c148
+            def _wm_scan_one(_c):
+                (_s0, _s1, _s2, _s3, cx0, cy0, cx1, cy1) = _c
                 out = {"calls": 0, "empty": 0, "nonempty": False,
                        "txt": "", "found": False}
                 try:
@@ -3999,7 +3999,7 @@ class _MangaTranslatorBody_70:
                     # هیچ متنی نبود (هر دو واریانت)، زومِ ۲ هم نمیآید —
                     # متنِ واقعیِ بنر در زومِ ۳ پیدا میشود.
                     for _zm in (3, 2):
-                        _zm_empty230 = True
+                        _zm_empty = True
                         _big = cv2.resize(
                             crop, (crop.shape[1] * _zm,
                                    crop.shape[0] * _zm),
@@ -4039,14 +4039,14 @@ class _MangaTranslatorBody_70:
                             _txt = " ".join(_txts)
                             if _txt:
                                 out["nonempty"] = True
-                                _zm_empty230 = False
+                                _zm_empty = False
                             else:
                                 out["empty"] += 1
                             if self._is_watermark_text(_txt):
                                 break
                             if _txt:
                                 break
-                        if _zm_empty230 and _zm == 3:
+                        if _zm_empty and _zm == 3:
                             break  # v1.14.230 — زومِ ۲ هم خالی می‌مانَد
                     if _txt and self._is_watermark_text(_txt):
                         out["found"] = True
@@ -4057,21 +4057,21 @@ class _MangaTranslatorBody_70:
 
             _wm_results: list = []
             while _wm_i < len(_ordered):
-                if _tlimit69 > 0 and time.time() - _t069 > _tlimit69:
+                if _tlimit > 0 and time.time() - _t > _tlimit:
                     if self.debug:
                         try:
                             print(f"  [🔍] جارویِ بنر: سقفِ زمانیِ "
-                                  f"{_tlimit69:.0f}s — {_ocr_calls} "
+                                  f"{_tlimit:.0f}s — {_ocr_calls} "
                                   f"فراخوانی از {len(_ordered)} کاندید",
                                   flush=True)
                         except Exception:
                             pass
                     break
-                if _stop_all68:
+                if _stop_all:
                     if self.debug:
                         try:
                             print("  [🔍] جارویِ بنر: توقفِ زودهنگام — "
-                                  f"{_empty_streak68} فراخوانیِ خالیِ پیاپی "
+                                  f"{_empty_streak} فراخوانیِ خالیِ پیاپی "
                                   f"(اکاندی‌هایِ بعدی هم بافتِ هنرند)",
                                   flush=True)
                         except Exception:
@@ -4087,30 +4087,30 @@ class _MangaTranslatorBody_70:
                             pass
                     break
                 # v1.14.148 — یک بچِ W کاندید موازی OCR میشود
-                _batch148 = _ordered[_wm_i:_wm_i + max(1, _wm_pw)]
-                _wm_i += len(_batch148)
+                _batch = _ordered[_wm_i:_wm_i + max(1, _wm_pw)]
+                _wm_i += len(_batch)
                 if _wm_pw > 1:
                     try:
                         with ThreadPoolExecutor(max_workers=_wm_pw) as _wmx:
-                            _wm_res148 = list(_wmx.map(_wm_scan_one, _batch148))
+                            _wm_res = list(_wmx.map(_wm_scan_one, _batch))
                     except Exception:
-                        _wm_res148 = [_wm_scan_one(_c) for _c in _batch148]
+                        _wm_res = [_wm_scan_one(_c) for _c in _batch]
                 else:
-                    _wm_res148 = [_wm_scan_one(_c) for _c in _batch148]
-                for (_c148, _r148) in zip(_batch148, _wm_res148):
-                    (_s0, _s1, _s2, _s3, cx0, cy0, cx1, cy1) = _c148
-                    _ocr_calls += int(_r148.get("calls", 0))
-                    _txt = str(_r148.get("txt", "") or "")
+                    _wm_res = [_wm_scan_one(_c) for _c in _batch]
+                for (_c2, _r) in zip(_batch, _wm_res):
+                    (_s0, _s1, _s2, _s3, cx0, cy0, cx1, cy1) = _c2
+                    _ocr_calls += int(_r.get("calls", 0))
+                    _txt = str(_r.get("txt", "") or "")
                     # v1.14.68 — شمارِ فراخوانیِ بی‌متنِ پیاپی (به همان
                     # ترتیبِ کاندیدها؛ بینِ بچها ارزیابی میشود)
-                    if _r148.get("nonempty"):
-                        _empty_streak68 = 0
+                    if _r.get("nonempty"):
+                        _empty_streak = 0
                     else:
-                        _empty_streak68 += int(_r148.get("empty", 0))
-                        if (_empty_max68 > 0
-                                and _empty_streak68 >= _empty_max68):
-                            _stop_all68 = True
-                    if _r148.get("found"):
+                        _empty_streak += int(_r.get("empty", 0))
+                        if (_empty_max > 0
+                                and _empty_streak >= _empty_max):
+                            _stop_all = True
+                    if _r.get("found"):
                         _tr = TextRegion(
                             id=10000 + len(found),
                             boxes=[np.array([[cx0, cy0], [cx1, cy0],
@@ -4143,11 +4143,11 @@ class _MangaTranslatorBody_70:
                 except Exception:
                     pass
         except Exception:
-            import traceback as _tb67
+            import traceback as _tb
             if self.debug:
                 try:
                     print("  [🔍] جارویِ بنر: خطا —")
-                    _tb67.print_exc()
+                    _tb.print_exc()
                 except Exception:
                     pass
             return found
@@ -4186,12 +4186,12 @@ class _MangaTranslatorBody_70:
             # دستنخورده ماند؛ «THIS IS ONLY A DRAFT…» (0,10605) هم
             # همیشه از v1.14.134 تاکنون پاک نشده بود. PC بیت‌به‌بیت.
             if _android_gate("MANGA_CLEAN_TEXTFREE"):
-                _tf140 = [r for r in regions if r.kind == "text_free"]
-                if _tf140:
-                    clean_targets = clean_targets + _tf140
+                _tf = [r for r in regions if r.kind == "text_free"]
+                if _tf:
+                    clean_targets = clean_targets + _tf
                     if self.debug:
                         try:
-                            print(f"  [*]text_free: +{len(_tf140)} "
+                            print(f"  [*]text_free: +{len(_tf)} "
                                   f"ناحیه به پاکسازی اضافه شد "
                                   f"(متنِ واقعی — نه تبلیغ)", flush=True)
                         except Exception:
@@ -4235,7 +4235,7 @@ class _MangaTranslatorBody_70:
         # ترجمهٔ درونصفحهای؛ مسیرِ بچ هم قبل از صف فراخوانی میکند).
         if (not skip_translate and dialogue_regions
                 and not getattr(self, "clean_only", False)):
-            self._rescue_empty_ocr_1149(image, dialogue_regions)
+            self._rescue_empty_ocr(image, dialogue_regions)
 
         if skip_translate:
             pass
@@ -4292,26 +4292,26 @@ class _MangaTranslatorBody_70:
         # دیگر متنِ مبدأ (انگلیسی) را رویِ حبابهایِ درانتظار نمینشاند —
         # آنها خالیِ روشن میمانند (= لودینگ) تا ترجمهٔ واقعی کمکم بنشیند.
         # قبل از این رندر، سدِ [193] بالا تا ۳ دورِ دیگر از مدل پرسیده است.
-        _fb192: List[TextRegion] = []
+        _fb: List[TextRegion] = []
         if final and precleaned is not None:
-            for _r192 in dialogue_regions:
-                if (_r192.translated_text or "").strip() \
-                        or not (_r192.source_text or "").strip() \
-                        or not source_has_letters(_r192.source_text) \
-                        or getattr(_r192, "ocr_empty", False):
+            for _r2 in dialogue_regions:
+                if (_r2.translated_text or "").strip() \
+                        or not (_r2.source_text or "").strip() \
+                        or not source_has_letters(_r2.source_text) \
+                        or getattr(_r2, "ocr_empty", False):
                     continue
-                _c192 = copy.copy(_r192)
-                _c192.translated_text = _r192.source_text
-                _fb192.append(_c192)
-            if _fb192:
-                print(f"  [192] {len(_fb192)} حباب بدونِ ترجمه ولی پاکشده → "
+                _c = copy.copy(_r2)
+                _c.translated_text = _r2.source_text
+                _fb.append(_c)
+            if _fb:
+                print(f"  [192] {len(_fb)} حباب بدونِ ترجمه ولی پاکشده → "
                       "متنِ مبدأ رندر شد (ضدِ حبابِ خالی)")
                 if self.debug:
-                    for _c192 in _fb192:
+                    for _c in _fb:
                         try:
-                            print(f"    [192] حباب[{_c192.id}] rect="
-                                  f"{tuple(int(v) for v in _c192.rect)} → "
-                                  f"متنِ مبدأ: {(_c192.translated_text or '')[:60]}")
+                            print(f"    [192] حباب[{_c.id}] rect="
+                                  f"{tuple(int(v) for v in _c.rect)} → "
+                                  f"متنِ مبدأ: {(_c.translated_text or '')[:60]}")
                         except Exception:
                             pass
         # v1.14.209 — بازگشتِ «فقط پاکسازی» برایِ ناحیههایِ بی‌متن (دستورِ
@@ -4321,12 +4321,12 @@ class _MangaTranslatorBody_70:
         # تیره» (گیتِ جوهرِ متنی در ساختِ ناحیه) گذشته و ماسکِ پاکسازی هم
         # فقط جوهرِ متن را برمیدارد نه مستطیلِ توپر → حبابِ سیاه رخ
         # نمیدهد؛ «متنِ قبلی میمونه» بدتر از هر لکهٔ احتمالی بود.
-        _oe149 = [r for r in dialogue_regions
+        _oe = [r for r in dialogue_regions
                   if not r.translated_text
                   and getattr(r, "ocr_empty", False)]
-        _ocr_empty_regions = _oe149
-        if _oe149:
-            for _r in _oe149:
+        _ocr_empty_regions = _oe
+        if _oe:
+            for _r in _oe:
                 try:
                     print(f"  [!] ناحیهٔ {_r.id} بدونِ متنِ OCR → فقط پاکسازی (rect={tuple(int(v) for v in _r.rect)}) — متنِ قبلی نمیماند")
                 except Exception:
@@ -4366,8 +4366,8 @@ class _MangaTranslatorBody_70:
                 print(f"  [*] {len(promo_regions)} تبلیغ → دست‌نخورده «ازش رد شه»")
             if sfx_regions:
                 # v1.14.70 — با --clean-sfx پاک می‌شوند، وگرنه دست‌نخورده
-                _sfx70 = "پاک شدند" if getattr(self, "clean_sfx", False) else "دست‌نخورده"
-                print(f"  [*] {len(sfx_regions)} SFX → {_sfx70}")
+                _sfx = "پاک شدند" if getattr(self, "clean_sfx", False) else "دست‌نخورده"
+                print(f"  [*] {len(sfx_regions)} SFX → {_sfx}")
             if junk_regions:
                 print(f"  [*] {len(junk_regions)} junk → دست‌نخورده")
 
@@ -4379,7 +4379,7 @@ class _MangaTranslatorBody_70:
         # خالی)، _clean_regions خالی است و رندر کلاً رد میشد → صفحهٔ
         # تمامسفیدِ حباب تحویل میگرفتی. با فال‌بکِ 192 باید رندر انجام
         # شود تا لااقل متنِ مبدأ رویِ کپیها بنشیند (ضدِ حبابِ خالی).
-        if _clean_regions or _fb192:
+        if _clean_regions or _fb:
             if precleaned is not None:
                 cleaned_image = precleaned
             else:
@@ -4390,7 +4390,7 @@ class _MangaTranslatorBody_70:
                 print(f"[+] پاکسازی: {time.time() - _t0:.1f} ثانیه با {self._clean_label()}")
             final_image = self.render_translations(
                 cleaned_image,
-                (translated_regions + _fb192) if _fb192 else translated_regions,
+                (translated_regions + _fb) if _fb else translated_regions,
                 raw_image_copy)
             if not self.debug:
                 for _r in translated_regions:
@@ -4415,7 +4415,7 @@ class _MangaTranslatorBody_70:
                              and (r.source_text or "").strip()]
             if _wait_regions:
                 try:
-                    final_image = self._draw_loading_marks_1194(
+                    final_image = self._draw_loading_marks(
                         final_image, _wait_regions)
                 except Exception as _lg_err:
                     if self.debug:
@@ -4425,7 +4425,7 @@ class _MangaTranslatorBody_70:
                             pass
         return final_image, page_debug
 
-    def _draw_loading_marks_1194(self, image: np.ndarray,
+    def _draw_loading_marks(self, image: np.ndarray,
                                  regions: List[TextRegion]) -> np.ndarray:
         """v1.14.194 — نشانِ «در حال ترجمه…» وسطِ حبابهایِ درانتظار.
         یک قوسِ خاکستریِ نازک (چرخِ لودینگ) + سه نقطهٔ کوچک زیرش؛
@@ -4475,35 +4475,35 @@ class _MangaTranslatorBody_70:
     def process_core(self, image: np.ndarray) -> np.ndarray:
         # v1.14.66 — زمان‌گیریِ مراحل (درخواستِ کاربر: از استخراج تا آخرِ
         # پاکسازی رویِ PC و اندروید زمان بگیر تا سریع‌سازیِ بدونِ افت بشود)
-        _t_all66 = time.time()
-        _t66 = time.time()
+        _t_all = time.time()
+        _t = time.time()
         regions, dbg = self.extract_regions_phase(image)
-        _t_ext66 = time.time() - _t66
+        _t_ext = time.time() - _t
         if dbg is not None:
             self._last_debug_image = dbg
         else:
             self._last_debug_image = None
         if not regions:
             try:
-                print(f"[TIME] extract={_t_ext66:.1f}s | "
-                      f"total={time.time() - _t_all66:.1f}s (بدونِ متن)",
+                print(f"[TIME] extract={_t_ext:.1f}s | "
+                      f"total={time.time() - _t_all:.1f}s (بدونِ متن)",
                       flush=True)
             except Exception:
                 pass
             return image
-        _t66 = time.time()
+        _t = time.time()
         try:
             self._classify_balloon_tones(image, regions)
         except Exception:
             pass
-        _t_tone66 = time.time() - _t66
-        _t66 = time.time()
+        _t_tone = time.time() - _t
+        _t = time.time()
         final_image, _ = self.finish_page_phase(image, regions, final=True)  # v1.14.193
-        _t_fin66 = time.time() - _t66
+        _t_fin = time.time() - _t
         try:
-            print(f"[TIME] extract={_t_ext66:.1f}s tone={_t_tone66:.1f}s "
-                  f"translate+clean+render={_t_fin66:.1f}s "
-                  f"total={time.time() - _t_all66:.1f}s", flush=True)
+            print(f"[TIME] extract={_t_ext:.1f}s tone={_t_tone:.1f}s "
+                  f"translate+clean+render={_t_fin:.1f}s "
+                  f"total={time.time() - _t_all:.1f}s", flush=True)
         except Exception:
             pass
         return final_image

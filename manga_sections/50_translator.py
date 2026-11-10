@@ -439,40 +439,40 @@ class MangaTranslator:
             # v1.14.232 — DirectML هم مسیرِ GPU است (AMD/Intel رویِ ویندوز؛
             # گزارشِ سازنده: RX 5700 XT هرگز GPU نمیگرفت چون فقط CUDA
             # بررسی میشد). اولویت: paddle/torch/CUDA → بعد DML.
-            _dml232 = False
+            _dml = False
             try:
-                _dml232 = (os.name == "nt") and _ort_has_dml()
+                _dml = (os.name == "nt") and _ort_has_dml()
             except Exception:
-                _dml232 = False
+                _dml = False
             ocr_gpu = (self._detect_paddle_gpu() or self._detect_torch_cuda()
-                       or _ort_has_cuda() or _dml232)
+                       or _ort_has_cuda() or _dml)
             # v1.14.230 — کارتِ انویدیا هست ولی بیلدِ ORT بدونِ CUDA است
             # (نصبِ قدیمی/دستیِ onnxruntime): دیگر «GPU پیدا نشد» نمیگوییم —
             # وضعیتِ واقعی + راه‌حل چاپ میشود تا «گرافیک صفر درصد» معما
             # نمانَد. بوت‌استرپ هم حالا NVIDIA را در ویندوز میبیند و
             # onnxruntime-gpu را خودش نصب میکند.
             try:
-                _nv230 = _nvidia_gpu_present()
+                _nv = _nvidia_gpu_present()
             except Exception:
-                _nv230 = False
-            if ocr_gpu and _dml232 and not _ort_has_cuda():
+                _nv = False
+            if ocr_gpu and _dml and not _ort_has_cuda():
                 print("[*] GPU (DirectML — AMD/Intel) شناسایی شد؛ OCR و پاکسازی "
                       "روی GPU اجرا می‌شه (برای اجبار به CPU از --cpu استفاده کن).")
             elif ocr_gpu:
                 print("[*] GPU شناسایی شد؛ OCR روی GPU اجرا می‌شه (برای اجبار به CPU از --cpu استفاده کن).")
-            elif _nv230:
+            elif _nv:
                 print("[*] کارتِ NVIDIA پیدا شد ولی onnxruntime فعلی بدونِ CUDA است "
                       "→ OCR روی CPU. (بارِ بعدی استارت، onnxruntime-gpu خودکار "
                       "نصب میشود؛ یا دستی: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0')")
             else:
                 # v1.14.232 — GPUِ ویندوزیِ بدونِ DirectML: راهنمای روشن
                 # (بوت‌استرپ همان اول باید onnxruntime-directml نصب کند)
-                _dx232 = False
+                _dx = False
                 try:
-                    _dx232 = _directx_gpu_present()
+                    _dx = _directx_gpu_present()
                 except Exception:
-                    _dx232 = False
-                if _dx232:
+                    _dx = False
+                if _dx:
                     print("[*] GPU ویندوزی (AMD/Intel) پیدا شد ولی onnxruntime فعلی "
                           "بدونِ DirectML است → OCR روی CPU. (بارِ بعدی استارت، "
                           "onnxruntime-directml خودکار نصب میشود؛ یا دستی: "
@@ -531,12 +531,12 @@ class MangaTranslator:
             except Exception:
                 self.max_workers = 2
         try:
-            _clean_w167 = _parallel_budget("clean")
+            _clean_w = _parallel_budget("clean")
         except Exception:
-            _clean_w167 = 2
+            _clean_w = 2
         try:
             print(f"[*] توانِ موازی: OCR تا {self.max_workers} ناحیهٔ همزمان "
-                  f"| پاکسازی تا {_clean_w167} خوشهٔ همزمان "
+                  f"| پاکسازی تا {_clean_w} خوشهٔ همزمان "
                   f"(cpu={self._cpu_core_count()}, "
                   f"ram={avail_ram:.1f}GB, "
                   f"gpu={'بله' if self.use_gpu else 'نخ'})")
@@ -637,19 +637,19 @@ class MangaTranslator:
         # بنچمارکِ کلاسِ PCِ قدیم: صفحهٔ lang_zh.jpg — detِ medium
         # ۲۹.۷s → ستِ گوشی ۱۸.۴s). اندروید دستنخورده (پلِ خودش میچیند).
         if self.ocr is not None and not _on_android():
-            _thr191 = int(getattr(self.ocr, "ocr_threads", 0) or 0)
-            if _thr191 > 0:
+            _thr = int(getattr(self.ocr, "ocr_threads", 0) or 0)
+            if _thr > 0:
                 try:
-                    _cores191 = self._cpu_core_count() or (os.cpu_count() or 4)
+                    _cores = self._cpu_core_count() or (os.cpu_count() or 4)
                 except Exception:
-                    _cores191 = os.cpu_count() or 4
-                _want191 = max(2, min(int(self.max_workers or 2),
-                                      max(1, _cores191 // _thr191)))
-                if _want191 < int(self.max_workers or 2):
+                    _cores = os.cpu_count() or 4
+                _want = max(2, min(int(self.max_workers or 2),
+                                      max(1, _cores // _thr)))
+                if _want < int(self.max_workers or 2):
                     print(f"[*] همترازیِ OCR: workers={self.max_workers} → "
-                          f"{_want191} ({_want191} ورکر × {_thr191} نخ ≈ "
-                          f"{_cores191} هسته — ضدِ تشتت)")
-                    self.max_workers = _want191
+                          f"{_want} ({_want} ورکر × {_thr} نخ ≈ "
+                          f"{_cores} هسته — ضدِ تشتت)")
+                    self.max_workers = _want
 
         print(f"[*] OCR: {self._ocr_backend_name} | workers={self.max_workers}")
 
@@ -757,12 +757,12 @@ class MangaTranslator:
             self._lama_preload_started = False
 
     def _get_lama(self, threads: int = 0, force: bool = False):
-        _t_lw68 = time.time()  # v1.14.68 — انتظارِ ساختِ سشن
+        _t_lw = time.time()  # v1.14.68 — انتظارِ ساختِ سشن
         with self._lama_lock:
             try:
-                _lw68 = time.time() - _t_lw68
-                if _lw68 > 0.3:
-                    print(f"[TIME] lama-wait={_lw68:.1f}s "
+                _lw = time.time() - _t_lw
+                if _lw > 0.3:
+                    print(f"[TIME] lama-wait={_lw:.1f}s "
                           f"(سشن در نخِ دیگر ساخته می‌شد)", flush=True)
             except Exception:
                 pass
@@ -1362,10 +1362,10 @@ class MangaTranslator:
         # gemini-2.0-flash و 2.0-flash-lite خاموش؛ 2.5-flash/pro بهمرور
         # ۱ دسامبر ۲۰۲۶). هر gemini-1.x/2.x از چرخ/لیست حذف میشود —
         # کاربر همچنان میتواند دستی تایپ کند (allow_custom_value).
-        _m230 = re.match(r"gemini-(\d+)", low)
-        if _m230:
+        _m = re.match(r"gemini-(\d+)", low)
+        if _m:
             try:
-                if int(_m230.group(1)) <= 2:
+                if int(_m.group(1)) <= 2:
                     return True
             except ValueError:
                 return False

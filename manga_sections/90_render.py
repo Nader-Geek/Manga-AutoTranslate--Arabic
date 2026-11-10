@@ -321,24 +321,24 @@ class _MangaTranslatorBody_90:
                 # است). گام۲: رندرِ سادهٔ فال‌بک. گام۳: برگرداندنِ
                 # پیکسلهایِ اصلی — هیچ مسیری به باکسِ خالی نیست.
                 print(f"  [!] رندر ناحیه {region.id} خطا داد ({e}) → فال‌بک…")
-                _done149 = False
+                _done = False
                 try:
-                    import gc as _gc149
-                    _gc149.collect()
+                    import gc as _gc
+                    _gc.collect()
                     self._render_one_region(pil_img, draw, image, original_image, region)
-                    _done149 = True
+                    _done = True
                     print(f"  [+] ناحیه {region.id} در تلاشِ دوم رندر شد.")
                 except Exception:
                     pass
-                if not _done149:
+                if not _done:
                     try:
                         self._render_one_region_fallback(
                             pil_img, draw, image, original_image, region)
-                        _done149 = True
+                        _done = True
                         print(f"  [+] ناحیه {region.id} با رندرِ فال‌بک رندر شد.")
                     except Exception as _e149b:
                         print(f"  [!] فال‌بکِ ناحیه {region.id} هم مرد ({_e149b})")
-                if not _done149:
+                if not _done:
                     try:
                         self._restore_region_pixels(
                             pil_img, image, original_image, region)
@@ -444,56 +444,56 @@ class _MangaTranslatorBody_90:
         x1, y1 = min(W, x + w), min(H, y + h)
         if x1 - x0 < 2 or y1 - y0 < 2:
             return
-        _crop149 = original_image[y0:y1, x0:x1]
-        _rgb149 = cv2.cvtColor(_crop149, cv2.COLOR_BGR2RGB)
-        pil_img.paste(Image.fromarray(_rgb149), (x0, y0))
+        _crop = original_image[y0:y1, x0:x1]
+        _rgb = cv2.cvtColor(_crop, cv2.COLOR_BGR2RGB)
+        pil_img.paste(Image.fromarray(_rgb), (x0, y0))
 
-    def _rescue_empty_ocr_1149(self, image: np.ndarray,
+    def _rescue_empty_ocr(self, image: np.ndarray,
                                regions: List[TextRegion]) -> None:
         """v1.14.149 — نجاتِ OCR برایِ نواحیِ ocr_empty: برشِ
         استانداردِ _ocr_crop + معکوس (متنِ سفید-روی-تیره). متنِ
         نجاتیده → source_text/ocr_polys → ناحیه ترجمه و رندر
         میشود؛ بهجایِ «پاکسازیِ بی‌متن» (حبابِ سیاه)."""
         _resc = 0
-        for _r149 in regions:
-            if (_r149.source_text or "").strip() \
-                    or not getattr(_r149, "ocr_empty", False):
+        for _r in regions:
+            if (_r.source_text or "").strip() \
+                    or not getattr(_r, "ocr_empty", False):
                 continue
             try:
-                _rx149, _ry149, _rw149, _rh149 = [
-                    int(v) for v in _r149.rect]
-                _oc149 = self._ocr_crop(
-                    image, (_rx149, _ry149,
-                            _rx149 + _rw149, _ry149 + _rh149))
-                _t2149 = (_oc149[0] or "").strip()
-                _p2149 = list(_oc149[1] or []) if len(_oc149) > 1 else []
+                _rx, _ry, _rw, _rh = [
+                    int(v) for v in _r.rect]
+                _oc = self._ocr_crop(
+                    image, (_rx, _ry,
+                            _rx + _rw, _ry + _rh))
+                _t2 = (_oc[0] or "").strip()
+                _p2 = list(_oc[1] or []) if len(_oc) > 1 else []
             except Exception:
-                _t2149, _p2149 = "", []
-            if not _t2149:
+                _t2, _p2 = "", []
+            if not _t2:
                 try:
-                    _crop149 = image[
-                        max(0, _ry149):_ry149 + _rh149,
-                        max(0, _rx149):_rx149 + _rw149]
-                    if _crop149.size:
-                        _res2149 = None
+                    _crop = image[
+                        max(0, _ry):_ry + _rh,
+                        max(0, _rx):_rx + _rw]
+                    if _crop.size:
+                        _res2 = None
                         try:
-                            _res2149 = self.ocr.ocr(
-                                cv2.bitwise_not(_crop149))
+                            _res2 = self.ocr.ocr(
+                                cv2.bitwise_not(_crop))
                         except Exception:
-                            _res2149 = None
-                        _txts149 = []
-                        if _res2149:
-                            for _ln149 in (_res2149[0] or []):
+                            _res2 = None
+                        _txts = []
+                        if _res2:
+                            for _ln in (_res2[0] or []):
                                 try:
-                                    _tv149 = _ln149[1]
-                                    if isinstance(_tv149, (tuple, list)):
-                                        _tv149 = _tv149[0]
-                                    if str(_tv149).strip():
-                                        _txts149.append(
-                                            str(_tv149).strip())
+                                    _tv = _ln[1]
+                                    if isinstance(_tv, (tuple, list)):
+                                        _tv = _tv[0]
+                                    if str(_tv).strip():
+                                        _txts.append(
+                                            str(_tv).strip())
                                 except Exception:
                                     continue
-                        _t2149 = " ".join(_txts149).strip()
+                        _t2 = " ".join(_txts).strip()
                 except Exception:
                     pass
             # v1.14.201 — نجاتِ بی‌جا ممنوع: «۹۹»، «年»، «/»، «三弄» و
@@ -503,23 +503,23 @@ class _MangaTranslatorBody_90:
             # «تو کی هستی؟! جایزه‌ای؟ من!»). نجات فقط با حداقلِ ۲ حرفِ
             # لاتین و برتریِ حرف بر نویز پذیرفته میشود؛ باقی ocr_empty
             # میماند (متنِ اصلی سرِ جایش — پاک نشد به همان قاعدهٔ ۱۴۹).
-            _lt201 = sum(1 for _c201 in _t2149
-                         if _c201.isascii() and _c201.isalpha())
-            if _t2149 and _lt201 >= 2 and \
-                    _lt201 * 2 >= len(_t2149.replace(" ", "")):
-                _r149.source_text = _t2149
-                if _p2149:
-                    _r149.ocr_polys = _p2149
-                _r149.ocr_empty = False
+            _lt = sum(1 for _c in _t2
+                         if _c.isascii() and _c.isalpha())
+            if _t2 and _lt >= 2 and \
+                    _lt * 2 >= len(_t2.replace(" ", "")):
+                _r.source_text = _t2
+                if _p2:
+                    _r.ocr_polys = _p2
+                _r.ocr_empty = False
                 _resc += 1
                 try:
-                    print(f"    [+] نجاتِ OCR ناحیه {_r149.id}: {_t2149[:48]!r}")
+                    print(f"    [+] نجاتِ OCR ناحیه {_r.id}: {_t2[:48]!r}")
                 except Exception:
                     pass
-            elif _t2149 and self.debug:
+            elif _t2 and self.debug:
                 try:
-                    print(f"    [🔍201] نجاتِ ناحیه {_r149.id} رد شد "
-                          f"(نویز، نه متن): {_t2149[:32]!r}")
+                    print(f"    [🔍201] نجاتِ ناحیه {_r.id} رد شد "
+                          f"(نویز، نه متن): {_t2[:32]!r}")
                 except Exception:
                     pass
         if _resc:
@@ -594,10 +594,10 @@ class _MangaTranslatorBody_90:
       #   • خطی که اصلاً آبی ندارد → det آن را ندید (مقصرِ det)
       # (جمعآوری: 70_extract._dbg_collect_det_quads_252 — فقط با --debug)
       try:
-        _dq252 = getattr(self, "_dbg_det_quads_252", None) or []
-        for _q252 in _dq252:
-          _pts252 = np.asarray(_q252, dtype=np.int32).reshape(-1, 1, 2)
-          cv2.polylines(vis, [_pts252], True, (255, 0, 0), 2, cv2.LINE_AA)
+        _dq = getattr(self, "_dbg_det_quads", None) or []
+        for _q in _dq:
+          _pts = np.asarray(_q, dtype=np.int32).reshape(-1, 1, 2)
+          cv2.polylines(vis, [_pts], True, (255, 0, 0), 2, cv2.LINE_AA)
       except Exception:
         pass
 
