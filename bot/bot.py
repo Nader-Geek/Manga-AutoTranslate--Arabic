@@ -147,6 +147,10 @@ class MangaBot(discord.Client):
         for _ in range(self.cfg.workers):
             self._tasks.append(asyncio.create_task(self.worker.run_forever()))
         self._tasks.append(asyncio.create_task(self.worker.cleanup_forever()))
+        if self.cfg.purge_old_commands:
+            from .purge_commands import purge_commands
+            res = await purge_commands(self, include_global=False, log=log.info)
+            log.info("purged stale server commands: %s", res["guilds"] or "none")
         await self.tree.sync()
 
     async def close(self) -> None:
@@ -180,7 +184,8 @@ class MangaBot(discord.Client):
             return
         if attachment.size > cfg.max_upload_mb * 1024 * 1024:
             await interaction.followup.send(
-                f"الملف أكبر من الحد المسموح ({cfg.max_upload_mb}MB).", ephemeral=True)
+                f"الملف ({attachment.size / 1024 ** 2:.0f}MB) أكبر من الحد المسموح "
+                f"({cfg.max_upload_mb}MB). قسّم الفصل إلى أجزاء أصغر.", ephemeral=True)
             return
 
         max_pages = cfg.max_pages_translate if kind == "translate" else cfg.max_pages

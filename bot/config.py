@@ -48,7 +48,7 @@ class Config:
     file_ttl_minutes: int = 20          # results/inputs are deleted this long after a job ends
 
     # limits
-    max_upload_mb: int = 25             # per input file
+    max_upload_mb: int = 100            # per input file (Discord itself caps non-Nitro users at 10MB)
     reply_limit_mb: int = 0             # 0 = use the server's own upload limit
     max_unzipped_mb: int = 600          # zip-bomb guard
     max_pages: int = 60                 # clean / extract / typer
@@ -67,6 +67,7 @@ class Config:
     allowed_guild_ids: Tuple[int, ...] = ()
     admin_user_ids: Tuple[int, ...] = ()
 
+    purge_old_commands: bool = False    # drop stale per-server slash commands at startup
     poll_seconds: float = 5.0
     progress_interval: float = 8.0
 
@@ -92,7 +93,7 @@ def load_config() -> Config:
         use_gpu=_bool("USE_GPU"),
         work_dir=Path(os.environ.get("BOT_WORK_DIR", str(REPO_ROOT / "bot_work"))),
         file_ttl_minutes=_int("FILE_TTL_MINUTES", 20),
-        max_upload_mb=_int("MAX_UPLOAD_MB", 25),
+        max_upload_mb=_int("MAX_UPLOAD_MB", 100),
         reply_limit_mb=_int("REPLY_LIMIT_MB", 0),
         max_unzipped_mb=_int("MAX_UNZIPPED_MB", 600),
         max_pages=_int("MAX_PAGES", 60),
@@ -106,4 +107,5 @@ def load_config() -> Config:
         ollama_context=_int("OLLAMA_CONTEXT_LENGTH", 8192),
         allowed_guild_ids=tuple(int(x) for x in _csv("ALLOWED_GUILD_IDS")),
         admin_user_ids=tuple(int(x) for x in _csv("ADMIN_USER_IDS")),
+        purge_old_commands=_bool("PURGE_OLD_COMMANDS"),
     )
