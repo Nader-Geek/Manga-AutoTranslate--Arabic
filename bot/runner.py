@@ -147,6 +147,12 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
 
     extra_env: Dict[str, str] = {"MANGA_TARGET_LANG": "ar"}
 
+    # "original" keeps the uploaded pages as separate files instead of manga.py's default
+    # tall strips (--stitch-max-height 8000): smaller files, but bubbles that cross a page
+    # seam are no longer repaired.
+    if opts.get("layout") == "original":
+        argv += ["--stitch-max-height", "0"]
+
     if kind in ("clean", "extract", "typer"):
         argv.append("--clean-only")
         if opts.get("lama"):
@@ -299,3 +305,118 @@ def split_zip(src: Path, limit_bytes: int) -> List[Path]:
         if cur is not None:
             cur.close()
     return parts
+
+
+# ------------------------------------------------------------- oversized single images
+_JPEG_QUALITIES = (95, 90, 85, 80, 72, 65)
+
+
+def _encode_jpeg(im, quality: int) -> bytes:
+    import io
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=quality, optimize=True)
+    return buf.getvalue()
+
+
+def _quiet_cut_rows(im, parts: int) -> List[int]:
+    """Cut rows for splitting `im` into `parts` slices, snapped to the flattest nearby row
+    (a gap between panels / empty background) so text and artwork are not cut through."""
+    import numpy as np
+    g = np.asarray(im.convert("L"), dtype=np.float32)
+    h = g.shape[0]
+    score = g.std(axis=1)
+    cuts: List[int] = []
+    for i in range(1, parts):
+        target = round(h * i / parts)
+        win = max(20, int(h / parts * 0.15))
+        lo, hi = max(cuts[-1] + 50 if cuts else 50, target - win), min(h - 50, target + win)
+        cuts.append(int(lo + np.argmin(score[lo:hi])) if hi > lo else target)
+    return cuts
+
+
+def shrink_image(data: bytes, name: str, budget: int, allow_slice: bool = True):
+    """Make one image fit `budget` bytes. Returns ([(new_name, bytes)...], note).
+    1) JPEG at the highest quality that fits  2) otherwise vertical slices cut at quiet rows."""
+    import io
+    from PIL import Image
+    im = Image.open(io.BytesIO(data))
+    im.load()
+    if im.mode in ("RGBA", "LA", "P"):
+        im = im.convert("RGBA")
+        bg = Image.new("RGB", im.size, (255, 255, 255))
+        bg.paste(im, mask=im.split()[-1])
+        im = bg
+    else:
+        im = im.convert("RGB")
+    stem = str(PurePosixPath(name).with_suffix(""))
+    mb = len(data) / 1024 ** 2
+
+    for q in _JPEG_QUALITIES:
+        out = _encode_jpeg(im, q)
+        if len(out) <= budget:
+            return [(f"{stem}.jpg", out)], f"{PurePosixPath(name).name}: {mb:.1f}MB → JPEG جودة {q}"
+    if not allow_slice:
+        raise ValueError(f"{name} cannot be made small enough without slicing")
+
+    h = im.height
+    parts = max(2, -(-len(_encode_jpeg(im, 80)) // max(1, int(budget * 0.85))))
+    while parts <= 40:
+        cuts = [0] + _quiet_cut_rows(im, parts) + [h]
+        pieces = []
+        for k in range(parts):
+            piece = im.crop((0, cuts[k], im.width, cuts[k + 1]))
+            for q in (88, 80, 72, 65):
+                out = _encode_jpeg(piece, q)
+                if len(out) <= budget:
+                    break
+            else:
+                break
+            pieces.append((f"{stem}_p{k + 1}.jpg", out))
+        else:
+            return pieces, f"{PurePosixPath(name).name}: {mb:.1f}MB → قُسّم إلى {parts} أجزاء (JPEG)"
+        parts += 1
+    raise ValueError(f"{name} cannot be split small enough")
+
+
+def shrink_oversized_images(src: Path, limit_bytes: int, allow_slice: bool = True) -> Tuple[Path, List[str]]:
+    """If any single image inside the zip is too big to upload, recompress/slice just those.
+    Returns (zip path, notes). The original zip is returned untouched when nothing is oversized."""
+    budget = int(limit_bytes * 0.9)
+    with zipfile.ZipFile(src) as zin:
+        infos = [zi for zi in zin.infolist() if not zi.is_dir()]
+        big = [zi for zi in infos if zi.compress_size > budget
+               and Path(zi.filename).suffix.lower() in IMAGE_EXTS]
+        if not big:
+            return src, []
+        dst = src.with_name(f"{src.stem}_fit.zip")
+        notes: List[str] = []
+        big_names = {zi.filename for zi in big}
+        with zipfile.ZipFile(dst, "w", zipfile.ZIP_STORED) as zout:
+            for zi in infos:
+                data = zin.read(zi)
+                if zi.filename in big_names:
+                    pieces, note = shrink_image(data, zi.filename, budget, allow_slice)
+                    notes.append(note)
+                    for nm, blob in pieces:
+                        zout.writestr(nm, blob)
+                else:
+                    zout.writestr(zi.filename, data)
+    return dst, notes
+
+
+def batch_by_size(files: List[Path], limit_bytes: int, max_count: int = 10) -> List[List[Path]]:
+    """Group files into messages so each message has <= max_count files AND a total size
+    <= limit_bytes (Discord also limits the combined size of one message's attachments)."""
+    batches: List[List[Path]] = []
+    cur: List[Path] = []
+    cur_size = 0
+    for f in files:
+        size = f.stat().st_size
+        if cur and (len(cur) >= max_count or cur_size + size > limit_bytes):
+            batches.append(cur)
+            cur, cur_size = [], 0
+        cur.append(f)
+        cur_size += size
+    if cur:
+        batches.append(cur)
+    return batches

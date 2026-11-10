@@ -52,6 +52,11 @@ for i in range(n):
         time.sleep(3)   # a long silent step (e.g. CPU translation)
     name = f"page_{i+1:03d}.png"
     _png = __import__("io").BytesIO(); __import__("PIL.Image", fromlist=["Image"]).new("RGB", (80, 120), (200, 220, 255)).save(_png, "PNG")
+    if mode == "hugeimg":   # a genuinely big, incompressible page (like a tall PNG strip)
+        import numpy as _np
+        _png = __import__("io").BytesIO()
+        __import__("PIL.Image", fromlist=["Image"]).fromarray(
+            _np.random.RandomState(i).randint(0, 256, (1500, 600, 3), dtype=_np.uint8)).save(_png, "PNG")
     (d / name).write_bytes(_png.getvalue() + (os.urandom(400_000) if mode == "huge" else b""))
     pages.append({"index": i, "file": name, "width": 10, "height": 10, "origin": "x", "regions": regions})
 if mode != "noexport":

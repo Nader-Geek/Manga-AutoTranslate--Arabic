@@ -17,7 +17,7 @@ from . import ui
 from . import stats as st
 from .config import Config, load_config
 from .db import Database, Job
-from .runner import ALLOWED_EXTS, UploadError, inspect_upload
+from .runner import ALLOWED_EXTS, UploadError, batch_by_size, inspect_upload
 from .worker import Worker
 
 log = logging.getLogger("mangabot")
@@ -31,6 +31,10 @@ OCR_CHOICES = [
 ORDER_CHOICES = [
     app_commands.Choice(name="من اليمين لليسار (مانجا)", value="rtl"),
     app_commands.Choice(name="من اليسار لليمين (ويبتون/كوميكس)", value="ltr"),
+]
+LAYOUT_CHOICES = [
+    app_commands.Choice(name="أشرطة طويلة (افتراضي، يصلح الفقاعات المقطوعة)", value="strips"),
+    app_commands.Choice(name="الصفحات الأصلية (ملفات أصغر)", value="original"),
 ]
 QUALITY_CHOICES = [
     app_commands.Choice(name="سريع (OpenCV)", value="fast"),
@@ -111,9 +115,8 @@ class DiscordNotifier:
                    notes: List[str]) -> None:
         embed = ui.done_embed(job, stats, notes, self.client.cfg.file_ttl_minutes)
         await self._edit(job, embed)
-        # Discord allows 10 attachments per message
-        for i in range(0, len(files), 10):
-            chunk = files[i:i + 10]
+        # ≤10 attachments per message and the combined size of a message must fit the limit too
+        for i, chunk in enumerate(batch_by_size(files, self.upload_limit(job))):
             await self._send(
                 job,
                 content=f"<@{job['user_id']}> مهمتك #{job['id']} جاهزة ✅" if i == 0 else None,
@@ -222,12 +225,16 @@ class MangaBot(discord.Client):
 
         @tree.command(name="clean", description="تنظيف الصفحات: مسح النص من الفقاعات وإرجاع صفحات نظيفة")
         @app_commands.describe(file="صورة أو ZIP أو PDF", quality="جودة المسح",
-                               format="صيغة الصور الناتجة", ocr="لغة النص الأصلي")
-        @app_commands.choices(quality=QUALITY_CHOICES, format=FORMAT_CHOICES, ocr=OCR_CHOICES)
+                               format="صيغة الصور الناتجة", ocr="لغة النص الأصلي",
+                               layout="شكل الناتج")
+        @app_commands.choices(quality=QUALITY_CHOICES, format=FORMAT_CHOICES, ocr=OCR_CHOICES,
+                              layout=LAYOUT_CHOICES)
         async def clean(interaction: discord.Interaction, file: discord.Attachment,
-                        quality: str = "fast", format: str = "jpg", ocr: str = "en"):
+                        quality: str = "fast", format: str = "jpg", ocr: str = "en",
+                        layout: str = "strips"):
             await self.submit(interaction, "clean", file,
-                              {"lama": quality == "lama", "img_format": format, "ocr": ocr})
+                              {"lama": quality == "lama", "img_format": format, "ocr": ocr,
+                               "layout": layout})
 
         @tree.command(name="extract", description="استخراج النصوص الأصلية من الصفحات (ملف txt + json)")
         @app_commands.describe(file="صورة أو ZIP أو PDF", ocr="لغة النص الأصلي",
@@ -240,25 +247,28 @@ class MangaBot(discord.Client):
 
         @tree.command(name="typer", description="تنظيف + إحداثيات الفقاعات لاستيرادها في TypeR Web")
         @app_commands.describe(file="صورة أو ZIP أو PDF", quality="جودة المسح",
-                               ocr="لغة النص الأصلي", reading_order="ترتيب القراءة")
-        @app_commands.choices(quality=QUALITY_CHOICES, ocr=OCR_CHOICES, reading_order=ORDER_CHOICES)
+                               ocr="لغة النص الأصلي", reading_order="ترتيب القراءة",
+                               layout="شكل الناتج")
+        @app_commands.choices(quality=QUALITY_CHOICES, ocr=OCR_CHOICES, reading_order=ORDER_CHOICES,
+                              layout=LAYOUT_CHOICES)
         async def typer(interaction: discord.Interaction, file: discord.Attachment,
-                        quality: str = "fast", ocr: str = "en", reading_order: str = "rtl"):
+                        quality: str = "fast", ocr: str = "en", reading_order: str = "rtl",
+                        layout: str = "strips"):
             await self.submit(interaction, "typer", file,
                               {"lama": quality == "lama", "ocr": ocr,
-                               "reading_order": reading_order})
+                               "reading_order": reading_order, "layout": layout})
 
         @tree.command(name="translate", description="ترجمة المانجا إلى العربية (Ollama محلي) مع تنظيف وكتابة النص")
         @app_commands.describe(file="صورة أو ZIP أو PDF", dialect="أسلوب العربية",
                                ocr="لغة النص الأصلي", reading_order="ترتيب القراءة",
                                output="صيغة الناتج", quality="جودة المسح",
-                               model="نموذج Ollama")
+                               model="نموذج Ollama", layout="شكل الناتج")
         @app_commands.choices(dialect=DIALECT_CHOICES, ocr=OCR_CHOICES, reading_order=ORDER_CHOICES,
-                              output=OUTFMT_CHOICES, quality=QUALITY_CHOICES)
+                              output=OUTFMT_CHOICES, quality=QUALITY_CHOICES, layout=LAYOUT_CHOICES)
         async def translate(interaction: discord.Interaction, file: discord.Attachment,
                             dialect: str = "msa", ocr: str = "en", reading_order: str = "rtl",
                             output: str = "zip", quality: str = "fast",
-                            model: Optional[str] = None):
+                            model: Optional[str] = None, layout: str = "strips"):
             if model and model not in self.cfg.allowed_models:
                 await interaction.response.send_message(
                     f"النموذج غير مسموح. المتاح: {', '.join(self.cfg.allowed_models)}",
@@ -266,7 +276,7 @@ class MangaBot(discord.Client):
                 return
             await self.submit(interaction, "translate", file, {
                 "dialect": dialect, "ocr": ocr, "reading_order": reading_order,
-                "format": output, "lama": quality == "lama",
+                "format": output, "lama": quality == "lama", "layout": layout,
                 "model": model or self.cfg.ollama_model})
 
         @translate.autocomplete("model")

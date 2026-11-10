@@ -147,6 +147,16 @@ async def main():
     assert await w.cancel_running(j["id"]); await asyncio.wait_for(task, 20)
     assert (await db.get_job(j["id"]))["status"] == "cancelled" and j["id"] not in w.handles
 
+    # a single huge image (tall PNG strip) is recompressed/sliced instead of failing
+    os.environ["FAKE_MODE"] = "hugeimg"; nt.limit = 1_000_000
+    j = await mkjob("clean", pages=3, img_format="png"); r = await run_one(j)
+    assert r["status"] == "done", r["error"]
+    done = nt.last("done"); fl = done[3]
+    assert fl and all(f.stat().st_size <= 1_000_000 for f in fl), [f.stat().st_size for f in fl]
+    assert any("🗜️" in n for n in done[4]), done[4]
+    assert not any(n.endswith(".png") for f in fl for n in zipfile.ZipFile(f).namelist()), "big png should have become jpg"
+    nt.limit = 10 * 1024 * 1024
+
     # oversized output: clean zip is split, typer zip / pdf fail with advice
     os.environ["FAKE_MODE"] = "huge"
     nt.limit = 1_000_000

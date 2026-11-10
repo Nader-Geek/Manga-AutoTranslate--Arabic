@@ -12,7 +12,8 @@ from typing import Any, Dict, List, Optional, Protocol
 from . import stats as st
 from .config import Config
 from .db import Database, Job
-from .runner import ProcessHandle, UploadError, build_plan, run_plan, split_zip
+from .runner import (ProcessHandle, UploadError, build_plan, run_plan, shrink_oversized_images,
+                     split_zip)
 
 log = logging.getLogger("mangabot.worker")
 
@@ -202,10 +203,14 @@ class Worker:
                 final.append(f)
             elif f.suffix == ".zip" and job["kind"] in ("clean", "translate"):
                 try:
-                    parts = split_zip(f, limit)
-                except ValueError as e:
-                    return await self._fail(job, f"الناتج كبير ولا يمكن تقسيمه: {e}", tail)
-                notes.append(f"الناتج أكبر من حد الرفع فقُسّم إلى {len(parts)} ملفات.")
+                    # a single image (e.g. a tall PNG strip) can exceed the limit by itself
+                    f2, shrink_notes = await asyncio.to_thread(shrink_oversized_images, f, limit)
+                    parts = await asyncio.to_thread(split_zip, f2, limit)
+                except Exception as e:
+                    return await self._fail(job, f"الناتج كبير ولا يمكن تقليله: {e}", tail)
+                notes.extend(f"🗜️ {n}" for n in shrink_notes)
+                if len(parts) > 1:
+                    notes.append(f"الناتج أكبر من حد الرفع فقُسّم إلى {len(parts)} ملفات.")
                 final.extend(parts)
             else:
                 mb = f.stat().st_size / 1024 ** 2
