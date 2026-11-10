@@ -1,50 +1,46 @@
-// v1.14.188 — پلِ استخراجِ متنِ گوشی = RapidOCRِ اندروید (ONNXِ خالص)
-// دستورِ سازنده (۱۴.۱۸۸): «چرت پرت هم زیاد استخراج میکنه … همون مدل
-// onnx v6 ocr … مدل v6_medium استفاده کن» → det = PP-OCRv6_small
+// پلِ استخراجِ متنِ گوشی = RapidOCRِ اندروید (ONNXِ خالص)
+// → det = PP-OCRv6_small
 // (همان detِ PC) + rec = PP-OCRv6_MEDIUM (charsetِ ۱۸۷۰۸ی؛ ورودیِ
 // ۴۸×W — بدونِ تغییرِ RecPreprocessor/CTCDecoder). بنچمارکِ img6:
 // فاصلههایِ درست، «Wha!?» به‌جایِ «ijeym»، حذفِ خطاهایِ حرفیِ v4.
 // (تاریخچهٔ ۱۴.۱۸۷ = سهگانهٔ PP-OCRv4_mobile)
-// ═══════════════════════════════════════════════════════════════════════
-// دستورِ سازنده (v1.14.187 — نقلِ مستقیم):
-//   «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا ۱.۱۴.۱۸۶
-//    https://github.com/RapidAI/RapidOcrAndroidOnnx ببین چجور به این
-//    خوبی استخراج میکنه همونو رو گوشی بزار … این خیلی خوب استخراج میزنه
-//    متن هاش خوب در میاره فقط مشکلش این ک همه زبانس نمیشه یک زبان
-//    انتخاب کرد مثلا انگلیسی بزارم»
-//
-//   • موتور = سهگانهٔ RapidOcrAndroidOnnx داخلِ ماژولِ ppocr-sdk
-//     (det: ch_PP-OCRv4_det_mobile + cls: ch_ppocr_mobile_v2.0_cls +
-//     rec: ch_PP-OCRv4_rec_mobile + دیکشنریِ متنی) — بیت‌به‌بیتِ همان
-//     پیشپردازش/پسپردازش (DB dilate 2×2، clsِ 192×48، recِ ارتفاعِ ۴۸ +
-//     CTCِ blank=۰) رویِ همان ORTِ 1.21.1. این پل فقط پلِ نازک است و
-//     هیچ ORT/پردازشی از خودش ندارد (قراردادِ v1.14.184 پابرجاست).
-//   • مدلها از v1.14.189 دیگر باندلِ APK نیستند (دستورِ سازنده: «onnx
-//     تو گوشی واسه استخراج با نصب نیاد … اپ بزار دانلود کنه اگ نبود»):
-//     اولین استفاده → OcrModelStore از ریلیزِ «models»ِ همین ریپو در
-//     filesDir/models/… دانلود میکند (به حسابِ زبانِ انتخابی — ja/ko
-//     فقط با خودشان) و ppocr-sdk با ModelSource از assets یا filesDir
-//     میخواند (باندلِ قدیمیِ v1.14.188 هم پابرجا کار میکند):
-//       models/det/inference.onnx      (PP-OCRv6_det_small 10MB)
-//       models/cls/inference.onnx      (ch_ppocr_mobile_v2.0_cls 0.6MB)
-//       models/rec/inference.onnx      (PP-OCRv6_MEDIUM 73MB)
-//       models/rec/dict.txt            (ppocrv6_chars — ۱۸۷۰۸ سطر)
-//       models/rec_ko/inference.onnx   (korean_PP-OCRv5_rec_mobile 13.5MB)
-//       models/rec_ko/dict.txt         (ppocrv5_korean_dict.txt — ۱۱۹۴۵ سطر)
-//   • انتخابِ زبان (خلافِ دموی RapidOcrAndroidOnnx که «همه زبان» است):
-//     manga.py زبانِ هر کراپ را در recognizeAuto(png, lang, w, h)
-//     میفرستد؛ این پل سشنِ rec را رویِ واریانتِ همان زبان گرم میکند:
-//       latin/zh/ja/سایر → recِ پیشفرضِ v6_medium (بنچمارکِ v1.14.190:
-//         صفحهٔ تستِ سازنده — medium ژاپنی را کاملتر از japan v4 میخواند:
-//         «一緒にがんばりましょう»✓ در برابرِ «ましよう»✗؛ کلمهٔ
-//         «かわい» فقط با medium)؛ ko→rec_ko؛ multi→پیشفرض + دوئلِ ko
-//         (manga.py تصمیم میگیرد — واریانتِ ko لازمالآمد دانلود میشود)
-//   • قراردادِ خروجی = همان سطرهایِ META همیشه
-//     (META|lang|n + ang|conf|box|text|blk) تا manga.py
-//     (PaddleAndroidOCR) بدونِ تغییرِ پارسر وصل شود.
-//   • thread-safety: همهٔ recognizeها با یک قفل سری میشوند (کرانکِ
-//     OCRِ پایتون چندکارگری است) — تعویضِ زبان هم زیرِ همان قفل.
-// ═══════════════════════════════════════════════════════════════════════
+// دستورِ سازنده ( — نقلِ مستقیم):
+// «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا
+// https://github.com/RapidAI/RapidOcrAndroidOnnx ببین چجور به این
+// خوبی استخراج میکنه همونو رو گوشی بزار … این خیلی خوب استخراج میزنه
+// متن هاش خوب در میاره فقط مشکلش این ک همه زبانس نمیشه یک زبان
+// انتخاب کرد مثلا انگلیسی بزارم»
+// • موتور = سهگانهٔ RapidOcrAndroidOnnx داخلِ ماژولِ ppocr-sdk
+// (det: ch_PP-OCRv4_det_mobile + cls: ch_ppocr_mobile_v2.0_cls +
+// rec: ch_PP-OCRv4_rec_mobile + دیکشنریِ متنی) — بیت‌به‌بیتِ همان
+// پیشپردازش/پسپردازش (DB dilate 2×2، clsِ 192×48، recِ ارتفاعِ ۴۸ +
+// CTCِ blank=۰) رویِ همان ORTِ 1.21.1. این پل فقط پلِ نازک است و
+// هیچ ORT/پردازشی از خودش ندارد (قراردادِ پابرجاست).
+//):
+// • مدلها از دیگر باندلِ APK نیستند (
+// اولین استفاده → OcrModelStore از ریلیزِ «models»ِ همین ریپو در
+// filesDir/models/… دانلود میکند (به حسابِ زبانِ انتخابی — ja/ko
+// فقط با خودشان) و ppocr-sdk با ModelSource از assets یا filesDir
+// میخواند (باندلِ قدیمیِ هم پابرجا کار میکند):
+// models/det/inference.onnx (PP-OCRv6_det_small 10MB)
+// models/cls/inference.onnx (ch_ppocr_mobile_v2.0_cls 0.6MB)
+// models/rec/inference.onnx (PP-OCRv6_MEDIUM 73MB)
+// models/rec/dict.txt (ppocrv6_chars — ۱۸۷۰۸ سطر)
+// models/rec_ko/inference.onnx (korean_PP-OCRv5_rec_mobile 13.5MB)
+// models/rec_ko/dict.txt (ppocrv5_korean_dict.txt — ۱۱۹۴۵ سطر)
+// • انتخابِ زبان (خلافِ دموی RapidOcrAndroidOnnx که «همه زبان» است):
+// manga.py زبانِ هر کراپ را در recognizeAuto(png, lang, w, h)
+// میفرستد؛ این پل سشنِ rec را رویِ واریانتِ همان زبان گرم میکند:
+// latin/zh/ja/سایر → recِ پیشفرضِ v6_medium (بنچمارکِ :
+// صفحهٔ تستِ سازنده — medium ژاپنی را کاملتر از japan v4 میخواند:
+// «一緒にがんばりましょう» در برابرِ «ましよう»؛ کلمهٔ
+// «かわい» فقط با medium)؛ ko→rec_ko؛ multi→پیشفرض + دوئلِ ko
+// (manga.py تصمیم میگیرد — واریانتِ ko لازمالآمد دانلود میشود)
+// • قراردادِ خروجی = همان سطرهایِ META همیشه
+// (META|lang|n + ang|conf|box|text|blk) تا manga.py
+// (PaddleAndroidOCR) بدونِ تغییرِ پارسر وصل شود.
+// • thread-safety: همهٔ recognizeها با یک قفل سری میشوند (کرانکِ
+// OCRِ پایتون چندکارگری است) — تعویضِ زبان هم زیرِ همان قفل.
 
 package com.amirwolf.mangatranslator
 
@@ -59,16 +55,16 @@ object PaddleOcrBridge {
 
     private const val TAG = "PaddleOcrBridge"
 
-    // مسیرهایِ assets — عینِ چیدمانِ v1.14.184 (build.yml مدلها را همینجا
-    // میریزد) + cls و واریانتهایِ زبانِ جدیدِ v1.14.187
+// مسیرهایِ assets — عینِ چیدمانِ (build.yml مدلها را همینجا
+// میریزد) + cls و واریانتهایِ زبانِ جدیدِ
     private const val DET_ASSET = "models/det/inference.onnx"
     private const val CLS_ASSET = "models/cls/inference.onnx"
     private const val REC_ASSET = "models/rec/inference.onnx"
     private const val REC_DICT_ASSET = "models/rec/dict.txt"
 
-    // واریانتهایِ زبانِ rec — v1.14.190: همهٔ زبانها recِ پیشفرضِ
-    // v6_medium را میگیرند (ja هم — بنچمارکِ صفحهٔ تستِ سازنده)؛ فقط
-    // ko سشن عوض میکند (v6 هیچ هانگولی در charset ندارد — ۰ از ۱۸۷۰۸)
+// واریانتهایِ زبانِ rec — : همهٔ زبانها recِ پیشفرضِ
+// v6_medium را میگیرند (ja هم — بنچمارکِ صفحهٔ تستِ سازنده)؛ فقط
+// ko سشن عوض میکند (v6 هیچ هانگولی در charset ندارد — ۰ از ۱۸۷۰۸)
     private val LANG_VARIANTS: Map<String, Pair<String, String>> = mapOf(
         "ko" to ("models/rec_ko/inference.onnx" to "models/rec_ko/dict.txt"),
     )
@@ -91,13 +87,13 @@ object PaddleOcrBridge {
     /** MtApp در onCreateِ کلِ اپ این را صدا میزند (قبل از هر Activity). */
     @JvmStatic
     fun hold(context: Context) {
-        // Context فقط برایِ سازندهٔ موتور لازم است — همینجا نگهش میداریم
-        // تا init() بدونِ پارامترِ Context از پایتون صدا شود.
+// Context فقط برایِ سازندهٔ موتور لازم است — همینجا نگهش میداریم
+// تا init بدونِ پارامترِ Context از پایتون صدا شود.
         if (ctx == null) ctx = context.applicationContext
     }
 
     /**
-     * v1.14.188 — ساختِ موتورِ RapidOCR (detِ v6_small + recِ v6_MEDIUM).
+     *  — ساختِ موتورِ RapidOCR (detِ v6_small + recِ v6_MEDIUM).
      * [numThreads] = EngineConfig.numThreads (پیشفرض ۴).
      * true = موتور آماده است؛ false = هیچ فالبکی نیست — manga.py
      * استخراجِ خالی میبیند و پیامِ خطا چاپ میشود.
@@ -106,9 +102,9 @@ object PaddleOcrBridge {
     fun init(numThreads: Int): Boolean = init(numThreads, null)
 
     /**
-     * v1.14.190 — نسخهٔ زبان‌آگاه با تضمینِ همیشگیِ مدلها: حتی وقتی
+     *  — نسخهٔ زبان‌آگاه با تضمینِ همیشگیِ مدلها: حتی وقتی
      * موتور از اجرایِ قبلیِ همین پروسس گرم است، مدلهایِ زبانِ این اجرا
-     * حتماً بررسی/دانلود میشوند (باگِ v1.14.189: موتورِ گرم + واریانتِ
+     * حتماً بررسی/دانلود میشوند (باگِ : موتورِ گرم + واریانتِ
      * غایب = خطایِ ERR|ModelDownload در سلف‌تست — «زبان چینی کره ای
      * اصلا استخراج نمیزنه ارور میده»). [primaryLang] = زبانِ انتخابیِ
      * کاربر («به حساب زبان انتخاب شده همون مدل دانلود کنه») — فقط
@@ -121,7 +117,7 @@ object PaddleOcrBridge {
             return false
         }
         try {
-            // v1.14.190 — همیشه (موتورِ گرم هم): فایلهایِ زبانِ این اجرا
+// همیشه (موتورِ گرم هم): فایلهایِ زبانِ این اجرا
             OcrModelStore.ensure(context, OcrModelStore.pathsForLang(primaryLang))
         } catch (t: Throwable) {
             Log.e(TAG, "model ensure failed (lang=$primaryLang)", t)
@@ -130,8 +126,8 @@ object PaddleOcrBridge {
         }
         if (engine != null) return true
         return try {
-            // یادداشتِ رسمیِ ppocr-android: OpenCVUtils.init(context)
-            // قبل از ساختِ هر موتوری (کلاسهایِ Mat/OpenCV)
+// یادداشتِ رسمیِ ppocr-android: OpenCVUtils.init(context)
+// قبل از ساختِ هر موتوری (کلاسهایِ Mat/OpenCV)
             OpenCVUtils.init(context)
             val threads = numThreads.coerceIn(1, 8)
             engine = runBlocking {
@@ -182,11 +178,11 @@ object PaddleOcrBridge {
             Array<String>? = synchronized(lock) {
         val eng = engine ?: return null
         try {
-            // انتخابِ زبانِ rec — تعویضِ داغِ سشن فقط وقتی واریانت عوض شود
+// انتخابِ زبانِ rec — تعویضِ داغِ سشن فقط وقتی واریانت عوض شود
             val (variantKey, variant) = variantFor(lang)
             if (variantKey != currentVariant) {
-                // v1.14.189 — واریانتِ زبانِ جدید اگر نبود، همینجا دانلود
-                // میشود (اگ نبود) — نه همه با هم
+// واریانتِ زبانِ جدید اگر نبود، همینجا دانلود
+// میشود (اگ نبود) — نه همه با هم
                 try {
                     ctx?.let { OcrModelStore.ensure(it, listOf(variant.first, variant.second)) }
                 } catch (t: Throwable) {
@@ -221,8 +217,8 @@ object PaddleOcrBridge {
             }
             out.toTypedArray()
         } catch (t: Throwable) {
-            // خطا → سطرِ تشخیصیِ ERR (پارسرِ manga.py آن را مثلِ
-            // خروجیِ خالی میبیند) تا سلف‌تست/لاگ، ریشه را نشان دهد
+// خطا → سطرِ تشخیصیِ ERR (پارسرِ manga.py آن را مثلِ
+// خروجیِ خالی میبیند) تا سلف‌تست/لاگ، ریشه را نشان دهد
             Log.e(TAG, "recognize failed", t)
             arrayOf("ERR|" + t.javaClass.simpleName + "|" +
                     (t.message ?: "no message").replace("|", " "))

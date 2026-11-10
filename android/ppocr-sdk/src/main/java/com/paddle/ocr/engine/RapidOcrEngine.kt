@@ -1,37 +1,34 @@
-// v1.14.187 — RapidOCRِ اندروید (PP-OCRv4_mobileِ ONNX) — عینِ
+// RapidOCRِ اندروید (PP-OCRv4_mobileِ ONNX) — عینِ
 // RapidOcrAndroidOnnx (github.com/RapidAI/RapidOcrAndroidOnnx)
-// ═══════════════════════════════════════════════════════════════════════
-// دستورِ سازنده (v1.14.187 — نقلِ مستقیم):
-//   «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا ۱.۱۴.۱۸۶
-//    https://github.com/RapidAI/RapidOcrAndroidOnnx ببین چجور به این
-//    خوبی استخراج میکنه همونو رو گوشی بزار و این ک بگم باید اول
-//    detector-v4-s_int8.onnx خوب قسمت های متن پیدا کنه بعد همون قسمت
-//    باید استخراج متن استفاده کنه اونم درست در بیاره … این خیلی خوب
-//    استخراج میزنه متن هاش خوب در میاره»
-//
+// دستورِ سازنده ( — نقلِ مستقیم):
+// «متن درست استخراج نمیزنه متن هاش اشتباهه بعضی وقتا
+// https://github.com/RapidAI/RapidOcrAndroidOnnx ببین چجور به این
+// خوبی استخراج میکنه همونو رو گوشی بزار و این ک بگم باید اول
+// detector-v4-s_int8.onnx خوب قسمت های متن پیدا کنه بعد همون قسمت
+// باید استخراج متن استفاده کنه اونم درست در بیاره … این خیلی خوب
+// استخراج میزنه متن هاش خوب در میاره»
 // معماری = همان سهگانهٔ RapidOcrAndroidOnnx ولی رویِ همان ORTِ
 // ppocr-sdk (نسخهٔ 1.21.1) و با detِ داخلِ کراپ:
-//   • det = ch_PP-OCRv4_det_mobile.onnx (DBNet 4.5MB) — پارامترهایِ
-//     پیشفرضِ RapidOCR: maxSideLen=960/max، thresh=0.3،
-//     boxScore=0.5، unclip=1.6، dilate 2×2 (مانندِ DbNet.cpp).
-//   • cls = ch_ppocr_mobile_v2.0_cls (AngleNet) — resizeِ کشیدهٔ
-//     192×48 + (x-127.5)/127.5 + argmaxِ ۲ کلاسه؛ خلافِ mostAngleِ
-//     دموی RapidOCR (که همهٔ کراپها را با رأیِ اکثریت میچرخاند — برایِ
-//     مانگایِ مخلوطِ افقی/عمودی خطرناک است) چرخشِ ۱۸۰ فقط وقتی انجام
-//     میشود که امتیازِ cls ≥ 0.9 باشد (per-crop).
-//   • rec = ch_PP-OCRv4_rec_mobile.onnx (CRNN 10.4MB) — resizeِ متناسب
-//     با ارتفاعِ ۴۸ + (x-127.5)/127.5 (RGB — قراردادِ رسمیِ
-//     PaddleOCR/RapidOCR-python) + CTC با blank=۰ و دیکشنریِ متنیِ
-//     (سطرها + « »)؛ دقیقاً keysِ CrnnNet.cpp.
+// • det = ch_PP-OCRv4_det_mobile.onnx (DBNet 4.5MB) — پارامترهایِ
+// پیشفرضِ RapidOCR: maxSideLen=960/max، thresh=0.3
+// boxScore=0.5، unclip=1.6، dilate 2×2 (مانندِ DbNet.cpp).
+// • cls = ch_ppocr_mobile_v2.0_cls (AngleNet) — resizeِ کشیدهٔ
+// 192×48 + (x-127.5)/127.5 + argmaxِ ۲ کلاسه؛ خلافِ mostAngleِ
+// دموی RapidOCR (که همهٔ کراپها را با رأیِ اکثریت میچرخاند — برایِ
+// مانگایِ مخلوطِ افقی/عمودی خطرناک است) چرخشِ ۱۸۰ فقط وقتی انجام
+// میشود که امتیازِ cls ≥ 0.9 باشد (per-crop).
+// • rec = ch_PP-OCRv4_rec_mobile.onnx (CRNN 10.4MB) — resizeِ متناسب
+// با ارتفاعِ ۴۸ + (x-127.5)/127.5 (RGB — قراردادِ رسمیِ
+// PaddleOCR/RapidOCR-python) + CTC با blank=۰ و دیکشنریِ متنیِ
+// (سطرها + « »)؛ دقیقاً keysِ CrnnNet.cpp.
 // واریانتِ زبان = تعویضِ داغِ سشنِ rec + دیکشنری (setLanguageVariant):
-//   latin→en_PP-OCRv4 ، ja→japan_PP-OCRv4 ، ko→korean_PP-OCRv4 ،
-//   zh/پیشفرض→ch_PP-OCRv4 — همان «انتخابِ زبان» که سازنده خواست.
+// latin→en_PP-OCRv4 ، ja→japan_PP-OCRv4 ، ko→korean_PP-OCRv4
+// zh/پیشفرض→ch_PP-OCRv4 — همان «انتخابِ زبان» که سازنده خواست.
 // کانالِ RGB برایِ rec (رسماً درست؛ دموی C++ این تبدیل را ندارد ولی
 // RapidOCRِ پایتونی و PaddleOCRِ رسمی BGR→RGB میکنند) — رویِ متنِ
 // مانگا (تک رنگ) اثرِ عملی ندارد.
 // خروجی = همان OCREngineResult → پلِ PaddleOcrBridge و پارسرِ manga.py
 // بدونِ تغییرِ قرارداد (META|lang|n + ang|conf|box|text|blk).
-// ═══════════════════════════════════════════════════════════════════════
 
 package com.paddle.ocr.engine
 
@@ -71,8 +68,8 @@ data class RapidOcrParams(
         detThresh = detThresh,
         detBoxThresh = boxScoreThresh,
         detUnclipRatio = unclipRatio,
-        // RapidOCRِ DbNet همیشه با هستهٔ ۲×۲ dilate میکند (DbNet.cpp) —
-        // DBPostProcessorِ رسمی همان هستهٔ ۲×۲ را دارد (Mat.ones(2,2))
+// RapidOCRِ DbNet همیشه با هستهٔ ۲×۲ dilate میکند (DbNet.cpp) —
+// DBPostProcessorِ رسمی همان هستهٔ ۲×۲ را دارد (Mat.ones(2,2))
         detUseDilation = true,
         recBatchSize = recBatchSize,
         recScoreThresh = recScoreThresh,
@@ -116,7 +113,7 @@ class RapidOcrEngine(
     }
 
     /**
-     * v1.14.187 — انتخابِ زبانِ rec (تعویضِ داغِ سشن + دیکشنری).
+     *  — انتخابِ زبانِ rec (تعویضِ داغِ سشن + دیکشنری).
      * زبانِ همان = no-op؛ خلافِ آن = سشنِ rec جدید + دیکشنریِ جدید.
      */
     fun setLanguageVariant(recModelAsset: String, recDictAsset: String) =
@@ -182,7 +179,7 @@ class RapidOcrEngine(
                 }
             }
 
-            // ── cls (AngleNet): چرخشِ ۱۸۰ فقط با امتیازِ بالا (per-crop) ──
+            // cls (AngleNet): چرخشِ ۱۸۰ فقط با امتیازِ بالا (per-crop)
             if (params.doAngle && ortManager.hasCls() && crops.isNotEmpty()) {
                 try {
                     val flags = classifyAngles(crops)
@@ -195,11 +192,11 @@ class RapidOcrEngine(
                         }
                     }
                 } catch (_: OCRError) {
-                    // clsِ اختیاری است — هر خطا = بدونِ چرخش (مثلِ doAngle=false)
+// clsِ اختیاری است — هر خطا = بدونِ چرخش (مثلِ doAngle=false)
                 }
             }
 
-            // ── rec (CRNN با دیکشنریِ زبانِ فعال) ──
+            // rec (CRNN با دیکشنریِ زبانِ فعال)
             var recPreMs = 0L
             var recInfMs = 0L
             var recPostMs = 0L
@@ -294,7 +291,7 @@ class RapidOcrEngine(
         val (outData, outShape) = ortManager.runClassification(
             tensor, longArrayOf(n.toLong(), 3, clsH.toLong(), clsW.toLong()),
         )
-        // خروجی = [N,2] — کلاسِ ۱ = متن ۱۸۰ درجه چرخیده
+// خروجی = [N,2] — کلاسِ ۱ = متن ۱۸۰ درجه چرخیده
         val flags = BooleanArray(n)
         if (outData.size < n * 2) return flags
         for (b in 0 until n) {
@@ -313,7 +310,7 @@ class RapidOcrEngine(
 
     private fun loadDict(context: Context, dictAsset: String): List<String> {
         val content = try {
-            // v1.14.189 — assets یا filesDir (دانلودِ زمانِ اجرا)
+// assets یا filesDir (دانلودِ زمانِ اجرا)
             com.paddle.ocr.util.ModelSource.text(context, dictAsset)
         } catch (t: Throwable) {
             throw OCRError.ConfigParseFailed(dictAsset, t)

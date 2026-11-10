@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 
 /**
- * v1.14.184 — نگهدارندهٔ Contextِ سراسری برایِ پلِ استخراجِ متن.
+ *  — نگهدارندهٔ Contextِ سراسری برایِ پلِ استخراجِ متن.
  *
  * SDKِ رسمیِ PaddleOCR اندروید (ppocr-sdk — deploy/ppocr-android) برایِ
  * خواندنِ مدلها از assets و initِ OpenCV به Context نیاز دارد؛ چاکوپی از
@@ -25,8 +25,8 @@ class MtApp : Application() {
     override fun onCreate() {
         super.onCreate()
         appCtx = applicationContext
-        // پلِ OCR هم همان اول Context را میگیرد (ساختِ موتور تنبل است —
-        // خودِ مدلها با اولین init(numThreads) لود میشوند)
+// پلِ OCR هم همان اول Context را میگیرد (ساختِ موتور تنبل است —
+// خودِ مدلها با اولین init(numThreads) لود میشوند)
         PaddleOcrBridge.hold(applicationContext)
     }
 }

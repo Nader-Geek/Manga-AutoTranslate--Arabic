@@ -74,8 +74,8 @@ class MainActivity : AppCompatActivity() {
     private var liveDbgTotal = 0
     private var shownLiveTotal = 0
     private var shownLiveDbgTotal = 0
-    // v1.14.45: پایانِ نشستِ زنده به نمایشگر اعلام می‌شود تا اسلاتِ
-    // «در حال ترجمه…» حالتِ دیباگ هم موقعِ تمام‌شدن برداشته شود
+// پایانِ نشستِ زنده به نمایشگر اعلام می‌شود تا اسلاتِ
+// «در حال ترجمه…» حالتِ دیباگ هم موقعِ تمام‌شدن برداشته شود
     @Volatile private var liveDone = false
     private var jobRunning = false
     private var cancelPending = false
@@ -89,39 +89,39 @@ class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("manga_settings", MODE_PRIVATE) }
     private var wakeLock: android.os.PowerManager.WakeLock? = null
 
-    // ══ v1.14.220 — مدلهایِ سفارشیِ کاربر (همان ساختارِ وب: name/api_base/
-    // api_key/model) — در حافظهٔ دستگاه میمانند، در منویِ انتخابِ AI میآیند،
-    // داخلِ بکاپ ذخیره میشوند و با Import برمیگردند ══
+    // مدلهایِ سفارشیِ کاربر (همان ساختارِ وب: name/api_base/
+// api_key/model) — در حافظهٔ دستگاه میمانند، در منویِ انتخابِ AI میآیند
+// داخلِ بکاپ ذخیره میشوند و با Import برمیگردند ══
     private var providerBtn: Button? = null
     private var providerFieldId: String = "provider"
-    // v1.14.221 — ✖ِ حذفِ کنارِ منو + دکمهٔ افزودن (بهجایِ لیستِ چیپیِ پایین)
-    // v1.14.222 — راهنمایِ دکمهٔ افزودن (فقط رویِ custom دیده میشود) +
-    // مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدل/کلیدِ ماسکشده)
+// ِ حذفِ کنارِ منو + دکمهٔ افزودن (بهجایِ لیستِ چیپیِ پایین)
+// راهنمایِ دکمهٔ افزودن (فقط رویِ custom دیده میشود) +
+// مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدل/کلیدِ ماسکشده)
     private var cmDelBtn: Button? = null
     private var cmAddBtn: Button? = null
-    // v1.14.223 — ویرایشِ مدلِ ذخیرهشده: «✎ ویرایش» فقط رویِ مدلِ خودِ
-    // کاربر میآید؛ با زدنش فیلدها با مقادیرِ ذخیرهشده پر میشوند و «افزودن»
-    // جای خودش را به «💾 ذخیرهٔ ویرایش» میدهد (دستورِ سازنده: «چیزی ک سیو
-    // زده بود بتونن ویرایش کنن بجای گزینه افزودن ذخیره بیاد»)
+// ویرایشِ مدلِ ذخیرهشده: « ویرایش» فقط رویِ مدلِ خودِ
+// کاربر میآید؛ با زدنش فیلدها با مقادیرِ ذخیرهشده پر میشوند و «افزودن»
+    //)
+// جای خودش را به « ذخیرهٔ ویرایش» میدهد (
     private var cmEditBtn: Button? = null
     private var cmSaveBtn: Button? = null
     private var cmEditing: Boolean = false
     private var cmHintTv: TextView? = null
     private var cmInfoTv: TextView? = null
-    // v1.14.231 — فیلدِ مدلِ بومی: کادرِ دستی + دکمهٔ «↻» (فهرستِ زندهٔ
-    // Gemini). ریشهٔ دو باگ: از v1.14.229 فیلدِ مدلِ وب Dropdown شد؛
-    // استخراجِ اندروید آن را select با لیستِ خالی میساخت و چون select را
-    // Button رندر میکند، هم ↻/لیست وجود نداشت و هم گیتِ provider (که فقط
-    // EditText را مخفی میکند) آن را رویِ auto/مدلِ نامی پنهان نمیکرد.
+// فیلدِ مدلِ بومی: کادرِ دستی + دکمهٔ «↻» (فهرستِ زندهٔ
+// Gemini). ریشهٔ دو باگ: از فیلدِ مدلِ وب Dropdown شد
+// استخراجِ اندروید آن را select با لیستِ خالی میساخت و چون select را
+// Button رندر میکند، هم ↻/لیست وجود نداشت و هم گیتِ provider (که فقط
+// EditText را مخفی میکند) آن را رویِ auto/مدلِ نامی پنهان نمیکرد.
     private var modelFieldRoot: LinearLayout? = null
     private var modelLabelTv: TextView? = null
     private var modelRefBtn: Button? = null
     private var backupStatusView: TextView? = null
     private var manifestAppVer: String = ""
-    // v1.14.222 — تا فرمِ کامل ساخته نشود، بانکِ فیلدها کاری نمیکند
-    // (فیلدهایِ کلید/مدل دیرتر از منو ساخته میشوند)
+// تا فرمِ کامل ساخته نشود، بانکِ فیلدها کاری نمیکند
+// (فیلدهایِ کلید/مدل دیرتر از منو ساخته میشوند)
     private var formReady: Boolean = false
-    // v1.14.220 — نقشهٔ نام↔مقدارِ هر select برایِ «Import» (applySetting)
+// نقشهٔ نام↔مقدارِ هر select برایِ «Import» (applySetting)
     private val selectMaps = HashMap<String, List<Pair<String, String>>>()
 
     private fun cmLoad(): MutableList<JSONObject> {
@@ -216,9 +216,9 @@ class MainActivity : AppCompatActivity() {
             if (s.equals("null", true) || s.equals("undefined", true)) return null
             return s
         }
-        // v1.14.192 — JSONObject.NULL (defaultِ nullِ اسکیما) هرگز مقدار
-        // حساب نمیشود؛ toString()اش رشتهٔ «null» میسازد که بعداً در کادرِ
-        // فیلدهایِ خالی مینشست («قسمت لینک null نشون میده»).
+// JSONObject.NULL (defaultِ nullِ اسکیما) هرگز مقدار
+// حساب نمیشود؛ toStringاش رشتهٔ «null» میسازد که بعداً در کادرِ
+// فیلدهایِ خالی مینشست («قسمت لینک null نشون میده»).
         if (dflt === org.json.JSONObject.NULL) return null
         return dflt
     }
@@ -248,10 +248,10 @@ class MainActivity : AppCompatActivity() {
         wakeLock = null
     }
 
-    // v1.14.150 — سرویسِ پیشزمینه: با رفتنِ کاربر رویِ اپِ دیگر، اندروید
-    // پروسهٔ اپ را «انبارشده» (cached) و منجمد میکند و ترجمه میخوابد؛
-    // سرویسِ Foreground با نوتیفیکیشنِ «در حال ترجمه» پروسه را زنده
-    // نگه میدارد تا کار تمام شود (شروع: شروعِ کار، توقف: پایانِ کار).
+// سرویسِ پیشزمینه: با رفتنِ کاربر رویِ اپِ دیگر، اندروید
+// پروسهٔ اپ را «انبارشده» (cached) و منجمد میکند و ترجمه میخوابد
+// سرویسِ Foreground با نوتیفیکیشنِ «در حال ترجمه» پروسه را زنده
+// نگه میدارد تا کار تمام شود (شروع: شروعِ کار، توقف: پایانِ کار).
     private fun startTranslationForeground() {
         try {
             if (Build.VERSION.SDK_INT >= 33 &&
@@ -296,7 +296,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // v1.14.109 — خطایِ شروعِ پایتون (اگر happened) — در رشتهٔ آماده‌سازی به UI میرود
+// خطایِ شروعِ پایتون (اگر happened) — در رشتهٔ آماده‌سازی به UI میرود
     private var pythonStartError: String? = null
 
     override fun onResume() {
@@ -311,20 +311,20 @@ class MainActivity : AppCompatActivity() {
                 launchInstall(f)
             }
         }
-        // v1.14.192 — «اپدیت تو خوده اپ نمیاد»: وقتی کاربر برمیگردد و
-        // ردیفِ آپدیت نیست، اگر از آخرین چک بیش از ۳۰ دقیقه گذشته باشد
-        // یک بارِ دیگر چک میشود (اینترنت/VPN این وسط آماده شده است).
+// «اپدیت تو خوده اپ نمیاد»: وقتی کاربر برمیگردد و
+// ردیفِ آپدیت نیست، اگر از آخرین چک بیش از ۳۰ دقیقه گذشته باشد
+// یک بارِ دیگر چک میشود (اینترنت/VPN این وسط آماده شده است).
         if (updRow == null &&
             System.currentTimeMillis() - lastUpdCheckAt > 30 * 60_000L) {
             Thread { checkAppUpdate() }.start()
         }
     }
 
-    // v1.14.160 — «اپ میبندم پسزمینه داره کار میکنه با این که بستم»: خروجِ
-    // واقعی از اپ (دکمهٔ برگشت / finish) هم باید کارِ پایتون را متوقف کند.
-    // home و تعویضِ اپ onDestroy نمیدهند (فقط onStop) → ادامهٔ کار در
-    // پسزمینه همان مسیرِ قبلی است؛ فقط exitِ واقعی اینجا متوقف میشود.
-    // روتیشن هم onDestroy میدهد ولی isFinishing=false دارد → رد میشود.
+// «اپ میبندم پسزمینه داره کار میکنه با این که بستم»: خروجِ
+// واقعی از اپ (دکمهٔ برگشت / finish) هم باید کارِ پایتون را متوقف کند.
+// home و تعویضِ اپ onDestroy نمیدهند (فقط onStop) → ادامهٔ کار در
+// پسزمینه همان مسیرِ قبلی است؛ فقط exitِ واقعی اینجا متوقف میشود.
+// روتیشن هم onDestroy میدهد ولی isFinishing=false دارد → رد میشود.
     override fun onDestroy() {
         if (isFinishing && jobRunning) {
             TranslationService.hardStopAndExit()
@@ -339,7 +339,7 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = BG
         window.statusBarColor = BG
 
-        // v1.14.109 — Python.start رویِ رشتهٔ اصلی است؛ اگر محیطِ native ناسازگار باشد (ABIِ غلط/حافظهٔ کم) به‌جایِ کرشِ کلِ اپ، خطا ذخیره و در UI نشان داده میشود.
+// Python.start رویِ رشتهٔ اصلی است؛ اگر محیطِ native ناسازگار باشد (ABIِ غلط/حافظهٔ کم) به‌جایِ کرشِ کلِ اپ، خطا ذخیره و در UI نشان داده میشود.
         pythonStartError = try {
             if (!Python.isStarted()) Python.start(AndroidPlatform(this))
             null
@@ -348,17 +348,17 @@ class MainActivity : AppCompatActivity() {
             (t.message ?: t.toString())
         }
 
-        // v1.14.63 — درخواستِ کاربر: «Downloads/manga/pages_*** پوشه بپاکه کلا»
-        // پوشه‌هایِ pages_… (انبارِ ذخیرهٔ خودکارِ صفحات در اجراهایِ قبل)
-        // هنگامِ بازشدنِ اپ به‌کلی پاک می‌شوند؛ و از این به بعد دیگر
-        // ساخته نمی‌شوند (autoSaveOutputs دیگر پوشهٔ pages_ نمی‌سازد).
+// درخواستِ کاربر: «Downloads/manga/pages_*** پوشه بپاکه کلا»
+// پوشه‌هایِ pages_… (انبارِ ذخیرهٔ خودکارِ صفحات در اجراهایِ قبل)
+// هنگامِ بازشدنِ اپ به‌کلی پاک می‌شوند؛ و از این به بعد دیگر
+// ساخته نمی‌شوند (autoSaveOutputs دیگر پوشهٔ pages_ نمی‌سازد).
         cleanupPagesDirs()
 
-        // v1.14.70 — درخواستِ کاربر: «اول استارت میزنم همه .log.txt حذف کنه
-        // بعد بسازه» — در شروعِ اپ همهٔ لاگ‌هایِ قبلی حذف و دو فایلِ خالیِ
-        // تازه (manga.log.txt / manga_old.log.txt) ساخته می‌شوند.
+// درخواستِ کاربر: «اول استارت میزنم همه .log.txt حذف کنه
+// بعد بسازه» — در شروعِ اپ همهٔ لاگ‌هایِ قبلی حذف و دو فایلِ خالیِ
+// تازه (manga.log.txt / manga_old.log.txt) ساخته می‌شوند.
         Thread { resetLogsOnStart() }.start()
-        // نسخهٔ مرج‌شده: پاکسازیِ لاگ‌هایِ داخلیِ اپ هم انجام شود.
+// نسخهٔ مرج‌شده: پاکسازیِ لاگ‌هایِ داخلیِ اپ هم انجام شود.
         deleteAllMangaLogsOnStart()
 
         if (Build.VERSION.SDK_INT < 29 &&
@@ -486,7 +486,7 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             try {
-                // v1.14.111 — پشتهٔ faulthandlerِ سیگ‌فالتِ پایتون (از launcher)
+// پشتهٔ faulthandlerِ سیگ‌فالتِ پایتون (از launcher)
                 try {
                     val fl = java.io.File(filesDir, "fault_log.txt")
                     if (fl.isFile && fl.length() > 0) {
@@ -497,8 +497,8 @@ class MainActivity : AppCompatActivity() {
                             nowStr() + "\n" + d.take(4000))
                     }
                 } catch (_: Exception) { }
-                // گزارشِ کرشِ قبلی: یک بار به‌ازایِ هر کرش نمایش داده میشود
-                // (قبلاً همینجا فوراً چاپ میشد و بعداً وضعیتِ معمولی بازنویسیاش میکرد)
+// گزارشِ کرشِ قبلی: یک بار به‌ازایِ هر کرش نمایش داده میشود
+// (قبلاً همینجا فوراً چاپ میشد و بعداً وضعیتِ معمولی بازنویسیاش میکرد)
                 var crashRep = ""
                 try {
                     val cl = java.io.File(filesDir, "crash_log.txt")
@@ -512,7 +512,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) {
                 }
-                // v1.14.109 — اگر Python.start شکست خورده، همینجا با پیامِ روشن به UI برود (نه کرش)
+// اگر Python.start شکست خورده، همینجا با پیامِ روشن به UI برود (نه کرش)
                 pythonStartError?.let { throw RuntimeException("Python.start: $it") }
                 clearOldCaches()
                 copyBundledSources()
@@ -526,7 +526,7 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) {
                 }
                 val st = launcher.callAttr("status").toString()
-                // v1.14.111 — همهٔ نکته‌ها در یک متن: گزارشِ کرش + ⚡ + وضعیت
+// همهٔ نکته‌ها در یک متن: گزارشِ کرش + + وضعیت
                 val pre = StringBuilder()
                 if (crashRep.isNotBlank()) {
                     pre.append("💥 گزارشِ کرشِ قبلی (این متن را برایِ سازنده بفرست):\n")
@@ -571,8 +571,8 @@ class MainActivity : AppCompatActivity() {
         "https://cdn.jsdelivr.net/gh/amirwolf512k/Manga-AutoTranslate@main/"
     )
     private var updRow: LinearLayout? = null
-    // v1.14.59 — وضعیتِ دانلودِ نصبی: idle=آمادهٔ شروع، dl=در حال دانلود،
-    // ready=فایل کامل و آمادهٔ نصب، fail=قطع‌شده (ادامه‌پذیر)
+// وضعیتِ دانلودِ نصبی: idle=آمادهٔ شروع، dl=در حال دانلود
+// ready=فایل کامل و آمادهٔ نصب، fail=قطع‌شده (ادامه‌پذیر)
     private var updState = "idle"
     private var updVerName = ""
     private var updVerCode = 0
@@ -612,9 +612,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun fetchMirror(path: String): ByteArray {
         var last: Exception? = null
-        // v1.14.61 — cache-bust: CDN (به‌خصوص jsdelivr) نسخهٔ کش‌شدهٔ
-        // چندساعتهٔ VERSION را می‌داد → «بروزرسانی نیومد». با پارامترِ
-        // زمانی هر چک، نسخهٔ تازه می‌گیرد.
+// cache-bust: CDN (به‌خصوص jsdelivr) نسخهٔ کش‌شدهٔ
+// چندساعتهٔ VERSION را می‌داد → «بروزرسانی نیومد». با پارامترِ
+// زمانی هر چک، نسخهٔ تازه می‌گیرد.
         val bust = "?t=" + System.currentTimeMillis()
         for (m in UPD_MIRRORS) {
             try {
@@ -640,8 +640,8 @@ class MainActivity : AppCompatActivity() {
                 " | abi " + abis
     }
 
-    // ضبطِ متنِ کرش با سقفِ حجم (۴۸ هزار نویسه) + میرور در حافظهٔ خارجی
-    // → کاربر بدونِ روت از Android/data/<pkg>/files/crash_log.txt میگیرد
+// ضبطِ متنِ کرش با سقفِ حجم (۴۸ هزار نویسه) + میرور در حافظهٔ خارجی
+// → کاربر بدونِ روت از Android/data/<pkg>/files/crash_log.txt میگیرد
     private fun appendCrashLog(txt: String) {
         try {
             val f = java.io.File(filesDir, "crash_log.txt")
@@ -686,8 +686,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             if (remote <= vc || remote <= 0) return true  // چکِ درست — آپدیتی نیست
-            // v1.14.109 — گوشیِ ۳۲-بیتی (بدونِ arm64) APKِ armv7a را بگیرد
-            // (سبک‌تر از universal)؛ ۶۴-بیتی مثلِ قبل arm64؛ بدونِ هر دو = universal
+// گوشیِ ۳۲-بیتی (بدونِ arm64) APKِ armv7a را بگیرد
+// (سبک‌تر از universal)؛ ۶۴-بیتی مثلِ قبل arm64؛ بدونِ هر دو = universal
             val has64 = (Build.SUPPORTED_ABIS ?: arrayOf<String>())
                 .any { it.contains("arm64") }
             val base = when {
@@ -695,16 +695,16 @@ class MainActivity : AppCompatActivity() {
                 !has64 && apkv7.isNotEmpty() -> apkv7
                 else -> apkUni.ifEmpty { apk64 }
             }
-            // v1.14.194 — ریشهٔ «تو اپ اپدیت جدید دکمه دانلودش نمیاد»: از
-            // v1.14.162 سطرهایِ apkArm64/apkArmv7a/apkUniversal از VERSION
-            // خوانده میشد ولی VERSION هرگز این سطرها را نداشت → base خالی
-            // میماند و اینجا بیصدا «آپدیتی نیست» برمیگشت؛ ردیفِ آپدیت با
-            // دکمهٔ دانلود هرگز نمیآمد (فیکسِ 192 هم چون شبکه نبود اثری
-            // نداشت — ۳ تلاش هم همیشه به همین خالی میرسید). حالا اگر
-            // VERSION سطرها را نداشت (فایلِ کش‌شدهٔ CDN/نسخهٔ قدیمی)،
-            // لینکِ ثابتِ ریلیزِ apk (همان لینکهایی که CI هر بیلد
-            // بهروزرسانی میکند) بر اساسِ ABI ساخته میشود — دیگر هرگز
-            // آپدیتِ پیدا شده بیصدا دور ریخته نمیشود.
+// ریشهٔ «تو اپ اپدیت جدید دکمه دانلودش نمیاد»: از
+// سطرهایِ apkArm64/apkArmv7a/apkUniversal از VERSION
+// خوانده میشد ولی VERSION هرگز این سطرها را نداشت → base خالی
+// میماند و اینجا بیصدا «آپدیتی نیست» برمیگشت؛ ردیفِ آپدیت با
+// دکمهٔ دانلود هرگز نمیآمد (فیکسِ 192 هم چون شبکه نبود اثری
+// نداشت — ۳ تلاش هم همیشه به همین خالی میرسید). حالا اگر
+// VERSION سطرها را نداشت (فایلِ کش‌شدهٔ CDN/نسخهٔ قدیمی)
+// لینکِ ثابتِ ریلیزِ apk (همان لینکهایی که CI هر بیلد
+// بهروزرسانی میکند) بر اساسِ ABI ساخته میشود — دیگر هرگز
+// آپدیتِ پیدا شده بیصدا دور ریخته نمیشود.
             val baseUrl = base.ifEmpty {
                 "https://github.com/amirwolf512k/Manga-AutoTranslate" +
                         "/releases/download/apk/" +
@@ -721,25 +721,25 @@ class MainActivity : AppCompatActivity() {
                 val okFile = dst.isFile && dst.length() > 1_000_000L &&
                         (exp <= 0L || dst.length() == exp)
                 if (!okFile && dst.isFile) dst.delete()
-                // v1.14.59 — دانلودِ سنگینِ بی‌صدا حذف شد؛ فقط ردیفِ «دانلود
-                // و نصب» نشان داده می‌شود — دانلود خودِ لحظه‌ای که کاربر
-                // «نصب» را می‌زند شروع می‌شود با درصد و ادامه از نقطهٔ قطع
+// دانلودِ سنگینِ بی‌صدا حذف شد؛ فقط ردیفِ «دانلود
+// و نصب» نشان داده می‌شود — دانلود خودِ لحظه‌ای که کاربر
+// «نصب» را می‌زند شروع می‌شود با درصد و ادامه از نقطهٔ قطع
                 cleanOldUpdateApks(remote)
                 showUpdateRow()
             }
             return true
         } catch (_: Exception) {
-            // v1.14.192 — دیگر بی‌صدا نیست: false برمی‌گردد تا caller
-            // دوباره تلاش کند (ریشهٔ «اپدیت تو خوده اپ نمیاد» — چکِ لحظهٔ
-            // بازشدنِ اپ، معمولاً قبل از آمادهشدنِ اینترنت/VPN است)
+// دیگر بی‌صدا نیست: false برمی‌گردد تا caller
+// دوباره تلاش کند (ریشهٔ «اپدیت تو خوده اپ نمیاد» — چکِ لحظهٔ
+// بازشدنِ اپ، معمولاً قبل از آمادهشدنِ اینترنت/VPN است)
             return false
         }
     }
 
-    // v1.14.192 — «اپدیت جدید اپ دیگ تو خوده اپ نمیاد قدیم میومد»:
-    // چکِ اولِ بازشدن اپ اغلب بدونِ اینترنت میرود و تا ری‌استارتِ بعدی
-    // هیچ تلاشی نبود. حالا ۳ تلاشِ پشتسرهم (۰/۲۰/۶۰ ثانیه) + چکِ دوباره
-    // در onResume (سقفِ ۳۰ دقیقه) تا ردیفِ آپدیت مثلِ قدیم بیاید.
+// «اپدیت جدید اپ دیگ تو خوده اپ نمیاد قدیم میومد»:
+// چکِ اولِ بازشدن اپ اغلب بدونِ اینترنت میرود و تا ری‌استارتِ بعدی
+// هیچ تلاشی نبود. حالا ۳ تلاشِ پشتسرهم (۰/۲۰/۶۰ ثانیه) + چکِ دوباره
+// در onResume (سقفِ ۳۰ دقیقه) تا ردیفِ آپدیت مثلِ قدیم بیاید.
     @Volatile
     private var lastUpdCheckAt: Long = 0L
 
@@ -844,9 +844,9 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     st.text = "🔄 آپدیتِ جدید v" + updVerName +
                             " — فایلِ نصبی دانلود شود؟"
-                    // v1.14.194 — «دکمه دانلودش نمیاد»: دکمه فقط «نصب» بود؛
-                    // چون فایل هنوز دانلود نشده، برچسبِ درست همان «دانلود و
-                    // نصب» است — کاربر میداند با زدنش دانلود شروع میشود.
+// «دکمه دانلودش نمیاد»: دکمه فقط «نصب» بود
+// چون فایل هنوز دانلود نشده، برچسبِ درست همان «دانلود و
+// نصب» است — کاربر میداند با زدنش دانلود شروع میشود.
                     btn?.text = "⬇ دانلود و نصب"
                 }
             }
@@ -863,7 +863,7 @@ class MainActivity : AppCompatActivity() {
             installUpdate(dst)
             return
         }
-        // v1.14.59 — دانلود در همین لحظه با درصد + ادامه از نقطهٔ قطع
+// دانلود در همین لحظه با درصد + ادامه از نقطهٔ قطع
         val url = prefs.getString("apk_url_" + updVerCode, null)
         if (url.isNullOrEmpty()) return
         updState = "dl"
@@ -896,7 +896,7 @@ class MainActivity : AppCompatActivity() {
                         c.connect()
                         if (c.responseCode / 100 != 2)
                             throw RuntimeException("HTTP " + c.responseCode)
-                        // اندازهٔ کل: از Content-Range (ادامه) یا Content-Length
+// اندازهٔ کل: از Content-Range (ادامه) یا Content-Length
                         val total: Long = if (c.responseCode == 206) {
                             val cr = c.getHeaderField("Content-Range") ?: ""
                             val mm = Regex("/(\\d+)\\s*$").find(cr)
@@ -912,7 +912,7 @@ class MainActivity : AppCompatActivity() {
                             if (updExpectedSize() != total)
                                 prefs.edit().putLong(
                                     "apk_size_" + updVerCode, total).apply()
-                            // فایلِ ناقصِ قبلی که اندازه‌اش با کل نمی‌خواند
+// فایلِ ناقصِ قبلی که اندازه‌اش با کل نمی‌خواند
                             if (already > total) {
                                 part.delete()
                                 continue
@@ -975,7 +975,7 @@ class MainActivity : AppCompatActivity() {
                 break
             } catch (e: Exception) {
                 lastEx = e
-                // فایلِ ناقص نگه داشته می‌شود → تلاشِ بعدی/بعد از قطعی ادامه می‌دهد
+// فایلِ ناقص نگه داشته می‌شود → تلاشِ بعدی/بعد از قطعی ادامه می‌دهد
             }
         }
         ui.post {
@@ -1304,22 +1304,22 @@ class MainActivity : AppCompatActivity() {
                 arrow.text = if (openDefault) "▾" else "▸"
 
                 val fields = sec.getJSONArray("fields")
-                // v1.14.220 — بخشِ «بکاپ و بازیابی» بومیِ اندروید ساخته میشود:
-                // دکمهٔ بکاپ با ذخیرهٔ خودکار + دکمهٔ Importِ هماندازهٔ خودش —
-                // دو باکسِ بزرگِ آپلودِ manifest (manga_import_file و
-                // manga_backup_out) دیگر رندر نمیشوند
+// بخشِ «بکاپ و بازیابی» بومیِ اندروید ساخته میشود:
+// دکمهٔ بکاپ با ذخیرهٔ خودکار + دکمهٔ Importِ هماندازهٔ خودش —
+// دو باکسِ بزرگِ آپلودِ manifest (manga_import_file و
+// manga_backup_out) دیگر رندر نمیشوند
                 if (title.contains("بکاپ") || title.contains("پشتیبان")) {
                     addBackupSection(contentBox)
                 } else {
                     for (i in 0 until fields.length()) addField(contentBox, fields.getJSONObject(i))
-                    // اگر «مدل» در این بخش نبود، دکمهٔ تست همین‌جا اضافه می‌شود
+// اگر «مدل» در این بخش نبود، دکمهٔ تست همین‌جا اضافه می‌شود
                     flushPendingTest(contentBox)
                 }
                 formBox.addView(card, lp)
             }
-            // v1.14.221 — قفلِ نهاییِ فیلدها رویِ auto بعد از ساختهشدنِ
-            // همهٔ فیلدها (کلیدها/مدل دیرتر از منو ساخته میشوند)
-            // v1.14.222 — بانکِ فیلدها هم فقط بعد از کاملشدنِ فرم فعال میشود
+// قفلِ نهاییِ فیلدها رویِ auto بعد از ساختهشدنِ
+// همهٔ فیلدها (کلیدها/مدل دیرتر از منو ساخته میشوند)
+// بانکِ فیلدها هم فقط بعد از کاملشدنِ فرم فعال میشود
             formReady = true
             refreshProviderBtn()
         } catch (e: Exception) {
@@ -1334,7 +1334,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val sw = java.io.StringWriter()
                 e.printStackTrace(java.io.PrintWriter(sw))
-                // v1.14.111 — append (قبلاً writeText بود و کرشِ قبلی پاک میشد)
+// append (قبلاً writeText بود و کرشِ قبلی پاک میشد)
                 appendCrashLog("—— کرشِ Java ——\nزمان: " + nowStr() +
                         "\nدستگاه: " + devLine() +
                         "\nthread: " + t.name + "\n" + sw.toString())
@@ -1344,11 +1344,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // v1.14.156 — درخواستِ کاربر: «هر اپدیتی که به گوشی میآید نصبِ
-    // نسخههایِ قبلی را از حافظه حذف کن» — فایلهایِ update_<vc>.apk و
-    // update_<vc>.apk.partِ نسخههایِ دیگر (بهجز keepVerCode) از
-    // Android/data/<pkg>/files و files حذف میشوند + کلیدهایِ
-    // apk_url_<vc>/apk_size_<vc>ِ قدیمی از prefs پاک میشوند.
+// درخواستِ کاربر: «هر اپدیتی که به گوشی میآید نصبِ
+// نسخههایِ قبلی را از حافظه حذف کن» — فایلهایِ update_<vc>.apk و
+// update_<vc>.apk.partِ نسخههایِ دیگر (بهجز keepVerCode) از
+// Android/data/<pkg>/files و files حذف میشوند + کلیدهایِ
+// apk_url_<vc>/apk_size_<vc>ِ قدیمی از prefs پاک میشوند.
     private fun cleanOldUpdateApks(keepVerCode: Int) {
         try {
             val dirs = listOfNotNull(getExternalFilesDir(null), filesDir)
@@ -1392,14 +1392,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ══ v1.14.220 — منویِ انتخابِ AI بومیِ اندروید: auto | gemini |
-    // مدلهایِ من (بهترتیبِ افزودن) | custom + لیستِ فشردهٔ چیپیِ «نام ✖»
-    // (ضربدرِ حذف دقیقاً کنارِ خودِ اسم — دستورِ سازنده) + دکمهٔ
-    // «+ افزودن به لیست مدل‌ها» — مستقل از انتخابِ custom ══
+    // منویِ انتخابِ AI بومیِ اندروید: auto | gemini |
+// مدلهایِ من (بهترتیبِ افزودن) | custom + لیستِ فشردهٔ چیپیِ «نام »
+// (ضربدرِ حذف دقیقاً کنارِ خودِ اسم) + دکمهٔ
+// «+ افزودن به لیست مدل‌ها» — مستقل از انتخابِ custom ══
     private fun providerItems(): List<Pair<String, String>> {
         val out = ArrayList<Pair<String, String>>()
-        // v1.14.221 — «auto» فقط وقتی مدلی در لیست باشد (دستورِ سازنده:
-        // «وقتی مدلی تو کاستوم اضافه نکرده باشم دکمه auto نیاد تو لیست مدلا»)
+// «auto» فقط وقتی مدلی در لیست باشد
         val models = cmLoad()
         if (models.isNotEmpty()) out.add("auto" to "auto")
         out.add("gemini" to "gemini")
@@ -1413,18 +1412,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshProviderBtn() {
         val btn = providerBtn ?: return
-        // v1.14.223 — هر تغییرِ منو/نوسازی، حالتِ ویرایش را لغو میکند
-        // («ویرایش زدن گزینه سیو بیاد» — خارج از ویرایش، «ذخیرهٔ ویرایش» پنهان است)
+// هر تغییرِ منو/نوسازی، حالتِ ویرایش را لغو میکند
+// («ویرایش زدن گزینه سیو بیاد» — خارج از ویرایش، «ذخیرهٔ ویرایش» پنهان است)
         cmEditing = false
         val id = providerFieldId
         val items = providerItems()
         var cur = (values[id] ?: prefs.getString(id, null))?.toString()?.trim() ?: ""
         if (cur.isEmpty() || items.none { it.second == cur }) {
-            // v1.14.221 — بدونِ مدل، «gemini» (auto اصلاً در منو نیست)
+// بدونِ مدل، «gemini» (auto اصلاً در منو نیست)
             cur = if (cmLoad().isNotEmpty()) "auto" else "gemini"
         }
-        // v1.14.222 — بانکِ فیلدها: مقادیرِ فعلی مالِ providerِ قبلی ذخیره و
-        // مقادیرِ providerِ جدید برمیگردد (Gemini مقادیرِ کاستوم را نشان نمیدهد)
+// بانکِ فیلدها: مقادیرِ فعلی مالِ providerِ قبلی ذخیره و
+// مقادیرِ providerِ جدید برمیگردد (Gemini مقادیرِ کاستوم را نشان نمیدهد)
         bankFields(cur)
         values[id] = cur
         prefs.edit().putString(id, cur).apply()
@@ -1436,13 +1435,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun addProviderField(row: LinearLayout, lbl: String, info: String, id: String) {
         providerFieldId = id
-        // v1.14.222 — برچسبِ «منوی انتخاب AI» دیگر اینجا تکرار نمیشود؛
-        // addField خودش آن را یکبار بالایِ ردیف گذاشته است (قبلاً دوبار
-        // پشتِ هم رندر میشد — دستورِ سازنده: «دوتا متن انتخاب ai نوشتع
-        // بجای یکی»)
-        // v1.14.221 — منو + ✖ِ حذف در یک ردیف: ضربدرِ چسبیده به خودِ منو
-        // (دستورِ سازنده: «هرمدلی ک خودم ساختم انتخاب کنم کنارش ضربدر بیاد
-        // نه پایینش کلی ضربدر نشون بده»)
+// برچسبِ «منوی انتخاب AI» دیگر اینجا تکرار نمیشود
+// addField خودش آن را یکبار بالایِ ردیف گذاشته است (قبلاً دوبار
+        //)
+// پشتِ هم رندر میشد —
+// منو + ِ حذف در یک ردیف: ضربدرِ چسبیده به خودِ منو
+        //)
+// (
         val prow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1498,9 +1497,8 @@ class MainActivity : AppCompatActivity() {
             text = info; setTextColor(MUT); textSize = 11f
             setPadding(dp(2), dp(3), dp(2), dp(4))
         })
-        // v1.14.222 — مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (دستورِ سازنده:
-        // «وقتی یک چیز کاستوم سیو میکنم لینکش هم باید نشون بده») —
-        // فقط وقتی مدلِ کاربر در منو انتخاب شده باشد دیده میشود
+// مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده —
+// فقط وقتی مدلِ کاربر در منو انتخاب شده باشد دیده میشود
         val infoTv = TextView(this).apply {
             setTextColor(MUT); textSize = 11f
             setPadding(dp(2), dp(3), dp(2), dp(4))
@@ -1511,7 +1509,7 @@ class MainActivity : AppCompatActivity() {
         refreshProviderBtn()
         fieldViews[id] = btn
 
-        // ── دکمهٔ افزودن (بدونِ فیلدِ «نام مدل جدید» — مثلِ وب) ──
+        // دکمهٔ افزودن (بدونِ فیلدِ «نام مدل جدید» — مثلِ وب)
         val addBtn = Button(this).apply {
             text = "+ افزودن به لیست مدل‌ها"
             setTextColor(Color.WHITE); textSize = 13.5f
@@ -1526,7 +1524,7 @@ class MainActivity : AppCompatActivity() {
         row.addView(addBtn, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
-        // ── v1.14.223 — ویرایشِ مدلِ ذخیرهشده (فقط رویِ مدلِ خودِ کاربر) ──
+        // ویرایشِ مدلِ ذخیرهشده (فقط رویِ مدلِ خودِ کاربر)
         val editBtn = Button(this).apply {
             text = "✎ ویرایش این مدل"
             setTextColor(Color.WHITE); textSize = 13.5f
@@ -1580,15 +1578,13 @@ class MainActivity : AppCompatActivity() {
         btn.visibility = if (mine) View.VISIBLE else View.GONE
     }
 
-    // v1.14.221 — رویِ «auto» هیچ فیلدی برایِ واردکردن نمیماند (دستورِ
-    // سازنده: «وقتی رو auto بزارن اونجا نشه مدلی چیزی وارد کرد»)
-    // v1.14.222 — دستورِ سازنده: «افزودن ai فقط تو کاستوم بیاد نه بقیه
-    // چیزاش» → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom؛ «دامنهٔ API» هم
-    // فقط رویِ custom؛ رویِ مدلِ نامی فیلدها پنهان میشوند و مشخصاتِ ذخیره
-    // شده (لینک/کلید/مدل) فقطخواندنی نشان داده میشود؛ رویِ auto هم ردیفِ
-    // کلید/مدل کلاً پنهان میشود
-    // v1.14.223 — حالتِ ویرایش (✎ ویرایش): رویِ مدلِ نامی فیلدها با
-    // مقادیرِ ذخیرهشده دیده میشوند و «💾 ذخیرهٔ ویرایش» میآید
+// رویِ «auto» هیچ فیلدی برایِ واردکردن نمیماند
+    // → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom؛ «دامنهٔ API» هم
+// فقط رویِ custom؛ رویِ مدلِ نامی فیلدها پنهان میشوند و مشخصاتِ ذخیره
+// شده (لینک/کلید/مدل) فقطخواندنی نشان داده میشود؛ رویِ auto هم ردیفِ
+// کلید/مدل کلاً پنهان میشود
+// حالتِ ویرایش ( ویرایش): رویِ مدلِ نامی فیلدها با
+// مقادیرِ ذخیرهشده دیده میشوند و « ذخیرهٔ ویرایش» میآید
     private fun applyProviderGate() {
         val cur = (values[providerFieldId]
             ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
@@ -1596,10 +1592,9 @@ class MainActivity : AppCompatActivity() {
         val isCustom = cur == "custom"
         val mine = cmLoad().any { it.optString("name") == cur }
         val editing = cmEditing && mine
-        // v1.14.231 — دستورِ سازنده: «انتخاب مدل فقط باید تو Gemini بیاد؛
-        // بقیش باید دستی بنویسن و auto کلا نباید چیزی بیاد» — کلِ بلوکِ
-        // مدل (لیبل + کادر + ↻) رویِ auto/مدلِ نامی پنهان است؛ رویِ custom
-        // کادرِ دستیِ بدونِ ↻؛ رویِ gemini کادر + ↻ِ فهرستِ زنده
+        // کلِ بلوکِ
+// مدل (لیبل + کادر + ↻) رویِ auto/مدلِ نامی پنهان است؛ رویِ custom
+// کادرِ دستیِ بدونِ ↻؛ رویِ gemini کادر + ↻ِ فهرستِ زنده
         modelFieldRoot?.visibility =
             if (onAuto || (mine && !editing)) View.GONE else View.VISIBLE
         modelRefBtn?.visibility = if (cur == "gemini") View.VISIBLE else View.GONE
@@ -1632,9 +1627,9 @@ class MainActivity : AppCompatActivity() {
         refreshCmInfo(cur, mine)
     }
 
-    // ══ v1.14.231 — «↻» کنارِ فیلدِ مدل: فهرستِ زندهٔ مدلهایِ Gemini از
-    // خودِ سرویس (مثلِ وب) — با کلیدهایِ همین صفحه؛ انتخاب از لیست، متنِ
-    // کادر را پر میکند. network رویِ thread جدا — UI قفل نمیشود ══
+    // «↻» کنارِ فیلدِ مدل: فهرستِ زندهٔ مدلهایِ Gemini از
+// خودِ سرویس (مثلِ وب) — با کلیدهایِ همین صفحه؛ انتخاب از لیست، متنِ
+// کادر را پر میکند. network رویِ thread جدا — UI قفل نمیشود ══
     private fun fetchModelList(et: EditText) {
         val keys = fieldText("manga_api_keys", "api_keys", "keys")
         if (keys.isBlank()) {
@@ -1686,9 +1681,9 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // ══ v1.14.223 — ویرایشِ مدلِ ذخیرهشده ══
-    // «✎ ویرایش»: مقادیرِ ذخیرهشدهٔ مدلِ انتخابشده (لینک/کلید/مدل) در
-    // فیلدها بارگذاری میشود تا قابلِ تغییر باشند
+    // ویرایشِ مدلِ ذخیرهشده
+// « ویرایش»: مقادیرِ ذخیرهشدهٔ مدلِ انتخابشده (لینک/کلید/مدل) در
+// فیلدها بارگذاری میشود تا قابلِ تغییر باشند
     private fun onEditModel() {
         val cur = (values[providerFieldId]
             ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
@@ -1703,8 +1698,8 @@ class MainActivity : AppCompatActivity() {
             Toast.LENGTH_SHORT).show()
     }
 
-    // «💾 ذخیرهٔ ویرایش»: همان مدل با مقادیرِ جدید بهروزرسانی میشود (نام
-    // عوض نمیشود)؛ بعد فیلدها پاک/پنهان و مشخصاتِ زیرِ منو تازه میشود
+// « ذخیرهٔ ویرایش»: همان مدل با مقادیرِ جدید بهروزرسانی میشود (نام
+// عوض نمیشود)؛ بعد فیلدها پاک/پنهان و مشخصاتِ زیرِ منو تازه میشود
     private fun onSaveModelEdits() {
         val cur = (values[providerFieldId]
             ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
@@ -1747,9 +1742,9 @@ class MainActivity : AppCompatActivity() {
         return ""
     }
 
-    // v1.14.222 — فقطِ متنِ واقعیِ فیلد (بدونِ فالبکِ prefs) — برایِ بانکِ
-    // حافظهٔ فیلدها؛ prefs آینهٔ فیلد است و نباید مقدارِ providerِ دیگر را
-    // لو بدهد
+// فقطِ متنِ واقعیِ فیلد (بدونِ فالبکِ prefs) — برایِ بانکِ
+// حافظهٔ فیلدها؛ prefs آینهٔ فیلد است و نباید مقدارِ providerِ دیگر را
+// لو بدهد
     private fun fieldTextStrict(vararg ids: String): String {
         for (fid in ids) {
             val v = fieldViews[fid]
@@ -1768,7 +1763,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // v1.14.222 — کلیدِ ماسکشده برایِ نمایشِ امن (مثلِ وب)
+// کلیدِ ماسکشده برایِ نمایشِ امن (مثلِ وب)
     private fun maskKey(k: String): String {
         val s = k.trim()
         if (s.isEmpty()) return ""
@@ -1776,10 +1771,9 @@ class MainActivity : AppCompatActivity() {
         else s.take(6) + "…" + s.takeLast(4)
     }
 
-    // ══ v1.14.222 — بانکِ حافظهٔ فیلدها مالِ هر provider (gemini/custom) —
-    // دستورِ سازنده: «وقتی یک چیز کاستوم میکنم سیو میزنم میرم Gemini مال
-    // کاستوم ک سیو زدم نشون میده» — رفتن به Gemini دیگر مقادیرِ کاستوم را
-    // نشان نمیدهد؛ هر کدام مقادیرِ خودشان را برمیگردانند ══
+    // بانکِ حافظهٔ فیلدها مالِ هر provider (gemini/custom)
+    // رفتن به Gemini دیگر مقادیرِ کاستوم را
+// نشان نمیدهد؛ هر کدام مقادیرِ خودشان را برمیگردانند ══
     private fun bankFields(newProv: String) {
         if (!formReady) return
         val last = prefs.getString("fld_last", "")?.trim() ?: ""
@@ -1802,9 +1796,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // v1.14.222 — مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک + مدلِ هوش + کلیدِ
-    // ماسکشده) — دستورِ سازنده: «وقتی یک چیز کاستوم سیو میکنم لینکش هم
-    // باید نشون بده» — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
+// مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک + مدلِ هوش + کلیدِ
+    // فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
+// ماسکشده) —
     private fun refreshCmInfo(cur: String, mine: Boolean) {
         val tv = cmInfoTv ?: return
         if (!mine) { tv.visibility = View.GONE; return }
@@ -1879,9 +1873,9 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ══ v1.14.220 — بخشِ بومیِ «بکاپ و بازیابی» — جایِ دو باکسِ بزرگِ آپلود:
-    // گرفتنِ بکاپ = یک کلیک، ذخیرهٔ خودکارِ JSON در Download/manga
-    // Import = دکمهٔ هماندازهٔ خودِ بکاپ (بدونِ باکسِ بزرگ) ══
+    // بخشِ بومیِ «بکاپ و بازیابی» — جایِ دو باکسِ بزرگِ آپلود
+// گرفتنِ بکاپ = یک کلیک، ذخیرهٔ خودکارِ JSON در Download/manga
+// Import = دکمهٔ هماندازهٔ خودِ بکاپ (بدونِ باکسِ بزرگ) ══
     private fun backupKeys(): List<String> = listOf(
         "provider", "api_base", "api_keys", "model", "ocr_lang", "out_fmt",
         "quality", "workers", "bubbles", "timeout", "batchw", "maxre",
@@ -1889,8 +1883,8 @@ class MainActivity : AppCompatActivity() {
         "fake_test", "clean_only", "web_debug", "prompt_mode",
         "prompt_body")
 
-    // v1.14.220 — همارزِ شناسهها (کلیدِ بکاپِ وب ↔ فیلدِ اندروید):
-    // prompt_body در وب از کامپوننتِ prompt_preview_body میآید
+// همارزِ شناسهها (کلیدِ بکاپِ وب ↔ فیلدِ اندروید):
+// prompt_body در وب از کامپوننتِ prompt_preview_body میآید
     private fun settingIds(k: String): List<String> = when (k) {
         "prompt_body" -> listOf("prompt_preview_body", "manga_prompt_body", "prompt_body")
         else -> listOf(k, "manga_$k")
@@ -1995,8 +1989,8 @@ class MainActivity : AppCompatActivity() {
                 val items = selectMaps[k]
                 val nm = items?.firstOrNull { it.second == s }?.first ?: s
                 view.text = "$nm  ▾"
-                // v1.14.221 — providerِ بازیابیشده = همگامسازیِ ✖ِ کنارِ منو
-                // + قفلِ فیلدها رویِ auto
+// providerِ بازیابیشده = همگامسازیِ ِ کنارِ منو
+// + قفلِ فیلدها رویِ auto
                 if (k == providerFieldId) refreshProviderBtn()
             }
             is ViewGroup -> {
@@ -2155,10 +2149,10 @@ class MainActivity : AppCompatActivity() {
         when (type) {
             "text", "password", "number" -> {
                                 val lines = f.optInt("lines", 1)
-                // v1.14.223 — فیلدِ محرمانه (کلید): مانیفستِ password:true
-                // میدهد (extract_ui.py) — پیشفرضِ ماسک + دکمهٔ 👁 برایِ
-                // نمایش/مخفی (دستورِ سازنده: «کلید ک وارد میکنن بشه هاید
-                // کرد پیشفرض هاید باشه زدن روش دیده بشه»)
+// فیلدِ محرمانه (کلید): مانیفستِ password:true
+// میدهد (extract_ui.py) — پیشفرضِ ماسک + دکمهٔ برایِ
+                //)
+// نمایش/مخفی (
                 val isSecret = f.optBoolean("password") || type == "password"
                 val et = EditText(this).apply {
                     if (lines > 1) {
@@ -2178,16 +2172,16 @@ class MainActivity : AppCompatActivity() {
                     background = rounded(CARD2, 10, 1)
                     setPadding(dp(12), dp(11), dp(12), dp(11))
                     if (lines < 2 && (type == "password" || isSecret)) inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                    // v1.14.243 — اعشار لازم است (temperature 0.7 / top_p 0.9)
+// اعشار لازم است (temperature 0.7 / top_p 0.9)
                     if (lines < 2 && type == "number")
                         inputType = InputType.TYPE_CLASS_NUMBER or
                                 InputType.TYPE_NUMBER_FLAG_DECIMAL
-                    // v1.14.192 — «قسمت لینک هردفعه وارد میشم null نشون میده
-                    // با این که لینک نزدم»: defaultِ nullِ اسکیما (JSON null)
-                    // از dflt?.toString() به رشتهٔ «null» تبدیل میشد و وقتی
-                    // prefs مقدارِ خالیِ "" داشت (نوشتهٔ خودِ TextWatcher در
-                    // اجرای قبل)، همان «null» در کادر مینشست (inp_path،
-                    // manga_api_base، …). حالا NULL/«null»/«undefined» = خالی.
+// «قسمت لینک هردفعه وارد میشم null نشون میده
+// با این که لینک نزدم»: defaultِ nullِ اسکیما (JSON null)
+// از dflt?.toString به رشتهٔ «null» تبدیل میشد و وقتی
+// prefs مقدارِ خالیِ "" داشت (نوشتهٔ خودِ TextWatcher در
+// اجرای قبل)، همان «null» در کادر مینشست (inp_path
+// manga_api_base، …). حالا NULL/«null»/«undefined» = خالی.
                     val dfltStr: String = when {
                         dflt == null || dflt === org.json.JSONObject.NULL -> ""
                         else -> {
@@ -2207,11 +2201,11 @@ class MainActivity : AppCompatActivity() {
                         override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
                     })
                 }
-                // v1.14.147 — value_if: با تغییرِ فیلدِ وابسته (سبکِ پرامپت)
-                // متنِ کادر زنده عوض میشود — فیکسِ «پرامپت عوض نمیشه، ثابت شده»
-                // initial=true فقط وقتی متنِ فعلی خالی یا خودش یکی از پریستهاست
-                // (متنِ سفارشیِ کاربر در بازشدنِ فرم له نمیشود)؛ با تغییرِ
-                // واقعیِ دروپ‌داون، پریستِ جدید بیقید و شرط مینشیند (مثلِ وب).
+// value_if: با تغییرِ فیلدِ وابسته (سبکِ پرامپت)
+// متنِ کادر زنده عوض میشود — فیکسِ «پرامپت عوض نمیشه، ثابت شده»
+// initial=true فقط وقتی متنِ فعلی خالی یا خودش یکی از پریستهاست
+// (متنِ سفارشیِ کاربر در بازشدنِ فرم له نمیشود)؛ با تغییرِ
+// واقعیِ دروپ‌داون، پریستِ جدید بیقید و شرط مینشیند (مثلِ وب).
                 f.optJSONObject("value_if")?.let { vi ->
                     val depId = vi.optString("field")
                     val vals = vi.optJSONObject("values")
@@ -2238,10 +2232,10 @@ class MainActivity : AppCompatActivity() {
                             .add { applyValIf(false) }
                     }
                 }
-                // v1.14.223 — ردیفِ افقیِ «فیلد + 👁» برایِ فیلدِ محرمانه:
-                // پیشفرضِ ماسک است (متنِ واقعی در EditText سالم میماند —
-                // transformation فقط نمایش را عوض میکند)؛ با زدنِ 👁 دیده
-                // میشود و با زدنِ دوباره مخفی
+// ردیفِ افقیِ «فیلد + » برایِ فیلدِ محرمانه:
+// پیشفرضِ ماسک است (متنِ واقعی در EditText سالم میماند —
+// transformation فقط نمایش را عوض میکند)؛ با زدنِ دیده
+// میشود و با زدنِ دوباره مخفی
                 if (isSecret && lines < 2) {
                     et.transformationMethod =
                         android.text.method.PasswordTransformationMethod.getInstance()
@@ -2273,12 +2267,12 @@ class MainActivity : AppCompatActivity() {
                         ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
                     row.addView(keyRow)
                 } else if (type == "number" && f.optDouble("step", 0.0) > 0.0) {
-                    // v1.14.243 — دکمهٔ کم/زیادِ نیتیو برایِ فیلدهایِ عددیِ stepper
-                    // (temperature/top_p — عینِ صفحهٔ تنظیماتِ مرجعِ مرجع: − / + با گامِ
-                    // manifest و کلمپِ min..max؛ خودِ کادر هم تایپِ دقیق است).
-                    // مقدارِ پیشفرضِ عددی (0.7/0.9) هم اینجا در کادر مینشیند
-                    // (savedOr برایِ عدد Double برمیگرداند و setTextِ عادی
-                    // فقط رشته را میپذیرفت).
+// دکمهٔ کم/زیادِ نیتیو برایِ فیلدهایِ عددیِ stepper
+// (temperature/top_p — عینِ صفحهٔ تنظیماتِ مرجعِ مرجع: − / + با گامِ
+// manifest و کلمپِ min..max؛ خودِ کادر هم تایپِ دقیق است).
+// مقدارِ پیشفرضِ عددی (0.7/0.9) هم اینجا در کادر مینشیند
+// (savedOr برایِ عدد Double برمیگرداند و setTextِ عادی
+// فقط رشته را میپذیرفت).
                     val stepN = f.optDouble("step", 0.05)
                     val minN = if (f.has("min")) f.optDouble("min", 0.0) else 0.0
                     val maxN = if (f.has("max")) f.optDouble("max", 1.0) else 1.0
@@ -2349,9 +2343,9 @@ class MainActivity : AppCompatActivity() {
                         Thread {
                             var res: JSONObject? = null
                             var err: String? = null
-                            // خواندنِ تنظیم با هر دو شناسهٔ ممکن (manga_* و خام)
-                            // — قبلاً فقط «api_base» خوانده می‌شد که روی گوشی
-                            // همیشه خالی بود → تست کلید پینگِ صفر و خطا می‌داد
+// خواندنِ تنظیم با هر دو شناسهٔ ممکن (manga_* و خام)
+// قبلاً فقط «api_base» خوانده می‌شد که روی گوشی
+// همیشه خالی بود → تست کلید پینگِ صفر و خطا می‌داد
                             fun settingVal(vararg ids: String): String {
                                 for (fid in ids) {
                                     val v = fieldViews[fid]
@@ -2370,12 +2364,12 @@ class MainActivity : AppCompatActivity() {
                                 val keyVal = settingVal("manga_api_keys", "api_keys", "keys")
                                 val baseVal = settingVal("manga_api_base", "api_base")
                                 val modelVal = settingVal("manga_model", "model")
-                                // v1.14.220 — مثلِ وب: «auto» = تستِ همهٔ مدلها
-                                // (اولینِ سالم)؛ «مدلِ نامی» = تستِ همان مدل از
-                                // لیستِ مدلها؛ gemini/custom = مثلِ قبل
+// مثلِ وب: «auto» = تستِ همهٔ مدلها
+// (اولینِ سالم)؛ «مدلِ نامی» = تستِ همان مدل از
+// لیستِ مدلها؛ gemini/custom = مثلِ قبل
                                 if (prov == "auto" || (prov != "gemini" && prov != "custom")) {
                                     val cm = cmLoad()
-                                    // [label, provider, base, key, model]
+// [label, provider, base, key, model]
                                     val cands = mutableListOf<Array<String>>()
                                     if (prov == "auto") {
                                         cands.add(arrayOf("gemini", "gemini", "", keyVal, modelVal))
@@ -2445,9 +2439,9 @@ class MainActivity : AppCompatActivity() {
                             }
                             runOnUiThread {
                                 testBtn.isEnabled = true
-                                // v1.14.192 — ضدِ «null»: optString رویِ
-                                // valueِ صریحِ null رشتهٔ «null» میدهد؛
-                                // «null» = خالی حساب میشود (قسمتِ لینک/تست)
+// ضدِ «null»: optString رویِ
+// valueِ صریحِ null رشتهٔ «null» میدهد
+// «null» = خالی حساب میشود (قسمتِ لینک/تست)
                                 val okTxt = res?.optString("text")?.takeIf {
                                     it.isNotBlank() && !it.equals("null", true)
                                 }
@@ -2465,8 +2459,8 @@ class MainActivity : AppCompatActivity() {
                             }
                         }.start()
                     }
-                    // ترتیبِ خواستهٔ کاربر: لینک → کلید → مدل → تست
-                    // دکمهٔ تست بعد از ردیفِ «مدل» رندر می‌شود (flushPendingTest)
+// ترتیبِ خواستهٔ کاربر: لینک → کلید → مدل → تست
+// دکمهٔ تست بعد از ردیفِ «مدل» رندر می‌شود (flushPendingTest)
                     pendingTestBtn = testBtn
                     pendingTestLbl = testLbl
                 }
@@ -2475,22 +2469,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             "select" -> {
-                // v1.14.220 — منویِ انتخابِ AI (provider) بهجایِ دراپ‌داونِ
-                // ثابتِ manifest، بومی ساخته میشود: auto | gemini | مدلهایِ
-                // من | custom + چیپهایِ «نام ✖» + دکمهٔ افزودن
+// منویِ انتخابِ AI (provider) بهجایِ دراپ‌داونِ
+// ثابتِ manifest، بومی ساخته میشود: auto | gemini | مدلهایِ
+// من | custom + چیپهایِ «نام » + دکمهٔ افزودن
                 if (id == "provider" || id == "manga_provider") {
                     addProviderField(row, lbl, info, id)
                     return
                 }
-                // v1.14.231 — فیلدِ مدل: کادرِ دستی + دکمهٔ «↻» (دستورِ
-                // سازنده: «تو گوشی دکمه رفرش مدل gemini نداره واسه انتخاب
-                // مدل ... فقط باید تو Gemini بیاد بقیش دستی و auto هیچ»).
-                // چون از v1.14.229 وب Dropdown است، extract آن را selectِ
-                // خالی میداد که Buttonِ «— انتخاب —» خالی رندر میشد و نه
-                // لیست داشت نه ↻ و گیتِ provider هم آن را مخفی نمیکرد.
-                // حالا: EditText (در fieldViews → گیت/بانک/ویرایش کار
-                // میکند) + ↻ فقط رویِ gemini که لیستِ زندهٔ Gemini را
-                // میآورد؛ custom فقط تایپِ دستی.
+// فیلدِ مدل: کادرِ دستی + دکمهٔ «↻».
+// چون از وب Dropdown است، extract آن را selectِ
+// خالی میداد که Buttonِ «— انتخاب —» خالی رندر میشد و نه
+// لیست داشت نه ↻ و گیتِ provider هم آن را مخفی نمیکرد.
+// حالا: EditText (در fieldViews → گیت/بانک/ویرایش کار
+// میکند) + ↻ فقط رویِ gemini که لیستِ زندهٔ Gemini را
+// میآورد؛ custom فقط تایپِ دستی.
                 if (id.equals("manga_model", true) || id.equals("model", true)) {
                     modelLabelTv = if (lbl.isNotEmpty() && row.childCount > 0 &&
                         row.getChildAt(row.childCount - 1) is TextView)
@@ -2578,7 +2570,7 @@ class MainActivity : AppCompatActivity() {
                 row.addView(btn)
                 infoView()?.let { row.addView(it) }
                 fieldViews[id] = btn
-                // v1.14.220 — نقشهٔ نام↔مقدار برایِ «Import» (applySetting)
+// نقشهٔ نام↔مقدار برایِ «Import» (applySetting)
                 selectMaps[id] = items
             }
             "radio" -> {
@@ -2669,10 +2661,10 @@ class MainActivity : AppCompatActivity() {
                     text = lbl
                     setTextColor(TXT); textSize = 13f
                     setPadding(dp(4), dp(8), dp(4), dp(8))
-                    // v1.14.67 — بازیابیِ واقعیِ سوییچ از prefs: قبلاً
-                    // savedOr همیشه String برمی‌گرداند و as? Boolean null
-                    // می‌شد → سوییچ همیشه روی dflt می‌ماند (تنظیمِ ذخیره‌شده
-                    // بی‌اثر بود — مثلاً «حالت تست» بعد از ری‌استارت خاموش)
+// بازیابیِ واقعیِ سوییچ از prefs: قبلاً
+// savedOr همیشه String برمی‌گرداند و as? Boolean null
+// می‌شد → سوییچ همیشه روی dflt می‌ماند (تنظیمِ ذخیره‌شده
+// بی‌اثر بود — مثلاً «حالت تست» بعد از ری‌استارت خاموش)
                     val _svB = savedOr(id, dflt)
                     isChecked = when (_svB) {
                         is Boolean -> _svB
@@ -2845,16 +2837,16 @@ class MainActivity : AppCompatActivity() {
             ?: pickedFiles["inp_upload"] ?: "")
         map.put("file", pickedFiles["inp_upload"] ?: "")
         map.put("provider", firstNonEmpty(o, "provider") ?: "gemini")
-        // v1.14.220 — مدلهایِ سفارشی برایِ resolveِ «auto» و «مدلِ نامی»
-        // سمتِ پایتون (bridge) — مثلِ وب؛ manga.py دستنخورده میماند
+// مدلهایِ سفارشی برایِ resolveِ «auto» و «مدلِ نامی»
+// سمتِ پایتون (bridge) — مثلِ وب؛ manga.py دستنخورده میماند
         map.put("custom_models", cmJson())
         map.put("keys", firstNonEmpty(o, "manga_api_keys", "api_keys", "keys") ?: "")
         map.put("model", firstNonEmpty(o, "manga_model", "model") ?: "")
         map.put("api_base", firstNonEmpty(o, "manga_api_base", "api_base") ?: "")
         map.put("ocr_lang", firstNonEmpty(o, "manga_ocr_lang", "ocr_lang") ?: "en")
-        // v1.14.163 — موتورِ استخراج: فقط rapidocr (سبکِ PC — detector-first)؛
-        // v1.14.183 — ML Kit کلاً حذف شد؛ انتخابِ قدیمیِ mlkit در پایتون
-        // به پدلِ رسمیِ اندروید (padandroid) میرود
+// موتورِ استخراج: فقط rapidocr (سبکِ PC — detector-first)
+// ML Kit کلاً حذف شد؛ انتخابِ قدیمیِ mlkit در پایتون
+// به پدلِ رسمیِ اندروید (padandroid) میرود
         map.put("ocr_engine", firstNonEmpty(o, "ocr_engine")
             ?: prefs.getString("ocr_engine", null) ?: "")
         map.put("fmt", firstNonEmpty(o, "out_fmt", "fmt") ?: "PDF")
@@ -2866,7 +2858,7 @@ class MainActivity : AppCompatActivity() {
         map.put("two_pass", optBoolD(o, true, "two_pass"))
         map.put("readord", firstNonEmpty(o, "readord") ?: "rtl")
         map.put("instruction", firstNonEmpty(o, "instruction_text", "instruction") ?: "")
-        // v1.14.146 — سبکِ پرامپت (auto/professional/lite) + متنِ کادرِ پرامپتِ قابلِ ویرایش
+// سبکِ پرامپت (auto/professional/lite) + متنِ کادرِ پرامپتِ قابلِ ویرایش
         map.put("prompt_mode", firstNonEmpty(o, "prompt_mode") ?: "auto")
         map.put("prompt_body", firstNonEmpty(o, "prompt_preview_body", "prompt_body") ?: "")
 
@@ -2885,8 +2877,8 @@ class MainActivity : AppCompatActivity() {
                 k.startsWith("en_") -> map.put(k, o.optBoolean(k, true))
             }
         }
-        // v1.14.181 — دکمهٔ «تستِ سرعت» (v1.14.178) کامل حذف شد؛ روشِ
-        // استخراج = فقط ML Kit (برندهٔ تستِ ۱۷۹ — سمتِ پایتون اعمال میشود).
+// دکمهٔ «تستِ سرعت»  کامل حذف شد؛ روشِ
+// استخراج = فقط ML Kit (برندهٔ تستِ ۱۷۹ — سمتِ پایتون اعمال میشود).
         for ((id, path) in pickedFiles) {
             if (id.startsWith("up_") || id == "font_upload") {
                 map.put(id + "_file", path)
@@ -2927,10 +2919,10 @@ class MainActivity : AppCompatActivity() {
     private fun setLog(t: String) {
         logBox.text = t
         if (logFollow) {
-            // v1.14.192 — «وقتی لاگ میده باید خودش با لاگ بره پایین نه ثابت
-            // بمونه»: اسکرول در دو لحظه — بعد از post و یک بارِ دیگر بعدِ
-            // چیدمانِ نهایی (متنهایِ خیلی بلند در پاسِ اول هنوز کامل
-            // چیده نشدهاند و اسکرولِ اول کف نمیرسد).
+// «وقتی لاگ میده باید خودش با لاگ بره پایین نه ثابت
+// بمونه»: اسکرول در دو لحظه — بعد از post و یک بارِ دیگر بعدِ
+// چیدمانِ نهایی (متنهایِ خیلی بلند در پاسِ اول هنوز کامل
+// چیده نشدهاند و اسکرولِ اول کف نمیرسد).
             logBox.post { scrollLogToBottom() }
             logBox.postDelayed({ scrollLogToBottom() }, 90)
         }
@@ -2979,13 +2971,13 @@ class MainActivity : AppCompatActivity() {
             maybeAskBatteryExemption()
             jobRunning = true
             cancelPending = false
-            // v1.14.192 — هر اجرای تازه از «دنبالکردنِ لاگ» شروع میشود
-            // («تا وقتی خودم دست نزدم، خودش با لاگ بره پایین»)
+// هر اجرای تازه از «دنبالکردنِ لاگ» شروع میشود
+// («تا وقتی خودم دست نزدم، خودش با لاگ بره پایین»)
             logFollow = true
-            // v1.14.192 — «Downloads/manga/*log هروقت استارت میزنم پاک شه
-            // کامل» — جارویِ لاگهایِ Downloads در لحظهٔ استارتِ هر اجرا
-            // (نه فقط بازشدنِ اپ). بعد از پایانِ اجرا فقط دوتا ساخته
-            // میشوند: manga.log.txt و manga_old.log.txt.
+// «Downloads/manga/*log هروقت استارت میزنم پاک شه
+// کامل» — جارویِ لاگهایِ Downloads در لحظهٔ استارتِ هر اجرا
+// (نه فقط بازشدنِ اپ). بعد از پایانِ اجرا فقط دوتا ساخته
+// میشوند: manga.log.txt و manga_old.log.txt.
             Thread { deleteAllMangaLogsInDownloads() }.start()
 
             runBtn.isEnabled = true
@@ -3079,8 +3071,8 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (s.optInt("live_total", 0) > 0) liveTotal = s.optInt("live_total")
                     if (s.optInt("live_total_dbg", 0) > 0) liveDbgTotal = s.optInt("live_total_dbg")
-                    // v1.14.154 — فاز + صفحهٔ جاری + درصد از bridge
-                    // (prog_now = صفحهٔ در حال کار، prog_pct = درصد)
+// فاز + صفحهٔ جاری + درصد از bridge
+// (prog_now = صفحهٔ در حال کار، prog_pct = درصد)
                     TranslationService.updateProgress(
                         s.optInt("prog_now", 0), s.optInt("prog_total", 0),
                         s.optString("prog_phase", ""))
@@ -3104,8 +3096,8 @@ class MainActivity : AppCompatActivity() {
                             setLog(lg + "\n\n⏹ ترجمه لغو شد.")
                         }
                         finishJobUi()
-                        // v1.14.45: پایانِ نشستِ زنده → نمایشگرِ بازِ دیباگ هم
-                        // اسلاتِ «در حال ترجمه…» را بردارد (دیباگ هم زنده است)
+// پایانِ نشستِ زنده → نمایشگرِ بازِ دیباگ هم
+// اسلاتِ «در حال ترجمه…» را بردارد (دیباگ هم زنده است)
                         liveDone = true
                         livePush?.invoke(0)
                         liveBox.removeAllViews()
@@ -3123,7 +3115,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** v1.14.41: رندر PDF به تصویر برای نمایشِ درون‌برنامه‌ای — خروجی
+    /** : رندر PDF به تصویر برای نمایشِ درون‌برنامه‌ای — خروجی
      *  PDF/دیباگ تا حالا فقط «دانلود» داشتند و کاربر دیباگ را نمی‌دید.
      *  صفحاتِ نوارِ بلند با سقفِ ابعاد رندر می‌شوند تا رم نترکد. */
     private fun pdfToImages(pdfPath: String, tag: String, maxPages: Int = 40,
@@ -3205,24 +3197,24 @@ class MainActivity : AppCompatActivity() {
         val dbgFile = st.optString("debug_out_file", "")
         val hasDbgFile = dbgFile.isNotBlank() && File(dbgFile).isFile()
 
-        // v1.14.31: فقط «یک» نمایش — همان نمایشِ زنده ادامه می‌دهد؛ دیباگ با
-        // دکمهٔ 🔍 داخل خودِ نمایش عوض می‌شود. نمایش جدا و نمایش دیباگ حذف شدند.
+// فقط «یک» نمایش — همان نمایشِ زنده ادامه می‌دهد؛ دیباگ با
+// دکمهٔ داخل خودِ نمایش عوض می‌شود. نمایش جدا و نمایش دیباگ حذف شدند.
         if (images.isNotEmpty()) {
             resultsBox.addView(resBtn("📖  نمایش (${images.size} صفحه)", true) {
                 viewer(images, live = true, dbgPaths = debug, total = images.size)
             })
         }
-        // v1.14.41: خروجی PDF — تا حالا فقط «دانلود» بود و کاربر خروجی و
-        // دیباگ را داخلِ برنامه نمی‌دید. حالا PDF با PdfRenderer رندر و
-        // در همان نمایشگر باز می‌شود (خروجی اصلی + خروجی دیباگ).
+// خروجی PDF — تا حالا فقط «دانلود» بود و کاربر خروجی و
+// دیباگ را داخلِ برنامه نمی‌دید. حالا PDF با PdfRenderer رندر و
+// در همان نمایشگر باز می‌شود (خروجی اصلی + خروجی دیباگ).
         if (images.isEmpty() && hasOutFile &&
             outFile.lowercase().endsWith(".pdf")) {
             resultsBox.addView(resBtn("📖  نمایش خروجی (PDF)", true) {
                 Thread {
                     val imgs = pdfToImages(outFile, "main")
-                    // v1.14.44: دیباگِ PDF هم رندر می‌شود تا سوییچِ 🔍 داخلِ
-                    // نمایشگر در حالتِ PDF کار کند (قبلاً debug_images در
-                    // حالتِ PDF خالی بود و دکمهٔ 🔍 هرگز ظاهر نمی‌شد)
+// دیباگِ PDF هم رندر می‌شود تا سوییچِ داخلِ
+// نمایشگر در حالتِ PDF کار کند (قبلاً debug_images در
+// حالتِ PDF خالی بود و دکمهٔ هرگز ظاهر نمی‌شد)
                     val dbgImgs = if (debug.isNotEmpty()) debug
                                   else if (hasDbgFile) pdfToImages(dbgFile, "dbg")
                                   else emptyList()
@@ -3239,9 +3231,9 @@ class MainActivity : AppCompatActivity() {
                 }.start()
             })
         }
-        // v1.14.44: دکمهٔ «نمایش دیباگ» از صفحهٔ اصلی حذف شد — درخواستِ کاربر:
-        // «کی بهت گفتم نمایش دیباگ تو صفحه اصلی بزاری؟». دیباگ فقط با دکمهٔ
-        // 🔍 داخلِ خودِ نمایشگر عوض می‌شود (نهایی ↔ دیباگ).
+// دکمهٔ «نمایش دیباگ» از صفحهٔ اصلی حذف شد — درخواستِ کاربر:
+// «کی بهت گفتم نمایش دیباگ تو صفحه اصلی بزاری؟». دیباگ فقط با دکمهٔ
+// داخلِ خودِ نمایشگر عوض می‌شود (نهایی ↔ دیباگ).
         if (hasOutFile) {
             resultsBox.addView(resBtn("⬇  دانلود خروجی", false) { saveToDownloads(outFile) })
         }
@@ -3274,8 +3266,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** نمایشِ زنده = همان نمایشِ اصلی — در همان جعبهٔ نتیجه. نمایشگر زنده
-     *  اسلات لودینگ برای صفحه‌های نرسیده دارد (بدون پرش اسکرول) و دکمهٔ 🔍
-     *  داخل خودِ نمایشگر، دیباگ زنده را نشان می‌دهد (v1.14.29). */
+     *  اسلات لودینگ برای صفحه‌های نرسیده دارد (بدون پرش اسکرول) و دکمهٔ 
+     *  داخل خودِ نمایشگر، دیباگ زنده را نشان می‌دهد (). */
     private fun updateLiveResults(live: List<String>, liveDbg: List<String>) {
         if (live.size == liveImages.size && liveDbg.size == liveDbgImages.size &&
             liveTotal == shownLiveTotal && liveDbgTotal == shownLiveDbgTotal) return
@@ -3294,8 +3286,8 @@ class MainActivity : AppCompatActivity() {
         if (liveImages.isNotEmpty() || liveTotal > 0) {
             var lbl = if (liveTotal > 0) "📖  نمایش (${liveImages.size}/$liveTotal صفحه)"
                       else "📖  نمایش (${liveImages.size} صفحه)"
-            // v1.14.43: تعدادِ صفحه‌های دیباگِ زنده روی خودِ دکمه — کاربر ببیند
-            // که دیباگ واقعاً در حال ساخته‌شدن است
+// تعدادِ صفحه‌های دیباگِ زنده روی خودِ دکمه — کاربر ببیند
+// که دیباگ واقعاً در حال ساخته‌شدن است
             if (liveDbgImages.isNotEmpty()) lbl += " · 🔍${liveDbgImages.size}"
             resultsBox.addView(resBtn(lbl, true) {
                 viewer(liveImages, live = true, dbgPaths = liveDbgImages,
@@ -3358,16 +3350,16 @@ class MainActivity : AppCompatActivity() {
                        dbg: Boolean = false, dbgPaths: List<String> = emptyList(),
                        total: Int = 0) {
         if (pathsRaw.isEmpty() && total <= 0) return
-        // نسخهٔ پایدار از لیست — اگر لیستِ زنده وسط رندر پاک/پُر شود،
-        // تصویرها ۴۰۴ می‌شوند و نمایشگر سیاه می‌ماند (باگ «هیچی نشون نداد»)
+// نسخهٔ پایدار از لیست — اگر لیستِ زنده وسط رندر پاک/پُر شود
+// تصویرها ۴۰۴ می‌شوند و نمایشگر سیاه می‌ماند (باگ «هیچی نشون نداد»)
         val paths: MutableList<String> = java.util.Collections.synchronizedList(
             mutableListOf<String>().apply { addAll(pathsRaw) })
-        // دیباگِ زنده: داخل همان نمایشگر با دکمهٔ سوئیچ 🔍 (v1.14.29)
+// دیباگِ زنده: داخل همان نمایشگر با دکمهٔ سوئیچ
         val dpaths: MutableList<String> = java.util.Collections.synchronizedList(
             mutableListOf<String>().apply { addAll(dbgPaths) })
         if (paths.isEmpty() && dpaths.isEmpty() && total <= 0) return
 
-        val imgRx = Regex("/i/(\\d+)(?:\\?.*)?$")  // v1.14.160 — ?r= برایِ بهروزرسانیِ ۱۵تایی
+        val imgRx = Regex("/i/(\\d+)(?:\\?.*)?$")  // ?r= برایِ بهروزرسانیِ ۱۵تایی
         val dbgRx = Regex("/d/(\\d+)/?$")
         val mimeMap = mapOf(
             "png" to "image/png", "jpg" to "image/jpeg", "jpeg" to "image/jpeg",
@@ -3402,7 +3394,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "خواننده در دسترس نیست", Toast.LENGTH_LONG).show()
             return
         }
-        // اسلات لودینگ برای صفحه‌های نرسیده (total از total.txt موتور) — v1.14.29
+// اسلات لودینگ برای صفحه‌های نرسیده (total از total.txt موتور) —
         val imgs = paths.indices.joinToString("") {
             "<img src=\"i/$it\" loading=\"lazy\" decoding=\"async\" alt=\"\" draggable=\"false\">"
         } + (paths.size until maxOf(paths.size, total)).joinToString("") {
@@ -3412,11 +3404,11 @@ class MainActivity : AppCompatActivity() {
             .replace("__TITLE__", title)
             .replace("__IMGS__", imgs)
             .replace("data-act=\"close\"", "data-act=\"close\" hidden")
-        // v1.14.44: تعدادِ صفحه‌های دیباگ با data-ndbg به JS تزریق می‌شود —
-        // در نمایشِ غیرِزنده __mangaLive هرگز صدا نمی‌خورد و قبلاً JS تعدادِ
-        // دیباگ را صفر فرض می‌کرد → سوییچِ 🔍 صفحهٔ خالی می‌ساخت
+// تعدادِ صفحه‌های دیباگ با data-ndbg به JS تزریق می‌شود —
+// در نمایشِ غیرِزنده __mangaLive هرگز صدا نمی‌خورد و قبلاً JS تعدادِ
+// دیباگ را صفر فرض می‌کرد → سوییچِ صفحهٔ خالی می‌ساخت
         html = if (dpaths.isNotEmpty()) {
-            // دکمهٔ 🔍 دیباگ وقتی صفحهٔ دیباگ هست قرمز و پررنگ می‌شود
+// دکمهٔ دیباگ وقتی صفحهٔ دیباگ هست قرمز و پررنگ می‌شود
             html.replace(
                 "data-act=\"dbg\" hidden",
                 "data-act=\"dbg\" data-ndbg=\"${dpaths.size}\" style=\"background:#b3261e;border-color:#d64545;color:#fff;font-weight:700\"")
@@ -3445,8 +3437,8 @@ class MainActivity : AppCompatActivity() {
                             df.inputStream())
                     } catch (_: Exception) { null }
                 }
-                                // v1.14.160 — mtimes.txt (زمانِ بهروزرسانیِ هر اسلات) برایِ
-                // بهروزرسانیِ ۱۵تاییِ نمایشِ زنده؛ فقط در حالتِ زنده
+// mtimes.txt (زمانِ بهروزرسانیِ هر اسلات) برایِ
+// بهروزرسانیِ ۱۵تاییِ نمایشِ زنده؛ فقط در حالتِ زنده
                 if (request.url.toString().contains("/mtimes")) {
                     var mtf: java.io.File? = null
                     try {
@@ -3512,7 +3504,7 @@ class MainActivity : AppCompatActivity() {
         if (live) {
             livePush = { _ ->
                 try {
-                    // صفحه‌های تازهٔ وضعیتِ زنده را به نسخهٔ پایدارِ نمایشگر اضافه کن
+// صفحه‌های تازهٔ وضعیتِ زنده را به نسخهٔ پایدارِ نمایشگر اضافه کن
                     val curLive: List<String>
                     val curDbg: List<String>
                     synchronized(liveImages) { curLive = liveImages.toList() }
@@ -3648,7 +3640,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun logOldFile(): File = File(filesDir, "manga_old.log")
 
-    // دکمهٔ «تست کلید» که بعد از ردیفِ «مدل» رندر می‌شود (ترتیبِ لینک→کلید→مدل→تست)
+// دکمهٔ «تست کلید» که بعد از ردیفِ «مدل» رندر می‌شود (ترتیبِ لینک→کلید→مدل→تست)
     private var pendingTestBtn: Button? = null
     private var pendingTestLbl: TextView? = null
 
@@ -3673,8 +3665,8 @@ class MainActivity : AppCompatActivity() {
         pendingTestLbl = null
     }
 
-    // هر اسمی که MediaStore از «manga.log / manga_old.log» ساخته باشد:
-    // manga.log | manga_old.log | manga.log.txt | manga.log (11).txt | manga (2).log …
+// هر اسمی که MediaStore از «manga.log / manga_old.log» ساخته باشد:
+// manga.log | manga_old.log | manga.log.txt | manga.log (11).txt | manga (2).log …
     private fun normMangaLogName(dn: String): String? {
         val s = dn.lowercase().trim()
         if (!s.startsWith("manga")) return null
@@ -3708,11 +3700,11 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    // v1.14.67 — ریشهٔ «manga (N).log.txt»: مایمِ text/plain با اسمِ
-    // «manga.log» از نظرِ MediaStore پسوندش با MIME نمی‌خواند → سیستم
-    // خودش اسم را «manga.log.txt» می‌کند و رویِ برخورد « (N)» می‌گذارد.
-    // راهِ قطعی: قبل از هر insert همهٔ ردیف‌هایِ هم‌kind حذف می‌شوند تا
-    // هیچ‌وقت برخوردی رخ ندهد و سیستم نسخهٔ شماره‌دار نسازد.
+// ریشهٔ «manga (N).log.txt»: مایمِ text/plain با اسمِ
+// «manga.log» از نظرِ MediaStore پسوندش با MIME نمی‌خواند → سیستم
+// خودش اسم را «manga.log.txt» می‌کند و رویِ برخورد « (N)» می‌گذارد.
+// راهِ قطعی: قبل از هر insert همهٔ ردیف‌هایِ هم‌kind حذف می‌شوند تا
+// هیچ‌وقت برخوردی رخ ندهد و سیستم نسخهٔ شماره‌دار نسازد.
     private fun deleteAllLogKindRows(kind: String) {
         try {
             val proj = arrayOf(MediaStore.MediaColumns._ID,
@@ -3744,14 +3736,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun insertLogEntry(name: String, src: File): Boolean {
-        // v1.14.67 — قبل از insert همهٔ هم‌kindها پاک می‌شوند (ضدِ
-        // «manga.log (N).txt»)؛ اگر نوشتن شکست خورد هم ردیفِ نیمه‌کاره
-        // حذف می‌شود تا پشته نشود.
-        // v1.14.69 — اسمِ insert مستقیماً «.txt» است: MediaProvider اسمِ
-        // «manga.log» را با MIMEِ text/plain ناسازگار می‌بیند و خودش
-        // «manga.log.txt» می‌سازد — در همین لحظهٔ ساختِ نهایی (پس از
-        // IS_PENDING=0) اگر هم‌نامی در پوشه باشد « (N)» می‌چسباند.
-        // با اسمِ سازگارِ «manga.log.txt» هیچ بازنویسی/برخوردی رخ نمی‌دهد.
+// قبل از insert همهٔ هم‌kindها پاک می‌شوند (ضدِ
+// «manga.log (N).txt»)؛ اگر نوشتن شکست خورد هم ردیفِ نیمه‌کاره
+// حذف می‌شود تا پشته نشود.
+// اسمِ insert مستقیماً «.txt» است: MediaProvider اسمِ
+// «manga.log» را با MIMEِ text/plain ناسازگار می‌بیند و خودش
+// «manga.log.txt» می‌سازد — در همین لحظهٔ ساختِ نهایی (پس از
+// IS_PENDING=0) اگر هم‌نامی در پوشه باشد « (N)» می‌چسباند.
+// با اسمِ سازگارِ «manga.log.txt» هیچ بازنویسی/برخوردی رخ نمی‌دهد.
         val kind = normMangaLogName(name)
         if (kind != null && Build.VERSION.SDK_INT >= 29) {
             deleteAllLogKindRows(kind)
@@ -3773,10 +3765,10 @@ class MainActivity : AppCompatActivity() {
         return ok
     }
 
-    // فقط دو فایل: manga.log (لاگ فعلی) و manga_old.log (لاگ قبلی)
-    // MediaStore موقع insertِ اسمِ تکراری خودش « (N).txt» می‌سازد — پس
-    // هر ردیفِ هم‌خانواده (manga.log (11).txt و…) را با norm پیدا می‌کنیم،
-    // یکی را main نگه می‌داریم و داخل همان می‌نویسیم، بقیه پاک می‌شوند.
+// فقط دو فایل: manga.log (لاگ فعلی) و manga_old.log (لاگ قبلی)
+// MediaStore موقع insertِ اسمِ تکراری خودش « (N).txt» می‌سازد — پس
+// هر ردیفِ هم‌خانواده (manga.log (11).txt و…) را با norm پیدا می‌کنیم
+// یکی را main نگه می‌داریم و داخل همان می‌نویسیم، بقیه پاک می‌شوند.
     private fun upsertLogInDownloads(name: String, src: File): Boolean {
         if (!src.isFile) return false
         val kind = normMangaLogName(name) ?: return false
@@ -3785,7 +3777,7 @@ class MainActivity : AppCompatActivity() {
                 val dir = File(Environment.getExternalStoragePublicDirectory(
                     Environment.DIRECTORY_DOWNLOADS), "manga")
                 dir.mkdirs()
-                // پاک‌کردن نسخه‌های تکراریِ همین kind (مثل manga.log (1).txt)
+// پاک‌کردن نسخه‌های تکراریِ همین kind (مثل manga.log (1).txt)
                 for (f in dir.listFiles() ?: emptyArray()) {
                     if (!f.isFile) continue
                     if (normMangaLogName(f.name) == kind && f.name != name) {
@@ -3819,7 +3811,7 @@ class MainActivity : AppCompatActivity() {
                         rows.add(Row(id, dn, rp))
                     }
                 }
-            // فقط ردیف‌های پوشهٔ خودمان
+// فقط ردیف‌های پوشهٔ خودمان
             val mine = rows.filter {
                 it.rp == "Download/manga/" && normMangaLogName(it.dn) != null
             }
@@ -3827,11 +3819,11 @@ class MainActivity : AppCompatActivity() {
                 val m = Regex("\\((\\d+)\\)").find(dn) ?: return 0
                 return m.groupValues[1].toIntOrNull() ?: 0
             }
-            // v1.14.69 — اسمِ نهاییِ همیشه‌سازگار: «manga.log.txt» /
-            // «manga_old.log.txt» (بدونِ بازنویسیِ پسوند توسطِ سیستم).
+// اسمِ نهاییِ همیشه‌سازگار: «manga.log.txt» /
+// «manga_old.log.txt» (بدونِ بازنویسیِ پسوند توسطِ سیستم).
             val canon = if (name.endsWith(".txt")) name else "$name.txt"
-            // main = اسمِ دقیق (با یا بدونِ .txt)، وگرنه کم‌ترین شمارهٔ (N)،
-            // وگرنه تازه‌ترین _id
+// main = اسمِ دقیق (با یا بدونِ .txt)، وگرنه کم‌ترین شمارهٔ (N)
+// وگرنه تازه‌ترین _id
             val cands = mine.filter { normMangaLogName(it.dn) == kind }
             val main = cands.firstOrNull {
                 it.dn.equals(name, ignoreCase = true)
@@ -3845,7 +3837,7 @@ class MainActivity : AppCompatActivity() {
                 mainUri = android.content.ContentUris.withAppendedId(
                     MediaStore.Downloads.EXTERNAL_CONTENT_URI, main.id)
             }
-            // تکراری‌ها = هر ردیفِ هم‌kind که main نیست (ردیف‌های kindِ دیگر حفظ می‌شوند)
+// تکراری‌ها = هر ردیفِ هم‌kind که main نیست (ردیف‌های kindِ دیگر حفظ می‌شوند)
             val doomed = ArrayList<Uri>()
             for (r in mine) {
                 if (normMangaLogName(r.dn) != kind) continue
@@ -3867,10 +3859,10 @@ class MainActivity : AppCompatActivity() {
                 if (!ok) {
                     try { contentResolver.delete(target, null, null) } catch (_: Exception) {}
                 }
-                // v1.14.69 — اسمِ main فقط وقتی به اسمِ سازگار برمی‌گردد که
-                // هیچ هم‌kindی باقی نمانده (وگرنه renameِ رویِ اسمِ موجود =
-                // « (N)» از سمتِ MediaProvider). شکستِ rename هم مشکلی
-                // ندارد — محتوا تازه است و دفعهٔ بعد cleanup اسم را می‌رساند.
+// اسمِ main فقط وقتی به اسمِ سازگار برمی‌گردد که
+// هیچ هم‌kindی باقی نمانده (وگرنه renameِ رویِ اسمِ موجود =
+// « (N)» از سمتِ MediaProvider). شکستِ rename هم مشکلی
+// ندارد — محتوا تازه است و دفعهٔ بعد cleanup اسم را می‌رساند.
                 if (ok && allDeleted && !mainDn.equals(canon, ignoreCase = true)) {
                     try {
                         contentResolver.update(target, ContentValues().apply {
@@ -3890,16 +3882,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun autoSaveLog(manual: Boolean = false) {
         Thread {
-            // v1.14.67 — قفلِ سراسری: دو رانِ پشتِ هم نباید با هم
-            // همزمان insert/cleanup کنند (مسابقه = نسخهٔ شماره‌دار)
+// قفلِ سراسری: دو رانِ پشتِ هم نباید با هم
+// همزمان insert/cleanup کنند (مسابقه = نسخهٔ شماره‌دار)
             synchronized(this@MainActivity) {
                 val cur = upsertLogInDownloads("manga.log", logFile())
                 val old = upsertLogInDownloads("manga_old.log", logOldFile())
                 cleanupLogDuplicates()
-                // v1.14.192 — «فقط بعد تموم شدن دوتا لاگ بمونه»: بعضی
-                // رامها ردیفهایِ تازهٔ MediaStore را با تأخیر نمایه
-                // میکنند و پاسِ اول از دستشان میرود → ۲.۵ ثانیه بعد یک
-                // جارویِ تضمینیِ دیگر تا دقیقاً دوتا فایل بماند.
+// «فقط بعد تموم شدن دوتا لاگ بمونه»: بعضی
+// رامها ردیفهایِ تازهٔ MediaStore را با تأخیر نمایه
+// میکنند و پاسِ اول از دستشان میرود → ۲.۵ ثانیه بعد یک
+// جارویِ تضمینیِ دیگر تا دقیقاً دوتا فایل بماند.
                 Thread {
                     try { Thread.sleep(2500) } catch (_: Exception) {}
                     synchronized(this@MainActivity) {
@@ -3922,25 +3914,24 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // v1.14.70 — درخواستِ کاربر: «اول استارت همهٔ .log.txt حذف کنه بعد
-    // بسازه». در شروعِ اپ همهٔ لاگ‌هایِ manga — هر دو kind و با هر اسمی
-    // (manga.log، manga.log.txt، manga.log (N).txt، manga_old… ) — از
-    // Download/manga/ و Download/ به‌کلی پاک می‌شوند؛ لاگِ تازه بعد از
-    // اجرا ساخته می‌شود. فایل‌هایِ خروجی (manga_*.pdf و…) لمس نمی‌شوند.
+// درخواستِ کاربر: «اول استارت همهٔ .log.txt حذف کنه بعد
+// بسازه». در شروعِ اپ همهٔ لاگ‌هایِ manga — هر دو kind و با هر اسمی
+// (manga.log، manga.log.txt، manga.log (N).txt، manga_old… ) — از
+// Download/manga/ و Download/ به‌کلی پاک می‌شوند؛ لاگِ تازه بعد از
+// اجرا ساخته می‌شود. فایل‌هایِ خروجی (manga_*.pdf و…) لمس نمی‌شوند.
     private fun deleteAllMangaLogsOnStart() {
         deleteAllMangaLogsInDownloads()
-        // لاگِ خصوصیِ اپ هم تازه شود (در اجرا از نو ساخته می‌شود) —
-        // فقط در «بازشدنِ اپ»؛ در «استارتِ اجرا» نه! (پایتون همان لحظه
-        // manga.log را میچرخاند → پاک کردنش یعنی لاگِ اجرا از بین میرود)
+// لاگِ خصوصیِ اپ هم تازه شود (در اجرا از نو ساخته می‌شود) —
+// فقط در «بازشدنِ اپ»؛ در «استارتِ اجرا» نه! (پایتون همان لحظه
+// manga.log را میچرخاند → پاک کردنش یعنی لاگِ اجرا از بین میرود)
         try { logFile().delete() } catch (_: Exception) {}
         try { logOldFile().delete() } catch (_: Exception) {}
     }
 
-    // v1.14.192 — خواستهٔ سازنده: «Downloads/manga/*log هروقت استارت
-    // میزنم پاک شه کامل فقط بعد تموم شدن دوتا لاگ بمونه». جارویِ
-    // خانوادهٔ لاگ فقط در Download/ و Download/manga/ — بدونِ دستزدن به
-    // لاگهایِ خصوصیِ اپ (چرخشِ manga.log/manga_old.log مالِ پایتون است
-    // و در لحظهٔ استارتِ اجرا انجام میشود) و بدونِ فایلهایِ خروجی.
+    //. جارویِ
+// خانوادهٔ لاگ فقط در Download/ و Download/manga/ — بدونِ دستزدن به
+// لاگهایِ خصوصیِ اپ (چرخشِ manga.log/manga_old.log مالِ پایتون است
+// و در لحظهٔ استارتِ اجرا انجام میشود) و بدونِ فایلهایِ خروجی.
     private fun deleteAllMangaLogsInDownloads() {
         try {
             if (Build.VERSION.SDK_INT >= 29) {
@@ -3979,12 +3970,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // v1.14.65b — درخواستِ کاربر: «فقط manga.log و manga_old.log باشه».
-    // جارویِ کاملِ خانوادهٔ لاگ (manga.log / manga.log (N).txt /
-    // manga (N).log / manga_old…) در Download/manga/ و Download/:
-    // برای هر kind فقط یک ردیف می‌ماند (اسمِ دقیق در Download/manga/
-    // اولویت دارد، وگرنه تازه‌ترین) به اسمِ دقیق renamed می‌شود و
-    // بقیه حذف می‌شوند. فایل‌هایِ خروجی (manga_*.pdf و…) لمس نمی‌شوند.
+// درخواستِ کاربر: «فقط manga.log و manga_old.log باشه».
+// جارویِ کاملِ خانوادهٔ لاگ (manga.log / manga.log (N).txt /
+// manga (N).log / manga_old…) در Download/manga/ و Download/:
+// برای هر kind فقط یک ردیف می‌ماند (اسمِ دقیق در Download/manga/
+// اولویت دارد، وگرنه تازه‌ترین) به اسمِ دقیق renamed می‌شود و
+// بقیه حذف می‌شوند. فایل‌هایِ خروجی (manga_*.pdf و…) لمس نمی‌شوند.
     private fun cleanupLogDuplicates() {
         try {
             if (Build.VERSION.SDK_INT >= 29) {
@@ -4014,8 +4005,8 @@ class MainActivity : AppCompatActivity() {
                         normMangaLogName(it.dn) == kind
                     }
                     if (mine.isEmpty()) continue
-                    // v1.14.69 — اسمِ نهاییِ سازگار با MIME = «kind + .txt»
-                    // (بازنویسیِ پسوندِ سیستم = ریشهٔ «manga.log (N).txt» حذف می‌شود)
+// اسمِ نهاییِ سازگار با MIME = «kind + .txt»
+// (بازنویسیِ پسوندِ سیستم = ریشهٔ «manga.log (N).txt» حذف می‌شود)
                     val canon = "$kind.txt"
                     val main = mine.firstOrNull {
                         (it.dn.equals(kind, ignoreCase = true)
@@ -4055,15 +4046,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // v1.14.70 — درخواستِ کاربر: «اول استارت میزنم همه .log.txt حذف کنه
-    // بعد بسازه». یعنی در شروعِ اپ:
-    //   ۱) هر فایلِ لاگِ خانوادهٔ manga (manga.log / manga.log.txt /
-    //      manga.log (N).txt / manga_old.log…) در Download/manga و Download
-    //      کاملاً حذف شود.
-    //   ۲) دو فایلِ خالیِ تازه ساخته شود: manga.log.txt و manga_old.log.txt
-    //      تا هر اجرا از صفر شروع شود و لاگِ اجرای قبلی قاطی نشود.
-    //   ۳) لاگِ داخلیِ برنامه (filesDir/manga.log و manga_old.log) هم
-    //      خالی شود تا «لاگِ زنده» از اجرای قبلی باقی نماند.
+// درخواستِ کاربر: «اول استارت میزنم همه .log.txt حذف کنه
+// بعد بسازه». یعنی در شروعِ اپ:
+// ۱) هر فایلِ لاگِ خانوادهٔ manga (manga.log / manga.log.txt /
+// manga.log (N).txt / manga_old.log…) در Download/manga و Download
+// کاملاً حذف شود.
+// ۲) دو فایلِ خالیِ تازه ساخته شود: manga.log.txt و manga_old.log.txt
+// تا هر اجرا از صفر شروع شود و لاگِ اجرای قبلی قاطی نشود.
+// ۳) لاگِ داخلیِ برنامه (filesDir/manga.log و manga_old.log) هم
+// خالی شود تا «لاگِ زنده» از اجرای قبلی باقی نماند.
     private fun isLogFamilyName(dn: String): Boolean {
         val s = dn.lowercase().trim()
         if (s.endsWith(".log.txt")) return true
@@ -4073,7 +4064,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun resetLogsOnStart() {
         try {
-            // ۱) حذفِ همهٔ فایل‌هایِ لاگ از پوشه‌هایِ عمومی
+// ۱) حذفِ همهٔ فایل‌هایِ لاگ از پوشه‌هایِ عمومی
             if (Build.VERSION.SDK_INT >= 29) {
                 val proj = arrayOf(MediaStore.MediaColumns._ID,
                     MediaStore.MediaColumns.DISPLAY_NAME,
@@ -4108,7 +4099,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            // ۲) ساختِ دو فایلِ خالیِ تازه
+// ۲) ساختِ دو فایلِ خالیِ تازه
             val empty = File(filesDir, "_empty_log_tmp")
             try {
                 empty.writeText("")
@@ -4121,7 +4112,7 @@ class MainActivity : AppCompatActivity() {
                 catch (_: Exception) {}
                 try { empty.delete() } catch (_: Exception) {}
             }
-            // ۳) خالی‌کردنِ لاگِ داخلیِ برنامه
+// ۳) خالی‌کردنِ لاگِ داخلیِ برنامه
             try {
                 val f = logFile()
                 if (f.exists()) f.writeText("") else f.writeText("")
@@ -4153,10 +4144,10 @@ class MainActivity : AppCompatActivity() {
                         "manga_${stampNow()}." + f.extension.ifBlank { "bin" } else null
                     if (saveAnyToDownloads(outFile, null, nice)) n++
                 }
-                // v1.14.63 — پوشهٔ pages_… دیگر ساخته نمی‌شود (درخواستِ کاربر:
-                // «Downloads/manga/pages_*** پوشه بپاکه کلا»). صفحات در جایی
-                // ذخیرهٔ خودکار نمی‌شوند؛ خروجیِ اصلی (PDF/ZIP) سرِ جایش است
-                // و دانلودِ دستی با دکمه‌هایِ ⬇ سرِ جایش است.
+// پوشهٔ pages_… دیگر ساخته نمی‌شود (درخواستِ کاربر:
+// «Downloads/manga/pages_*** پوشه بپاکه کلا»). صفحات در جایی
+// ذخیرهٔ خودکار نمی‌شوند؛ خروجیِ اصلی (PDF/ZIP) سرِ جایش است
+// و دانلودِ دستی با دکمه‌هایِ سرِ جایش است.
                 ui.post {
                     if (n > 0) Toast.makeText(this,
                         "📥 $n فایل ذخیره شد در Download/manga", Toast.LENGTH_LONG).show()
@@ -4170,7 +4161,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** v1.14.63 — حذفِ کاملِ پوشه‌هایِ pages_… از Download/manga —
+    /**  — حذفِ کاملِ پوشه‌هایِ pages_… از Download/manga —
      *  هم در API جدید (MediaStore) و هم قدیمی (فایلِ مستقیم). */
     private fun cleanupPagesDirs() {
         Thread {
@@ -4207,9 +4198,9 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 android.util.Log.e("MangaApp", "cleanupPagesDirs", e)
             }
-            // v1.14.66 — پوشه‌هایِ خالیِ pages_…: MediaStore فقط «فایل»
-            // می‌بیند نه پوشه → فایل‌ها پاک می‌شدند ولی خودِ پوشهٔ خالی
-            // می‌ماند (گزارشِ کاربر). جارویِ فایل‌محوریِ تکمیلی:
+// پوشه‌هایِ خالیِ pages_…: MediaStore فقط «فایل»
+// می‌بیند نه پوشه → فایل‌ها پاک می‌شدند ولی خودِ پوشهٔ خالی
+// می‌ماند (گزارشِ کاربر). جارویِ فایل‌محوریِ تکمیلی:
             try {
                 val baseF = File(Environment.getExternalStoragePublicDirectory(
                     Environment.DIRECTORY_DOWNLOADS), "manga")
@@ -4239,7 +4230,7 @@ class MainActivity : AppCompatActivity() {
 
 override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        // v1.14.220 — Importِ بکاپ از دکمهٔ «Import» (بدونِ باکسِ آپلود)
+// Importِ بکاپ از دکمهٔ «Import» (بدونِ باکسِ آپلود)
         if (requestCode == REQ_IMPORT && resultCode == Activity.RESULT_OK &&
             data != null && data.data != null) {
             val uri = data.data!!
