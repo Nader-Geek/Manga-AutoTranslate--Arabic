@@ -12,8 +12,8 @@ from typing import Any, Dict, List, Optional, Protocol
 from . import stats as st
 from .config import Config
 from .db import Database, Job
-from .runner import (ProcessHandle, UploadError, build_plan, run_plan, shrink_oversized_images,
-                     split_zip)
+from .runner import (ProcessHandle, UploadError, build_plan, build_typer_parts, run_plan,
+                     shrink_oversized_images, split_zip)
 
 log = logging.getLogger("mangabot.worker")
 
@@ -189,6 +189,16 @@ class Worker:
             if base is None:
                 return await self._fail(job, "لم يُنتج الاستخراج أي نتيجة (لا يوجد typer_job.json).", tail)
             files = st.build_extract_files(job_json, wd / "extract", job.get("source_name", ""))
+        elif job["kind"] == "typer":
+            if base is None:
+                return await self._fail(job, "لم يُنتج التصدير أي نتيجة (لا يوجد typer_job.json).", tail)
+            try:   # one zip, or several independent TypeR jobs when it exceeds the upload limit
+                files, typer_notes = await asyncio.to_thread(
+                    build_typer_parts, plan.typer_dir, wd / "typer_out",
+                    self.notifier.upload_limit(job))
+            except (ValueError, OSError) as e:
+                return await self._fail(job, str(e), tail)
+            notes.extend(f"🗜️ {n}" for n in typer_notes)
 
         missing = [f.name for f in files if not f.is_file()]
         if missing or not files:

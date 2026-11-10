@@ -23,7 +23,8 @@ assert flag(p.argv, "--export-typer") == ["/tmp/w/abc/typer"] and p.deliver == [
 assert "DISCORD_TOKEN" not in p.env and "DATABASE_URL" not in p.env, "secrets leaked into subprocess env"
 assert p.env["MANGA_TARGET_LANG"] == "ar"
 # --- typer delivers the export zip
-p = build_plan(job("typer"), cfg); assert p.deliver == [Path("/tmp/w/abc/typer.zip")] and "--clean-only" in p.argv
+p = build_plan(job("typer"), cfg); assert p.deliver == [] and "--clean-only" in p.argv
+assert p.env["MANGA_TYPER_FORMAT"] == "jpg" and build_plan(job("typer", img_format="png"), cfg).env["MANGA_TYPER_FORMAT"] == "png"
 # --- extract builds its own files later
 p = build_plan(job("extract"), cfg); assert p.deliver == [] and "--clean-only" in p.argv
 # --- translate
@@ -148,4 +149,48 @@ with tempfile.TemporaryDirectory() as td:
     assert [[x.name for x in g] for g in b] == [["f0.bin", "f1.bin"], ["f2.bin", "f3.bin"], ["f4.bin", "f5.bin", "f6.bin"]], b
     assert all(sum(x.stat().st_size for x in g) <= 1000 for g in b) and sum(len(g) for g in b) == 7, b
     assert max(len(g) for g in batch_by_size(fs, 10 ** 9, max_count=3)) == 3
+
+# --- TypeR export packaging (compress / split into independent jobs / refuse with advice)
+import json
+from bot.runner import build_typer_parts
+def mk_export(d, n, size_px=(500, 1200), ext="jpg", seed=0):
+    d.mkdir(parents=True, exist_ok=True); pgs = []
+    for i in range(n):
+        arr = np.random.RandomState(seed + i).randint(0, 256, (size_px[1], size_px[0], 3), dtype=np.uint8)
+        f = d / f"page_{i + 1:03d}.{ext}"; Image.fromarray(arr).save(f, "PNG" if ext == "png" else "JPEG", quality=92)
+        pgs.append({"index": i, "file": f.name, "width": size_px[0], "height": size_px[1],
+                    "regions": [{"id": 1, "rect": [1, 2, 3, 4], "source": "x"}]})
+    (d / "typer_job.json").write_text(json.dumps({"format": "manga-autotranslate/typer-job", "version": 1,
+                                                   "reading_order": "rtl", "pages": pgs}))
+    return pgs
+with tempfile.TemporaryDirectory() as td:
+    td = Path(td)
+    ex = td / "e1"; mk_export(ex, 6)
+    one = sum((ex / f"page_{i + 1:03d}.jpg").stat().st_size for i in range(6))
+    files, notes = build_typer_parts(ex, td / "o1", one * 3)                  # fits -> single typer.zip
+    assert [f.name for f in files] == ["typer.zip"] and notes == []
+    with zipfile.ZipFile(files[0]) as z: assert z.namelist()[0] == "typer_job.json" and len(z.namelist()) == 7
+    each = one // 6
+    files, notes = build_typer_parts(ex, td / "o2", int(each * 2.6 / 0.93))   # ~2 pages per part
+    assert len(files) >= 3 and files[0].name == "typer_part1.zip" and any("مستقلة" in n for n in notes), (len(files), notes)
+    seen = []
+    for k, f in enumerate(files, 1):
+        assert f.stat().st_size <= int(each * 2.6 / 0.93), f.stat().st_size
+        with zipfile.ZipFile(f) as z:
+            jj = json.loads(z.read("typer_job.json"))
+            assert jj["part"] == k and jj["parts"] == len(files) and jj["reading_order"] == "rtl"
+            for pg in jj["pages"]:                      # every page in the part's json is in its zip, with original index
+                assert pg["file"] in z.namelist() and pg["width"] == 500 and pg["height"] == 1200
+                seen.append(pg["index"])
+    assert sorted(seen) == list(range(6)), seen            # nothing lost or duplicated
+    # one page too big for the limit -> recompressed in place (same name/size), not failed
+    ex2 = td / "e2"; mk_export(ex2, 2, size_px=(600, 1500), seed=9)
+    before = (ex2 / "page_001.jpg").stat().st_size
+    files, notes = build_typer_parts(ex2, td / "o3", int(before * 0.8 / 0.93))
+    assert any("ضغط" in n for n in notes) and Image.open(ex2 / "page_001.jpg").size == (600, 1500)
+    # PNG page that cannot fit -> clear advice instead of a silent failure
+    ex3 = td / "e3"; mk_export(ex3, 1, size_px=(600, 1500), ext="png", seed=3)
+    try:
+        build_typer_parts(ex3, td / "o4", 300_000); raise SystemExit("expected ValueError")
+    except ValueError as e: assert "JPG" in str(e), str(e)
 print("test_bot_runner OK")

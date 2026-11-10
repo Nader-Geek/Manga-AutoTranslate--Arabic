@@ -164,8 +164,17 @@ async def main():
     assert r["status"] == "done", r["error"]
     files = nt.last("done")[3]; assert len(files) >= 2 and all(f.stat().st_size <= 1_000_000 for f in files), files
     assert any("قُسّم" in n for n in nt.last("done")[4])
+    # typer: too big for one message -> several independent TypeR jobs instead of failing
     j = await mkjob("typer", pages=3); r = await run_one(j)
-    assert r["status"] == "failed" and "حد الرفع" in r["error"], r
+    assert r["status"] == "done", r["error"]
+    tf = nt.last("done")[3]
+    assert len(tf) >= 2 and all(f.stat().st_size <= 1_000_000 for f in tf) and all(f.suffix == ".zip" for f in tf), tf
+    assert sorted(i for f in tf for pg in json.loads(zipfile.ZipFile(f).read("typer_job.json"))["pages"] for i in [pg["index"]]) == [0, 1, 2]
+    assert any("مستقلة" in n for n in nt.last("done")[4])
+    # a PNG page that can't fit is refused with advice
+    os.environ["FAKE_MODE"] = "hugeimg"
+    j = await mkjob("typer", pages=2, img_format="png"); r = await run_one(j)
+    assert r["status"] == "failed" and "JPG" in r["error"], r["error"]
     nt.limit = 10 * 1024 * 1024
 
     # ------------------------------------------------------------- cleanup

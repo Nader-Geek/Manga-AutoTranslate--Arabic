@@ -248,14 +248,14 @@ class MangaBot(discord.Client):
         @tree.command(name="typer", description="تنظيف + إحداثيات الفقاعات لاستيرادها في TypeR Web")
         @app_commands.describe(file="صورة أو ZIP أو PDF", quality="جودة المسح",
                                ocr="لغة النص الأصلي", reading_order="ترتيب القراءة",
-                               layout="شكل الناتج")
+                               layout="شكل الناتج", format="صيغة صور التصدير")
         @app_commands.choices(quality=QUALITY_CHOICES, ocr=OCR_CHOICES, reading_order=ORDER_CHOICES,
-                              layout=LAYOUT_CHOICES)
+                              layout=LAYOUT_CHOICES, format=FORMAT_CHOICES)
         async def typer(interaction: discord.Interaction, file: discord.Attachment,
                         quality: str = "fast", ocr: str = "en", reading_order: str = "rtl",
-                        layout: str = "strips"):
+                        layout: str = "strips", format: str = "jpg"):
             await self.submit(interaction, "typer", file,
-                              {"lama": quality == "lama", "ocr": ocr,
+                              {"lama": quality == "lama", "ocr": ocr, "img_format": format,
                                "reading_order": reading_order, "layout": layout})
 
         @tree.command(name="translate", description="ترجمة المانجا إلى العربية (Ollama محلي) مع تنظيف وكتابة النص")

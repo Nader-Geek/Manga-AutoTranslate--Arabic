@@ -145,7 +145,10 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
             "--export-typer", str(typer_dir),
             "--workers", "1"]
 
-    extra_env: Dict[str, str] = {"MANGA_TARGET_LANG": "ar"}
+    # The typer export dir is written by every job kind (stats / previews / TypeR); keep it
+    # in the same compact format as the output instead of manga.py's default lossless PNG
+    # (a chapter of tall strips was 170MB).
+    extra_env: Dict[str, str] = {"MANGA_TARGET_LANG": "ar", "MANGA_TYPER_FORMAT": img_format}
 
     # "original" keeps the uploaded pages as separate files instead of manga.py's default
     # tall strips (--stitch-max-height 8000): smaller files, but bubbles that cross a page
@@ -177,7 +180,7 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
     if kind == "clean":
         deliver = [out_path]
     elif kind == "typer":
-        deliver = [Path(str(typer_dir) + ".zip")]
+        deliver = []   # built from the export folder by build_typer_parts (split to fit the limit)
     elif kind == "translate":
         deliver = [out_path]
     else:
@@ -420,3 +423,82 @@ def batch_by_size(files: List[Path], limit_bytes: int, max_count: int = 10) -> L
     if cur:
         batches.append(cur)
     return batches
+
+
+# ------------------------------------------------------------------- TypeR export parts
+def _recompress_in_place(path: Path, budget: int) -> bool:
+    """Lower the quality of a .jpg/.webp page (same name, same pixel size) until <= budget."""
+    from PIL import Image
+    if path.suffix.lower() not in (".jpg", ".jpeg", ".webp"):
+        return False
+    im = Image.open(path)
+    im.load()
+    im = im.convert("RGB")
+    fmt = "WEBP" if path.suffix.lower() == ".webp" else "JPEG"
+    for q in (85, 78, 70, 62, 55):
+        im.save(path, fmt, quality=q, optimize=(fmt == "JPEG"))
+        if path.stat().st_size <= budget:
+            return True
+    return False
+
+
+def build_typer_parts(typer_dir: Path, out_dir: Path, limit_bytes: int) -> Tuple[List[Path], List[str]]:
+    """Package the TypeR export so every zip fits the upload limit.
+
+    One zip (`typer.zip`) when it fits; otherwise `typer_part1.zip`, `typer_part2.zip`...: each
+    part is a complete, independent job (its own typer_job.json with the pages it contains and
+    their original `index`), so it can be imported into TypeR on its own. Pixel sizes and file
+    names never change, so coordinates stay valid. Raises ValueError when one page alone
+    cannot fit (advice in the message)."""
+    import json
+    job = json.loads((typer_dir / "typer_job.json").read_text(encoding="utf-8"))
+    pages = job.get("pages") or []
+    if not pages:
+        raise ValueError("typer_job.json has no pages")
+    budget = int(limit_bytes * 0.93)
+    notes: List[str] = []
+
+    for pg in pages:
+        f = typer_dir / pg["file"]
+        size = f.stat().st_size
+        if size <= budget - 4000:
+            continue
+        if _recompress_in_place(f, budget - 4000):
+            notes.append(f"{pg['file']}: {size / 1024 ** 2:.1f}MB → {f.stat().st_size / 1024 ** 2:.1f}MB (ضغط)")
+            continue
+        hint = ("اختر صيغة JPG" if f.suffix.lower() == ".png" else "جرّب layout: الصفحات الأصلية")
+        raise ValueError(f"الصفحة {pg['file']} ({size / 1024 ** 2:.1f}MB) أكبر من حد الرفع "
+                         f"({limit_bytes / 1024 ** 2:.0f}MB) حتى بعد الضغط. {hint}.")
+
+    groups: List[List[dict]] = []
+    cur: List[dict] = []
+    cur_size = 0
+    for pg in pages:
+        sz = (typer_dir / pg["file"]).stat().st_size + 600 + len(json.dumps(pg, ensure_ascii=False))
+        if cur and cur_size + sz > budget - 2000:
+            groups.append(cur)
+            cur, cur_size = [], 0
+        cur.append(pg)
+        cur_size += sz
+    if cur:
+        groups.append(cur)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    files: List[Path] = []
+    for gi, grp in enumerate(groups, 1):
+        name = "typer.zip" if len(groups) == 1 else f"typer_part{gi}.zip"
+        sub = dict(job)
+        sub["pages"] = grp
+        if len(groups) > 1:
+            sub["part"], sub["parts"] = gi, len(groups)
+        zp = out_dir / name
+        with zipfile.ZipFile(zp, "w", zipfile.ZIP_STORED) as z:
+            z.writestr("typer_job.json", json.dumps(sub, ensure_ascii=False, indent=1))
+            for pg in grp:
+                z.write(typer_dir / pg["file"], pg["file"])
+        files.append(zp)
+    if len(groups) > 1:
+        first, last = pages[0]["index"] + 1, pages[-1]["index"] + 1
+        notes.append(f"الصفحات {first}–{last} قُسّمت إلى {len(groups)} ملفات TypeR مستقلة "
+                     f"(استورد كل ملف على حدة).")
+    return files, notes

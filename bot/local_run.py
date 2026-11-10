@@ -26,7 +26,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 
 from . import stats as st
 from .config import Config, load_config
-from .runner import build_plan, inspect_upload
+from .runner import build_plan, build_typer_parts, inspect_upload
 
 
 class PipelineError(RuntimeError):
@@ -134,6 +134,10 @@ def run_job(kind: str, input_path: "str | os.PathLike[str]", options: Optional[D
         if base is None:
             raise PipelineError("no typer_job.json was produced", list(tail), log_path)
         files = st.build_extract_files(job_json, wd / "extract", src.name)
+    elif kind == "typer":
+        if base is None:
+            raise PipelineError("no typer_job.json was produced", list(tail), log_path)
+        files, _ = build_typer_parts(plan.typer_dir, wd / "typer_out", 10 ** 12)  # local: no size limit
     else:
         files = list(plan.deliver)
     missing = [f.name for f in files if not f.is_file()]

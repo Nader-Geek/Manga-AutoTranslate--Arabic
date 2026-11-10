@@ -8407,9 +8407,19 @@ class MangaTranslator:
             return
         try:
             os.makedirs(d, exist_ok=True)
-            name = f"page_{page_i + 1:03d}.png"
-            if not cv2.imwrite(os.path.join(d, name), cleaned):
-                raise RuntimeError("cv2.imwrite failed")
+            # PNG by default (lossless); MANGA_TYPER_FORMAT=jpg|webp makes the export far smaller
+            # (same pixel size, so the region coordinates in typer_job.json stay valid).
+            fmt = (os.environ.get("MANGA_TYPER_FORMAT") or "png").lower().lstrip(".")
+            fmt = "jpg" if fmt == "jpeg" else (fmt if fmt in ("png", "jpg", "webp") else "png")
+            params = {"jpg": [cv2.IMWRITE_JPEG_QUALITY, 92],
+                      "webp": [cv2.IMWRITE_WEBP_QUALITY, 92]}.get(fmt, [])
+            name = f"page_{page_i + 1:03d}.{fmt}"
+            if not cv2.imwrite(os.path.join(d, name), cleaned, params):
+                if fmt == "png":
+                    raise RuntimeError("cv2.imwrite failed")
+                name = f"page_{page_i + 1:03d}.png"   # e.g. height beyond the codec limit
+                if not cv2.imwrite(os.path.join(d, name), cleaned):
+                    raise RuntimeError("cv2.imwrite failed")
             h, w = cleaned.shape[:2]
             items = []
             for r in regions:
