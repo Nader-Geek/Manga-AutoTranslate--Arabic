@@ -757,6 +757,58 @@ class _MangaTranslatorBody_80:
         t = _strip_trailing_number(t, r"\s+\d{3,}\s*$")
         return t.strip()
 
+    def _style_ref_samples(self):
+        """لنگرِ سبک — تا ۱۰ جفتِ (مبدأ، ترجمه) از ترجمه‌هایِ همین فصل.
+        فقط برای درخواست‌هایِ بعدی (دورهایِ مجدد/پسگیری)؛ درخواستِ اول
+        که هنوز چیزی ترجمه نشده خالی است و پرامپت عینِ مرجع میماند."""
+        try:
+            store = getattr(self, "_chapter_style_samples", None) or []
+            out = []
+            for src, fa in store:
+                src = str(src or "").strip()
+                fa = str(fa or "").strip()
+                if not src or not fa or fa == src:
+                    continue
+                if fa.startswith("[") and fa.endswith("]"):
+                    continue  # [CENSORED] و امثالش
+                out.append((src, fa))
+                if len(out) >= 10:
+                    break
+            return out
+        except Exception:
+            return []
+
+    def _note_style_samples(self, regions) -> None:
+        """برداشتِ نمونه‌هایِ سبک از ترجمه‌هایِ تازهٔ همین فصل (سقفِ ۲۴).
+        بعد از هر دورِ ترجمه صدا میشود؛ ذخیره رویِ self میماند تا
+        پسگیریها/دورهایِ بعدی و ادامهٔ کار بعد از توقف هم لنگر داشته باشند."""
+        try:
+            store = getattr(self, "_chapter_style_samples", None)
+            if store is None:
+                store = self._chapter_style_samples = []
+            seen = set((s, f) for s, f in store)
+            for r in regions or []:
+                try:
+                    src = str(getattr(r, "source_text", "") or "").strip()
+                    fa = str(getattr(r, "translated_text", "") or "").strip()
+                except Exception:
+                    continue
+                if not src or not fa or fa == src:
+                    continue
+                if fa.startswith("[") and fa.endswith("]"):
+                    continue
+                if len(fa) < 4 or len(fa) > 200 or len(src) > 200:
+                    continue
+                key = (src, fa)
+                if key in seen:
+                    continue
+                seen.add(key)
+                store.append((src, fa))
+            if len(store) > 24:
+                del store[:len(store) - 24]
+        except Exception:
+            pass
+
     def translate_regions(self, regions: List[TextRegion]) -> None:
         _raise_if_stop()
         if not regions:
@@ -908,6 +960,10 @@ class _MangaTranslatorBody_80:
                         time.sleep(1.0)
 
             pending = [r for r in regions if not (r.translated_text or "").strip()]
+# لنگرِ سبک: ترجمه‌هایِ همین دور را بردار تا دورهایِ بعدی و
+# پسگیریها (با مدل/توکنِ دیگر) همان لحن را نگه دارند — «یوهو
+# کتابی میشه» دیگر نه؛ حتی وقتی همه در دورِ اول تمام شد
+            self._note_style_samples(regions)
             if not pending:
                 break
             if round_i < 3:
@@ -971,7 +1027,11 @@ class _MangaTranslatorBody_80:
                 _jp = bool(self._ocr_lang_flags()[2])
             except Exception:
                 _jp = False
-            return mt_user_prompt(rules, pages, _jp)
+# لنگرِ سبک: در درخواستهایِ بعدیِ همین فصل (تلاشِ مجدد/پسگیری/
+# resume با توکن یا مدلِ دیگر) ترجمه‌هایِ موجودِ فصل به‌عنوانِ مرجعِ
+# لحن می‌آیند تا خروجی «کتابی» نشود — درخواستِ اول خالی است (عینِ مرجع)
+            _sref = self._style_ref_samples()
+            return mt_user_prompt(rules, pages, _jp, style_ref=_sref)
 
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -1449,14 +1509,26 @@ class _MangaTranslatorBody_80:
             return 0
         print(f"    {len(missing)} حبابِ بدونِ ترجمه — نجاتِ تکآیتمی…")
         sys_inst = self._get_system_instruction()
+# لنگرِ سبکِ نجاتِ تکآیتمی: پرامپتِ کوتاهِ قبلی هیچ قانونِ سبکی
+# نداشت → جوابها کتابی برمیگشتند؛ حالا ۳ نمونهٔ ترجمهٔ خودِ فصل
+# + دستورِ تطبیقِ لحن میآیند
+        _sref = self._style_ref_samples()[:3]
+        _anchor = ""
+        if _sref:
+            _ex = "\n".join(
+                '  "' + str(_s)[:90] + '" -> "' + str(_f)[:90] + '"'
+                for _s, _f in _sref)
+            _anchor = ("\nStyle of this chapter (match its tone, register and "
+                       "phrasing exactly — do NOT sound formal or bookish):\n"
+                       + _ex + "\n")
         fixed = 0
         for r in missing:
             src = (r.source_text or "").strip()
             val = ""
 # گام A: متنیِ ساده، بدونِ JSON
             p1 = ("Translate this one manga dialogue into natural spoken Persian. "
-                  "Answer with ONLY the Persian translation — no notes, no quotes.\n\n"
-                  + src)
+                  "Answer with ONLY the Persian translation — no notes, no quotes."
+                  "\n" + _anchor + "\n" + src)
             for _t in range(2):
                 try:
                     with self._api_lock:

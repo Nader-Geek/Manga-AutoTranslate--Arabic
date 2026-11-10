@@ -10,7 +10,7 @@
 from __future__ import annotations
 import time as _time_t0  # سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.256"
+APP_VER = "1.14.257"
 
 # پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
@@ -52,17 +52,35 @@ def mt_system_instruction(japanese: bool = False, with_schema: bool = False) -> 
                 "this JSON schema:\r\n" + MT_RESPONSE_SCHEMA_TEXT)
     return out
 
-def mt_user_prompt(rules: str, pages, japanese: bool = False) -> str:
+def mt_user_prompt(rules: str, pages, japanese: bool = False,
+                   style_ref=None) -> str:
     """user prompt دقیقِ مرجع (سازندهٔ درخواستِ متنیِ OpenAI در مرجع/سازندهٔ درخواستِ متنیِ بومیِ Gemini در مرجع).
     pages = [{"filename": str, "dialogues": [str, …]}, …] — خروجیِ JSON با
-    تورفتگیِ ۲ (عینِ Formatting.1) و بدونِ escapeِ یونیکد."""
+    تورفتگیِ ۲ (عینِ Formatting.1) و بدونِ escapeِ یونیکد.
+    style_ref = [(src, fa), …] — فقط در درخواست‌هایِ بعدی (تلاشِ مجدد/
+    پسگیری/resume): لنگرِ سبک تا با عوض‌شدنِ توکن یا مدل، لحنِ فصل
+    ثابت بماند (درخواستِ اولِ فصل خالی است = عینِ مرجع)."""
     import json as _json
     pages_json = _json.dumps(list(pages), ensure_ascii=False, indent=2)
+    _style = ""
+    if style_ref:
+        _lines = []
+        for _s, _f in style_ref[:10]:
+            _s2 = str(_s).replace('\r', ' ').replace('\n', ' ')[:120]
+            _f2 = str(_f).replace('\r', ' ').replace('\n', ' ')[:120]
+            _lines.append('- "' + _s2 + '" -> "' + _f2 + '"')
+        _style = ("\r\n\r\nSTYLE REFERENCE — earlier dialogue from this "
+                  "same chapter was already translated (possibly by another "
+                  "model or token). Your new translations MUST match its tone, "
+                  "register and phrasing style exactly — same character "
+                  "voices, same level of formality, same naming choices:\r\n"
+                  + "\r\n".join(_lines) + "\r\n")
     return ("TASK: Translate the sequential dialogue blocks for the following "
             "manga pages into natural, high-quality Persian according to the "
             "rules below.\r\n"
             + (MT_JP_USER_DIRECTIVE if japanese else "")
             + "\r\nTRANSLATION RULES:\r\n" + (rules or "")
+            + _style
             + "\r\n\r\nINPUT PAGES AND DIALOGUES (JSON):\r\n"
             + pages_json + "\r\n")
 
