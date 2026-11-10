@@ -4747,7 +4747,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         gr.update(value=f"❌ پشتیبان ناموفق: {e}", visible=True))
 
         def _do_import(file_info, models_cur, prov_cur, bank_cur):
-            import datetime as _dt
             n = len(_BACKUP_FIELDS)
             ups = [gr.update()] * n
             bank_up = gr.update()
@@ -4926,11 +4925,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                        show_progress="hidden", **_click_kw)
             except TypeError:
                 try:
-                    _ev = run_btn.click(run_translation,
-                                           show_progress=False,
-                                           **_click_kw)
+                    run_btn.click(run_translation,
+                                  show_progress=False,
+                                  **_click_kw)
                 except TypeError:
-                    _ev = run_btn.click(run_translation, **_click_kw)
+                    run_btn.click(run_translation, **_click_kw)
 # کلیدِ یک‌بارمصرفِ «تستِ سرعت»  با خودِ
 # دکمه حذف شد؛ کارهایِ بعدی همیشه ترجمهٔ عادیاند.
         except Exception:
@@ -5002,7 +5001,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             
             client_log = (data.get("_jobLog") or "").strip()
             client_running = bool(data.get("_jobRunning"))
-            client_btn = (data.get("_jobBtn") or "").strip()
 
             with job["lock"]:
                 mem_log = job.get("log") or ""
@@ -5284,8 +5282,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 dl_dbg = job.get("download_debug")
                 has_dbg = bool(dl_dbg or job.get("reader_debug_path") or meta.get("has_debug"))
                 want_dbg = bool(job.get("want_debug") or meta.get("want_debug") or has_dbg)
-                
-                show_dbg = bool(want_dbg and (vis or running))
 # وقتی هیچ کاری در جریان نیست و لاگ همان جای‌نگهدارِ اولیه است
 # هیچ‌کدام از ۱۴ خروجی را هر ثانیه بازنویسی نکن (هم روان‌تر است
 # هم جلوی پر شدن صفحه با حالت‌های قدیمی را می‌گیرد).
@@ -5294,9 +5290,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             if not running and not vis and (not log or log.strip() == default_log):
                 return empty
             btn = "⏹  متوقف ترجمه" if running else "🚀  شروع ترجمه"
-            html_dbg = ""
-            with job["lock"]:
-                html_dbg = job.get("html_debug") or ""
             show_card = bool(vis or (running and live_cnt > 0))
             _dbg_sz = ""
             try:
@@ -5789,51 +5782,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 """
         )
 
-    dark_js = r"""
-() => {
-  document.body.classList.add('dark');
-  document.documentElement.classList.add('dark');
-  // ---- Wake Lock (ماندن روشن بودن صفحه هنگام استخراج/پاکسازی/ترجمه) ----
-  try {
-    if (window.__mangaWakeLockInstalled) return;
-    window.__mangaWakeLockInstalled = true;
-    window.__mangaWL = null;
-    const isRunning = () => {
-      try {
-        const btn = (document.getElementById('runbtn') || {}).querySelector
-          ? document.getElementById('runbtn').querySelector('button') : null;
-        const t = (btn || document.getElementById('runbtn') || {}).textContent || '';
-        return (t.indexOf('متوقف') >= 0 || t.indexOf('⏹') >= 0);
-      } catch (e) { return false; }
-    };
-    const req = async () => {
-      try {
-        if (!window.__mangaWL && navigator.wakeLock && navigator.wakeLock.request) {
-          window.__mangaWL = await navigator.wakeLock.request('screen');
-        }
-      } catch (e) {}
-    };
-    const rel = () => {
-      try { if (window.__mangaWL) { window.__mangaWL.release(); } } catch (e) {}
-      window.__mangaWL = null;
-    };
-    setInterval(() => { if (isRunning()) req(); else rel(); }, 4000);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && isRunning()) req();
-    });
-  } catch (e) {}
-  const tryBind = () => {
-    try {
-      const root = document.getElementById('manga_rdr') || document.querySelector('.rdr');
-      if (!root || root._bound) return;
-    } catch (e) {}
-  };
-  try {
-    new MutationObserver(tryBind).observe(document.documentElement, { childList: true, subtree: true });
-  } catch (e) {}
-}
-"""
-# ثبت dark_js حالا داخل بلاک Blocks انجام می‌شود (نسخهٔ بیرون context کار نمی‌کرد)
+
     on_colab = ("google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG")))
     on_codespace = _detect_codespace()
     codespace_name = (os.environ.get("CODESPACE_NAME")

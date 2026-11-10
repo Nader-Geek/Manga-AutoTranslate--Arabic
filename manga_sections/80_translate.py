@@ -931,9 +931,9 @@ class _MangaTranslatorBody_80:
         if any(not (r.translated_text or "").strip() for r in regions):
             try:
                 if self._force_translate_missing(regions):
-                    print("    [✓] 192: نجاتِ نهایی در translate_regions انجام شد.")
+                    print("    [✓] نجاتِ نهایی در translate_regions انجام شد.")
             except Exception as _e:
-                print(f"    [!] نجاتِ نهاییِ 192: {str(_e)[:80]}")
+                print(f"    [!] نجاتِ نهایی: {str(_e)[:80]}")
         still = sum(1 for r in regions if not (r.translated_text or "").strip())
         if still:
             print(f"    [!] در نهایت {still} دیالوگ بدون ترجمه ماند.")
@@ -1447,7 +1447,7 @@ class _MangaTranslatorBody_80:
                    and str(getattr(r, "source_text", "") or "").strip()]
         if not missing:
             return 0
-        print(f"    [189] {len(missing)} حبابِ بدونِ ترجمه — نجاتِ تکآیتمی…")
+        print(f"    {len(missing)} حبابِ بدونِ ترجمه — نجاتِ تکآیتمی…")
         sys_inst = self._get_system_instruction()
         fixed = 0
         for r in missing:

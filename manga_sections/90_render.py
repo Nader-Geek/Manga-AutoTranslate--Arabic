@@ -580,7 +580,7 @@ class _MangaTranslatorBody_90:
 # فیلترهایِ امتیاز/188/225). تفسیر:
 # • خطی که جعبهٔ آبی دارد ولی قرمز/متن ندارد → det دید، rec/فیلتر حذف کرد
 # • خطی که اصلاً آبی ندارد → det آن را ندید (مقصرِ det)
-# (جمعآوری: 70_extract._dbg_collect_det_quads_252 — فقط با --debug)
+# (جمعآوری: 70_extract._dbg_collect_det_quads — فقط با --debug)
       try:
         _dq = getattr(self, "_dbg_det_quads", None) or []
         for _q in _dq:

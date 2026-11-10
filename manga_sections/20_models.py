@@ -1832,7 +1832,7 @@ class LamaMangaONNX:
 
         _bucket = int(getattr(self, "_static_bucket", 0) or 0)
         if _bucket and not self._fixed_size:
-# همهٔ ورودی‌ها دقیقاً _bucket66×_bucket66 → شکلِ
+# همهٔ ورودی‌ها دقیقاً به اندازهٔ bucket×bucket تثبیت میشوند → شکلِ
 # ثابت برایِ xnnpack (یک کامپایل، بدونِ ORT_FAILِ شکلِ تازه).
 # ماسک در ناحیهٔ پد صفر است و خروجی فقط داخلِ ناحیهٔ اصلی
 # برش می‌خورد — ریاضیِ خروجی مثلِ مسیرِ fixed-size است.

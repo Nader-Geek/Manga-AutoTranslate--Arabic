@@ -14131,7 +14131,7 @@ class _MangaTranslatorBody_85:
                                     (_hz > 0)
                                     & (_hsv_an[..., 1] >= 24)
                                     & (_hsv_an[..., 2] >= 60)))
-                                print(f"    [212] rect=({_rx},{_ry},"
+                                print(f"    rect=({_rx},{_ry},"
                                       f"{_rw2}x{_rh2}) "
                                       f"colpx={_ovw} "
                                       f"gap={int((_gap > 0).sum())} "

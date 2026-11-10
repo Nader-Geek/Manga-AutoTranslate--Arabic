@@ -3488,9 +3488,9 @@ class _MangaTranslatorBody_70:
 
         برایِ هر کراپِ detector (حباب)، یک پاسِ فقط-det (بدونِ rec، موتورِ
         جدایِ 30_ocr.det_only) زده میشود؛ جعبهها به مختصاتِ صفحه میروند
-        و در self._dbg_det_quads_252 برایِ رسمِ آبی (90_render) می‌نشینند.
+        و در self._dbg_det_quads برایِ رسمِ آبی (90_render) می‌نشینند.
 
-        تفسیر (لاگِ [252] + تصویر):
+        تفسیر (لاگ + تصویر):
           • جعبهٔ آبی هست ولی ناحیه/متن ندارد → det دید، rec/فیلتر حذف کرد
           • جعبهٔ آبی هم ندارد → det اصلاً آن خط را ندید
         فقط با self.debug — هیچ اثری روی استخراجِ اصلی ندارد (کراپ/نردبان
@@ -4239,14 +4239,14 @@ class _MangaTranslatorBody_70:
                               and not getattr(r, "ocr_empty", False)]
                 if not _g_missing:
                     break
-                print(f"[193] دورِ {_g_round}/۳: {_g_missing.__len__()} حباب هنوز ترجمه نشده — "
+                print(f"دورِ {_g_round}/۳: {_g_missing.__len__()} حباب هنوز ترجمه نشده — "
                       "تا ترجمهٔ کامل صبر میشود، انگلیسی نشان داده نمیشود…")
                 try:
                     self.translate_regions(_g_missing)
                 except (GeminiQuotaExhausted, JobCancelled):
                     raise
                 except Exception as _g_err:
-                    print(f"    [193] دورِ {_g_round} خطا: {str(_g_err)[:80]}")
+                    print(f"    دورِ {_g_round} خطا: {str(_g_err)[:80]}")
                     time.sleep(0.6)
 
         translated_regions = [r for r in dialogue_regions if r.translated_text]
@@ -4262,7 +4262,7 @@ class _MangaTranslatorBody_70:
 # فقط در رندرِ «نهایی» (final=True): پیش‌نمایشِ زنده
 # دیگر متنِ مبدأ (انگلیسی) را رویِ حبابهایِ درانتظار نمینشاند —
 # آنها خالیِ روشن میمانند (= لودینگ) تا ترجمهٔ واقعی کمکم بنشیند.
-# قبل از این رندر، سدِ [193] بالا تا ۳ دورِ دیگر از مدل پرسیده است.
+# قبل از این رندر، سدِ بالا تا ۳ دورِ دیگر از مدل پرسیده است.
         _fb: List[TextRegion] = []
         if final and precleaned is not None:
             for _r2 in dialogue_regions:
@@ -4275,12 +4275,12 @@ class _MangaTranslatorBody_70:
                 _c.translated_text = _r2.source_text
                 _fb.append(_c)
             if _fb:
-                print(f"  [192] {len(_fb)} حباب بدونِ ترجمه ولی پاکشده → "
+                print(f"  {len(_fb)} حباب بدونِ ترجمه ولی پاکشده → "
                       "متنِ مبدأ رندر شد (ضدِ حبابِ خالی)")
                 if self.debug:
                     for _c in _fb:
                         try:
-                            print(f"    [192] حباب[{_c.id}] rect="
+                            print(f"    حباب[{_c.id}] rect="
                                   f"{tuple(int(v) for v in _c.rect)} → "
                                   f"متنِ مبدأ: {(_c.translated_text or '')[:60]}")
                         except Exception:
@@ -4344,9 +4344,9 @@ class _MangaTranslatorBody_70:
         if self.debug and regions:
             page_debug = self._draw_debug_regions(image, regions)
 
-# «or _fb192»: وقتی «هیچ» حیابی ترجمه نشده (مدلِ کامل
+# فال‌بکِ رندر: وقتی «هیچ» حیابی ترجمه نشده (مدلِ کامل
 # خالی)، _clean_regions خالی است و رندر کلاً رد میشد → صفحهٔ
-# تمامسفیدِ حباب تحویل میگرفتی. با فال‌بکِ 192 باید رندر انجام
+# تمامسفیدِ حباب تحویل میگرفتی. با فال‌بک باید رندر انجام
 # شود تا لااقل متنِ مبدأ رویِ کپیها بنشیند (ضدِ حبابِ خالی).
         if _clean_regions or _fb:
             if precleaned is not None:
@@ -4389,7 +4389,7 @@ class _MangaTranslatorBody_70:
                 except Exception as _lg_err:
                     if self.debug:
                         try:
-                            print(f"    [194] نشانِ لودینگ: {str(_lg_err)[:80]}")
+                            print(f"    نشانِ لودینگ: {str(_lg_err)[:80]}")
                         except Exception:
                             pass
         return final_image, page_debug
