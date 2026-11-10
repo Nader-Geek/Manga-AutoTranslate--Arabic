@@ -1275,16 +1275,16 @@ class RapidOCRBackend:
 # است، مدلِ rec «هرگز» ساخته/لود نمیشود (~۱۰MB). EP = همیشه CPU
 # (پرچمهایِ GPU حذف میشوند) تا قفلِ DML/سرعتِ کارگرها دست نخورد.
     def _det_dbg_engine(self):
-        _e = getattr(self, "_det_dbg_eng252", None)
+        _e = getattr(self, "_det_dbg_eng", None)
         if _e is not None:
             return _e
-        if getattr(self, "_det_dbg_tried252", False):
+        if getattr(self, "_det_dbg_tried", False):
             return None
         self._det_dbg_tried = True
         try:
             from rapidocr import RapidOCR as NewRapidOCR
             _p = {}
-            for _k, _v in (getattr(self, "_eng_params233", None) or {}).items():
+            for _k, _v in (getattr(self, "_eng_params", None) or {}).items():
                 if not str(_k).startswith(("Global.", "Det.", "EngineConfig.")):
                     continue
 # بدونِ EPهایِ GPU (use_cuda/use_dml/use_coreml/cuda_ep_cfg)
@@ -1301,7 +1301,7 @@ class RapidOCRBackend:
     def det_only(self, image_bgr: np.ndarray) -> List[np.ndarray]:
         """ — پاسِ فقط-det (بدونِ rec) برایِ دیباگِ آبیِ صفحه:
         جعبههایِ خامِ تشخیصِ متن — همان چیزی که det «دیده» است، قبل ازِ
-        اینکه rec بخواند یا فیلترِ امتیازِ موتور/188/225 حذف کند.
+        اینکه rec بخواند یا فیلترِ امتیازِ موتور/مالکیتِ خط حذف کند.
         خروجی = فهرستِ کواردهای ۴نقطهای به مختصاتِ «همان تصویرِ ورودی».
         [] = det چیزی پیدا نکرد (یا موتورِ قدیمی/گوشی — پشتیبانی فقط
         rapidocrِ جدیدِ PC). فراخوانی فقط از دیباگ — هیچ اثری روی
@@ -1336,6 +1336,37 @@ class RapidOCRBackend:
             return []
         return quads
 
+# موتورِ recِ جدا برایِ نجاتِ خط (پاسِ فقط-rec). چرا موتورِ جدا؟
+# RapidOCR پرچمهایِ use_det/use_rec را روی «خودِ شیء» میچرخاند و
+# مقدارِ None را نگه میدارد (چسبنده) — فراخوانیِ use_det=False رویِ
+# موتورِ اصلی یعنی همهٔ OCRهایِ بعدیِ کارگرهایِ موازی «بدونِ det»
+# اجرا میشوند: متن بدونِ جعبه → پالیِ ۱×۱ِ جعلی → ناحیهٔ خراب و
+# متنِ گمشده (ریشهٔ «نصفِ متنها پیدا نشد»). موتورِ اختصاصیِ تنبل:
+# فقط کلیدهای Global/Rec/EngineConfig (مدلِ rec همان فایل؛ مدلِ
+# det چون use_det=False است هرگز لود نمیشود) + EPهایِ GPU حذف.
+    def _rec_rescue_engine(self):
+        _e = getattr(self, "_rec_rescue_eng", None)
+        if _e is not None:
+            return _e
+        if getattr(self, "_rec_rescue_tried", False):
+            return None
+        self._rec_rescue_tried = True
+        try:
+            from rapidocr import RapidOCR as NewRapidOCR
+            _p = {}
+            for _k, _v in (getattr(self, "_eng_params", None) or {}).items():
+                if not str(_k).startswith(("Global.", "Rec.", "EngineConfig.")):
+                    continue
+                if "use_cuda" in _k or "use_dml" in _k or "use_coreml" in _k \
+                        or "cuda_ep_cfg" in _k:
+                    continue
+                _p[_k] = _v
+            self._rec_rescue_eng = NewRapidOCR(params=_p)
+        except Exception as _e2:
+            print(f"[!] موتورِ recِ نجات ساخته نشد ({str(_e2)[:90]})")
+            self._rec_rescue_eng = None
+        return self._rec_rescue_eng
+
     def rec_only(self, image_bgr: np.ndarray):
         """ — پاسِ فقط-rec رویِ «همان برشِ خط» — rec فقط همان چیزی را
         میخواند که det پیدا کرده (برشِ دقیقِ کوارِ det + پدِ کوچک)،
@@ -1348,9 +1379,12 @@ class RapidOCRBackend:
             return None
         if getattr(self, "_mobile", None) is not None:
             return None
+        eng = self._rec_rescue_engine()
+        if eng is None:
+            return None
         try:
-            out = self.engine(image_bgr, use_det=False, use_cls=False,
-                              use_rec=True)
+            out = eng(image_bgr, use_det=False, use_cls=False,
+                      use_rec=True)
         except Exception:
             return None
         try:
@@ -1367,9 +1401,13 @@ class RapidOCRBackend:
         except Exception:
             return None
 
-    def _engine_run233_nolock(self, image_bgr):
+    def _engine_run_nolock(self, image_bgr):
         try:
-            return self.engine(image_bgr, use_cls=False)
+# پرچمها همیشه صریح: RapidOCR مقدارِ None را «نگه میدارد»
+# (چسبنده) — وابستن به وضعیتِ قبلیِ شیء یعنی هر فراخوانیِ
+# جانبیِ det-only/rec-only میتواند OCRهایِ بعدی را خراب کند.
+            return self.engine(image_bgr, use_det=True, use_cls=False,
+                               use_rec=True)
         except TypeError:
             return self.engine(image_bgr)
 
@@ -1378,10 +1416,10 @@ class RapidOCRBackend:
         سشنهایِ داخلیِ rapidocr (det/rec) از چند کارگرِ موازی صدا زده
         میشوند و DML اجرایِ موازی ندارد (887A0006 رویِ RX 5700 XT —
         لاگِ 232). CPU/CUDA/اندروید بدونِ قفل."""
-        if getattr(self, "_dml_locked233", False):
+        if getattr(self, "_dml_locked", False):
             with _DML_RUN_LOCK:
-                return self._engine_run233_nolock(image_bgr)
-        return self._engine_run233_nolock(image_bgr)
+                return self._engine_run_nolock(image_bgr)
+        return self._engine_run_nolock(image_bgr)
 
     def _dml_recover(self, err) -> bool:
         """ — خطایِ GPU (DirectML) در وسطِ OCR: موتور یک‌بار رویِ
@@ -1389,7 +1427,7 @@ class RapidOCRBackend:
         قدیمی» که در لاگِ 232 نیمی از متنها را از دست داد). فقط
         خطاهایِ GPU؛ خطاهایِ عادیِ OCR دست‌نخورده میمانند. True = بازسازی
         شد (یا نخِ دیگری کرد) → فراخواننده دوباره امتحان کند."""
-        if not getattr(self, "_dml_locked233", False):
+        if not getattr(self, "_dml_locked", False):
             return False
         _m = str(err).lower()
         if not any(_s in _m for _s in (
@@ -1397,13 +1435,13 @@ class RapidOCRBackend:
                 "device hung", "device removed", "dml", "directml")):
             return False
         with _RAPIDOCR_RECOVER_LOCK:
-            if not getattr(self, "_dml_locked233", False):
+            if not getattr(self, "_dml_locked", False):
 # نخِ دیگری همین الان موتور را CPU کرد → همین موتورِ سالم
                 return True
             try:
 # مثلِ __init__: importِ محلی (rapidocr ممکن است نصب نباشد)
                 from rapidocr import RapidOCR as NewRapidOCR
-                _p = dict(getattr(self, "_eng_params233", None) or {})
+                _p = dict(getattr(self, "_eng_params", None) or {})
                 if not _p:
                     return False
                 for _k in list(_p.keys()):
@@ -1466,7 +1504,7 @@ class RapidOCRBackend:
             return [_lines] if _lines else None
         if self._new_api:
 # حداکثر ۲ تلاش: تلاشِ دوم فقط بعد از بازسازیِ
-# موتور رویِ CPU در خطایِ GPU (_dml_recover233) — کیفیتِ
+# موتور رویِ CPU در خطایِ GPU (_dml_recover) — کیفیتِ
 # نتایج حتی موقعِ خرابیِ GPU حفظ میشود (لاگِ 232: سقوط به
 # «موتورِ قدیمی» ۸ ناحیه از ۱۱ را بی‌متن گذاشت).
             for _att in range(2):

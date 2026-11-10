@@ -625,10 +625,10 @@ def _prepare_ort_cuda_dlls() -> None:
                         os.add_dll_directory(_nd)
                     except Exception:
                         pass
-                for _nd230b in sorted(_glob.glob(
+                for _ndb in sorted(_glob.glob(
                         os.path.join(_sp, "nvidia", "cuda_runtime", "bin"))):
                     try:
-                        os.add_dll_directory(_nd230b)
+                        os.add_dll_directory(_ndb)
                     except Exception:
                         pass
     except Exception:
@@ -1287,9 +1287,9 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
 # مسموم کند (لاگِ 232: شکستِ دیتکتورِ int8 باعث شد LaMa هم
 # بی‌دلیل CPU شود) — هر مدلی پشتیبانیِ اپراتورهایِ خودش را
 # دارد. بازسازیِ CPU و خروجِ مستقیم.
-            _so233c = _ort_session_options(threads, prefer_gpu=False)
+            _soc = _ort_session_options(threads, prefer_gpu=False)
             return ort.InferenceSession(
-                model_path, sess_options=_so233c,
+                model_path, sess_options=_soc,
                 providers=["CPUExecutionProvider"])
         _ORT_CUDA_OK = False
         sess = ort.InferenceSession(
@@ -1307,9 +1307,9 @@ def _make_ort_session(model_path: str, prefer_gpu: bool = True, threads: int = 4
             if not _dml_probe_model(model_path):
                 print("[!] اینفرنسِ آزمایشیِ DirectML رویِ این مدل ناموفق "
                       "→ همین مدل رویِ CPU")
-                _so233c = _ort_session_options(threads, prefer_gpu=False)
+                _soc = _ort_session_options(threads, prefer_gpu=False)
                 return ort.InferenceSession(
-                    model_path, sess_options=_so233c,
+                    model_path, sess_options=_soc,
                     providers=["CPUExecutionProvider"])
         except Exception:
             pass
@@ -2858,7 +2858,7 @@ def _clamp_lines_to_det(res, box, block_rects=None, tol: float = 6.0):
         if not polys or not box or len(box) < 4:
             return res
         if not (len(polys) == len(texts) == len(angs) == len(blks)):
-            return res  # ساختارِ غیرمنتظره — دستنخورده (فیلترِ ۱۸۸ پوشش میدهد)
+            return res  # ساختارِ غیرمنتظره — دستنخورده (فیلترِ مالکیتِ خط پوشش میدهد)
         bx1, by1, bx2, by2 = [float(v) for v in box[:4]]
         own_area = max(1.0, (bx2 - bx1) * (by2 - by1))
         _others = []
@@ -2926,7 +2926,7 @@ def _latin_junk_line(text, region_has_letters: Optional[bool] = None):
       • بدونِ هیچ حرفِ لاتین و کوتاه (≤۴ نویسه): «23»، «豊»، «H/»
       • همهٔ توکنها ≤۲ حرف و هیچ واکه‌ای ندارند: «FL»، «SS»، «Px»
     خطهایِ واقعی («GO!»، «Wha!?»، «OK») میمانند؛ فقط برایِ صفحاتِ
-    لاتین صدا زده میشود (_latin_lang188).
+    لاتین صدا زده میشود (_latin_lang).
 
      — عدد/نماد دیگر «حذفِ خط» نیست (و «1233 نباید حذف شه»): سیاستِ عدد/نماد در «سطحِ ناحیه»
     تعیین میشود (source_has_letters + no_touch)، نه در سطحِ خط.

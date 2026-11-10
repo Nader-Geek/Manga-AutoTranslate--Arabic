@@ -330,15 +330,15 @@ class _MangaTranslatorBody_90:
                             pil_img, draw, image, original_image, region)
                         _done = True
                         print(f"  [+] ناحیه {region.id} با رندرِ فال‌بک رندر شد.")
-                    except Exception as _e149b:
-                        print(f"  [!] فال‌بکِ ناحیه {region.id} هم مرد ({_e149b})")
+                    except Exception as _eb:
+                        print(f"  [!] فال‌بکِ ناحیه {region.id} هم مرد ({_eb})")
                 if not _done:
                     try:
                         self._restore_region_pixels(
                             pil_img, image, original_image, region)
                         print(f"  [+] ناحیه {region.id} به پیکسلهایِ اصلی برگشت (حبابِ سیاه ساخته نشد).")
-                    except Exception as _e149c:
-                        print(f"  [!] بازگردانیِ ناحیه {region.id} ناموفق ({_e149c})")
+                    except Exception as _ec:
+                        print(f"  [!] بازگردانیِ ناحیه {region.id} ناموفق ({_ec})")
                 continue
 
         return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
@@ -456,9 +456,12 @@ class _MangaTranslatorBody_90:
             try:
                 _rx, _ry, _rw, _rh = [
                     int(v) for v in _r.rect]
+# کشِ محلیِ همین فراخوانی — نوشتن رویِ کشِ مشترکِ self
+# در فازِ رندر (که خودش میتواند همزمان با استخراجِ نوارِ
+# بعدی باشد) ممنوع.
                 _oc = self._ocr_crop(
                     image, (_rx, _ry,
-                            _rx + _rw, _ry + _rh))
+                            _rx + _rw, _ry + _rh), page_cache={})
                 _t2 = (_oc[0] or "").strip()
                 _p2 = list(_oc[1] or []) if len(_oc) > 1 else []
             except Exception:
@@ -512,14 +515,16 @@ class _MangaTranslatorBody_90:
                     pass
             elif _t2 and self.debug:
                 try:
-                    print(f"    [🔍201] نجاتِ ناحیه {_r.id} رد شد "
+                    print(f"    [🔍نجات] نجاتِ ناحیه {_r.id} رد شد "
                           f"(نویز، نه متن): {_t2[:32]!r}")
                 except Exception:
                     pass
         if _resc:
             print(f"    [+] {_resc} ناحیه با نجاتِ OCR متن گرفت → ترجمه میشوند")
 
-    def _draw_debug_regions(self, image: np.ndarray, regions: List[TextRegion]) -> np.ndarray:
+    def _draw_debug_regions(self, image: np.ndarray,
+                            regions: List[TextRegion],
+                            det_quads: Optional[list] = None) -> np.ndarray:
       vis = image.copy()
 
       colors = {
@@ -577,12 +582,12 @@ class _MangaTranslatorBody_90:
       #. آبی = چیزی که detِ
 # باکسهایِ خامِ detِ OCR (آبی) —
 # متن رویِ کراپِ حباب «دیده» است (پاسِ فقط-det؛ قبل ازِ rec و قبل ازِ
-# فیلترهایِ امتیاز/188/225). تفسیر:
+# فیلترهایِ امتیاز/مالکیتِ خط). تفسیر:
 # • خطی که جعبهٔ آبی دارد ولی قرمز/متن ندارد → det دید، rec/فیلتر حذف کرد
 # • خطی که اصلاً آبی ندارد → det آن را ندید (مقصرِ det)
 # (جمعآوری: 70_extract._dbg_collect_det_quads — فقط با --debug)
       try:
-        _dq = getattr(self, "_dbg_det_quads", None) or []
+        _dq = list(det_quads) if det_quads is not None else []
         for _q in _dq:
           _pts = np.asarray(_q, dtype=np.int32).reshape(-1, 1, 2)
           cv2.polylines(vis, [_pts], True, (255, 0, 0), 2, cv2.LINE_AA)
@@ -632,7 +637,7 @@ class _MangaTranslatorBody_90:
           _ovl["det"].append([int(_dbox[0]), int(_dbox[1]),
                               int(_dbox[2]), int(_dbox[3]),
                               str(_dcls or "")])
-        for _q in (getattr(self, "_dbg_det_quads", None) or []):
+        for _q in (list(det_quads) if det_quads is not None else []):
           _qq = np.asarray(_q, dtype=np.float32).reshape(-1, 2)
           _ovl["pdet"].append([[round(float(_x), 1), round(float(_y), 1)]
                                for _x, _y in _qq])

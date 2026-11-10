@@ -639,6 +639,12 @@ class _MangaTranslatorBody_95:
                                     _dbg.base = image
                                 except Exception:
                                     _dbg = None
+# زمینهٔ صفحه از کش بازسازی میشود: باکسهایِ حباب از خودِ
+# ناحیهها + کوارهایِ آبی از ovlِ ذخیرهشده (بدونِ پاسِ تازهٔ det)
+                            _ctx_put(page_i, {
+                                "boxes": _ctx_boxes_from_regions(regions),
+                                "quads": _ctx_quads_from_ovl(_ovl),
+                            })
                             print(f"[*] {os.path.basename(f)} — از کشِ "
                                   f"استخراج (ادامه)")
                             return page_i, out_file, image, regions, _dbg
@@ -653,7 +659,8 @@ class _MangaTranslatorBody_95:
                     print(f"[!] رد شد (صفحه خالی): {basename}")
                     return page_i, out_file, None, None, None
                 print(f"[*] {basename}")
-                regions, dbg = self.extract_regions_phase(image)
+                regions, dbg, page_ctx = self.extract_regions_phase(image)
+                _ctx_put(page_i, page_ctx)
 # نوشتنِ کشِ استخراج: بعد از هر صفحهٔ کامل‌استخراجشده تا توقفِ
 # بعدی از همین‌جا ادامه بیفتد (خواستهٔ سازنده)
                 try:
@@ -692,9 +699,12 @@ class _MangaTranslatorBody_95:
             if not regions:
                 return page_i, out_file, image, dbg
             _t_fin = time.time()  # زمان‌گیریِ پاکسازی+رندر
+            _pctx1 = _ctx_get(page_i)
             try:
                 result, page_debug = self.finish_page_phase(
-                    image, regions, final=True)  # مسیرِ نهایی
+                    image, regions, final=True,
+                    det_quads=_pctx1.get("quads"),
+                    page_boxes=_pctx1.get("boxes"))  # مسیرِ نهایی
                 try:
                     print(f"[TIME] page#{page_i + 1} "
                           f"clean+render={time.time() - _t_fin:.1f}s",
@@ -716,6 +726,56 @@ class _MangaTranslatorBody_95:
         min_batch = max(min_batch, max(1, int(getattr(self, "bubbles_per_request", 15) or 15)))
 
         extracted_map: Dict[int, tuple] = {}
+# زمینهٔ هر صفحه (باکسهایِ خامِ detector + کوارهایِ دیباگ) —
+# جدا از extracted_map تا بدونِ تغییرِ قالبِ آن، در پاکسازی/رندر
+# به همان صفحهٔ درست برسد (نوشتن/خواندن با قفل؛ کوچک و سبک)
+        self._page_ctx_store: Dict[int, dict] = {}
+        _page_ctx_lock = threading.Lock()
+
+        def _ctx_get(p: int) -> dict:
+            try:
+                with _page_ctx_lock:
+                    return self._page_ctx_store.get(p) or {}
+            except Exception:
+                return {}
+
+        def _ctx_put(p: int, ctx: dict) -> None:
+            try:
+                with _page_ctx_lock:
+                    self._page_ctx_store[p] = ctx or {}
+            except Exception:
+                pass
+
+        def _ctx_quads_from_ovl(ovl) -> list:
+            """بازسازیِ کوارهایِ دیباگ از ovlِ کش (ادامهٔ از کش — بدونِ
+            پاسِ تازهٔ det، جعبههایِ آبی از همان کش برمیگردند)."""
+            out = []
+            try:
+                for _q in ((ovl or {}).get("pdet") or []):
+                    try:
+                        out.append(np.asarray(_q, dtype=np.float32)
+                                   .reshape(-1, 2))
+                    except Exception:
+                        continue
+            except Exception:
+                return []
+            return out
+
+        def _ctx_boxes_from_regions(regs) -> list:
+            """بازسازیِ باکسهایِ حباب از خودِ ناحیهها (مسیرِ ادامه/فالبک)."""
+            out = []
+            for _r0 in (regs or []):
+                try:
+                    if str(getattr(_r0, "det_class", "") or "") \
+                            in ("bubble", "text_bubble"):
+                        _x0, _y0 = int(_r0.rect[0]), int(_r0.rect[1])
+                        out.append((_x0, _y0, _x0 + int(_r0.rect[2]),
+                                    _y0 + int(_r0.rect[3]),
+                                    str(getattr(_r0, "det_class", ""))))
+                except Exception:
+                    continue
+            return out
+
         dialogue_buffer: List[TextRegion] = []
         global_id = 0
         pending_by_page: Dict[int, int] = {}
@@ -749,6 +809,7 @@ class _MangaTranslatorBody_95:
             if entry is None:
                 return
             out_file, image, precleaned, regions, dbg = entry
+            _pctx = _ctx_get(page_i)
             finished_pages.add(page_i)
 
             extracted_map[page_i] = (out_file, None, None, regions, dbg)
@@ -762,7 +823,9 @@ class _MangaTranslatorBody_95:
                 _t_fin = time.time()  # پاکسازی+رندر
                 result, page_debug = self.finish_page_phase(
                     image, regions, skip_translate=True, precleaned=precleaned,
-                    final=True)  # رندرِ نهایی با سدِ «تا همشو ترجمه کنه»
+                    final=True,
+                    det_quads=_pctx.get("quads"),
+                    page_boxes=_pctx.get("boxes"))  # رندرِ نهایی با سدِ «تا همشو ترجمه کنه»
                 try:
                     print(f"[TIME] page#{page_i + 1} "
                           f"clean+render={time.time() - _t_fin:.1f}s",
@@ -849,8 +912,10 @@ class _MangaTranslatorBody_95:
                 if n_tr <= 0 or n_tr <= _prev_counts.get(page_i, 0):
                     continue
                 try:
+                    _pctxv = _ctx_get(page_i)
                     result, _pd = self.finish_page_phase(
-                        image, regions, skip_translate=True, precleaned=precleaned)
+                        image, regions, skip_translate=True, precleaned=precleaned,
+                        page_boxes=_pctxv.get("boxes"))
                     self._write_image(result, out_file)
 # پیشنمایشِ جریانی به ترتیبِ رسیدنِ آیتمها
 # از مدل رندر میکند (نه ترتیبِ صفحه) — اسلاتِ صریح:
@@ -1076,7 +1141,9 @@ class _MangaTranslatorBody_95:
                     print(f"[*] پاکسازی متنِ صفحهٔ {_p + 1}…",
                           flush=True)
                 _t0 = time.time()
-                _pcn = self.clean_image(im, regs)
+                _pctxc = _ctx_get(_p)
+                _pcn = self.clean_image(im, regs,
+                                        page_boxes=_pctxc.get("boxes"))
                 with _clean_cond:
                     if _p in finished_pages:
                         return True  # همزمان تمام شده بود — بیخیال
@@ -1299,7 +1366,7 @@ class _MangaTranslatorBody_95:
                         _clean_pages_bg([page_i])
                 finally:
 # صف‌شدن تمام شد (موفق یا خطا) → صفحه
-# حالا حق دارد نهایی شود؛ گیرِ ۲۲۹ آزاد است.
+# حالا حق دارد نهایی شود؛ گیرِ صف‌شدن آزاد است.
                     with _qd_lock:
                         _qd_inflight.discard(page_i)
                 try:
@@ -1472,9 +1539,12 @@ class _MangaTranslatorBody_95:
             if _img is None:
                 return
             try:
+                _pctxr = _ctx_get(page_i)
                 _res, _pd = self.finish_page_phase(
                     _img, _regs, skip_translate=True,
-                    precleaned=None, final=True)
+                    precleaned=None, final=True,
+                    det_quads=_pctxr.get("quads"),
+                    page_boxes=_pctxr.get("boxes"))
                 self._write_image(_res, _of)
                 try:
                     _live_page_dump(_of, key=_of, slot=page_i + 1)
@@ -1530,11 +1600,11 @@ class _MangaTranslatorBody_95:
             _refilled_pages = sorted({
                 _pg for _rid, _pg in _empty_ids_before.items()
                 if _pg in finished_pages
-                and any((_r213b.translated_text or "").strip()
-                        for _p213b in (_pg,)
-                        for _r213b in ((extracted_map.get(_p213b)
+                and any((_r_ref.translated_text or "").strip()
+                        for _pg_one in (_pg,)
+                        for _r_ref in ((extracted_map.get(_pg_one)
                                         or (None,) * 5)[3] or [])
-                        if getattr(_r213b, "id", None) == _rid)})
+                        if getattr(_r_ref, "id", None) == _rid)})
             for _p in _refilled_pages:
                 _rerender_page_after_empty(int(_p))
 
@@ -1834,10 +1904,10 @@ class _MangaTranslatorBody_95:
 # واقعاً رویِ هم می‌اندازد (≥۱٫۱۰×) کجیِ واقعی است و
 # وتو نمی‌شود (img3: ‎-۶٫۷°/-۱۳٫۲° به‌غلط صفر می‌شدند
 # «بعد چرخش همچین بعضی متن ها درست نمیچرخه»).
-                        _sup213r = MangaTranslator._ink_slant_support(
+                        _supr = MangaTranslator._ink_slant_support(
                             original_image[_vy0:_vy1, _vx0:_vx1],
                             angle, _rmk)
-                        if _sup213r is not None and _sup213r >= 1.10:
+                        if _supr is not None and _supr >= 1.10:
                             pass  # کجیِ واقعی — رندر با همان زاویه
                         else:
 # پالی‌هایِ حروفِ استایل‌دار کجیِ کاذب می‌دهند
