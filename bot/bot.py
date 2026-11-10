@@ -103,8 +103,9 @@ class DiscordNotifier:
             except discord.HTTPException:
                 log.warning("could not deliver result of job %s", job["id"])
 
-    async def progress(self, job: Job, text: str, lp: st.LogProgress) -> None:
-        await self._edit(job, ui.running_embed(job, text, lp))
+    async def progress(self, job: Job, text: str, lp: st.LogProgress,
+                       elapsed: float, idle: float) -> None:
+        await self._edit(job, ui.running_embed(job, text, lp, elapsed=elapsed, idle=idle))
 
     async def done(self, job: Job, stats: Dict[str, Any], files: List[Path],
                    notes: List[str]) -> None:

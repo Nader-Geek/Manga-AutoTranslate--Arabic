@@ -48,6 +48,8 @@ for i in range(n):
     else:
         print(f"[المرحلة 1 ✓] اكتمل الاستخراج — {len(regions)} فقاعة (الحوار=1) → يمكن بدء الصفحة التالية", flush=True)
         print("  - Cleanup: {'flat': 1, 'LaMa': 1, 'OpenCV': 0}", flush=True)
+    if mode == "slow" and i == 0:
+        time.sleep(3)   # a long silent step (e.g. CPU translation)
     name = f"page_{i+1:03d}.png"
     _png = __import__("io").BytesIO(); __import__("PIL.Image", fromlist=["Image"]).new("RGB", (80, 120), (200, 220, 255)).save(_png, "PNG")
     (d / name).write_bytes(_png.getvalue() + (os.urandom(400_000) if mode == "huge" else b""))

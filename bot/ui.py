@@ -2,6 +2,8 @@
 """Discord embeds. Pure functions, so they can be tested without a connection."""
 from __future__ import annotations
 
+import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import discord
@@ -47,16 +49,47 @@ def queued_embed(job: Dict[str, Any], position: int) -> discord.Embed:
     return e
 
 
-def running_embed(job: Dict[str, Any], text: str, lp: Optional[st.LogProgress] = None) -> discord.Embed:
+WARN_IDLE_S = 120      # no output for this long  -> "slow step"
+ALERT_IDLE_S = 600     # no output for this long  -> "may be stuck"
+
+
+def health(idle: Optional[float]) -> str:
+    """Working / slow / maybe-stuck indicator from seconds since manga.py's last output."""
+    if idle is None or idle < WARN_IDLE_S:
+        return "🟢 يعمل"
+    if idle < ALERT_IDLE_S:
+        return "🟡 خطوة طويلة (الترجمة/LaMa على CPU بطيئة — طبيعي)"
+    return f"🔴 لا نشاط منذ {st.fmt_duration(idle)} — قد يكون عالقاً (جرّب /cancel وأعد المحاولة)"
+
+
+def eta(elapsed: Optional[float], done: int, total: Optional[int]) -> Optional[str]:
+    if not elapsed or not total or done < 1 or done >= total:
+        return None
+    return "≈ " + st.fmt_duration(elapsed / done * (total - done))
+
+
+def running_embed(job: Dict[str, Any], text: str, lp: Optional[st.LogProgress] = None,
+                  elapsed: Optional[float] = None, idle: Optional[float] = None) -> discord.Embed:
     total = job.get("total_pages")
     done = lp.pages_done if lp else job.get("pages_done", 0)
     bubbles = lp.bubbles_seen if lp else job.get("bubbles_seen", 0)
     e = discord.Embed(title=_title(job), color=COLORS["running"],
                       description=f"📎 `{_safe(job['source_name'])}`")
-    e.add_field(name="الحالة", value=STATUS_LABELS["running"], inline=True)
+    e.add_field(name="الحالة", value=health(idle), inline=False)
     e.add_field(name="التقدم", value=progress_bar(done, total), inline=True)
     e.add_field(name="📄 الصفحات", value=f"{done}" + (f"/{total}" if total else ""), inline=True)
     e.add_field(name="💬 فقاعات مكتشفة", value=str(bubbles), inline=True)
+    if elapsed is not None:
+        e.add_field(name="⏱️ مضى", value=st.fmt_duration(elapsed), inline=True)
+    left = eta(elapsed, done, total)
+    if left:
+        e.add_field(name="⏳ المتبقي تقريباً", value=left, inline=True)
+    if idle is not None:
+        e.add_field(name="🕐 آخر نشاط", value=f"<t:{int(time.time() - idle)}:R>", inline=True)
+    stage = (lp.last_stage if lp else "") or ""
+    if stage:
+        e.add_field(name="المرحلة الحالية", value=f"`{_safe(stage, 100)}`", inline=False)
+    e.timestamp = discord.utils.utcnow()   # footer shows when the bot last refreshed this message
     return e
 
 
@@ -90,9 +123,22 @@ def status_embed(job: Dict[str, Any], position: int = 0) -> discord.Embed:
     if status == "pending":
         e.add_field(name="الترتيب في الطابور", value=str(position), inline=True)
     elif status == "running":
+        now = datetime.now(timezone.utc)
+        la, sa = job.get("last_activity_at"), job.get("started_at")
+        idle = (now - la).total_seconds() if la else None
+        e.add_field(name="الحالة", value=health(idle), inline=False)
         e.add_field(name="التقدم", value=progress_bar(
             job.get("pages_done", 0), job.get("total_pages")), inline=True)
+        e.add_field(name="📄 الصفحات", value=f"{job.get('pages_done', 0)}"
+                    + (f"/{job['total_pages']}" if job.get("total_pages") else ""), inline=True)
         e.add_field(name="💬 فقاعات مكتشفة", value=str(job.get("bubbles_seen", 0)), inline=True)
+        if sa:
+            e.add_field(name="⏱️ مضى", value=st.fmt_duration((now - sa).total_seconds()), inline=True)
+            left = eta((now - sa).total_seconds(), job.get("pages_done", 0), job.get("total_pages"))
+            if left:
+                e.add_field(name="⏳ المتبقي تقريباً", value=left, inline=True)
+        if la:
+            e.add_field(name="🕐 آخر نشاط", value=f"<t:{int(la.timestamp())}:R>", inline=True)
     elif status == "done" and job.get("stats"):
         for name, value, inline in st.stats_fields(job["kind"], job["stats"]):
             e.add_field(name=name, value=value[:1000] or "—", inline=inline)

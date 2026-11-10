@@ -33,5 +33,26 @@ for kind in ("clean", "extract", "typer", "translate"):
 check(ui.history_embed([{"id": i, "kind": "clean", "status": "done", "source_name": nasty, "stats": big}
                         for i in range(10)], {"jobs_done": 9, "jobs_failed": 1, "pages": 123456, "bubbles": 999999}))
 check(ui.history_embed([], {}))
+
+# --- live progress / health indicator
+from datetime import datetime, timedelta, timezone
+from bot import stats as st
+lp = st.LogProgress(pages_done=7, bubbles_seen=42, last_stage="[المرحلة 1 - اكتشاف الفقاعات + OCR] 'x.jpg'...")
+job = {"id": 5, "kind": "translate", "source_name": "ch.zip", "total_pages": 30}
+assert "🟢" in ui.health(5) and "🟢" in ui.health(None) and "🟡" in ui.health(300) and "🔴" in ui.health(1200)
+assert "عالق" in ui.health(1200) and "/cancel" in ui.health(1200)
+assert ui.eta(70, 7, 30).startswith("≈") and ui.eta(70, 0, 30) is None and ui.eta(70, 30, 30) is None and ui.eta(None, 3, 30) is None
+for idle in (3, 300, 5000):
+    e = ui.running_embed(job, "x", lp, elapsed=700, idle=idle); check(e)
+    d = {f["name"]: f["value"] for f in e.to_dict()["fields"]}
+    assert d["📄 الصفحات"] == "7/30" and "<t:" in d["🕐 آخر نشاط"] and d["⏱️ مضى"] == "11 د 40 ث"
+    assert "⏳ المتبقي تقريباً" in d and "المرحلة الحالية" in d and e.timestamp is not None
+check(ui.running_embed(job, "x"))                      # old call style still works
+now = datetime.now(timezone.utc)
+for la in (now - timedelta(seconds=20), now - timedelta(minutes=30), None):
+    e = ui.status_embed({**job, "status": "running", "pages_done": 7, "bubbles_seen": 42,
+                         "started_at": now - timedelta(minutes=5), "last_activity_at": la}, 0); check(e)
+    d = {f["name"]: f["value"] for f in e.to_dict()["fields"]}
+    assert ("🔴" in d["الحالة"]) == (la is not None and (now - la).total_seconds() > 600), d["الحالة"]
 assert ui.progress_bar(0, 0).count("░") == 12 and "100%" in ui.progress_bar(9, 3) and "0%" in ui.progress_bar(0, 10)
 print("test_bot_ui OK")

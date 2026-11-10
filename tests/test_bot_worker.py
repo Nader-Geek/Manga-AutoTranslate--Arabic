@@ -19,7 +19,7 @@ class FakeNotifier:
     def __init__(self, limit=10 * 1024 * 1024):
         self.limit = limit; self.events = []
     def upload_limit(self, job): return self.limit
-    async def progress(self, job, text, lp): self.events.append(("progress", job["id"], lp.pages_done))
+    async def progress(self, job, text, lp, elapsed, idle): self.events.append(("progress", job["id"], lp.pages_done, idle, elapsed))
     async def done(self, job, stats, files, notes): self.events.append(("done", job["id"], stats, files, notes))
     async def failed(self, job, error, tail): self.events.append(("failed", job["id"], error, tail))
     def last(self, kind): return [e for e in self.events if e[0] == kind][-1]
@@ -93,6 +93,18 @@ async def main():
     assert called["leaked"] == [], "secrets reached the manga.py subprocess"
     assert "--lama" in called["argv"] and "--clean-only" in called["argv"] and called["target_lang"] == "ar"
     assert (Path(j["workdir"]) / "run.log").read_text(encoding="utf-8").count("بدء عملية جديدة") == 3
+
+    # heartbeat: manga.py goes silent for 3s -> the status keeps refreshing and "idle" grows
+    os.environ["FAKE_MODE"] = "slow"
+    w.cfg = replace(cfg, heartbeat_seconds=0.5)
+    j = await mkjob("clean"); r = await run_one(j); w.cfg = cfg
+    assert r["status"] == "done", r["error"]
+    ev = [e for e in nt.events if e[0] == "progress" and e[1] == j["id"]]
+    assert len(ev) >= 4, f"heartbeat missing: only {len(ev)} refreshes"
+    assert max(e[3] for e in ev) >= 1.5, "idle time did not grow during the silent step"
+    assert max(e[4] for e in ev) >= 2.5 and ev[-1][4] >= ev[0][4], "elapsed time not reported"
+    assert r["last_activity_at"] is not None
+    os.environ["FAKE_MODE"] = "ok"
 
     # extract -> txt + json only
     j = await mkjob("extract"); r = await run_one(j); assert r["status"] == "done", r["error"]

@@ -74,7 +74,7 @@ class Database:
     async def claim_job(self) -> Optional[Job]:
         """Atomically take the oldest pending job (safe with several workers)."""
         row = await self.pool.fetchrow(
-            """UPDATE jobs SET status='running', started_at=now(), attempts=attempts+1,
+            """UPDATE jobs SET status='running', started_at=now(), attempts=attempts+1, last_activity_at=now(),
                               progress='', pages_done=0, bubbles_seen=0
                WHERE id = (SELECT id FROM jobs WHERE status='pending'
                            ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
@@ -96,10 +96,13 @@ class Database:
         await self.pool.execute("UPDATE jobs SET message_id=$2 WHERE id=$1", job_id, message_id)
 
     async def update_progress(self, job_id: int, *, text: str, pages_done: int,
-                              bubbles_seen: int) -> None:
+                              bubbles_seen: int, idle_s: float = 0.0) -> None:
+        """idle_s = seconds since manga.py last printed a line (stored as last_activity_at)."""
         await self.pool.execute(
-            "UPDATE jobs SET progress=$2, pages_done=$3, bubbles_seen=$4 "
-            "WHERE id=$1 AND status='running'", job_id, text, pages_done, bubbles_seen)
+            "UPDATE jobs SET progress=$2, pages_done=$3, bubbles_seen=$4, "
+            "last_activity_at = now() - make_interval(secs => $5) "
+            "WHERE id=$1 AND status='running'", job_id, text, pages_done, bubbles_seen,
+            float(max(0.0, idle_s)))
 
     async def finish_job(self, job_id: int, *, stats: Dict[str, Any],
                          result_files: List[str], ttl_minutes: int) -> bool:

@@ -21,7 +21,8 @@ class Notifier(Protocol):
     """Everything the worker needs from the chat platform (Discord implements this)."""
 
     def upload_limit(self, job: Job) -> int: ...
-    async def progress(self, job: Job, text: str, lp: st.LogProgress) -> None: ...
+    async def progress(self, job: Job, text: str, lp: st.LogProgress,
+                       elapsed: float, idle: float) -> None: ...
     async def done(self, job: Job, stats: Dict[str, Any], files: List[Path],
                    notes: List[str]) -> None: ...
     async def failed(self, job: Job, error: str, tail: List[str]) -> None: ...
@@ -120,26 +121,36 @@ class Worker:
         handle = ProcessHandle()
         self.handles[jid] = handle
 
+        started = time.monotonic()
+        act = {"t": started}          # monotonic time of manga.py's last output line
+
         def on_line(line: str) -> None:
+            act["t"] = time.monotonic()
             if lp.feed(line):
                 dirty["v"] = True
 
         async def reporter() -> None:
+            # Push when something changed, and at least every heartbeat_seconds even when
+            # manga.py is silent (a long translation/LaMa step) so the message never looks frozen.
+            last_push = 0.0
             while True:
                 await asyncio.sleep(self.cfg.progress_interval)
-                if not dirty["v"]:
+                now = time.monotonic()
+                if not dirty["v"] and now - last_push < self.cfg.heartbeat_seconds:
                     continue
                 dirty["v"] = False
+                last_push = now
+                idle = now - act["t"]
                 text = st.progress_text(lp, job.get("total_pages"))
-                await self.db.update_progress(
-                    jid, text=text, pages_done=lp.pages_done, bubbles_seen=lp.bubbles_seen)
                 try:
-                    await self.notifier.progress(job, text, lp)
+                    await self.db.update_progress(
+                        jid, text=text, pages_done=lp.pages_done,
+                        bubbles_seen=lp.bubbles_seen, idle_s=idle)
+                    await self.notifier.progress(job, text, lp, now - started, idle)
                 except Exception:
-                    log.exception("notifier.progress")
+                    log.exception("progress update failed")
 
         rep = asyncio.create_task(reporter())
-        started = time.monotonic()
         try:
             res = await run_plan(
                 plan, cwd=self.cfg.repo_root, log_path=wd / "run.log",
