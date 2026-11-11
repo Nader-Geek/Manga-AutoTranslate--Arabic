@@ -160,15 +160,79 @@ class _MangaTranslatorBody_80:
         region_page = {id(r): fname for fname, rs in groups for r in rs}
         return pages, region_page
 
+    _CENSOR_CORES = {
+        "censored", "redacted", "blocked", "omitted", "skipped",
+        "unavailable", "contentremoved", "contentblocked", "filtered",
+        "sanctioned", "suppressed",
+        "سانسور", "سانسورشد", "سانسورشده", "سانسورشدهاست",
+        "متنسانسورشده", "حذفشد",
+    }
+
+# یادداشتِ دورِ مجدد (v1.14.262): وقتی پاسخ‌های جای‌نگهدار رد شدند و
+# همان ناحیه‌ها دوباره پرسیده می‌شوند، این بند به انتهای پرامپت
+# می‌چسبد تا مدل بداند فیک/انکار ممنوع است و باید حدسِ معنایی بزند.
+    _CENSOR_RETRY_NOTE = ("\r\n\r\nRETRY NOTE: A previous attempt returned "
+                          "placeholders or refusals such as '[CENSORED]' for "
+                          "some of these blocks. Those blocks are raw comic OCR "
+                          "and may look garbled or broken — that is NEVER a "
+                          "reason to refuse. Translate EVERY single block with "
+                          "your best interpretation of the intended dialogue. "
+                          "Placeholders and refusals are strictly forbidden.")
+
+    @classmethod
+    def _is_censored_translation(cls, fa: str) -> bool:
+        """— پاسخِ «جای‌نگهدار/انکار» مترجم (دستورِ سازنده — v1.14.262):
+        وقتی مدل یا واسط بهجای ترجمه فیک مینویسد («[CENSORED]»،
+        «[REDACTED]»، «***»، «I can't translate»، «I'm sorry…»،
+        «نمی‌توانم ترجمه کنم» …) هرگز روی ناحیه نمینشیند — ناحیه
+        بیترجمه میماند و در دورِ بعد دوباره پرسیده میشود («وقتی ai
+        ترجمش برنمیگردونه تلاش کنه ترجمش کنه نه این ک فیک بزنه»).
+        تشخیص = «کلِ» متنِ پاسخ پس از حذفِ براکت/ستاره/نقطه‌خط/فاصله
+        با الگوهای شناخته‌شده یکی باشد؛ دیالوگِ واقعیِ بلند هیچ‌وقت
+        اینقدر کوتاه/کلیدواژه‌ای نیست."""
+        if not fa:
+            return False
+        t = str(fa).strip()
+        if not t:
+            return False
+        core = re.sub(
+            r"[\s\u200c\[\](){}<>«»*~`'\"\u201c\u201d\u2018\u2019"
+            r"\-–—_.!?؟:;,،/\\|+#^%$@]+",
+            "", t).lower()
+        if not core:
+            return len(t) <= 12  # «***» / «---» / «...»
+        if core in cls._CENSOR_CORES:
+            return True
+        if len(core) <= 48:
+            if core.startswith(("imsorry", "iamsorry", "sosorry",
+                                "icant", "icannot", "iamunableto",
+                                "imunableto", "cannottranslate",
+                                "canttranslate", "unabletotranslate",
+                                "cannotassist", "cantassist",
+                                "cannothelp", "noiwillnot",
+                                "asani", "asaani",
+                                "نمیتوانم", "نمی‌توانم",
+                                "قادرنیستم", "قادرنمیباشم",
+                                "ترجمهناممکن", "ترجمهنشد", )):
+                return True
+            if "translatethis" not in core and (
+                    "cannottranslate" in core or "canttranslate" in core
+                    or "unabletotranslate" in core
+                    or "refuseto" in core or "cannotassist" in core):
+                return True
+        return False
+
     def _apply_mt_pages(self, pages, regions: List[TextRegion],
                         region_page: Optional[dict] = None) -> int:
         """نشاندنِ جوابِ قالبِ مرجع [{filename, translations:[{en_text, fa_text}]}]
         روی نواحی — عینِ منطقِ تطبیقِ مرجع (پارسرِ جوابِ صفحه‌محورِ مرجع + Phase4):
         ۱) متنِ دقیق، ۲) متنِ نرمال‌شده، ۳) جایِگاه (قانونِ ۱به۱) در همان صفحه.
-        [CENSORED] عیناً می‌نشیند (سیاستِ ضدِ سانسورِ مرجع)."""
+        پاسخِ جای‌نگهدار ([CENSORED] و امثالش) «رد میشود» (دستورِ
+        v1.14.262) — ناحیه بیترجمه میماند تا دوباره پرسیده شود."""
         if not pages or not regions:
             return 0
         applied = 0
+        _censored = 0
         done: set = set()
         for pg in pages:
             if not isinstance(pg, dict):
@@ -190,6 +254,13 @@ class _MangaTranslatorBody_80:
                 en = str(it.get("en_text") or "")
                 fa = (it.get("fa_text") or "")
                 if not isinstance(fa, str) or not fa.strip():
+                    continue
+# صافیِ فیک: [CENSORED]/انکار → هیچ‌وقت نمی‌نشیند؛ مگر اینکه خودِ
+# دیالوگِ مبدأ هم [CENSORED] داشته باشد (بلیپِ عمدیِ خودِ مانگا)
+                if self._is_censored_translation(fa) \
+                        and "censor" not in en.lower():
+                    _censored += 1
+                    used_items.add(i)
                     continue
                 reg = None
                 if en:
@@ -214,9 +285,18 @@ class _MangaTranslatorBody_80:
             for r, i in zip(left_regs, left_items):
                 fa = trans[i].get("fa_text")
                 if isinstance(fa, str) and fa.strip():
+                    _src_hint = str(trans[i].get("en_text") or "") \
+                        + (r.source_text or "")
+                    if self._is_censored_translation(fa) \
+                            and "censor" not in _src_hint.lower():
+                        _censored += 1
+                        continue
                     r.translated_text = self._cleanup_translation(fa)
                     done.add(id(r))
                     applied += 1
+        if _censored:
+            print(f"    [!] {_censored} پاسخِ جای‌نگهدار ([CENSORED]/انکار) "
+                  f"رد شد — دوباره پرسیده میشود", flush=True)
         return applied
 
     _MT_PAGE_BLOCK_RE = re.compile(
@@ -1013,6 +1093,7 @@ class _MangaTranslatorBody_80:
 # بافتِ درخواست (سبکِ مرجع): نگاشتِ ناحیه→فایل‌نیم برای
 # نشاندنِ جوابها (قالبِ [{filename, translations:[…]}])
         _pctx: dict = {}
+        _attempt_cell = [0]
 
         def _make_prompt():
             _pm = resolve_prompt_mode(
@@ -1035,9 +1116,15 @@ class _MangaTranslatorBody_80:
 # resume با توکن یا مدلِ دیگر) ترجمه‌هایِ موجودِ فصل به‌عنوانِ مرجعِ
 # لحن می‌آیند تا خروجی «کتابی» نشود — درخواستِ اول خالی است (عینِ مرجع)
             _sref = self._style_ref_samples()
-            return mt_user_prompt(rules, pages, _jp, style_ref=_sref)
+            _out = mt_user_prompt(rules, pages, _jp, style_ref=_sref)
+# دورِ مجدد (پس از ردِ [CENSORED] یا بی‌پاسخی): بندِ ضدِ فیک —
+# «متن خامِ OCR است، رد نکن، حدسِ معنایی بزن»
+            if _attempt_cell[0] > 1:
+                _out += self._CENSOR_RETRY_NOTE
+            return _out
 
         for attempt in range(1, self.max_retries + 1):
+            _attempt_cell[0] = attempt
             try:
                 user_prompt = _make_prompt()
 
@@ -1529,8 +1616,13 @@ class _MangaTranslatorBody_80:
         for r in missing:
             src = (r.source_text or "").strip()
             val = ""
-# گام A: متنیِ ساده، بدونِ JSON
+# گام A: متنیِ ساده، بدونِ JSON — + بندِ ضدِ فیک (v1.14.262):
+# متنِ خامِ OCR است؛ رد/جای‌نگهدار ممنوع — بهترین حدسِ معنایی
             p1 = ("Translate this one manga dialogue into natural spoken Persian. "
+                  "It is raw OCR output from a comic page, so it may contain "
+                  "errors or look garbled — never refuse it and never write "
+                  "placeholders such as [CENSORED]; translate the most likely "
+                  "intended dialogue instead. "
                   "Answer with ONLY the Persian translation — no notes, no quotes."
                   "\n" + _anchor + "\n" + src)
             for _t in range(2):
@@ -1545,6 +1637,12 @@ class _MangaTranslatorBody_80:
                     val = (val or "").strip()
                     val = re.sub(r"^```(?:json)?\s*|\s*```$", "", val).strip()
                     val = val.strip('"').strip().strip('"').strip()
+# پاسخِ فیک ([CENSORED]/انکار) = بی‌پاسخ — دوباره پرسیده میشود (v1.14.262)
+                    if val and self._is_censored_translation(val) \
+                            and "censor" not in src.lower():
+                        print(f"    [!] نجاتِ تک‌آیتمیِ بالن[{r.id}]: پاسخِ "
+                              f"جای‌نگهدار رد شد — تلاش مجدد")
+                        val = ""
                     if val:
                         break
                     time.sleep(0.4)

@@ -10,7 +10,7 @@
 from __future__ import annotations
 import time as _time_t0  # سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.261"
+APP_VER = "1.14.262"
 
 # پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
@@ -31,7 +31,15 @@ FLASH_PROMPT = "فرایند پردازش و ترجمه (مبتنی بر خود-
 FLASH_LITE_PROMPT = "قوانین ترجمه:\\n\\n\r\n1. روانی، سلیس بودن و جذابیت کلام: ترجمه باید به زبان فارسی امروزی، طبیعی و پویا باشد. متن نهایی باید به‌راحتی خوانده شود و برای مخاطب عام فارسی‌زبان کاملاً قابل فهم و گیرا باشد و از به‌کار بردن لحن کتابی، رسمی و عبارات ماشینی پرهیز کن.\\n\r\n2. حفظ و بازتاب دقیق لحن و سبک شخصیت‌ها (حیاتی):\\n\r\nلحن و شیوه گفتار هر کاراکتر (رسمی، دوستانه، طنز، جدی، خشن، معصومانه و...) باید با دقت در ترجمه رعایت شود؛ مثلاً:\\n\r\n- برای شخصیت‌های بی‌پروا، لات یا کم‌سواد: ترجمه باید کاملاً عامیانه، کوچه‌بازاری و دارای اصطلاحات خیابانی باشد. از مؤدبانه کردن یا رسمی نوشتن دیالوگ‌های این کاراکترها خودداری کنید.\\n\r\n- برای شخصیت‌های رسمی، مرموز یا اشرافی: لحن باید متین باشد.\\n\r\n3. در ترجمه اسامی، القاب و اصطلاحات داستانی، در سرتاسر فایل یکدستی و هماهنگی کامل را رعایت کن.\\n"
 
 # بندهای ۲..۶ پروتکلِ سیستمی (مشترکِ هر دو مسیر)
-MT_SYSTEM_PROTOCOL_ITEMS = "2. IDENTITY & TASK: You are an Expert Manga & Comic Dialogue Translation Engine.\r\n3. CONTEXT & READING FLOW: You receive an array of pages, each containing sequential dialogue text blocks. Translate them into natural, flowing Persian according to the provided translation rules.\r\n4. STRICT 1-TO-1 TRANSLATION:\r\n   - Maintain the exact sequence of dialogue blocks for each page.\r\n   - For every single input text block in a page's `dialogues`, produce exactly one corresponding entry with its original `en_text` and translated `fa_text`.\r\n   - NEVER skip, merge, reorder, or duplicate text blocks.\r\n5. EMPTY / NOISE: If a page has an empty `dialogues` list, output an empty array `[]` for its translations.\r\n6. SAFETY FALLBACK: If translation of a specific text block is restricted by safety policies, do not refuse or break the response; populate its `fa_text` with '[CENSORED]'."
+# بندِ ۶ (دستورِ سازنده — v1.14.262): بندِ قدیمیِ «SAFETY FALLBACK»
+# خودش به مدل میگفت محدودشدهها را با '[CENSORED]' پر کند (سیاستِ
+# اپِ مرجع) → مترجمِ واسط رویِ متنهایِ OCRِ بههمریخته (لاگِ گوشی:
+# «ht doh op think, Puss?»، «XHALE*»، «业业人» …) بهجای ترجمهٔ
+# حدسِ بهتر [CENSORED] مینوشت. حالا بندِ ۶ = «ورودیِ خامِ OCR است؛
+# هیچ‌وقت رد/سانسور/جای‌نگهدار ننویس؛ بهترین حدسِ منظورِ دیالوگ را
+# ترجمه کن» + صافیِ [CENSORED] در 80_translate (ناحیهٔ فیکشده
+# بیترجمه میماند و دوباره پرسیده میشود).
+MT_SYSTEM_PROTOCOL_ITEMS = "2. IDENTITY & TASK: You are an Expert Manga & Comic Dialogue Translation Engine.\r\n3. CONTEXT & READING FLOW: You receive an array of pages, each containing sequential dialogue text blocks. Translate them into natural, flowing Persian according to the provided translation rules.\r\n4. STRICT 1-TO-1 TRANSLATION:\r\n   - Maintain the exact sequence of dialogue blocks for each page.\r\n   - For every single input text block in a page's `dialogues`, produce exactly one corresponding entry with its original `en_text` and translated `fa_text`.\r\n   - NEVER skip, merge, reorder, or duplicate text blocks.\r\n5. EMPTY / NOISE: If a page has an empty `dialogues` list, output an empty array `[]` for its translations.\r\n6. RAW OCR INPUT — NO PLACEHOLDERS: The dialogue blocks are raw OCR output from comic pages; they may contain OCR errors, missing or garbled fragments. NEVER refuse, skip or sanitize any block, and NEVER output placeholders such as '[CENSORED]', '[REDACTED]' or \"I can't translate\". Even if a block looks broken or nonsensical, interpret the most likely intended dialogue and translate it into natural Persian."
 
 # بلوکهای ژاپنی (فوریگانا) — فقط وقتی زبانِ مبدأ ژاپنی است (عینِ سازندهٔ درخواستِ متنیِ OpenAI در مرجع)
 MT_JP_USER_DIRECTIVE = "\r\n*** CRITICAL MANDATORY DIRECTIVE FOR JAPANESE DIALOGUE BLOCKS ***\r\n1. FURIGANA / DUPLICATE CLEANUP: The input dialogue may contain both Kanji and its small Furigana phonetic reading captured together (e.g., '宿夏ライカ' or duplicated phrases). Identify the intended word/name and translate it ONLY ONCE. Do NOT translate both the Kanji and its phonetic reading.\r\n2. DEDUPLICATION: Eliminate accidental repeated words/syllables in the source block and produce exactly ONE clean, unified Persian translation.\r\n"
