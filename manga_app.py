@@ -1920,15 +1920,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .cmp-lab.a{left:12px}
 .cmp-tchip{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.62);color:#fff;border-radius:9px;padding:4px 12px;font-size:.8rem;z-index:4;pointer-events:none;direction:rtl;white-space:nowrap}
 /* —— هم‌خوانِ نکو-گِرل v272: دخترِ گربه‌گوشِ استیکری — سرِ گردِ توپُش + بدنِ خُرد — ۲۴ حالت + قایم‌شدن پشتِ دیوار + خاموش‌کردنِ صفحه —— */
-.mcat{position:fixed;z-index:57;right:10px;top:58px;width:88px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}
+.mcat{position:fixed;z-index:57;right:10px;top:58px;width:70px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}
 .mcat svg{display:block;width:100%;height:auto;pointer-events:none}
-@media (min-width:768px){.mcat{width:94px;right:18px;top:auto;bottom:112px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}}
+@media (min-width:768px){.mcat{width:76px;right:18px;top:auto;bottom:112px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}}
 .mcat.hide-l svg{transform:scaleX(-1)}
 .mcat.hide-l .mcat-bub,.mcat.hide-l .mcat-say{right:auto;left:0}
 .mcat.hide-l .mcat-say:after{right:auto;left:14px}
 .mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;border-radius:10px;padding:2px 8px;font-size:.66rem;font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;opacity:1;transition:opacity .35s}
 .mcat-bub.dim{opacity:0}
-.mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease;z-index:2}
+.mcat-say{position:absolute;top:calc(100% + 22px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease;z-index:2}
 .mcat-say.show{opacity:1;transform:translateY(0) scale(1)}
 .mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}
 /* — گروههای پنهان — */
@@ -3167,7 +3167,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   function mcatGoHide() {
     if (mcatState === 'st-hide') return;
     var r = MCAT.getBoundingClientRect();
-    var hw = MCAT.offsetWidth || 88, hh = MCAT.offsetHeight || 103;
+    var hw = MCAT.offsetWidth || 70, hh = MCAT.offsetHeight || 82;
     mcatSaved = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     var onRight = (r.left + r.width / 2) >= window.innerWidth / 2;
     MCAT.classList.toggle('hide-l', !onRight);
@@ -3819,15 +3819,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ".rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}"
             "}"
                         "/* —— هم‌خوانِ نکو-گِرل v272: دخترِ گربه‌گوشِ استیکری — سرِ گردِ توپُش + بدنِ خُرد — ۲۴ حالت + قایم‌شدن پشتِ دیوار + خاموش‌کردنِ صفحه —— */"
-            ".mcat{position:fixed;z-index:57;right:10px;top:58px;width:88px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}"
+            ".mcat{position:fixed;z-index:57;right:10px;top:58px;width:70px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}"
             ".mcat svg{display:block;width:100%;height:auto;pointer-events:none}"
-            "@media (min-width:768px){.mcat{width:94px;right:18px;top:auto;bottom:112px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}}"
+            "@media (min-width:768px){.mcat{width:76px;right:18px;top:auto;bottom:112px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}}"
             ".mcat.hide-l svg{transform:scaleX(-1)}"
             ".mcat.hide-l .mcat-bub,.mcat.hide-l .mcat-say{right:auto;left:0}"
             ".mcat.hide-l .mcat-say:after{right:auto;left:14px}"
             ".mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;border-radius:10px;padding:2px 8px;font-size:.66rem;font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;opacity:1;transition:opacity .35s}"
             ".mcat-bub.dim{opacity:0}"
-            ".mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease;z-index:2}"
+            ".mcat-say{position:absolute;top:calc(100% + 22px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease;z-index:2}"
             ".mcat-say.show{opacity:1;transform:translateY(0) scale(1)}"
             ".mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}"
             "/* — گروههای پنهان — */"
@@ -4727,7 +4727,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   function mcatGoHide() {
     if (mcatState === 'st-hide') return;
     var r = MCAT.getBoundingClientRect();
-    var hw = MCAT.offsetWidth || 88, hh = MCAT.offsetHeight || 103;
+    var hw = MCAT.offsetWidth || 70, hh = MCAT.offsetHeight || 82;
     mcatSaved = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     var onRight = (r.left + r.width / 2) >= window.innerWidth / 2;
     MCAT.classList.toggle('hide-l', !onRight);
