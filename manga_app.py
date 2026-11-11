@@ -1921,21 +1921,26 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .cmp-lab{position:absolute;top:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;z-index:3;pointer-events:none}
 .cmp-lab.b{right:12px}
 .cmp-lab.a{left:12px}
-/* —— هم‌خوانِ گربه‌ای —— */
-.mcat{position:fixed;z-index:57;right:10px;top:58px;width:64px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer}
+/* —— هم‌خوانِ نکو-گِرل: دخترِ گربه‌ایِ انیمه‌ای (گوش + دُم، خودش دختر!) —— */
+.mcat{position:fixed;z-index:57;right:10px;top:58px;width:64px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}
 .mcat svg{display:block;width:100%;height:auto;pointer-events:none}
 .mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;border-radius:10px;padding:2px 8px;font-size:.66rem;font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;opacity:1;transition:opacity .35s}
 .mcat-bub.dim{opacity:0}
 .mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease}
 .mcat-say.show{opacity:1;transform:translateY(0) scale(1)}
 .mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}
-.cg-eyes,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark{display:none}
-.mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy{display:block}
+.cg-eyes,.cg-mv,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark,.cg-anger,.cg-steam,.cg-ball,.cg-music{display:none}
+.mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy,.mcat.st-annoy .cg-eyes-annoy,.mcat.st-angry .cg-eyes-angry,.mcat.st-ball .cg-eyes-up,.mcat.st-spin .cg-eyes-happy,.mcat.st-music .cg-eyes-happy,.mcat.st-hide .cg-eyes-annoy,.mcat.st-peek .cg-eyes-open{display:block}
+.mcat.st-read .cg-mv-smile,.mcat.st-exc .cg-mv-smile,.mcat.st-sleep .cg-mv-smile,.mcat.st-stress .cg-mv-smile,.mcat.st-sad .cg-mv-smile,.mcat.st-pat .cg-mv-smile,.mcat.st-spin .cg-mv-smile,.mcat.st-peek .cg-mv-smile,.mcat.st-annoy .cg-mv-pout,.mcat.st-hide .cg-mv-pout,.mcat.st-angry .cg-mv-shout,.mcat.st-ball .cg-mv-o,.mcat.st-music .cg-mv-song{display:block}
 .mcat.st-sleep .cg-zzz{display:block}
 .mcat.st-stress .cg-sweat{display:block}
 .mcat.st-sad .cg-tears{display:block}
 .mcat.st-pat .cg-heart{display:block}
 .mcat.st-exc .cg-spark{display:block}
+.mcat.st-angry .cg-anger{display:block}
+.mcat.st-angry .cg-steam{display:block}
+.mcat.st-ball .cg-ball{display:block}
+.mcat.st-music .cg-music{display:block}
 @keyframes mcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
 @keyframes mcBounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-7px) scale(1.05)}60%{transform:translateY(0) scale(.97)}}
 @keyframes mcBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
@@ -1944,22 +1949,52 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 @keyframes mcEarT{0%,90%,100%{transform:rotate(0)}95%{transform:rotate(-9deg)}}
 @keyframes mcPop{0%{opacity:0;transform:translateY(4px)}25%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}
 @keyframes mcBlink{0%,93.5%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
+@keyframes mcShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2.6px)}75%{transform:translateX(2.6px)}}
+@keyframes mcHmph{0%,100%{transform:translateX(0) rotate(0)}35%{transform:translateX(-5px) rotate(-5deg)}75%{transform:translateX(-3px) rotate(-3deg)}}
+@keyframes mcSpin{0%{transform:rotate(0)}45%{transform:rotate(-185deg) scale(1.07,.93)}100%{transform:rotate(-360deg)}}
+@keyframes mcSway{0%,100%{transform:rotate(0)}30%{transform:rotate(-7deg)}70%{transform:rotate(7deg)}}
+@keyframes mcBall{0%{transform:translateY(0)}22%{transform:translateY(-56px)}46%{transform:translateY(0)}60%{transform:translateY(-20px)}74%{transform:translateY(0)}86%{transform:translateY(-7px)}100%{transform:translateY(0)}}
+@keyframes mcAnger{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
+@keyframes mcFume{0%{opacity:0;transform:translateY(6px)}30%{opacity:.95}100%{opacity:0;transform:translateY(-16px)}}
+@keyframes mcNote{0%{opacity:0;transform:translateY(6px)}25%{opacity:1}100%{opacity:0;transform:translateY(-17px)}}
+@keyframes mcPeekBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(3deg)}}
 .mcat .cg-all{transform-origin:60px 104px;animation:mcBob 3.4s ease-in-out infinite}
 .mcat.st-exc .cg-all{animation:mcBounce .55s ease-in-out infinite}
 .mcat.st-sleep .cg-all{animation:mcBreath 2.8s ease-in-out infinite}
 .mcat.st-pat .cg-all{animation:mcWiggle .45s ease-in-out 3}
 .mcat.st-sad .cg-all{animation:mcBob 4.6s ease-in-out infinite}
-.mcat .cg-tail{transform-origin:84px 98px;animation:mcTail 3s ease-in-out infinite}
-.mcat.st-exc .cg-tail{animation:mcTail .45s ease-in-out infinite}
+.mcat.st-angry .cg-all{animation:mcShake .09s linear 18}
+.mcat.st-annoy .cg-all{animation:mcHmph 1.9s ease-in-out 1}
+.mcat.st-spin .cg-all{animation:mcSpin 1.45s ease-in-out 2}
+.mcat.st-ball .cg-all{animation:mcBounce 1.3s ease-in-out 2}
+.mcat.st-music .cg-all{animation:mcSway 1.6s ease-in-out 2}
+.mcat.st-hide .cg-all{animation:mcPeekBob 3s ease-in-out infinite}
+.mcat.st-peek .cg-all{animation:mcPeekBob 2.4s ease-in-out infinite}
+.mcat.st-annoy .cg-head{transform:translateX(-7px) rotate(-10deg)}
+.mcat.st-annoy .cg-blush{display:none}
+.mcat .cg-tail{transform-origin:82px 106px;animation:mcTail 3s ease-in-out infinite}
+.mcat.st-exc .cg-tail,.mcat.st-ball .cg-tail,.mcat.st-spin .cg-tail{animation:mcTail .45s ease-in-out infinite}
 .mcat.st-stress .cg-tail{animation:mcTail .9s ease-in-out infinite}
+.mcat.st-angry .cg-tail{animation:mcTail .3s linear infinite}
 .mcat.st-sleep .cg-tail{animation:none}
-.mcat .cg-ear-l{transform-origin:36px 36px;animation:mcEarT 6s ease-in-out infinite}
-.mcat .cg-ear-r{transform-origin:84px 36px;animation:mcEarT 6s ease-in-out .8s infinite}
+.mcat .cg-ear-l{transform-origin:34px 28px;animation:mcEarT 6s ease-in-out infinite}
+.mcat .cg-ear-r{transform-origin:86px 28px;animation:mcEarT 6s ease-in-out .8s infinite}
 .mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,.mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}
 .mcat .cg-eyes-open{transform-origin:60px 52px;animation:mcBlink 5.6s infinite}
 .mcat .cg-heart{animation:mcPop 1.6s ease-out}
 .mcat .cg-zzz text{animation:mcPop 2.4s ease-in-out infinite}
 .mcat .cg-zzz text:nth-child(2){animation-delay:.5s}
+.mcat .cg-ball{animation:mcBall 2.9s cubic-bezier(.33,.66,.45,1) 1}
+.mcat .cg-anger{transform-origin:90px 26px;animation:mcAnger .55s ease-in-out 4}
+.mcat .cg-steam circle{animation:mcFume 1.6s ease-out 2}
+.mcat .cg-steam circle:nth-child(2){animation-delay:.4s}
+.mcat .cg-music .n1{animation:mcNote 1.6s ease-out 2}
+.mcat .cg-music .n2{animation:mcNote 1.6s ease-out .55s 2}
+.mcat.st-hide svg{clip-path:inset(0 0 26% 0);-webkit-clip-path:inset(0 0 26% 0)}
+.mcat.st-peek svg{clip-path:inset(0 0 22% 34%);-webkit-clip-path:inset(0 0 22% 34%)}
+.mcat.peek-r svg{clip-path:inset(0 34% 22% 0);-webkit-clip-path:inset(0 34% 22% 0)}
+.mcat.away{opacity:0;pointer-events:none;transition:opacity .35s .7s}
+.mcat.glide{transition:left .75s cubic-bezier(.35,.8,.35,1),top .75s cubic-bezier(.35,.8,.35,1),opacity .3s}
 </style></head><body>
 <div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="mtoggle" style="display:none" title="حالتِ دیباگ/نهایی">دیباگ</button><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><div class="n" id="n">0</div></div>
 <div id="wrap">
@@ -1968,37 +2003,69 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 </div>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
 <button type="button" id="fab" aria-label="منو" style="display:none">منو</button>
-<div class="mcat st-read" id="mcat" title="هم‌خوانِ گربه‌ای — کشیدن = جابه‌جایی، ضربه = نوازش">
-<svg viewBox="0 0 120 118">
+<div class="mcat st-read" id="mcat" title="هم‌خوانِ گربه‌ای — کشیدن = جابه‌جایی، ضربه = نوازش (زیادش نکن!)">
+<svg viewBox="0 0 120 132">
 <g class="cg-all">
-<g class="cg-tail"><path d="M84 98 Q110 96 104 74 Q101 65 91 68" fill="none" stroke="#e9b96f" stroke-width="8" stroke-linecap="round"/><path d="M93 67 q-3.6 1.4 -2.4 5" fill="none" stroke="#e89aa6" stroke-width="4.6" stroke-linecap="round"/></g>
-<path d="M43 76 Q60 68 77 76 L82 102 Q60 112 38 102 Z" fill="#46384f"/>
-<path d="M51 74 q9 6 18 0" fill="none" stroke="#e89aa6" stroke-width="3" stroke-linecap="round"/>
-<circle cx="41" cy="87" r="5.2" fill="#ffe3c9"/>
-<circle cx="79" cy="87" r="5.2" fill="#ffe3c9"/>
-<g class="cg-book"><rect x="40" y="84" width="40" height="25" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="85.5" x2="60" y2="107.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="45.5" y1="92" x2="55.5" y2="92"/><line x1="45.5" y1="98" x2="55.5" y2="98"/><line x1="45.5" y1="104" x2="51.5" y2="104"/><line x1="64.5" y1="92" x2="74.5" y2="92"/><line x1="64.5" y1="98" x2="74.5" y2="98"/><line x1="64.5" y1="104" x2="70.5" y2="104"/></g></g>
+<g class="cg-tail"><path d="M82 106 Q114 102 108 76 Q105 66 93 70" fill="none" stroke="#eec06d" stroke-width="7.5" stroke-linecap="round"/><path d="M95 69 q-4 1.5 -2.5 5.5" fill="none" stroke="#f2a3b3" stroke-width="4.2" stroke-linecap="round"/><path d="M80 104 l-6 -4.5 M80 104 l6.5 -3.5" fill="none" stroke="#ff8fae" stroke-width="3" stroke-linecap="round"/></g>
+<path d="M26 48 Q22 10 60 10 Q98 10 94 48 Q94 72 84 82 Q60 88 36 82 Q26 72 26 48 Z" fill="#eec06d"/>
+<path d="M28 36 Q10 42 12 62 Q13 78 6 94 Q13 90 15 97 Q18 82 23 68 Q27 54 33 46 Z" fill="#eec06d"/>
+<path d="M92 36 Q110 42 108 62 Q107 78 114 94 Q107 90 105 97 Q102 82 97 68 Q93 54 87 46 Z" fill="#eec06d"/>
+<path d="M17 60 Q18 74 13 88" fill="none" stroke="#db9f4e" stroke-width="2" stroke-linecap="round"/>
+<path d="M103 60 Q102 74 107 88" fill="none" stroke="#db9f4e" stroke-width="2" stroke-linecap="round"/>
+<path d="M28 37 l-8 -5.5 l1.5 10.5 Z M28 37 l8 -5.5 l-1.5 10.5 Z" fill="#ff8fae"/><circle cx="28" cy="37" r="2.2" fill="#ffb3c6"/>
+<path d="M92 37 l-8 -5.5 l1.5 10.5 Z M92 37 l8 -5.5 l-1.5 10.5 Z" fill="#ff8fae"/><circle cx="92" cy="37" r="2.2" fill="#ffb3c6"/>
+<line x1="52" y1="112" x2="52" y2="126" stroke="#ffe3c9" stroke-width="5" stroke-linecap="round"/>
+<line x1="68" y1="112" x2="68" y2="126" stroke="#ffe3c9" stroke-width="5" stroke-linecap="round"/>
+<line x1="52" y1="118" x2="52" y2="124" stroke="#fff" stroke-width="5.6" stroke-linecap="round"/>
+<line x1="68" y1="118" x2="68" y2="124" stroke="#fff" stroke-width="5.6" stroke-linecap="round"/>
+<rect x="46" y="124" width="12" height="5.5" rx="2.75" fill="#c9473f"/>
+<rect x="62" y="124" width="12" height="5.5" rx="2.75" fill="#c9473f"/>
+<path d="M38 100 Q60 94 82 100 L87 115 Q60 108 33 115 Z" fill="#7d598e"/>
+<path d="M33 115 Q60 108 87 115" fill="none" stroke="#664678" stroke-width="2" stroke-linecap="round"/>
+<path d="M47 84 Q60 78 73 84 L76 100 Q60 105 44 100 Z" fill="#6b4a7a"/>
+<circle cx="44" cy="88" r="7.5" fill="#6b4a7a"/>
+<circle cx="76" cy="88" r="7.5" fill="#6b4a7a"/>
+<path d="M51 82 Q60 89 69 82 L67 88 Q60 92 53 88 Z" fill="#fff"/>
+<path d="M60 88 l-4 6.5 l4 -1.2 l4 1.2 Z" fill="#ff5d78"/>
+<path d="M43 94 Q44 99 47 102" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M77 94 Q76 99 73 102" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/>
+<g class="cg-book"><rect x="40" y="94" width="40" height="26" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="95.5" x2="60" y2="118.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="45.5" y1="101.5" x2="55.5" y2="101.5"/><line x1="45.5" y1="107.5" x2="55.5" y2="107.5"/><line x1="45.5" y1="113.5" x2="51.5" y2="113.5"/><line x1="64.5" y1="101.5" x2="74.5" y2="101.5"/><line x1="64.5" y1="107.5" x2="74.5" y2="107.5"/><line x1="64.5" y1="113.5" x2="70.5" y2="113.5"/></g></g>
+<circle cx="47" cy="103" r="3.6" fill="#ffe3c9"/>
+<circle cx="73" cy="103" r="3.6" fill="#ffe3c9"/>
 <g class="cg-head">
-<g class="cg-ear cg-ear-l"><path d="M33 37 L26 10 L50 23 Z" fill="#e9b96f"/><path d="M34 31.5 L30 16.5 L43.5 24 Z" fill="#e89aa6"/></g>
-<g class="cg-ear cg-ear-r"><path d="M87 37 L94 10 L70 23 Z" fill="#e9b96f"/><path d="M86 31.5 L90 16.5 L76.5 24 Z" fill="#e89aa6"/></g>
-<circle cx="60" cy="48" r="31" fill="#ffe3c9"/>
-<path d="M29 48 Q27 18 60 17 Q93 18 91 48 Q88 26 60 25 Q32 26 29 48 Z" fill="#e9b96f"/>
-<path d="M29 48 Q27 58 33 64 Q33 54 36 48 Z" fill="#e9b96f"/>
-<path d="M91 48 Q93 58 87 64 Q87 54 84 48 Z" fill="#e9b96f"/>
-<g class="cg-eyes cg-eyes-open"><ellipse cx="48" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="50" cy="49.5" r="1.7" fill="#fff"/><ellipse cx="72" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="74" cy="49.5" r="1.7" fill="#fff"/></g>
-<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 52 Q48 46 53 52"/><path d="M67 52 Q72 46 77 52"/></g>
-<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 51 Q48 55 53 51"/><path d="M67 51 Q72 55 77 51"/></g>
-<g class="cg-eyes cg-eyes-worry"><ellipse cx="48" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><ellipse cx="72" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><path d="M41 44.5 L53 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M79 44.5 L67 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>
-<g class="cg-eyes cg-eyes-sad"><ellipse cx="48" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="49.5" cy="52" r="1.4" fill="#fff"/><ellipse cx="72" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="73.5" cy="52" r="1.4" fill="#fff"/><path d="M40 42.5 Q46 44.5 52 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M80 42.5 Q74 44.5 68 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>
-<ellipse cx="38.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>
-<ellipse cx="81.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>
-<path d="M55 61 Q57.5 64.5 60 61 Q62.5 64.5 65 61" fill="none" stroke="#b05a68" stroke-width="1.8" stroke-linecap="round"/>
-<g class="cg-sweat"><path d="M91 26 q5 7 0 10.5 q-5 -3.5 0 -10.5" fill="#7ec8f2"/></g>
-<g class="cg-tears"><ellipse cx="44" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/><ellipse cx="76" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/></g>
+<g class="cg-ear cg-ear-l"><path d="M34 30 L22 5 L52 19 Z" fill="#eec06d"/><path d="M35 25 L28.5 11 L46.5 20 Z" fill="#f2a3b3"/></g>
+<g class="cg-ear cg-ear-r"><path d="M86 30 L98 5 L68 19 Z" fill="#eec06d"/><path d="M85 25 L91.5 11 L73.5 20 Z" fill="#f2a3b3"/></g>
+<path d="M32 44 Q32 15 60 15 Q88 15 88 44 Q88 62 79 70 Q70 78 60 78 Q50 78 41 70 Q32 62 32 44 Z" fill="#ffe3c9"/>
+<path d="M31 44 Q30 14 60 13 Q90 14 89 44 Q84 27 73 26 Q67 16 60 17 Q53 16 47 26 Q36 27 31 44 Z" fill="#eec06d"/>
+<path d="M46 24 Q52 17 60 17" fill="none" stroke="#f7d492" stroke-width="2" stroke-linecap="round"/>
+<path d="M32 44 Q29 58 35 67 Q39 57 38 45 Z" fill="#eec06d"/>
+<path d="M88 44 Q91 58 85 67 Q81 57 82 45 Z" fill="#eec06d"/>
+<g class="cg-eyes cg-eyes-open"><path d="M40.5 45.5 Q47 41.5 53.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M66.5 45.5 Q73 41.5 79.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="47" cy="53" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="44.8" cy="48.8" r="2.2" fill="#fff"/><circle cx="49.8" cy="55.6" r="1.05" fill="#fff"/><ellipse cx="73" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="73" cy="53" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="70.8" cy="48.8" r="2.2" fill="#fff"/><circle cx="75.8" cy="55.6" r="1.05" fill="#fff"/></g>
+<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#453247" stroke-width="2.4" stroke-linecap="round"><path d="M40.5 53 Q47 44.5 53.5 53"/><path d="M66.5 53 Q73 44.5 79.5 53"/></g>
+<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"><path d="M40.5 51.5 Q47 56 53.5 51.5"/><path d="M66.5 51.5 Q73 56 79.5 51.5"/></g>
+<g class="cg-eyes cg-eyes-worry"><path d="M41 43.5 L52.5 46.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M79 43.5 L67.5 46.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="4.6" ry="6" fill="#57405f"/><circle cx="45.4" cy="50.8" r="1.5" fill="#fff"/><ellipse cx="73" cy="53" rx="4.6" ry="6" fill="#57405f"/><circle cx="71.4" cy="50.8" r="1.5" fill="#fff"/></g>
+<g class="cg-eyes cg-eyes-sad"><path d="M40 42 Q46 44.5 52 43.5" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M80 42 Q74 44.5 68 43.5" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="54" rx="5.2" ry="6.6" fill="#57405f"/><circle cx="45.2" cy="51.6" r="1.6" fill="#fff"/><ellipse cx="73" cy="54" rx="5.2" ry="6.6" fill="#57405f"/><circle cx="71.2" cy="51.6" r="1.6" fill="#fff"/></g>
+<g class="cg-eyes cg-eyes-annoy"><path d="M41 42.5 L53 44.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M79 42.5 L67 44.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="5" ry="5.4" fill="#57405f"/><ellipse cx="49.4" cy="53" rx="2.6" ry="3.8" fill="#2e1f33"/><path d="M40 49.5 Q47 46 54 49.5 L54 46.5 Q47 43.5 40 46.5 Z" fill="#ffe3c9"/><ellipse cx="73" cy="53" rx="5" ry="5.4" fill="#57405f"/><ellipse cx="75.4" cy="53" rx="2.6" ry="3.8" fill="#2e1f33"/><path d="M66 49.5 Q73 46 80 49.5 L80 46.5 Q73 43.5 66 46.5 Z" fill="#ffe3c9"/><circle cx="35" cy="61.5" r="5.2" fill="#ffb3ba" opacity=".95"/></g>
+<g class="cg-eyes cg-eyes-angry"><path d="M40 41 L53 45" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M80 41 L67 45" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="5.4" ry="6.2" fill="#57405f"/><ellipse cx="47" cy="53.6" rx="2.8" ry="3.9" fill="#2e1f33"/><ellipse cx="73" cy="53" rx="5.4" ry="6.2" fill="#57405f"/><ellipse cx="73" cy="53.6" rx="2.8" ry="3.9" fill="#2e1f33"/><path d="M39.5 45 L54.5 49.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/><path d="M80.5 45 L65.5 49.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/></g>
+<g class="cg-eyes cg-eyes-up"><path d="M40.5 45.5 Q47 41.5 53.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M66.5 45.5 Q73 41.5 79.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="47" cy="49.6" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="44.8" cy="46.6" r="2.2" fill="#fff"/><ellipse cx="73" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="73" cy="49.6" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="70.8" cy="46.6" r="2.2" fill="#fff"/></g>
+<ellipse class="cg-blush" cx="38.5" cy="62" rx="4.6" ry="2.6" fill="#ffb3ba" opacity=".75"/>
+<ellipse class="cg-blush" cx="81.5" cy="62" rx="4.6" ry="2.6" fill="#ffb3ba" opacity=".75"/>
+<path class="cg-mv cg-mv-smile" d="M55 64 Q57.5 67.5 60 64 Q62.5 67.5 65 64" fill="none" stroke="#b05a68" stroke-width="1.8" stroke-linecap="round"/>
+<path class="cg-mv cg-mv-pout" d="M56 66 Q60 64 64 66" fill="none" stroke="#b05a68" stroke-width="2" stroke-linecap="round"/>
+<ellipse class="cg-mv cg-mv-shout" cx="60" cy="66.5" rx="4" ry="3.2" fill="#8a4050"/>
+<ellipse class="cg-mv cg-mv-o" cx="60" cy="65.5" rx="2.8" ry="3.6" fill="#8a4050"/>
+<ellipse class="cg-mv cg-mv-song" cx="60" cy="65.5" rx="2.4" ry="2.9" fill="#8a4050"/>
+<g class="cg-sweat"><path d="M91 25 q5 7 0 10.5 q-5 -3.5 0 -10.5" fill="#7ec8f2"/></g>
+<g class="cg-tears"><ellipse cx="44" cy="62" rx="2.3" ry="3.8" fill="#7ec8f2"/><ellipse cx="76" cy="62" rx="2.3" ry="3.8" fill="#7ec8f2"/></g>
 <g class="cg-spark" fill="#ffd86b"><path d="M35 33 l1.7 4.2 4.2 1.7 -4.2 1.7 -1.7 4.2 -1.7 -4.2 -4.2 -1.7 4.2 -1.7 Z"/><path d="M87 37 l1.3 3.2 3.2 1.3 -3.2 1.3 -1.3 3.2 -1.3 -3.2 -3.2 -1.3 3.2 -1.3 Z"/></g>
-<path class="cg-heart" transform="translate(84 12) scale(.9)" d="M12 21s-8-4.5-8-11a4 4 0 018-1 4 4 0 018 1c0 6.5-8 11-8 11z" fill="#ff5d78"/>
+<g class="cg-anger" stroke="#ff3d2e" stroke-width="3.6" stroke-linecap="round" fill="none"><path d="M81 15 L88 22"/><path d="M92 26 L99 33"/><path d="M99 15 L92 22"/><path d="M88 26 L81 33"/></g>
+<g class="cg-steam" fill="#cdd3dd"><circle cx="101" cy="30" r="5.2"/><circle cx="109" cy="43" r="3.8"/></g>
+</g>
+<g class="cg-music"><g class="n1"><ellipse cx="100" cy="31" rx="3.4" ry="2.5" transform="rotate(-20 100 31)" fill="#ff9ec4"/><path d="M103.3 30 L103.3 17 q4.5 1.5 4.5 6" fill="none" stroke="#ff9ec4" stroke-width="1.9" stroke-linecap="round"/></g><g class="n2"><ellipse cx="111" cy="42" rx="3" ry="2.2" transform="rotate(-20 111 42)" fill="#ff9ec4"/><path d="M113.7 41.2 L113.7 30 q4 1.3 4 5.2" fill="none" stroke="#ff9ec4" stroke-width="1.7" stroke-linecap="round"/></g></g>
+<g class="cg-ball"><circle cx="88" cy="97" r="7.5" fill="#fdfdfd" stroke="#c9473f" stroke-width="2.2"/><path d="M80.5 97 a7.5 7.5 0 0 1 15 0 Z" fill="#c9473f"/><circle cx="85.4" cy="94.2" r="1.6" fill="#fff"/></g>
+<path class="cg-heart" d="M96 33s-8-4.5-8-11a4 4 0 018-1 4 4 0 018 1c0 6.5-8 11-8 11z" fill="#ff5d78"/>
 </g>
 <g class="cg-zzz" fill="#cfd2da" font-family="system-ui,sans-serif" font-weight="700"><text x="86" y="22" font-size="8">z</text><text x="95" y="13" font-size="11">Z</text></g>
-</g>
 </svg>
 <div class="mcat-bub">۰٪ · ۱/۱</div>
 <div class="mcat-say"></div>
@@ -2836,13 +2903,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     updateProgress();
     updateFan();
   });
-  // ——— هم‌خوانِ گربه‌ای (وبِ زنده) — درصد/صفحهٔ خواندن + حالت‌ها ———
-  var MCAT = document.getElementById('mcat');
+  // ——— هم‌خوانِ نکو-گِرل (وبِ زنده) — دخترِ گربه‌ایِ انیمه‌ای + ۱۳ حالت: خواندن / هیجانِ اسکرول /
+  // خواب / استرسِ ۹۰٪ / غمِ پایان / نوازش / چج از نوازشِ زیاد →
+  // قایم‌شدن در گوشهٔ سایت / اعصابی از کتک → قهر و خروج از صفحه +
+  // سرک‌کشیدن از لبه / حوصله‌سررفتگی: چرخشِ دنبالِ دُم، توپ‌بازی،
+  // زمزمه‌ی آهنگ / جشنهای ۲۵-۵۰-۷۵٪ + حرفهای بامزه + درگ. ———
+  const MCAT = document.getElementById('mcat');
   if (MCAT) {
     var mcatBub = MCAT.querySelector('.mcat-bub');
     var mcatSayEl = MCAT.querySelector('.mcat-say');
-    var FAD = '۰۱۲۳۴۵۶۷۸۹';
+    var FAD = '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9';
     function faN(v){ return String(v).replace(/\d/g, function(d){ return FAD[+d]; }); }
+    function faR(a){ return a[Math.floor(Math.random() * a.length)]; }
     function mcatInfo(){
       var m = document.documentElement.scrollHeight - window.innerHeight;
       var y = window.scrollY || window.pageYOffset || 0;
@@ -2852,10 +2924,24 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     }
     var MCAT_PAT = ['میاو~', 'هوی؟', 'بغلم کن!', 'مممنون~', 'خرخر نکردم، استراحت میکردم!'];
     var MCAT_READ = ['یه صفحهٔ دیگه؟', 'قشنگه…', 'چی میشه آخرش؟!', 'چایی بخورم؟', 'ادامه بده~', 'این حباب رو من بهتر ترجمه میکردم!'];
+    var MCAT_ANNOY = ['هیغ! بسه دیگه!', 'خیلی نازکیدم!', 'برم گوشه‌م، ببینم!', 'نه! دیگه نوازش نکن!'];
+    var MCAT_ANGRY = ['اووچ! چرا میزنی؟!', 'اعصابم خرد شد!', 'بدرفتاریه این!'];
+    var MCAT_AWAY = ['رفتم! خودت بخون!', 'از تو قهرم!', 'خداحافظ!'];
+    var MCAT_BACK = ['باز خودم اومدم…', 'دلم گرفت، برگشتم', 'قصه‌هات قشنگه دیگه…'];
+    var MCAT_ACT = {
+      'st-spin': ['دُمم! بیا اینجا!', 'وووو~ سرم گیج رفت!'],
+      'st-ball': ['بگیر!', 'توپ! توپ!', 'بالا بالا!'],
+      'st-music': ['هوم~ هوم~', 'لالالالا~', 'دلم یه آهنگ میخواد~']
+    };
+    var MCAT_MILE = ['یک‌چهارمش رفت!', 'نصفش رفت! یهوو!', 'سه‌چهارمش رفت! وایسا'];
     var mcatState = 'st-read';
     var mcatLastTs = 0, mcatLastY = -1, mcatFastT = 0, mcatMoveT = Date.now();
     var mcatBotT = 0, mcatPatT = 0, mcatSayUntil = 0;
     var mcatLastN = -1, mcatLastMk = '';
+    var mcatHideTill = 0, mcatAwayTill = 0, mcatPeekTill = 0, mcatPeekR = false;
+    var mcatAnnoyT = 0, mcatAngryT = 0, mcatActT = 0, mcatActSt = '', mcatActCd = 0;
+    var mcatTaps = [], mcatAngerN = 0, mcatAngerLast = 0;
+    var mcatSaved = null, mcatMile = 0;
     function mcatSet(st){
       if (mcatState === st) return;
       MCAT.classList.remove(mcatState);
@@ -2872,11 +2958,98 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       mcatBub.textContent = faN(Math.round(inf.pct * 100)) + '٪ · ' +
         faN(curPageIdx() + 1) + '/' + faN(stackCount());
     }
+    function mcatGlide(fn){
+      MCAT.classList.add('glide');
+      fn();
+      setTimeout(function(){ MCAT.classList.remove('glide'); }, 800);
+    }
+    function mcatRestore(say){
+      mcatHideTill = mcatAwayTill = mcatPeekTill = 0;
+      MCAT.classList.remove('away', 'peek-r');
+      if (mcatSaved) {
+        var sv = mcatSaved;
+        mcatGlide(function(){ mcatPlace(sv.x, sv.y); });
+      }
+      mcatMoveT = Date.now();
+      mcatSet('st-read');
+      if (say) mcatSayNow(say, 3000);
+      mcatTick();
+    };
+    function mcatGoCorner(){
+      if (mcatState === 'st-hide') return;
+      var r = MCAT.getBoundingClientRect();
+      mcatSaved = { x: r.left + 32, y: r.top + 32 };
+      var cx = r.left + 32 < window.innerWidth / 2 ? 46 : window.innerWidth - 46;
+      mcatGlide(() => mcatPlace(cx, 82));
+      mcatSet('st-hide');
+      mcatHideTill = Date.now() + 12000 + Math.random() * 6000;
+      mcatSayNow('هی! اینجا کسی نمی‌بینمم!', 2800);
+    };
+    function mcatGoAway(){
+      if (mcatState === 'st-hide' || mcatState === 'st-peek' ||
+          MCAT.classList.contains('away')) return;
+      const r = MCAT.getBoundingClientRect();
+      mcatSaved = { x: r.left + 32, y: r.top + 32 };
+      mcatPeekR = r.left + 32 >= window.innerWidth / 2;
+      var ay = Math.min(Math.max(r.top + 32, 130), window.innerHeight - 110);
+      mcatGlide(() => {
+        MCAT.style.left = (mcatPeekR ? window.innerWidth - 44 : -20) + 'px';
+        MCAT.style.top = (ay - 32) + 'px';
+        MCAT.style.right = 'auto';
+      });
+      setTimeout(function(){ MCAT.classList.add('away'); }, 700);
+      mcatAwayTill = Date.now() + 25000 + Math.random() * 15000;
+      mcatSayNow(faR(MCAT_AWAY), 2200);
+    };
+    function mcatStartPeek(){
+      mcatAwayTill = 0;
+      MCAT.classList.remove('away');
+      if (mcatPeekR) MCAT.classList.add('peek-r');
+      else MCAT.classList.remove('peek-r');
+      mcatSet('st-peek');
+      mcatPeekTill = Date.now() + 9000;
+      mcatSayNow('…هنوز قهرم!', 2400);
+    };
     function mcatTick(){
       var now = Date.now(), inf = mcatInfo();
+      // حالتهای غیبت: قایم در گوشه / رفته / سرک‌کشیده
+      if (mcatState === 'st-hide') {
+        mcatBub.classList.remove('dim');
+        if (mcatSayUntil && mcatSayUntil < now) {
+          mcatSayEl.classList.remove('show'); mcatSayUntil = 0;
+        }
+        if (now > mcatHideTill) mcatRestore('دیدی دلم برات تنگ شد!');
+        return;
+      }
+      if (MCAT.classList.contains('away')) {
+        if (now > mcatAwayTill) mcatStartPeek();
+        return;
+      }
+      if (mcatState === 'st-peek') {
+        mcatBub.classList.remove('dim');
+        if (mcatSayUntil && mcatSayUntil < now) {
+          mcatSayEl.classList.remove('show'); mcatSayUntil = 0;
+        }
+        if (now > mcatPeekTill) mcatRestore(faR(MCAT_BACK));
+        return;
+      }
       if (inf.atEnd) { if (!mcatBotT) mcatBotT = now; }
       else mcatBotT = 0;
       if (mcatPatT > now) { mcatSet('st-pat'); return; }
+      if (mcatAnnoyT > now) { mcatSet('st-annoy'); return; }
+      if (mcatAngryT > now) { mcatSet('st-angry'); return; }
+      if (mcatActT > now && mcatActSt) { mcatSet(mcatActSt); return; }
+      // حوصله‌سررفتگی (۸ تا ۲۰ ثانیه بی‌حرکتی): یک بازیِ تصادفی
+      if (inf.m > 320 && mcatMoveT < now - 8000 && mcatMoveT > now - 21000 &&
+          now > mcatActCd && mcatPatT < now) {
+        const acts = ['st-spin', 'st-ball', 'st-music'];
+        mcatActSt = acts[Math.floor(Math.random() * acts.length)];
+        mcatActT = now + 3000;
+        mcatActCd = now + 34000 + Math.random() * 16000;
+        mcatSayNow(faR(MCAT_ACT[mcatActSt]), 3000);
+        mcatSet(mcatActSt);
+        return;
+      }
       if (inf.atEnd && now - mcatBotT > 2200) mcatSet('st-sad');
       else if (mcatFastT > now - 1200) mcatSet('st-exc');
       else if (mcatMoveT < now - 22000) mcatSet('st-sleep');
@@ -2888,34 +3061,35 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         mcatSayEl.classList.remove('show');
         mcatSayUntil = 0;
       }
-    }
+    };
     function mcatOnScroll(){
       var now = Date.now(), y = window.scrollY || window.pageYOffset || 0;
       if (mcatLastY < 0) mcatLastY = y;
-      var dt = Math.max(40, now - mcatLastTs);
+      const dt = Math.max(40, now - mcatLastTs);
       if (Math.abs(y - mcatLastY) / dt > 0.85) mcatFastT = now;
       mcatLastY = y; mcatLastTs = now; mcatMoveT = now;
+      if (mcatActT) { mcatActT = 0; mcatActSt = ''; }
       if (mcatState === 'st-sleep') mcatSet('st-read');
       mcatUpdate();
       mcatTick();
-    }
+    };
     window.addEventListener('scroll', mcatOnScroll, false);
-    // جابه‌جایی + نوازش
+    // جابه‌جایی + نوازش/کتک
     var mcatDrag = null;
     function mcatPlace(cx, cy){
       var x = Math.min(Math.max(cx, 40), window.innerWidth - 40);
-      var y = Math.min(Math.max(cy, 64), window.innerHeight - 76);
+      var y = Math.min(Math.max(cy, 64), window.innerHeight - 82);
       MCAT.style.left = (x - 32) + 'px';
       MCAT.style.top = (y - 32) + 'px';
       MCAT.style.right = 'auto';
-    }
+    };
     try {
-      var msp = JSON.parse(localStorage.getItem('mangaCatPos') || 'null');
-      if (msp && typeof msp.x === 'number') mcatPlace(msp.x, msp.y);
-    } catch (e0) {}
+      var sp = JSON.parse(localStorage.getItem('mangaCatPos') || 'null');
+      if (sp && typeof sp.x === 'number') mcatPlace(sp.x, sp.y);
+    } catch (err) {}
     MCAT.addEventListener('pointerdown', function(e){
       mcatDrag = { x: e.clientX, y: e.clientY, moved: false };
-      try { MCAT.setPointerCapture(e.pointerId); } catch (e1) {}
+      try { MCAT.setPointerCapture(e.pointerId); } catch (err) {}
       e.preventDefault();
     });
     MCAT.addEventListener('pointermove', function(e){
@@ -2927,47 +3101,125 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     });
     function mcatUp(){
       if (!mcatDrag) return;
-      var moved = mcatDrag.moved;
+      const moved = mcatDrag.moved;
       mcatDrag = null;
       if (moved) {
         try {
           var r = MCAT.getBoundingClientRect();
           localStorage.setItem('mangaCatPos',
             JSON.stringify({ x: r.left + 32, y: r.top + 32 }));
-        } catch (e2) {}
+        } catch (err) {}
         return;
       }
-      // ضربه = نوازش
-      mcatPatT = Date.now() + 1700;
-      mcatMoveT = Date.now();
-      mcatSayNow(MCAT_PAT[Math.floor(Math.random() * MCAT_PAT.length)], 2600);
+      var now = Date.now();
+      // ضربه به قایم/سرک = پیدایش → برمی‌گردد
+      if (mcatState === 'st-hide') { mcatRestore('پیدا کردی؟! ای وای…'); return; }
+      if (mcatState === 'st-peek' || MCAT.classList.contains('away')) {
+        mcatRestore(faR(MCAT_BACK)); return;
+      }
+      mcatTaps.push(now);
+      while (mcatTaps.length && mcatTaps[0] < now - 6000) mcatTaps.shift();
+      var fast = 0, i;
+      for (i = 0; i < mcatTaps.length; i++)
+        if (mcatTaps[i] > now - 2200) fast++;
+      if (fast >= 5) {
+        // کتکِ پشت‌سرهم = اعصابی (+ احتمالِ قهر و خروج از صفحه)
+        mcatAngryT = now + 2100;
+        mcatPatT = mcatAnnoyT = mcatActT = 0;
+        mcatSayNow(faR(MCAT_ANGRY), 2400);
+        if (now - mcatAngerLast > 90000) mcatAngerN = 0;
+        mcatAngerN++; mcatAngerLast = now;
+        if (mcatAngerN >= 2 && Math.random() < 0.45) {
+          setTimeout(function(){ mcatGoAway(); }, 2150);
+          mcatAngerN = 0;
+        }
+        mcatTaps = [];
+        mcatTick(); setTimeout(mcatTick, 2150);
+        return;
+      }
+      if (mcatTaps.length >= 5) {
+        // نوازشِ زیاد = چج → گوشهٔ سایت قایم می‌شود
+        mcatAnnoyT = now + 1900;
+        mcatPatT = mcatActT = 0;
+        mcatSayNow(faR(MCAT_ANNOY), 1900);
+        setTimeout(function(){ mcatGoCorner(); }, 1950);
+        mcatTaps = [];
+        mcatTick(); setTimeout(mcatTick, 1980);
+        return;
+      }
+      // نوازشِ عادی: قلب + چشمهای خوشحال + حرفِ بامزه + بیداری
+      mcatPatT = now + 1700;
+      mcatMoveT = now;
+      mcatSayNow(faR(MCAT_PAT), 2600);
       mcatTick();
       setTimeout(mcatTick, 1780);
-    }
+    };
     MCAT.addEventListener('pointerup', mcatUp);
     MCAT.addEventListener('pointercancel', function(){ mcatDrag = null; });
-    // قلابِ تست (بی‌ضرر)
+    // قلابِ تست (بی‌ضرر): window.__mcatForce('st-sleep'|'st-annoy'|'st-hide'|…)
     window.__mcatForce = function(st){
       if (st === 'st-sleep') mcatMoveT = 0;
       if (st === 'st-exc') mcatFastT = Date.now();
+      if (st === 'st-annoy') { mcatAnnoyT = Date.now() + 2500;
+        mcatSayNow(faR(MCAT_ANNOY), 2500); }
+      if (st === 'st-angry') { mcatAngryT = Date.now() + 2500;
+        mcatSayNow(faR(MCAT_ANGRY), 2400); }
+      if (st === 'st-spin' || st === 'st-ball' || st === 'st-music') {
+        mcatActSt = st; mcatActT = Date.now() + 3000;
+        mcatSayNow(faR(MCAT_ACT[st]), 3000);
+      }
+      if (st === 'st-hide') { mcatGoCorner(); mcatHideTill = Date.now() + 2600; }
+      if (st === 'st-away') {
+        mcatAwayTill = 0;
+        if (mcatState !== 'st-peek' && !MCAT.classList.contains('away')) mcatGoAway();
+        mcatAwayTill = Date.now() + 2600;
+        setTimeout(function(){
+          if (MCAT.classList.contains('away')) mcatStartPeek();
+        }, 2700);
+        setTimeout(function(){
+          if (mcatState === 'st-peek') mcatRestore('برگشتم!');
+        }, 5400);
+      }
       mcatTick();
     };
     setInterval(function(){
       mcatTick();
       mcatUpdate();
-      // جشنِ صفحهٔ تازه — فقط وقتی حالت (دیباگ/نهایی) عوض نشده
+      // جشنِ صفحهٔ تازه — اگر رفته/قایم/سرک بود، برمی‌گردد
       var mk = dbgMode ? 'd' : 'f';
       var n = stackCount();
-      if (mcatLastN >= 0 && n > mcatLastN && mk === mcatLastMk &&
-          mcatPatT < Date.now()) {
-        mcatFastT = Date.now() + 900;
-        mcatSayNow('یه صفحهٔ تازه رسید!', 3200);
-        mcatTick();
+      if (mcatLastN >= 0 && n > mcatLastN && mk === mcatLastMk) {
+        if (mcatState === 'st-hide' || mcatState === 'st-peek' ||
+            MCAT.classList.contains('away'))
+          mcatRestore('صفحهٔ تازه؟ اومدم اومدم!');
+        else if (mcatPatT < Date.now()) {
+          mcatFastT = Date.now() + 900;
+          mcatSayNow('یه صفحهٔ تازه رسید!', 3200);
+          mcatTick();
+        }
       }
       mcatLastN = n; mcatLastMk = mk;
+      // جشنهای ۲۵/۵۰/۷۵٪ (یک‌بار، رو به جلو)
+      var mp = mcatInfo().pct;
+      var mstep = mp >= 0.75 ? 3 : mp >= 0.5 ? 2 : mp >= 0.25 ? 1 : 0;
+      if (mstep > mcatMile) {
+        mcatMile = mstep;
+        if (mcatState !== 'st-hide' && mcatState !== 'st-peek' &&
+            !MCAT.classList.contains('away') && mcatPatT < Date.now()) {
+          mcatFastT = Date.now() + 900;
+          mcatSayNow(MCAT_MILE[mstep - 1], 3200);
+          mcatTick();
+        }
+      }
+      // حرفِ تصادفیِ حالتِ خواندن (~هر ۵۰ ثانیه)
       if (mcatState === 'st-read' && !mcatSayUntil && Math.random() < 0.055)
-        mcatSayNow(MCAT_READ[Math.floor(Math.random() * MCAT_READ.length)], 5200);
+        mcatSayNow(faR(MCAT_READ), 5200);
     }, 3000);
+    // سلامِ اولِ صفحه
+    setTimeout(function(){
+      if (mcatState === 'st-read')
+        mcatSayNow('سلام! بریم بخونیم؟', 3200);
+    }, 900);
     mcatUpdate();
     mcatTick();
   }
@@ -3076,60 +3328,80 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ".rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}"
             ".rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}"
             "}"
-            "/* —— هم‌خوانِ گربه‌ای —— */"
-            ".mcat{position:fixed;z-index:57;right:10px;top:58px;width:64px;touch-action:none;"
-            "-webkit-tap-highlight-color:transparent;user-select:none;"
-            "filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer}"
+            "/* —— هم‌خوانِ نکو-گِرل: دخترِ گربه‌ایِ انیمه‌ای (گوش + دُم، خودش دختر!) —— */"
+            ".mcat{position:fixed;z-index:57;right:10px;top:58px;width:64px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}"
             ".mcat svg{display:block;width:100%;height:auto;pointer-events:none}"
-            ".mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;"
-            "background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;"
-            "border-radius:10px;padding:2px 8px;font-size:.66rem;"
-            "font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;"
-            "opacity:1;transition:opacity .35s}"
+            ".mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;border-radius:10px;padding:2px 8px;font-size:.66rem;font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;opacity:1;transition:opacity .35s}"
             ".mcat-bub.dim{opacity:0}"
-            ".mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;"
-            "background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;"
-            "pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);"
-            "transition:opacity .18s ease,transform .18s ease}"
+            ".mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease}"
             ".mcat-say.show{opacity:1;transform:translateY(0) scale(1)}"
-            ".mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;"
-            "background:#fff;transform:rotate(45deg)}"
-            ".cg-eyes,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark{display:none}"
-            ".mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,"
-            ".mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy{display:block}"
+            ".mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}"
+            ".cg-eyes,.cg-mv,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark,.cg-anger,.cg-steam,.cg-ball,.cg-music{display:none}"
+            ".mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy,.mcat.st-annoy .cg-eyes-annoy,.mcat.st-angry .cg-eyes-angry,.mcat.st-ball .cg-eyes-up,.mcat.st-spin .cg-eyes-happy,.mcat.st-music .cg-eyes-happy,.mcat.st-hide .cg-eyes-annoy,.mcat.st-peek .cg-eyes-open{display:block}"
+            ".mcat.st-read .cg-mv-smile,.mcat.st-exc .cg-mv-smile,.mcat.st-sleep .cg-mv-smile,.mcat.st-stress .cg-mv-smile,.mcat.st-sad .cg-mv-smile,.mcat.st-pat .cg-mv-smile,.mcat.st-spin .cg-mv-smile,.mcat.st-peek .cg-mv-smile,.mcat.st-annoy .cg-mv-pout,.mcat.st-hide .cg-mv-pout,.mcat.st-angry .cg-mv-shout,.mcat.st-ball .cg-mv-o,.mcat.st-music .cg-mv-song{display:block}"
             ".mcat.st-sleep .cg-zzz{display:block}"
             ".mcat.st-stress .cg-sweat{display:block}"
             ".mcat.st-sad .cg-tears{display:block}"
             ".mcat.st-pat .cg-heart{display:block}"
             ".mcat.st-exc .cg-spark{display:block}"
+            ".mcat.st-angry .cg-anger{display:block}"
+            ".mcat.st-angry .cg-steam{display:block}"
+            ".mcat.st-ball .cg-ball{display:block}"
+            ".mcat.st-music .cg-music{display:block}"
             "@keyframes mcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}"
-            "@keyframes mcBounce{0%,100%{transform:translateY(0) scale(1)}"
-            "30%{transform:translateY(-7px) scale(1.05)}60%{transform:translateY(0) scale(.97)}}"
+            "@keyframes mcBounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-7px) scale(1.05)}60%{transform:translateY(0) scale(.97)}}"
             "@keyframes mcBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}"
-            "@keyframes mcWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}"
-            "75%{transform:rotate(7deg)}}"
+            "@keyframes mcWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}75%{transform:rotate(7deg)}}"
             "@keyframes mcTail{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}"
             "@keyframes mcEarT{0%,90%,100%{transform:rotate(0)}95%{transform:rotate(-9deg)}}"
-            "@keyframes mcPop{0%{opacity:0;transform:translateY(4px)}25%{opacity:1;"
-            "transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}"
+            "@keyframes mcPop{0%{opacity:0;transform:translateY(4px)}25%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}"
             "@keyframes mcBlink{0%,93.5%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}"
+            "@keyframes mcShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2.6px)}75%{transform:translateX(2.6px)}}"
+            "@keyframes mcHmph{0%,100%{transform:translateX(0) rotate(0)}35%{transform:translateX(-5px) rotate(-5deg)}75%{transform:translateX(-3px) rotate(-3deg)}}"
+            "@keyframes mcSpin{0%{transform:rotate(0)}45%{transform:rotate(-185deg) scale(1.07,.93)}100%{transform:rotate(-360deg)}}"
+            "@keyframes mcSway{0%,100%{transform:rotate(0)}30%{transform:rotate(-7deg)}70%{transform:rotate(7deg)}}"
+            "@keyframes mcBall{0%{transform:translateY(0)}22%{transform:translateY(-56px)}46%{transform:translateY(0)}60%{transform:translateY(-20px)}74%{transform:translateY(0)}86%{transform:translateY(-7px)}100%{transform:translateY(0)}}"
+            "@keyframes mcAnger{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}"
+            "@keyframes mcFume{0%{opacity:0;transform:translateY(6px)}30%{opacity:.95}100%{opacity:0;transform:translateY(-16px)}}"
+            "@keyframes mcNote{0%{opacity:0;transform:translateY(6px)}25%{opacity:1}100%{opacity:0;transform:translateY(-17px)}}"
+            "@keyframes mcPeekBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(3deg)}}"
             ".mcat .cg-all{transform-origin:60px 104px;animation:mcBob 3.4s ease-in-out infinite}"
             ".mcat.st-exc .cg-all{animation:mcBounce .55s ease-in-out infinite}"
             ".mcat.st-sleep .cg-all{animation:mcBreath 2.8s ease-in-out infinite}"
             ".mcat.st-pat .cg-all{animation:mcWiggle .45s ease-in-out 3}"
             ".mcat.st-sad .cg-all{animation:mcBob 4.6s ease-in-out infinite}"
-            ".mcat .cg-tail{transform-origin:84px 98px;animation:mcTail 3s ease-in-out infinite}"
-            ".mcat.st-exc .cg-tail{animation:mcTail .45s ease-in-out infinite}"
+            ".mcat.st-angry .cg-all{animation:mcShake .09s linear 18}"
+            ".mcat.st-annoy .cg-all{animation:mcHmph 1.9s ease-in-out 1}"
+            ".mcat.st-spin .cg-all{animation:mcSpin 1.45s ease-in-out 2}"
+            ".mcat.st-ball .cg-all{animation:mcBounce 1.3s ease-in-out 2}"
+            ".mcat.st-music .cg-all{animation:mcSway 1.6s ease-in-out 2}"
+            ".mcat.st-hide .cg-all{animation:mcPeekBob 3s ease-in-out infinite}"
+            ".mcat.st-peek .cg-all{animation:mcPeekBob 2.4s ease-in-out infinite}"
+            ".mcat.st-annoy .cg-head{transform:translateX(-7px) rotate(-10deg)}"
+            ".mcat.st-annoy .cg-blush{display:none}"
+            ".mcat .cg-tail{transform-origin:82px 106px;animation:mcTail 3s ease-in-out infinite}"
+            ".mcat.st-exc .cg-tail,.mcat.st-ball .cg-tail,.mcat.st-spin .cg-tail{animation:mcTail .45s ease-in-out infinite}"
             ".mcat.st-stress .cg-tail{animation:mcTail .9s ease-in-out infinite}"
+            ".mcat.st-angry .cg-tail{animation:mcTail .3s linear infinite}"
             ".mcat.st-sleep .cg-tail{animation:none}"
-            ".mcat .cg-ear-l{transform-origin:36px 36px;animation:mcEarT 6s ease-in-out infinite}"
-            ".mcat .cg-ear-r{transform-origin:84px 36px;animation:mcEarT 6s ease-in-out .8s infinite}"
-            ".mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,"
-            ".mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}"
+            ".mcat .cg-ear-l{transform-origin:34px 28px;animation:mcEarT 6s ease-in-out infinite}"
+            ".mcat .cg-ear-r{transform-origin:86px 28px;animation:mcEarT 6s ease-in-out .8s infinite}"
+            ".mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,.mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}"
             ".mcat .cg-eyes-open{transform-origin:60px 52px;animation:mcBlink 5.6s infinite}"
             ".mcat .cg-heart{animation:mcPop 1.6s ease-out}"
             ".mcat .cg-zzz text{animation:mcPop 2.4s ease-in-out infinite}"
             ".mcat .cg-zzz text:nth-child(2){animation-delay:.5s}"
+            ".mcat .cg-ball{animation:mcBall 2.9s cubic-bezier(.33,.66,.45,1) 1}"
+            ".mcat .cg-anger{transform-origin:90px 26px;animation:mcAnger .55s ease-in-out 4}"
+            ".mcat .cg-steam circle{animation:mcFume 1.6s ease-out 2}"
+            ".mcat .cg-steam circle:nth-child(2){animation-delay:.4s}"
+            ".mcat .cg-music .n1{animation:mcNote 1.6s ease-out 2}"
+            ".mcat .cg-music .n2{animation:mcNote 1.6s ease-out .55s 2}"
+            ".mcat.st-hide svg{clip-path:inset(0 0 26% 0);-webkit-clip-path:inset(0 0 26% 0)}"
+            ".mcat.st-peek svg{clip-path:inset(0 0 22% 34%);-webkit-clip-path:inset(0 0 22% 34%)}"
+            ".mcat.peek-r svg{clip-path:inset(0 34% 22% 0);-webkit-clip-path:inset(0 34% 22% 0)}"
+            ".mcat.away{opacity:0;pointer-events:none;transition:opacity .35s .7s}"
+            ".mcat.glide{transition:left .75s cubic-bezier(.35,.8,.35,1),top .75s cubic-bezier(.35,.8,.35,1),opacity .3s}"
         )
 # جاوااسکریپت روی اسکرولِ خودِ سند (window) — کشِ IndexedDB +
 # منویِ گردِ «منو» (چهار دکمه دورش) + خطِ صفحهها (قبل/بعد).
@@ -3631,13 +3903,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { fanState = 0; updateFan(); updateSeekVis(); }
   });
-  // ——— هم‌خوانِ گربه‌ای (نمایشگرِ مستقل) — درصد/صفحهٔ خواندن + حالت‌ها ———
+  // ——— هم‌خوانِ نکو-گِرل (نمایشگرِ مستقل) — دخترِ گربه‌ایِ انیمه‌ای +
+  // ۱۳ حالت (خواندن/هیجان/خواب/استرس/غم/نوازش/چج→گوشه/کتک→قهر و
+  // سرک/چرخش/توپ/زمزمه/جشنهای ۲۵-۵۰-۷۵٪) ———
   const MCAT = document.getElementById('mcat');
   if (MCAT) {
     const mcatBub = MCAT.querySelector('.mcat-bub');
     const mcatSayEl = MCAT.querySelector('.mcat-say');
-    const FAD = '۰۱۲۳۴۵۶۷۸۹';
+    const FAD = '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9';
     const faN = (v) => String(v).replace(/\d/g, (d) => FAD[+d]);
+    const faR = (a) => a[Math.floor(Math.random() * a.length)];
     const mcatInfo = () => {
       const m = document.documentElement.scrollHeight - window.innerHeight;
       const y = window.scrollY || window.pageYOffset || 0;
@@ -3647,9 +3922,23 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     };
     const MCAT_PAT = ['میاو~', 'هوی؟', 'بغلم کن!', 'مممنون~', 'خرخر نکردم، استراحت میکردم!'];
     const MCAT_READ = ['یه صفحهٔ دیگه؟', 'قشنگه…', 'چی میشه آخرش؟!', 'چایی بخورم؟', 'ادامه بده~', 'این حباب رو من بهتر ترجمه میکردم!'];
+    const MCAT_ANNOY = ['هیغ! بسه دیگه!', 'خیلی نازکیدم!', 'برم گوشه‌م، ببینم!', 'نه! دیگه نوازش نکن!'];
+    const MCAT_ANGRY = ['اووچ! چرا میزنی؟!', 'اعصابم خرد شد!', 'بدرفتاریه این!'];
+    const MCAT_AWAY = ['رفتم! خودت بخون!', 'از تو قهرم!', 'خداحافظ!'];
+    const MCAT_BACK = ['باز خودم اومدم…', 'دلم گرفت، برگشتم', 'قصه‌هات قشنگه دیگه…'];
+    const MCAT_ACT = {
+      'st-spin': ['دُمم! بیا اینجا!', 'وووو~ سرم گیج رفت!'],
+      'st-ball': ['بگیر!', 'توپ! توپ!', 'بالا بالا!'],
+      'st-music': ['هوم~ هوم~', 'لالالالا~', 'دلم یه آهنگ میخواد~']
+    };
+    const MCAT_MILE = ['یک‌چهارمش رفت!', 'نصفش رفت! یهوو!', 'سه‌چهارمش رفت! وایسا'];
     let mcatState = 'st-read';
     let mcatLastTs = 0, mcatLastY = -1, mcatFastT = 0, mcatMoveT = Date.now();
     let mcatBotT = 0, mcatPatT = 0, mcatSayUntil = 0;
+    let mcatHideTill = 0, mcatAwayTill = 0, mcatPeekTill = 0, mcatPeekR = false;
+    let mcatAnnoyT = 0, mcatAngryT = 0, mcatActT = 0, mcatActSt = '', mcatActCd = 0;
+    let mcatTaps = [], mcatAngerN = 0, mcatAngerLast = 0;
+    let mcatSaved = null, mcatMile = 0;
     const mcatSet = (st) => {
       if (mcatState === st) return;
       MCAT.classList.remove(mcatState);
@@ -3666,11 +3955,97 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       mcatBub.textContent = faN(Math.round(inf.pct * 100)) + '٪ · ' +
         faN(curPageIdx() + 1) + '/' + faN(stackCount());
     };
+    const mcatGlide = (fn) => {
+      MCAT.classList.add('glide');
+      fn();
+      setTimeout(() => MCAT.classList.remove('glide'), 800);
+    };
+    const mcatRestore = (say) => {
+      mcatHideTill = mcatAwayTill = mcatPeekTill = 0;
+      MCAT.classList.remove('away', 'peek-r');
+      if (mcatSaved) {
+        const sv = mcatSaved;
+        mcatGlide(() => mcatPlace(sv.x, sv.y));
+      }
+      mcatMoveT = Date.now();
+      mcatSet('st-read');
+      if (say) mcatSayNow(say, 3000);
+      mcatTick();
+    };
+    const mcatGoCorner = () => {
+      if (mcatState === 'st-hide') return;
+      const r = MCAT.getBoundingClientRect();
+      mcatSaved = { x: r.left + 32, y: r.top + 32 };
+      const cx = r.left + 32 < window.innerWidth / 2 ? 46 : window.innerWidth - 46;
+      mcatGlide(() => mcatPlace(cx, 82));
+      mcatSet('st-hide');
+      mcatHideTill = Date.now() + 12000 + Math.random() * 6000;
+      mcatSayNow('هی! اینجا کسی نمی‌بینمم!', 2800);
+    };
+    const mcatGoAway = () => {
+      if (mcatState === 'st-hide' || mcatState === 'st-peek' ||
+          MCAT.classList.contains('away')) return;
+      const r = MCAT.getBoundingClientRect();
+      mcatSaved = { x: r.left + 32, y: r.top + 32 };
+      mcatPeekR = r.left + 32 >= window.innerWidth / 2;
+      const ay = Math.min(Math.max(r.top + 32, 130), window.innerHeight - 110);
+      mcatGlide(() => {
+        MCAT.style.left = (mcatPeekR ? window.innerWidth - 44 : -20) + 'px';
+        MCAT.style.top = (ay - 32) + 'px';
+        MCAT.style.right = 'auto';
+      });
+      setTimeout(() => { MCAT.classList.add('away'); }, 700);
+      mcatAwayTill = Date.now() + 25000 + Math.random() * 15000;
+      mcatSayNow(faR(MCAT_AWAY), 2200);
+    };
+    const mcatStartPeek = () => {
+      mcatAwayTill = 0;
+      MCAT.classList.remove('away');
+      MCAT.classList.toggle('peek-r', mcatPeekR);
+      mcatSet('st-peek');
+      mcatPeekTill = Date.now() + 9000;
+      mcatSayNow('…هنوز قهرم!', 2400);
+    };
     const mcatTick = () => {
       const now = Date.now(), inf = mcatInfo();
+      // حالتهای غیبت: قایم در گوشه / رفته / سرک‌کشیده
+      if (mcatState === 'st-hide') {
+        mcatBub.classList.remove('dim');
+        if (mcatSayUntil && mcatSayUntil < now) {
+          mcatSayEl.classList.remove('show'); mcatSayUntil = 0;
+        }
+        if (now > mcatHideTill) mcatRestore('دیدی دلم برات تنگ شد!');
+        return;
+      }
+      if (MCAT.classList.contains('away')) {
+        if (now > mcatAwayTill) mcatStartPeek();
+        return;
+      }
+      if (mcatState === 'st-peek') {
+        mcatBub.classList.remove('dim');
+        if (mcatSayUntil && mcatSayUntil < now) {
+          mcatSayEl.classList.remove('show'); mcatSayUntil = 0;
+        }
+        if (now > mcatPeekTill) mcatRestore(faR(MCAT_BACK));
+        return;
+      }
       if (inf.atEnd) { if (!mcatBotT) mcatBotT = now; }
       else mcatBotT = 0;
       if (mcatPatT > now) { mcatSet('st-pat'); return; }
+      if (mcatAnnoyT > now) { mcatSet('st-annoy'); return; }
+      if (mcatAngryT > now) { mcatSet('st-angry'); return; }
+      if (mcatActT > now && mcatActSt) { mcatSet(mcatActSt); return; }
+      // حوصله‌سررفتگی (۸ تا ۲۰ ثانیه بی‌حرکتی): یک بازیِ تصادفی
+      if (inf.m > 320 && mcatMoveT < now - 8000 && mcatMoveT > now - 21000 &&
+          now > mcatActCd && mcatPatT < now) {
+        const acts = ['st-spin', 'st-ball', 'st-music'];
+        mcatActSt = acts[Math.floor(Math.random() * acts.length)];
+        mcatActT = now + 3000;
+        mcatActCd = now + 34000 + Math.random() * 16000;
+        mcatSayNow(faR(MCAT_ACT[mcatActSt]), 3000);
+        mcatSet(mcatActSt);
+        return;
+      }
       if (inf.atEnd && now - mcatBotT > 2200) mcatSet('st-sad');
       else if (mcatFastT > now - 1200) mcatSet('st-exc');
       else if (mcatMoveT < now - 22000) mcatSet('st-sleep');
@@ -3689,16 +4064,17 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       const dt = Math.max(40, now - mcatLastTs);
       if (Math.abs(y - mcatLastY) / dt > 0.85) mcatFastT = now;
       mcatLastY = y; mcatLastTs = now; mcatMoveT = now;
+      if (mcatActT) { mcatActT = 0; mcatActSt = ''; }
       if (mcatState === 'st-sleep') mcatSet('st-read');
       mcatUpdate();
       mcatTick();
     };
     window.addEventListener('scroll', mcatOnScroll, { passive: true });
-    // جابه‌جایی + نوازش
+    // جابه‌جایی + نوازش/کتک
     let mcatDrag = null;
     const mcatPlace = (cx, cy) => {
       const x = Math.min(Math.max(cx, 40), window.innerWidth - 40);
-      const y = Math.min(Math.max(cy, 64), window.innerHeight - 76);
+      const y = Math.min(Math.max(cy, 64), window.innerHeight - 82);
       MCAT.style.left = (x - 32) + 'px';
       MCAT.style.top = (y - 32) + 'px';
       MCAT.style.right = 'auto';
@@ -3731,25 +4107,101 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         } catch (err) {}
         return;
       }
-      mcatPatT = Date.now() + 1700;
-      mcatMoveT = Date.now();
-      mcatSayNow(MCAT_PAT[Math.floor(Math.random() * MCAT_PAT.length)], 2600);
+      const now = Date.now();
+      // ضربه به قایم/سرک = پیدایش → برمی‌گردد
+      if (mcatState === 'st-hide') { mcatRestore('پیدا کردی؟! ای وای…'); return; }
+      if (mcatState === 'st-peek' || MCAT.classList.contains('away')) {
+        mcatRestore(faR(MCAT_BACK)); return;
+      }
+      mcatTaps.push(now);
+      while (mcatTaps.length && mcatTaps[0] < now - 6000) mcatTaps.shift();
+      let fast = 0;
+      for (let i = 0; i < mcatTaps.length; i++)
+        if (mcatTaps[i] > now - 2200) fast++;
+      if (fast >= 5) {
+        // کتکِ پشت‌سرهم = اعصابی (+ احتمالِ قهر و خروج از صفحه)
+        mcatAngryT = now + 2100;
+        mcatPatT = mcatAnnoyT = mcatActT = 0;
+        mcatSayNow(faR(MCAT_ANGRY), 2400);
+        if (now - mcatAngerLast > 90000) mcatAngerN = 0;
+        mcatAngerN++; mcatAngerLast = now;
+        if (mcatAngerN >= 2 && Math.random() < 0.45) {
+          setTimeout(() => { mcatGoAway(); }, 2150);
+          mcatAngerN = 0;
+        }
+        mcatTaps = [];
+        mcatTick(); setTimeout(mcatTick, 2150);
+        return;
+      }
+      if (mcatTaps.length >= 5) {
+        // نوازشِ زیاد = چج → گوشهٔ سایت قایم می‌شود
+        mcatAnnoyT = now + 1900;
+        mcatPatT = mcatActT = 0;
+        mcatSayNow(faR(MCAT_ANNOY), 1900);
+        setTimeout(() => { mcatGoCorner(); }, 1950);
+        mcatTaps = [];
+        mcatTick(); setTimeout(mcatTick, 1980);
+        return;
+      }
+      // نوازشِ عادی: قلب + چشمهای خوشحال + حرفِ بامزه + بیداری
+      mcatPatT = now + 1700;
+      mcatMoveT = now;
+      mcatSayNow(faR(MCAT_PAT), 2600);
       mcatTick();
       setTimeout(mcatTick, 1780);
     };
     MCAT.addEventListener('pointerup', mcatUp);
     MCAT.addEventListener('pointercancel', () => { mcatDrag = null; });
+    // قلابِ تست (بی‌ضرر): window.__mcatForce('st-sleep'|'st-annoy'|'st-hide'|…)
     window.__mcatForce = (st) => {
       if (st === 'st-sleep') mcatMoveT = 0;
       if (st === 'st-exc') mcatFastT = Date.now();
+      if (st === 'st-annoy') { mcatAnnoyT = Date.now() + 2500;
+        mcatSayNow(faR(MCAT_ANNOY), 2500); }
+      if (st === 'st-angry') { mcatAngryT = Date.now() + 2500;
+        mcatSayNow(faR(MCAT_ANGRY), 2400); }
+      if (st === 'st-spin' || st === 'st-ball' || st === 'st-music') {
+        mcatActSt = st; mcatActT = Date.now() + 3000;
+        mcatSayNow(faR(MCAT_ACT[st]), 3000);
+      }
+      if (st === 'st-hide') { mcatGoCorner(); mcatHideTill = Date.now() + 2600; }
+      if (st === 'st-away') {
+        mcatAwayTill = 0;
+        if (mcatState !== 'st-peek' && !MCAT.classList.contains('away')) mcatGoAway();
+        mcatAwayTill = Date.now() + 2600;
+        setTimeout(() => {
+          if (MCAT.classList.contains('away')) mcatStartPeek();
+        }, 2700);
+        setTimeout(() => {
+          if (mcatState === 'st-peek') mcatRestore('برگشتم!');
+        }, 5400);
+      }
       mcatTick();
     };
     setInterval(() => {
       mcatTick();
       mcatUpdate();
+      // جشنهای ۲۵/۵۰/۷۵٪ (یک‌بار، رو به جلو)
+      const mp = mcatInfo().pct;
+      const mstep = mp >= 0.75 ? 3 : mp >= 0.5 ? 2 : mp >= 0.25 ? 1 : 0;
+      if (mstep > mcatMile) {
+        mcatMile = mstep;
+        if (mcatState !== 'st-hide' && mcatState !== 'st-peek' &&
+            !MCAT.classList.contains('away') && mcatPatT < Date.now()) {
+          mcatFastT = Date.now() + 900;
+          mcatSayNow(MCAT_MILE[mstep - 1], 3200);
+          mcatTick();
+        }
+      }
+      // حرفِ تصادفیِ حالتِ خواندن (~هر ۵۰ ثانیه)
       if (mcatState === 'st-read' && !mcatSayUntil && Math.random() < 0.055)
-        mcatSayNow(MCAT_READ[Math.floor(Math.random() * MCAT_READ.length)], 5200);
+        mcatSayNow(faR(MCAT_READ), 5200);
     }, 3000);
+    // سلامِ اولِ صفحه
+    setTimeout(() => {
+      if (mcatState === 'st-read')
+        mcatSayNow('سلام! بریم بخونیم؟', 3200);
+    }, 900);
     mcatUpdate();
     mcatTick();
   }
@@ -3757,39 +4209,71 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 })();
 """
 
-# ——— هم‌خوانِ گربه‌ای (نمایشگرِ مستقل): SVG دخترکِ گربه‌ای ———
+# ——— هم‌خوانِ نکو-گِرل (نمایشگرِ مستقل): SVG دخترِ گربه‌ایِ انیمه‌ای ———
         _MCAT_HTML = (
-            '<div class="mcat st-read" id="mcat" title="هم‌خوانِ گربه‌ای — کشیدن = جابه‌جایی، ضربه = نوازش">\n'
-            '<svg viewBox="0 0 120 118">\n'
+            '<div class="mcat st-read" id="mcat" title="هم‌خوانِ گربه‌ای — کشیدن = جابه‌جایی، ضربه = نوازش (زیادش نکن!)">\n'
+            '<svg viewBox="0 0 120 132">\n'
             '<g class="cg-all">\n'
-            '<g class="cg-tail"><path d="M84 98 Q110 96 104 74 Q101 65 91 68" fill="none" stroke="#e9b96f" stroke-width="8" stroke-linecap="round"/><path d="M93 67 q-3.6 1.4 -2.4 5" fill="none" stroke="#e89aa6" stroke-width="4.6" stroke-linecap="round"/></g>\n'
-            '<path d="M43 76 Q60 68 77 76 L82 102 Q60 112 38 102 Z" fill="#46384f"/>\n'
-            '<path d="M51 74 q9 6 18 0" fill="none" stroke="#e89aa6" stroke-width="3" stroke-linecap="round"/>\n'
-            '<circle cx="41" cy="87" r="5.2" fill="#ffe3c9"/>\n'
-            '<circle cx="79" cy="87" r="5.2" fill="#ffe3c9"/>\n'
-            '<g class="cg-book"><rect x="40" y="84" width="40" height="25" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="85.5" x2="60" y2="107.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="45.5" y1="92" x2="55.5" y2="92"/><line x1="45.5" y1="98" x2="55.5" y2="98"/><line x1="45.5" y1="104" x2="51.5" y2="104"/><line x1="64.5" y1="92" x2="74.5" y2="92"/><line x1="64.5" y1="98" x2="74.5" y2="98"/><line x1="64.5" y1="104" x2="70.5" y2="104"/></g></g>\n'
+            '<g class="cg-tail"><path d="M82 106 Q114 102 108 76 Q105 66 93 70" fill="none" stroke="#eec06d" stroke-width="7.5" stroke-linecap="round"/><path d="M95 69 q-4 1.5 -2.5 5.5" fill="none" stroke="#f2a3b3" stroke-width="4.2" stroke-linecap="round"/><path d="M80 104 l-6 -4.5 M80 104 l6.5 -3.5" fill="none" stroke="#ff8fae" stroke-width="3" stroke-linecap="round"/></g>\n'
+            '<path d="M26 48 Q22 10 60 10 Q98 10 94 48 Q94 72 84 82 Q60 88 36 82 Q26 72 26 48 Z" fill="#eec06d"/>\n'
+            '<path d="M28 36 Q10 42 12 62 Q13 78 6 94 Q13 90 15 97 Q18 82 23 68 Q27 54 33 46 Z" fill="#eec06d"/>\n'
+            '<path d="M92 36 Q110 42 108 62 Q107 78 114 94 Q107 90 105 97 Q102 82 97 68 Q93 54 87 46 Z" fill="#eec06d"/>\n'
+            '<path d="M17 60 Q18 74 13 88" fill="none" stroke="#db9f4e" stroke-width="2" stroke-linecap="round"/>\n'
+            '<path d="M103 60 Q102 74 107 88" fill="none" stroke="#db9f4e" stroke-width="2" stroke-linecap="round"/>\n'
+            '<path d="M28 37 l-8 -5.5 l1.5 10.5 Z M28 37 l8 -5.5 l-1.5 10.5 Z" fill="#ff8fae"/><circle cx="28" cy="37" r="2.2" fill="#ffb3c6"/>\n'
+            '<path d="M92 37 l-8 -5.5 l1.5 10.5 Z M92 37 l8 -5.5 l-1.5 10.5 Z" fill="#ff8fae"/><circle cx="92" cy="37" r="2.2" fill="#ffb3c6"/>\n'
+            '<line x1="52" y1="112" x2="52" y2="126" stroke="#ffe3c9" stroke-width="5" stroke-linecap="round"/>\n'
+            '<line x1="68" y1="112" x2="68" y2="126" stroke="#ffe3c9" stroke-width="5" stroke-linecap="round"/>\n'
+            '<line x1="52" y1="118" x2="52" y2="124" stroke="#fff" stroke-width="5.6" stroke-linecap="round"/>\n'
+            '<line x1="68" y1="118" x2="68" y2="124" stroke="#fff" stroke-width="5.6" stroke-linecap="round"/>\n'
+            '<rect x="46" y="124" width="12" height="5.5" rx="2.75" fill="#c9473f"/>\n'
+            '<rect x="62" y="124" width="12" height="5.5" rx="2.75" fill="#c9473f"/>\n'
+            '<path d="M38 100 Q60 94 82 100 L87 115 Q60 108 33 115 Z" fill="#7d598e"/>\n'
+            '<path d="M33 115 Q60 108 87 115" fill="none" stroke="#664678" stroke-width="2" stroke-linecap="round"/>\n'
+            '<path d="M47 84 Q60 78 73 84 L76 100 Q60 105 44 100 Z" fill="#6b4a7a"/>\n'
+            '<circle cx="44" cy="88" r="7.5" fill="#6b4a7a"/>\n'
+            '<circle cx="76" cy="88" r="7.5" fill="#6b4a7a"/>\n'
+            '<path d="M51 82 Q60 89 69 82 L67 88 Q60 92 53 88 Z" fill="#fff"/>\n'
+            '<path d="M60 88 l-4 6.5 l4 -1.2 l4 1.2 Z" fill="#ff5d78"/>\n'
+            '<path d="M43 94 Q44 99 47 102" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/>\n'
+            '<path d="M77 94 Q76 99 73 102" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/>\n'
+            '<g class="cg-book"><rect x="40" y="94" width="40" height="26" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="95.5" x2="60" y2="118.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="45.5" y1="101.5" x2="55.5" y2="101.5"/><line x1="45.5" y1="107.5" x2="55.5" y2="107.5"/><line x1="45.5" y1="113.5" x2="51.5" y2="113.5"/><line x1="64.5" y1="101.5" x2="74.5" y2="101.5"/><line x1="64.5" y1="107.5" x2="74.5" y2="107.5"/><line x1="64.5" y1="113.5" x2="70.5" y2="113.5"/></g></g>\n'
+            '<circle cx="47" cy="103" r="3.6" fill="#ffe3c9"/>\n'
+            '<circle cx="73" cy="103" r="3.6" fill="#ffe3c9"/>\n'
             '<g class="cg-head">\n'
-            '<g class="cg-ear cg-ear-l"><path d="M33 37 L26 10 L50 23 Z" fill="#e9b96f"/><path d="M34 31.5 L30 16.5 L43.5 24 Z" fill="#e89aa6"/></g>\n'
-            '<g class="cg-ear cg-ear-r"><path d="M87 37 L94 10 L70 23 Z" fill="#e9b96f"/><path d="M86 31.5 L90 16.5 L76.5 24 Z" fill="#e89aa6"/></g>\n'
-            '<circle cx="60" cy="48" r="31" fill="#ffe3c9"/>\n'
-            '<path d="M29 48 Q27 18 60 17 Q93 18 91 48 Q88 26 60 25 Q32 26 29 48 Z" fill="#e9b96f"/>\n'
-            '<path d="M29 48 Q27 58 33 64 Q33 54 36 48 Z" fill="#e9b96f"/>\n'
-            '<path d="M91 48 Q93 58 87 64 Q87 54 84 48 Z" fill="#e9b96f"/>\n'
-            '<g class="cg-eyes cg-eyes-open"><ellipse cx="48" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="50" cy="49.5" r="1.7" fill="#fff"/><ellipse cx="72" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="74" cy="49.5" r="1.7" fill="#fff"/></g>\n'
-            '<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 52 Q48 46 53 52"/><path d="M67 52 Q72 46 77 52"/></g>\n'
-            '<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 51 Q48 55 53 51"/><path d="M67 51 Q72 55 77 51"/></g>\n'
-            '<g class="cg-eyes cg-eyes-worry"><ellipse cx="48" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><ellipse cx="72" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><path d="M41 44.5 L53 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M79 44.5 L67 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>\n'
-            '<g class="cg-eyes cg-eyes-sad"><ellipse cx="48" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="49.5" cy="52" r="1.4" fill="#fff"/><ellipse cx="72" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="73.5" cy="52" r="1.4" fill="#fff"/><path d="M40 42.5 Q46 44.5 52 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M80 42.5 Q74 44.5 68 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>\n'
-            '<ellipse cx="38.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>\n'
-            '<ellipse cx="81.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>\n'
-            '<path d="M55 61 Q57.5 64.5 60 61 Q62.5 64.5 65 61" fill="none" stroke="#b05a68" stroke-width="1.8" stroke-linecap="round"/>\n'
-            '<g class="cg-sweat"><path d="M91 26 q5 7 0 10.5 q-5 -3.5 0 -10.5" fill="#7ec8f2"/></g>\n'
-            '<g class="cg-tears"><ellipse cx="44" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/><ellipse cx="76" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/></g>\n'
+            '<g class="cg-ear cg-ear-l"><path d="M34 30 L22 5 L52 19 Z" fill="#eec06d"/><path d="M35 25 L28.5 11 L46.5 20 Z" fill="#f2a3b3"/></g>\n'
+            '<g class="cg-ear cg-ear-r"><path d="M86 30 L98 5 L68 19 Z" fill="#eec06d"/><path d="M85 25 L91.5 11 L73.5 20 Z" fill="#f2a3b3"/></g>\n'
+            '<path d="M32 44 Q32 15 60 15 Q88 15 88 44 Q88 62 79 70 Q70 78 60 78 Q50 78 41 70 Q32 62 32 44 Z" fill="#ffe3c9"/>\n'
+            '<path d="M31 44 Q30 14 60 13 Q90 14 89 44 Q84 27 73 26 Q67 16 60 17 Q53 16 47 26 Q36 27 31 44 Z" fill="#eec06d"/>\n'
+            '<path d="M46 24 Q52 17 60 17" fill="none" stroke="#f7d492" stroke-width="2" stroke-linecap="round"/>\n'
+            '<path d="M32 44 Q29 58 35 67 Q39 57 38 45 Z" fill="#eec06d"/>\n'
+            '<path d="M88 44 Q91 58 85 67 Q81 57 82 45 Z" fill="#eec06d"/>\n'
+            '<g class="cg-eyes cg-eyes-open"><path d="M40.5 45.5 Q47 41.5 53.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M66.5 45.5 Q73 41.5 79.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="47" cy="53" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="44.8" cy="48.8" r="2.2" fill="#fff"/><circle cx="49.8" cy="55.6" r="1.05" fill="#fff"/><ellipse cx="73" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="73" cy="53" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="70.8" cy="48.8" r="2.2" fill="#fff"/><circle cx="75.8" cy="55.6" r="1.05" fill="#fff"/></g>\n'
+            '<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#453247" stroke-width="2.4" stroke-linecap="round"><path d="M40.5 53 Q47 44.5 53.5 53"/><path d="M66.5 53 Q73 44.5 79.5 53"/></g>\n'
+            '<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"><path d="M40.5 51.5 Q47 56 53.5 51.5"/><path d="M66.5 51.5 Q73 56 79.5 51.5"/></g>\n'
+            '<g class="cg-eyes cg-eyes-worry"><path d="M41 43.5 L52.5 46.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M79 43.5 L67.5 46.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="4.6" ry="6" fill="#57405f"/><circle cx="45.4" cy="50.8" r="1.5" fill="#fff"/><ellipse cx="73" cy="53" rx="4.6" ry="6" fill="#57405f"/><circle cx="71.4" cy="50.8" r="1.5" fill="#fff"/></g>\n'
+            '<g class="cg-eyes cg-eyes-sad"><path d="M40 42 Q46 44.5 52 43.5" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M80 42 Q74 44.5 68 43.5" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="54" rx="5.2" ry="6.6" fill="#57405f"/><circle cx="45.2" cy="51.6" r="1.6" fill="#fff"/><ellipse cx="73" cy="54" rx="5.2" ry="6.6" fill="#57405f"/><circle cx="71.2" cy="51.6" r="1.6" fill="#fff"/></g>\n'
+            '<g class="cg-eyes cg-eyes-annoy"><path d="M41 42.5 L53 44.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M79 42.5 L67 44.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="5" ry="5.4" fill="#57405f"/><ellipse cx="49.4" cy="53" rx="2.6" ry="3.8" fill="#2e1f33"/><path d="M40 49.5 Q47 46 54 49.5 L54 46.5 Q47 43.5 40 46.5 Z" fill="#ffe3c9"/><ellipse cx="73" cy="53" rx="5" ry="5.4" fill="#57405f"/><ellipse cx="75.4" cy="53" rx="2.6" ry="3.8" fill="#2e1f33"/><path d="M66 49.5 Q73 46 80 49.5 L80 46.5 Q73 43.5 66 46.5 Z" fill="#ffe3c9"/><circle cx="35" cy="61.5" r="5.2" fill="#ffb3ba" opacity=".95"/></g>\n'
+            '<g class="cg-eyes cg-eyes-angry"><path d="M40 41 L53 45" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M80 41 L67 45" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="5.4" ry="6.2" fill="#57405f"/><ellipse cx="47" cy="53.6" rx="2.8" ry="3.9" fill="#2e1f33"/><ellipse cx="73" cy="53" rx="5.4" ry="6.2" fill="#57405f"/><ellipse cx="73" cy="53.6" rx="2.8" ry="3.9" fill="#2e1f33"/><path d="M39.5 45 L54.5 49.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/><path d="M80.5 45 L65.5 49.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/></g>\n'
+            '<g class="cg-eyes cg-eyes-up"><path d="M40.5 45.5 Q47 41.5 53.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M66.5 45.5 Q73 41.5 79.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="47" cy="49.6" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="44.8" cy="46.6" r="2.2" fill="#fff"/><ellipse cx="73" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="73" cy="49.6" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="70.8" cy="46.6" r="2.2" fill="#fff"/></g>\n'
+            '<ellipse class="cg-blush" cx="38.5" cy="62" rx="4.6" ry="2.6" fill="#ffb3ba" opacity=".75"/>\n'
+            '<ellipse class="cg-blush" cx="81.5" cy="62" rx="4.6" ry="2.6" fill="#ffb3ba" opacity=".75"/>\n'
+            '<path class="cg-mv cg-mv-smile" d="M55 64 Q57.5 67.5 60 64 Q62.5 67.5 65 64" fill="none" stroke="#b05a68" stroke-width="1.8" stroke-linecap="round"/>\n'
+            '<path class="cg-mv cg-mv-pout" d="M56 66 Q60 64 64 66" fill="none" stroke="#b05a68" stroke-width="2" stroke-linecap="round"/>\n'
+            '<ellipse class="cg-mv cg-mv-shout" cx="60" cy="66.5" rx="4" ry="3.2" fill="#8a4050"/>\n'
+            '<ellipse class="cg-mv cg-mv-o" cx="60" cy="65.5" rx="2.8" ry="3.6" fill="#8a4050"/>\n'
+            '<ellipse class="cg-mv cg-mv-song" cx="60" cy="65.5" rx="2.4" ry="2.9" fill="#8a4050"/>\n'
+            '<g class="cg-sweat"><path d="M91 25 q5 7 0 10.5 q-5 -3.5 0 -10.5" fill="#7ec8f2"/></g>\n'
+            '<g class="cg-tears"><ellipse cx="44" cy="62" rx="2.3" ry="3.8" fill="#7ec8f2"/><ellipse cx="76" cy="62" rx="2.3" ry="3.8" fill="#7ec8f2"/></g>\n'
             '<g class="cg-spark" fill="#ffd86b"><path d="M35 33 l1.7 4.2 4.2 1.7 -4.2 1.7 -1.7 4.2 -1.7 -4.2 -4.2 -1.7 4.2 -1.7 Z"/><path d="M87 37 l1.3 3.2 3.2 1.3 -3.2 1.3 -1.3 3.2 -1.3 -3.2 -3.2 -1.3 3.2 -1.3 Z"/></g>\n'
-            '<path class="cg-heart" transform="translate(84 12) scale(.9)" d="M12 21s-8-4.5-8-11a4 4 0 018-1 4 4 0 018 1c0 6.5-8 11-8 11z" fill="#ff5d78"/>\n'
+            '<g class="cg-anger" stroke="#ff3d2e" stroke-width="3.6" stroke-linecap="round" fill="none"><path d="M81 15 L88 22"/><path d="M92 26 L99 33"/><path d="M99 15 L92 22"/><path d="M88 26 L81 33"/></g>\n'
+            '<g class="cg-steam" fill="#cdd3dd"><circle cx="101" cy="30" r="5.2"/><circle cx="109" cy="43" r="3.8"/></g>\n'
+            '</g>\n'
+            '<g class="cg-music"><g class="n1"><ellipse cx="100" cy="31" rx="3.4" ry="2.5" transform="rotate(-20 100 31)" fill="#ff9ec4"/><path d="M103.3 30 L103.3 17 q4.5 1.5 4.5 6" fill="none" stroke="#ff9ec4" stroke-width="1.9" stroke-linecap="round"/></g><g class="n2"><ellipse cx="111" cy="42" rx="3" ry="2.2" transform="rotate(-20 111 42)" fill="#ff9ec4"/><path d="M113.7 41.2 L113.7 30 q4 1.3 4 5.2" fill="none" stroke="#ff9ec4" stroke-width="1.7" stroke-linecap="round"/></g></g>\n'
+            '<g class="cg-ball"><circle cx="88" cy="97" r="7.5" fill="#fdfdfd" stroke="#c9473f" stroke-width="2.2"/><path d="M80.5 97 a7.5 7.5 0 0 1 15 0 Z" fill="#c9473f"/><circle cx="85.4" cy="94.2" r="1.6" fill="#fff"/></g>\n'
+            '<path class="cg-heart" d="M96 33s-8-4.5-8-11a4 4 0 018-1 4 4 0 018 1c0 6.5-8 11-8 11z" fill="#ff5d78"/>\n'
             '</g>\n'
             '<g class="cg-zzz" fill="#cfd2da" font-family="system-ui,sans-serif" font-weight="700"><text x="86" y="22" font-size="8">z</text><text x="95" y="13" font-size="11">Z</text></g>\n'
-            '</g>\n'
             '</svg>\n'
             '<div class="mcat-bub">۰٪ · ۱/۱</div>\n'
             '<div class="mcat-say"></div>\n'
