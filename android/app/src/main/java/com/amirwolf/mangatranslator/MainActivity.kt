@@ -1968,7 +1968,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun applySetting(k: String, v: Any?) {
         if (v == null || v === JSONObject.NULL) return
-        val s = v.toString()
+        var s = v.toString()
+// v1.14.276 — «\n شو نشون نده»: بکاپهایِ قدیمی متنِ پرامپت را با
+// \nِ لفظی ذخیره کرده بودند؛ هنگامِ بازیابی به خطِ نو واقعی
+// تبدیل میشود تا کادرِ پرامپت تمیز دیده شود.
+        if (k == "prompt_body") {
+            s = s.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\r\n", "\n")
+        }
         var view: View? = null
         for (kid in settingIds(k)) {
             view = fieldViews[kid]
@@ -3609,7 +3615,7 @@ class MainActivity : AppCompatActivity() {
         if (!prefs.getBoolean("viewer_hint_v3", false)) {
             prefs.edit().putBoolean("viewer_hint_v3", true).apply()
             Toast.makeText(this,
-                "نمایشگر مثل نسخهٔ وب شد • پینچ یا دبل‌تپ = زوم • دکمه‌های بالای صفحه: بزرگ/کوچک/پهنا/فول‌اسکرین",
+                "نمایشگر مثل نسخهٔ وب شد • پینچ یا دبل‌تپ = زوم • دکمه‌های بالای صفحه: بزرگ/کوچک/پهنا",
                 Toast.LENGTH_LONG).show()
         }
     }

@@ -337,7 +337,11 @@ FONT_BUNDLES = [
 ]
 
 def _norm_instr(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "").strip())
+    # v1.14.276 — \nِ لفظیِ پرامپتهایِ نسخههایِ قدیمی هم هنگامِ مقایسه
+    # به خطِ نو تبدیل میشود تا بکاپ/کانفیگِ قدیمی باز هم «پیشفرض»
+    # شناخته شود و کادرِ پرامپتِ تمیزِ نو را نشان بدهد.
+    t = (text or "").replace("\\n", "\n")
+    return re.sub(r"\s+", " ", t.strip())
 
 def is_custom_instruction(text: str) -> bool:
     t = (text or "").strip()
@@ -2037,6 +2041,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .hint{padding:16px;text-align:center;color:#6b6963;font-size:.85rem}
 .pbar{position:fixed;bottom:0;left:0;right:0;height:4px;background:#1a1a1c;z-index:4}
 .pfill{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}
+.plab{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(10,10,12,.85);border:1px solid #2a2a2e;color:#ffcf9e;border-radius:9px;padding:2px 10px;font-size:.68rem;font-variant-numeric:tabular-nums;z-index:5;pointer-events:none;white-space:nowrap;direction:rtl}
 #fab{position:fixed;z-index:80;left:18px;bottom:26px;width:60px;height:60px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}
 #fab:active{transform:scale(.93)}
 #fab.open{background:#2c1210;color:#ffb3ab;font-size:1.2rem}
@@ -2257,6 +2262,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 <main class="c" id="cF"><div class="hint" id="hF">در انتظار اولین صفحه…</div></main>
 <main class="c hide" id="cD"><div class="hint" id="hD">در انتظار دیباگ…</div></main>
 </div>
+<div class="plab" id="plab" dir="rtl"></div>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
 <button type="button" id="fab" aria-label="منو" style="display:none">منو</button>
 <div class="mcat st-read" id="mcat" title="هم‌خوانِ نکو-گِرل — ۲۴ حالت! بکش و رها کن: بالا/پایین/بغل/وسط، ضربه = نوازش (زیادش نکن!)">
@@ -2365,7 +2371,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 <g><path d="M66 71 q6.5 -6 14 -1.5 q1.5 6 -4.5 7.5 q-8 1.5 -9.5 -6 Z" fill="#f4a9b8"/><circle cx="79" cy="80" r="6.5" fill="#ffe9dc" stroke="#e8b9a4" stroke-width="1.3"/><path d="M75.9 85 l-.5 2.8 M79 85.4 l.2 2.8" stroke="#e8b9a4" stroke-width="1.6" stroke-linecap="round"/></g>
 </g>
 </svg>
-<div class="mcat-bub">۰٪</div>
 <div class="mcat-say"></div>
 </div>
 <div id="cmp">
@@ -3188,7 +3193,19 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   var updateProgress = function(){
     if (!pf) return;
     var m = document.documentElement.scrollHeight - window.innerHeight;
-    pf.style.width = (m > 0 ? Math.min(100, Math.max(0, window.scrollY / m * 100)) : 0) + '%';
+    var pc = m > 0 ? Math.min(100, Math.max(0, window.scrollY / m * 100)) : 0;
+    pf.style.width = pc + '%';
+    // پیشرفتِ خواندن روی خودِ نوارِ پایین — جایِ نشانِ زیرِ گربه
+    var pl = document.getElementById('plab');
+    if (pl) {
+      var fa = function(v){ return String(v).replace(/[0-9]/g, function(d){ return '۰۱۲۳۴۵۶۷۸۹'.charAt(+d); }); };
+      var txt = fa(Math.round(pc)) + '٪';
+      try {
+        if (typeof curPageIdx === 'function' && typeof stackCount === 'function')
+          txt += ' · ' + fa(curPageIdx() + 1) + '/' + fa(stackCount());
+      } catch (err) {}
+      pl.textContent = txt;
+    }
   };
   window.addEventListener('scroll', function(){
     updateProgress();
@@ -3281,7 +3298,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
     var inf = mcatInfo();
     var txt = faN(Math.round(inf.pct * 100)) + '٪';
     if (typeof curPageIdx === 'function' && typeof stackCount === 'function') txt += ' · ' + faN(curPageIdx() + 1) + '/' + faN(stackCount());
-    mcatBub.textContent = txt;
+    if (mcatBub) mcatBub.textContent = txt;
   }
   function mcatGlide(fn) { MCAT.classList.add('glide'); fn(); setTimeout(function () { MCAT.classList.remove('glide'); }, 800); }
   function mcatPlace(cx, cy) {
@@ -3468,7 +3485,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
     else if (mcatMoveT < now - 22000) mcatSet('st-sleep');
     else if (inf.m > 320 && inf.pct >= 0.9) mcatSet('st-stress');
     else mcatSet('st-read');
-    mcatBub.classList.toggle('dim', now - mcatMoveT > 4000);
+    if (mcatBub) mcatBub.classList.toggle('dim', now - mcatMoveT > 4000);
   }
   function mcatOnScroll() {
     var now = Date.now();
@@ -3624,7 +3641,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   function mcatZonesBuild() {
     ZONES = document.createElement('div');
     ZONES.id = 'mcatzones';
-    ZONES.innerHTML = '<div class="mz mz-top" data-z="top">آویزون شو!</div><div class="mz mz-bottom" data-z="bottom">بشین لبه رو!</div><div class="mz mz-left" data-z="left">سرک از بغل!</div><div class="mz mz-right" data-z="right">سرک از بغل!</div><div class="mz mz-center" data-z="center">ژامب و بچرخ!</div>';
+    ZONES.innerHTML = '<div class="mz mz-top" data-z="top"></div><div class="mz mz-bottom" data-z="bottom"></div><div class="mz mz-left" data-z="left"></div><div class="mz mz-right" data-z="right"></div><div class="mz mz-center" data-z="center"></div>';
     document.body.appendChild(ZONES);
   }
   function mcatZonesMark(z) {
@@ -3915,6 +3932,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             "background:#0b0b0d}"
             ".rdr-progress{position:fixed;bottom:0;left:0;right:0;height:3px;background:#1a1a1c;z-index:3}"
             ".rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}"
+            ".prog-lab{position:fixed;bottom:9px;left:50%;transform:translateX(-50%);background:rgba(10,10,12,.85);border:1px solid #2a2a2e;color:#ffcf9e;border-radius:9px;padding:2px 10px;font-size:.68rem;font-variant-numeric:tabular-nums;z-index:4;pointer-events:none;white-space:nowrap;direction:rtl}"
             ".zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}"
             "#fab{position:fixed;z-index:60;left:50%;bottom:26px;width:60px;height:60px;margin-left:-30px;"
             "border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;"
@@ -4495,7 +4513,19 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   const updateProgress = () => {
     if (!prog) return;
     const m = document.documentElement.scrollHeight - window.innerHeight;
-    prog.style.width = (m > 0 ? Math.min(100, Math.max(0, window.scrollY / m * 100)) : 0) + '%';
+    const pc = m > 0 ? Math.min(100, Math.max(0, window.scrollY / m * 100)) : 0;
+    prog.style.width = pc + '%';
+    // \u067e\u06cc\u0634\u0631\u0641\u062a\u0650 \u062e\u0648\u0627\u0646\u062f\u0646 \u0631\u0648\u06cc \u062e\u0648\u062f\u0650 \u0646\u0648\u0627\u0631\u0650 \u067e\u0627\u06cc\u06cc\u0646
+    const pl = document.getElementById('progLab');
+    if (pl) {
+      const fa = (v) => String(v).replace(/[0-9]/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]);
+      let txt = fa(Math.round(pc)) + '\u066a';
+      try {
+        if (typeof stackCount === 'function' && typeof curPageIdx === 'function')
+          txt += ' \u00b7 ' + fa(curPageIdx() + 1) + '/' + fa(stackCount());
+      } catch (err) {}
+      pl.textContent = txt;
+    }
   };
   window.addEventListener('scroll', () => { updateProgress(); updateSeekPos(); }, { passive: true });
   window.addEventListener('resize', () => { if (z !== 1) applyZoom(z); updateProgress(); updateFan(); updateSeekPos(); });
@@ -4841,7 +4871,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
     var inf = mcatInfo();
     var txt = faN(Math.round(inf.pct * 100)) + '٪';
     if (typeof curPageIdx === 'function' && typeof stackCount === 'function') txt += ' · ' + faN(curPageIdx() + 1) + '/' + faN(stackCount());
-    mcatBub.textContent = txt;
+    if (mcatBub) mcatBub.textContent = txt;
   }
   function mcatGlide(fn) { MCAT.classList.add('glide'); fn(); setTimeout(function () { MCAT.classList.remove('glide'); }, 800); }
   function mcatPlace(cx, cy) {
@@ -5028,7 +5058,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
     else if (mcatMoveT < now - 22000) mcatSet('st-sleep');
     else if (inf.m > 320 && inf.pct >= 0.9) mcatSet('st-stress');
     else mcatSet('st-read');
-    mcatBub.classList.toggle('dim', now - mcatMoveT > 4000);
+    if (mcatBub) mcatBub.classList.toggle('dim', now - mcatMoveT > 4000);
   }
   function mcatOnScroll() {
     var now = Date.now();
@@ -5184,7 +5214,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   function mcatZonesBuild() {
     ZONES = document.createElement('div');
     ZONES.id = 'mcatzones';
-    ZONES.innerHTML = '<div class="mz mz-top" data-z="top">آویزون شو!</div><div class="mz mz-bottom" data-z="bottom">بشین لبه رو!</div><div class="mz mz-left" data-z="left">سرک از بغل!</div><div class="mz mz-right" data-z="right">سرک از بغل!</div><div class="mz mz-center" data-z="center">ژامب و بچرخ!</div>';
+    ZONES.innerHTML = '<div class="mz mz-top" data-z="top"></div><div class="mz mz-bottom" data-z="bottom"></div><div class="mz mz-left" data-z="left"></div><div class="mz mz-right" data-z="right"></div><div class="mz mz-center" data-z="center"></div>';
     document.body.appendChild(ZONES);
   }
   function mcatZonesMark(z) {
@@ -5469,7 +5499,6 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             '<g><path d="M66 71 q6.5 -6 14 -1.5 q1.5 6 -4.5 7.5 q-8 1.5 -9.5 -6 Z" fill="#f4a9b8"/><circle cx="79" cy="80" r="6.5" fill="#ffe9dc" stroke="#e8b9a4" stroke-width="1.3"/><path d="M75.9 85 l-.5 2.8 M79 85.4 l.2 2.8" stroke="#e8b9a4" stroke-width="1.6" stroke-linecap="round"/></g>\n'
             '</g>\n'
             '</svg>\n'
-            '<div class="mcat-bub">۰٪</div>\n'
             '<div class="mcat-say"></div>\n'
             '</div>\n'
             '<div id="mcatOff" aria-hidden="true">\n'
@@ -5506,6 +5535,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             "    </div>\n"
             f'    <div class="rdrC">{imgs}</div>\n'
             "  </div>\n"
+            '  <div class="prog-lab" id="progLab" dir="rtl"></div>\n'
             '  <div class="rdr-progress"><div class="rdrB"></div></div>\n'
             "</div>\n"
             '<button type="button" id="fab" aria-label="منو">منو</button>\n'

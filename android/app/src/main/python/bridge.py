@@ -1135,55 +1135,85 @@ def _run(job):
                 pass
 
         _ORIG_DIRS = ("src", "normalized", "stitched")
-        imgs, dbg = [], []
-        cache = job["out_file_path"] + ".cache"
-        for root, _d, files in os.walk(cache):
-            dname = os.path.basename(os.path.normpath(root)).lower()
-            if any("/" + o + "/" in root.lower().replace(os.sep, "/") + "/"
-                   for o in _ORIG_DIRS):
-                continue
-            is_dbg = dname.startswith("debug")
-            is_out = dname == "out" or dname.startswith("out_")
-            if not is_out and not is_dbg:
-                continue
-            for f in sorted(files):
-                if not f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-                    continue
-                lp = os.path.join(root, f)
-                if is_dbg or "debug" in f.lower():
-                    if "_base." in f.lower():
-                        continue  # پایهٔ روکش — فقط برای کلیدهای نمایشگر
-                    dbg.append(lp)
-                else:
-                    imgs.append(lp)
-        import re as _re
-
-        def _natkey(s):
-            return [int(t) if t.isdigit() else t for t in _re.split(r"(\d+)", s)]
-
-        imgs.sort(key=_natkey)
-        dbg.sort(key=_natkey)
-        if not imgs:
-
-            for root, dirs_, files in os.walk(job["out"]):
-                rel = root.lower().replace(os.sep, "/")
-                segs = [s for s in rel.split("/") if s]
+# v1.14.276 — جمعآوریِ خروجی به out_collect.py منتقل شد:
+# ۱) مسیرِ کشِ «مستقل از فرمتِ» موتور (res.pdf → res.cache؛ قبلاً
+#    res.pdf.cache هیچ‌وقت وجود نداشت و جمعآوری همیشه خالی بود)
+# ۲) فالبک: فایلهایِ live_debug (نامِ فایلشان debug ندارد!) دیگر
+#    داخلِ «نمایشِ اصلی» نمیآیند — پوشهٔ debugدار = دیباگ؛
+#    input_batch هم از نمایشِ اصلی بیرون ماند.
+        try:
+            from out_collect import collect as _collect_outputs
+        except Exception:
+            try:
+                import importlib.util as _ilu
+                _spec = _ilu.spec_from_file_location(
+                    "out_collect",
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "out_collect.py"))
+                _oc = _ilu.module_from_spec(_spec)
+                _spec.loader.exec_module(_oc)
+                _collect_outputs = _oc.collect
+            except Exception:
+                _collect_outputs = None
+        if _collect_outputs is not None:
+            imgs, dbg = _collect_outputs(job["out_file_path"], job["out"])
+        else:
+            imgs, dbg = [], []
+            cache = job["out_file_path"] + ".cache"
+            for root, _d, files in os.walk(cache):
                 dname = os.path.basename(os.path.normpath(root)).lower()
-                in_cache = any(s.endswith(".cache") for s in segs)
-                if in_cache and not (
-                        dname == "out" or dname.startswith("out_")
-                        or dname.startswith("debug")):
-                    dirs_[:] = []
+                if any("/" + o + "/" in root.lower().replace(os.sep, "/") + "/"
+                       for o in _ORIG_DIRS):
                     continue
-                if any("/" + o + "/" in rel + "/" for o in _ORIG_DIRS):
-                    dirs_[:] = []
+                is_dbg = dname.startswith("debug")
+                is_out = dname == "out" or dname.startswith("out_")
+                if not is_out and not is_dbg:
                     continue
                 for f in sorted(files):
+                    if not f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                        continue
                     lp = os.path.join(root, f)
-                    if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                    if is_dbg or "debug" in f.lower():
                         if "_base." in f.lower():
-                            continue  # پایهٔ روکش (live/debug) — فقط نمایشگرِ تعاملی
-                        (dbg if "debug" in f.lower() else imgs).append(lp)
+                            continue  # پایهٔ روکش — فقط برای کلیدهای نمایشگر
+                        dbg.append(lp)
+                    else:
+                        imgs.append(lp)
+            import re as _re
+
+            def _natkey(s):
+                return [int(t) if t.isdigit() else t for t in _re.split(r"(\d+)", s)]
+
+            imgs.sort(key=_natkey)
+            dbg.sort(key=_natkey)
+            if not imgs:
+
+                for root, dirs_, files in os.walk(job["out"]):
+                    rel = root.lower().replace(os.sep, "/")
+                    segs = [s for s in rel.split("/") if s]
+                    dname = os.path.basename(os.path.normpath(root)).lower()
+                    in_cache = any(s.endswith(".cache") for s in segs)
+                    if in_cache and not (
+                            dname == "out" or dname.startswith("out_")
+                            or dname.startswith("debug")):
+                        dirs_[:] = []
+                        continue
+                    if dname == "input_batch":
+                        dirs_[:] = []
+                        continue
+                    if any("/" + o + "/" in rel + "/" for o in _ORIG_DIRS):
+                        dirs_[:] = []
+                        continue
+                    _dir_dbg = "debug" in dname
+                    for f in sorted(files):
+                        lp = os.path.join(root, f)
+                        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                            if "_base." in f.lower():
+                                continue  # پایهٔ روکش (live/debug) — فقط نمایشگرِ تعاملی
+                            (dbg if (_dir_dbg or "debug" in f.lower())
+                             else imgs).append(lp)
+                    imgs.sort(key=_natkey)
+                    dbg.sort(key=_natkey)
         if not imgs:
             imgs = _live_pages(job)
         dl = job["out_file_path"] if os.path.isfile(job["out_file_path"]) else None
