@@ -442,6 +442,85 @@ class _MangaTranslatorBody_90:
         _rgb = cv2.cvtColor(_crop, cv2.COLOR_BGR2RGB)
         pil_img.paste(Image.fromarray(_rgb), (x0, y0))
 
+    def _rescue_reread_blocked(self, region, text: str,
+                               regions, polys=None) -> bool:
+        """— پسگیرِ «بازخوانیِ متنِ پوشیدهشده» برایِ نجاتِ OCR (v1.14.262؛
+        همان قانونِ یتیمِ ۲۲۵). ناحیهٔ بی‌متنِ همپوشان با ناحیهٔ متن‌دار
+        همان خطهایِ صاحب‌دار را از نو میخواند — لاگِ Green-Skin 27:
+        جعبهٔ دومِ حبابِ «WE CAME ALL THIS WAY …» (rect بدونِ متن،
+        همپوشان با ناحیهٔ متن‌دار) در نجاتِ OCR با «DIDN'T WE?»
+        (آخرینِ خطِ همان حباب) پر شد → دو ترجمه/دو رندر رویِ یک
+        حباب رویِ هم چسبید. رد وقتی است که با ناحیهٔ متن‌دارِ
+        «همپوشان»: (۱) متنِ نجاتیده زیررشتهٔ نرمالِ متنِ مالک باشد
+        یا (۲) ≥۵۵٪ مساحتِ پالیهایِ نجات داخلِ پالیهای/مستطیلِ مالک
+        باشد. یتیمِ واقعی (بیرونِ همهٔ نواحی) و حبابهایِ جدایِ
+        هم‌نام هرگز رد نمیشوند."""
+        try:
+            rx, ry, rw, rh = [float(v) for v in region.rect]
+            rb = (rx, ry, rx + rw, ry + rh)
+
+            def _n(s) -> str:
+                return re.sub(r"[^0-9a-z\u0600-\u06ff\u3040-\u30ff"
+                              r"\u3400-\u9fff\uac00-\ud7af]+",
+                              "", str(s or "").lower())
+            _nt = _n(text)
+            _pl = list(polys or [])
+            for o in regions:
+                if o is region:
+                    continue
+                if not (getattr(o, "source_text", "") or "").strip():
+                    continue
+                try:
+                    ox, oy, ow, oh = [float(v) for v in o.rect]
+                except Exception:
+                    continue
+                ob = (ox, oy, ox + ow, oy + oh)
+                _ix = max(0.0, min(rb[2], ob[2]) - max(rb[0], ob[0]))
+                _iy = max(0.0, min(rb[3], ob[3]) - max(rb[1], ob[1]))
+                if _ix * _iy <= 0.0:
+                    continue  # بدونِ همپوشانی = حبابِ جدا؛ ربطی ندارد
+# (۱) زیررشته: متنِ نجاتیده تکهٔ متنِ همینِ مالکِ همپوشان است
+                if _nt and len(_nt) >= 5 and _nt in _n(o.source_text):
+                    return True
+# (۲) پوششِ پالی: بیشترِ حروفِ نجاتیده مالِ همینِ ناحیهٔ متن‌دارند
+                if _pl:
+                    _ta = _ca = 0.0
+                    for p in _pl:
+                        try:
+                            pp = np.asarray(p, np.float32).reshape(-1, 2)
+                            bx0 = float(pp[:, 0].min())
+                            by0 = float(pp[:, 1].min())
+                            bx1 = float(pp[:, 0].max())
+                            by1 = float(pp[:, 1].max())
+                            pa = max(1.0, (bx1 - bx0) * (by1 - by0))
+                            pin = 0.0
+                            for op in (getattr(o, "ocr_polys", None) or []):
+                                try:
+                                    qq = np.asarray(op, np.float32).reshape(-1, 2)
+                                    qx0 = float(qq[:, 0].min())
+                                    qy0 = float(qq[:, 1].min())
+                                    qx1 = float(qq[:, 0].max())
+                                    qy1 = float(qq[:, 1].max())
+                                    iw = max(0.0, min(bx1, qx1) - max(bx0, qx0))
+                                    ih = max(0.0, min(by1, qy1) - max(by0, qy0))
+                                    if iw * ih > 0:
+                                        pin = max(pin, (iw * ih) / pa)
+                                except Exception:
+                                    continue
+                            iw2 = max(0.0, min(bx1, ob[2]) - max(bx0, ob[0]))
+                            ih2 = max(0.0, min(by1, ob[3]) - max(by0, ob[1]))
+                            if iw2 * ih2 > 0:
+                                pin = max(pin, (iw2 * ih2) / pa)
+                            _ta += pa
+                            _ca += pa * min(1.0, pin)
+                        except Exception:
+                            continue
+                    if _ta > 0.0 and _ca / _ta >= 0.55:
+                        return True
+            return False
+        except Exception:
+            return False
+
     def _rescue_empty_ocr(self, image: np.ndarray,
                                regions: List[TextRegion]) -> None:
         """ — نجاتِ OCR برایِ نواحیِ ocr_empty: برشِ
@@ -504,6 +583,20 @@ class _MangaTranslatorBody_90:
                          if _c.isascii() and _c.isalpha())
             if _t2 and _lt >= 2 and \
                     _lt * 2 >= len(_t2.replace(" ", "")):
+# پسگیرِ بازخوانی (v1.14.262): ناحیهٔ بی‌متنِ همپوشان با ناحیهٔ
+# متن‌دار «یتیم» نیست — همان خطهایِ صاحب‌دار از نو خوانده شده
+# (Green-Skin 27: «DIDN'T WE?» رویِ جعبهٔ دومِ همان حباب → دو
+# رندر رویِ هم). رد = ناحیه ocr_empty میماند (فقط پاکسازی).
+                if self._rescue_reread_blocked(
+                        _r, _t2, regions, polys=(_p2 or None)):
+                    if self.debug:
+                        try:
+                            print(f"    [🔍نجات] نجاتِ ناحیه {_r.id} رد شد "
+                                  f"(بازخوانیِ متنِ ناحیهٔ همپوشان): "
+                                  f"{_t2[:36]!r}")
+                        except Exception:
+                            pass
+                    continue
                 _r.source_text = _t2
                 if _p2:
                     _r.ocr_polys = _p2
