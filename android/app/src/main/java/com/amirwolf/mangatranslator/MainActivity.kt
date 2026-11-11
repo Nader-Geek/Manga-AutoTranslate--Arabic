@@ -3399,6 +3399,21 @@ class MainActivity : AppCompatActivity() {
             "png" to "image/png", "jpg" to "image/jpeg", "jpeg" to "image/jpeg",
             "webp" to "image/webp", "bmp" to "image/bmp", "gif" to "image/gif")
 
+// v1.14.274 — متن‌های نمایشگر از «فایلِ واحدِ متن‌ها»ٔ برنامه
+// (manga_sections/05_ui_texts.py → ui_texts.json کنارِ run.txt نوشته
+// میشود)؛ نبودش = همان متن‌های پیش‌فرضِ خودِ reader.html.
+        var uiT: org.json.JSONObject? = null
+        try {
+            val udir = File(paths[0]).parentFile
+            val ufile = if (udir != null) java.io.File(udir, "ui_texts.json") else null
+            if (ufile != null && ufile.isFile)
+                uiT = org.json.JSONObject(ufile.readText().trim())
+        } catch (_: Exception) { }
+        fun ut(k: String, d: String): String = try {
+            val v = uiT?.optString(k, d)
+            if (v.isNullOrEmpty()) d else v
+        } catch (_: Exception) { d }
+
         val wv = android.webkit.WebView(this)
         wv.setBackgroundColor(Color.BLACK)
         wv.settings.javaScriptEnabled = true
@@ -3411,11 +3426,12 @@ class MainActivity : AppCompatActivity() {
         wv.settings.mediaPlaybackRequiresUserGesture = true
 
         val title = try {
-            val base = File(paths[0]).parentFile?.name?.takeIf { it.isNotBlank() } ?: "مانهوا"
+            val base = File(paths[0]).parentFile?.name?.takeIf { it.isNotBlank() }
+                ?: ut("rdr.title_default", "مانهوا")
             val pfx = when {
-                dbg && live -> "🔍 زنده · "
-                dbg -> "🔍 "
-                live -> "زنده · "
+                dbg && live -> ut("rdr.live_dbg", "🔍 زنده · ")
+                dbg -> ut("rdr.live_dbg2", "🔍 ")
+                live -> ut("rdr.live", "زنده · ")
                 else -> ""
             }
             "$pfx$base"
@@ -3425,14 +3441,14 @@ class MainActivity : AppCompatActivity() {
             assets.open("reader.html").bufferedReader().use { it.readText() }
         } catch (_: Exception) { "" }
         if (assetHtml.isBlank()) {
-            Toast.makeText(this, "خواننده در دسترس نیست", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, ut("rdr.toast_no_reader", "خواننده در دسترس نیست"), Toast.LENGTH_LONG).show()
             return
         }
 // اسلات لودینگ برای صفحه‌های نرسیده (total از total.txt موتور) —
         val imgs = paths.indices.joinToString("") {
             "<img src=\"i/$it\" loading=\"lazy\" decoding=\"async\" alt=\"\" draggable=\"false\">"
         } + (paths.size until maxOf(paths.size, total)).joinToString("") {
-            "<div class=\"ph\"><span class=\"sp\"></span>در حال ترجمه…</div>"
+            "<div class=\"ph\"><span class=\"sp\"></span>" + ut("rdr.translating", "در حال ترجمه…") + "</div>"
         }
         var html = assetHtml
             .replace("__TITLE__", title)
@@ -3444,6 +3460,15 @@ class MainActivity : AppCompatActivity() {
         html = html.replace(
             "data-ndbg=\"0\"",
             "data-ndbg=\"${dpaths.size}\" data-run=\"$runTok\"")
+// تزریقِ زندهٔ متن‌ها به ریدر — window.UI_T + helperِ UT خودِ
+// reader.html متن‌ها را همان لحظه اعمال میکند.
+        try {
+            val uj = uiT?.toString()
+            if (!uj.isNullOrBlank() && html.contains("</head>"))
+                html = html.replaceFirst(
+                    "</head>",
+                    "<script>window.UI_T=" + uj + ";</script></head>")
+        } catch (_: Exception) { }
 
         wv.loadDataWithBaseURL("https://localhost/$runTok/", html, "text/html", "utf-8", null)
 

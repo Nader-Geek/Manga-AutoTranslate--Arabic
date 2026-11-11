@@ -2,6 +2,7 @@
 # (تولید/نگهداری: scripts/build_manga.py — لودرِ manga.py فقط همین لیست را میخواند)
 
 00_base.py
+05_ui_texts.py
 10_install.py
 20_models.py
 30_ocr.py

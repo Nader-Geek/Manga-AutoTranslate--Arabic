@@ -205,6 +205,7 @@
 @keyframes offBlink{0%,86%,100%{transform:scaleY(1)}90%,94%{transform:scaleY(.06)}}
 
 </style>
+<script>function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){return d}}(function(){function p(){try{if(!window.UI_T)return;var q=function(s){return document.querySelector(s)},e;e=q('.bar .t');if(e)e.textContent=UT('rdr.live_title',e.textContent);e=q('#hF');if(e)e.textContent=UT('rdr.wait_first',e.textContent);e=q('#hD');if(e)e.textContent=UT('rdr.wait_debug',e.textContent);e=q('#mtoggle');if(e){e.title=UT('rdr.t_mode',e.title);if(e.textContent)e.textContent=UT('rdr.debug',e.textContent);}e=q('#zo');if(e)e.title=UT('rdr.t_small',e.title);e=q('#zi');if(e)e.title=UT('rdr.t_big',e.title);e=q('#zf');if(e){e.title=UT('rdr.t_fit',e.title);if(e.textContent=='پهنا')e.textContent=UT('rdr.zfit',e.textContent);}e=q('.off-t1');if(e)e.textContent=UT('mcat.off_t1',e.textContent);e=q('.off-t2');if(e)e.textContent=UT('mcat.off_t2',e.textContent);e=q('.off-t3');if(e)e.textContent=UT('mcat.off_t3',e.textContent);e=q('#cmpT');if(e)e.textContent=UT('rdr.page','صفحهٔ ')+'۱';e=q('#sbub');if(e)e.textContent=UT('rdr.page','صفحهٔ ')+'۱';e=q('#fab');if(e){if(e.textContent)e.textContent=UT('rdr.menu',e.textContent);e.setAttribute('aria-label',UT('rdr.menu',e.getAttribute('aria-label')||''));}e=q('#mcat');if(e)e.setAttribute('title',UT('mcat.title',e.getAttribute('title')||''));e=q('.cmp-lab.b');if(e)e.textContent=UT('cmp.before',e.textContent);e=q('.cmp-lab.a');if(e)e.textContent=UT('cmp.after',e.textContent);e=q('[data-act=close]');if(e)e.title=UT('rdr.btn_close',e.title);e=q('[data-act=zoom-out]');if(e)e.title=UT('rdr.btn_zout',e.title);e=q('[data-act=zoom-in]');if(e)e.title=UT('rdr.btn_zin',e.title);e=q('[data-act=zoom-fit]');if(e)e.title=UT('rdr.t_fit',e.title);e=q('[data-act=fs]');if(e)e.title=UT('rdr.btn_fs',e.title);e=q('#sprev');if(e)e.title=UT('rdr.prev_page',e.title);e=q('#snext');if(e)e.title=UT('rdr.next_page',e.title);var rl=document.querySelectorAll('.rlab span');if(rl.length==2){rl[0].textContent=UT('rdr.last',rl[0].textContent);rl[1].textContent=UT('rdr.first',rl[1].textContent);}}catch(err){}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',p)}else{p()}})();</script>
 </head>
 <body data-ndbg="0">
 <div class="rdr" id="manga_rdr" data-zoom="1">
@@ -894,7 +895,7 @@
   const mkPh = () => {
     const d = document.createElement('div');
     d.className = 'ph';
-    d.innerHTML = '<span class="sp"></span>در حال ترجمه…';
+    d.innerHTML = '<span class="sp"></span>' + UT('rdr.translating', 'در حال ترجمه…');
     return d;
   };
   // تعدادِ اسلاتِ «در حال ترجمه» که در اولین رندر تزریق شده — بعد از اولین
@@ -993,7 +994,7 @@
     s.scrollTop = Math.min(scrollMem[dbgMode ? 'dbg' : 'final'],
                            Math.max(0, s.scrollHeight - s.clientHeight));
     if (mtEl) {
-      mtEl.textContent = dbgMode ? 'نهایی' : 'دیباگ';
+      mtEl.textContent = dbgMode ? UT('rdr.final', 'نهایی') : UT('rdr.debug', 'دیباگ');
       mtEl.classList.toggle('hot', dbgMode);
     }
     // منویِ گرد فقط در حالتِ دیباگ — پایین-چپ، قابلِ درگ؛
@@ -1128,12 +1129,12 @@
   const fab = document.getElementById('fab');
   let fanState = 0;   // ۰=بسته | ۱=فنِ باز
   const fanDefs = [
-    { key: 'det', ic: '\u25eb', lb: 'det' },
-    { key: 'pdet', ic: '\u25fa', lb: 'p-det' },
-    { key: 'rec', ic: '\u25a4', lb: 'rec' },
-    { key: 'cmp', ic: '\u21c4', lb: 'قبل/بعد' },
-    { key: 'prev', ic: '\u2039', lb: 'قبلی', cmpOnly: true },
-    { key: 'next', ic: '\u203a', lb: 'بعدی', cmpOnly: true }
+    { key: 'det', ic: '\u25eb', lb: UT('rdr.fan_det', 'det') },
+    { key: 'pdet', ic: '\u25fa', lb: UT('rdr.fan_pdet', 'p-det') },
+    { key: 'rec', ic: '\u25a4', lb: UT('rdr.fan_rec', 'rec') },
+    { key: 'cmp', ic: '\u21c4', lb: UT('rdr.fan_cmp', 'قبل/بعد') },
+    { key: 'prev', ic: '\u2039', lb: UT('rdr.fan_prev', 'قبلی'), cmpOnly: true },
+    { key: 'next', ic: '\u203a', lb: UT('rdr.fan_next', 'بعدی'), cmpOnly: true }
   ];
   const fans = fanDefs.map((def) => {
     const fb = document.createElement('button');
@@ -1273,7 +1274,7 @@
     const pts = fanPositions();
     const show = fanState >= 1 && ndbg > 0;
     // برچسبِ خودِ دکمه: بسته = «منو»، باز = «✕» (بستن)
-    fab.textContent = show ? '\u2715' : 'منو';
+    fab.textContent = show ? UT('rdr.close', '\u2715') : UT('rdr.menu', 'منو');
     fab.classList.toggle('open', show);
     for (let i = 0; i < fans.length; i++) {
       const fb = fans[i], def = fanDefs[i];
@@ -1283,11 +1284,11 @@
       fb.querySelector('.ic').textContent =
         (isCmp && cmpOn) ? '\u2715' : def.ic;
       fb.querySelector('.lb').textContent =
-        (isCmp && cmpOn) ? 'بستن' : def.lb;
+        (isCmp && cmpOn) ? UT('rdr.fan_close', 'بستن') : def.lb;
       fb.classList.toggle('fcmp', isCmp);
       fb.classList.toggle('on', isCmp ? !!cmpOn : !!ov[def.key]);
-      fb.title = isCmp ? 'مقایسهٔ قبل/بعد' :
-        (def.key === 'prev' || def.key === 'next') ? 'صفحهٔ قبل/بعد در مقایسه' :
+      fb.title = isCmp ? UT('rdr.fan_cmp_title', 'مقایسهٔ قبل/بعد') :
+        (def.key === 'prev' || def.key === 'next') ? UT('rdr.fan_pp_title', 'صفحهٔ قبل/بعد در مقایسه') :
         ({ det: 'detector.onnx', pdet: 'paddle det', rec: 'paddle rec' })[def.key] || '';
       // «قبلی/بعدی» فقط وقتیِ مقایسهٔ باز — کنترلها داخلِ خودِ منو
       fb.classList.toggle('show', show && (!def.cmpOnly || cmpOn));
@@ -1346,7 +1347,7 @@
         imgGet('d/' + cmpIdx).then((u) => { cmpBImg.src = u; })
           .catch(() => { cmpBImg.src = au; });
       });
-    cmpT.textContent = 'صفحهٔ ' + String(cmpIdx + 1).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]) + ' از ' + String(n).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]);
+    cmpT.textContent = UT('rdr.page', 'صفحهٔ ') + String(cmpIdx + 1).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]) + UT('rdr.of', ' از ') + String(n).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]);
     goToPage(cmpIdx);
   };
   const cmpOpenFn = () => {
@@ -1418,37 +1419,37 @@
     return { m: m, y: y, pct: Math.min(1, Math.max(0, y / Math.max(1, m))), atEnd: m > 320 && (m - y) < 5 };
   }
   /* ——— حرف‌ها (کاملاً خودمونی) ——— */
-  var MCAT_PAT = ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!'];
-  var MCAT_READ = ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!'];
-  var MCAT_STUDY = ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!'];
-  var MCAT_THINK = ['هوم… بعدِ این چی میشه؟', 'اگه نویسنده یه چیزِ دیگه میگفت چی؟', 'هوم هوم… دارم فکر میکنم…', 'چرا هی دلم میخواد دُم بگیرم؟!'];
-  var MCAT_YAWN = ['خمووووام…', 'یه چرتِ کوچولو بد نیست…', 'خمیازه اومد، شرمنده!', 'چشمام سنگین شدن…'];
-  var MCAT_DANCE = ['لالالا~ دارم می‌رقصم!', 'حالِ دلم خوبه، ببین!', 'رقصِ گربه‌ایِ خاصِ خودم!', 'بزن برقصیم!'];
-  var MCAT_RUN = ['نمیگیری منو!', 'دورِ صفحه می‌چرخم، ووووو!', 'برس به من، برسسس!', 'هوووووم، چه حالی میده!'];
-  var MCAT_HUNGRY = ['قار قور؟!… شرمنده', 'شکمم داره آهنگ میخونه!', 'وا، این صدا از شکمم بود؟!', 'غذا یادم رفت بخورم…', 'کسی بیسکویت داره؟'];
-  var MCAT_EAT = ['چیزی ندیدم ها! تو هم ندیدی؟!', 'نگاه نکن! دارم شام میخورم!', 'این مالِ من شد، تو که ندیدیش!', 'ششش… صدای جویدن نمیاد!'];
-  var MCAT_SHY = ['خجالت کشیدم ببینم!', 'چرا اینجوری نگاه میکنی؟!', 'وییی… به کسی نگو!', 'اِ خودتو ندیدم!'];
-  var MCAT_WAKE = ['نخوابیدم ها! چشمام فقط استراحت میکردن!', 'من؟! خواب نبودم اصلاً!'];
-  var MCAT_ANNOY = ['وایسا وایسا، بسه!', 'نازکیدم ول کن!', 'خیلی شیطون شدی ها!', 'بسه دیگه، گوشه‌م میرم!'];
-  var MCAT_ANGRY = ['آخ! چرا میزنی؟!', 'دلم شکست تو!', 'بدجنسیه این کارت!'];
-  var MCAT_AWAY = ['خوش باش، من رفتم!', 'قهرم ازت، جدی!', 'بای بای، دیگه نمیام!'];
-  var MCAT_BACK = ['ولی دلم تنگ شد، برگشتم…', 'قصه‌ات رو ول نمیکردم دیگه…', 'باشه باشه، بخشیدمت!'];
-  var MCAT_HIDE_SAY = ['پشتِ دیوال قایم شدم، گیرم نمیاری!', 'هیشکی اینجا منو پیدا نمیکنه!', 'از پشتِ دیوال دارم نگاه می‌کنم!'];
-  var MCAT_FOUND = ['اِ پیدام کردی؟! زرنگی!', 'وا! از کجا فهمیدی اینجام؟!', 'باشه باشه، باختم!'];
-  var MCAT_OFF = ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…'];
-  var MCAT_MILE = ['یه چهارمش رفت!', 'نصفش رفته، بزن بریم!', 'سه چهارمش که تمومه، وایسا!'];
-  var MCAT_HANG = ['وا! چطور وارونه شدم؟!', 'از سقف آویزونم، جاذبه هی بلاگه!', 'خونم رفت گوشم! یعنی… پام شد سرم!'];
-  var MCAT_SIT = ['اینجا دمِ صفحه خنک‌تره!', 'لبِ پایین، جای آدمیزادها!', 'نشستم راحت، خبری نیست؟'];
-  var MCAT_SIDE = ['از این ور فقط نگاه می‌کنم…', 'من؟! من که هیشی کار نکردم!', 'یه سرک از بغل زدم!'];
-  var MCAT_PIC = ['وای! این صحنه رو به یاد دارم!', 'اِ این قاب رو قبلاً دیدم!', 'این تصویر خوشگله! مال کدوم فصله؟'];
-  var MCAT_DROP = ['حوووپا!', 'دوباره بنداز، دوباره!', 'ایول، جالب بود!'];
-  var MCAT_BACK2 = ['جای خودم، جای خودم!', 'خوش بود؟ یه بار دیگه بندازم؟!'];
+  var MCAT_PAT = UT('say.pat', ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!']);
+  var MCAT_READ = UT('say.read', ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!']);
+  var MCAT_STUDY = UT('say.study', ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!']);
+  var MCAT_THINK = UT('say.think', ['هوم… بعدِ این چی میشه؟', 'اگه نویسنده یه چیزِ دیگه میگفت چی؟', 'هوم هوم… دارم فکر میکنم…', 'چرا هی دلم میخواد دُم بگیرم؟!']);
+  var MCAT_YAWN = UT('say.yawn', ['خمووووام…', 'یه چرتِ کوچولو بد نیست…', 'خمیازه اومد، شرمنده!', 'چشمام سنگین شدن…']);
+  var MCAT_DANCE = UT('say.dance', ['لالالا~ دارم می‌رقصم!', 'حالِ دلم خوبه، ببین!', 'رقصِ گربه‌ایِ خاصِ خودم!', 'بزن برقصیم!']);
+  var MCAT_RUN = UT('say.run', ['نمیگیری منو!', 'دورِ صفحه می‌چرخم، ووووو!', 'برس به من، برسسس!', 'هوووووم، چه حالی میده!']);
+  var MCAT_HUNGRY = UT('say.hungry', ['قار قور؟!… شرمنده', 'شکمم داره آهنگ میخونه!', 'وا، این صدا از شکمم بود؟!', 'غذا یادم رفت بخورم…', 'کسی بیسکویت داره؟']);
+  var MCAT_EAT = UT('say.eat', ['چیزی ندیدم ها! تو هم ندیدی؟!', 'نگاه نکن! دارم شام میخورم!', 'این مالِ من شد، تو که ندیدیش!', 'ششش… صدای جویدن نمیاد!']);
+  var MCAT_SHY = UT('say.shy', ['خجالت کشیدم ببینم!', 'چرا اینجوری نگاه میکنی؟!', 'وییی… به کسی نگو!', 'اِ خودتو ندیدم!']);
+  var MCAT_WAKE = UT('say.wake', ['نخوابیدم ها! چشمام فقط استراحت میکردن!', 'من؟! خواب نبودم اصلاً!']);
+  var MCAT_ANNOY = UT('say.annoy', ['وایسا وایسا، بسه!', 'نازکیدم ول کن!', 'خیلی شیطون شدی ها!', 'بسه دیگه، گوشه‌م میرم!']);
+  var MCAT_ANGRY = UT('say.angry', ['آخ! چرا میزنی؟!', 'دلم شکست تو!', 'بدجنسیه این کارت!']);
+  var MCAT_AWAY = UT('say.away', ['خوش باش، من رفتم!', 'قهرم ازت، جدی!', 'بای بای، دیگه نمیام!']);
+  var MCAT_BACK = UT('say.back', ['ولی دلم تنگ شد، برگشتم…', 'قصه‌ات رو ول نمیکردم دیگه…', 'باشه باشه، بخشیدمت!']);
+  var MCAT_HIDE_SAY = UT('say.hide', ['پشتِ دیوال قایم شدم، گیرم نمیاری!', 'هیشکی اینجا منو پیدا نمیکنه!', 'از پشتِ دیوال دارم نگاه می‌کنم!']);
+  var MCAT_FOUND = UT('say.found', ['اِ پیدام کردی؟! زرنگی!', 'وا! از کجا فهمیدی اینجام؟!', 'باشه باشه، باختم!']);
+  var MCAT_OFF = UT('say.off', ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…']);
+  var MCAT_MILE = UT('say.mile', ['یه چهارمش رفت!', 'نصفش رفته، بزن بریم!', 'سه چهارمش که تمومه، وایسا!']);
+  var MCAT_HANG = UT('say.hang', ['وا! چطور وارونه شدم؟!', 'از سقف آویزونم، جاذبه هی بلاگه!', 'خونم رفت گوشم! یعنی… پام شد سرم!']);
+  var MCAT_SIT = UT('say.sit', ['اینجا دمِ صفحه خنک‌تره!', 'لبِ پایین، جای آدمیزادها!', 'نشستم راحت، خبری نیست؟']);
+  var MCAT_SIDE = UT('say.side', ['از این ور فقط نگاه می‌کنم…', 'من؟! من که هیشی کار نکردم!', 'یه سرک از بغل زدم!']);
+  var MCAT_PIC = UT('say.pic', ['وای! این صحنه رو به یاد دارم!', 'اِ این قاب رو قبلاً دیدم!', 'این تصویر خوشگله! مال کدوم فصله؟']);
+  var MCAT_DROP = UT('say.drop', ['حوووپا!', 'دوباره بنداز، دوباره!', 'ایول، جالب بود!']);
+  var MCAT_BACK2 = UT('say.back2', ['جای خودم، جای خودم!', 'خوش بود؟ یه بار دیگه بندازم؟!']);
   var ACT_DUR = { 'st-spin': 3000, 'st-ball': 3200, 'st-music': 3400, 'st-dance': 3600, 'st-study': 5200, 'st-think': 3600, 'st-yawn': 2800, 'st-hungry': 3000, 'st-eat': 5200, 'st-run': 6200, 'st-hang': 7000, 'st-edgesit': 6500, 'st-sidepeek': 6000 };
   var ACT_POOL = ['st-spin', 'st-spin', 'st-ball', 'st-ball', 'st-music', 'st-music', 'st-dance', 'st-dance', 'st-study', 'st-study', 'st-think', 'st-yawn', 'st-hungry', 'st-eat', 'st-eat', 'st-run'];
   var ACT_SAY = {
-    'st-spin': ['دُمم بیا اینجا!', 'ووووو، سرم گیج رفت!'],
-    'st-ball': ['بگیر بگیر!', 'توپ! توپ!', 'بالا بَر، اَ بالا!'],
-    'st-music': ['هوم هوم~', 'لالالالا~', 'دلم میخواد آهنگ بخونم~'],
+    'st-spin': UT('say.spin', ['دُمم بیا اینجا!', 'ووووو، سرم گیج رفت!']),
+    'st-ball': UT('say.ball', ['بگیر بگیر!', 'توپ! توپ!', 'بالا بَر، اَ بالا!']),
+    'st-music': UT('say.music', ['هوم هوم~', 'لالالالا~', 'دلم میخواد آهنگ بخونم~']),
     'st-dance': MCAT_DANCE,
     'st-study': MCAT_STUDY,
     'st-think': MCAT_THINK,
@@ -1544,7 +1545,7 @@
     if (mcatPeekR) MCAT.classList.add('peek-r'); else MCAT.classList.remove('peek-r');
     mcatSet('st-peek');
     mcatPeekTill = Date.now() + 9000;
-    mcatSayNow('…هنوز قهرم ها!', 2400);
+    mcatSayNow(UT('say.still_angry', '…هنوز قهرم ها!'), 2400);
   }
   /* ——— اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش! (از v269) ———
      کلِ صفحه سیاه می‌شود، فقط دو چشمِ درخشانِ او در تاریکی می‌ماند؛
@@ -1606,7 +1607,7 @@
     mcatMoveT = Date.now();
     mcatActT = 0; mcatActSt = '';
     mcatSet('st-read');
-    if (!interrupted) mcatSayNow('اوف اوف… خسته شدم!', 2600);
+    if (!interrupted) mcatSayNow(UT('say.tired', 'اوف اوف… خسته شدم!'), 2600);
   }
   /* — قلبِ تیک — */
   function mcatTick() {
@@ -1954,7 +1955,7 @@
       var n = stackCount();
       if (mcatLastN >= 0 && n > mcatLastN && mk === mcatLastMk) {
         if (mcatState === 'st-hide' || mcatState === 'st-peek' || MCAT.classList.contains('away')) mcatRestore('صفحهٔ تازه؟ اومدم اومدم!');
-        else if (mcatPatT < Date.now()) { mcatFastT = Date.now() + 900; mcatSayNow('یه صفحهٔ تازه رسید!', 3200); mcatTick(); }
+        else if (mcatPatT < Date.now()) { mcatFastT = Date.now() + 900; mcatSayNow(UT('say.fresh', 'یه صفحهٔ تازه رسید!'), 3200); mcatTick(); }
       }
       mcatLastN = n; mcatLastMk = mk;
     }

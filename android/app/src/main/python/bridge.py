@@ -932,6 +932,25 @@ def _run(job):
                 _rf.write(str(int(time.time() * 1000)))
         except Exception:
             pass
+# v1.14.274 — متن‌های نمایشگر از «فایلِ واحدِ متن‌ها»ٔ برنامه
+# (manga_sections/05_ui_texts.py) — MainActivity همان‌جا میخواندش و
+# به ریدر تزریق میکند (window.UI_T)؛ نبودش = پیش‌فرضهای خودِ ریدر.
+        try:
+            _utj = getattr(manga_app, "_ui_t_json_file", None)
+            _utj = _utj() if callable(_utj) else ""
+            if _utj:
+                for _ud in (job.get("live"), job.get("live_dbg"), job.get("out")):
+                    if not _ud:
+                        continue
+                    try:
+                        os.makedirs(_ud, exist_ok=True)
+                        with open(os.path.join(_ud, "ui_texts.json"), "w",
+                                  encoding="utf-8") as _uf:
+                            _uf.write(_utj)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         langs = [x for x in str(p.get("ocr_lang") or "en").split() if x.strip()]
 # سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
 # فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا

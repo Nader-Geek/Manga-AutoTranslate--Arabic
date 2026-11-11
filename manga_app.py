@@ -35,6 +35,98 @@ PROVIDER_ALIASES = {"chatgpt": "openai", "grok": "xai"}
 # قدیمی) و مدلهایِ دلخواه با «custom» اجرا میشوند.
 PROVIDERS = ["gemini", "custom"]
 
+# ═══ v1.14.274 — فایلِ واحدِ متن‌ها: همهٔ اسمِ دکمه‌ها/متن‌ها/حرف‌های
+# کاراکتر از «manga_sections/05_ui_texts.py» میآید (پی‌سی/اندروید/لینوکس).
+# فایل نبود/خراب بود = همان متن‌های پیش‌فرضِ داخلِ همین کد (هیچ چیزی
+# نمی‌شکند — فقط یک اخطار در لاگ). TX() فقط یک dict.get است. ═══
+def _load_ui_texts():
+    try:
+        import importlib.util
+        _p = os.path.join(HERE, "manga_sections", "05_ui_texts.py")
+        _sp = importlib.util.spec_from_file_location("manga_ui_texts", _p)
+        _m = importlib.util.module_from_spec(_sp)
+        _sp.loader.exec_module(_m)
+        _t = getattr(_m, "UI_TEXTS", None)
+        return _t if isinstance(_t, dict) else {}
+    except Exception as _e:
+        try:
+            print("[UI_TEXTS] خطا در خواندنِ manga_sections/05_ui_texts.py — "
+                  "متن‌های پیش‌فرض استفاده میشوند:", _e)
+        except Exception:
+            pass
+        return {}
+
+UI_TEXTS = _load_ui_texts()
+
+def TX(k, d=None):
+    """متنِ کلیدِ k از فایلِ واحدِ متن‌ها — با پیش‌فرضِ d."""
+    try:
+        v = UI_TEXTS.get(k, d)
+        return d if v is None else v
+    except Exception:
+        return d
+
+def _ui_t_script():
+    """<script> تزریقیِ window.UI_T برای ریدرهای HTML (وب + اندروید)."""
+    try:
+        _j = json.dumps(UI_TEXTS, ensure_ascii=False, separators=(",", ":"))
+        return "<script>window.UI_T=" + _j + ";</script>"
+    except Exception:
+        return ""
+
+def _ui_t_json_file():
+    try:
+        return json.dumps(UI_TEXTS, ensure_ascii=False, separators=(",", ":"))
+    except Exception:
+        return ""
+
+
+# helperِ JSِ مشترکِ هر سه نمایشگر — ES5 (ریدرِ زنده) هم اجرا میشود.
+# UT() متنِ کلید را از window.UI_T میگیرد؛ نبودش = همان پیش‌فرضِ خودِ
+# صفحه. پچِ آغازین متن‌های ایستا (دکمه‌ها/برچسب‌ها) را پس از DOM
+# بازنویسی میکند — همهٔ سلکتورها null-safe هستند.
+_UT_JS_HELPER = (
+    "<script>function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}"
+    "}catch(e){return d}}"
+    "(function(){function p(){try{"
+    "if(!window.UI_T)return;"
+    "var q=function(s){return document.querySelector(s)},e;"
+    "e=q('.bar .t');if(e)e.textContent=UT('rdr.live_title',e.textContent);"
+    "e=q('#hF');if(e)e.textContent=UT('rdr.wait_first',e.textContent);"
+    "e=q('#hD');if(e)e.textContent=UT('rdr.wait_debug',e.textContent);"
+    "e=q('#mtoggle');if(e){e.title=UT('rdr.t_mode',e.title);if(e.textContent)e.textContent=UT('rdr.debug',e.textContent);}"
+    "e=q('#zo');if(e)e.title=UT('rdr.t_small',e.title);"
+    "e=q('#zi');if(e)e.title=UT('rdr.t_big',e.title);"
+    "e=q('#zf');if(e){e.title=UT('rdr.t_fit',e.title);if(e.textContent=='\u067e\u0647\u0646\u0627')e.textContent=UT('rdr.zfit',e.textContent);}"
+    "e=q('.off-t1');if(e)e.textContent=UT('mcat.off_t1',e.textContent);"
+    "e=q('.off-t2');if(e)e.textContent=UT('mcat.off_t2',e.textContent);"
+    "e=q('.off-t3');if(e)e.textContent=UT('mcat.off_t3',e.textContent);"
+    "e=q('#cmpT');if(e)e.textContent=UT('rdr.page','\u0635\u0641\u062d\u0647\u0654 ')+'\u06f1';"
+    "e=q('#sbub');if(e)e.textContent=UT('rdr.page','\u0635\u0641\u062d\u0647\u0654 ')+'\u06f1';"
+    "e=q('#fab');if(e){if(e.textContent)e.textContent=UT('rdr.menu',e.textContent);e.setAttribute('aria-label',UT('rdr.menu',e.getAttribute('aria-label')||''));}"
+    "e=q('#mcat');if(e)e.setAttribute('title',UT('mcat.title',e.getAttribute('title')||''));"
+    "e=q('.cmp-lab.b');if(e)e.textContent=UT('cmp.before',e.textContent);"
+    "e=q('.cmp-lab.a');if(e)e.textContent=UT('cmp.after',e.textContent);"
+    "e=q('[data-act=close]');if(e)e.title=UT('rdr.btn_close',e.title);"
+    "e=q('[data-act=zoom-out]');if(e)e.title=UT('rdr.btn_zout',e.title);"
+    "e=q('[data-act=zoom-in]');if(e)e.title=UT('rdr.btn_zin',e.title);"
+    "e=q('[data-act=zoom-fit]');if(e)e.title=UT('rdr.t_fit',e.title);"
+    "e=q('[data-act=fs]');if(e)e.title=UT('rdr.btn_fs',e.title);"
+    "e=q('#sprev');if(e)e.title=UT('rdr.prev_page',e.title);"
+    "e=q('#snext');if(e)e.title=UT('rdr.next_page',e.title);"
+    "var rl=document.querySelectorAll('.rlab span');"
+    "if(rl.length==2){rl[0].textContent=UT('rdr.last',rl[0].textContent);rl[1].textContent=UT('rdr.first',rl[1].textContent);}"
+    "}catch(err){}}"
+    "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',p)}else{p()}})();</script>")
+
+def _ui_t_head():
+    """تزریقِ زندهٔ متن‌ها در <head> ریدرها — خالی = هیچ تزریقی."""
+    _j = _ui_t_json_file()
+    if not _j or _j == "{}":
+        return ""
+    return "<script>window.UI_T=" + _j + ";</script>\n" + _UT_JS_HELPER + "\n"
+
+
 DEFAULT_GEMINI_KEYS = []#",".join(["123:])
 
 # نوارِ پیشرفتِ زیرِ لاگ در وب:
@@ -2385,7 +2477,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   function mkPh(){
     var d = document.createElement('div');
     d.className = 'ph';
-    d.innerHTML = '<span class="sp"></span>در حال ترجمه…';
+    d.innerHTML = '<span class="sp"></span>' + UT('rdr.translating', 'در حال ترجمه…');
     return d;
   }
   var SVGNS = 'http://www.w3.org/2000/svg';
@@ -2561,7 +2653,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     var mt = document.getElementById('mtoggle');
     if (mt) {
       mt.style.display = haveDbg ? '' : 'none';
-      mt.textContent = dbgMode ? 'نهایی' : 'دیباگ';
+      mt.textContent = dbgMode ? UT('rdr.final', 'نهایی') : UT('rdr.debug', 'دیباگ');
       if (dbgMode) mt.classList.add('hot'); else mt.classList.remove('hot');
     }
     var show = !!(dbgMode && haveDbg);
@@ -2592,12 +2684,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   var fanState = 0;
   var fans = [];
   var fanDefs = [
-    { key: 'det', ic: '◫', lb: 'det' },
-    { key: 'pdet', ic: '◺', lb: 'p-det' },
-    { key: 'rec', ic: '▤', lb: 'rec' },
-    { key: 'cmp', ic: '⇄', lb: 'قبل/بعد' },
-    { key: 'prev', ic: '‹', lb: 'قبلی', cmpOnly: true },
-    { key: 'next', ic: '›', lb: 'بعدی', cmpOnly: true }
+    { key: 'det', ic: '◫', lb: UT('rdr.fan_det', 'det') },
+    { key: 'pdet', ic: '◺', lb: UT('rdr.fan_pdet', 'p-det') },
+    { key: 'rec', ic: '▤', lb: UT('rdr.fan_rec', 'rec') },
+    { key: 'cmp', ic: '⇄', lb: UT('rdr.fan_cmp', 'قبل/بعد') },
+    { key: 'prev', ic: '‹', lb: UT('rdr.fan_prev', 'قبلی'), cmpOnly: true },
+    { key: 'next', ic: '›', lb: UT('rdr.fan_next', 'بعدی'), cmpOnly: true }
   ];
   for (var fi = 0; fi < fanDefs.length; fi++) {
     var fb = document.createElement('button');
@@ -2721,7 +2813,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     var pts = fanPositions();
     var show = fanState >= 1 && haveDbg;
     // برچسبِ خودِ دکمه: بسته = «منو»، باز = «✕» (بستن)
-    fab.textContent = show ? '✕' : 'منو';
+    fab.textContent = show ? UT('rdr.close', '✕') : UT('rdr.menu', 'منو');
     fab.classList.toggle('open', show);
     for (var i = 0; i < fans.length; i++) {
       var fb = fans[i];
@@ -2732,11 +2824,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       fb.querySelector('.ic').textContent =
         (isCmp && cmpOn) ? '✕' : def.ic;
       fb.querySelector('.lb').textContent =
-        (isCmp && cmpOn) ? 'بستن' : def.lb;
+        (isCmp && cmpOn) ? UT('rdr.fan_close', 'بستن') : def.lb;
       fb.classList.toggle('fcmp', isCmp);
       fb.classList.toggle('on', isCmp ? !!cmpOn : !!ov[def.key]);
-      fb.title = isCmp ? 'مقایسهٔ قبل/بعد' :
-        (def.key === 'prev' || def.key === 'next') ? 'صفحهٔ قبل/بعد در مقایسه' :
+      fb.title = isCmp ? UT('rdr.fan_cmp_title', 'مقایسهٔ قبل/بعد') :
+        (def.key === 'prev' || def.key === 'next') ? UT('rdr.fan_pp_title', 'صفحهٔ قبل/بعد در مقایسه') :
         (({ det: 'detector.onnx', pdet: 'paddle det', rec: 'paddle rec' })[def.key] || '');
       // «قبلی/بعدی» فقط وقتیِ مقایسهٔ باز — کنترلها داخلِ خودِ منو
       fb.classList.toggle('show', show && (!def.cmpOnly || cmpOn));
@@ -2816,7 +2908,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         imgGet(bakedSrc(cmpIdx)).then(function(u){ cmpBImg.src = u; })
           .catch(function(){ cmpBImg.src = au; });
       });
-    cmpT.textContent = 'صفحهٔ ' + String(cmpIdx + 1).replace(/\d/g, function(d){ return '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]; }) + ' از ' + String(n).replace(/\d/g, function(d){ return '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]; });
+    cmpT.textContent = UT('rdr.page', 'صفحهٔ ') + String(cmpIdx + 1).replace(/\d/g, function(d){ return '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]; }) + UT('rdr.of', ' از ') + String(n).replace(/\d/g, function(d){ return '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]; });
     goToPage(cmpIdx);
   }
   function cmpOpenFn(){
@@ -3079,37 +3171,37 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     return { m: m, y: y, pct: Math.min(1, Math.max(0, y / Math.max(1, m))), atEnd: m > 320 && (m - y) < 5 };
   }
   /* ——— حرف‌ها (کاملاً خودمونی) ——— */
-  var MCAT_PAT = ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!'];
-  var MCAT_READ = ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!'];
-  var MCAT_STUDY = ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!'];
-  var MCAT_THINK = ['هوم… بعدِ این چی میشه؟', 'اگه نویسنده یه چیزِ دیگه میگفت چی؟', 'هوم هوم… دارم فکر میکنم…', 'چرا هی دلم میخواد دُم بگیرم؟!'];
-  var MCAT_YAWN = ['خمووووام…', 'یه چرتِ کوچولو بد نیست…', 'خمیازه اومد، شرمنده!', 'چشمام سنگین شدن…'];
-  var MCAT_DANCE = ['لالالا~ دارم می‌رقصم!', 'حالِ دلم خوبه، ببین!', 'رقصِ گربه‌ایِ خاصِ خودم!', 'بزن برقصیم!'];
-  var MCAT_RUN = ['نمیگیری منو!', 'دورِ صفحه می‌چرخم، ووووو!', 'برس به من، برسسس!', 'هوووووم، چه حالی میده!'];
-  var MCAT_HUNGRY = ['قار قور؟!… شرمنده', 'شکمم داره آهنگ میخونه!', 'وا، این صدا از شکمم بود؟!', 'غذا یادم رفت بخورم…', 'کسی بیسکویت داره؟'];
-  var MCAT_EAT = ['چیزی ندیدم ها! تو هم ندیدی؟!', 'نگاه نکن! دارم شام میخورم!', 'این مالِ من شد، تو که ندیدیش!', 'ششش… صدای جویدن نمیاد!'];
-  var MCAT_SHY = ['خجالت کشیدم ببینم!', 'چرا اینجوری نگاه میکنی؟!', 'وییی… به کسی نگو!', 'اِ خودتو ندیدم!'];
-  var MCAT_WAKE = ['نخوابیدم ها! چشمام فقط استراحت میکردن!', 'من؟! خواب نبودم اصلاً!'];
-  var MCAT_ANNOY = ['وایسا وایسا، بسه!', 'نازکیدم ول کن!', 'خیلی شیطون شدی ها!', 'بسه دیگه، گوشه‌م میرم!'];
-  var MCAT_ANGRY = ['آخ! چرا میزنی؟!', 'دلم شکست تو!', 'بدجنسیه این کارت!'];
-  var MCAT_AWAY = ['خوش باش، من رفتم!', 'قهرم ازت، جدی!', 'بای بای، دیگه نمیام!'];
-  var MCAT_BACK = ['ولی دلم تنگ شد، برگشتم…', 'قصه‌ات رو ول نمیکردم دیگه…', 'باشه باشه، بخشیدمت!'];
-  var MCAT_HIDE_SAY = ['پشتِ دیوال قایم شدم، گیرم نمیاری!', 'هیشکی اینجا منو پیدا نمیکنه!', 'از پشتِ دیوال دارم نگاه می‌کنم!'];
-  var MCAT_FOUND = ['اِ پیدام کردی؟! زرنگی!', 'وا! از کجا فهمیدی اینجام؟!', 'باشه باشه، باختم!'];
-  var MCAT_OFF = ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…'];
-  var MCAT_MILE = ['یه چهارمش رفت!', 'نصفش رفته، بزن بریم!', 'سه چهارمش که تمومه، وایسا!'];
-  var MCAT_HANG = ['وا! چطور وارونه شدم؟!', 'از سقف آویزونم، جاذبه هی بلاگه!', 'خونم رفت گوشم! یعنی… پام شد سرم!'];
-  var MCAT_SIT = ['اینجا دمِ صفحه خنک‌تره!', 'لبِ پایین، جای آدمیزادها!', 'نشستم راحت، خبری نیست؟'];
-  var MCAT_SIDE = ['از این ور فقط نگاه می‌کنم…', 'من؟! من که هیشی کار نکردم!', 'یه سرک از بغل زدم!'];
-  var MCAT_PIC = ['وای! این صحنه رو به یاد دارم!', 'اِ این قاب رو قبلاً دیدم!', 'این تصویر خوشگله! مال کدوم فصله؟'];
-  var MCAT_DROP = ['حوووپا!', 'دوباره بنداز، دوباره!', 'ایول، جالب بود!'];
-  var MCAT_BACK2 = ['جای خودم، جای خودم!', 'خوش بود؟ یه بار دیگه بندازم؟!'];
+  var MCAT_PAT = UT('say.pat', ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!']);
+  var MCAT_READ = UT('say.read', ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!']);
+  var MCAT_STUDY = UT('say.study', ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!']);
+  var MCAT_THINK = UT('say.think', ['هوم… بعدِ این چی میشه؟', 'اگه نویسنده یه چیزِ دیگه میگفت چی؟', 'هوم هوم… دارم فکر میکنم…', 'چرا هی دلم میخواد دُم بگیرم؟!']);
+  var MCAT_YAWN = UT('say.yawn', ['خمووووام…', 'یه چرتِ کوچولو بد نیست…', 'خمیازه اومد، شرمنده!', 'چشمام سنگین شدن…']);
+  var MCAT_DANCE = UT('say.dance', ['لالالا~ دارم می‌رقصم!', 'حالِ دلم خوبه، ببین!', 'رقصِ گربه‌ایِ خاصِ خودم!', 'بزن برقصیم!']);
+  var MCAT_RUN = UT('say.run', ['نمیگیری منو!', 'دورِ صفحه می‌چرخم، ووووو!', 'برس به من، برسسس!', 'هوووووم، چه حالی میده!']);
+  var MCAT_HUNGRY = UT('say.hungry', ['قار قور؟!… شرمنده', 'شکمم داره آهنگ میخونه!', 'وا، این صدا از شکمم بود؟!', 'غذا یادم رفت بخورم…', 'کسی بیسکویت داره؟']);
+  var MCAT_EAT = UT('say.eat', ['چیزی ندیدم ها! تو هم ندیدی؟!', 'نگاه نکن! دارم شام میخورم!', 'این مالِ من شد، تو که ندیدیش!', 'ششش… صدای جویدن نمیاد!']);
+  var MCAT_SHY = UT('say.shy', ['خجالت کشیدم ببینم!', 'چرا اینجوری نگاه میکنی؟!', 'وییی… به کسی نگو!', 'اِ خودتو ندیدم!']);
+  var MCAT_WAKE = UT('say.wake', ['نخوابیدم ها! چشمام فقط استراحت میکردن!', 'من؟! خواب نبودم اصلاً!']);
+  var MCAT_ANNOY = UT('say.annoy', ['وایسا وایسا، بسه!', 'نازکیدم ول کن!', 'خیلی شیطون شدی ها!', 'بسه دیگه، گوشه‌م میرم!']);
+  var MCAT_ANGRY = UT('say.angry', ['آخ! چرا میزنی؟!', 'دلم شکست تو!', 'بدجنسیه این کارت!']);
+  var MCAT_AWAY = UT('say.away', ['خوش باش، من رفتم!', 'قهرم ازت، جدی!', 'بای بای، دیگه نمیام!']);
+  var MCAT_BACK = UT('say.back', ['ولی دلم تنگ شد، برگشتم…', 'قصه‌ات رو ول نمیکردم دیگه…', 'باشه باشه، بخشیدمت!']);
+  var MCAT_HIDE_SAY = UT('say.hide', ['پشتِ دیوال قایم شدم، گیرم نمیاری!', 'هیشکی اینجا منو پیدا نمیکنه!', 'از پشتِ دیوال دارم نگاه می‌کنم!']);
+  var MCAT_FOUND = UT('say.found', ['اِ پیدام کردی؟! زرنگی!', 'وا! از کجا فهمیدی اینجام؟!', 'باشه باشه، باختم!']);
+  var MCAT_OFF = UT('say.off', ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…']);
+  var MCAT_MILE = UT('say.mile', ['یه چهارمش رفت!', 'نصفش رفته، بزن بریم!', 'سه چهارمش که تمومه، وایسا!']);
+  var MCAT_HANG = UT('say.hang', ['وا! چطور وارونه شدم؟!', 'از سقف آویزونم، جاذبه هی بلاگه!', 'خونم رفت گوشم! یعنی… پام شد سرم!']);
+  var MCAT_SIT = UT('say.sit', ['اینجا دمِ صفحه خنک‌تره!', 'لبِ پایین، جای آدمیزادها!', 'نشستم راحت، خبری نیست؟']);
+  var MCAT_SIDE = UT('say.side', ['از این ور فقط نگاه می‌کنم…', 'من؟! من که هیشی کار نکردم!', 'یه سرک از بغل زدم!']);
+  var MCAT_PIC = UT('say.pic', ['وای! این صحنه رو به یاد دارم!', 'اِ این قاب رو قبلاً دیدم!', 'این تصویر خوشگله! مال کدوم فصله؟']);
+  var MCAT_DROP = UT('say.drop', ['حوووپا!', 'دوباره بنداز، دوباره!', 'ایول، جالب بود!']);
+  var MCAT_BACK2 = UT('say.back2', ['جای خودم، جای خودم!', 'خوش بود؟ یه بار دیگه بندازم؟!']);
   var ACT_DUR = { 'st-spin': 3000, 'st-ball': 3200, 'st-music': 3400, 'st-dance': 3600, 'st-study': 5200, 'st-think': 3600, 'st-yawn': 2800, 'st-hungry': 3000, 'st-eat': 5200, 'st-run': 6200, 'st-hang': 7000, 'st-edgesit': 6500, 'st-sidepeek': 6000 };
   var ACT_POOL = ['st-spin', 'st-spin', 'st-ball', 'st-ball', 'st-music', 'st-music', 'st-dance', 'st-dance', 'st-study', 'st-study', 'st-think', 'st-yawn', 'st-hungry', 'st-eat', 'st-eat', 'st-run'];
   var ACT_SAY = {
-    'st-spin': ['دُمم بیا اینجا!', 'ووووو، سرم گیج رفت!'],
-    'st-ball': ['بگیر بگیر!', 'توپ! توپ!', 'بالا بَر، اَ بالا!'],
-    'st-music': ['هوم هوم~', 'لالالالا~', 'دلم میخواد آهنگ بخونم~'],
+    'st-spin': UT('say.spin', ['دُمم بیا اینجا!', 'ووووو، سرم گیج رفت!']),
+    'st-ball': UT('say.ball', ['بگیر بگیر!', 'توپ! توپ!', 'بالا بَر، اَ بالا!']),
+    'st-music': UT('say.music', ['هوم هوم~', 'لالالالا~', 'دلم میخواد آهنگ بخونم~']),
     'st-dance': MCAT_DANCE,
     'st-study': MCAT_STUDY,
     'st-think': MCAT_THINK,
@@ -3205,7 +3297,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     if (mcatPeekR) MCAT.classList.add('peek-r'); else MCAT.classList.remove('peek-r');
     mcatSet('st-peek');
     mcatPeekTill = Date.now() + 9000;
-    mcatSayNow('…هنوز قهرم ها!', 2400);
+    mcatSayNow(UT('say.still_angry', '…هنوز قهرم ها!'), 2400);
   }
   /* ——— اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش! (از v269) ———
      کلِ صفحه سیاه می‌شود، فقط دو چشمِ درخشانِ او در تاریکی می‌ماند؛
@@ -3267,7 +3359,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     mcatMoveT = Date.now();
     mcatActT = 0; mcatActSt = '';
     mcatSet('st-read');
-    if (!interrupted) mcatSayNow('اوف اوف… خسته شدم!', 2600);
+    if (!interrupted) mcatSayNow(UT('say.tired', 'اوف اوف… خسته شدم!'), 2600);
   }
   /* — قلبِ تیک — */
   function mcatTick() {
@@ -3615,7 +3707,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       var n = stackCount();
       if (mcatLastN >= 0 && n > mcatLastN && mk === mcatLastMk) {
         if (mcatState === 'st-hide' || mcatState === 'st-peek' || MCAT.classList.contains('away')) mcatRestore('صفحهٔ تازه؟ اومدم اومدم!');
-        else if (mcatPatT < Date.now()) { mcatFastT = Date.now() + 900; mcatSayNow('یه صفحهٔ تازه رسید!', 3200); mcatTick(); }
+        else if (mcatPatT < Date.now()) { mcatFastT = Date.now() + 900; mcatSayNow(UT('say.fresh', 'یه صفحهٔ تازه رسید!'), 3200); mcatTick(); }
       }
       mcatLastN = n; mcatLastMk = mk;
     }
@@ -3673,13 +3765,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         prefix = "/gradio_api/file=" if major >= 5 else "/file="
         urls = [prefix + str(p).replace(os.sep, "/") for p in files]
         if not urls:
-            body = "<div style='text-align:center;opacity:.6;padding:24px'>تصویری برای نمایش پیدا نشد.</div>"
+            body = "<div style='text-align:center;opacity:.6;padding:24px'>" + str(TX("app.no_images", "تصویری برای نمایش پیدا نشد.")) + "</div>"
             if not standalone:
                 return body
             return (
                 "<!DOCTYPE html><html lang='fa' dir='rtl'><head><meta charset='utf-8'>"
                 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-                f"<title>خواندن</title></head><body style='background:#000;color:#999'>{body}</body></html>"
+                f"<title>{TX('app.read_title', 'خواندن')}</title></head><body style='background:#000;color:#999'>{body}</body></html>"
             )
 # ——— پچِ فشرده‌سازی v272: پیش‌نمایشِ کم‌حجمِ ریدر ——— برایِ هر عکسِ
 # محلی (به‌جزِ GIF) یک نسخهٔ JPEGِ ۱۱۰۰px (فقط کوچک‌کردن — هرگز
@@ -4182,7 +4274,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   const rtryChip = document.createElement('button');
   rtryChip.type = 'button';
   rtryChip.id = 'rtryChip';
-  rtryChip.innerHTML = '<span class="sp">&#8635;</span><span class="tx">تلاش دوباره</span>';
+  rtryChip.innerHTML = '<span class="sp">&#8635;</span><span class="tx">' + UT('rdr.retry', 'تلاش دوباره') + '</span>';
   try { document.body.appendChild(rtryChip); } catch (err) {}
   const RTRY_L = [800, 2000, 4000, 8000, 15000];
   let rtryBusy = 0, rtryBad = 0;
@@ -4193,9 +4285,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     } catch (err) {}
   };
   const rtrySync = () => {
-    if (rtryBusy > 0) rtryState('show busy', 'در حال تلاش…');
-    else if (rtryBad > 0) rtryState('show', 'تلاش دوباره');
-    else rtryState('', 'تلاش دوباره');
+    if (rtryBusy > 0) rtryState('show busy', UT('rdr.retrying', 'در حال تلاش…'));
+    else if (rtryBad > 0) rtryState('show', UT('rdr.retry', 'تلاش دوباره'));
+    else rtryState('', UT('rdr.retry', 'تلاش دوباره'));
   };
   const rtryKick = (im, now) => {
     if (im.__ok || im.__rl) return;
@@ -4269,7 +4361,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       n++;
       rtryKick(im, true);
     });
-    if (n > 0) rtryState('show busy', 'در حال تلاش…');
+    if (n > 0) rtryState('show busy', UT('rdr.retrying', 'در حال تلاش…'));
   });
   window.addEventListener('online', () => {
     c.querySelectorAll('img[data-src]').forEach((im) => {
@@ -4380,11 +4472,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   const fab = document.getElementById('fab');
   let fanState = 0;   // ۰=بسته | ۱=فنِ باز | ۲=فن+خطِ صفحهها
   const fanDefs = [
-    { key: 'zin', ic: '+', lb: 'نزدیک' },
-    { key: 'zout', ic: '\u2212', lb: 'دور' },
-    { key: 'zfit', ic: '\u2194', lb: 'پهنا' },
-    { key: 'fs', ic: '\u26f6', lb: 'تمام' },
-    { key: 'seek', ic: '\u21c4', lb: 'صفحه‌ها' }
+    { key: 'zin', ic: '+', lb: UT('rdr.zin', 'نزدیک') },
+    { key: 'zout', ic: '\u2212', lb: UT('rdr.zout', 'دور') },
+    { key: 'zfit', ic: '\u2194', lb: UT('rdr.zfit', 'پهنا') },
+    { key: 'fs', ic: '\u26f6', lb: UT('rdr.zfs', 'تمام') },
+    { key: 'seek', ic: '\u21c4', lb: UT('rdr.zseek', 'صفحه‌ها') }
   ];
   const fans = fanDefs.map((def) => {
     const fb = document.createElement('button');
@@ -4521,7 +4613,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     const pts = fanPositions();
     const show = fanState >= 1;
     // برچسبِ خودِ دکمه: بسته = «منو»، باز = «✕» (بستن)
-    fab.textContent = show ? '\u2715' : 'منو';
+    fab.textContent = show ? UT('rdr.close', '\u2715') : UT('rdr.menu', 'منو');
     fab.classList.toggle('open', show);
     for (let i = 0; i < fans.length; i++) {
       const fb = fans[i], def = fanDefs[i];
@@ -4563,7 +4655,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     sth.style.left = x + 'px';
     sfill.style.width = (f * w) + 'px';
     sbub.style.left = x + 'px';
-    sbub.textContent = 'صفحهٔ ' + String(pg).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]) + ' از ' + String(n).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]);
+    sbub.textContent = UT('rdr.page', 'صفحهٔ ') + String(pg).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]) + UT('rdr.of', ' از ') + String(n).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]);
     return pg;
   };
   const updateSeekPos = () => {
@@ -4639,37 +4731,37 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     return { m: m, y: y, pct: Math.min(1, Math.max(0, y / Math.max(1, m))), atEnd: m > 320 && (m - y) < 5 };
   }
   /* ——— حرف‌ها (کاملاً خودمونی) ——— */
-  var MCAT_PAT = ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!'];
-  var MCAT_READ = ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!'];
-  var MCAT_STUDY = ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!'];
-  var MCAT_THINK = ['هوم… بعدِ این چی میشه؟', 'اگه نویسنده یه چیزِ دیگه میگفت چی؟', 'هوم هوم… دارم فکر میکنم…', 'چرا هی دلم میخواد دُم بگیرم؟!'];
-  var MCAT_YAWN = ['خمووووام…', 'یه چرتِ کوچولو بد نیست…', 'خمیازه اومد، شرمنده!', 'چشمام سنگین شدن…'];
-  var MCAT_DANCE = ['لالالا~ دارم می‌رقصم!', 'حالِ دلم خوبه، ببین!', 'رقصِ گربه‌ایِ خاصِ خودم!', 'بزن برقصیم!'];
-  var MCAT_RUN = ['نمیگیری منو!', 'دورِ صفحه می‌چرخم، ووووو!', 'برس به من، برسسس!', 'هوووووم، چه حالی میده!'];
-  var MCAT_HUNGRY = ['قار قور؟!… شرمنده', 'شکمم داره آهنگ میخونه!', 'وا، این صدا از شکمم بود؟!', 'غذا یادم رفت بخورم…', 'کسی بیسکویت داره؟'];
-  var MCAT_EAT = ['چیزی ندیدم ها! تو هم ندیدی؟!', 'نگاه نکن! دارم شام میخورم!', 'این مالِ من شد، تو که ندیدیش!', 'ششش… صدای جویدن نمیاد!'];
-  var MCAT_SHY = ['خجالت کشیدم ببینم!', 'چرا اینجوری نگاه میکنی؟!', 'وییی… به کسی نگو!', 'اِ خودتو ندیدم!'];
-  var MCAT_WAKE = ['نخوابیدم ها! چشمام فقط استراحت میکردن!', 'من؟! خواب نبودم اصلاً!'];
-  var MCAT_ANNOY = ['وایسا وایسا، بسه!', 'نازکیدم ول کن!', 'خیلی شیطون شدی ها!', 'بسه دیگه، گوشه‌م میرم!'];
-  var MCAT_ANGRY = ['آخ! چرا میزنی؟!', 'دلم شکست تو!', 'بدجنسیه این کارت!'];
-  var MCAT_AWAY = ['خوش باش، من رفتم!', 'قهرم ازت، جدی!', 'بای بای، دیگه نمیام!'];
-  var MCAT_BACK = ['ولی دلم تنگ شد، برگشتم…', 'قصه‌ات رو ول نمیکردم دیگه…', 'باشه باشه، بخشیدمت!'];
-  var MCAT_HIDE_SAY = ['پشتِ دیوال قایم شدم، گیرم نمیاری!', 'هیشکی اینجا منو پیدا نمیکنه!', 'از پشتِ دیوال دارم نگاه می‌کنم!'];
-  var MCAT_FOUND = ['اِ پیدام کردی؟! زرنگی!', 'وا! از کجا فهمیدی اینجام؟!', 'باشه باشه، باختم!'];
-  var MCAT_OFF = ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…'];
-  var MCAT_MILE = ['یه چهارمش رفت!', 'نصفش رفته، بزن بریم!', 'سه چهارمش که تمومه، وایسا!'];
-  var MCAT_HANG = ['وا! چطور وارونه شدم؟!', 'از سقف آویزونم، جاذبه هی بلاگه!', 'خونم رفت گوشم! یعنی… پام شد سرم!'];
-  var MCAT_SIT = ['اینجا دمِ صفحه خنک‌تره!', 'لبِ پایین، جای آدمیزادها!', 'نشستم راحت، خبری نیست؟'];
-  var MCAT_SIDE = ['از این ور فقط نگاه می‌کنم…', 'من؟! من که هیشی کار نکردم!', 'یه سرک از بغل زدم!'];
-  var MCAT_PIC = ['وای! این صحنه رو به یاد دارم!', 'اِ این قاب رو قبلاً دیدم!', 'این تصویر خوشگله! مال کدوم فصله؟'];
-  var MCAT_DROP = ['حوووپا!', 'دوباره بنداز، دوباره!', 'ایول، جالب بود!'];
-  var MCAT_BACK2 = ['جای خودم، جای خودم!', 'خوش بود؟ یه بار دیگه بندازم؟!'];
+  var MCAT_PAT = UT('say.pat', ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!']);
+  var MCAT_READ = UT('say.read', ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!']);
+  var MCAT_STUDY = UT('say.study', ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!']);
+  var MCAT_THINK = UT('say.think', ['هوم… بعدِ این چی میشه؟', 'اگه نویسنده یه چیزِ دیگه میگفت چی؟', 'هوم هوم… دارم فکر میکنم…', 'چرا هی دلم میخواد دُم بگیرم؟!']);
+  var MCAT_YAWN = UT('say.yawn', ['خمووووام…', 'یه چرتِ کوچولو بد نیست…', 'خمیازه اومد، شرمنده!', 'چشمام سنگین شدن…']);
+  var MCAT_DANCE = UT('say.dance', ['لالالا~ دارم می‌رقصم!', 'حالِ دلم خوبه، ببین!', 'رقصِ گربه‌ایِ خاصِ خودم!', 'بزن برقصیم!']);
+  var MCAT_RUN = UT('say.run', ['نمیگیری منو!', 'دورِ صفحه می‌چرخم، ووووو!', 'برس به من، برسسس!', 'هوووووم، چه حالی میده!']);
+  var MCAT_HUNGRY = UT('say.hungry', ['قار قور؟!… شرمنده', 'شکمم داره آهنگ میخونه!', 'وا، این صدا از شکمم بود؟!', 'غذا یادم رفت بخورم…', 'کسی بیسکویت داره؟']);
+  var MCAT_EAT = UT('say.eat', ['چیزی ندیدم ها! تو هم ندیدی؟!', 'نگاه نکن! دارم شام میخورم!', 'این مالِ من شد، تو که ندیدیش!', 'ششش… صدای جویدن نمیاد!']);
+  var MCAT_SHY = UT('say.shy', ['خجالت کشیدم ببینم!', 'چرا اینجوری نگاه میکنی؟!', 'وییی… به کسی نگو!', 'اِ خودتو ندیدم!']);
+  var MCAT_WAKE = UT('say.wake', ['نخوابیدم ها! چشمام فقط استراحت میکردن!', 'من؟! خواب نبودم اصلاً!']);
+  var MCAT_ANNOY = UT('say.annoy', ['وایسا وایسا، بسه!', 'نازکیدم ول کن!', 'خیلی شیطون شدی ها!', 'بسه دیگه، گوشه‌م میرم!']);
+  var MCAT_ANGRY = UT('say.angry', ['آخ! چرا میزنی؟!', 'دلم شکست تو!', 'بدجنسیه این کارت!']);
+  var MCAT_AWAY = UT('say.away', ['خوش باش، من رفتم!', 'قهرم ازت، جدی!', 'بای بای، دیگه نمیام!']);
+  var MCAT_BACK = UT('say.back', ['ولی دلم تنگ شد، برگشتم…', 'قصه‌ات رو ول نمیکردم دیگه…', 'باشه باشه، بخشیدمت!']);
+  var MCAT_HIDE_SAY = UT('say.hide', ['پشتِ دیوال قایم شدم، گیرم نمیاری!', 'هیشکی اینجا منو پیدا نمیکنه!', 'از پشتِ دیوال دارم نگاه می‌کنم!']);
+  var MCAT_FOUND = UT('say.found', ['اِ پیدام کردی؟! زرنگی!', 'وا! از کجا فهمیدی اینجام؟!', 'باشه باشه، باختم!']);
+  var MCAT_OFF = UT('say.off', ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…']);
+  var MCAT_MILE = UT('say.mile', ['یه چهارمش رفت!', 'نصفش رفته، بزن بریم!', 'سه چهارمش که تمومه، وایسا!']);
+  var MCAT_HANG = UT('say.hang', ['وا! چطور وارونه شدم؟!', 'از سقف آویزونم، جاذبه هی بلاگه!', 'خونم رفت گوشم! یعنی… پام شد سرم!']);
+  var MCAT_SIT = UT('say.sit', ['اینجا دمِ صفحه خنک‌تره!', 'لبِ پایین، جای آدمیزادها!', 'نشستم راحت، خبری نیست؟']);
+  var MCAT_SIDE = UT('say.side', ['از این ور فقط نگاه می‌کنم…', 'من؟! من که هیشی کار نکردم!', 'یه سرک از بغل زدم!']);
+  var MCAT_PIC = UT('say.pic', ['وای! این صحنه رو به یاد دارم!', 'اِ این قاب رو قبلاً دیدم!', 'این تصویر خوشگله! مال کدوم فصله؟']);
+  var MCAT_DROP = UT('say.drop', ['حوووپا!', 'دوباره بنداز، دوباره!', 'ایول، جالب بود!']);
+  var MCAT_BACK2 = UT('say.back2', ['جای خودم، جای خودم!', 'خوش بود؟ یه بار دیگه بندازم؟!']);
   var ACT_DUR = { 'st-spin': 3000, 'st-ball': 3200, 'st-music': 3400, 'st-dance': 3600, 'st-study': 5200, 'st-think': 3600, 'st-yawn': 2800, 'st-hungry': 3000, 'st-eat': 5200, 'st-run': 6200, 'st-hang': 7000, 'st-edgesit': 6500, 'st-sidepeek': 6000 };
   var ACT_POOL = ['st-spin', 'st-spin', 'st-ball', 'st-ball', 'st-music', 'st-music', 'st-dance', 'st-dance', 'st-study', 'st-study', 'st-think', 'st-yawn', 'st-hungry', 'st-eat', 'st-eat', 'st-run'];
   var ACT_SAY = {
-    'st-spin': ['دُمم بیا اینجا!', 'ووووو، سرم گیج رفت!'],
-    'st-ball': ['بگیر بگیر!', 'توپ! توپ!', 'بالا بَر، اَ بالا!'],
-    'st-music': ['هوم هوم~', 'لالالالا~', 'دلم میخواد آهنگ بخونم~'],
+    'st-spin': UT('say.spin', ['دُمم بیا اینجا!', 'ووووو، سرم گیج رفت!']),
+    'st-ball': UT('say.ball', ['بگیر بگیر!', 'توپ! توپ!', 'بالا بَر، اَ بالا!']),
+    'st-music': UT('say.music', ['هوم هوم~', 'لالالالا~', 'دلم میخواد آهنگ بخونم~']),
     'st-dance': MCAT_DANCE,
     'st-study': MCAT_STUDY,
     'st-think': MCAT_THINK,
@@ -4765,7 +4857,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     if (mcatPeekR) MCAT.classList.add('peek-r'); else MCAT.classList.remove('peek-r');
     mcatSet('st-peek');
     mcatPeekTill = Date.now() + 9000;
-    mcatSayNow('…هنوز قهرم ها!', 2400);
+    mcatSayNow(UT('say.still_angry', '…هنوز قهرم ها!'), 2400);
   }
   /* ——— اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش! (از v269) ———
      کلِ صفحه سیاه می‌شود، فقط دو چشمِ درخشانِ او در تاریکی می‌ماند؛
@@ -4827,7 +4919,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     mcatMoveT = Date.now();
     mcatActT = 0; mcatActSt = '';
     mcatSet('st-read');
-    if (!interrupted) mcatSayNow('اوف اوف… خسته شدم!', 2600);
+    if (!interrupted) mcatSayNow(UT('say.tired', 'اوف اوف… خسته شدم!'), 2600);
   }
   /* — قلبِ تیک — */
   function mcatTick() {
@@ -5175,7 +5267,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       var n = stackCount();
       if (mcatLastN >= 0 && n > mcatLastN && mk === mcatLastMk) {
         if (mcatState === 'st-hide' || mcatState === 'st-peek' || MCAT.classList.contains('away')) mcatRestore('صفحهٔ تازه؟ اومدم اومدم!');
-        else if (mcatPatT < Date.now()) { mcatFastT = Date.now() + 900; mcatSayNow('یه صفحهٔ تازه رسید!', 3200); mcatTick(); }
+        else if (mcatPatT < Date.now()) { mcatFastT = Date.now() + 900; mcatSayNow(UT('say.fresh', 'یه صفحهٔ تازه رسید!'), 3200); mcatTick(); }
       }
       mcatLastN = n; mcatLastMk = mk;
     }
@@ -5348,6 +5440,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             '<meta name="apple-mobile-web-app-capable" content="yes">\n'
             f"<title>{title_esc}</title>\n"
             f"<style>{css}</style>\n"
+            + _ui_t_head() +
             "</head>\n"
             "<body>\n"
             '<div class="rdr" id="manga_rdr" data-zoom="1">\n'
@@ -5418,16 +5511,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۱</span> ورودی — فایل یا لینک مانهوا</div>')
-            inp_upload = gr.File(label="آپلود فایل‌ها (چندتایی) — کلیک کن",
+            inp_upload = gr.File(label=TX("app.upload", "آپلود فایل‌ها (چندتایی) — کلیک کن"),
                                  file_count="multiple", type="filepath",
                                  file_types=[".pdf", ".zip", ".cbz", ".webp", ".jpg", ".jpeg", ".png"],
                                  elem_classes=["compact-upload"])
-            inp_path = gr.Textbox(label="یا URL تصویر/مانهوا (چند لینک = هر لینک در یک خط با اینتر)",
-                                  placeholder="https://cdn.example.com/chapter/1/001.webp\nhttps://cdn.example.com/chapter/1/002.webp",
-                                  info=("چند لینک = هر لینک را در یک خط بگذار (اینتر) — هرچقدر اینتر بزنی خودش می‌خوانَد؛ کاما هم کار می‌کند. حالت‌های دیگر: "
+            inp_path = gr.Textbox(label=TX("app.url", "یا URL تصویر/مانهوا (چند لینک = هر لینک در یک خط با اینتر)"),
+                                  placeholder=TX("app.url_ph", "https://cdn.example.com/chapter/1/001.webp\nhttps://cdn.example.com/chapter/1/002.webp"),
+                                  info=TX("app.url_info", ("چند لینک = هر لینک را در یک خط بگذار (اینتر) — هرچقدر اینتر بزنی خودش می‌خوانَد؛ کاما هم کار می‌کند. حالت‌های دیگر: "
                                         "«…/1 > 14.jpg» از اول تا آخر، "
                                         "«…/1 < 14.jpg» از آخر به اول، "
-                                        "«…/*.jpg» هرچه پیدا کند — همه با هم ترجمه می‌شوند."))
+                                        "«…/*.jpg» هرچه پیدا کند — همه با هم ترجمه می‌شوند.")))
 
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۲</span> مترجم هوش مصنوعی</div>')
@@ -5445,14 +5538,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             with gr.Row(elem_id="manga_provider_row"):
                 provider = gr.Dropdown(
                     _init_ch, value=_init_prov,
-                    label="منوی انتخاب AI", scale=6,
-                    info=("«auto» (فقط با مدلِ اضافهشده) خودش بینِ Gemini و "
+                    label=TX("app.ai_menu", "منوی انتخاب AI"), scale=6,
+                    info=TX("app.ai_menu_info", ("«auto» (فقط با مدلِ اضافهشده) خودش بینِ Gemini و "
                           "مدل‌هایِ شما اولینِ در دسترس را انتخاب میکند "
                           "(خطا/عدمِ دسترسی → بعدی). مدلِ مشخص = فقط و فقط "
                           "همان. «custom» = فیلدهایِ همین صفحه. حذفِ مدلِ "
-                          "خودت = انتخابش در منو + ✖ِ کنارِ منو."))
+                          "خودت = انتخابش در منو + ✖ِ کنارِ منو.")))
                 cm_del_btn = gr.Button(
-                    "✖", variant="secondary", scale=0,
+                    TX("app.del_model", "✖"), variant="secondary", scale=0,
                     elem_id="manga_cm_del_btn",
                     visible=(_init_prov in _cm_names(_init_models)))
 # مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدلِ هوش/
@@ -5469,21 +5562,21 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                            "key": "", "model": ""},
                 "gemini": {"base": "", "key": "", "model": ""},
             })
-            api_base = gr.Textbox(label="دامنهٔ API سفارشی (فقط برای provider «custom»)",
+            api_base = gr.Textbox(label=TX("app.api_base", "دامنهٔ API سفارشی (فقط برای provider «custom»)"),
                                   value=str(cfg.get("api_base", "") or ""),
-                                  placeholder="https://opencode.ai/inference/openai/v1/chat/completions",
-                                  info="۴ فرمت خودکار شناخته می‌شود: …/chat/completions | …/responses | …/messages (Anthropic) | …:generateContent (Google) — لینک کامل endpoint را هم می‌شود چسباند؛ https:// اگر جا افتاده باشد خودکار اضافه می‌شود.",
+                                  placeholder=TX("app.api_base_ph", "https://opencode.ai/inference/openai/v1/chat/completions"),
+                                  info=TX("app.api_base_info", "۴ فرمت خودکار شناخته می‌شود: …/chat/completions | …/responses | …/messages (Anthropic) | …:generateContent (Google) — لینک کامل endpoint را هم می‌شود چسباند؛ https:// اگر جا افتاده باشد خودکار اضافه می‌شود."),
                                   elem_id="manga_api_base",
                                   visible=False,
                                   scale=3)
 # رویِ «auto» ردیفِ ورود از همان ابتدا پنهان است (حالتِ
 # PC/دیسک که منو با «auto» بالا میآید)
             with gr.Row(visible=(_init_prov != "auto")) as api_row:
-                api_keys = gr.Textbox(label="کلیدهای API شما (با کاما = چرخش خودکار)",
+                api_keys = gr.Textbox(label=TX("app.api_keys", "کلیدهای API شما (با کاما = چرخش خودکار)"),
                                       value="",
                                       type="password", scale=3,
                                       elem_id="manga_api_keys",
-                                      info="کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ.")
+                                      info=TX("app.api_keys_info", "کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ."))
 
                 #مدل دستی حذف شد؛ دراپ‌داون + دکمهٔ ↻ —
 # با کلیدهای همین صفحه فهرستِ مدلهایِ زنده از خودِ سرویس
@@ -5500,11 +5593,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 model = gr.Dropdown(
                     choices=_gemini_offline_models(), value="",
                     allow_custom_value=True,
-                    label="مدل — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
-                          "فهرستِ زنده (یا خودت بنویس) | خالی = پیش‌فرض",
+                    label=TX("app.model_gemini", ("مدل — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
+                          "فهرستِ زنده (یا خودت بنویس) | خالی = پیش‌فرض")),
                     scale=2, elem_id="manga_model")
                 model_ref_btn = gr.Button(
-                    "↻ مدل‌ها", variant="secondary", scale=1,
+                    TX("app.refresh_models", "↻ مدل‌ها"), variant="secondary", scale=1,
                     elem_id="manga_model_ref",
                     visible=(_init_prov == "gemini"))
 # /218/220 — مدیرِ مدلهایِ سفارشی: بدونِ فیلدِ «نام مدل
@@ -5514,19 +5607,19 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             # → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom دیده میشوند
 # (شروعِ صفحه همیشه auto/gemini است → هر دو از ابتدا پنهان)
             add_model_btn = gr.Button(
-                "+ افزودن به لیست مدل‌ها", variant="secondary", scale=1,
+                TX("app.add_model", "+ افزودن به لیست مدل‌ها"), variant="secondary", scale=1,
                 elem_id="manga_cm_add", visible=False)
             # →
 # « ویرایش» فقط رویِ مدلِ ذخیرهشدهٔ خودِ کاربر میآید؛ با زدنش
 # مقادیرِ ذخیرهشده (لینک/کلید/مدل) در فیلدها میآید و «افزودن» جای
 # خودش را به « ذخیرهٔ ویرایش» میدهد (بجایِ گزینهٔ افزودن، ذخیره).
             cm_edit_btn = gr.Button(
-                "✎ ویرایش این مدل", variant="secondary", scale=1,
+                TX("app.edit_model", "✎ ویرایش این مدل"), variant="secondary", scale=1,
                 elem_id="manga_cm_edit", visible=False)
             cm_save_btn = gr.Button(
-                "💾 ذخیرهٔ ویرایش", variant="primary", scale=1,
+                TX("app.save_edit", "💾 ذخیرهٔ ویرایش"), variant="primary", scale=1,
                 elem_id="manga_cm_save", visible=False)
-            cm_hint_md = gr.Markdown("<div class='hint'>«+ افزودن» مدلِ فعلیِ همین صفحه "
+            _cm_hint_d = ("«+ افزودن» مدلِ فعلیِ همین صفحه "
                         "(دامنه/کلید/مدل) را با یک نام در «لیست مدل‌ها» ثبت "
                         "میکند؛ مدل در حافظهٔ مرورگر/دستگاه میماند، در منویِ "
                         "انتخابِ AI میآید و در بکاپ هم ذخیره میشود. حذفِ مدل = "
@@ -5536,15 +5629,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         "قفل میشوند — خودش بینِ مدلها انتخاب میکند. کلید از "
                         "aistudio.google.com (Gemini) یا سرویسِ دلخواهِ خودتان "
                         "بگیرید؛ کلید در فیلد مخفی است — با 👁 دیده میشود؛ "
-                        "تنظیمات وب فقط در مرورگر ذخیره میشود.</div>",
+                        "تنظیمات وب فقط در مرورگر ذخیره میشود.")
+            cm_hint_md = gr.Markdown("<div class='hint'>" + str(TX("app.cm_hint", _cm_hint_d)) + "</div>",
                         visible=False)
             test_key_btn = gr.Button(
-                "تست کلیدها / لینک",
+                TX("app.test_keys", "تست کلیدها / لینک"),
                 scale=1, elem_id="manga_test_key")
             test_key_out = gr.Textbox(
                 label="", value="", interactive=False, show_label=False,
                 elem_id="manga_test_key_out", visible=False,
-                placeholder="وضعیت هر کلید — سالم ✔ / خراب ✘ (بعد از ۶۰ ثانیه خودکار پاک می‌شود)")
+                placeholder=TX("app.test_key_ph", "وضعیت هر کلید — سالم ✔ / خراب ✘ (بعد از ۶۰ ثانیه خودکار پاک می‌شود)"))
             custom_models_state = gr.State(_init_models)
             cm_json_box = gr.Textbox(
                 value=json.dumps(custom_models_state.value, ensure_ascii=False),
@@ -5569,7 +5663,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     ("چندزبانه (کره‌ای/ژاپنی/چینی/انگلیسی)", "multi"),
                 ],
                 value=str(cfg.get("ocr_lang", "en")),
-                label="زبان متن مانگا (OCR)",
+                label=TX("app.ocr_lang", "زبان متن مانگا (OCR)"),
                 elem_id="manga_ocr_lang",
                 info="زبان اصلی حباب‌ها — برای مانهوا فارسی/انگلیسی همان انگلیسی بماند.", scale=1)
 
@@ -5577,12 +5671,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             gr.HTML('<div class="steptitle"><span class="stepnum">۳</span> خروجی</div>')
             with gr.Row():
                 out_fmt = gr.Radio(["PDF", "ZIP", "HTML", "PSD", "پوشهٔ تصاویر"],
-                                   value=cfg.get("out_fmt", "PDF"), label="قالب")
+                                   value=cfg.get("out_fmt", "PDF"), label=TX("app.out_fmt", "قالب"))
                 quality = gr.Slider(60, 100, value=int(cfg.get("quality", 92)),
-                                    step=1, label="کیفیت تصویر")
+                                    step=1, label=TX("app.quality", "کیفیت تصویر"))
 
         with gr.Accordion("✒️ فونت‌ها (اصلی + لحن‌ها — اختیاری، خالی = فونت سرور)", open=False):
-            font_upload = gr.File(label="فونت اصلی (.ttf)",
+            font_upload = gr.File(label=TX("app.font", "فونت اصلی (.ttf)"),
                                   file_count="single", type="filepath",
                                   file_types=[".ttf", ".otf"],
                                   elem_classes=["compact-upload"])
@@ -5626,18 +5720,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         with gr.Accordion("⚙️ تنظیمات پیشرفته", open=False):
             with gr.Row():
                 workers = _safe(gr.Slider, 1, 8, value=int(cfg.get("workers", 2)),
-                                step=1, label="ورکر موازی OCR")
+                                step=1, label=TX("app.ocr_workers", "ورکر موازی OCR"))
                 bubbles = _safe(gr.Slider, 1, 12, value=int(cfg.get("bubbles", 6)),
-                                step=1, label="حباب در هر درخواست ترجمه")
+                                step=1, label=TX("app.bubbles", "حباب در هر درخواست ترجمه"))
                 batchw = _safe(gr.Slider, 1, 8, value=int(cfg.get("batch_workers", 3)),
-                               step=1, label="بستهٔ ترجمهٔ موازی (کلید جدا برای هر بسته)")
+                               step=1, label=TX("app.batch", "بستهٔ ترجمهٔ موازی (کلید جدا برای هر بسته)"))
             with gr.Row():
                 timeout = _safe(gr.Slider, 10, 120, value=int(cfg.get("timeout", 40)),
-                                step=5, label="تایم‌اوت هر درخواست (ثانیه)")
+                                step=5, label=TX("app.timeout", "تایم‌اوت هر درخواست (ثانیه)"))
                 maxre = _safe(gr.Slider, 1, 15, value=int(cfg.get("max_retries", 8)),
-                              step=1, label="حداکثر تلاش ترجمه")
+                              step=1, label=TX("app.max_retry", "حداکثر تلاش ترجمه"))
                 reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
-                                 step=0.5, label="تأخیر بین درخواست‌ها (ثانیه)")
+                                 step=0.5, label=TX("app.delay", "تأخیر بین درخواست‌ها (ثانیه)"))
             # → همان
 # gr.Sliderِ هموارِ شش اسلایدرِ بالای همین صفحه (ورکر/حباب/
 # بسته/تایم‌اوت/…). دکمههایِ کم/زیاد و کادرِ عددی حذف شدند.
@@ -5646,12 +5740,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             with gr.Row():
                 temp = _safe(gr.Slider, 0.0, 1.5,
                              value=float(cfg.get("temperature", 0.7)),
-                             step=0.05, label="Temperature (خلاقیت)")
+                             step=0.05, label=TX("app.temperature", "Temperature (خلاقیت)"))
                 top_p = _safe(gr.Slider, 0.1, 1.0,
                               value=float(cfg.get("top_p", 0.9)),
-                              step=0.05, label="Top P")
+                              step=0.05, label=TX("app.top_p", "Top P"))
                 readord = gr.Radio(["rtl", "ltr"], value=str(cfg.get("reading_order", "rtl")),
-                                   label="ترتیب خواندن حباب‌ها")
+                                   label=TX("app.order", "ترتیب خواندن حباب‌ها"))
             with gr.Row():
                 _cm0 = str(cfg.get("clean_method") or "lama-manga").strip()
                 if _cm0 not in ("lama-manga", "lama-big", "opencv"):
@@ -5661,15 +5755,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                              ["big-lama", "lama-big"],
                              ["opencv", "opencv"]],
                     value=_cm0,
-                    label="روش پاکسازی")
+                    label=TX("app.cleanup", "روش پاکسازی"))
             with gr.Row():
-                two_pass = gr.Checkbox(label="OCR دومرحله‌ای", value=True)
-                fake_test = gr.Checkbox(label="حالت تست",
+                two_pass = gr.Checkbox(label=TX("app.two_pass", "OCR دومرحله‌ای"), value=True)
+                fake_test = gr.Checkbox(label=TX("app.fake_test", "حالت تست"),
                                         value=bool(cfg.get("fake_test", False)))
                 clean_only = gr.Checkbox(
-                    label="حالت پاکسازی",
+                    label=TX("app.cleanup_mode", "حالت پاکسازی"),
                     value=bool(cfg.get("clean_only", False)))
-                web_debug = gr.Checkbox(label="حالت دیباگ",
+                web_debug = gr.Checkbox(label=TX("app.web_debug", "حالت دیباگ"),
                                         value=bool(cfg.get("web_debug", False)))
 # گزینهها جمع شد در یک دروپ‌داون (کلیک → گزینهها میآید)
 # مقادیرِ انگلیسیِ خالص — دقیقاً همان که manga.py میپذیرد (فیکسِ invalid choice).
@@ -5678,16 +5772,16 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             prompt_mode = gr.Dropdown(
                 choices=["auto", "professional", "lite"],
                 value=PROMPT_MODE_DEFAULT,
-                label="سبک پرامپت مترجم", scale=1)
+                label=TX("app.prompt_style", "سبک پرامپت مترجم"), scale=1)
 # پرامپتِ دستیِ جدا حذف شد — خودِ پرامپتِ اصلی قابلِ ویرایش است.
 # تیترِ «پرامپت فعلی: …» هم حذف شد — فقط دروپ‌داون + کادرِ متن.
             _pp_body0 = resolve_prompt_preview(
                 PROMPT_MODE_DEFAULT, cfg.get("provider"), cfg.get("model"),
                 str(cfg.get("instruction_text") or ""))
             prompt_preview_body = gr.Textbox(
-                label="پرامپت مترجم (همین به مدل فرستاده می‌شود — قابل ویرایش)",
+                label=TX("app.prompt", "پرامپت مترجم (همین به مدل فرستاده می‌شود — قابل ویرایش)"),
                 lines=10, max_lines=25, interactive=True,
-                placeholder="خالی = پرامپتِ خودکارِ بر اساسِ سبک و مدل…",
+                placeholder=TX("app.prompt_ph", "خالی = پرامپتِ خودکارِ بر اساسِ سبک و مدل…"),
                 value=_pp_body0)
 # چکباکسِ «بریف داستان» حذف شد: دیکدِ مرجع نشان داد
             #) — همهٔ متنها در همان یک درخواستِ ترجمه میروند.
@@ -5708,7 +5802,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                         "انتخاب کن، همه‌چیز کامل برمیگردد. دکمه میگیرد (دانلودِ "
                         "خودکار)، دکمه برمیگرداند.</div>")
             with gr.Row():
-                backup_btn = gr.Button("⬇️ گرفتن بکاپ (دانلود JSON)",
+                backup_btn = gr.Button(TX("app.backup_btn", "⬇️ گرفتن بکاپ (دانلود JSON)"),
                                        variant="primary", scale=1,
                                        elem_id="manga_backup_btn")
                 # → بهجایِ باکسِ بزرگِ drag&drop
@@ -5719,8 +5813,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     file_count="single", type="filepath",
                     file_types=[".json"], variant="secondary", scale=1,
                     elem_id="manga_import_file")
-            backup_out = gr.File(label="فایلِ پشتیبان — اگر دانلودِ خودکار شروع "
-                                       "نشد، از همین‌جا دانلودش کنید",
+            backup_out = gr.File(label=str(TX("app.backup_file", "فایلِ پشتیبان — اگر دانلودِ خودکار شروع نشد، از همین‌جا دانلودش کنید")),
                                  visible=False, elem_id="manga_backup_out")
             backup_status = gr.Textbox(
                 label="", show_label=False, interactive=False, visible=False,
@@ -6251,7 +6344,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         sid_holder = gr.Textbox(value="", visible=True, elem_id="manga_sid_holder",
                                 label="sid_holder", elem_classes=["manga-hide-channel"])
 
-        run_btn = gr.Button("🚀  شروع ترجمه", variant="primary", elem_id="runbtn")
+        run_btn = gr.Button(TX("app.run", "🚀  شروع ترجمه"), variant="primary", elem_id="runbtn")
 
         with gr.Accordion("📡 لاگ زنده", open=True):
 # «دانلود لاگ» کنارِ «کپی لاگ» (خواستهٔ سازنده برایِ PC/لینوکس):
@@ -6270,7 +6363,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             log_box = _safe(gr.Textbox, lines=16, max_lines=50, autoscroll=True,
                             show_label=False, interactive=True,
                             elem_id="manga_live_log",
-                            value="— لاگ بعد از شروع ترجمه اینجا می‌آید —")
+                            value=TX("app.log_ph", "— لاگ بعد از شروع ترجمه اینجا می‌آید —"))
 # نوارِ پیشرفتِ زیرِ لاگ: فاز + «صفحهٔ n از N» +
 # درصد — مثلِ اعلانِ اپ اندروید؛ هر ۱ ثانیه از همان لاگ
 # بهروزرسانی میشود (تایمرِ _poll_job_status).
@@ -6293,12 +6386,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             with gr.Row():
                 btn_view = _safe(gr.Button, "👁 نمایش", visible=False,
                                  elem_id="manga_view_btn")
-                dl_btn = _safe(gr.DownloadButton, label="⬇ دانلود", visible=False)
+                dl_btn = _safe(gr.DownloadButton, label=TX("app.download", "⬇ دانلود"), visible=False)
             debug_row = gr.Row(visible=False)
             with debug_row:
                 btn_view_debug = _safe(gr.Button, "🔍 صفحه دیباگ", visible=False,
                                        elem_id="manga_view_debug_btn")
-                dl_btn_debug = _safe(gr.DownloadButton, label="⬇ دانلود دیباگ", visible=False)
+                dl_btn_debug = _safe(gr.DownloadButton, label=TX("app.download_debug", "⬇ دانلود دیباگ"), visible=False)
             viewer_html = gr.HTML(visible=False, elem_id="reader_wrap")
 
         LS_KEY = "manga_autotranslate_form_v2"
@@ -8171,7 +8264,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     html if vis else gr.update(),
 # دکمهٔ «دانلود دیباگ» بعد از پایان کار دیده می‌شود
                     gr.update(value=dl_dbg,
-                              label="⬇ دانلود دیباگ" + _dbg_sz,
+                              label=str(TX("app.download_debug", "⬇ دانلود دیباگ")) + _dbg_sz,
                               visible=bool(show_dbg and dl_dbg and vis)),
                     gr.update(visible=False),
                     gr.update(visible=bool(show_dbg and dl_dbg and vis)),
@@ -8283,7 +8376,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 gr.update(),
 # «دانلود دیباگ» — بعد از پایان کار در دسترس است
                 gr.update(value=dl_dbg,
-                          label="⬇ دانلود دیباگ" + _dbg_sz,
+                          label=str(TX("app.download_debug", "⬇ دانلود دیباگ")) + _dbg_sz,
                           visible=bool(dl_dbg and vis)),
                 gr.update(visible=False),
                 gr.update(visible=bool(dl_dbg and vis)),
@@ -8345,7 +8438,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 if not dbg_q.endswith("/"):
                     dbg_q += "/"
             run_tok = str(run or "").strip() or str(int(time.time() * 1000))
+            _uit_head = _ui_t_head()
             html = (_LIVE_READER_TMPL
+                    .replace("</style></head>", "</style>" + _uit_head + "</head>")
                     .replace("__PREFIX__", prefix)
                     .replace("__DIR__", urllib.parse.quote(d, safe="/"))
                     .replace("__DBGDIR__", urllib.parse.quote(dbg_q, safe="/"))
