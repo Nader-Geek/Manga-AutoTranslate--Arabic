@@ -83,6 +83,49 @@ class _MangaTranslatorBody_95:
             pass
         return r
 
+    @staticmethod
+    def _cache_dir_for(output_path: str) -> str:
+        """مسیرِ کشِ مشترک — مستقل از فرمتِ خروجی (خواستهٔ سازنده:
+        «اگ pdf گذاشتم رو html … از دیتام بخونه اوکی کنه از اول
+        شروع نکنه»): فقط پسوندهایِ خروجیِ شناخته‌شده کنار زده
+        می‌شوند تا «ch.5.pdf» و «ch.5.html» به یک کش برسند؛ نقطهٔ
+        داخلِ خودِ اسم (ch.5) حفظ می‌شود. باید همانِ همتای
+        manga_app.py باشد."""
+        _p = str(output_path or "")
+        root, ext = os.path.splitext(_p)
+        if ext.lower() in (".pdf", ".zip", ".html", ".psd",
+                           ".webp", ".png", ".jpg", ".jpeg"):
+            return root + ".cache"
+        return _p + ".cache"
+
+    @staticmethod
+    def _trans_sig_of(provider: str, model: str, api_base: str,
+                      prompt_mode: str, instruction: str,
+                      fake: bool, temperature: float, top_p: float) -> str:
+        """امضای تنظیماتِ ترجمه — مدل/پرامپت/سبک/حالتِ تست/دما.
+        عوض‌شدنش یعنی ترجمهٔ تازه لازم است (ادامه یا از-نو — پرسشِ
+        خودکار در اپ)؛ استخراج و پاکسازی مستقل از این امضا هستند.
+        باید بایت‌به‌بایت همانِ همتایِ manga_app.py باشد."""
+        import hashlib as _hl
+        try:
+            prov = str(provider or "").strip().lower()
+            mdl = str(model or "").strip()
+            ab = (str(api_base or "").strip().lower()
+                  if prov == "custom" else "")
+            pm = str(prompt_mode or "auto").strip().lower() or "auto"
+            instr = str(instruction or "").strip()
+            parts = [
+                "t1", prov, mdl, ab, pm,
+                (_hl.sha256(instr.encode("utf-8", "ignore")).hexdigest()[:12]
+                 if instr else "-"),
+                "fake" if fake else "real",
+                "%.2f" % float(temperature if temperature is not None else 0.7),
+                "%.2f" % float(top_p if top_p is not None else 0.9),
+            ]
+            return _hl.sha256("|".join(parts).encode("utf-8", "ignore")).hexdigest()[:16]
+        except Exception:
+            return ""
+
     def run(self, input_path: str, output_path: str, resume: bool = True,
             clean_old: bool = True) -> None:
 # بریف داستان حذف شد (مرجع ندارد) — اینجا فقط ریستِ قدیمی بود
@@ -104,11 +147,26 @@ class _MangaTranslatorBody_95:
         if clean_old:
             self._cleanup_previous_artifacts(output_path, keep_outputs=False)
 
-        cache_dir = output_path + ".cache"
+# کشِ مشترکِ همهٔ فرمت‌های خروجی — عوض‌کردنِ pdf↔html↔zip↔psd
+# دیگر کشِ تازه نمی‌سازد؛ فقط بسته‌بندیِ نهایی از نو می‌شود و
+# صفحه‌ها/ترجمه‌ها از همان کش می‌آیند.
+        cache_dir = MangaTranslator._cache_dir_for(output_path)
         if not resume:
             shutil.rmtree(cache_dir, ignore_errors=True)
 
         src_dir = os.path.join(cache_dir, "src")
+
+        def _same_dl(_p: str, _c: bytes) -> bool:
+            """فایلِ موجود همان محتوای تازه‌دانلودشده را دارد؟ (توقف/ادامه:
+            بازنویسیِ بی‌مصرف و بهم‌ریختنِ نام‌ها در رانِ بعد ممنوع)"""
+            try:
+                if not os.path.isfile(_p) or os.path.getsize(_p) != len(_c):
+                    return False
+                with open(_p, "rb") as _fh:
+                    _old = _fh.read(4096)
+                return _old == _c[:len(_old)]
+            except Exception:
+                return False
 
         cache_tag = "_safe_v3" if (self.stitch_max_height > 0 or getattr(self, "repair_page_seams", True)) else ""
 # برچسبِ سبکِ پاکسازی/خروجی: عوض‌شدنِ روش یا پارامترهای پاکسازی
@@ -136,7 +194,9 @@ class _MangaTranslatorBody_95:
                 return ""
         style_tag = _clean_style_tag()
         out_dir = os.path.join(cache_dir, "out" + cache_tag
-                               + (("_style-" + style_tag) if style_tag else ""))
+                               + (("_style-" + style_tag) if style_tag else "")
+                               + ("_cleanonly" if getattr(self, "clean_only", False)
+                                  else ""))
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
 
@@ -243,10 +303,12 @@ class _MangaTranslatorBody_95:
                             _lext = os.path.splitext(_lp)[1].lower()
                             out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}{_lext}")
                             _kk = 2
-                            while os.path.exists(out_file):
+                            while (os.path.exists(out_file)
+                                   and os.path.getsize(out_file) != os.path.getsize(_lp)):
                                 out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}-{_kk}{_lext}")
                                 _kk += 1
-                            shutil.copyfile(_lp, out_file)
+                            if not os.path.exists(out_file):
+                                shutil.copyfile(_lp, out_file)
                             image_files.append(out_file)
                             print(f"    [+] {i}/{len(urls)} فایل محلی کپی شد")
                             continue
@@ -264,6 +326,21 @@ class _MangaTranslatorBody_95:
                                   file=sys.stderr)
                             continue
                         u = self._normalize_image_url(u)
+# توقف/ادامه: صفحهٔ قبلاً-دانلودشده با همان نام — بدونِ شبکه
+                        _ub0 = os.path.splitext(os.path.basename(u.split("?")[0]))[0]
+                        _ub0 = re.sub(r'[\\/:*?"<>|]+', "_", _ub0).strip("._ ")[:80]
+                        if not re.search(r"\d", _ub0):
+                            _ub0 = f"page_{i:03d}"
+                        _hit0 = None
+                        for _e0 in (".jpg", ".jpeg", ".png", ".webp"):
+                            _c0 = os.path.join(src_dir, (_ub0 or f"page_{i:03d}") + _e0)
+                            if os.path.isfile(_c0) and os.path.getsize(_c0) > 0:
+                                _hit0 = _c0
+                                break
+                        if _hit0 is not None:
+                            image_files.append(_hit0)
+                            print(f"    [+] {i}/{len(urls)} از کشِ دانلود")
+                            continue
                         r = _req.get(u, headers=headers, timeout=60)
                         r.raise_for_status()
                         content = r.content
@@ -292,11 +369,13 @@ class _MangaTranslatorBody_95:
                             _ub = f"page_{i:03d}"
                         out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}{ext}")
                         _kk = 2
-                        while os.path.exists(out_file):
+                        while (os.path.exists(out_file)
+                               and not _same_dl(out_file, content)):
                             out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}-{_kk}{ext}")
                             _kk += 1
-                        with open(out_file, "wb") as f:
-                            f.write(content)
+                        if not os.path.exists(out_file):
+                            with open(out_file, "wb") as f:
+                                f.write(content)
                         image_files.append(out_file)
                         print(f"    [+] {i}/{len(urls)} ذخیره شد")
                     except Exception as e:
@@ -346,6 +425,30 @@ class _MangaTranslatorBody_95:
                             or f"link{i:02d}_page_{j:03d}"
                         _ext = os.path.splitext(fsrc)[1].lower() or ".jpg"
                         out_file = os.path.join(src_dir, f"{_nb}{_ext}")
+# توقف/ادامه (چند-لینکی): صفحهٔ هم‌نامِ هم‌حجم از فصلِ قبلی
+# همان صفحه است — فقط نسخهٔ تکراریِ تازه (اگر همین ران دانلود
+# شده) پاک می‌شود؛ اصلِ کش برای رانِ بعدی می‌ماند.
+                        try:
+                            _fsrc_t = os.path.getmtime(fsrc)
+                        except Exception:
+                            _fsrc_t = 0.0
+                        _dup_ok = False
+                        try:
+                            if (os.path.exists(out_file)
+                                    and os.path.abspath(out_file) != os.path.abspath(fsrc)
+                                    and os.path.getsize(out_file) == os.path.getsize(fsrc)):
+                                with open(out_file, "rb") as _fa, open(fsrc, "rb") as _fb:
+                                    _dup_ok = (_fa.read(4096) == _fb.read(4096))
+                        except Exception:
+                            _dup_ok = False
+                        if _dup_ok:
+                            if _fsrc_t >= _t_run:
+                                try:
+                                    os.remove(fsrc)
+                                except Exception:
+                                    pass
+                            image_files.append(out_file)
+                            continue
                         _k = 2
                         while (os.path.exists(out_file)
                                and os.path.abspath(out_file) != os.path.abspath(fsrc)):
@@ -439,10 +542,34 @@ class _MangaTranslatorBody_95:
                             wmap[i] = cap
                 norm_dir = os.path.join(cache_dir, "normalized")
                 os.makedirs(norm_dir, exist_ok=True)
+# نقشهٔ «ورودی → نرمال‌شده» (توقف/ادامه): نامِ نرمال‌شده در رانِ
+# بعدی پایدار می‌ماند — قبلاً حلقهٔ -۲ هر ران اسمِ تازه می‌ساخت و
+# رزومِ خروجی (بازشناختنِ صفحه‌های تمام‌شده) می‌شکست.
+                _norm_map_path = os.path.join(norm_dir, "map.json")
+                _norm_map: Dict[str, str] = {}
+                try:
+                    with open(_norm_map_path, encoding="utf-8") as _fh:
+                        _norm_map = {str(k): str(v) for k, v in
+                                     (json.load(_fh) or {}).items()}
+                except Exception:
+                    _norm_map = {}
                 normalized_files = []
                 changed = 0
+                _reused_norm = 0
+                _norm_dirty = False
                 cluster_summary: Dict[int, int] = {}
                 for i, f in enumerate(valid_files):
+                    _key_n = None
+                    try:
+                        _key_n = f"{os.path.basename(f)}|{os.path.getsize(f)}"
+                    except Exception:
+                        _key_n = None
+                    if _key_n and _key_n in _norm_map:
+                        _cand_n = os.path.join(norm_dir, _norm_map[_key_n])
+                        if os.path.isfile(_cand_n):
+                            normalized_files.append(_cand_n)
+                            _reused_norm += 1
+                            continue
                     im = cv2.imread(f)
                     if im is None:
                         continue
@@ -463,7 +590,16 @@ class _MangaTranslatorBody_95:
                         out_n = os.path.join(norm_dir, f"{_nb}-{_k}{ext_n}")
                         _k += 1
                     self._write_image(im, out_n)
+                    if _key_n:
+                        _norm_map[_key_n] = os.path.basename(out_n)
+                        _norm_dirty = True
                     normalized_files.append(out_n)
+                if _norm_dirty:
+                    try:
+                        with open(_norm_map_path, "w", encoding="utf-8") as _fh:
+                            json.dump(_norm_map, _fh, ensure_ascii=False)
+                    except Exception:
+                        pass
                 if normalized_files:
                     image_files = normalized_files
                     groups = ", ".join(f"{w}px×{c}" for w, c in sorted(cluster_summary.items()))
@@ -471,6 +607,8 @@ class _MangaTranslatorBody_95:
                         f"[*] نرمال‌سازی عرض هوشمند: {changed}/{len(normalized_files)} صفحه تغییر کرد | "
                         f"خوشه‌ها: {groups}"
                         + (f" (سقف={cap}px)" if cap else "")
+                        + (f" | {_reused_norm} صفحه از کشِ نرمال‌سازی"
+                           if _reused_norm else "")
                     )
 
 # حالتِ صفحاتِ مستقل: چسباندن/برشِ نوار کلاً رد می‌شود
@@ -558,10 +696,134 @@ class _MangaTranslatorBody_95:
                                       ignore_errors=True)
             except Exception:
                 pass
+# ترجمه‌های ورودیِ قبلی دیگر معتبر نیستند
+            try:
+                os.remove(os.path.join(cache_dir, "trans.json"))
+            except Exception:
+                pass
         if _fp_new:
             try:
                 with open(_fp_path, "w", encoding="utf-8") as _fh:
                     json.dump({"fp": _fp_new}, _fh)
+            except Exception:
+                pass
+
+# ——— امضای ترجمه و انبارِ ترجمه (توقف/ادامه/از-نو) ———
+# مدل یا پرامپت یا حالتِ تست عوض شده؟ استخراج و پاکسازی
+# دست‌نخورده می‌مانند؛ فقط خودِ ترجمه تصمیم میگیرد:
+#   • «از اول» (پرچمِ --translate-retranslate یا عوض‌شدنِ حالتِ
+#     تست): انبارِ ترجمه و خروجی‌های ترجمه‌دار پاک و همهٔ حباب‌ها
+#     با تنظیمِ تازه از نو ترجمه میشوند.
+#   • «ادامه» (پیش‌فرض): حباب‌های ترجمه‌شده با مدلِ قبلی سرِ
+#     جایشان می‌مانند و فقط مانده‌ها با مدلِ جدید ترجمه میشوند.
+# انبارِ trans.json بعد از هر بستهٔ ترجمه ذخیره می‌شود — حتی
+# لغوِ وسطِ کار، ترجمه‌های تمام‌شده را از دست نمیدهد.
+        _sig_cur = MangaTranslator._trans_sig_of(
+            provider=getattr(self, "provider", ""),
+            model=getattr(self, "model_name_raw",
+                          getattr(self, "model_name", "")),
+            api_base=getattr(self, "api_base", ""),
+            prompt_mode=getattr(self, "prompt_mode", "auto"),
+            instruction=(getattr(self, "custom_instruction", "") or ""),
+            fake=bool(getattr(self, "fake_translate", False)),
+            temperature=float(getattr(self, "translation_temperature", 0.7) or 0.7),
+            top_p=float(getattr(self, "translation_top_p", 0.9) or 0.9),
+        )
+        _state_path = os.path.join(cache_dir, "state.json")
+        _sig_prev = ""
+        _fake_prev = None
+        try:
+            with open(_state_path, encoding="utf-8") as _fh:
+                _st_j = json.load(_fh) or {}
+            _sig_prev = str(_st_j.get("trans_sig") or "")
+            _fake_prev = _st_j.get("fake")
+            if _fake_prev is not None:
+                _fake_prev = bool(_fake_prev)
+        except Exception:
+            pass
+        _trans_store_path = os.path.join(cache_dir, "trans.json")
+        _trans_store: Dict[str, dict] = {"sig": _sig_cur, "items": {}}
+        _trans_store_lock = threading.Lock()
+        _fake_toggled = (_fake_prev is not None
+                         and _fake_prev != bool(getattr(self, "fake_translate", False)))
+        _fresh_translate = (bool(getattr(self, "translate_retranslate", False))
+                            or _fake_toggled)
+        if _fake_toggled:
+            print("[*] حالتِ تست عوض شد — ترجمه‌ها با حالتِ تازه از نو "
+                  "ساخته میشوند (استخراج/پاکسازی از کش می‌ماند).")
+        if _fresh_translate:
+            if not _fake_toggled:
+                print("[*] «از اول ترجمه کن» — ترجمه‌های قبلی پاک و همهٔ "
+                      "حباب‌ها از نو ترجمه میشوند (استخراج/پاکسازی از کش "
+                      "می‌ماند).")
+            try:
+                os.remove(_trans_store_path)
+            except Exception:
+                pass
+            try:
+                for _n in os.listdir(cache_dir):
+                    if ((_n == "out" or _n.startswith("out_"))
+                            and not _n.endswith("_cleanonly")):
+                        shutil.rmtree(os.path.join(cache_dir, _n),
+                                      ignore_errors=True)
+            except Exception:
+                pass
+        elif _sig_prev and _sig_cur and _sig_prev != _sig_cur:
+            print("[*] مدل/پرامپتِ ترجمه عوض شد — حالتِ ادامه: حباب‌های "
+                  "ترجمه‌شده سرِ جایشان می‌مانند و فقط مانده‌ها با مدلِ "
+                  "جدید ترجمه میشوند.")
+# بارگذاریِ انبارِ ترجمه (همان تنظیم یا حالتِ ادامه)
+        _trans_apply = False
+        if resume and os.path.isfile(_trans_store_path):
+            try:
+                with open(_trans_store_path, encoding="utf-8") as _fh:
+                    _ts_j = json.load(_fh) or {}
+                _ts_items = _ts_j.get("items") or {}
+                if _ts_items:
+                    _trans_store["items"] = {str(k): dict(v) for k, v in
+                                             _ts_items.items()}
+                    _trans_apply = True
+                    print(f"[*] {len(_trans_store['items'])} ترجمهٔ ذخیرهشده "
+                          f"از کش برگشت (ادامه از همان‌جا).")
+            except Exception:
+                pass
+# ثبتِ امضای همین ران — فقط وقتی ترجمهٔ واقعی در کار است
+# (حالتِ فقط-پاکسازی ترجمه ندارد و امضای قبلی را نگه می‌دارد
+# تا پرسشِ ادامه/از-نو بعداً درست کار کند).
+        if (_sig_cur and not getattr(self, "clean_only", False)):
+            try:
+                with open(_state_path, "w", encoding="utf-8") as _fh:
+                    json.dump({"trans_sig": _sig_cur,
+                               "fake": bool(getattr(self, "fake_translate", False)),
+                               "ts": int(time.time())}, _fh)
+            except Exception:
+                pass
+
+        def _tkey(page_i: int, idx: int, src: str) -> str:
+            import hashlib as _hl
+            _h = _hl.sha256((src or "").encode("utf-8", "ignore")).hexdigest()[:10]
+            return f"p{page_i}_i{idx}_{_h}"
+
+        def _trans_store_save(regions) -> None:
+            """ذخیرهٔ ترجمه‌های تازه در انبار — بعد از هر بسته/صفحه؛
+            لغوِ وسطِ کار کارِ تمام‌شده را از دست نمیدهد."""
+            try:
+                _upd = {}
+                for _r in (regions or []):
+                    _k = getattr(_r, "_tkey", None)
+                    _t = (getattr(_r, "translated_text", "") or "").strip()
+                    if not _k or not _t:
+                        continue
+                    _upd[_k] = {"t": _t,
+                                "s": (getattr(_r, "bubble_style", "") or "")}
+                if not _upd:
+                    return
+                with _trans_store_lock:
+                    _trans_store["items"].update(_upd)
+                    _items = dict(_trans_store["items"])
+                    with open(_trans_store_path, "w", encoding="utf-8") as _fh:
+                        json.dump({"sig": _sig_cur, "items": _items}, _fh,
+                                  ensure_ascii=False)
             except Exception:
                 pass
 
@@ -645,8 +907,31 @@ class _MangaTranslatorBody_95:
                                 "boxes": _ctx_boxes_from_regions(regions),
                                 "quads": _ctx_quads_from_ovl(_ovl),
                             })
+# انبارِ ترجمه: ترجمهٔ ذخیرهشدهٔ همین حباب (همان تنظیم یا
+# حالتِ ادامه) سرِ جایش می‌نشیند — دیگر به مدل نمی‌رود
+                            _n_hit = 0
+                            if _trans_apply and regions:
+                                for _ii, _r in enumerate(regions):
+                                    if getattr(_r, "kind", "") != "dialogue":
+                                        continue
+                                    _src_t = (_r.source_text or "").strip()
+                                    if not _src_t:
+                                        continue
+                                    _it = _trans_store["items"].get(
+                                        _tkey(page_i, _ii, _src_t))
+                                    if not _it:
+                                        continue
+                                    try:
+                                        _r.translated_text = str(_it.get("t") or "")
+                                        if _it.get("s"):
+                                            _r.bubble_style = str(_it["s"])
+                                        _n_hit += 1
+                                    except Exception:
+                                        continue
+                            _hit_note = (f" + {_n_hit} حباب از کشِ ترجمه"
+                                         if _n_hit else "")
                             print(f"[*] {os.path.basename(f)} — از کشِ "
-                                  f"استخراج (ادامه)")
+                                  f"استخراج (ادامه){_hit_note}")
                             return page_i, out_file, image, regions, _dbg
                 except Exception:
                     pass
@@ -826,6 +1111,11 @@ class _MangaTranslatorBody_95:
                     final=True,
                     det_quads=_pctx.get("quads"),
                     page_boxes=_pctx.get("boxes"))  # رندرِ نهایی با سدِ «تا همشو ترجمه کنه»
+# ترجمه‌های همین صفحه (از دورهای داخلیِ نهایی/پسگیری) به انبار
+                try:
+                    _trans_store_save(regions)
+                except Exception:
+                    pass
                 try:
                     print(f"[TIME] page#{page_i + 1} "
                           f"clean+render={time.time() - _t_fin:.1f}s",
@@ -951,7 +1241,7 @@ class _MangaTranslatorBody_95:
             if not regions:
                 return
             queued = 0
-            for r in regions:
+            for _ri, r in enumerate(regions):
                 if r.kind != "dialogue":
                     continue
                 if not (r.source_text or "").strip():
@@ -961,6 +1251,15 @@ class _MangaTranslatorBody_95:
 # همان فازِ پسزمینه انجام میدهد (هدفِ پاکسازی از متنِ
 # مبدأ خالی نیست → پاک میشود).
                 if not source_has_letters(r.source_text):
+                    continue
+# کلیدِ انبارِ ترجمه — جایگاهِ ناحیه در صفحه + هشِ متنِ مبدأ
+                try:
+                    r._tkey = _tkey(page_i, _ri, r.source_text)
+                except Exception:
+                    pass
+# توقف/ادامه (خواستهٔ سازنده): حبابِ ترجمه‌شدهٔ از کش دوباره
+# به مدل نمی‌رود — فقط مانده‌ها ترجمه میشوند.
+                if (r.translated_text or "").strip():
                     continue
                 r.id = global_id
                 page_of_region[global_id] = page_i
@@ -1020,6 +1319,12 @@ class _MangaTranslatorBody_95:
                 except Exception as e:
                     print(f"    [!] خطای ترجمه در پس‌زمینه: {e}", file=sys.stderr)
                 finally:
+# انبارِ ترجمه: هر بستهٔ تمام‌شده (یا نیمه‌تمام در خطا/سهمیه)
+# همان لحظه ذخیره می‌شود — لغو وسطِ کار کارِ-done را از دست نمیدهد
+                    try:
+                        _trans_store_save(chunk)
+                    except Exception:
+                        pass
                     _account_chunk(chunk)
 # نوارِ پیشرفتِ وب
                     try:
@@ -1587,6 +1892,7 @@ class _MangaTranslatorBody_95:
                 except Exception as _e:
                     print(f"    [!] دوبارهترجمهٔ خالیها ناموفق: "
                           f"{str(_e)[:90]}")
+                _trans_store_save(_empties)
                 _still = _collect_empty_dialogues()
                 if len(_still) >= len(_empties):
 # هیچ پیشرفتی نیست — مدل برای اینها جواب نمیدهد

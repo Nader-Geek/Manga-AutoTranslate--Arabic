@@ -197,6 +197,9 @@ class MangaTranslator:
         debug: bool = False,
         fake_translate: bool = False,
         clean_only: bool = False,
+# «از اول ترجمه کن» (پرسشِ ادامه/از-نو در اپ): ترجمه‌های کش‌شده
+# نادیده گرفته میشوند و همهٔ حباب‌ها از نو ترجمه می‌شوند
+        translate_retranslate: bool = False,
         style_fonts: bool = True,
         active_tones: Optional[List[str]] = None,
         instruction_text: Optional[str] = None,
@@ -206,6 +209,7 @@ class MangaTranslator:
     ):
         self.fake_translate = bool(fake_translate)
         self.clean_only = bool(clean_only)
+        self.translate_retranslate = bool(translate_retranslate)
 # پاکسازیِ افکت‌های صوتی/متنِ استایل‌دارِ بیرونِ حباب
 # (پیش‌فرض خاموش: SFX هنر حساب می‌شود و دست‌نخورده می‌ماند)
         self.clean_sfx = bool(clean_sfx) or (
@@ -253,6 +257,9 @@ class MangaTranslator:
         self.gemini_rpm_budget = 5
         self._daily_dead: Dict[Tuple[str, str], bool] = {}
 
+# مدلِ «خواسته‌شده» (قبل از پیش‌فرض/کَسکید) — برای امضای ترجمه:
+# تشخیصِ عوض‌شدنِ مدل در پرسشِ ادامه/از-نوِ اپ
+        self.model_name_raw = (model_name or "").strip()
         self.model_name = (model_name or self.provider_cfg.get("default_model") or "gemini-3.5-flash-lite").strip()
         self._model_cascade: List[str] = []
         self._model_index: int = 0

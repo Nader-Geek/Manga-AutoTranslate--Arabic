@@ -522,6 +522,40 @@ class _MangaTranslatorBody_60:
 
         use_numeric_sort = False  # پیش از تعریفِ _save_bytes (مسیرِ عکسِ مستقیم هم اینجا میگذرد)
 
+        def _predict_stem(_u: str, _idx: int) -> str:
+            """نامِ پیش‌بینی‌شدهٔ ذخیرهٔ یک صفحه — همان قاعدهٔ _save_bytes؛
+            برای پیداکردنِ فایلِ دانلودشدهٔ قبلی بدونِ رفتن به شبکه."""
+            _b = os.path.splitext(os.path.basename(urlparse(_u).path))[0]
+            _b = re.sub(r'[\\/:*?"<>|]+', "_", _b).strip("._ ")[:80]
+            if (not use_numeric_sort) and _b:
+                return f"{_idx:03d}_{_b}"
+            return _b or f"page_{_idx:03d}"
+
+        def _cached_page(_u: str, _idx: int) -> Optional[str]:
+            """صفحهٔ قبلاً-دانلودشده با همان نامِ پیش‌بینی‌شده (توقف/ادامه —
+            خواستهٔ سازنده: «دست نزنم و استارت بزنم، از ادامه بره»)."""
+            try:
+                _stem_p = _predict_stem(_u, _idx)
+                for _e in (".jpg", ".jpeg", ".png", ".webp"):
+                    _c = os.path.join(dest_dir, _stem_p + _e)
+                    if os.path.isfile(_c) and os.path.getsize(_c) > 0:
+                        return _c
+            except Exception:
+                return None
+            return None
+
+# عکسِ مستقیمِ تکی که از قبل با همین نام دانلود شده — بدونِ هیچ
+# درخواستِ شبکه‌ای همان فایل برمی‌گردد (فقط برای لینکِ با پسوندِ
+# تصویر؛ صفحهٔ HTML هرگز اینجا رد نمی‌شود).
+        try:
+            if os.path.splitext(urlparse(url).path)[1].lower() in IMAGE_EXTS:
+                _pre = _cached_page(url, 1)
+                if _pre:
+                    print("    1 تصویر از کشِ دانلود (بدونِ شبکه).")
+                    return [_pre]
+        except Exception:
+            pass
+
         def _save_bytes(content: bytes, index: int, hint_url: str = "") -> Optional[str]:
             ext = os.path.splitext(urlparse(hint_url or url).path)[1].lower()
             if ext not in IMAGE_EXTS:
@@ -556,10 +590,25 @@ class _MangaTranslatorBody_60:
             if (not use_numeric_sort) and _base:
                 _stem = f"{index:03d}_{_base}"
             out_file = os.path.join(dest_dir, f"{_stem}{ext}")
-            _k = 2
-            while os.path.exists(out_file):
-                out_file = os.path.join(dest_dir, f"{_stem}-{_k}{ext}")
-                _k += 1
+# توقف/ادامه: فایلِ قبلاً-ذخیرهشده با همان محتوا دوباره نوشته
+# نمی‌شود — نام‌ها در رانِ بعدی پایدار می‌مانند و صفحه‌ها از کش رد
+# می‌شوند؛ محتوایِ واقعاً عوض‌شده (حجم/سرِ فایلِ متفاوت) نامِ تازه
+# (-۲ و بعد) می‌گیرد.
+            _n = 1
+            while os.path.isfile(out_file):
+                _same = False
+                try:
+                    _same = (os.path.getsize(out_file) == len(content))
+                    if _same:
+                        with open(out_file, "rb") as _fold:
+                            _old_head = _fold.read(4096)
+                        _same = (_old_head == content[:len(_old_head)])
+                except Exception:
+                    _same = False
+                if _same:
+                    return out_file
+                _n += 1
+                out_file = os.path.join(dest_dir, f"{_stem}-{_n}{ext}")
             with open(out_file, "wb") as f:
                 f.write(content)
             return out_file
@@ -740,14 +789,34 @@ class _MangaTranslatorBody_60:
         _dl_workers = max(2, min(
             8, len(img_urls),
             int(os.environ.get("MANGA_DL_WORKERS") or 6)))
-        _dl_contents: List[Optional[bytes]] = []
-        with ThreadPoolExecutor(max_workers=_dl_workers) as _dex:
-            _dl_contents = list(_dex.map(_fetch_page, img_urls))
+# توقف/ادامه: صفحه‌هایی که با همان نامِ پیش‌بینی‌شده از قبل
+# دانلود شده‌اند اصلاً به شبکه نمی‌روند — فقط مانده‌ها دانلود
+# می‌شوند (نام‌گذاری بر اساسِ جایگاهِ صفحه = پایدار در رانِ بعد).
+        _reused: list = []
+        _fetch_list: list = []
+        for _i, _u in enumerate(img_urls, 1):
+            _hit = _cached_page(_u, _i)
+            _reused.append(_hit)
+            if _hit is None:
+                _fetch_list.append(_u)
+        if len(_fetch_list) < len(img_urls):
+            print(f"    [*] {len(img_urls) - len(_fetch_list)} صفحه از کشِ "
+                  f"دانلود (بدونِ شبکه) — {len(_fetch_list)} صفحه می‌ماند.")
+        _dl_map = {}
+        if _fetch_list:
+            with ThreadPoolExecutor(max_workers=_dl_workers) as _dex:
+                for _u, _c in zip(_fetch_list,
+                                  _dex.map(_fetch_page, _fetch_list)):
+                    _dl_map[_u] = _c
         saved = []
-        for img_url, _content in zip(img_urls, _dl_contents):
+        for _i, img_url in enumerate(img_urls, 1):
+            if _reused[_i - 1]:
+                saved.append(_reused[_i - 1])
+                continue
+            _content = _dl_map.get(img_url)
             if not _content:
                 continue
-            path = _save_bytes(_content, len(saved) + 1, img_url)
+            path = _save_bytes(_content, _i, img_url)
             if path:
                 saved.append(path)
 

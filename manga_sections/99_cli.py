@@ -111,6 +111,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--clean-only", action="store_true",
                    help="فقط پاکسازی متن (inpaint) بدون ترجمه و بدون رندر فارسی — "
                         "برای تست تشخیص حباب/پاکسازی؛ کلید API لازم نیست")
+    p.add_argument("--translate-retranslate", action="store_true",
+                   help="با عوض‌شدنِ مدل/پرامپت: ترجمه‌ها از نو ساخته شوند "
+                        "(پیش‌فرض: ادامه — حباب‌های ترجمه‌شده از کش می‌مانند؛ "
+                        "استخراج/پاکسازی در هر دو حالت از کش می‌مانند)")
     p.add_argument("--clean-sfx", action="store_true",
                    help="پاکسازی افکت‌های صوتی و متنِ استایل‌دارِ بیرونِ حباب "
                         "(HAA، SFX کره‌ای، پلاک اسم…) — پیش‌فرض خاموش (SFX هنر "
@@ -273,6 +277,7 @@ def main():
         debug=bool(getattr(args, "debug", False)),
         fake_translate=bool(getattr(args, "fake_translate", False)),
         clean_only=bool(getattr(args, "clean_only", False)),
+        translate_retranslate=bool(getattr(args, "translate_retranslate", False)),
         clean_sfx=bool(getattr(args, "clean_sfx", False)),
         style_fonts=not getattr(args, "no_style_fonts", False),
         instruction_text=(

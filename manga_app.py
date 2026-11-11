@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.265"
+APP_VER = "1.14.275"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -120,11 +120,16 @@ _UT_JS_HELPER = (
     "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',p)}else{p()}})();</script>")
 
 def _ui_t_head():
-    """تزریقِ زندهٔ متن‌ها در <head> ریدرها — خالی = هیچ تزریقی."""
+    """تزریقِ زندهٔ متن‌ها در <head> ریدرها — خالی = هیچ تزریقی.
+    تعریفِ UT() «همیشه» میآید (حتی بدونِ داده) — ریدرها هرگز به
+    ReferenceError نمی‌افتند (فیکسِ v275: نمایشگرِ وب با نبودِ
+    05_ui_texts.py وسطِ کار نمی‌مُرد — «انگار گیر کرده»)."""
     _j = _ui_t_json_file()
-    if not _j or _j == "{}":
-        return ""
-    return "<script>window.UI_T=" + _j + ";</script>\n" + _UT_JS_HELPER + "\n"
+    out = ""
+    if _j and _j != "{}":
+        out += "<script>window.UI_T=" + _j + ";</script>\n"
+    out += _UT_JS_HELPER + "\n"
+    return out
 
 
 DEFAULT_GEMINI_KEYS = []#",".join(["123:])
@@ -1026,6 +1031,48 @@ def smart_output_base(input_path: str) -> str:
     if not base.lower().endswith("_fa"):
         base = base + "_fa"
     return base
+
+# پاسخِ کاربر به پرسشِ «ادامه یا از اول» (کلید = شناسهٔ جلسه)
+_ASK_ANSWER = {}
+
+def _cache_dir_for(output_path) -> str:
+    """مسیرِ کشِ مشترک — مستقل از فرمتِ خروجی: «…/ch5.pdf» و
+    «…/ch5.html» به یک کش می‌رسند (خواستهٔ سازنده: تعویضِ فرمت
+    فقط بسته‌بندی را از نو بسازد، نه کلِ کار را). باید همانِ
+    همتایِ MangaTranslator._cache_dir_for در موتور باشد."""
+    _p = str(output_path or "")
+    root, ext = os.path.splitext(_p)
+    if ext.lower() in (".pdf", ".zip", ".html", ".psd",
+                       ".webp", ".png", ".jpg", ".jpeg"):
+        return root + ".cache"
+    return _p + ".cache"
+
+def _trans_sig_of(provider, model, api_base, prompt_mode,
+                  instruction, fake, temperature, top_p) -> str:
+    """امضای تنظیماتِ ترجمه — آینهٔ دقیقِ
+    MangaTranslator._trans_sig_of موتور (باید برایِ ورودیِ یکسان،
+    خروجیِ یکسان بدهند — تستِ scripts آن را چک می‌کند)."""
+    import hashlib as _hl
+    try:
+        prov = str(provider or "").strip().lower()
+        mdl = str(model or "").strip()
+        ab = (str(api_base or "").strip().lower()
+              if prov == "custom" else "")
+        pm = str(prompt_mode or "auto").strip().lower() or "auto"
+        instr = str(instruction or "").strip()
+        if instr and not is_custom_instruction(instr):
+            instr = ""
+        parts = [
+            "t1", prov, mdl, ab, pm,
+            (_hl.sha256(instr.encode("utf-8", "ignore")).hexdigest()[:12]
+             if instr else "-"),
+            "fake" if fake else "real",
+            "%.2f" % float(temperature if temperature is not None else 0.7),
+            "%.2f" % float(top_p if top_p is not None else 0.9),
+        ]
+        return _hl.sha256("|".join(parts).encode("utf-8", "ignore")).hexdigest()[:16]
+    except Exception:
+        return ""
 
 def append_history(entry: dict) -> None:
     try:
@@ -2339,6 +2386,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 <div class="off-t3">برای روشن‌کردن، صفحه را لمس کن</div>
 </div>
 <script>
+function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){return d}}
 (function(){
   var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__", RUN = "__RUN__";
   function ck(u){ return RUN + '|' + u; }
@@ -6099,7 +6147,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ]
             _cache_subs = ("out", "out_safe_v3")
             try:
-                cache_root = str(out_v) + ".cache"
+                cache_root = _cache_dir_for(out_v)
                 if os.path.isdir(cache_root):
                     for sub in _cache_subs:
                         search_dirs.append(os.path.join(cache_root, sub))
@@ -6108,9 +6156,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                             search_dirs.append(os.path.join(cache_root, name))
             except Exception:
                 pass
-            cache_debug = os.path.join(str(out_v) + ".cache", "debug_safe_v3")
+            cache_debug = os.path.join(_cache_dir_for(out_v), "debug_safe_v3")
             if not os.path.isdir(cache_debug):
-                cache_debug = os.path.join(str(out_v) + ".cache", "debug")
+                cache_debug = os.path.join(_cache_dir_for(out_v), "debug")
 
             imgs = _collect_imgs(search_dirs, exclude_debug=True)
             if not imgs and str(target).lower().endswith((".webp", ".png", ".jpg", ".jpeg")):
@@ -6345,6 +6393,31 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                                 label="sid_holder", elem_classes=["manga-hide-channel"])
 
         run_btn = gr.Button(TX("app.run", "🚀  شروع ترجمه"), variant="primary", elem_id="runbtn")
+
+# پنجرهٔ پرسشِ «ادامه یا از اول» — فقط وقتی مدل/پرامپتِ ترجمه با
+# کشِ همان ورودی فرق دارد ظاهر می‌شود (خواستهٔ سازنده: «استارت
+# زدم بپرسه ادامه ترجمش بره یا از اول ترجمه کنه»).
+        with gr.Group(visible=False, elem_id="askmode") as ask_group:
+            gr.HTML(
+                "<div style='text-align:right;font-weight:700;"
+                "margin:2px 0 4px'>"
+                + TX("app.ask_title", "مدل یا پرامپتِ ترجمه عوض شده")
+                + "</div>"
+                "<div style='text-align:right;opacity:.85;font-size:.95em;"
+                "margin-bottom:8px'>"
+                + TX("app.ask_body",
+                     "همان ورودی، ولی تنظیمِ ترجمه با دفعهٔ قبل فرق داره — "
+                     "از کجا ادامه بدم؟")
+                + "</div>")
+            with gr.Row():
+                ask_continue_btn = gr.Button(
+                    TX("app.ask_continue", "ادامه بده (همون‌جا که بود)"),
+                    variant="primary")
+                ask_fresh_btn = gr.Button(
+                    TX("app.ask_fresh", "از اول ترجمه کن"),
+                    variant="stop")
+                ask_cancel_btn = gr.Button(
+                    TX("app.ask_cancel", "بی‌خیال"))
 
         with gr.Accordion("📡 لاگ زنده", open=True):
 # «دانلود لاگ» کنارِ «کپی لاگ» (خواستهٔ سازنده برایِ PC/لینوکس):
@@ -6954,7 +7027,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             tone_enables = list(tone_args[n_slots:n_slots * 2])
 
             def _pack(btn, log, dl=None, view=None, group=None, viewer=None, html="",
-                      dl_dbg=None, view_dbg=None, dbg_row=None, html_dbg=""):
+                      dl_dbg=None, view_dbg=None, dbg_row=None, html_dbg="",
+                      modal=None):
 # «نمایش اصلی» و «نمایش دیباگ» برای همیشه مخفی —
 # فقط یک نمایش (دکمهٔ ) وجود دارد.
                 return (
@@ -6971,6 +7045,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     gr.update(visible=False),
                     gr.update(visible=False),
                     gr.update(),
+# پنجرهٔ پرسشِ «ادامه یا از اول» — پیش‌فرض پنهان
+                    modal if modal is not None else gr.update(visible=False),
                 )
 
             with job["lock"]:
@@ -6988,7 +7064,20 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             _batch_no_stitch = False  # بچِ چند-فایلی: هر فایل عینِ حالتِ تکی
             if up_files:
                 if len(up_files) == 1:
-                    src = up_files[0]
+# تک‌فایلِ آپلودی هم مثلِ بچ در جایِ ثابت (input_batch/single)
+# کپی می‌شود تا «همان فایل که دوباره آپلود/استارت شد» همان src
+# را بدهد و کشِ ادامه سرِ جایش بماند (تشخیصِ واقعیِ تغییرِ
+# محتوا با اثرانگشتِ موتور است — نام + حجم + هش).
+                    try:
+                        _sdir1 = os.path.join(OUT_DIR, sid[:12],
+                                              "input_batch", "single")
+                        os.makedirs(_sdir1, exist_ok=True)
+                        _dst1 = os.path.join(
+                            _sdir1, os.path.basename(up_files[0]))
+                        shutil.copyfile(up_files[0], _dst1)
+                        src = _dst1
+                    except Exception:
+                        src = up_files[0]
                 else:
 # چند فایل انتخاب شده — همه در یک پوشهٔ دسته‌ای قرار می‌گیرند
 # و همان پوشه به‌عنوان ورودی به موتور داده می‌شود.
@@ -7126,6 +7215,66 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     pass
             out_v = os.path.join(user_out_dir, base + ext)
 
+# ——— پرسشِ «ادامه یا از اول» وقتی مدل/پرامپتِ ترجمه عوض شده ———
+# خواستهٔ سازنده: «اگ ترجمش عوض کردم پرامپتش یا مدل ai شو استارت
+# زدم بپرسه ادامه ترجمش بره یا از اول ترجمه کنه». فقط وقتی
+# می‌پرسد که همان ورودی قبلاً کارِ انجام‌شده داشته باشد؛ حالتِ
+# تست که عوض شود خودکار «از نو» است (بدونِ پرسش).
+            _retranslate = False
+            if not clean_only_v:
+                _instr_sig = str(prompt_body_v or "").strip()
+                if _instr_sig and not is_custom_instruction(_instr_sig):
+                    _instr_sig = ""
+                _sig_cur = _trans_sig_of(
+                    prov_s, str(model_v or ""), str(api_base_v or ""),
+                    sanitize_prompt_mode(prompt_mode_v), _instr_sig,
+                    bool(fake_test_v),
+                    (temp_v if temp_v not in (None, "") else 0.7),
+                    (top_p_v if top_p_v not in (None, "") else 0.9))
+                _cache_dir_q = _cache_dir_for(out_v)
+                _sig_prev = ""
+                _fake_prev = None
+                try:
+                    with open(os.path.join(_cache_dir_q, "state.json"),
+                              encoding="utf-8") as _fh:
+                        _st_j = json.load(_fh) or {}
+                    _sig_prev = str(_st_j.get("trans_sig") or "")
+                    _fake_prev = _st_j.get("fake")
+                except Exception:
+                    pass
+                _has_progress = False
+                try:
+                    _has_progress = (
+                        os.path.isfile(os.path.join(_cache_dir_q, "trans.json"))
+                        or any(_fn.endswith(".json") for _fn in os.listdir(
+                            os.path.join(_cache_dir_q, "extract"))
+                            if os.path.isfile(os.path.join(
+                                _cache_dir_q, "extract", _fn)))
+                        or any(
+                            (_n == "out" or _n.startswith("out_"))
+                            and os.listdir(os.path.join(_cache_dir_q, _n))
+                            for _n in os.listdir(_cache_dir_q)))
+                except Exception:
+                    _has_progress = False
+                _ask_mode = _ASK_ANSWER.pop(sid, None) or ""
+                if (_has_progress and _sig_prev and _sig_cur
+                        and _sig_prev != _sig_cur):
+                    if (_fake_prev is not None
+                            and bool(_fake_prev) != bool(fake_test_v)):
+# حالتِ تست عوض شد → خودکار از نو (خواستهٔ سازنده: «اگ حالت تست
+# اف کردم از ai ترجمش بگیر بزاره»)
+                        _retranslate = True
+                    elif _ask_mode == "fresh":
+                        _retranslate = True
+                    elif _ask_mode != "continue":
+                        return _pack(
+                            "🚀  شروع ترجمه",
+                            TX("app.ask_log",
+                               "⏸ مدل یا پرامپتِ ترجمه با دفعهٔ قبل فرق دارد — "
+                               "اول انتخاب کن: همین‌جا ادامه بده یا از اول "
+                               "ترجمه کن؟"),
+                            modal=gr.update(visible=True))
+
             cmd = [sys.executable, "-u", MANGA_PY, "-i", str(src), "-o", out_v,
                    "--font", font_v,
                    "--provider", provider_v,
@@ -7182,6 +7331,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 cmd += ["--fake-translate"]
             if clean_only_v:
                 cmd += ["--clean-only"]
+# «از اول ترجمه کن» (پاسخِ پنجرهٔ پرسش یا عوض‌شدنِ حالتِ تست)
+            if _retranslate:
+                cmd += ["--translate-retranslate"]
             if web_debug_v:
                 cmd += ["--debug"]
             instr_text = str(prompt_body_v or "").strip()
@@ -7940,7 +8092,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     custom_models_state,
                 ] + tone_uploads + tone_enables,
             outputs=[session_id, sid_box, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
-                     dl_btn_debug, btn_view_debug, debug_row, html_debug_state],
+                     dl_btn_debug, btn_view_debug, debug_row, html_debug_state,
+# پنجرهٔ پرسشِ «ادامه یا از اول» — خروجیِ چهاردهم
+                     ask_group],
             concurrency_limit=8,
         )
         _hide_test_js = """
@@ -7981,6 +8135,41 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                     run_btn.click(run_translation, **_click_kw)
 # کلیدِ یک‌بارمصرفِ «تستِ سرعت»  با خودِ
 # دکمه حذف شد؛ کارهایِ بعدی همیشه ترجمهٔ عادیاند.
+        except Exception:
+            pass
+
+# ——— دکمه‌های پنجرهٔ «ادامه یا از اول» ———
+# پاسخ با همان فرمِ شروع فرستاده می‌شود (run_translation جواب را
+# از _ASK_ANSWER برمی‌دارد و دیگر نمی‌پرسد).
+        def _ask_wrap(_mode):
+            def _w(*_a):
+                try:
+                    _sid_a = ""
+                    if len(_a) >= 2:
+                        _sid_a = (str(_a[0] or "").strip()
+                                  or str(_a[1] or "").strip())
+                    if _sid_a:
+                        try:
+                            _sid_a = _find_active_sid(_sid_a) or _sid_a
+                        except Exception:
+                            pass
+                        _ASK_ANSWER[_sid_a] = _mode
+                except Exception:
+                    pass
+                return run_translation(*_a)
+            return _w
+
+        try:
+            ask_continue_btn.click(_ask_wrap("continue"), **_click_kw)
+        except Exception:
+            pass
+        try:
+            ask_fresh_btn.click(_ask_wrap("fresh"), **_click_kw)
+        except Exception:
+            pass
+        try:
+            ask_cancel_btn.click(lambda: gr.update(visible=False),
+                                 inputs=None, outputs=[ask_group])
         except Exception:
             pass
 

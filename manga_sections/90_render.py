@@ -1150,7 +1150,10 @@ html, body { background: #0a0a0b; }
         abs_out = os.path.abspath(output_path)
         parent = os.path.dirname(abs_out) or "."
         current_base = os.path.basename(abs_out)
-        current_cache = abs_out + ".cache"
+# کشِ مشترکِ همهٔ فرمت‌ها (pdf↔html↔zip↔psd یک کش‌اند) — اگر
+# همان‌طورِ قدیمی «abs_out + .cache» حساب می‌شد، تعویضِ فرمت کشِ
+# تازه را «قدیمی» پنداشته و پاک می‌کرد.
+        current_cache = MangaTranslator._cache_dir_for(abs_out)
         current_stem = os.path.splitext(current_base)[0]
 
         if not os.path.isdir(parent):
