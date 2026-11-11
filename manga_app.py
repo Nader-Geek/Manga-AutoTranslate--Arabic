@@ -1900,6 +1900,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .pfill{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}
 #fab{position:fixed;z-index:60;left:18px;bottom:26px;width:60px;height:60px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}
 #fab:active{transform:scale(.93)}
+#fab.open{background:#2c1210;color:#ffb3ab;font-size:1.2rem}
 .fbtn{position:fixed;z-index:59;width:58px;height:58px;border-radius:50%;background:#1c1c20;border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.55);opacity:0;pointer-events:none;transform:scale(.3);transition:opacity .15s ease-out,transform .15s ease-out,left .15s linear,top .15s linear}
 .fbtn.show{opacity:1;pointer-events:auto;transform:scale(1)}
 .fbtn .ic{font-size:1.02rem;line-height:1.1}
@@ -2292,7 +2293,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     { key: 'dbg', ic: '🔍', lb: 'دیباگ' },
     { key: 'det', ic: '◫', lb: 'det' },
     { key: 'pdet', ic: '◺', lb: 'p-det' },
-    { key: 'rec', ic: '▤', lb: 'rec' }
+    { key: 'rec', ic: '▤', lb: 'rec' },
+    { key: 'cmp', ic: '⇄', lb: 'قبل/بعد' }
   ];
   for (var fi = 0; fi < fanDefs.length; fi++) {
     var fb = document.createElement('button');
@@ -2351,41 +2353,88 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       } catch (e2) {}
       return;
     }
-    fanState = (fanState + 1) % 3;
+    fanState = fanState ? 0 : 1;
     updateFan();
-    if (fanState === 2) cmpOpenFn();
-    else if (cmpOn) cmpClose();
   }
   fab.addEventListener('pointerup', fabUp);
   fab.addEventListener('pointercancel', function(){ fdrag = null; });
-  function fanAngles(){
-    var fr = fab.getBoundingClientRect();
-    var up = (fr.top + fr.height / 2) > window.innerHeight * 0.45;
-    return up ? [-152, -108, -72, -28] : [152, 108, 72, 28];
-  }
-  function updateFan(){
+  // کمانِ منو: جهتش به سمتِ مرکزِ صفحه است (فضایِ باز) و چیدمانِ
+  // نهایی با «هلِ متقابلِ ضدِبرخورد» گشوده میشود — نزدیکِ لبه‌ها
+  // هیچ‌وقت دکمه‌ها روی هم نمی‌افتند (باگِ فنِ پنج‌تاییِ چسبیده).
+  function fanPositions(){
     var fr = fab.getBoundingClientRect();
     var cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
-    var angs = fanAngles();
+    var n = fans.length;
+    var bis = Math.atan2(window.innerHeight / 2 - cy,
+                        window.innerWidth / 2 - cx);
+    var step = Math.min(40 * Math.PI / 180, 2.6 / Math.max(1, n - 1));
+    var half = step * (n - 1) / 2;
     var R = Math.min(104, Math.max(84, window.innerWidth * 0.16));
+    var pts = [];
+    for (var i0 = 0; i0 < n; i0++) {
+      var a = bis - half + i0 * step;
+      pts.push({ x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R });
+    }
+    // خودِ دکمهٔ منو هم مانع است — دکمه‌های فن هرگز روی آن نمی‌نشینند
+    var fabPt = { x: cx, y: cy };
+    var sep = function(pa, pb, w){
+      var dx = pb.x - pa.x, dy = pb.y - pa.y;
+      var ox = 68 - Math.abs(dx), oy = 68 - Math.abs(dy);
+      if (ox > 0 && oy > 0) {
+        if (ox <= oy) {
+          var sx = (dx >= 0 ? 1 : -1) * ox * w;
+          pa.x -= sx; pb.x += sx;
+        } else {
+          var sy = (dy >= 0 ? 1 : -1) * oy * w;
+          pa.y -= sy; pb.y += sy;
+        }
+        return true;
+      }
+      return false;
+    };
+    for (var it = 0; it < 20; it++) {
+      var moved = false;
+      for (var i1 = 0; i1 < n; i1++) for (var j1 = i1 + 1; j1 < n; j1++)
+        if (sep(pts[i1], pts[j1], 0.3)) moved = true;
+      for (var i2 = 0; i2 < n; i2++) {
+        // هل با فاب: فاب ثابت است، فقط دکمهٔ فن جابه‌جا می‌شود
+        var fdx = pts[i2].x - fabPt.x, fdy = pts[i2].y - fabPt.y;
+        var fox = 74 - Math.abs(fdx), foy = 74 - Math.abs(fdy);
+        if (fox > 0 && foy > 0) {
+          if (fox <= foy) pts[i2].x += (fdx >= 0 ? 1 : -1) * fox;
+          else pts[i2].y += (fdy >= 0 ? 1 : -1) * foy;
+          moved = true;
+        }
+      }
+      for (var k1 = 0; k1 < n; k1++) {
+        pts[k1].x = Math.min(Math.max(pts[k1].x, 32), window.innerWidth - 32);
+        pts[k1].y = Math.min(Math.max(pts[k1].y, 76), window.innerHeight - 32);
+      }
+      if (!moved) break;
+    }
+    return pts;
+  }
+  function updateFan(){
+    var pts = fanPositions();
     var show = fanState >= 1 && haveDbg;
+    // برچسبِ خودِ دکمه: بسته = «منو»، باز = «✕» (بستن)
+    fab.textContent = show ? '✕' : 'منو';
+    fab.classList.toggle('open', show);
     for (var i = 0; i < fans.length; i++) {
       var fb = fans[i];
       var def = fanDefs[i];
-      var a = angs[i] * Math.PI / 180;
-      var bx = cx + Math.cos(a) * R, by = cy + Math.sin(a) * R;
-      bx = Math.min(Math.max(bx, 32), window.innerWidth - 32);
-      by = Math.min(Math.max(by, 76), window.innerHeight - 32);
-      fb.style.left = (bx - 29) + 'px';
-      fb.style.top = (by - 29) + 'px';
+      fb.style.left = (pts[i].x - 29) + 'px';
+      fb.style.top = (pts[i].y - 29) + 'px';
       fb.querySelector('.ic').textContent =
         (def.key === 'dbg') ? (dbgMode ? '📖' : '🔍') : def.ic;
       fb.querySelector('.lb').textContent =
         (def.key === 'dbg') ? (dbgMode ? 'نهایی' : 'دیباگ') : def.lb;
       fb.classList.toggle('fdbg', def.key === 'dbg');
-      var on = (def.key === 'dbg') ? !!dbgMode : !!ov[def.key];
+      var on = (def.key === 'dbg') ? !!dbgMode :
+               (def.key === 'cmp') ? !!cmpOn : !!ov[def.key];
       fb.classList.toggle('on', on);
       fb.title = (def.key === 'dbg') ? 'نهایی/دیباگ' :
+                 (def.key === 'cmp') ? 'مقایسهٔ قبل/بعد' :
                  (({ det: 'detector.onnx', pdet: 'paddle det', rec: 'paddle rec' })[def.key] || '');
       fb.classList.toggle('show', show);
     }
@@ -2396,6 +2445,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         e.stopPropagation();
         var k = fb.getAttribute('data-k');
         if (k === 'dbg') { setMode(!dbgMode); updateFan(); return; }
+        if (k === 'cmp') { if (cmpOn) cmpClose(); else cmpOpenFn(); updateFan(); return; }
         ov[k] = ov[k] ? 0 : 1;
         saveOv();
         applyOv();
@@ -2474,7 +2524,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   function cmpClose(){
     cmpOn = false;
     try { cmpEl.classList.remove('show'); } catch (e) {}
-    if (fanState === 2) { fanState = 0; updateFan(); }
+    // فن باز می‌ماند تا گزینهٔ بعدی سریع انتخاب شود؛ بستنِ فن با ✕ خودش
   }
   document.getElementById('cmpX').addEventListener('click', function(e){
     e.stopPropagation();
@@ -2780,6 +2830,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             "justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);"
             "-webkit-tap-highlight-color:transparent;user-select:none}"
             "#fab:active{transform:scale(.93)}"
+            "#fab.open{background:#2c1210;color:#ffb3ab;font-size:1.2rem}"
             ".fbtn{position:fixed;z-index:59;width:58px;height:58px;border-radius:50%;background:#1c1c20;"
             "border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;"
             "cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;"
@@ -3072,16 +3123,17 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       if (btn) btn.click();
     }
   });
-  // ——— دکمهٔ گردِ «منو»: قابلِ جابه‌جایی؛ با زدن، چهار دکمه
-  // دورش میآیند (نزدیک/دور/پهنا/فول‌اسکرین)؛ زدنِ دوبارهٔ خودش =
-  // خطِ صفحهها برای رفتنِ چپ/راست به قبل و بعد — وسطِ صفحه. ———
+  // ——— دکمهٔ گردِ «منو»: قابلِ جابه‌جایی؛ با زدن، پنج دکمه دورش
+  // میآیند (نزدیک/دور/پهنا/تمام/صفحه‌ها)؛ خودِ دکمه در حالتِ باز
+  // «✕» می‌شود و با زدنش منو بسته می‌شود (دستورِ سازنده). ———
   const fab = document.getElementById('fab');
-  let fanState = 0;   // ۰=بسته | ۱=منویِ چهارتایی | ۲=منو+خط
+  let fanState = 0;   // ۰=بسته | ۱=فنِ باز | ۲=فن+خطِ صفحهها
   const fanDefs = [
     { key: 'zin', ic: '+', lb: 'نزدیک' },
     { key: 'zout', ic: '\u2212', lb: 'دور' },
     { key: 'zfit', ic: '\u2194', lb: 'پهنا' },
-    { key: 'fs', ic: '\u26f6', lb: 'تمام' }
+    { key: 'fs', ic: '\u26f6', lb: 'تمام' },
+    { key: 'seek', ic: '\u21c4', lb: 'صفحه‌ها' }
   ];
   const fans = fanDefs.map((def) => {
     const fb = document.createElement('button');
@@ -3099,6 +3151,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       else if (k === 'fs') {
         const b = root.querySelector('[data-act="fs"]');
         if (b) b.click();
+      }
+      else if (k === 'seek') {
+        fanState = (fanState === 2) ? 1 : 2;
+        updateFan();
+        updateSeekVis();
+        return;
       }
       updateFan();
     });
@@ -3146,31 +3204,78 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       } catch (err) {}
       return;
     }
-    fanState = (fanState + 1) % 3;
+    fanState = fanState ? 0 : 1;
     updateFan();
     updateSeekVis();
   };
   fab.addEventListener('pointerup', fabUp);
   fab.addEventListener('pointercancel', () => { fdrag = null; });
-  const fanAngles = () => {
-    const fr = fab.getBoundingClientRect();
-    const up = (fr.top + fr.height / 2) > window.innerHeight * 0.45;
-    return up ? [-152, -108, -72, -28] : [152, 108, 72, 28];
-  };
-  function updateFan() {
+  // کمانِ منو: جهتش به سمتِ مرکزِ صفحه است (فضایِ باز) و چیدمانِ
+  // نهایی با «هلِ متقابلِ ضدِبرخورد» گشوده میشود — نزدیکِ لبه‌ها
+  // هیچ‌وقت دکمه‌ها روی هم نمی‌افتند (باگِ فنِ پنج‌تاییِ چسبیده).
+  const fanPositions = () => {
     const fr = fab.getBoundingClientRect();
     const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
-    const angs = fanAngles();
+    const n = fans.length;
+    const bis = Math.atan2(window.innerHeight / 2 - cy,
+                          window.innerWidth / 2 - cx);
+    const step = Math.min(40 * Math.PI / 180, 2.6 / Math.max(1, n - 1));
+    const half = step * (n - 1) / 2;
     const R = Math.min(104, Math.max(84, window.innerWidth * 0.16));
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = bis - half + i * step;
+      pts.push({ x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R });
+    }
+    // خودِ دکمهٔ منو هم مانع است — دکمه‌های فن هرگز روی آن نمی‌نشینند
+    const fabPt = { x: cx, y: cy };
+    const sep = (pa, pb, w) => {
+      const dx = pb.x - pa.x, dy = pb.y - pa.y;
+      const ox = 68 - Math.abs(dx), oy = 68 - Math.abs(dy);
+      if (ox > 0 && oy > 0) {
+        if (ox <= oy) {
+          const s = (dx >= 0 ? 1 : -1) * ox * w;
+          pa.x -= s; pb.x += s;
+        } else {
+          const s = (dy >= 0 ? 1 : -1) * oy * w;
+          pa.y -= s; pb.y += s;
+        }
+        return true;
+      }
+      return false;
+    };
+    for (let it = 0; it < 20; it++) {
+      let moved = false;
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++)
+        if (sep(pts[i], pts[j], 0.3)) moved = true;
+      for (let i = 0; i < n; i++) {
+        // هل با فاب: فاب ثابت است، فقط دکمهٔ فن جابه‌جا می‌شود
+        const dx = pts[i].x - fabPt.x, dy = pts[i].y - fabPt.y;
+        const ox = 74 - Math.abs(dx), oy = 74 - Math.abs(dy);
+        if (ox > 0 && oy > 0) {
+          if (ox <= oy) pts[i].x += (dx >= 0 ? 1 : -1) * ox;
+          else pts[i].y += (dy >= 0 ? 1 : -1) * oy;
+          moved = true;
+        }
+      }
+      for (const p of pts) {
+        p.x = Math.min(Math.max(p.x, 32), window.innerWidth - 32);
+        p.y = Math.min(Math.max(p.y, 76), window.innerHeight - 32);
+      }
+      if (!moved) break;
+    }
+    return pts;
+  };
+  function updateFan() {
+    const pts = fanPositions();
     const show = fanState >= 1;
+    // برچسبِ خودِ دکمه: بسته = «منو»، باز = «✕» (بستن)
+    fab.textContent = show ? '\u2715' : 'منو';
+    fab.classList.toggle('open', show);
     for (let i = 0; i < fans.length; i++) {
       const fb = fans[i], def = fanDefs[i];
-      const a = angs[i] * Math.PI / 180;
-      let bx = cx + Math.cos(a) * R, by = cy + Math.sin(a) * R;
-      bx = Math.min(Math.max(bx, 32), window.innerWidth - 32);
-      by = Math.min(Math.max(by, 76), window.innerHeight - 32);
-      fb.style.left = (bx - 29) + 'px';
-      fb.style.top = (by - 29) + 'px';
+      fb.style.left = (pts[i].x - 29) + 'px';
+      fb.style.top = (pts[i].y - 29) + 'px';
       fb.querySelector('.ic').textContent = def.ic;
       fb.querySelector('.lb').textContent = def.lb;
       fb.classList.toggle('show', show);
