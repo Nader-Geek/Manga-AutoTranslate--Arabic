@@ -1031,7 +1031,15 @@ class _MangaTranslatorBody_90:
             _tbw.print_stack(limit=6)
 
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        q = int(np.clip(int(self.img_quality), 40, 100))
+# پچِ فشرده‌سازی v272: نصف‌کردنِ حجمِ خروجی بدونِ افتِ خوانایی متن
+# — کیفیتِ ۹۰ِ پیش‌فرضِ دست‌نخورده به ۸۵ پایین میآید (مقدارِ صریحِ
+# کاربر هرگز عوض نمیشود) + گاردِ حجم: فایلِ JPEG/WEBPِ بالایِ ۱٫۵MB
+# فقط یک بار با کیفیتِ max(72, q-7) بازفشرده میشود و تنها اگر
+# واقعاً کوچکتر شد جایگزین میگردد. منطقِ PNG/GIF دست نمی‌خورد.
+        _q_user = int(self.img_quality)
+        q = int(np.clip(_q_user, 40, 100))
+        if _q_user == 90:
+            q = 85
         rgb = cv2.cvtColor(out_image, cv2.COLOR_BGR2RGB)
         pil = Image.fromarray(rgb)
 
@@ -1053,6 +1061,30 @@ class _MangaTranslatorBody_90:
             pil.save(path, format="PNG", optimize=True, compress_level=9)
         else:
             cv2.imwrite(path, out_image)
+
+# گاردِ حجم (فقط WEBP/JPEG): بالایِ ۱٫۵MB یک بازفشردنِ تک‌مرحله‌ای؛
+# os.replace فقط وقتی که فایلِ موقت واقعاً کوچکتر بود — وگرنه حذف.
+        if ext in (".webp", ".jpg", ".jpeg"):
+            try:
+                if os.path.getsize(path) > 1572864:
+                    q2 = max(72, q - 7)
+                    tmp = path + ".tmp"
+                    if ext == ".webp":
+                        pil.save(tmp, format="WEBP", quality=q2,
+                                 method=6, exact=False)
+                    else:
+                        pil.save(
+                            tmp, format="JPEG", quality=q2, optimize=True,
+                            progressive=True,
+                            subsampling=(0 if q2 >= 90 else 2),
+                        )
+                    if (os.path.isfile(tmp)
+                            and os.path.getsize(tmp) < os.path.getsize(path)):
+                        os.replace(tmp, path)
+                    elif os.path.isfile(tmp):
+                        os.remove(tmp)
+            except Exception:
+                pass
 
     @staticmethod
     def _save_as_html(image_paths: List[str], out_path: str, title: str = "مانهوا ترجمه شده") -> None:

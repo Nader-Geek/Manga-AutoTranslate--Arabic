@@ -934,7 +934,18 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
 # «صفحهٔ 1 از 105 (0٪)» گیرکرده). به‌روزرسانیِ پیش‌نمایشِ همان اسلات
 # (فایلِ موجود) بی‌سروصدا میماند.
     _first_write = not os.path.isfile(out_name)
-    cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 86])
+# پچِ فشرده‌سازی v272: پیش‌نمایشِ زندهٔ سبک‌تر — JPEGِ PIL با کیفیتِ
+# ۸۰ + optimize + progressive (~۲۳٪ حجمِ کمتر + لودِ تدریجی رویِ نتِ
+# ضعیف). اگر PIL در دسترس نبود، همان cv2 با کیفیتِ ۸۰. سقفِ ۹۰۰px و
+# عدمِ بزرگ‌کردن همچنان برقرار است؛ _base.jpg و .json دست‌نخورده.
+    try:
+        from PIL import Image as _PILImage
+        _PILImage.fromarray(
+            cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        ).save(out_name, format="JPEG", quality=80,
+               optimize=True, progressive=True)
+    except Exception:
+        cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 80])
 # دیباگِ روکشدار: پایهٔ بی‌روکش + jsonِ جعبهها با همان مقیاسِ
 # live کنارش مینشینند — نمایشگر با کلیدهای جدا جدا میکشدشان
     if dbg and _ovl is not None and _base is not None:

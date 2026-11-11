@@ -3681,6 +3681,50 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
                 f"<title>خواندن</title></head><body style='background:#000;color:#999'>{body}</body></html>"
             )
+# ——— پچِ فشرده‌سازی v272: پیش‌نمایشِ کم‌حجمِ ریدر ——— برایِ هر عکسِ
+# محلی (به‌جزِ GIF) یک نسخهٔ JPEGِ ۱۱۰۰px (فقط کوچک‌کردن — هرگز
+# بزرگ‌کردن نیست، LANCZOS) با کیفیتِ ۸۰ و progressive در پوشهٔ
+# <img_dir>_webprev ساخته میشود و ریدرِ وب همان را میکشد: دانلودِ
+# مرورگر ~۲۰-۲۵٪ سبک‌تر میشود ولی فایلهایِ نهایی رویِ دیسک
+# دست‌نخورده میمانند. ساختن idempotent است (وجود + mtime) و خطایِ
+# هر فایل = برگشت به همان URLِ اصلی.
+        try:
+            import zlib as _zlib
+            from PIL import Image as _PILImage
+            _lz = getattr(_PILImage, "LANCZOS", None)
+            if _lz is None:
+                _lz = _PILImage.Resampling.LANCZOS
+            _prev = {}
+            for _p in files:
+                try:
+                    _ps = str(_p)
+                    if _ps.lower().endswith(".gif") or not os.path.isfile(_ps):
+                        continue
+                    _dir, _fn = os.path.split(_ps)
+                    _pv = os.path.join(
+                        _dir + "_webprev",
+                        "%08x" % (zlib.crc32(_ps.encode("utf-8")) & 0xFFFFFFFF)
+                        + "_" + os.path.splitext(_fn)[0] + "_w.jpg")
+                    if not (os.path.isfile(_pv)
+                            and os.path.getmtime(_pv) >= os.path.getmtime(_ps)):
+                        os.makedirs(os.path.dirname(_pv), exist_ok=True)
+                        with _PILImage.open(_ps) as _im:
+                            _im = _im.convert("RGB")
+                            if _im.width > 1100:
+                                _im = _im.resize(
+                                    (1100, max(1, round(
+                                        _im.height * 1100.0 / _im.width))),
+                                    _lz)
+                            _im.save(_pv, format="JPEG", quality=80,
+                                     optimize=True, progressive=True)
+                    _prev[_ps] = prefix + _pv.replace(os.sep, "/")
+                except Exception:
+                    continue
+            if _prev:
+                urls = [_prev.get(str(_p), _u)
+                        for _p, _u in zip(files, urls)]
+        except Exception:
+            pass
 # عکسها با data-src تزریق میشوند (نه src مستقیم) — لودِ تدریجی +
 # کشِ «بارِ اول» (IndexedDB): هر صفحه فقط یک بار از شبکه میآید و
 # بازکردنِ دوبارهٔ همان فصل بی‌نت لود میشود (گوشی/PC/لینوکس/وب).
@@ -3698,6 +3742,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 # همیشه دسترس باشند — مثل اپ اندروید). اسکرول همچنان طبیعیِ سند است
 # و نوار پیشرفتِ پایین هم ثابت می‌ماند.
         css = (
+# پچِ v272 — دکمهٔ شناورِ «تلاش دوباره» برایِ عکسهایِ جا‌مانده رویِ نتِ ضعیف
+            "#rtryChip{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(24px);"
+            "z-index:70;display:flex;align-items:center;gap:8px;background:rgba(18,18,22,.96);"
+            "color:#fff;border:1px solid #2f2f36;border-radius:999px;padding:10px 18px;"
+            "font-family:inherit;font-size:.92rem;font-weight:700;cursor:pointer;opacity:0;"
+            "pointer-events:none;transition:opacity .2s ease-out,transform .2s ease-out;"
+            "box-shadow:0 6px 22px rgba(0,0,0,.65);-webkit-tap-highlight-color:transparent;user-select:none}"
+            "#rtryChip.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}"
+            "#rtryChip:active{transform:translateX(-50%) translateY(0) scale(.94)}"
+            "#rtryChip .sp{display:inline-block;font-size:1.08rem;line-height:1}"
+            "#rtryChip.busy .sp{animation:rtryS 1s linear infinite}"
+            "@keyframes rtryS{to{transform:rotate(360deg)}}"
             "*{box-sizing:border-box;margin:0;padding:0}"
             "html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans-serif;"
             "overscroll-behavior-y:contain;-webkit-user-select:none;user-select:none}"
@@ -4116,6 +4172,112 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       }
     });
   } catch (err) {}
+  // ——— تلاشِ مجددِ خودکار v272 ——— رویِ نتِ ضعیف، قطعِ اتصالِ وسطِ
+  // فصل دیگر رفرشِ دستی نمیخواهد: هر عکسِ خراب نردبانِ تأخیر
+  // (۰٫۸/۲/۴/۸/۱۵ ثانیه با لرزشِ ±۲۵٪) را خودکار طی میکند؛ بعد ازِ
+  // آخرین پله دکمهٔ شناورِ «تلاش دوباره» ظاهر میشود (کلیک = شروعِ
+  // دوبارهٔ نردبان برایِ همهٔ خرابها) و رویدادِ online همه را فوری
+  // بیدار میکند. IntersectionObserver و لودِ تدریجی دست‌نخورده
+  // میمانند — پرچمهایِ __ok/__rl/__infl/__pend جلویِ دوبارلود را می‌گیرند.
+  const rtryChip = document.createElement('button');
+  rtryChip.type = 'button';
+  rtryChip.id = 'rtryChip';
+  rtryChip.innerHTML = '<span class="sp">&#8635;</span><span class="tx">تلاش دوباره</span>';
+  try { document.body.appendChild(rtryChip); } catch (err) {}
+  const RTRY_L = [800, 2000, 4000, 8000, 15000];
+  let rtryBusy = 0, rtryBad = 0;
+  const rtryState = (cls, txt) => {
+    try {
+      rtryChip.className = cls;
+      rtryChip.querySelector('.tx').textContent = txt;
+    } catch (err) {}
+  };
+  const rtrySync = () => {
+    if (rtryBusy > 0) rtryState('show busy', 'در حال تلاش…');
+    else if (rtryBad > 0) rtryState('show', 'تلاش دوباره');
+    else rtryState('', 'تلاش دوباره');
+  };
+  const rtryKick = (im, now) => {
+    if (im.__ok || im.__rl) return;
+    if (im.__pend) { im.__pend = 0; rtryBusy--; }
+    const src = im.dataset.src || '';
+    if (!src) return;
+    const rung = im.__run || 0;
+    if (rung >= RTRY_L.length) {
+      if (!im.__bad) { im.__bad = 1; rtryBad++; }
+      rtrySync();
+      return;
+    }
+    im.__rl = 1; rtryBusy++;
+    im.__run = rung + 1;
+    rtrySync();
+    const d = (now && rung === 0) ? 0
+      : RTRY_L[rung] * (0.75 + Math.random() * 0.5);
+    setTimeout(() => {
+      im.__rl = 0;
+      if (im.__ok) { rtrySync(); return; }
+      // کشِ خرابی پاک + کلیدِ تازه (?_mr=) تا fetchِ مرورگر هم دور
+      // زده شود؛ موفقیت = پاک‌کردنِ blobFail برایِ همین src
+      const key = (rung === 0) ? src
+        : src + (src.indexOf('?') >= 0 ? '&' : '?') + '_mr=' + Date.now();
+      im.__key = key;
+      try { blobFail.delete(src); blobFail.delete(key); } catch (err) {}
+      im.__pend = 1;
+      im.__infl = 1;
+      imgGet(key).then((u) => {
+        im.__infl = 0;
+        if (im.__ok) {
+          if (im.__pend) { im.__pend = 0; rtryBusy--; }
+          rtrySync(); return;
+        }
+        im.__blob = u; im.__cur = u;
+        im.setAttribute('src', u);
+      }).catch(() => {
+        im.__infl = 0;
+        if (im.__ok) {
+          if (im.__pend) { im.__pend = 0; rtryBusy--; }
+          rtrySync(); return;
+        }
+        im.__cur = key;
+        im.setAttribute('src', key);
+      });
+      rtrySync();
+    }, d);
+  };
+  c.querySelectorAll('img[data-src]').forEach((im) => {
+    im.addEventListener('load', () => {
+      if (im.__ok || im.getAttribute('src') === PH1) return;
+      im.__ok = 1;
+      if (im.__pend) { im.__pend = 0; rtryBusy--; }
+      if (im.__bad) { im.__bad = 0; rtryBad--; }
+      try {
+        blobFail.delete(im.dataset.src);
+        if (im.__key) blobFail.delete(im.__key);
+      } catch (err) {}
+      rtrySync();
+    });
+    im.addEventListener('error', () => {
+      if (im.__ok || im.getAttribute('src') === PH1) return;
+      rtryKick(im);
+    });
+  });
+  rtryChip.addEventListener('click', () => {
+    let n = 0;
+    c.querySelectorAll('img[data-src]').forEach((im) => {
+      if (im.__ok || !im.__run) return;
+      im.__run = 0;
+      n++;
+      rtryKick(im, true);
+    });
+    if (n > 0) rtryState('show busy', 'در حال تلاش…');
+  });
+  window.addEventListener('online', () => {
+    c.querySelectorAll('img[data-src]').forEach((im) => {
+      if (im.__ok || !im.__run) return;
+      im.__run = 0;
+      rtryKick(im, true);
+    });
+  });
   root.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;

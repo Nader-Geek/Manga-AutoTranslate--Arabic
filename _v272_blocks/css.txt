@@ -1,0 +1,192 @@
+/* —— هم‌خوانِ نکو-گِرل v272: دخترِ گربه‌گوشِ استیکری — سرِ گردِ توپُش + بدنِ خُرد — ۲۴ حالت + قایم‌شدن پشتِ دیوار + خاموش‌کردنِ صفحه —— */
+.mcat{position:fixed;z-index:57;right:10px;top:58px;width:88px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}
+.mcat svg{display:block;width:100%;height:auto;pointer-events:none}
+@media (min-width:768px){.mcat{width:94px;right:18px;top:auto;bottom:112px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}}
+.mcat.hide-l svg{transform:scaleX(-1)}
+.mcat.hide-l .mcat-bub,.mcat.hide-l .mcat-say{right:auto;left:0}
+.mcat.hide-l .mcat-say:after{right:auto;left:14px}
+.mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;border-radius:10px;padding:2px 8px;font-size:.66rem;font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;opacity:1;transition:opacity .35s}
+.mcat-bub.dim{opacity:0}
+.mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease;z-index:2}
+.mcat-say.show{opacity:1;transform:translateY(0) scale(1)}
+.mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}
+/* — گروههای پنهان — */
+.cg-eyes,.cg-mv,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark,.cg-anger,.cg-steam,.cg-ball,.cg-music,.cg-glass,.cg-shyhands,.cg-shyblush,.cg-hand-chin,.cg-arms-up,.cg-arms-stretch,.cg-snack,.cg-crumbs,.cg-rumble,.cg-think,.cg-speed{display:none}
+/* — چشم‌ها بر اساس حالت — */
+.mcat.st-read .cg-eyes-open,.mcat.st-study .cg-eyes-open,.mcat.st-hide .cg-eyes-open,.mcat.st-peek .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-pat .cg-eyes-happy,.mcat.st-spin .cg-eyes-happy,.mcat.st-music .cg-eyes-happy,.mcat.st-dance .cg-eyes-happy,.mcat.st-run .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-yawn .cg-eyes-sleep,.mcat.st-think .cg-eyes-think,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-shy .cg-eyes-down,.mcat.st-hungry .cg-eyes-down,.mcat.st-eat .cg-eyes-shifty,.mcat.st-annoy .cg-eyes-annoy,.mcat.st-angry .cg-eyes-angry,.mcat.st-ball .cg-eyes-up,.mcat.st-hang .cg-eyes-happy,.mcat.st-edgesit .cg-eyes-happy,.mcat.st-sidepeek .cg-eyes-open{display:block}
+/* — دهان‌ها بر اساس حالت — */
+.mcat.st-read .cg-mv-smile,.mcat.st-exc .cg-mv-smile,.mcat.st-sleep .cg-mv-smile,.mcat.st-stress .cg-mv-smile,.mcat.st-sad .cg-mv-smile,.mcat.st-pat .cg-mv-smile,.mcat.st-spin .cg-mv-smile,.mcat.st-peek .cg-mv-smile,.mcat.st-hide .cg-mv-smile,.mcat.st-dance .cg-mv-smile,.mcat.st-run .cg-mv-smile,.mcat.st-hang .cg-mv-smile,.mcat.st-edgesit .cg-mv-smile,.mcat.st-sidepeek .cg-mv-smile,.mcat.st-study .cg-mv-focus,.mcat.st-think .cg-mv-focus,.mcat.st-shy .cg-mv-tee,.mcat.st-hungry .cg-mv-tee,.mcat.st-annoy .cg-mv-pout,.mcat.st-angry .cg-mv-shout,.mcat.st-ball .cg-mv-o,.mcat.st-music .cg-mv-song,.mcat.st-yawn .cg-mv-yawn,.mcat.st-eat .cg-mv-munch{display:block}
+/* — افکت‌های هر حالت — */
+.mcat.st-sleep .cg-zzz{display:block}
+.mcat.st-stress .cg-sweat{display:block}
+.mcat.st-sad .cg-tears{display:block}
+.mcat.st-pat .cg-heart{display:block}
+.mcat.st-exc .cg-spark{display:block}
+.mcat.st-angry .cg-anger{display:block}
+.mcat.st-angry .cg-steam{display:block}
+.mcat.st-ball .cg-ball{display:block}
+.mcat.st-music .cg-music{display:block}
+.mcat.st-dance .cg-music{display:block}
+.mcat.st-study .cg-glass{display:block}
+.mcat.st-shy .cg-shyhands{display:block}
+.mcat.st-shy .cg-shyblush{display:block}
+.mcat.st-hungry .cg-shyblush{display:block}
+.mcat.st-hungry .cg-rumble{display:block}
+.mcat.st-think .cg-hand-chin{display:block}
+.mcat.st-think .cg-think{display:block}
+.mcat.st-run .cg-speed{display:block}
+.mcat.st-eat .cg-snack{display:block}
+.mcat.st-eat .cg-crumbs{display:block}
+/* — بازوها و کتاب در حالتهای ویژه — */
+.mcat.st-dance .cg-hug,.mcat.st-dance .cg-book,.mcat.st-yawn .cg-hug,.mcat.st-yawn .cg-book,.mcat.st-eat .cg-hug,.mcat.st-hang .cg-hug,.mcat.st-hang .cg-book{display:none}
+.mcat.st-dance .cg-arms-up{display:block}
+.mcat.st-yawn .cg-arms-stretch,.mcat.st-hang .cg-arms-stretch{display:block}
+/* — کی‌فریم‌ها — */
+@keyframes mcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+@keyframes mcBounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-7px) scale(1.05)}60%{transform:translateY(0) scale(.97)}}
+@keyframes mcBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@keyframes mcWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}75%{transform:rotate(7deg)}}
+@keyframes mcTail{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}
+@keyframes mcEarT{0%,90%,100%{transform:rotate(0)}95%{transform:rotate(-9deg)}}
+@keyframes mcPop{0%{opacity:0;transform:translateY(4px)}25%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}
+@keyframes mcBlink{0%,93.5%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
+@keyframes mcShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2.6px)}75%{transform:translateX(2.6px)}}
+@keyframes mcHmph{0%,100%{transform:translateX(0) rotate(0)}35%{transform:translateX(-5px) rotate(-5deg)}75%{transform:translateX(-3px) rotate(-3deg)}}
+@keyframes mcSpin{0%{transform:rotate(0)}45%{transform:rotate(-185deg) scale(1.07,.93)}100%{transform:rotate(-360deg)}}
+@keyframes mcSway{0%,100%{transform:rotate(0)}30%{transform:rotate(-7deg)}70%{transform:rotate(7deg)}}
+@keyframes mcBall{0%{transform:translateY(0)}22%{transform:translateY(-56px)}46%{transform:translateY(0)}60%{transform:translateY(-20px)}74%{transform:translateY(0)}86%{transform:translateY(-7px)}100%{transform:translateY(0)}}
+@keyframes mcAnger{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
+@keyframes mcFume{0%{opacity:0;transform:translateY(6px)}30%{opacity:.95}100%{opacity:0;transform:translateY(-16px)}}
+@keyframes mcNote{0%{opacity:0;transform:translateY(6px)}25%{opacity:1}100%{opacity:0;transform:translateY(-17px)}}
+@keyframes mcPeekBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(3deg)}}
+@keyframes mcDance{0%,100%{transform:rotate(-8deg) translateY(0)}25%{transform:rotate(0) translateY(-4px)}50%{transform:rotate(8deg) translateY(0)}75%{transform:rotate(0) translateY(-4px)}}
+@keyframes mcWave{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(14deg)}}
+@keyframes mcYawnS{0%{transform:scale(1)}45%{transform:scale(1.05,1.09)}100%{transform:scale(1)}}
+@keyframes mcThinkS{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes mcRunBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes mcShyWig{0%,100%{transform:rotate(0)}30%{transform:rotate(-4deg) translateY(1px)}70%{transform:rotate(3deg)}}
+@keyframes mcScan{0%,100%{transform:translateX(-2.5px)}50%{transform:translateX(2.5px)}}
+@keyframes mcDart{0%,18%{transform:translateX(-2.4px)}36%,58%{transform:translateX(2.4px)}76%,100%{transform:translateX(0)}}
+@keyframes mcMunch{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.35)}}
+@keyframes mcRumble{0%,100%{opacity:.15;transform:scale(.8)}50%{opacity:1;transform:scale(1.18)}}
+@keyframes mcMunchBob{0%,100%{transform:translateY(0)}50%{transform:translateY(1.6px)}}
+@keyframes mcHang{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(4px) rotate(2deg)}}
+@keyframes mcCrumbs{0%{opacity:0;transform:translateY(0)}30%{opacity:1}100%{opacity:0;transform:translateY(9px)}}
+@keyframes mcSpeedFlick{0%,100%{opacity:.15}50%{opacity:1}}
+/* — انیمیشنِ بدنه — */
+.mcat .cg-all{transform-origin:60px 108px;animation:mcBob 3.4s ease-in-out infinite}
+.mcat.st-exc .cg-all{animation:mcBounce .55s ease-in-out infinite}
+.mcat.st-sleep .cg-all{animation:mcBreath 2.8s ease-in-out infinite}
+.mcat.st-pat .cg-all{animation:mcWiggle .45s ease-in-out 3}
+.mcat.st-sad .cg-all{animation:mcBob 4.6s ease-in-out infinite}
+.mcat.st-angry .cg-all{animation:mcShake .09s linear 18}
+.mcat.st-annoy .cg-all{animation:mcHmph 1.9s ease-in-out 1}
+.mcat.st-spin .cg-all{animation:mcSpin 1.45s ease-in-out 2}
+.mcat.st-ball .cg-all{animation:mcBounce 1.3s ease-in-out 2}
+.mcat.st-music .cg-all{animation:mcSway 1.6s ease-in-out 2}
+.mcat.st-dance .cg-all{animation:mcDance 1.1s ease-in-out infinite}
+.mcat.st-yawn .cg-all{animation:mcYawnS 2.6s ease-in-out 1}
+.mcat.st-think .cg-all{animation:mcThinkS 3.2s ease-in-out infinite}
+.mcat.st-run .cg-all{animation:mcRunBob .5s ease-in-out infinite}
+.mcat.st-hungry .cg-all{animation:mcBob 2.1s ease-in-out infinite}
+.mcat.st-eat .cg-all{animation:mcMunchBob .6s ease-in-out infinite}
+.mcat.st-shy .cg-all{animation:mcShyWig 2.2s ease-in-out infinite}
+.mcat.st-hide .cg-all{animation:mcPeekBob 3s ease-in-out infinite}
+.mcat.st-peek .cg-all{animation:mcPeekBob 2.4s ease-in-out infinite}
+/* — سر و گوش و دُم — */
+.mcat .cg-head{transform-origin:60px 82px}
+.mcat.st-annoy .cg-head{transform:translateX(-7px) rotate(-10deg)}
+.mcat.st-annoy .cg-blush{display:none}
+.mcat.st-shy .cg-head{transform:rotate(-3deg)}
+.mcat.st-study .cg-head{transform:translateY(2px)}
+.mcat .cg-tail{transform-origin:84px 108px;animation:mcTail 3s ease-in-out infinite}
+.mcat.st-exc .cg-tail,.mcat.st-ball .cg-tail,.mcat.st-spin .cg-tail,.mcat.st-dance .cg-tail,.mcat.st-run .cg-tail{animation:mcTail .45s ease-in-out infinite}
+.mcat.st-stress .cg-tail{animation:mcTail .9s ease-in-out infinite}
+.mcat.st-angry .cg-tail{animation:mcTail .3s linear infinite}
+.mcat.st-eat .cg-tail{animation:mcTail 1.5s ease-in-out infinite}
+.mcat.st-sleep .cg-tail{animation:none}
+.mcat .cg-ear-l{transform-origin:40px 28px;animation:mcEarT 6s ease-in-out infinite}
+.mcat .cg-ear-r{transform-origin:80px 28px;animation:mcEarT 6s ease-in-out .8s infinite}
+.mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,.mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}
+.mcat.st-eat .cg-ear-l,.mcat.st-eat .cg-ear-r{animation:mcEarT 2.2s ease-in-out infinite}
+/* — جزئیاتِ متحرک — */
+.mcat .cg-eyes-open{transform-origin:60px 56px;animation:mcBlink 5.6s infinite}
+.mcat .cg-heart{animation:mcPop 1.6s ease-out}
+.mcat .cg-zzz text{animation:mcPop 2.4s ease-in-out infinite}
+.mcat .cg-zzz text:nth-child(2){animation-delay:.5s}
+.mcat .cg-ball{animation:mcBall 2.9s cubic-bezier(.33,.66,.45,1) infinite}
+.mcat .cg-anger{transform-origin:113px 12px;animation:mcAnger .55s ease-in-out 4}
+.mcat .cg-steam circle{animation:mcFume 1.6s ease-out 2}
+.mcat .cg-steam circle:nth-child(2){animation-delay:.4s}
+.mcat .cg-music .n1{animation:mcNote 1.6s ease-out 2}
+.mcat .cg-music .n2{animation:mcNote 1.6s ease-out .55s 2}
+.mcat .cg-think circle{animation:mcPop 2.1s ease-in-out infinite}
+.mcat .cg-think circle:nth-child(2){animation-delay:.35s}
+.mcat .cg-think circle:nth-child(3){animation-delay:.7s}
+.mcat .cg-rumble .r1{animation:mcRumble 1.4s ease-in-out infinite}
+.mcat .cg-rumble .r2{animation:mcRumble 1.4s ease-in-out .25s infinite}
+.mcat .cg-rumble .r3{animation:mcRumble 1.4s ease-in-out .5s infinite}
+.mcat .cg-rumble text{animation:mcPop 1.7s ease-in-out infinite}
+.mcat .cg-mv-munch{transform-origin:60px 66.5px;animation:mcMunch .5s ease-in-out infinite}
+.mcat .cg-crumbs circle{animation:mcCrumbs 1.25s ease-in infinite}
+.mcat .cg-crumbs circle:nth-child(2){animation-delay:.4s}
+.mcat .cg-crumbs circle:nth-child(3){animation-delay:.8s}
+.mcat .cg-speed line{animation:mcSpeedFlick .34s linear infinite}
+.mcat .cg-speed line:nth-child(2){animation-delay:.11s}
+.mcat .cg-speed line:nth-child(3){animation-delay:.22s}
+.mcat.st-study .cg-eyes-open .cg-pupil{animation:mcScan 2.8s ease-in-out infinite}
+.mcat.st-eat .cg-eyes-shifty .cg-pupil{animation:mcDart 1.6s ease-in-out infinite}
+.mcat.st-dance .cg-arms-up .arm-l{transform-origin:38px 94px;animation:mcWave 1.1s ease-in-out infinite}
+.mcat.st-dance .cg-arms-up .arm-r{transform-origin:82px 94px;animation:mcWave 1.1s ease-in-out .55s infinite}
+.mcat.st-think .cg-hand-chin{transform-origin:72px 97px;animation:mcBob 2.6s ease-in-out infinite}
+/* — قایم‌شدن در گوشه‌ها (رندوم از ۴ گوشه) — */
+.mcat.st-hide .mcat-bub,.mcat.st-peek .mcat-bub,.mcat.st-hang .mcat-bub,.mcat.st-edgesit .mcat-bub,.mcat.st-sidepeek .mcat-bub{display:none}
+.mcat.st-hide .mcat-say{top:auto;bottom:calc(100% + 10px)}
+.mcat.st-hide .mcat-say:after{top:auto;bottom:-4px}
+.mcat.st-peek .mcat-say{top:auto;bottom:calc(100% + 10px);right:auto;left:36px}
+.mcat.st-peek .mcat-say:after{top:auto;bottom:-4px;right:auto;left:18px}
+.mcat.peek-r .mcat-say{left:auto;right:38px}
+.mcat.peek-r .mcat-say:after{left:auto;right:18px}
+.mcat.away{opacity:0;pointer-events:none;transition:opacity .35s .7s}
+.mcat.glide{transition:left .75s cubic-bezier(.35,.8,.35,1),top .75s cubic-bezier(.35,.8,.35,1),opacity .3s}
+/* — v271: چشم‌های دنبال‌کنندهٔ موس (پی‌سی/لینوکس) — */
+.cg-eyes-open .cg-pupil{transition:transform .18s ease-out}
+/* — v271: حالتهای رهاکردنِ کاراکتر در نقاط صفحه — */
+.mcat.st-hang svg{transform:scaleY(-1)}
+.mcat.st-hang .cg-all{animation:mcHangSway 2.6s ease-in-out infinite;transform-origin:60px 26px}
+.mcat.st-hang .cg-tail{animation:none}
+.mcat.st-edgesit .cg-all{animation:mcSitBob 2.3s ease-in-out infinite;transform-origin:60px 108px}
+.mcat.st-edgesit .cg-tail{animation:mcTail 1.2s ease-in-out infinite}
+.mcat.st-edgesit .mcat-say{top:auto;bottom:calc(100% + 8px)}
+.mcat.st-edgesit .mcat-say:after{top:auto;bottom:-4px}
+.mcat.st-sidepeek .cg-all{animation:mcLean 2.1s ease-in-out infinite;transform-origin:60px 108px}
+.mcat.st-sidepeek .mcat-say{top:auto;bottom:calc(100% + 10px);left:28px;right:auto}
+.mcat.st-sidepeek .mcat-say:after{top:auto;bottom:-4px;left:20px;right:auto}
+.mcat.st-sidepeek.peek-r .mcat-say{left:auto;right:28px}
+.mcat.st-sidepeek.peek-r .mcat-say:after{left:auto;right:20px}
+.mcat.st-eat .cg-snack .fish{transform-box:fill-box;transform-origin:50% 50%;animation:mcBite 1.9s ease-in-out infinite}
+@keyframes mcHangSway{0%,100%{transform:rotate(0)}50%{transform:rotate(5deg)}}
+@keyframes mcSitBob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-2px) rotate(2deg)}}
+@keyframes mcLean{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}
+@keyframes mcBite{0%,40%,100%{transform:translate(0,0)}55%,70%{transform:translate(-5px,-6px)}}
+/* — v271: راهنمای نقاطِ رهاکردن هنگام درگ — */
+#mcatzones{position:fixed;left:0;top:0;right:0;bottom:0;z-index:56;pointer-events:none;display:none}
+#mcatzones.show{display:block}
+.mz{position:absolute;border:2.5px dashed rgba(217,89,112,.5);border-radius:16px;background:rgba(217,89,112,.05);display:flex;align-items:center;justify-content:center;color:#d95970;font-size:12px;font-weight:800;opacity:.8;transition:opacity .15s,background .15s,transform .15s}
+.mz.on{border-color:#d95970;background:rgba(217,89,112,.16);opacity:1;transform:scale(.97)}
+.mz-top{top:8px;left:8px;right:8px;height:16%}
+.mz-bottom{bottom:8px;left:8px;right:8px;height:16%}
+.mz-left{left:8px;top:24%;bottom:24%;width:13%}
+.mz-right{right:8px;top:24%;bottom:24%;width:13%}
+.mz-center{left:17%;right:17%;top:24%;bottom:24%;border-radius:26px}
+/* — v272 (از v269): قایم‌شدن پشتِ دیوارِ لبهٔ صفحه — دیوارِ کرم داخلِ SVG نیمهٔ پشتی را می‌پوشاند — */
+.cg-wall{display:none}
+.mcat.st-hide .cg-wall{display:block}
+/* — v272 (از v269): اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش — */
+#mcatOff{position:fixed;inset:0;z-index:95;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .5s ease;direction:rtl}
+#mcatOff.show{opacity:1;pointer-events:auto;cursor:pointer}
+#mcatOff .off-eyes{width:min(220px,46vw);height:auto;animation:offBlink 4.6s ease-in-out infinite}
+#mcatOff .off-t1{color:#ffd964;font-weight:700;font-size:1.06rem}
+#mcatOff .off-t2{color:#cfd2da;font-size:.92rem}
+#mcatOff .off-t3{color:#6d6a63;font-size:.74rem;margin-top:16px}
+@keyframes offBlink{0%,86%,100%{transform:scaleY(1)}90%,94%{transform:scaleY(.06)}}

@@ -1,0 +1,6 @@
+<div id="mcatOff" aria-hidden="true">
+<svg class="off-eyes" viewBox="0 0 150 58" aria-hidden="true"><defs><radialGradient id="mcOffG"><stop offset="0" stop-color="#ffd964" stop-opacity=".55"/><stop offset=".55" stop-color="#ffd964" stop-opacity=".2"/><stop offset="1" stop-color="#ffd964" stop-opacity="0"/></radialGradient></defs><path d="M28 24 L33 8 L44 19 Z" fill="#ffd964" opacity=".38"/><path d="M122 24 L117 8 L106 19 Z" fill="#ffd964" opacity=".38"/><g><ellipse cx="40" cy="36" rx="34" ry="19" fill="url(#mcOffG)"/><path d="M16 36 Q40 18 64 36 Q40 52 16 36 Z" fill="#ffd964"/><circle cx="32" cy="33" r="3.2" fill="#fff" opacity=".95"/><circle cx="48" cy="39" r="2.1" fill="#fff" opacity=".75"/></g><g><ellipse cx="110" cy="36" rx="34" ry="19" fill="url(#mcOffG)"/><path d="M86 36 Q110 18 134 36 Q110 52 86 36 Z" fill="#ffd964"/><circle cx="102" cy="33" r="3.2" fill="#fff" opacity=".95"/><circle cx="118" cy="39" r="2.1" fill="#fff" opacity=".75"/></g></svg>
+<div class="off-t1">دخترِ گربه‌ای خسته شد!</div>
+<div class="off-t2">صفحه رو خاموش کرد… دیگه اذیت نکن!</div>
+<div class="off-t3">برای روشن‌کردن، صفحه را لمس کن</div>
+</div>

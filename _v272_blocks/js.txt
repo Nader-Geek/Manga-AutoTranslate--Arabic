@@ -1,0 +1,596 @@
+  // ——— هم‌خوانِ نکو-گِرل v272 — موتورِ ۲۴ حالته + قایم‌شدن پشتِ دیوار + خاموش‌کردنِ صفحه ———
+  (function () {
+  var MCAT = document.getElementById('mcat');
+  if (!MCAT) return;
+  var mcatBub = MCAT.querySelector('.mcat-bub');
+  var mcatSayEl = MCAT.querySelector('.mcat-say');
+  var MCAT_USE_S = false; // اندروید: اسکرولرِ داخلی s — وب: window
+  var FAD = '۰۱۲۳۴۵۶۷۸۹';
+  function faN(v) { return String(v).replace(/[0-9]/g, function (d) { return FAD[+d]; }); }
+  function faR(a) { return a[Math.floor(Math.random() * a.length)]; }
+  var mcatScrollEl = null;
+  if (MCAT_USE_S) { try { if (typeof s !== 'undefined' && s && s.scrollTop !== undefined && s !== window) mcatScrollEl = s; } catch (err) {} }
+  function mcatInfo() {
+    var m, y;
+    if (mcatScrollEl) { m = mcatScrollEl.scrollHeight - mcatScrollEl.clientHeight; y = mcatScrollEl.scrollTop; }
+    else { m = document.documentElement.scrollHeight - window.innerHeight; y = window.scrollY || window.pageYOffset || 0; }
+    if (m < 0) m = 0;
+    return { m: m, y: y, pct: Math.min(1, Math.max(0, y / Math.max(1, m))), atEnd: m > 320 && (m - y) < 5 };
+  }
+  /* ——— حرف‌ها (کاملاً خودمونی) ——— */
+  var MCAT_PAT = ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!'];
+  var MCAT_READ = ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!'];
+  var MCAT_STUDY = ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!'];
+  var MCAT_THINK = ['هوم… بعدِ این چی میشه؟', 'اگه نویسنده یه چیزِ دیگه میگفت چی؟', 'هوم هوم… دارم فکر میکنم…', 'چرا هی دلم میخواد دُم بگیرم؟!'];
+  var MCAT_YAWN = ['خمووووام…', 'یه چرتِ کوچولو بد نیست…', 'خمیازه اومد، شرمنده!', 'چشمام سنگین شدن…'];
+  var MCAT_DANCE = ['لالالا~ دارم می‌رقصم!', 'حالِ دلم خوبه، ببین!', 'رقصِ گربه‌ایِ خاصِ خودم!', 'بزن برقصیم!'];
+  var MCAT_RUN = ['نمیگیری منو!', 'دورِ صفحه می‌چرخم، ووووو!', 'برس به من، برسسس!', 'هوووووم، چه حالی میده!'];
+  var MCAT_HUNGRY = ['قار قور؟!… شرمنده', 'شکمم داره آهنگ میخونه!', 'وا، این صدا از شکمم بود؟!', 'غذا یادم رفت بخورم…', 'کسی بیسکویت داره؟'];
+  var MCAT_EAT = ['چیزی ندیدم ها! تو هم ندیدی؟!', 'نگاه نکن! دارم شام میخورم!', 'این مالِ من شد، تو که ندیدیش!', 'ششش… صدای جویدن نمیاد!'];
+  var MCAT_SHY = ['خجالت کشیدم ببینم!', 'چرا اینجوری نگاه میکنی؟!', 'وییی… به کسی نگو!', 'اِ خودتو ندیدم!'];
+  var MCAT_WAKE = ['نخوابیدم ها! چشمام فقط استراحت میکردن!', 'من؟! خواب نبودم اصلاً!'];
+  var MCAT_ANNOY = ['وایسا وایسا، بسه!', 'نازکیدم ول کن!', 'خیلی شیطون شدی ها!', 'بسه دیگه، گوشه‌م میرم!'];
+  var MCAT_ANGRY = ['آخ! چرا میزنی؟!', 'دلم شکست تو!', 'بدجنسیه این کارت!'];
+  var MCAT_AWAY = ['خوش باش، من رفتم!', 'قهرم ازت، جدی!', 'بای بای، دیگه نمیام!'];
+  var MCAT_BACK = ['ولی دلم تنگ شد، برگشتم…', 'قصه‌ات رو ول نمیکردم دیگه…', 'باشه باشه، بخشیدمت!'];
+  var MCAT_HIDE_SAY = ['پشتِ دیوال قایم شدم، گیرم نمیاری!', 'هیشکی اینجا منو پیدا نمیکنه!', 'از پشتِ دیوال دارم نگاه می‌کنم!'];
+  var MCAT_FOUND = ['اِ پیدام کردی؟! زرنگی!', 'وا! از کجا فهمیدی اینجام؟!', 'باشه باشه، باختم!'];
+  var MCAT_OFF = ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…'];
+  var MCAT_MILE = ['یه چهارمش رفت!', 'نصفش رفته، بزن بریم!', 'سه چهارمش که تمومه، وایسا!'];
+  var MCAT_HANG = ['وا! چطور وارونه شدم؟!', 'از سقف آویزونم، جاذبه هی بلاگه!', 'خونم رفت گوشم! یعنی… پام شد سرم!'];
+  var MCAT_SIT = ['اینجا دمِ صفحه خنک‌تره!', 'لبِ پایین، جای آدمیزادها!', 'نشستم راحت، خبری نیست؟'];
+  var MCAT_SIDE = ['از این ور فقط نگاه می‌کنم…', 'من؟! من که هیشی کار نکردم!', 'یه سرک از بغل زدم!'];
+  var MCAT_PIC = ['وای! این صحنه رو به یاد دارم!', 'اِ این قاب رو قبلاً دیدم!', 'این تصویر خوشگله! مال کدوم فصله؟'];
+  var MCAT_DROP = ['حوووپا!', 'دوباره بنداز، دوباره!', 'ایول، جالب بود!'];
+  var MCAT_BACK2 = ['جای خودم، جای خودم!', 'خوش بود؟ یه بار دیگه بندازم؟!'];
+  var ACT_DUR = { 'st-spin': 3000, 'st-ball': 3200, 'st-music': 3400, 'st-dance': 3600, 'st-study': 5200, 'st-think': 3600, 'st-yawn': 2800, 'st-hungry': 3000, 'st-eat': 5200, 'st-run': 6200, 'st-hang': 7000, 'st-edgesit': 6500, 'st-sidepeek': 6000 };
+  var ACT_POOL = ['st-spin', 'st-spin', 'st-ball', 'st-ball', 'st-music', 'st-music', 'st-dance', 'st-dance', 'st-study', 'st-study', 'st-think', 'st-yawn', 'st-hungry', 'st-eat', 'st-eat', 'st-run'];
+  var ACT_SAY = {
+    'st-spin': ['دُمم بیا اینجا!', 'ووووو، سرم گیج رفت!'],
+    'st-ball': ['بگیر بگیر!', 'توپ! توپ!', 'بالا بَر، اَ بالا!'],
+    'st-music': ['هوم هوم~', 'لالالالا~', 'دلم میخواد آهنگ بخونم~'],
+    'st-dance': MCAT_DANCE,
+    'st-study': MCAT_STUDY,
+    'st-think': MCAT_THINK,
+    'st-yawn': MCAT_YAWN,
+    'st-hungry': MCAT_HUNGRY,
+    'st-eat': MCAT_EAT,
+    'st-run': MCAT_RUN,
+    'st-hang': MCAT_HANG,
+    'st-edgesit': MCAT_SIT,
+    'st-sidepeek': MCAT_SIDE
+  };
+  /* ——— وضعیت ——— */
+  var mcatState = 'st-read';
+  var mcatLastTs = 0, mcatLastY = -1, mcatFastT = 0, mcatMoveT = Date.now();
+  var mcatBotT = 0, mcatPatT = 0, mcatSayUntil = 0;
+  var mcatHideTill = 0, mcatAwayTill = 0, mcatPeekTill = 0, mcatPeekR = false;
+  var mcatAnnoyT = 0, mcatAngryT = 0, mcatShyT = 0;
+  var mcatActT = 0, mcatActSt = '', mcatActCd = 0, mcatNextAct = '';
+  var mcatRunning = false, mcatRunT = null;
+  var mcatTaps = [], mcatAngerN = 0, mcatAngerLast = 0;
+  var mcatTeaseN = 0;
+  var mcatSaved = null, mcatMile = 0;
+  var mcatForceSt = '', mcatForceTill = 0;
+  var mcatZoneBack = 0, ZONES = null, mcatZoneCur = '';
+  var mcatLastN = -1, mcatLastMk = '';
+  function mcatSet(st) { if (mcatState === st) return; MCAT.classList.remove(mcatState); MCAT.classList.add(st); mcatState = st; }
+  function mcatSayNow(txt, ms) { mcatSayEl.textContent = txt; mcatSayEl.classList.add('show'); mcatSayUntil = Date.now() + (ms || 5000); }
+  function mcatUpdate() {
+    var inf = mcatInfo();
+    var txt = faN(Math.round(inf.pct * 100)) + '٪';
+    if (typeof curPageIdx === 'function' && typeof stackCount === 'function') txt += ' · ' + faN(curPageIdx() + 1) + '/' + faN(stackCount());
+    mcatBub.textContent = txt;
+  }
+  function mcatGlide(fn) { MCAT.classList.add('glide'); fn(); setTimeout(function () { MCAT.classList.remove('glide'); }, 800); }
+  function mcatPlace(cx, cy) {
+    var x = Math.min(Math.max(cx, 52), window.innerWidth - 52);
+    var y = Math.min(Math.max(cy, 78), window.innerHeight - 112);
+    MCAT.style.left = (x - MCAT.offsetWidth / 2) + 'px';
+    MCAT.style.top = (y - MCAT.offsetHeight / 2) + 'px';
+    MCAT.style.right = 'auto';
+    MCAT.style.bottom = 'auto';
+  }
+  function mcatRestore(say) {
+    mcatHideTill = mcatAwayTill = mcatPeekTill = 0;
+    MCAT.classList.remove('away', 'peek-r', 'hide-l');
+    if (mcatSaved) { var sv = mcatSaved; mcatGlide(function () { mcatPlace(sv.x, sv.y); }); }
+    mcatMoveT = Date.now();
+    mcatSet('st-read');
+    if (say) mcatSayNow(say, 3000);
+    mcatTick();
+  }
+  /* ——— قایم‌شدن پشتِ دیوار (از v269 — دستورِ سازنده): به لبهٔ نزدیکِ صفحه
+     می‌رود، دیوارِ کرم داخلِ SVG نیمهٔ پشتیش را می‌پوشاند و از پشتِ دیوار
+     نگاه می‌کند (دستها روی لبهٔ دیوار + نوکِ دُم بیرون!) ——— */
+  function mcatGoHide() {
+    if (mcatState === 'st-hide') return;
+    var r = MCAT.getBoundingClientRect();
+    var hw = MCAT.offsetWidth || 88, hh = MCAT.offsetHeight || 103;
+    mcatSaved = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    var onRight = (r.left + r.width / 2) >= window.innerWidth / 2;
+    MCAT.classList.toggle('hide-l', !onRight);
+    var hy = Math.min(Math.max(r.top + r.height / 2, window.innerHeight * 0.36),
+      window.innerHeight - hh / 2 - 30);
+    /* چسبیده به لبه — دیوار با لبهٔ صفحه یکی می‌شود (بدون درز) */
+    mcatGlide(function () {
+      MCAT.style.left = (onRight ? window.innerWidth - hw + 1 : -1) + 'px';
+      MCAT.style.top = (hy - hh / 2) + 'px';
+      MCAT.style.right = 'auto';
+      MCAT.style.bottom = 'auto';
+    });
+    mcatSet('st-hide');
+    mcatHideTill = Date.now() + 12000 + Math.random() * 6000;
+    mcatSayNow(faR(MCAT_HIDE_SAY), 2800);
+  }
+  function mcatGoAway() {
+    if (mcatState === 'st-hide' || mcatState === 'st-peek' || MCAT.classList.contains('away')) return;
+    var r = MCAT.getBoundingClientRect();
+    mcatSaved = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    mcatPeekR = r.left + r.width / 2 >= window.innerWidth / 2;
+    var ay = Math.min(Math.max(r.top + r.height / 2, 130), window.innerHeight - 110);
+    mcatGlide(function () {
+      MCAT.style.left = (mcatPeekR ? window.innerWidth - 30 : -34) + 'px';
+      MCAT.style.top = (ay - MCAT.offsetHeight / 2) + 'px';
+      MCAT.style.right = 'auto';
+    });
+    setTimeout(function () { MCAT.classList.add('away'); }, 700);
+    mcatAwayTill = Date.now() + 25000 + Math.random() * 15000;
+    mcatSayNow(faR(MCAT_AWAY), 2200);
+  }
+  function mcatStartPeek() {
+    mcatAwayTill = 0;
+    MCAT.classList.remove('away');
+    if (mcatPeekR) MCAT.classList.add('peek-r'); else MCAT.classList.remove('peek-r');
+    mcatSet('st-peek');
+    mcatPeekTill = Date.now() + 9000;
+    mcatSayNow('…هنوز قهرم ها!', 2400);
+  }
+  /* ——— اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش! (از v269) ———
+     کلِ صفحه سیاه می‌شود، فقط دو چشمِ درخشانِ او در تاریکی می‌ماند؛
+     با لمس (یا بعد از ~۵ ثانیه) دوباره روشن می‌شود. ——— */
+  var mcatOffEl = document.getElementById('mcatOff');
+  var mcatOffTimer = null;
+  function mcatWake() {
+    if (!mcatOffEl || !mcatOffEl.classList.contains('show')) return;
+    mcatOffEl.classList.remove('show');
+    if (mcatOffTimer) { clearTimeout(mcatOffTimer); mcatOffTimer = null; }
+    mcatRestore('دیدی چیکار می‌کنم؟! دیگه اذیت نکن~');
+  }
+  function mcatBlackout() {
+    mcatTeaseN = 0;
+    mcatTaps = [];
+    mcatAnnoyT = mcatAngryT = mcatPatT = mcatActT = mcatShyT = 0;
+    mcatSayNow(faR(MCAT_OFF), 1900);
+    mcatSet('st-annoy');
+    mcatTick();
+    setTimeout(function () {
+      if (!mcatOffEl) return;
+      mcatOffEl.classList.add('show');
+      if (mcatOffTimer) clearTimeout(mcatOffTimer);
+      mcatOffTimer = setTimeout(mcatWake, 5200);
+    }, 1600);
+  }
+  /* — دویدنِ بازیگوشانه دورِ صفحه — */
+  function mcatStartRun() {
+    if (mcatRunning) return;
+    var r = MCAT.getBoundingClientRect();
+    mcatSaved = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    mcatRunning = true;
+    mcatActSt = 'st-run';
+    mcatActT = Date.now() + 6200;
+    mcatMoveT = Date.now();
+    mcatSayNow(faR(MCAT_RUN), 3400);
+    mcatSet('st-run');
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var mx = 54, ty = 84, by = vh - 90;
+    var pts = [[mx, ty], [vw - mx, ty], [vw - mx, by], [mx, by], [mx, ty]];
+    MCAT.classList.add('glide');
+    var i = 0;
+    function step() {
+      if (!mcatRunning) return;
+      mcatPlace(pts[i][0], pts[i][1]);
+      i++;
+      if (i < pts.length) mcatRunT = setTimeout(step, 1050);
+      else mcatEndRun(false);
+    }
+    step();
+  }
+  function mcatEndRun(interrupted) {
+    if (!mcatRunning) return;
+    mcatRunning = false;
+    if (mcatRunT) { clearTimeout(mcatRunT); mcatRunT = null; }
+    MCAT.classList.remove('glide');
+    var sv = mcatSaved;
+    if (sv) mcatGlide(function () { mcatPlace(sv.x, sv.y); });
+    mcatMoveT = Date.now();
+    mcatActT = 0; mcatActSt = '';
+    mcatSet('st-read');
+    if (!interrupted) mcatSayNow('اوف اوف… خسته شدم!', 2600);
+  }
+  /* — قلبِ تیک — */
+  function mcatTick() {
+    var now = Date.now();
+    var inf = mcatInfo();
+    if (mcatSayUntil && mcatSayUntil < now) { mcatSayEl.classList.remove('show'); mcatSayUntil = 0; }
+    if (mcatZoneBack && now > mcatZoneBack) {
+      mcatZoneBack = 0;
+      if (mcatState === 'st-hang' || mcatState === 'st-edgesit' || mcatState === 'st-sidepeek') {
+        MCAT.classList.remove('peek-r');
+        if (mcatSaved) { var zb = mcatSaved; mcatGlide(function () { mcatPlace(zb.x, zb.y); }); }
+        mcatSet('st-read');
+        mcatSayNow(faR(MCAT_BACK2), 2400);
+      }
+    }
+    if (mcatState === 'st-hide') {
+      if (now > mcatHideTill) mcatRestore('دیدی دلم برات تنگ شد!');
+      return;
+    }
+    if (MCAT.classList.contains('away')) {
+      if (now > mcatAwayTill) mcatStartPeek();
+      return;
+    }
+    if (mcatState === 'st-peek') {
+      if (now > mcatPeekTill) mcatRestore(faR(MCAT_BACK));
+      return;
+    }
+    if (inf.atEnd) { if (!mcatBotT) mcatBotT = now; } else mcatBotT = 0;
+    if (mcatForceTill > now && mcatForceSt) { mcatSet(mcatForceSt); return; }
+    if (mcatPatT > now) { mcatSet('st-pat'); return; }
+    if (mcatShyT > now) { mcatSet('st-shy'); return; }
+    if (mcatAnnoyT > now) { mcatSet('st-annoy'); return; }
+    if (mcatAngryT > now) { mcatSet('st-angry'); return; }
+    if (mcatRunning) { mcatSet('st-run'); return; }
+    if (mcatActT > now && mcatActSt) { mcatSet(mcatActSt); return; }
+    if (mcatZoneBack > now) return;
+    /* حوصله‌سررفتگی: یکی از ۱۰ سرگرمی — یا یهو بره قایم شه! */
+    if (inf.m > 320 && mcatMoveT < now - 8000 && mcatMoveT > now - 21000 && now > mcatActCd && mcatPatT < now && mcatShyT < now) {
+      if (Math.random() < 0.09) {
+        mcatActCd = now + 30000 + Math.random() * 15000;
+        mcatGoHide();
+        return;
+      }
+      var st = mcatNextAct || faR(ACT_POOL);
+      mcatNextAct = '';
+      mcatActCd = now + 26000 + Math.random() * 14000;
+      mcatMoveT = now;
+      if (st === 'st-run') { mcatStartRun(); return; }
+      mcatActSt = st;
+      mcatActT = now + ACT_DUR[st];
+      mcatSayNow(faR(ACT_SAY[st]), ACT_DUR[st] - 300);
+      mcatSet(st);
+      if (st === 'st-hungry' && Math.random() < 0.55) mcatNextAct = 'st-eat';
+      return;
+    }
+    if (inf.atEnd && now - mcatBotT > 2200) mcatSet('st-sad');
+    else if (mcatFastT > now - 1200) mcatSet('st-exc');
+    else if (mcatMoveT < now - 22000) mcatSet('st-sleep');
+    else if (inf.m > 320 && inf.pct >= 0.9) mcatSet('st-stress');
+    else mcatSet('st-read');
+    mcatBub.classList.toggle('dim', now - mcatMoveT > 4000);
+  }
+  function mcatOnScroll() {
+    var now = Date.now();
+    var y = mcatInfo().y;
+    if (mcatLastY < 0) mcatLastY = y;
+    var dt = Math.max(40, now - mcatLastTs);
+    if (Math.abs(y - mcatLastY) / dt > 0.85) mcatFastT = now;
+    mcatLastY = y; mcatLastTs = now;
+    mcatMoveT = now;
+    if (mcatRunning) mcatEndRun(true);
+    if (mcatState === 'st-hang' || mcatState === 'st-edgesit' || mcatState === 'st-sidepeek') {
+      mcatZoneBack = 0;
+      MCAT.classList.remove('peek-r');
+      if (mcatSaved) { var zs2 = mcatSaved; mcatGlide(function () { mcatPlace(zs2.x, zs2.y); }); }
+      mcatSet('st-read');
+    }
+    if (mcatActT) { mcatActT = 0; mcatActSt = ''; mcatNextAct = ''; }
+    if (mcatForceTill) mcatForceTill = 0;
+    if (mcatState === 'st-sleep') {
+      /* بیداری از خواب — بعضی وقتا خجالت میکشه! */
+      if (Math.random() < 0.4) { mcatShyT = now + 2600; mcatSayNow(faR(MCAT_WAKE), 2800); }
+      else mcatSet('st-read');
+    }
+    mcatUpdate();
+    mcatTick();
+  }
+  /* — درگ + نوازش/کتک — */
+  var mcatDrag = null;
+  MCAT.addEventListener('pointerdown', function (e) {
+    mcatDrag = { x: e.clientX, y: e.clientY, moved: false };
+    mcatMoveT = Date.now();
+    if (mcatRunning) mcatEndRun(true);
+    try { MCAT.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  MCAT.addEventListener('pointermove', function (e) {
+    if (!mcatDrag) return;
+    var dx = e.clientX - mcatDrag.x, dy = e.clientY - mcatDrag.y;
+    if (!mcatDrag.moved && Math.sqrt(dx * dx + dy * dy) > 10) {
+      mcatDrag.moved = true;
+      if (!ZONES) mcatZonesBuild();
+      ZONES.classList.add('show');
+    }
+    if (mcatDrag.moved) {
+      mcatMoveT = Date.now();
+      mcatPlace(e.clientX, e.clientY);
+      mcatZonesMark(mcatZoneOf(e.clientX, e.clientY));
+    }
+  });
+  function mcatUp(e) {
+    if (!mcatDrag) return;
+    var moved = mcatDrag.moved;
+    mcatDrag = null;
+    if (ZONES) { ZONES.classList.remove('show'); mcatZoneCur = ''; }
+    if (moved) {
+      var now = Date.now();
+      var r = MCAT.getBoundingClientRect();
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      try { localStorage.setItem('mangaCatPos', JSON.stringify({ x: cx, y: cy })); } catch (err) {}
+      var z = mcatZoneOf(e.clientX, e.clientY);
+      if (z === 'center') {
+        var el = null, oldPe = MCAT.style.pointerEvents;
+        MCAT.style.pointerEvents = 'none';
+        try { el = document.elementFromPoint(e.clientX, e.clientY); } catch (err2) {}
+        MCAT.style.pointerEvents = oldPe;
+        while (el && el !== document.body && el.tagName !== 'IMG') el = el.parentElement;
+        mcatMoveT = now;
+        if (el && el.tagName === 'IMG') {
+          mcatFastT = now + 1400;
+          mcatSayNow(faR(MCAT_PIC), 3400);
+          mcatSet('st-exc');
+        } else {
+          mcatActSt = 'st-dance'; mcatActT = now + 3800;
+          mcatSayNow(faR(MCAT_DROP), 3200);
+          mcatSet('st-dance');
+        }
+        mcatTick(); setTimeout(mcatTick, 4000);
+      } else {
+        mcatZoneLand(z, cx, cy);
+        mcatTick();
+      }
+      return;
+    }
+    var now = Date.now();
+    if (mcatState === 'st-hide') {
+      mcatRestore(Math.random() < 0.5 ? faR(MCAT_FOUND) : faR(MCAT_SHY));
+      return;
+    }
+    if (mcatState === 'st-peek' || MCAT.classList.contains('away')) {
+      mcatRestore(faR(MCAT_BACK));
+      return;
+    }
+    if (mcatRunning) mcatEndRun(true);
+    mcatTaps.push(now);
+    while (mcatTaps.length && mcatTaps[0] < now - 6000) mcatTaps.shift();
+    var fast = 0, i;
+    for (i = 0; i < mcatTaps.length; i++) if (mcatTaps[i] > now - 2200) fast++;
+    /* شمارشِ اذیت (از v269): ضربه در میانهٔ چج/اعصابی + خودِ اپیزودها؛
+       ده بار = خاموش‌کردنِ صفحه‌نمایش! */
+    if (mcatAnnoyT > now || mcatAngryT > now) mcatTeaseN++;
+    if (fast >= 5 || mcatTaps.length >= 5) mcatTeaseN++;
+    if (mcatTeaseN >= 10) { mcatBlackout(); return; }
+    if (fast >= 5) {
+      mcatAngryT = now + 2100;
+      mcatPatT = mcatAnnoyT = mcatActT = mcatShyT = 0; mcatActSt = '';
+      mcatSayNow(faR(MCAT_ANGRY), 2400);
+      if (now - mcatAngerLast > 90000) mcatAngerN = 0;
+      mcatAngerN++; mcatAngerLast = now;
+      if (mcatAngerN >= 2 && Math.random() < 0.45) {
+        setTimeout(function () { mcatGoAway(); }, 2150);
+        mcatAngerN = 0;
+      }
+      mcatTaps = [];
+      mcatTick(); setTimeout(mcatTick, 2150);
+      return;
+    }
+    if (mcatTaps.length >= 5) {
+      mcatAnnoyT = now + 1900;
+      mcatPatT = mcatActT = mcatShyT = 0; mcatActSt = '';
+      mcatSayNow(faR(MCAT_ANNOY), 1900);
+      setTimeout(function () { mcatGoHide(); }, 1950);
+      mcatTaps = [];
+      mcatTick(); setTimeout(mcatTick, 1980);
+      return;
+    }
+    /* نوازش — بعد از ۴ بارِ پشت‌سرهم بعضی وقتا خجالت میکشه */
+    mcatPatT = now + 1700;
+    mcatMoveT = now;
+    if (mcatTaps.length === 4 && Math.random() < 0.4) {
+      mcatPatT = now + 1500;
+      mcatShyT = now + 3900;
+      mcatSayNow(faR(MCAT_PAT), 1400);
+      setTimeout(function () { mcatSayNow(faR(MCAT_SHY), 2300); }, 1550);
+    } else {
+      mcatSayNow(faR(MCAT_PAT), 2600);
+    }
+    mcatTick();
+    setTimeout(mcatTick, 1800);
+  }
+  MCAT.addEventListener('pointerup', mcatUp);
+  MCAT.addEventListener('pointercancel', function () { mcatDrag = null; if (ZONES) { ZONES.classList.remove('show'); mcatZoneCur = ''; } });
+  /* لمسِ صفحهٔ خاموش = روشن‌کردنِ دوباره */
+  if (mcatOffEl) mcatOffEl.addEventListener('pointerdown', function () { mcatWake(); });
+  /* — نقاطِ رهاکردن: بکش و ول کن — */
+  function mcatZoneOf(x, y) {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    if (y < vh * 0.17) return 'top';
+    if (y > vh * 0.83) return 'bottom';
+    if (x < vw * 0.14) return 'left';
+    if (x > vw * 0.86) return 'right';
+    return 'center';
+  }
+  function mcatZonesBuild() {
+    ZONES = document.createElement('div');
+    ZONES.id = 'mcatzones';
+    ZONES.innerHTML = '<div class="mz mz-top" data-z="top">آویزون شو!</div><div class="mz mz-bottom" data-z="bottom">بشین لبه رو!</div><div class="mz mz-left" data-z="left">سرک از بغل!</div><div class="mz mz-right" data-z="right">سرک از بغل!</div><div class="mz mz-center" data-z="center">ژامب و بچرخ!</div>';
+    document.body.appendChild(ZONES);
+  }
+  function mcatZonesMark(z) {
+    if (!ZONES || z === mcatZoneCur) return;
+    mcatZoneCur = z;
+    var zs = ZONES.children, i;
+    for (i = 0; i < zs.length; i++) zs[i].classList.toggle('on', zs[i].getAttribute('data-z') === z);
+  }
+  function mcatZoneLand(z, cx, cy) {
+    var now = Date.now();
+    mcatSaved = { x: cx, y: cy };
+    mcatHideTill = mcatAwayTill = mcatPeekTill = 0;
+    mcatActT = 0; mcatActSt = ''; mcatNextAct = '';
+    MCAT.classList.remove('away', 'hide-l');
+    if (z === 'top') {
+      mcatGlide(function () {
+        MCAT.style.left = (window.innerWidth / 2 - MCAT.offsetWidth / 2) + 'px';
+        MCAT.style.top = '-46px';
+        MCAT.style.right = 'auto';
+      });
+      mcatSet('st-hang');
+      mcatSayNow(faR(MCAT_HANG), 4200);
+    } else if (z === 'bottom') {
+      mcatGlide(function () {
+        MCAT.style.left = Math.max(8, Math.min(cx - MCAT.offsetWidth / 2, window.innerWidth - MCAT.offsetWidth - 8)) + 'px';
+        MCAT.style.top = (window.innerHeight - 66) + 'px';
+        MCAT.style.right = 'auto';
+      });
+      mcatSet('st-edgesit');
+      mcatSayNow(faR(MCAT_SIT), 3800);
+    } else {
+      var rightSide = z === 'right';
+      MCAT.classList.toggle('peek-r', rightSide);
+      mcatGlide(function () {
+        MCAT.style.left = (rightSide ? window.innerWidth - 40 : -48) + 'px';
+        MCAT.style.top = Math.max(70, Math.min(cy - MCAT.offsetHeight / 2, window.innerHeight - 170)) + 'px';
+        MCAT.style.right = 'auto';
+      });
+      mcatSet('st-sidepeek');
+      mcatSayNow(faR(MCAT_SIDE), 3800);
+    }
+    mcatMoveT = now;
+    mcatZoneBack = now + 7500;
+  }
+  /* — چشم‌ها موس رو دنبال می‌کنن (پی‌سی / لینوکس) — */
+  var mcatFine = false;
+  try {
+    mcatFine = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+    if (!mcatFine && navigator.maxTouchPoints === 0 && !/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) mcatFine = true;
+  } catch (err) {}
+  var mcatPupL = null, mcatPupR = null;
+  function mcatEyes(e) {
+    if (!mcatPupL) {
+      var ps = MCAT.querySelectorAll('.cg-eyes-open .cg-pupil');
+      if (ps.length < 2) return;
+      mcatPupL = ps[0]; mcatPupR = ps[1];
+    }
+    var svg = MCAT.querySelector('svg');
+    if (!svg) return;
+    var r = svg.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return;
+    var ex = r.left + r.width * 0.5, ey = r.top + r.height * 0.4;
+    var dx = e.clientX - ex, dy = e.clientY - ey;
+    var d = Math.sqrt(dx * dx + dy * dy) || 1;
+    var k = Math.min(1, d / 260) * 2.4;
+    var t = 'translate(' + ((dx / d) * k).toFixed(2) + 'px,' + ((dy / d) * k * 0.8).toFixed(2) + 'px)';
+    mcatPupL.style.transform = t;
+    mcatPupR.style.transform = t;
+  }
+  if (mcatFine) {
+    window.addEventListener('mousemove', mcatEyes, { passive: true });
+    document.addEventListener('mouseleave', function () {
+      if (mcatPupL) { mcatPupL.style.transform = 'translate(0,0)'; mcatPupR.style.transform = 'translate(0,0)'; }
+    });
+  }
+  /* — قلابِ تست — */
+  window.__mcatForce = function (st) {
+    mcatForceSt = ''; mcatForceTill = 0;
+    mcatPatT = 0; mcatAnnoyT = 0; mcatAngryT = 0; mcatShyT = 0;
+    mcatActT = 0; mcatActSt = ''; mcatNextAct = '';
+    if (mcatRunning) mcatEndRun(true);
+    if (st === 'st-hide') { mcatGoHide(); mcatHideTill = Date.now() + 60000; return; }
+    if (st === 'st-blackout') { mcatBlackout(); return; }
+    if (st === 'st-away') {
+      mcatAwayTill = 0;
+      if (mcatState !== 'st-peek' && !MCAT.classList.contains('away')) mcatGoAway();
+      mcatAwayTill = Date.now() + 2600;
+      setTimeout(function () { if (MCAT.classList.contains('away')) mcatStartPeek(); }, 2700);
+      setTimeout(function () { if (mcatState === 'st-peek') mcatRestore('برگشتم!'); }, 5400);
+      return;
+    }
+    if (st === 'st-run') { if (!mcatRunning) { mcatActCd = 0; mcatStartRun(); } return; }
+    if (st === 'st-hang' || st === 'st-edgesit' || st === 'st-sidepeek') {
+      var zr = MCAT.getBoundingClientRect();
+      mcatZoneLand(st === 'st-hang' ? 'top' : st === 'st-edgesit' ? 'bottom' : (Math.random() < 0.5 ? 'left' : 'right'), zr.left + zr.width / 2, zr.top + zr.height / 2);
+      mcatTick();
+      return;
+    }
+    if (ACT_DUR[st]) {
+      mcatActSt = st; mcatActT = Date.now() + ACT_DUR[st] + 400; mcatMoveT = Date.now();
+      mcatSayNow(faR(ACT_SAY[st]), ACT_DUR[st]);
+      if (st === 'st-hungry' && Math.random() < 0.55) mcatNextAct = 'st-eat';
+      mcatSet(st);
+      mcatTick();
+      setTimeout(mcatTick, ACT_DUR[st] + 500);
+      return;
+    }
+    if (st === 'st-pat') { mcatPatT = Date.now() + 2000; mcatMoveT = Date.now(); mcatSayNow(faR(MCAT_PAT), 2600); }
+    else if (st === 'st-annoy') { mcatAnnoyT = Date.now() + 2600; mcatSayNow(faR(MCAT_ANNOY), 2600); }
+    else if (st === 'st-angry') { mcatAngryT = Date.now() + 2600; mcatSayNow(faR(MCAT_ANGRY), 2400); }
+    else if (st === 'st-shy') { mcatShyT = Date.now() + 3200; mcatSayNow(faR(MCAT_SHY), 3200); }
+    else if (st === 'st-exc') { mcatFastT = Date.now(); mcatSayNow('ایول، این ورق رو دیدی؟!', 2600); }
+    else if (st === 'st-sleep') { mcatMoveT = 0; }
+    else if (st === 'st-read' || st === 'st-sad' || st === 'st-stress') {
+      mcatForceSt = st; mcatForceTill = Date.now() + 6000;
+      if (st === 'st-sad') mcatSayNow('تموم شد؟! ننووو', 3000);
+      if (st === 'st-stress') mcatSayNow('وای، یه کم مونده…', 3000);
+      if (st === 'st-read') mcatSayNow(faR(MCAT_READ), 3000);
+    }
+    mcatTick();
+  };
+  /* — حلقهٔ اصلی — */
+  var iv = setInterval(function () {
+    mcatTick();
+    mcatUpdate();
+    if (typeof stackCount === 'function' && typeof dbgMode !== 'undefined') {
+      var mk = dbgMode ? 'd' : 'f';
+      var n = stackCount();
+      if (mcatLastN >= 0 && n > mcatLastN && mk === mcatLastMk) {
+        if (mcatState === 'st-hide' || mcatState === 'st-peek' || MCAT.classList.contains('away')) mcatRestore('صفحهٔ تازه؟ اومدم اومدم!');
+        else if (mcatPatT < Date.now()) { mcatFastT = Date.now() + 900; mcatSayNow('یه صفحهٔ تازه رسید!', 3200); mcatTick(); }
+      }
+      mcatLastN = n; mcatLastMk = mk;
+    }
+    var mp = mcatInfo().pct;
+    var mstep = mp >= 0.75 ? 3 : mp >= 0.5 ? 2 : mp >= 0.25 ? 1 : 0;
+    if (mstep > mcatMile) {
+      mcatMile = mstep;
+      if (mcatState !== 'st-hide' && mcatState !== 'st-peek' && !MCAT.classList.contains('away') && mcatPatT < Date.now()) {
+        mcatFastT = Date.now() + 900;
+        mcatSayNow(MCAT_MILE[mstep - 1], 3200);
+        mcatTick();
+      }
+    }
+    if (mcatState === 'st-read' && !mcatSayUntil && Math.random() < 0.02) mcatSayNow(faR(MCAT_READ), 5200);
+  }, 900);
+  var welcomeT = setTimeout(function () {
+    if (mcatState === 'st-read') mcatSayNow('سلام! من نکو-گِرلم — بکشم ببر جاهای مختلف!', 3600);
+  }, 900);
+  /* — شروع — */
+  try {
+    var sp = JSON.parse(localStorage.getItem('mangaCatPos') || 'null');
+    if (sp && typeof sp.x === 'number') mcatPlace(sp.x, sp.y);
+    else mcatPlace(window.innerWidth - 60, 170);
+  } catch (err) { mcatPlace(window.innerWidth - 60, 170); }
+  if (mcatScrollEl) mcatScrollEl.addEventListener('scroll', mcatOnScroll, { passive: true });
+  else window.addEventListener('scroll', mcatOnScroll, false);
+  mcatUpdate();
+  mcatTick();
+  window.__mcatKill = function () {
+    clearInterval(iv);
+    clearTimeout(welcomeT);
+    if (mcatRunT) clearTimeout(mcatRunT);
+    window.removeEventListener('scroll', mcatOnScroll, false);
+    window.removeEventListener('mousemove', mcatEyes, false);
+    if (ZONES && ZONES.parentNode) ZONES.parentNode.removeChild(ZONES);
+    ZONES = null; mcatZoneCur = '';
+    if (mcatScrollEl) { try { mcatScrollEl.removeEventListener('scroll', mcatOnScroll); } catch (err) {} }
+  };
+  })();
