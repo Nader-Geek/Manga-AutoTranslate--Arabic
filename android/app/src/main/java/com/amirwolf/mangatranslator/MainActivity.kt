@@ -3125,6 +3125,15 @@ class MainActivity : AppCompatActivity() {
             val dir = java.io.File(cacheDir, "pdfview_$tag")
             dir.deleteRecursively()
             dir.mkdirs()
+// توکنِ این خروجیِ PDF برای کشِ نمایشگر — هر PDF (یا بازسازیِ آن)
+// توکنِ خودش را دارد؛ بازگشتن به همان PDF = همان توکن = کشِ بی‌نت
+            try {
+                val tok = java.security.MessageDigest.getInstance("MD5")
+                    .digest((pdfPath + "#" + java.io.File(pdfPath).lastModified())
+                        .toByteArray(Charsets.UTF_8))
+                    .joinToString("") { "%02x".format(it) }
+                java.io.File(dir, "run.txt").writeText(tok)
+            } catch (_: Exception) {}
             val pfd = ParcelFileDescriptor.open(java.io.File(pdfPath),
                 ParcelFileDescriptor.MODE_READ_ONLY)
             val renderer = android.graphics.pdf.PdfRenderer(pfd)
@@ -3358,6 +3367,27 @@ class MainActivity : AppCompatActivity() {
         val dpaths: MutableList<String> = java.util.Collections.synchronizedList(
             mutableListOf<String>().apply { addAll(dbgPaths) })
         if (paths.isEmpty() && dpaths.isEmpty() && total <= 0) return
+// توکنِ ران: کلیدهای کشِ نمایشگر (IndexedDB) و آدرسِ پایه با آن
+// جدا میشوند — عکسِ جدید = توکنِ جدید = تصویرِ رانِ قبل هرگز از کش
+// نشان داده نمیشود (مشکلِ «عکسِ دومی دادم، عکسِ قبلی را نشان داد»).
+// رانِ زنده: run.txt از bridge (هر ران نو میشود)؛ خروجی/PDF: هشِ
+// پوشه + نام + mtimeٔ فایلِ اول (بازگشتن به همان خروجی = همان توکن
+// = کشِ بی‌نت).
+        val runTok: String = try {
+            val dir = File(paths[0]).parentFile
+            val rf = File(dir, "run.txt")
+            val rt = if (dir != null && rf.isFile)
+                rf.readText().trim().filter { it.isLetterOrDigit() }.take(32) else ""
+            if (rt.isNotEmpty()) rt
+            else {
+                val f0 = File(paths[0])
+                val src = (dir?.canonicalPath ?: "?") + "#" + f0.name +
+                    "#" + f0.lastModified()
+                val dg = java.security.MessageDigest.getInstance("MD5")
+                    .digest(src.toByteArray(Charsets.UTF_8))
+                "f" + dg.joinToString("") { "%02x".format(it) }.substring(0, 15)
+            }
+        } catch (_: Exception) { stampNow() }
 
         val imgRx = Regex("/i/(\\d+)(?:\\?.*)?$")  // ?r= برایِ بهروزرسانیِ ۱۵تایی
         val dbgRx = Regex("/d/(\\d+)/?$")
@@ -3413,9 +3443,9 @@ class MainActivity : AppCompatActivity() {
 // قدیمیِ نوارِ بالا حذف شده‌اند (دستورِ سازنده).
         html = html.replace(
             "data-ndbg=\"0\"",
-            "data-ndbg=\"${dpaths.size}\"")
+            "data-ndbg=\"${dpaths.size}\" data-run=\"$runTok\"")
 
-        wv.loadDataWithBaseURL("https://localhost/", html, "text/html", "utf-8", null)
+        wv.loadDataWithBaseURL("https://localhost/$runTok/", html, "text/html", "utf-8", null)
 
         wv.webViewClient = object : android.webkit.WebViewClient() {
             override fun shouldInterceptRequest(

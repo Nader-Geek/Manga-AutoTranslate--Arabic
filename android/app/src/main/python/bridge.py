@@ -917,10 +917,21 @@ def _run(job):
                 pass
         job["live"] = os.path.join(job["out"], "live")
         shutil.rmtree(job["live"], ignore_errors=True)
+        os.makedirs(job["live"], exist_ok=True)
         os.environ["MANGA_LIVE_DIR"] = job["live"]
         job["live_dbg"] = os.path.join(job["out"], "live_debug")
         shutil.rmtree(job["live_dbg"], ignore_errors=True)
+        os.makedirs(job["live_dbg"], exist_ok=True)
         os.environ["MANGA_LIVE_DEBUG_DIR"] = job["live_dbg"]
+# توکنِ ران: نمایشگر اندروید کلیدهای کشش (IndexedDB) و آدرسِ پایه را
+# با این جدا میکند — عکسِ جدید = توکنِ جدید = تصویرِ رانِ قبل هرگز
+# از کش نشان داده نمیشود؛ بازگشتن به همان ران = همان توکن = کشِ بی‌نت
+        try:
+            with open(os.path.join(job["live"], "run.txt"), "w",
+                      encoding="utf-8") as _rf:
+                _rf.write(str(int(time.time() * 1000)))
+        except Exception:
+            pass
         langs = [x for x in str(p.get("ocr_lang") or "en").split() if x.strip()]
 # سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
 # فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا
