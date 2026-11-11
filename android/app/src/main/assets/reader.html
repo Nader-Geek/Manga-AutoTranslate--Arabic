@@ -10,18 +10,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>خواندن</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans-serif;overscroll-behavior-y:contain;-webkit-user-select:none;user-select:none;height:100%;overflow:hidden}.rdr{background:#000;direction:ltr;height:100%;display:flex;flex-direction:column}.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;background:rgba(12,12,14,.97);border-bottom:1px solid #232326;z-index:2;flex:0 0 auto}.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}.rdr-btn:active{background:#2a2a30}.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}.rdrS{flex:1 1 auto;overflow:auto;position:relative;background:#000;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-x pan-y}.rdrC{margin:0 auto;max-width:min(100%,900px);width:100%}.rdrC .lg{width:100%;position:relative}.rdrC .lg[hidden]{display:none}.rdrC img{display:block;width:100%;height:auto;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none;background:#0b0b0d}.dslot{position:relative;width:100%}.dslot>svg.dovl{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:block}.rdrC.no-det .g-det{display:none}.rdrC.no-pdet .g-pdet{display:none}.rdrC.no-rec .g-rec{display:none}.rdr-progress{position:fixed;bottom:0;left:0;right:0;height:3px;background:#1a1a1c;z-index:3}.rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}.zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}.ph{width:100%;direction:rtl;aspect-ratio:2/3;background:linear-gradient(100deg,#101012 40%,#17171a 50%,#101012 60%);background-size:200% 100%;animation:shph 1.6s infinite;border-radius:10px;margin:0 0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#5d5b55;font-size:.8rem}@keyframes shph{0%{background-position:120% 0}100%{background-position:-80% 0}}.sp{width:26px;height:26px;border-radius:50%;border:3px solid #26262a;border-top-color:#ff4a3d;animation:spinph 1s linear infinite}@keyframes spinph{to{transform:rotate(360deg)}}@media (max-width:480px){.rdr-bar{gap:4px;padding:6px 8px}.rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}.rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}}#fab{position:fixed;z-index:60;left:18px;bottom:26px;width:60px;height:60px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}#fab:active{transform:scale(.93)}#fab.open{background:#2c1210;color:#ffb3ab;font-size:1.2rem}.fbtn{position:fixed;z-index:59;width:58px;height:58px;border-radius:50%;background:#1c1c20;border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.55);opacity:0;pointer-events:none;transform:scale(.3);transition:opacity .15s ease-out,transform .15s ease-out,left .15s linear,top .15s linear}.fbtn.show{opacity:1;pointer-events:auto;transform:scale(1)}.fbtn .ic{font-size:1.02rem;line-height:1.1}.fbtn.on{border-color:#3a8bff;background:#101f38;color:#fff}.fbtn.fdbg.on{border-color:#ff4a3d;background:#2c1210}.rdr-btn.hot{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}#cmp{position:fixed;inset:0;z-index:70;background:#000;display:none;flex-direction:column}#cmp.show{display:flex}.cmp-bar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0c0c0e;border-bottom:1px solid #232326;flex:0 0 auto;direction:rtl}.cmp-t{flex:1;color:#e8e6e1;font-size:.85rem;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.cbtn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;min-width:40px;min-height:40px;font-size:1.02rem;cursor:pointer;flex:none;font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}.cbtn:active{background:#2a2a30}.cmp-stage{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;background:#0b0b0d}.cmp-stage img{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none;background:#0b0b0d}#cmpBWrap{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 50%);-webkit-clip-path:inset(0 0 0 50%)}#cmpDiv{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.75);z-index:3;pointer-events:none}#cmpDiv .cmp-h{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:#fff;color:#151517;display:flex;align-items:center;justify-content:center;font-size:1.05rem;box-shadow:0 2px 12px rgba(0,0,0,.6)}.cmp-lab{position:absolute;top:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;z-index:3;pointer-events:none}.cmp-lab.b{right:12px}.cmp-lab.a{left:12px}
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans-serif;overscroll-behavior-y:contain;-webkit-user-select:none;user-select:none;height:100%;overflow:hidden}.rdr{background:#000;direction:ltr;height:100%;display:flex;flex-direction:column}.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;background:rgba(12,12,14,.97);border-bottom:1px solid #232326;z-index:2;flex:0 0 auto}.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}.rdr-btn:active{background:#2a2a30}.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}.rdrS{flex:1 1 auto;overflow:auto;position:relative;background:#000;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-x pan-y}.rdrC{margin:0 auto;max-width:min(100%,900px);width:100%}.rdrC .lg{width:100%;position:relative}.rdrC .lg[hidden]{display:none}.rdrC img{display:block;width:100%;height:auto;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none;background:#0b0b0d}.dslot{position:relative;width:100%}.dslot>svg.dovl{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:block}.rdrC.no-det .g-det{display:none}.rdrC.no-pdet .g-pdet{display:none}.rdrC.no-rec .g-rec{display:none}.rdr-progress{position:fixed;bottom:0;left:0;right:0;height:3px;background:#1a1a1c;z-index:3}.rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}.zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}.ph{width:100%;direction:rtl;aspect-ratio:2/3;background:linear-gradient(100deg,#101012 40%,#17171a 50%,#101012 60%);background-size:200% 100%;animation:shph 1.6s infinite;border-radius:10px;margin:0 0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#5d5b55;font-size:.8rem}@keyframes shph{0%{background-position:120% 0}100%{background-position:-80% 0}}.sp{width:26px;height:26px;border-radius:50%;border:3px solid #26262a;border-top-color:#ff4a3d;animation:spinph 1s linear infinite}@keyframes spinph{to{transform:rotate(360deg)}}@media (max-width:480px){.rdr-bar{gap:4px;padding:6px 8px}.rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}.rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}}#fab{position:fixed;z-index:80;left:18px;bottom:26px;width:60px;height:60px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}#fab:active{transform:scale(.93)}#fab.open{background:#2c1210;color:#ffb3ab;font-size:1.2rem}.fbtn{position:fixed;z-index:79;width:58px;height:58px;border-radius:50%;background:#1c1c20;border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.55);opacity:0;pointer-events:none;transform:scale(.3);transition:opacity .15s ease-out,transform .15s ease-out,left .15s linear,top .15s linear}.fbtn.show{opacity:1;pointer-events:auto;transform:scale(1)}.fbtn .ic{font-size:1.02rem;line-height:1.1}.fbtn.on{border-color:#3a8bff;background:#101f38;color:#fff}.fbtn.fdbg.on{border-color:#ff4a3d;background:#2c1210}.fbtn.fcmp.on{border-color:#ff4a3d;background:#2c1210}.rdr-btn.hot{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}#cmp{position:fixed;inset:0;z-index:70;background:#000;display:none}#cmp.show{display:block}.cmp-stage{position:absolute;inset:0;overflow:hidden;touch-action:none;background:#0b0b0d}.cmp-stage img{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none;background:#0b0b0d}#cmpBWrap{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 50%);-webkit-clip-path:inset(0 0 0 50%)}#cmpDiv{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.75);z-index:3;pointer-events:none}#cmpDiv .cmp-h{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:#fff;color:#151517;display:flex;align-items:center;justify-content:center;font-size:1.05rem;box-shadow:0 2px 12px rgba(0,0,0,.6)}.cmp-lab{position:absolute;top:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;z-index:3;pointer-events:none}.cmp-lab.b{right:12px}.cmp-lab.a{left:12px}.cmp-tchip{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.62);color:#fff;border-radius:9px;padding:4px 12px;font-size:.8rem;z-index:4;pointer-events:none;direction:rtl;white-space:nowrap}
 /* —— هم‌خوانِ نکو-گِرل: دخترِ گربه‌ایِ انیمه‌ای (گوش + دُم، خودش دختر!) —— */
-.mcat{position:fixed;z-index:57;right:10px;top:58px;width:64px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}
+.mcat{position:fixed;z-index:57;right:10px;top:64px;width:64px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 4px 9px rgba(0,0,0,.5));cursor:pointer;transition:opacity .3s}
+@media (min-width:768px){.mcat{width:94px;right:18px;top:auto;bottom:112px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}}
 .mcat svg{display:block;width:100%;height:auto;pointer-events:none}
+.mcat.hide-l svg{transform:scaleX(-1)}
+.mcat.hide-l .mcat-bub,.mcat.hide-l .mcat-say{right:auto;left:0}
+.mcat.hide-l .mcat-say:after{right:auto;left:14px}
 .mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;border-radius:10px;padding:2px 8px;font-size:.66rem;font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;opacity:1;transition:opacity .35s}
 .mcat-bub.dim{opacity:0}
 .mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease}
 .mcat-say.show{opacity:1;transform:translateY(0) scale(1)}
 .mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}
 .cg-eyes,.cg-mv,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark,.cg-anger,.cg-steam,.cg-ball,.cg-music{display:none}
-.mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy,.mcat.st-annoy .cg-eyes-annoy,.mcat.st-angry .cg-eyes-angry,.mcat.st-ball .cg-eyes-up,.mcat.st-spin .cg-eyes-happy,.mcat.st-music .cg-eyes-happy,.mcat.st-hide .cg-eyes-annoy,.mcat.st-peek .cg-eyes-open{display:block}
-.mcat.st-read .cg-mv-smile,.mcat.st-exc .cg-mv-smile,.mcat.st-sleep .cg-mv-smile,.mcat.st-stress .cg-mv-smile,.mcat.st-sad .cg-mv-smile,.mcat.st-pat .cg-mv-smile,.mcat.st-spin .cg-mv-smile,.mcat.st-peek .cg-mv-smile,.mcat.st-annoy .cg-mv-pout,.mcat.st-hide .cg-mv-pout,.mcat.st-angry .cg-mv-shout,.mcat.st-ball .cg-mv-o,.mcat.st-music .cg-mv-song{display:block}
+.mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy,.mcat.st-annoy .cg-eyes-annoy,.mcat.st-angry .cg-eyes-angry,.mcat.st-ball .cg-eyes-up,.mcat.st-spin .cg-eyes-happy,.mcat.st-music .cg-eyes-happy,.mcat.st-hide .cg-eyes-open,.mcat.st-peek .cg-eyes-open{display:block}
+.mcat.st-read .cg-mv-smile,.mcat.st-exc .cg-mv-smile,.mcat.st-sleep .cg-mv-smile,.mcat.st-stress .cg-mv-smile,.mcat.st-sad .cg-mv-smile,.mcat.st-pat .cg-mv-smile,.mcat.st-spin .cg-mv-smile,.mcat.st-peek .cg-mv-smile,.mcat.st-hide .cg-mv-smile,.mcat.st-annoy .cg-mv-pout,.mcat.st-angry .cg-mv-shout,.mcat.st-ball .cg-mv-o,.mcat.st-music .cg-mv-song{display:block}
 .mcat.st-sleep .cg-zzz{display:block}
 .mcat.st-stress .cg-sweat{display:block}
 .mcat.st-sad .cg-tears{display:block}
@@ -36,7 +40,7 @@
 @keyframes mcBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
 @keyframes mcWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}75%{transform:rotate(7deg)}}
 @keyframes mcTail{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}
-@keyframes mcEarT{0%,90%,100%{transform:rotate(0)}95%{transform:rotate(-9deg)}}
+@keyframes mcEarT{0%,90%,100%{transform:rotate(0)}95%{transform:rotate(-6deg)}}
 @keyframes mcPop{0%{opacity:0;transform:translateY(4px)}25%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}
 @keyframes mcBlink{0%,93.5%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
 @keyframes mcShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2.6px)}75%{transform:translateX(2.6px)}}
@@ -48,7 +52,12 @@
 @keyframes mcFume{0%{opacity:0;transform:translateY(6px)}30%{opacity:.95}100%{opacity:0;transform:translateY(-16px)}}
 @keyframes mcNote{0%{opacity:0;transform:translateY(6px)}25%{opacity:1}100%{opacity:0;transform:translateY(-17px)}}
 @keyframes mcPeekBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(3deg)}}
-.mcat .cg-all{transform-origin:60px 104px;animation:mcBob 3.4s ease-in-out infinite}
+.cg-wall{display:none}
+.mcat.st-hide .cg-wall{display:block}
+.mcat.st-hide .cg-hold{display:none}
+.mcat.st-hide .cg-shift{transform:translateX(6px)}
+.mcat.st-hide .cg-legs{display:none}
+.mcat .cg-all{transform-origin:60px 106px;animation:mcBob 3.4s ease-in-out infinite}
 .mcat.st-exc .cg-all{animation:mcBounce .55s ease-in-out infinite}
 .mcat.st-sleep .cg-all{animation:mcBreath 2.8s ease-in-out infinite}
 .mcat.st-pat .cg-all{animation:mcWiggle .45s ease-in-out 3}
@@ -62,29 +71,35 @@
 .mcat.st-peek .cg-all{animation:mcPeekBob 2.4s ease-in-out infinite}
 .mcat.st-annoy .cg-head{transform:translateX(-7px) rotate(-10deg)}
 .mcat.st-annoy .cg-blush{display:none}
-.mcat .cg-tail{transform-origin:82px 106px;animation:mcTail 3s ease-in-out infinite}
+.mcat .cg-tail{transform-origin:76px 102px;animation:mcTail 3s ease-in-out infinite}
 .mcat.st-exc .cg-tail,.mcat.st-ball .cg-tail,.mcat.st-spin .cg-tail{animation:mcTail .45s ease-in-out infinite}
 .mcat.st-stress .cg-tail{animation:mcTail .9s ease-in-out infinite}
 .mcat.st-angry .cg-tail{animation:mcTail .3s linear infinite}
 .mcat.st-sleep .cg-tail{animation:none}
-.mcat .cg-ear-l{transform-origin:34px 28px;animation:mcEarT 6s ease-in-out infinite}
-.mcat .cg-ear-r{transform-origin:86px 28px;animation:mcEarT 6s ease-in-out .8s infinite}
+.mcat .cg-ear-l{transform-origin:37px 33px;animation:mcEarT 6s ease-in-out infinite}
+.mcat .cg-ear-r{transform-origin:83px 33px;animation:mcEarT 6s ease-in-out .8s infinite}
 .mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,.mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}
-.mcat .cg-eyes-open{transform-origin:60px 52px;animation:mcBlink 5.6s infinite}
+.mcat .cg-eyes-open{transform-origin:60px 58px;animation:mcBlink 5.6s infinite}
 .mcat .cg-heart{animation:mcPop 1.6s ease-out}
 .mcat .cg-zzz text{animation:mcPop 2.4s ease-in-out infinite}
 .mcat .cg-zzz text:nth-child(2){animation-delay:.5s}
 .mcat .cg-ball{animation:mcBall 2.9s cubic-bezier(.33,.66,.45,1) 1}
-.mcat .cg-anger{transform-origin:90px 26px;animation:mcAnger .55s ease-in-out 4}
+.mcat .cg-anger{transform-origin:93px 19px;animation:mcAnger .55s ease-in-out 4}
 .mcat .cg-steam circle{animation:mcFume 1.6s ease-out 2}
 .mcat .cg-steam circle:nth-child(2){animation-delay:.4s}
 .mcat .cg-music .n1{animation:mcNote 1.6s ease-out 2}
 .mcat .cg-music .n2{animation:mcNote 1.6s ease-out .55s 2}
-.mcat.st-hide svg{clip-path:inset(0 0 26% 0);-webkit-clip-path:inset(0 0 26% 0)}
 .mcat.st-peek svg{clip-path:inset(0 0 22% 34%);-webkit-clip-path:inset(0 0 22% 34%)}
 .mcat.peek-r svg{clip-path:inset(0 34% 22% 0);-webkit-clip-path:inset(0 34% 22% 0)}
 .mcat.away{opacity:0;pointer-events:none;transition:opacity .35s .7s}
 .mcat.glide{transition:left .75s cubic-bezier(.35,.8,.35,1),top .75s cubic-bezier(.35,.8,.35,1),opacity .3s}
+#mcatOff{position:fixed;inset:0;z-index:95;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .5s ease;direction:rtl}
+#mcatOff.show{opacity:1;pointer-events:auto;cursor:pointer}
+#mcatOff .off-eyes{width:min(220px,46vw);height:auto;animation:offBlink 4.6s ease-in-out infinite}
+#mcatOff .off-t1{color:#ffd964;font-weight:700;font-size:1.06rem}
+#mcatOff .off-t2{color:#cfd2da;font-size:.92rem}
+#mcatOff .off-t3{color:#6d6a63;font-size:.74rem;margin-top:16px}
+@keyframes offBlink{0%,86%,100%{transform:scaleY(1)}90%,94%{transform:scaleY(.06)}}
 </style>
 </head>
 <body data-ndbg="0">
@@ -105,85 +120,91 @@
 <button type="button" id="fab" aria-label="منو" style="display:none">منو</button>
 <div class="mcat st-read" id="mcat" title="هم‌خوانِ گربه‌ای — کشیدن = جابه‌جایی، ضربه = نوازش (زیادش نکن!)">
 <svg viewBox="0 0 120 132">
+<g class="cg-shift">
 <g class="cg-all">
-<g class="cg-tail"><path d="M82 106 Q114 102 108 76 Q105 66 93 70" fill="none" stroke="#eec06d" stroke-width="7.5" stroke-linecap="round"/><path d="M95 69 q-4 1.5 -2.5 5.5" fill="none" stroke="#f2a3b3" stroke-width="4.2" stroke-linecap="round"/><path d="M80 104 l-6 -4.5 M80 104 l6.5 -3.5" fill="none" stroke="#ff8fae" stroke-width="3" stroke-linecap="round"/></g>
-<path d="M26 48 Q22 10 60 10 Q98 10 94 48 Q94 72 84 82 Q60 88 36 82 Q26 72 26 48 Z" fill="#eec06d"/>
-<path d="M28 36 Q10 42 12 62 Q13 78 6 94 Q13 90 15 97 Q18 82 23 68 Q27 54 33 46 Z" fill="#eec06d"/>
-<path d="M92 36 Q110 42 108 62 Q107 78 114 94 Q107 90 105 97 Q102 82 97 68 Q93 54 87 46 Z" fill="#eec06d"/>
-<path d="M17 60 Q18 74 13 88" fill="none" stroke="#db9f4e" stroke-width="2" stroke-linecap="round"/>
-<path d="M103 60 Q102 74 107 88" fill="none" stroke="#db9f4e" stroke-width="2" stroke-linecap="round"/>
-<path d="M28 37 l-8 -5.5 l1.5 10.5 Z M28 37 l8 -5.5 l-1.5 10.5 Z" fill="#ff8fae"/><circle cx="28" cy="37" r="2.2" fill="#ffb3c6"/>
-<path d="M92 37 l-8 -5.5 l1.5 10.5 Z M92 37 l8 -5.5 l-1.5 10.5 Z" fill="#ff8fae"/><circle cx="92" cy="37" r="2.2" fill="#ffb3c6"/>
-<line x1="52" y1="112" x2="52" y2="126" stroke="#ffe3c9" stroke-width="5" stroke-linecap="round"/>
-<line x1="68" y1="112" x2="68" y2="126" stroke="#ffe3c9" stroke-width="5" stroke-linecap="round"/>
-<line x1="52" y1="118" x2="52" y2="124" stroke="#fff" stroke-width="5.6" stroke-linecap="round"/>
-<line x1="68" y1="118" x2="68" y2="124" stroke="#fff" stroke-width="5.6" stroke-linecap="round"/>
-<rect x="46" y="124" width="12" height="5.5" rx="2.75" fill="#c9473f"/>
-<rect x="62" y="124" width="12" height="5.5" rx="2.75" fill="#c9473f"/>
-<path d="M38 100 Q60 94 82 100 L87 115 Q60 108 33 115 Z" fill="#7d598e"/>
-<path d="M33 115 Q60 108 87 115" fill="none" stroke="#664678" stroke-width="2" stroke-linecap="round"/>
-<path d="M47 84 Q60 78 73 84 L76 100 Q60 105 44 100 Z" fill="#6b4a7a"/>
-<circle cx="44" cy="88" r="7.5" fill="#6b4a7a"/>
-<circle cx="76" cy="88" r="7.5" fill="#6b4a7a"/>
-<path d="M51 82 Q60 89 69 82 L67 88 Q60 92 53 88 Z" fill="#fff"/>
-<path d="M60 88 l-4 6.5 l4 -1.2 l4 1.2 Z" fill="#ff5d78"/>
-<path d="M43 94 Q44 99 47 102" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/>
-<path d="M77 94 Q76 99 73 102" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/>
-<g class="cg-book"><rect x="40" y="94" width="40" height="26" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="95.5" x2="60" y2="118.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="45.5" y1="101.5" x2="55.5" y2="101.5"/><line x1="45.5" y1="107.5" x2="55.5" y2="107.5"/><line x1="45.5" y1="113.5" x2="51.5" y2="113.5"/><line x1="64.5" y1="101.5" x2="74.5" y2="101.5"/><line x1="64.5" y1="107.5" x2="74.5" y2="107.5"/><line x1="64.5" y1="113.5" x2="70.5" y2="113.5"/></g></g>
-<circle cx="47" cy="103" r="3.6" fill="#ffe3c9"/>
-<circle cx="73" cy="103" r="3.6" fill="#ffe3c9"/>
+<g class="cg-tail"><path d="M72 107 Q113 104 108 78 Q106 66 97 68" fill="none" stroke="#db9f4e" stroke-width="9.6" stroke-linecap="round"/><path d="M72 107 Q113 104 108 78 Q106 66 97 68" fill="none" stroke="#eec06d" stroke-width="7.2" stroke-linecap="round"/><path d="M99 67 q-4.5 1.5 -3 6" fill="none" stroke="#f2a3b3" stroke-width="4.6" stroke-linecap="round"/><path d="M74 105 l-6.5 -4.5 M74 105 l7 -3.5" fill="none" stroke="#ff8fae" stroke-width="3" stroke-linecap="round"/></g>
+<g class="cg-legs"><line x1="51" y1="106" x2="51" y2="113" stroke="#ffe3c9" stroke-width="6" stroke-linecap="round"/>
+<line x1="69" y1="106" x2="69" y2="113" stroke="#ffe3c9" stroke-width="6" stroke-linecap="round"/>
+<line x1="51" y1="112.5" x2="51" y2="124" stroke="#fff" stroke-width="6.2" stroke-linecap="round"/>
+<line x1="69" y1="112.5" x2="69" y2="124" stroke="#fff" stroke-width="6.2" stroke-linecap="round"/>
+<line x1="51" y1="113.5" x2="51" y2="116.5" stroke="#e8e4dc" stroke-width="7.2" stroke-linecap="round"/>
+<line x1="69" y1="113.5" x2="69" y2="116.5" stroke="#e8e4dc" stroke-width="7.2" stroke-linecap="round"/>
+<rect x="45" y="123.5" width="12" height="6" rx="3" fill="#c9473f"/>
+<rect x="63" y="123.5" width="12" height="6" rx="3" fill="#c9473f"/></g>
+<path d="M36 88 Q60 80 84 88 L90 109 Q60 100 30 109 Z" fill="#7d598e"/>
+<path d="M30 109 Q60 100 90 109" fill="none" stroke="#664678" stroke-width="2" stroke-linecap="round"/>
+<path d="M46 82 Q60 75 74 82 L77 99 Q60 105 43 99 Z" fill="#6b4a7a"/>
+<circle cx="43.5" cy="88" r="7.5" fill="#6b4a7a"/>
+<circle cx="76.5" cy="88" r="7.5" fill="#6b4a7a"/>
+<path d="M50 80 Q60 88 70 80 L68 87.5 Q60 91.5 52 87.5 Z" fill="#fff"/>
+<path d="M60 86 l-4.5 7 l4.5 -1.3 l4.5 1.3 Z" fill="#ff5d78"/>
+<g class="cg-hold"><path d="M43.5 92 Q43.5 100 46.5 104.5" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/><path d="M76.5 92 Q76.5 100 73.5 104.5" fill="none" stroke="#ffe3c9" stroke-width="4.5" stroke-linecap="round"/><g class="cg-book"><rect x="38" y="99" width="44" height="25" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="100.5" x2="60" y2="122.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="43.5" y1="105.5" x2="55" y2="105.5"/><line x1="43.5" y1="110.5" x2="55" y2="110.5"/><line x1="43.5" y1="115.5" x2="50" y2="115.5"/><line x1="65" y1="105.5" x2="76.5" y2="105.5"/><line x1="65" y1="110.5" x2="76.5" y2="110.5"/><line x1="65" y1="115.5" x2="70" y2="115.5"/></g></g><circle cx="46" cy="104" r="3.8" fill="#ffe3c9"/><circle cx="74" cy="104" r="3.8" fill="#ffe3c9"/></g>
 <g class="cg-head">
-<g class="cg-ear cg-ear-l"><path d="M34 30 L22 5 L52 19 Z" fill="#eec06d"/><path d="M35 25 L28.5 11 L46.5 20 Z" fill="#f2a3b3"/></g>
-<g class="cg-ear cg-ear-r"><path d="M86 30 L98 5 L68 19 Z" fill="#eec06d"/><path d="M85 25 L91.5 11 L73.5 20 Z" fill="#f2a3b3"/></g>
-<path d="M32 44 Q32 15 60 15 Q88 15 88 44 Q88 62 79 70 Q70 78 60 78 Q50 78 41 70 Q32 62 32 44 Z" fill="#ffe3c9"/>
-<path d="M31 44 Q30 14 60 13 Q90 14 89 44 Q84 27 73 26 Q67 16 60 17 Q53 16 47 26 Q36 27 31 44 Z" fill="#eec06d"/>
-<path d="M46 24 Q52 17 60 17" fill="none" stroke="#f7d492" stroke-width="2" stroke-linecap="round"/>
-<path d="M32 44 Q29 58 35 67 Q39 57 38 45 Z" fill="#eec06d"/>
-<path d="M88 44 Q91 58 85 67 Q81 57 82 45 Z" fill="#eec06d"/>
-<g class="cg-eyes cg-eyes-open"><path d="M40.5 45.5 Q47 41.5 53.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M66.5 45.5 Q73 41.5 79.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="47" cy="53" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="44.8" cy="48.8" r="2.2" fill="#fff"/><circle cx="49.8" cy="55.6" r="1.05" fill="#fff"/><ellipse cx="73" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="73" cy="53" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="70.8" cy="48.8" r="2.2" fill="#fff"/><circle cx="75.8" cy="55.6" r="1.05" fill="#fff"/></g>
-<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#453247" stroke-width="2.4" stroke-linecap="round"><path d="M40.5 53 Q47 44.5 53.5 53"/><path d="M66.5 53 Q73 44.5 79.5 53"/></g>
-<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"><path d="M40.5 51.5 Q47 56 53.5 51.5"/><path d="M66.5 51.5 Q73 56 79.5 51.5"/></g>
-<g class="cg-eyes cg-eyes-worry"><path d="M41 43.5 L52.5 46.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M79 43.5 L67.5 46.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="4.6" ry="6" fill="#57405f"/><circle cx="45.4" cy="50.8" r="1.5" fill="#fff"/><ellipse cx="73" cy="53" rx="4.6" ry="6" fill="#57405f"/><circle cx="71.4" cy="50.8" r="1.5" fill="#fff"/></g>
-<g class="cg-eyes cg-eyes-sad"><path d="M40 42 Q46 44.5 52 43.5" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M80 42 Q74 44.5 68 43.5" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="54" rx="5.2" ry="6.6" fill="#57405f"/><circle cx="45.2" cy="51.6" r="1.6" fill="#fff"/><ellipse cx="73" cy="54" rx="5.2" ry="6.6" fill="#57405f"/><circle cx="71.2" cy="51.6" r="1.6" fill="#fff"/></g>
-<g class="cg-eyes cg-eyes-annoy"><path d="M41 42.5 L53 44.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M79 42.5 L67 44.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="5" ry="5.4" fill="#57405f"/><ellipse cx="49.4" cy="53" rx="2.6" ry="3.8" fill="#2e1f33"/><path d="M40 49.5 Q47 46 54 49.5 L54 46.5 Q47 43.5 40 46.5 Z" fill="#ffe3c9"/><ellipse cx="73" cy="53" rx="5" ry="5.4" fill="#57405f"/><ellipse cx="75.4" cy="53" rx="2.6" ry="3.8" fill="#2e1f33"/><path d="M66 49.5 Q73 46 80 49.5 L80 46.5 Q73 43.5 66 46.5 Z" fill="#ffe3c9"/><circle cx="35" cy="61.5" r="5.2" fill="#ffb3ba" opacity=".95"/></g>
-<g class="cg-eyes cg-eyes-angry"><path d="M40 41 L53 45" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M80 41 L67 45" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="53" rx="5.4" ry="6.2" fill="#57405f"/><ellipse cx="47" cy="53.6" rx="2.8" ry="3.9" fill="#2e1f33"/><ellipse cx="73" cy="53" rx="5.4" ry="6.2" fill="#57405f"/><ellipse cx="73" cy="53.6" rx="2.8" ry="3.9" fill="#2e1f33"/><path d="M39.5 45 L54.5 49.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/><path d="M80.5 45 L65.5 49.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/></g>
-<g class="cg-eyes cg-eyes-up"><path d="M40.5 45.5 Q47 41.5 53.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M66.5 45.5 Q73 41.5 79.5 45.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="47" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="47" cy="49.6" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="44.8" cy="46.6" r="2.2" fill="#fff"/><ellipse cx="73" cy="52" rx="6.2" ry="8.2" fill="#57405f"/><ellipse cx="73" cy="49.6" rx="3.1" ry="4.6" fill="#2e1f33"/><circle cx="70.8" cy="46.6" r="2.2" fill="#fff"/></g>
-<ellipse class="cg-blush" cx="38.5" cy="62" rx="4.6" ry="2.6" fill="#ffb3ba" opacity=".75"/>
-<ellipse class="cg-blush" cx="81.5" cy="62" rx="4.6" ry="2.6" fill="#ffb3ba" opacity=".75"/>
-<path class="cg-mv cg-mv-smile" d="M55 64 Q57.5 67.5 60 64 Q62.5 67.5 65 64" fill="none" stroke="#b05a68" stroke-width="1.8" stroke-linecap="round"/>
-<path class="cg-mv cg-mv-pout" d="M56 66 Q60 64 64 66" fill="none" stroke="#b05a68" stroke-width="2" stroke-linecap="round"/>
-<ellipse class="cg-mv cg-mv-shout" cx="60" cy="66.5" rx="4" ry="3.2" fill="#8a4050"/>
-<ellipse class="cg-mv cg-mv-o" cx="60" cy="65.5" rx="2.8" ry="3.6" fill="#8a4050"/>
-<ellipse class="cg-mv cg-mv-song" cx="60" cy="65.5" rx="2.4" ry="2.9" fill="#8a4050"/>
-<g class="cg-sweat"><path d="M91 25 q5 7 0 10.5 q-5 -3.5 0 -10.5" fill="#7ec8f2"/></g>
-<g class="cg-tears"><ellipse cx="44" cy="62" rx="2.3" ry="3.8" fill="#7ec8f2"/><ellipse cx="76" cy="62" rx="2.3" ry="3.8" fill="#7ec8f2"/></g>
-<g class="cg-spark" fill="#ffd86b"><path d="M35 33 l1.7 4.2 4.2 1.7 -4.2 1.7 -1.7 4.2 -1.7 -4.2 -4.2 -1.7 4.2 -1.7 Z"/><path d="M87 37 l1.3 3.2 3.2 1.3 -3.2 1.3 -1.3 3.2 -1.3 -3.2 -3.2 -1.3 3.2 -1.3 Z"/></g>
-<g class="cg-anger" stroke="#ff3d2e" stroke-width="3.6" stroke-linecap="round" fill="none"><path d="M81 15 L88 22"/><path d="M92 26 L99 33"/><path d="M99 15 L92 22"/><path d="M88 26 L81 33"/></g>
-<g class="cg-steam" fill="#cdd3dd"><circle cx="101" cy="30" r="5.2"/><circle cx="109" cy="43" r="3.8"/></g>
+<g class="cg-ear cg-ear-l"><path d="M33 44 L9 1 L60 22 Z" fill="#eec06d"/><path d="M35 37 L19 7 L52 24 Z" fill="#f2a3b3"/><path d="M38 38 q4.5 -3.2 8.5 -1.4 q-2 4.8 -8.5 1.4 Z" fill="#fff" opacity=".9"/></g>
+<g class="cg-ear cg-ear-r"><path d="M87 44 L111 1 L60 22 Z" fill="#eec06d"/><path d="M85 37 L101 7 L68 24 Z" fill="#f2a3b3"/><path d="M82 38 q-4.5 -3.2 -8.5 -1.4 q2 4.8 8.5 1.4 Z" fill="#fff" opacity=".9"/></g>
+<path d="M30 46 Q30 16 60 16 Q90 16 90 46 Q90 70 79 79 Q70 87 60 87 Q50 87 41 79 Q30 70 30 46 Z" fill="#ffe3c9"/>
+<path d="M27 44 Q27 12 60 12 Q93 12 93 44 Q93 68 82 78 Q71 87 60 87 Q49 87 38 78 Q27 68 27 44 Z" fill="#eec06d"/>
+<path d="M28 44 Q27 13 60 13 Q93 13 92 44 Q88 26 76 25 Q69 14 60 15 Q51 14 44 25 Q32 26 28 44 Z" fill="#f2c979"/>
+<path d="M44 25 Q52 16 60 16" fill="none" stroke="#f7d492" stroke-width="2" stroke-linecap="round"/>
+<path d="M63 13 Q57.5 0 72 3.5 Q61.5 5.5 65.5 14.5 Z" fill="#eec06d"/>
+<path d="M27 42 Q25 62 30 76 Q33.5 69 32.5 56 Q32 48 33.5 42 Z" fill="#eec06d"/>
+<path d="M93 42 Q95 62 90 76 Q86.5 69 87.5 56 Q88 48 86.5 42 Z" fill="#eec06d"/>
+<g class="cg-bells"><g class="cg-bell-l"><path d="M32.5 53 l-4.2 -2.4 l.9 5.2 Z" fill="#d42b2b"/><path d="M32.5 53 l4.2 -2.4 l-.9 5.2 Z" fill="#d42b2b"/><circle cx="32.5" cy="53" r="1.3" fill="#b32222"/><circle cx="32.5" cy="47" r="4.8" fill="#f0c93e" stroke="#c99b20" stroke-width="1.5"/><line x1="32.5" y1="44.5" x2="32.5" y2="49.6" stroke="#c99b20" stroke-width="1.5"/><circle cx="32.5" cy="43.8" r="1.1" fill="#c99b20"/></g><g class="cg-bell-r"><path d="M87.5 53 l-4.2 -2.4 l.9 5.2 Z" fill="#d42b2b"/><path d="M87.5 53 l4.2 -2.4 l-.9 5.2 Z" fill="#d42b2b"/><circle cx="87.5" cy="53" r="1.3" fill="#b32222"/><circle cx="87.5" cy="47" r="4.8" fill="#f0c93e" stroke="#c99b20" stroke-width="1.5"/><line x1="87.5" y1="44.5" x2="87.5" y2="49.6" stroke="#c99b20" stroke-width="1.5"/><circle cx="87.5" cy="43.8" r="1.1" fill="#c99b20"/></g></g>
+<g class="cg-eyes cg-eyes-open"><path d="M36.5 49.5 Q43 46 49.5 49.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M70.5 49.5 Q77 46 83.5 49.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="44" cy="59" rx="6.4" ry="8.4" fill="#57405f"/><ellipse cx="44" cy="60" rx="3.2" ry="4.7" fill="#2e1f33"/><circle cx="41.8" cy="55.8" r="2.2" fill="#fff"/><circle cx="46.8" cy="63" r="1.05" fill="#fff"/><ellipse cx="76" cy="59" rx="6.4" ry="8.4" fill="#57405f"/><ellipse cx="76" cy="60" rx="3.2" ry="4.7" fill="#2e1f33"/><circle cx="73.8" cy="55.8" r="2.2" fill="#fff"/><circle cx="78.8" cy="63" r="1.05" fill="#fff"/></g>
+<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#453247" stroke-width="2.4" stroke-linecap="round"><path d="M37 61 Q44 51.5 51 61"/><path d="M69 61 Q76 51.5 83 61"/></g>
+<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"><path d="M37 59.5 Q44 64.5 51 59.5"/><path d="M69 59.5 Q76 64.5 83 59.5"/></g>
+<g class="cg-eyes cg-eyes-worry"><path d="M37 47.5 L48.5 50.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M83 47.5 L71.5 50.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="44" cy="60" rx="4.8" ry="6.2" fill="#57405f"/><circle cx="42.4" cy="57.8" r="1.5" fill="#fff"/><ellipse cx="76" cy="60" rx="4.8" ry="6.2" fill="#57405f"/><circle cx="74.4" cy="57.8" r="1.5" fill="#fff"/></g>
+<g class="cg-eyes cg-eyes-sad"><path d="M36.5 46.5 Q42.5 49 48.5 48" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M83.5 46.5 Q77.5 49 71.5 48" fill="none" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="44" cy="61" rx="5.4" ry="6.8" fill="#57405f"/><circle cx="42.2" cy="64" r="1.6" fill="#fff"/><ellipse cx="76" cy="61" rx="5.4" ry="6.8" fill="#57405f"/><circle cx="74.2" cy="64" r="1.6" fill="#fff"/></g>
+<g class="cg-eyes cg-eyes-annoy"><path d="M37 47.5 L49 49.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><path d="M83 47.5 L71 49.5" stroke="#453247" stroke-width="2" stroke-linecap="round"/><ellipse cx="44" cy="59" rx="5.2" ry="5.6" fill="#57405f"/><ellipse cx="41.6" cy="59" rx="2.7" ry="3.9" fill="#2e1f33"/><path d="M36.5 55.5 Q44 52 51.5 55.5 L51.5 52.5 Q44 49.5 36.5 52.5 Z" fill="#ffe3c9"/><ellipse cx="76" cy="59" rx="5.2" ry="5.6" fill="#57405f"/><ellipse cx="73.6" cy="59" rx="2.7" ry="3.9" fill="#2e1f33"/><path d="M68.5 55.5 Q76 52 83.5 55.5 L83.5 52.5 Q76 49.5 68.5 52.5 Z" fill="#ffe3c9"/><circle cx="34" cy="68" r="5.4" fill="#ffb3ba" opacity=".95"/></g>
+<g class="cg-eyes cg-eyes-angry"><path d="M36.5 46 L49.5 50" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M83.5 46 L70.5 50" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="44" cy="59" rx="5.6" ry="6.4" fill="#57405f"/><ellipse cx="44" cy="59.6" rx="2.9" ry="4" fill="#2e1f33"/><ellipse cx="76" cy="59" rx="5.6" ry="6.4" fill="#57405f"/><ellipse cx="76" cy="59.6" rx="2.9" ry="4" fill="#2e1f33"/><path d="M36 50 L51 54.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/><path d="M84 50 L69 54.5" stroke="#453247" stroke-width="2.6" stroke-linecap="round"/></g>
+<g class="cg-eyes cg-eyes-up"><path d="M36.5 49.5 Q43 46 49.5 49.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><path d="M70.5 49.5 Q77 46 83.5 49.5" fill="none" stroke="#453247" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="44" cy="59" rx="6.4" ry="8.4" fill="#57405f"/><ellipse cx="44" cy="56.6" rx="3.2" ry="4.7" fill="#2e1f33"/><circle cx="41.8" cy="53.6" r="2.2" fill="#fff"/><ellipse cx="76" cy="59" rx="6.4" ry="8.4" fill="#57405f"/><ellipse cx="76" cy="56.6" rx="3.2" ry="4.7" fill="#2e1f33"/><circle cx="73.8" cy="53.6" r="2.2" fill="#fff"/></g>
+<g class="cg-blush" stroke="#ff9eb0" stroke-width="2.1" stroke-linecap="round" opacity="0.8" fill="none"><path d="M35.5 72.5 l6.5 -4.6"/><path d="M38.8 74.3 l6.5 -4.6"/><path d="M84.5 72.5 l-6.5 -4.6"/><path d="M81.2 74.3 l-6.5 -4.6"/></g>
+<path class="cg-mv cg-mv-smile" d="M52 73 Q56 78 60 74 Q64 78 68 73" fill="none" stroke="#b05a68" stroke-width="1.9" stroke-linecap="round"/>
+<path class="cg-mv cg-mv-pout" d="M55.5 76 Q60 73.2 64.5 76" fill="none" stroke="#b05a68" stroke-width="2" stroke-linecap="round"/>
+<ellipse class="cg-mv cg-mv-shout" cx="60" cy="76.5" rx="4.4" ry="3.5" fill="#8a4050"/>
+<ellipse class="cg-mv cg-mv-o" cx="60" cy="75.5" rx="3" ry="3.8" fill="#8a4050"/>
+<ellipse class="cg-mv cg-mv-song" cx="60" cy="75.5" rx="2.5" ry="3.1" fill="#8a4050"/>
+<g class="cg-sweat"><path d="M97 20 q5.5 7.5 0 11 q-5.5 -3.5 0 -11" fill="#7ec8f2"/></g>
+<g class="cg-tears"><ellipse cx="39" cy="73" rx="2.4" ry="4" fill="#7ec8f2"/><ellipse cx="81" cy="73" rx="2.4" ry="4" fill="#7ec8f2"/></g>
+<g class="cg-spark" fill="#ffd86b"><path d="M25 30 l1.7 4.2 4.2 1.7 -4.2 1.7 -1.7 4.2 -1.7 -4.2 -4.2 -1.7 4.2 -1.7 Z"/><path d="M97 33 l1.3 3.2 3.2 1.3 -3.2 1.3 -1.3 3.2 -1.3 -3.2 -3.2 -1.3 3.2 -1.3 Z"/></g>
+<g class="cg-anger" stroke="#ff3d2e" stroke-width="3.6" stroke-linecap="round" fill="none"><path d="M84 9 L91 16"/><path d="M95 20 L102 27"/><path d="M102 9 L95 16"/><path d="M91 20 L84 27"/></g>
+<g class="cg-steam" fill="#cdd3dd"><circle cx="106" cy="29" r="5.2"/><circle cx="114" cy="42" r="3.8"/></g>
 </g>
-<g class="cg-music"><g class="n1"><ellipse cx="100" cy="31" rx="3.4" ry="2.5" transform="rotate(-20 100 31)" fill="#ff9ec4"/><path d="M103.3 30 L103.3 17 q4.5 1.5 4.5 6" fill="none" stroke="#ff9ec4" stroke-width="1.9" stroke-linecap="round"/></g><g class="n2"><ellipse cx="111" cy="42" rx="3" ry="2.2" transform="rotate(-20 111 42)" fill="#ff9ec4"/><path d="M113.7 41.2 L113.7 30 q4 1.3 4 5.2" fill="none" stroke="#ff9ec4" stroke-width="1.7" stroke-linecap="round"/></g></g>
-<g class="cg-ball"><circle cx="88" cy="97" r="7.5" fill="#fdfdfd" stroke="#c9473f" stroke-width="2.2"/><path d="M80.5 97 a7.5 7.5 0 0 1 15 0 Z" fill="#c9473f"/><circle cx="85.4" cy="94.2" r="1.6" fill="#fff"/></g>
+<g class="cg-music"><g class="n1"><ellipse cx="103" cy="28" rx="3.4" ry="2.5" transform="rotate(-20 103 28)" fill="#ff9ec4"/><path d="M106.3 27 L106.3 14 q4.5 1.5 4.5 6" fill="none" stroke="#ff9ec4" stroke-width="1.9" stroke-linecap="round"/></g><g class="n2"><ellipse cx="113" cy="40" rx="3" ry="2.2" transform="rotate(-20 113 40)" fill="#ff9ec4"/><path d="M115.7 39.2 L115.7 28 q4 1.3 4 5.2" fill="none" stroke="#ff9ec4" stroke-width="1.7" stroke-linecap="round"/></g></g>
+<g class="cg-ball"><circle cx="89" cy="98" r="7.5" fill="#fdfdfd" stroke="#c9473f" stroke-width="2.2"/><path d="M81.5 98 a7.5 7.5 0 0 1 15 0 Z" fill="#c9473f"/><circle cx="86.4" cy="95.2" r="1.6" fill="#fff"/></g>
 <path class="cg-heart" d="M96 33s-8-4.5-8-11a4 4 0 018-1 4 4 0 018 1c0 6.5-8 11-8 11z" fill="#ff5d78"/>
 </g>
+</g>
 <g class="cg-zzz" fill="#cfd2da" font-family="system-ui,sans-serif" font-weight="700"><text x="86" y="22" font-size="8">z</text><text x="95" y="13" font-size="11">Z</text></g>
+<g class="cg-wall">
+<rect x="71" y="-2" width="49" height="136" fill="#b7aa92"/>
+<rect x="71" y="-2" width="49" height="7" rx="3.5" fill="#998b70"/>
+<rect x="71" y="-2" width="2.4" height="136" fill="#d0c2a6"/>
+<rect x="73.4" y="-2" width="1.4" height="136" fill="rgba(0,0,0,.22)"/>
+<path d="M66 102 Q80 97 85 109 Q74 114 66 102 Z" fill="#eec06d"/>
+<circle cx="82.5" cy="108" r="3.4" fill="#f2a3b3"/>
+<g><path d="M65 55 q6.5 -6 14 -1.5 q1.5 6 -4.5 7.5 q-8 1.5 -9.5 -6 Z" fill="#5d3f69"/><circle cx="78" cy="64" r="6.5" fill="#ffe3c9" stroke="#e0a878" stroke-width="1.3"/><path d="M74.9 69 l-.5 2.8 M78 69.4 l.2 2.8" stroke="#d9a06b" stroke-width="1.6" stroke-linecap="round"/></g>
+<g><path d="M66 71 q6.5 -6 14 -1.5 q1.5 6 -4.5 7.5 q-8 1.5 -9.5 -6 Z" fill="#5d3f69"/><circle cx="79" cy="80" r="6.5" fill="#ffe3c9" stroke="#e0a878" stroke-width="1.3"/><path d="M75.9 85 l-.5 2.8 M79 85.4 l.2 2.8" stroke="#d9a06b" stroke-width="1.6" stroke-linecap="round"/></g>
+</g>
 </svg>
 <div class="mcat-bub">۰٪ · ۱/۱</div>
 <div class="mcat-say"></div>
 </div>
 <div id="cmp">
-  <div class="cmp-bar">
-    <button type="button" class="cbtn" id="cmpX" title="بستن">✕</button>
-    <div class="cmp-t" id="cmpT">صفحهٔ ۱</div>
-    <button type="button" class="cbtn" id="cmpPrev" title="صفحهٔ قبل">‹</button>
-    <button type="button" class="cbtn" id="cmpNext" title="صفحهٔ بعد">›</button>
-  </div>
   <div class="cmp-stage" id="cmpStage">
     <img id="cmpA" alt="بعد — ترجمه‌شده" draggable="false">
     <div id="cmpBWrap"><img id="cmpB" alt="قبل — اصلی" draggable="false"></div>
     <div id="cmpDiv"><span class="cmp-h">⇔</span></div>
     <span class="cmp-lab b">قبل</span>
     <span class="cmp-lab a">بعد</span>
+    <div class="cmp-tchip" id="cmpT">صفحهٔ ۱</div>
   </div>
+</div>
+<div id="mcatOff" aria-hidden="true">
+<svg class="off-eyes" viewBox="0 0 150 58" aria-hidden="true"><defs><radialGradient id="mcOffG"><stop offset="0" stop-color="#ffd964" stop-opacity=".55"/><stop offset=".55" stop-color="#ffd964" stop-opacity=".2"/><stop offset="1" stop-color="#ffd964" stop-opacity="0"/></radialGradient></defs><path d="M28 24 L33 8 L44 19 Z" fill="#ffd964" opacity=".38"/><path d="M122 24 L117 8 L106 19 Z" fill="#ffd964" opacity=".38"/><g><ellipse cx="40" cy="36" rx="34" ry="19" fill="url(#mcOffG)"/><path d="M16 36 Q40 18 64 36 Q40 52 16 36 Z" fill="#ffd964"/><circle cx="32" cy="33" r="3.2" fill="#fff" opacity=".95"/><circle cx="48" cy="39" r="2.1" fill="#fff" opacity=".75"/></g><g><ellipse cx="110" cy="36" rx="34" ry="19" fill="url(#mcOffG)"/><path d="M86 36 Q110 18 134 36 Q110 52 86 36 Z" fill="#ffd964"/><circle cx="102" cy="33" r="3.2" fill="#fff" opacity=".95"/><circle cx="118" cy="39" r="2.1" fill="#fff" opacity=".75"/></g></svg>
+<div class="off-t1">دخترِ گربه‌ای خسته شد!</div>
+<div class="off-t2">صفحه رو خاموش کرد… دیگه اذیت نکن!</div>
+<div class="off-t3">برای روشن‌کردن، صفحه را لمس کن</div>
 </div>
 <script>
 (function(){
@@ -958,17 +979,20 @@
   }
   setInterval(pollMtimes, 2500);
 
-  // ——— دکمهٔ گردِ «منو»: قابلِ جابه‌جایی؛ با زدن، پنج دکمه دورش
-  // میآیند (دیباگ/نهایی، det، p-det، rec، قبل/بعد)؛ خودِ دکمه در حالتِ
-  // باز «✕» می‌شود و با زدنش منو بسته می‌شود (دستورِ سازنده). ———
+  // ——— دکمهٔ گردِ «منو»: قابلِ جابه‌جایی؛ با زدن، دکمه‌ها دورش
+  // میآیند (det، p-det، rec، قبل/بعد + در مقایسهٔ باز: قبلی/بعدی و
+  // خودِ «قبل/بعد» به «✕ بستن» تبدیل می‌شود). سوئیچِ دیباگ/نهایی فقط
+  // دکمهٔ بالای صفحه است (دستورِ سازنده: «چرا دکمهٔ نهایی توشه وقتی
+  // بالا صفحه هست — تو دکمهٔ منو حذف کن»). ———
   const fab = document.getElementById('fab');
   let fanState = 0;   // ۰=بسته | ۱=فنِ باز
   const fanDefs = [
-    { key: 'dbg', ic: '\ud83d\udd0d', lb: 'دیباگ' },
     { key: 'det', ic: '\u25eb', lb: 'det' },
     { key: 'pdet', ic: '\u25fa', lb: 'p-det' },
     { key: 'rec', ic: '\u25a4', lb: 'rec' },
-    { key: 'cmp', ic: '\u21c4', lb: 'قبل/بعد' }
+    { key: 'cmp', ic: '\u21c4', lb: 'قبل/بعد' },
+    { key: 'prev', ic: '\u2039', lb: 'قبلی', cmpOnly: true },
+    { key: 'next', ic: '\u203a', lb: 'بعدی', cmpOnly: true }
   ];
   const fans = fanDefs.map((def) => {
     const fb = document.createElement('button');
@@ -980,8 +1004,9 @@
     fb.addEventListener('click', (e) => {
       e.stopPropagation();
       const k = fb.getAttribute('data-k');
-      if (k === 'dbg') { dbgMode = !dbgMode; applyMode(); return; }
       if (k === 'cmp') { if (cmpOn) cmpClose(); else cmpOpenFn(); updateFan(); return; }
+      if (k === 'prev') { cmpLoad(cmpIdx - 1); updateFan(); return; }
+      if (k === 'next') { cmpLoad(cmpIdx + 1); updateFan(); return; }
       ov[k] = ov[k] ? 0 : 1;
       try { localStorage.setItem('mangaRdrOv', JSON.stringify(ov)); } catch (err) {}
       c.classList.toggle('no-' + k, !ov[k]);
@@ -1113,18 +1138,18 @@
       const fb = fans[i], def = fanDefs[i];
       fb.style.left = (pts[i].x - 29) + 'px';
       fb.style.top = (pts[i].y - 29) + 'px';
+      const isCmp = def.key === 'cmp';
       fb.querySelector('.ic').textContent =
-        (def.key === 'dbg') ? (dbgMode ? '\ud83d\udcd6' : '\ud83d\udd0d') : def.ic;
+        (isCmp && cmpOn) ? '\u2715' : def.ic;
       fb.querySelector('.lb').textContent =
-        (def.key === 'dbg') ? (dbgMode ? 'نهایی' : 'دیباگ') : def.lb;
-      fb.classList.toggle('fdbg', def.key === 'dbg');
-      fb.classList.toggle('on',
-        (def.key === 'dbg') ? !!dbgMode :
-        (def.key === 'cmp') ? !!cmpOn : !!ov[def.key]);
-      fb.title = (def.key === 'dbg') ? 'نهایی/دیباگ' :
-        (def.key === 'cmp') ? 'مقایسهٔ قبل/بعد' :
+        (isCmp && cmpOn) ? 'بستن' : def.lb;
+      fb.classList.toggle('fcmp', isCmp);
+      fb.classList.toggle('on', isCmp ? !!cmpOn : !!ov[def.key]);
+      fb.title = isCmp ? 'مقایسهٔ قبل/بعد' :
+        (def.key === 'prev' || def.key === 'next') ? 'صفحهٔ قبل/بعد در مقایسه' :
         ({ det: 'detector.onnx', pdet: 'paddle det', rec: 'paddle rec' })[def.key] || '';
-      fb.classList.toggle('show', show);
+      // «قبلی/بعدی» فقط وقتیِ مقایسهٔ باز — کنترلها داخلِ خودِ منو
+      fb.classList.toggle('show', show && (!def.cmpOnly || cmpOn));
     }
   }
   const activeList = () => (dbgMode && ndbg > 0) ? lgD : lgF;
@@ -1180,7 +1205,7 @@
         imgGet('d/' + cmpIdx).then((u) => { cmpBImg.src = u; })
           .catch(() => { cmpBImg.src = au; });
       });
-    cmpT.textContent = 'صفحهٔ ' + (cmpIdx + 1) + ' از ' + n;
+    cmpT.textContent = 'صفحهٔ ' + String(cmpIdx + 1).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]) + ' از ' + String(n).replace(/\d/g, (d) => '\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9'[+d]);
     goToPage(cmpIdx);
   };
   const cmpOpenFn = () => {
@@ -1188,21 +1213,16 @@
     cmpEl.classList.add('show');
     cmpLoad(curPageIdx());
     cmpSet(cmpFracV);
+    // کنترلهایِ قبل/بعد حالا داخلِ منو هستند — منو باز می‌ماند
+    fanState = 1;
+    updateFan();
   };
   const cmpClose = () => {
     cmpOn = false;
     try { cmpEl.classList.remove('show'); } catch (err) {}
     // فن باز می‌ماند تا گزینهٔ بعدی سریع انتخاب شود؛ بستنِ فن با ✕ خودش
+    updateFan();
   };
-  document.getElementById('cmpX').addEventListener('click', (e) => {
-    e.stopPropagation(); cmpClose();
-  });
-  document.getElementById('cmpPrev').addEventListener('click', (e) => {
-    e.stopPropagation(); cmpLoad(cmpIdx - 1);
-  });
-  document.getElementById('cmpNext').addEventListener('click', (e) => {
-    e.stopPropagation(); cmpLoad(cmpIdx + 1);
-  });
   let cdrag = false;
   const cmpFromX = (x) => {
     const r = cmpStage.getBoundingClientRect();
@@ -1239,9 +1259,11 @@
   // ——— هم‌خوانِ نکو-گِرل (دخترِ گربه‌ایِ انیمه‌ای — گوش + دُمِ گربه،
   // خودش دختر است!) — درصد/صفحه + ۱۳ حالت: خواندن / هیجانِ اسکرول /
   // خواب / استرسِ ۹۰٪ / غمِ پایان / نوازش / چج از نوازشِ زیاد →
-  // قایم‌شدن در گوشهٔ سایت / اعصابی از کتک → قهر و خروج از صفحه +
-  // سرک‌کشیدن از لبه / حوصله‌سررفتگی: چرخشِ دنبالِ دُم، توپ‌بازی،
-  // زمزمه‌ی آهنگ / جشنهای ۲۵-۵۰-۷۵٪ + حرفهای بامزه + درگ. ———
+  // قایم‌شدن پشتِ دیوارِ لبهٔ صفحه (از پشتِ دیوار نگاه می‌کند!) /
+  // اعصابی از کتک → قهر و خروج از صفحه + سرک‌کشیدن از لبه /
+  // حوصله‌سررفتگی: چرخشِ دنبالِ دُم، توپ‌بازی، زمزمه‌ی آهنگ /
+  // اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش! / جشنهایِ
+  // ۲۵-۵۰-۷۵٪ + حرفهای بامزه + درگ. روی PC بزرگ‌تر و پایین-راست. ———
   const MCAT = document.getElementById('mcat');
   if (MCAT) {
     const mcatBub = MCAT.querySelector('.mcat-bub');
@@ -1263,14 +1285,17 @@
       'st-music': ['هوم~ هوم~', 'لالالالا~', 'دلم یه آهنگ میخواد~']
     };
     const MCAT_MILE = ['یک‌چهارمش رفت!', 'نصفش رفت! یهوو!', 'سه‌چهارمش رفت! وایسا'];
+    const MCAT_OFF = ['بس بود! صفحه رو خاموش می‌کنم!', 'دیگه بسه! دکمهٔ خاموش کجاست…'];
     let mcatState = 'st-read';
     let mcatLastTs = 0, mcatLastY = -1, mcatFastT = 0, mcatMoveT = Date.now();
     let mcatBotT = 0, mcatPatT = 0, mcatSayUntil = 0;
     let mcatLastN = -1, mcatLastMk = '';
     let mcatHideTill = 0, mcatAwayTill = 0, mcatPeekTill = 0, mcatPeekR = false;
     let mcatAnnoyT = 0, mcatAngryT = 0, mcatActT = 0, mcatActSt = '', mcatActCd = 0;
-    let mcatTaps = [], mcatAngerN = 0, mcatAngerLast = 0;
+    let mcatTaps = [], mcatAngerN = 0, mcatAngerLast = 0, mcatTeaseN = 0;
     let mcatSaved = null, mcatMile = 0;
+    // نصفِ عرضِ واقعی — روی PC بزرگ‌تر است (media query)
+    const mcHalf = () => (MCAT.offsetWidth || 64) / 2;
     const mcatSet = (st) => {
       if (mcatState === st) return;
       MCAT.classList.remove(mcatState);
@@ -1294,7 +1319,7 @@
     };
     const mcatRestore = (say) => {
       mcatHideTill = mcatAwayTill = mcatPeekTill = 0;
-      MCAT.classList.remove('away', 'peek-r');
+      MCAT.classList.remove('away', 'peek-r', 'hide-l');
       if (mcatSaved) {
         const sv = mcatSaved;
         mcatGlide(() => mcatPlace(sv.x, sv.y));
@@ -1304,27 +1329,43 @@
       if (say) mcatSayNow(say, 3000);
       mcatTick();
     };
-    const mcatGoCorner = () => {
+    // قایم‌شدن پشتِ دیوار: به لبهٔ نزدیکِ صفحه می‌رود، دیوار داخلِ SVG
+    // نیمهٔ پشتیش را می‌پوشاند و از پشتِ دیوار نگاه می‌کند (دستها روی
+    // لبهٔ دیوار + نوکِ دُم بیرون!) — دستورِ سازنده: «از دیوار قایمکی
+    // نگاه کنه» — دیگر فقط «گوشهٔ بالا» نمی‌رود.
+    const mcatGoHide = () => {
       if (mcatState === 'st-hide') return;
       const r = MCAT.getBoundingClientRect();
-      mcatSaved = { x: r.left + 32, y: r.top + 32 };
-      const cx = r.left + 32 < window.innerWidth / 2 ? 46 : window.innerWidth - 46;
-      mcatGlide(() => mcatPlace(cx, 82));
+      const half = mcHalf(), w = MCAT.offsetWidth || 64;
+      mcatSaved = { x: r.left + half, y: r.top + half };
+      const onRight = (r.left + half) >= window.innerWidth / 2;
+      MCAT.classList.toggle('hide-l', !onRight);
+      const hy = Math.min(Math.max(r.top + half, window.innerHeight * 0.36),
+        window.innerHeight - half - 30);
+      // چسبیده به لبه — دیوار با لبهٔ صفحه یکی می‌شود (بدون درز)
+      mcatGlide(() => {
+        MCAT.style.left = (onRight ? window.innerWidth - w + 1 : -1) + 'px';
+        MCAT.style.top = (hy - half) + 'px';
+        MCAT.style.right = 'auto';
+        MCAT.style.bottom = 'auto';
+      });
       mcatSet('st-hide');
       mcatHideTill = Date.now() + 12000 + Math.random() * 6000;
-      mcatSayNow('هی! اینجا کسی نمی‌بینمم!', 2800);
+      mcatSayNow('پشتِ دیوال قایم شدم، گیرم نمیاری!', 2800);
     };
     const mcatGoAway = () => {
       if (mcatState === 'st-hide' || mcatState === 'st-peek' ||
           MCAT.classList.contains('away')) return;
       const r = MCAT.getBoundingClientRect();
-      mcatSaved = { x: r.left + 32, y: r.top + 32 };
-      mcatPeekR = r.left + 32 >= window.innerWidth / 2;
-      const ay = Math.min(Math.max(r.top + 32, 130), window.innerHeight - 110);
+      const half = mcHalf(), w = MCAT.offsetWidth || 64;
+      mcatSaved = { x: r.left + half, y: r.top + half };
+      mcatPeekR = (r.left + half) >= window.innerWidth / 2;
+      const ay = Math.min(Math.max(r.top + half, 130), window.innerHeight - 110);
       mcatGlide(() => {
-        MCAT.style.left = (mcatPeekR ? window.innerWidth - 44 : -20) + 'px';
-        MCAT.style.top = (ay - 32) + 'px';
+        MCAT.style.left = (mcatPeekR ? window.innerWidth - w * 0.68 : -w * 0.32) + 'px';
+        MCAT.style.top = (ay - half) + 'px';
         MCAT.style.right = 'auto';
+        MCAT.style.bottom = 'auto';
       });
       setTimeout(() => { MCAT.classList.add('away'); }, 700);
       mcatAwayTill = Date.now() + 25000 + Math.random() * 15000;
@@ -1337,6 +1378,32 @@
       mcatSet('st-peek');
       mcatPeekTill = Date.now() + 9000;
       mcatSayNow('…هنوز قهرم!', 2400);
+    };
+    // ——— اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش! ———
+    // دستورِ سازنده: «هی اذیت کنی بالاخره ده بار صفحه‌نمایش ببنده» —
+    // کلِ صفحه سیاه می‌شود، فقط دو چشمِ درخشانِ او در تاریکی می‌ماند؛
+    // با لمس (یا بعد از ~۵ ثانیه) دوباره روشن می‌شود.
+    const mcatOffEl = document.getElementById('mcatOff');
+    let mcatOffTimer = null;
+    const mcatWake = () => {
+      if (!mcatOffEl || !mcatOffEl.classList.contains('show')) return;
+      mcatOffEl.classList.remove('show');
+      if (mcatOffTimer) { clearTimeout(mcatOffTimer); mcatOffTimer = null; }
+      mcatRestore('دیدی چیکار می‌کنم؟! دیگه اذیت نکن~');
+    };
+    const mcatBlackout = () => {
+      mcatTeaseN = 0;
+      mcatTaps = [];
+      mcatAnnoyT = mcatAngryT = mcatPatT = mcatActT = 0;
+      mcatSayNow(faR(MCAT_OFF), 1900);
+      mcatSet('st-annoy');
+      mcatTick();
+      setTimeout(() => {
+        if (!mcatOffEl) return;
+        mcatOffEl.classList.add('show');
+        if (mcatOffTimer) clearTimeout(mcatOffTimer);
+        mcatOffTimer = setTimeout(mcatWake, 5200);
+      }, 1600);
     };
     const mcatTick = () => {
       const now = Date.now(), p = mcatPct();
@@ -1408,11 +1475,13 @@
     // جابه‌جایی + نوازش/کتک
     let mcatDrag = null;
     const mcatPlace = (cx, cy) => {
-      const x = Math.min(Math.max(cx, 40), window.innerWidth - 40);
-      const y = Math.min(Math.max(cy, 64), window.innerHeight - 82);
-      MCAT.style.left = (x - 32) + 'px';
-      MCAT.style.top = (y - 32) + 'px';
+      const half = mcHalf();
+      const x = Math.min(Math.max(cx, half + 4), window.innerWidth - half - 4);
+      const y = Math.min(Math.max(cy, half + 26), window.innerHeight - half - 26);
+      MCAT.style.left = (x - half) + 'px';
+      MCAT.style.top = (y - half) + 'px';
       MCAT.style.right = 'auto';
+      MCAT.style.bottom = 'auto';
     };
     try {
       const sp = JSON.parse(localStorage.getItem('mangaCatPos') || 'null');
@@ -1437,8 +1506,9 @@
       if (moved) {
         try {
           const r = MCAT.getBoundingClientRect();
+          const half = mcHalf();
           localStorage.setItem('mangaCatPos',
-            JSON.stringify({ x: r.left + 32, y: r.top + 32 }));
+            JSON.stringify({ x: r.left + half, y: r.top + half }));
         } catch (err) {}
         return;
       }
@@ -1453,6 +1523,11 @@
       let fast = 0;
       for (let i = 0; i < mcatTaps.length; i++)
         if (mcatTaps[i] > now - 2200) fast++;
+      // شمارشِ اذیت: ضربه در میانهٔ چج/اعصابی + خودِ اپیزودها؛
+      // ده بار = خاموش‌کردنِ صفحه‌نمایش!
+      if (mcatAnnoyT > now || mcatAngryT > now) mcatTeaseN++;
+      if (fast >= 5 || mcatTaps.length >= 5) mcatTeaseN++;
+      if (mcatTeaseN >= 10) { mcatBlackout(); return; }
       if (fast >= 5) {
         // کتکِ پشت‌سرهم = اعصابی (+ احتمالِ قهر و خروج از صفحه)
         mcatAngryT = now + 2100;
@@ -1469,11 +1544,11 @@
         return;
       }
       if (mcatTaps.length >= 5) {
-        // نوازشِ زیاد = چج → گوشهٔ سایت قایم می‌شود
+        // نوازشِ زیاد = چج → پشتِ دیوارِ لبهٔ صفحه قایم می‌شود
         mcatAnnoyT = now + 1900;
         mcatPatT = mcatActT = 0;
         mcatSayNow(faR(MCAT_ANNOY), 1900);
-        setTimeout(() => { mcatGoCorner(); }, 1950);
+        setTimeout(() => { mcatGoHide(); }, 1950);
         mcatTaps = [];
         mcatTick(); setTimeout(mcatTick, 1980);
         return;
@@ -1487,6 +1562,8 @@
     };
     MCAT.addEventListener('pointerup', mcatUp);
     MCAT.addEventListener('pointercancel', () => { mcatDrag = null; });
+    // لمسِ صفحهٔ خاموش = روشن‌کردنِ دوباره
+    if (mcatOffEl) mcatOffEl.addEventListener('pointerdown', () => { mcatWake(); });
     // قلابِ تست (بی‌ضرر): window.__mcatForce('st-sleep'|'st-annoy'|'st-hide'|…)
     window.__mcatForce = (st) => {
       if (st === 'st-sleep') mcatMoveT = 0;
@@ -1499,7 +1576,8 @@
         mcatActSt = st; mcatActT = Date.now() + 3000;
         mcatSayNow(faR(MCAT_ACT[st]), 3000);
       }
-      if (st === 'st-hide') { mcatGoCorner(); mcatHideTill = Date.now() + 2600; }
+      if (st === 'st-hide') { mcatGoHide(); mcatHideTill = Date.now() + 2600; }
+      if (st === 'st-blackout') { mcatBlackout(); }
       if (st === 'st-away') {
         mcatAwayTill = 0;
         if (mcatState !== 'st-peek' && !MCAT.classList.contains('away')) mcatGoAway();
