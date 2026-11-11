@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.263"
+APP_VER = "1.14.264"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1898,45 +1898,55 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .hint{padding:16px;text-align:center;color:#6b6963;font-size:.85rem}
 .pbar{position:fixed;bottom:0;left:0;right:0;height:4px;background:#1a1a1c;z-index:4}
 .pfill{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}
-#fab{position:fixed;z-index:60;left:50%;bottom:26px;width:60px;height:60px;margin-left:-30px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}
+#fab{position:fixed;z-index:60;left:18px;bottom:26px;width:60px;height:60px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}
 #fab:active{transform:scale(.93)}
 .fbtn{position:fixed;z-index:59;width:58px;height:58px;border-radius:50%;background:#1c1c20;border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.55);opacity:0;pointer-events:none;transform:scale(.3);transition:opacity .15s ease-out,transform .15s ease-out,left .15s linear,top .15s linear}
 .fbtn.show{opacity:1;pointer-events:auto;transform:scale(1)}
 .fbtn .ic{font-size:1.02rem;line-height:1.1}
 .fbtn.on{border-color:#3a8bff;background:#101f38;color:#fff}
 .fbtn.fdbg.on{border-color:#ff4a3d;background:#2c1210}
-#seek{position:fixed;left:0;right:0;top:40%;z-index:58;display:none;padding:12px 8px 8px;direction:ltr;background:rgba(8,8,10,.86)}
-#seek.show{display:block}
-#seek .rail{position:relative;height:44px;display:flex;align-items:center;justify-content:space-between}
-#seek .line{position:absolute;left:48px;right:48px;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:#33333a}
-#seek .fill{position:absolute;left:48px;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:linear-gradient(90deg,#ff4a3d,#ff8a5e);width:0}
-#seek .th{position:absolute;top:50%;left:48px;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #ff4a3d;transform:translate(-50%,-50%);cursor:grab;touch-action:none;z-index:2}
-#seek .th:active{cursor:grabbing}
-#seek .bub{position:absolute;top:4px;left:48px;transform:translateX(-50%);background:#161619;border:1px solid #2a2a2e;color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;white-space:nowrap;direction:rtl;font-variant-numeric:tabular-nums;pointer-events:none}
-.snav{width:42px;height:42px;border-radius:50%;background:#161619;border:1px solid #2a2a2e;color:#e8e6e1;font-size:1.15rem;cursor:pointer;flex:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;z-index:2}
-.snav:active{background:#2a2a30}
-#seek .rlab{display:flex;justify-content:space-between;direction:rtl;color:#8b8880;font-size:.68rem;padding:0 48px;margin-top:2px}
+.zbtn.hot{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}
+#cmp{position:fixed;inset:0;z-index:70;background:#000;display:none;flex-direction:column}
+#cmp.show{display:flex}
+.cmp-bar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0c0c0e;border-bottom:1px solid #232326;flex:0 0 auto;direction:rtl}
+.cmp-t{flex:1;color:#e8e6e1;font-size:.85rem;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cbtn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;min-width:40px;min-height:40px;font-size:1.02rem;cursor:pointer;flex:none;font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.cbtn:active{background:#2a2a30}
+.cmp-stage{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;background:#0b0b0d}
+.cmp-stage img{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none;background:#0b0b0d}
+#cmpBWrap{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 50%);-webkit-clip-path:inset(0 0 0 50%)}
+#cmpDiv{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.75);z-index:3;pointer-events:none}
+#cmpDiv .cmp-h{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:#fff;color:#151517;display:flex;align-items:center;justify-content:center;font-size:1.05rem;box-shadow:0 2px 12px rgba(0,0,0,.6)}
+.cmp-lab{position:absolute;top:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;z-index:3;pointer-events:none}
+.cmp-lab.b{right:12px}
+.cmp-lab.a{left:12px}
 </style></head><body>
-<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><div class="n" id="n">0</div></div>
+<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="mtoggle" style="display:none" title="حالتِ دیباگ/نهایی">دیباگ</button><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><div class="n" id="n">0</div></div>
 <div id="wrap">
 <main class="c" id="cF"><div class="hint" id="hF">در انتظار اولین صفحه…</div></main>
 <main class="c hide" id="cD"><div class="hint" id="hD">در انتظار دیباگ…</div></main>
 </div>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
-<button type="button" id="fab" aria-label="منو">منو</button>
-<div id="seek" dir="ltr">
-  <div class="rail" id="rail">
-    <span class="bub" id="sbub">صفحهٔ ۱</span>
-    <div class="line"></div><div class="fill" id="sfill"></div>
-    <button type="button" class="snav" id="sprev" title="صفحهٔ قبل">‹</button>
-    <div class="th" id="sth"></div>
-    <button type="button" class="snav" id="snext" title="صفحهٔ بعد">›</button>
+<button type="button" id="fab" aria-label="منو" style="display:none">منو</button>
+<div id="cmp">
+  <div class="cmp-bar">
+    <button type="button" class="cbtn" id="cmpX" title="بستن">✕</button>
+    <div class="cmp-t" id="cmpT">صفحهٔ ۱</div>
+    <button type="button" class="cbtn" id="cmpPrev" title="صفحهٔ قبل">‹</button>
+    <button type="button" class="cbtn" id="cmpNext" title="صفحهٔ بعد">›</button>
   </div>
-  <div class="rlab"><span id="slast">آخر</span><span id="sfirst">اول</span></div>
+  <div class="cmp-stage" id="cmpStage">
+    <img id="cmpA" alt="بعد — ترجمه‌شده" draggable="false">
+    <div id="cmpBWrap"><img id="cmpB" alt="قبل — اصلی" draggable="false"></div>
+    <div id="cmpDiv"><span class="cmp-h">⇔</span></div>
+    <span class="cmp-lab b">قبل</span>
+    <span class="cmp-lab a">بعد</span>
+  </div>
 </div>
 <script>
 (function(){
-  var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__";
+  var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__", RUN = "__RUN__";
+  function ck(u){ return RUN + '|' + u; }
   var cF = document.getElementById('cF'), cD = document.getElementById('cD'),
       hF = document.getElementById('hF'), hD = document.getElementById('hD');
   var arrived = 0, total = 0, dbgArrived = 0, dbgMode = false, busy = false;
@@ -2027,7 +2037,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       return Promise.reject(0);
     if (fresh) fails.delete(url);
     var pre = (!fresh)
-      ? idbGet('imgs', url).then(function(hit){
+      ? idbGet('imgs', ck(url)).then(function(hit){
           if (hit && hit.b) {
             var u = URL.createObjectURL(hit.b);
             blobs.set(url, u);
@@ -2042,7 +2052,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                    fresh ? { cache: 'no-store' } : {})
         .then(function(r){ if (!r.ok) throw 0; return r.blob(); })
         .then(function(b){
-          idbPut('imgs', url, { b: b, t: Date.now() });
+          idbPut('imgs', ck(url), { b: b, t: Date.now() });
           var u2 = URL.createObjectURL(b);
           blobs.set(url, u2);
           return u2;
@@ -2054,7 +2064,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   function ovlGet(url, fresh){
     if (!fresh && ovlMem.has(url)) return Promise.resolve(ovlMem.get(url));
     var pre = (!fresh)
-      ? idbGet('ovls', url).then(function(h){ return (h && h.j) ? h.j : null; })
+      ? idbGet('ovls', ck(url)).then(function(h){ return (h && h.j) ? h.j : null; })
       : Promise.resolve(null);
     return pre.then(function(j){
       if (j) { ovlMem.set(url, j); return j; }
@@ -2063,7 +2073,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
         .then(function(r){ if (!r.ok) throw 0; return r.json(); })
         .then(function(j2){
           ovlMem.set(url, j2);
-          idbPut('ovls', url, { j: j2, t: Date.now() });
+          idbPut('ovls', ck(url), { j: j2, t: Date.now() });
           return j2;
         });
     });
@@ -2230,7 +2240,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     var fin = (total > 0 && a >= total);
     b.className = 'n' + (fin ? ' done' : '');
     dot.className = 'dot' + (fin ? ' off' : '');
-    updateSeekPos();
   }
 
   function setMode(dbg){
@@ -2240,9 +2249,25 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     cF.classList.toggle('hide', dbgMode);
     cD.classList.toggle('hide', !dbgMode);
     applyOv();
+    updateFabVis();
     updateFan();
     render();
     probe();
+  }
+  function updateFabVis(){
+    var mt = document.getElementById('mtoggle');
+    if (mt) {
+      mt.style.display = haveDbg ? '' : 'none';
+      mt.textContent = dbgMode ? 'نهایی' : 'دیباگ';
+      if (dbgMode) mt.classList.add('hot'); else mt.classList.remove('hot');
+    }
+    var show = !!(dbgMode && haveDbg);
+    fab.style.display = show ? '' : 'none';
+    if (!show) {
+      fanState = 0;
+      updateFan();
+      if (cmpOn) cmpClose();
+    }
   }
   var ov = { det: 1, pdet: 1, rec: 1 };
   try {
@@ -2280,11 +2305,14 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   }
   (function(){
     var px = null;
-    try { px = JSON.parse(localStorage.getItem('mangaLiveFabPos') || 'null'); } catch (e) {}
+    try { px = JSON.parse(localStorage.getItem('mangaLiveFabPos2') || 'null'); } catch (e) {}
     if (px && typeof px.x === 'number' && typeof px.y === 'number') {
       placeFabXY(px.x, px.y);
     }
   })();
+  var mtEl = document.getElementById('mtoggle');
+  if (mtEl) mtEl.addEventListener('click', function(){ setMode(!dbgMode); });
+  updateFabVis();
   function placeFabXY(cx, cy){
     var r = 30;
     var x = Math.min(Math.max(cx, r + 4), window.innerWidth - r - 4);
@@ -2318,15 +2346,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     if (moved) {
       try {
         var fr = fab.getBoundingClientRect();
-        localStorage.setItem('mangaLiveFabPos',
+        localStorage.setItem('mangaLiveFabPos2',
           JSON.stringify({ x: fr.left + fr.width / 2, y: fr.top + fr.height / 2 }));
       } catch (e2) {}
       return;
     }
-    if (!haveDbg) { fanState = fanState ? 0 : 2; }
-    else { fanState = (fanState + 1) % 3; }
+    fanState = (fanState + 1) % 3;
     updateFan();
-    updateSeekVis();
+    if (fanState === 2) cmpOpenFn();
+    else if (cmpOn) cmpClose();
   }
   fab.addEventListener('pointerup', fabUp);
   fab.addEventListener('pointercancel', function(){ fdrag = null; });
@@ -2377,11 +2405,6 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     })(fans[fj]);
   }
 
-  var seek = document.getElementById('seek'),
-      sth = document.getElementById('sth'),
-      sfill = document.getElementById('sfill'),
-      sbub = document.getElementById('sbub'),
-      rail = document.getElementById('rail');
   function stackCount(){
     return Math.max(1, (dbgMode ? dbgArrived : arrived) || curCont().children.length || 1);
   }
@@ -2406,71 +2429,93 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     var top = ch.getBoundingClientRect().top + window.scrollY - 54;
     window.scrollTo(0, Math.max(0, top));
   }
-  function setSeekFrac(f){
-    var n = stackCount();
-    var pg = Math.min(n, Math.max(1, Math.round(f * (n - 1)) + 1));
-    var w = Math.max(0, rail.clientWidth - 96);
-    var x = 48 + f * w;
-    sth.style.left = x + 'px';
-    sfill.style.width = (f * w) + 'px';
-    sbub.style.left = x + 'px';
-    sbub.textContent = 'صفحهٔ ' + pg + ' از ' + n;
-    return pg;
+  // ——— «قبل/بعد»: مقایسهٔ همان صفحه — قبل = عکسِ اصلیِ بی‌ترجمه
+  // (پایهٔ بی‌روکشِ دیباگ)، بعد = خروجیِ ترجمه‌شده. خطِ عمودیِ وسط با
+  // کشیدن (لمس هم همینطور) جابه‌جا میشود و برشِ قبل/بعد زنده عوض
+  // میشود؛ ‹ › صفحهٔ قبل/بعد را داخلِ همان مقایسه عوض میکند. ———
+  var cmpEl = document.getElementById('cmp'),
+      cmpStage = document.getElementById('cmpStage'),
+      cmpBWrap = document.getElementById('cmpBWrap'),
+      cmpBImg = document.getElementById('cmpB'),
+      cmpAImg = document.getElementById('cmpA'),
+      cmpDivEl = document.getElementById('cmpDiv'),
+      cmpT = document.getElementById('cmpT');
+  var cmpOn = false, cmpFracV = 0.5, cmpIdx = 0;
+  function cmpSet(f){
+    cmpFracV = Math.min(1, Math.max(0, f));
+    var pc = (cmpFracV * 100).toFixed(2) + '%';
+    cmpBWrap.style.clipPath = 'inset(0 0 0 ' + pc + ')';
+    try { cmpBWrap.style.webkitClipPath = 'inset(0 0 0 ' + pc + ')'; } catch (e) {}
+    cmpDivEl.style.left = pc;
   }
-  function updateSeekPos(){
-    if (!seek.classList.contains('show')) return;
-    var n = stackCount();
-    var cur = Math.min(n - 1, curPageIdx());
-    setSeekFrac(n > 1 ? cur / (n - 1) : 0);
+  function cmpPages(){
+    return Math.max(1, Math.max(arrived || 0, dbgArrived || 0));
   }
-  function updateSeekVis(){
-    var show = (fanState === 2);
-    seek.classList.toggle('show', show);
-    if (show) updateSeekPos();
+  function cmpLoad(idx){
+    var n = cmpPages();
+    cmpIdx = Math.min(Math.max(0, idx), n - 1);
+    var au = imgSrc(cmpIdx, false), bu = imgSrc(cmpIdx, true);
+    imgGet(au).then(function(u){ cmpAImg.src = u; })
+      .catch(function(){ cmpAImg.src = au; });
+    imgGet(bu).then(function(u){ cmpBImg.src = u; })
+      .catch(function(){
+        imgGet(bakedSrc(cmpIdx)).then(function(u){ cmpBImg.src = u; })
+          .catch(function(){ cmpBImg.src = au; });
+      });
+    cmpT.textContent = 'صفحهٔ ' + (cmpIdx + 1) + ' از ' + n;
+    goToPage(cmpIdx);
   }
-  var sdrag = false, sraf = 0;
-  function seekFromX(cx){
-    var r = rail.getBoundingClientRect();
-    var w = Math.max(1, r.width - 96);
-    var f = Math.min(1, Math.max(0, (cx - r.left - 48) / w));
-    var pg = setSeekFrac(f);
-    if (!sraf) sraf = requestAnimationFrame(function(){
-      sraf = 0;
-      goToPage(pg - 1);
-    });
+  function cmpOpenFn(){
+    cmpOn = true;
+    cmpEl.classList.add('show');
+    cmpLoad(curPageIdx());
+    cmpSet(cmpFracV);
   }
-  sth.addEventListener('pointerdown', function(e){
-    sdrag = true;
-    try { sth.setPointerCapture(e.pointerId); } catch (e2) {}
+  function cmpClose(){
+    cmpOn = false;
+    try { cmpEl.classList.remove('show'); } catch (e) {}
+    if (fanState === 2) { fanState = 0; updateFan(); }
+  }
+  document.getElementById('cmpX').addEventListener('click', function(e){
+    e.stopPropagation();
+    cmpClose();
+  });
+  document.getElementById('cmpPrev').addEventListener('click', function(e){
+    e.stopPropagation();
+    cmpLoad(cmpIdx - 1);
+  });
+  document.getElementById('cmpNext').addEventListener('click', function(e){
+    e.stopPropagation();
+    cmpLoad(cmpIdx + 1);
+  });
+  var cdrag = false;
+  function cmpFromX(x){
+    var r = cmpStage.getBoundingClientRect();
+    if (r.width < 2) return;
+    cmpSet((x - r.left) / r.width);
+  }
+  cmpStage.addEventListener('pointerdown', function(e){
+    cdrag = true;
+    try { cmpStage.setPointerCapture(e.pointerId); } catch (e2) {}
+    cmpFromX(e.clientX);
     e.preventDefault();
   });
-  sth.addEventListener('pointermove', function(e){ if (sdrag) seekFromX(e.clientX); });
-  sth.addEventListener('pointerup', function(){ sdrag = false; });
-  sth.addEventListener('pointercancel', function(){ sdrag = false; });
-  rail.addEventListener('pointerdown', function(e){
-    if (e.target === sth) return;
-    if (e.target.closest && e.target.closest('.snav')) return;
-    seekFromX(e.clientX);
-  });
-  document.getElementById('sprev').addEventListener('click', function(){
-    goToPage(curPageIdx() - 1); updateSeekPos();
-  });
-  document.getElementById('snext').addEventListener('click', function(){
-    goToPage(curPageIdx() + 1); updateSeekPos();
-  });
+  cmpStage.addEventListener('pointermove', function(e){ if (cdrag) cmpFromX(e.clientX); });
+  cmpStage.addEventListener('pointerup', function(){ cdrag = false; });
+  cmpStage.addEventListener('pointercancel', function(){ cdrag = false; });
   document.addEventListener('pointerdown', function(e){
+    if (cmpOn) return;
     if (fanState === 0) return;
     if (e.target === fab || fab.contains(e.target)) return;
     for (var i = 0; i < fans.length; i++)
       if (fans[i].contains(e.target)) return;
-    if (seek.contains(e.target)) return;
     fanState = 0;
     updateFan();
-    updateSeekVis();
   });
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') {
-      fanState = 0; updateFan(); updateSeekVis();
+      if (cmpOn) { cmpClose(); return; }
+      fanState = 0; updateFan();
     }
   });
 
@@ -2661,13 +2706,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   };
   window.addEventListener('scroll', function(){
     updateProgress();
-    updateSeekPos();
   }, { passive: true });
   window.addEventListener('resize', function(){
     if (z !== 1) applyZoom(z);
     updateProgress();
     updateFan();
-    updateSeekPos();
   });
   pollTotal();
   probe();
@@ -5026,14 +5069,17 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 live_dbg_dir = os.path.join(user_out_dir, "live_debug")
                 shutil.rmtree(live_dbg_dir, ignore_errors=True)
                 os.makedirs(live_dbg_dir, exist_ok=True)
+            _live_run_tok = str(int(time.time() * 1000))
             try:
-                _write_live_reader(live_dir, dbg_dir=live_dbg_dir)
+                _write_live_reader(live_dir, dbg_dir=live_dbg_dir,
+                                   run=_live_run_tok)
             except Exception as _e:
                 print(f"[!] نوشتن live_reader.html ناموفق: {_e}")
             with job["lock"]:
                 job["live_dir"] = live_dir
                 job["live_dbg_dir"] = live_dbg_dir or None
                 job["live_files"] = []
+                job["live_run"] = _live_run_tok
 
             _env = os.environ.copy()
             _env["PYTHONUNBUFFERED"] = "1"
@@ -6203,9 +6249,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             except Exception:
                 return 0
 
-        def _write_live_reader(live_dir: str, dbg_dir: str = "") -> str:
+        def _write_live_reader(live_dir: str, dbg_dir: str = "",
+                               run: str = "") -> str:
             """خوانندهٔ زندهٔ وب را داخل پوشهٔ live می‌نویسد — اسلات لودینگ برای
-            صفحه‌های نرسیده + سوئیچ دیباگ (اگر پوشهٔ live_debug باشد)."""
+            صفحه‌های نرسیده + سوئیچ دیباگ (اگر پوشهٔ live_debug باشد).
+            run = توکنِ این اجرا؛ کلیدهای کشِ مرورگر با آن پیشوند میگیرند
+            تا اجرای جدید هرگز تصویرِ کششدهٔ اجرای قبل را نشان ندهد."""
             import gradio as _gr
             gv = getattr(_gr, "__version__", "4")
             try:
@@ -6221,10 +6270,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 dbg_q = str(dbg_dir).replace(os.sep, "/")
                 if not dbg_q.endswith("/"):
                     dbg_q += "/"
+            run_tok = str(run or "").strip() or str(int(time.time() * 1000))
             html = (_LIVE_READER_TMPL
                     .replace("__PREFIX__", prefix)
                     .replace("__DIR__", urllib.parse.quote(d, safe="/"))
-                    .replace("__DBGDIR__", urllib.parse.quote(dbg_q, safe="/")))
+                    .replace("__DBGDIR__", urllib.parse.quote(dbg_q, safe="/"))
+                    .replace("__RUN__", run_tok))
             path = os.path.join(live_dir, "live_reader.html")
             with open(path, "w", encoding="utf-8") as f:
                 f.write(html)
@@ -6529,12 +6580,18 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             if job:
                 with job["lock"]:
                     d = job.get("live_dir")
+                    rt = job.get("live_run") or ""
                 if d and os.path.isdir(d):
                     try:
                         path = os.path.join(d, "live_reader.html")
                         if not os.path.isfile(path):
-                            _write_live_reader(d, dbg_dir=_dbg_sibling(d))
+                            rt = str(int(time.time() * 1000))
+                            _write_live_reader(d, dbg_dir=_dbg_sibling(d), run=rt)
+                            with job["lock"]:
+                                job["live_run"] = rt
                         url = _reader_file_url(path)
+                        if rt:
+                            url += ("&" if "?" in url else "?") + "v=" + rt
                     except Exception:
                         url = ""
             return url
