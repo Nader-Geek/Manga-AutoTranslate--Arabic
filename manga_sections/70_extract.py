@@ -2161,6 +2161,248 @@ class _MangaTranslatorBody_70:
         return tall > wide
 
     @staticmethod
+    def _ink_bitmap_polar(crop_bgr, poly_mask=None):
+        """ — نقشهٔ جوهرِ «متن» با قطب‌آگاهیِ تیره/روشن (همان
+        منطقِ _ink_slant_measure ولی خروجی = خودِ بیت‌مپ، برایِ
+        سنجشِ ستون‌به‌ستونِ قوس). None = جوهرِ قابل‌اتکا نبود."""
+        try:
+            if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
+                return None
+            h_c, w_c = crop_bgr.shape[:2]
+            g = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+            med = float(np.median(g))
+            _dark = (g < max(60.0, med - 45.0))
+            _bright = (g > min(195.0, max(med + 45.0, 150.0)))
+            if poly_mask is not None:
+                _keep = (poly_mask > 0)
+                _dark = _dark & _keep
+                _bright = _bright & _keep
+            _cands = []
+            _fd = float(_dark.mean())
+            _fb = float(_bright.mean())
+            if 0.010 <= _fd <= 0.45:
+                _cands.append(_dark)
+            if 0.010 <= _fb <= 0.45:
+                _cands.append(_bright)
+            if not _cands:
+                if 0.45 < _fd <= 0.60:
+                    _cands.append(_dark)
+                elif 0.010 <= _fb <= 0.60:
+                    _cands.append(_bright)
+                else:
+                    return None
+            _cands.sort(key=lambda _b: float(_b.mean()))
+            for _ink in _cands:
+                n_, lab_, st_, _c = cv2.connectedComponentsWithStats(
+                    _ink.astype(np.uint8), connectivity=8)
+                clean = np.zeros(_ink.shape, np.uint8)
+                for i in range(1, n_):
+                    a_ = int(st_[i, cv2.CC_STAT_AREA])
+                    if a_ < 12:
+                        continue
+                    x_c = int(st_[i, cv2.CC_STAT_LEFT])
+                    y_c = int(st_[i, cv2.CC_STAT_TOP])
+                    bw_ = int(st_[i, cv2.CC_STAT_WIDTH])
+                    bh_ = int(st_[i, cv2.CC_STAT_HEIGHT])
+                    touches = ((x_c <= 0) + (y_c <= 0)
+                               + (x_c + bw_ >= w_c) + (y_c + bh_ >= h_c))
+                    if touches >= 2:
+                        continue
+                    clean[lab_ == i] = 1
+                if int(clean.sum()) >= 80:
+                    return clean
+            return None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _curve_path_from_ink(original_image, region):
+        """ — مسیرِ «خمیدگیِ» متن: خودِ خطِ متن در اصل روی یک قوس
+        خمیده است (مثلِ تیترهایِ قوسیِ مانگا) — نه فقط کج. سنجشِ
+        ستون‌به‌ستونِ جوهرِ «همان خط» (داخلِ ماسکِ پالیهایِ OCR، رویِ
+        عکسِ اصلی) خطِ پایه را درمیآورد؛ اگر انحنایش از آستانه گذشت
+        (کمانِ واقعی)، مسیرِ نمونه‌برداری‌شده برمیگردد تا ترجمه
+        کلمه‌به‌کلمه روی همان قوس بنشیند. خروجی: دیکشنری با
+        path=[[x,y]… چپ→راست در مختصاتِ صفحه]، lh، sag، d_ang،
+        angle — یا None (متنِ صاف/کجِ ساده).
+
+        نگهبانهایِ «قوسِ کاذب» (بلوکِ چندردیفیِ پلکانی و متنِ ریز):
+        span ≥ ۶۴، پراکندگیِ جوهر دور از منحنی ≤ ۰٫۴۲×ارتفاعِ خط،
+        ≥۸۲٪ جوهر داخلِ نوارِ خط، و زاویهٔ هر پالی همخوان با مماسِ
+        منحنی در جایِ خودش (بلوکِ ۳ردیفیِ پلکانی همهٔ پالیهایش صاف
+        است ولی منحنیِ مرکزِ جرمش تند خم میشود → رد)."""
+        try:
+            polys_raw = list(getattr(region, "ocr_polys", None) or [])
+            if not polys_raw or original_image is None:
+                return None
+            polys = []
+            for p in polys_raw:
+                try:
+                    pp = np.asarray(p, dtype=np.float32).reshape(-1, 2)
+                except Exception:
+                    continue
+                if pp.shape[0] >= 3:
+                    polys.append(pp)
+            if not polys:
+                return None
+# قوس فقط برایِ ناحیهٔ «یک‌خطی» — چندخطیِ پلکانی راهِ خودش را دارد
+            try:
+                _lines = MangaTranslator._group_polys_to_lines(polys_raw)
+            except Exception:
+                _lines = []
+            if _lines and len(_lines) != 1:
+                return None
+# خطِ تقریباً عمودی (متنِ چینِ عمودی) — قوسِ فارسی رویش بی‌معنی
+            try:
+                if MangaTranslator._polys_vertical(polys_raw):
+                    return None
+            except Exception:
+                pass
+            _pts_all = np.concatenate(polys, axis=0)
+            _cx0 = float(_pts_all[:, 0].min()) - 4.0
+            _cy0 = float(_pts_all[:, 1].min()) - 4.0
+            _cx1 = float(_pts_all[:, 0].max()) + 4.0
+            _cy1 = float(_pts_all[:, 1].max()) + 4.0
+            _ix0 = max(0, int(_cx0))
+            _iy0 = max(0, int(_cy0))
+            _ix1 = min(int(original_image.shape[1]), int(np.ceil(_cx1)))
+            _iy1 = min(int(original_image.shape[0]), int(np.ceil(_cy1)))
+            if _ix1 - _ix0 < 64 or _iy1 - _iy0 < 12:
+                return None
+            _mask = MangaTranslator._ocr_poly_mask(
+                (_iy1 - _iy0, _ix1 - _ix0), polys_raw, _ix0, _iy0)
+            ink = MangaTranslator._ink_bitmap_polar(
+                original_image[_iy0:_iy1, _ix0:_ix1], _mask)
+            if ink is None:
+                return None
+            ys_, xs_ = np.nonzero(ink)
+            if len(ys_) < 80:
+                return None
+            pts = np.stack([xs_, ys_], 1).astype(np.float64)
+            cen = pts.mean(axis=0)
+            c = pts - cen
+            cov = np.cov(c.T)
+            ev_, evec = np.linalg.eigh(cov)
+            main = evec[:, int(np.argmax(ev_))]
+            ang = float(np.degrees(np.arctan2(main[1], main[0])))
+            if ang > 90.0:
+                ang -= 180.0
+            if ang < -90.0:
+                ang += 180.0
+            if abs(ang) > 60.0:
+                return None
+            ca, sa = float(np.cos(np.radians(-ang))), float(np.sin(np.radians(-ang)))
+            rx = c[:, 0] * ca - c[:, 1] * sa
+            ry = c[:, 0] * sa + c[:, 1] * ca
+            x0, x1 = float(rx.min()), float(rx.max())
+            span = x1 - x0
+            if span < 64.0:
+                return None
+            nb = int(np.clip(round(span / 3.0), 10, 64))
+            cols = []
+            chs = []
+            for i in range(nb):
+                lo = x0 + span * i / nb
+                hi = x0 + span * (i + 1) / nb
+                sel = (rx >= lo) & (rx < hi)
+                if sel.sum() >= 4:
+                    _yy = ry[sel]
+                    cols.append(((lo + hi) / 2.0, float(_yy.mean())))
+                    chs.append(float(_yy.max() - _yy.min()))
+            if len(cols) < 8 or not chs:
+                return None
+            cxs = np.array([p[0] for p in cols])
+            cys = np.array([p[1] for p in cols])
+# ارتفاعِ واقعیِ «یک ردیف»: ستونهایِ لبهٔ قوس فقط از یک ردیف
+# می‌گذرند (ردیفها پلکانی‌اند و هر ردیف همهٔ عرض را نمی‌گیرد)؛
+# ستونهایِ میانی از چند ردیف. استخرِ (دو کوینتایلِ لبه + صدکِ ۲۵
+# کل) ارتفاعِ تک‌ردیف را میدهد — فونت با این ساخته میشود نه با
+# پالیِ پوشانندهٔ کلِ بلوک، تا ردیفها به بیرونِ ناحیه نریزند.
+            _n_ch = len(chs)
+            _edge = max(2, int(round(_n_ch * 0.20)))
+            _pool = chs[:_edge] + chs[-_edge:] \
+                + [float(np.percentile(chs, 25))]
+            ch_med = float(np.median(chs))
+            row_h = float(np.clip(np.median(_pool), 7.0, ch_med))
+            lh = ch_med
+            if lh < 8.0:
+                return None
+# هموارسازی (میانهٔ متحرک) — نویزِ گلیفها قوسِ واقعی نیست
+            if len(cys) >= 5:
+                _sm = cys.copy()
+                for i in range(len(cys)):
+                    lo_i = max(0, i - 1)
+                    hi_i = min(len(cys), i + 2)
+                    _sm[i] = float(np.median(cys[lo_i:hi_i]))
+                cys = _sm
+            A = np.stack([cxs ** 2, cxs, np.ones_like(cxs)], 1)
+            coef, *_ = np.linalg.lstsq(A, cys, rcond=None)
+            qa, qb, qc = [float(k) for k in coef]
+            chord = cys[0] + (cys[-1] - cys[0]) * (cxs - cxs[0]) / max(1e-9, cxs[-1] - cxs[0])
+            fit = qa * cxs ** 2 + qb * cxs + qc
+            sag = float(np.max(np.abs(fit - chord)))
+            d_ang = float(np.degrees(np.arctan(2.0 * qa * cxs[-1] + qb))
+                          - np.degrees(np.arctan(2.0 * qa * cxs[0] + qb)))
+            if sag < max(3.5, 0.12 * row_h):
+                return None
+            if abs(d_ang) < 12.0 or abs(d_ang) > 120.0:
+                return None
+# جوهر باید «نوارِ خمیده» باشد — نویزِ پلکانیِ شدید (لایههای
+# پراکنده دور از منحنی) رد میشود
+            fit_at_ink = qa * rx ** 2 + qb * rx + qc
+            resid = ry - fit_at_ink
+            resid_std = float(np.std(resid))
+            frac_near = float(np.mean(np.abs(resid) <= 0.70 * lh))
+            if resid_std > 0.55 * lh or frac_near < 0.82:
+                return None
+# زاویهٔ هر پالی باید با مماسِ منحنی در جایِ خودش بخواند —
+# پالیهایِ صافِ بلوکِ پلکانی روی منحنیِ تندِ مرکزِ جرم نمیافتند.
+# پالیِ پوشانندهٔ کلِ قوس (پهن ≥ ۵۵٪ مسیر) با «زاویهٔ وتر» = ang
+# سنجیده میشود؛ پالیِ واژه‌ایِ باریک با مماسِ همان نقطه.
+            for q in polys:
+                try:
+                    _pa = float(MangaTranslator._poly_long_side_angle(q))
+                    _qr = (q[:, 0] - cen[0]) * ca - (q[:, 1] - cen[1]) * sa
+                    _p_span = float(_qr.max() - _qr.min())
+                    if _p_span >= 0.55 * span:
+                        if abs(_pa - ang) > 16.0:
+                            return None
+                        continue
+                    _p_cx = float((q[:, 0].min() + q[:, 0].max()) / 2.0)
+                    _p_cy = float((q[:, 1].min() + q[:, 1].max()) / 2.0)
+                    _prx = (_p_cx - cen[0]) * ca - (_p_cy - cen[1]) * sa
+                    _tan = float(np.degrees(np.arctan(2.0 * qa * _prx + qb)))
+                    if abs(_tan) > 60.0:
+                        return None
+                    if abs(_pa - ang - _tan) > 16.0:
+                        return None
+                except Exception:
+                    continue
+# مسیرِ هموار: نمونه از خودِ منحنیِ برازش‌شده (۲۴ نقطه، چپ→راست)
+            n_s = 24
+            ts = np.linspace(cxs[0], cxs[-1], n_s)
+            fy = qa * ts ** 2 + qb * ts + qc
+            ca2, sa2 = float(np.cos(np.radians(ang))), float(np.sin(np.radians(ang)))
+            px = ts * ca2 - fy * sa2 + cen[0] + float(_ix0)
+            py = ts * sa2 + fy * ca2 + cen[1] + float(_iy0)
+            path = np.stack([px, py], 1)
+            if float(np.hypot(*(path[-1] - path[0]))) < 0.5 * span:
+                return None
+            return {
+                "path": [[round(float(p[0]), 2), round(float(p[1]), 2)]
+                         for p in path],
+                "lh": round(row_h, 2),
+                "lh_band": round(lh, 2),
+                "sag": round(sag, 2),
+                "d_ang": round(d_ang, 2),
+                "angle": round(ang, 2),
+                "arc_len": round(float(np.sum(
+                    np.hypot(np.diff(path[:, 0]), np.diff(path[:, 1])))), 2),
+            }
+        except Exception:
+            return None
+
+    @staticmethod
     def _polys_dense(polys) -> bool:
         tall = wide = 0
         _pl: List[np.ndarray] = []

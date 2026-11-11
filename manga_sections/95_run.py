@@ -1933,6 +1933,41 @@ class _MangaTranslatorBody_95:
         if abs(angle) > 45.0:
             angle = 0.0
 
+# متنِ «خمیده» (قوسِ واقعی) — خودِ خطِ متن در اصل رویِ منحنی
+# خمیده است، نه فقط کج؛ چرخشِ صافِ یکنواخت خمیدگی را از دست
+# میداد. مسیرِ خمیدگی از جوهرِ خودِ متنِ اصل (ستون‌به‌ستون،
+# داخلِ ماسکِ پالیها، رویِ عکسِ اصلی) درمیآید و ترجمه
+# واژه‌به‌واژه با شیبِ مماسِ همان نقطه روی همان قوس می‌نشیند.
+# متنِ صاف/کجِ ساده اینجا رد میشود و مسیرِ عادیِ خودش را میرود.
+        if original_image is not None:
+            try:
+                _arc = MangaTranslator._curve_path_from_ink(
+                    original_image, region)
+            except Exception:
+                _arc = None
+            if os.environ.get("MANGA_DEBUG_ROT"):
+                try:
+                    _np_ = len(getattr(region, "ocr_polys", None) or [])
+                    _nl_ = len(MangaTranslator._group_polys_to_lines(
+                        getattr(region, "ocr_polys", None) or []))
+                    print(f"    [dbg-arc-chk] r{region.id} polys={_np_} "
+                          f"lines={_nl_} arc={'YES' if _arc else 'no'}")
+                except Exception:
+                    pass
+            if _arc is not None:
+                try:
+                    if os.environ.get("MANGA_DEBUG_ROT"):
+                        print(f"    [dbg-arc] r{region.id} "
+                              f"sag={_arc['sag']} d_ang={_arc['d_ang']} "
+                              f"lh={_arc['lh']} ang={_arc['angle']} "
+                              f"arc_len={_arc['arc_len']}")
+                    if self._render_arc_text(
+                            pil_img, draw, region, _arc,
+                            text_rgb, stroke_rgb, style, max_font):
+                        return
+                except Exception:
+                    pass
+
         if abs(angle) < 3:
             bb = font.getbbox("آیگچ", stroke_width=sw)
             glyph_h = bb[3] - bb[1]
@@ -2252,3 +2287,227 @@ class _MangaTranslatorBody_95:
                                      int(_cy - _rh / 2)), _rot)
         except Exception:
             return
+
+    def _render_arc_text(self, pil_img, draw, region, curve, text_rgb,
+                         stroke_rgb, style, max_font) -> bool:
+        """ — رندرِ «خمیده» (قوسِ واقعی): مسیرِ خمیدگیِ خودِ متنِ
+        اصل (از سنجشِ جوهرِ ستون‌به‌ستون) + واژه‌هایِ ترجمه که
+        کلمه‌به‌کلمه، هر واژه با «شیبِ مماسِ همان نقطهٔ قوس»، روی
+        همان منحنی می‌نشینند. ترجمهٔ بلندتر = ردیفهایِ موازیِ
+        همان قوس (مثلِ تایپِ روی مسیر). خروجی: True = رندر شد؛
+        False = متن برایِ قوس زیادی بزرگ است، مسیرِ عادی برود."""
+        try:
+            txt = str(getattr(region, "translated_text", "") or "").strip()
+            path_pts = curve.get("path") if isinstance(curve, dict) else None
+            if not txt or not path_pts or len(path_pts) < 6:
+                return False
+            path = np.asarray(path_pts, dtype=np.float64).reshape(-1, 2)
+            if path.shape[0] < 6:
+                return False
+# طولِ قوس + مماسِ هر پاره
+            segs = np.diff(path, axis=0)
+            seg_len = np.hypot(segs[:, 0], segs[:, 1])
+            if float(seg_len.sum()) < 36.0:
+                return False
+            cum = np.concatenate([[0.0], np.cumsum(seg_len)])
+            arc_len = float(cum[-1])
+            tang = segs / np.maximum(seg_len, 1e-6)[:, None]
+            lh_src = max(8.0, float(curve.get("lh", 12.0)))
+            lh_band = max(8.0, float(curve.get("lh_band", lh_src)))
+            try:
+                _rh = int(region.rect[3])
+            except Exception:
+                _rh = int(lh_src * 4)
+# منبعِ «یک‌خطی» (عرضِ نوار ≈ ارتفاعِ ردیف): ترجمهٔ بلندتر نباید
+# به ردیفهایِ ریز بشکند؛ قوس در امتدادِ مماسِ دو سر کشیده میشود
+# (تا ۱۸٪ هر طرف، داخلِ تصویر) تا متنِ بلندتر با فونتِ درشتتر و
+# ردیفهایِ کمتر روی همان خمیدگی بنشیند.
+            _single_src = lh_band <= lh_src * 1.40 + 2.0
+            if _single_src:
+                try:
+                    _step = float(np.median(seg_len))
+                    _max_ext = 0.18 * arc_len
+                    _img_w, _img_h = pil_img.size
+                    _pre = []
+                    _p = path[0].copy()
+                    _t = -tang[0]
+                    _acc = 0.0
+                    while _acc < _max_ext:
+                        _p = _p + _t * _step
+                        if _p[0] < 2 or _p[1] < 2 \
+                                or _p[0] > _img_w - 3 or _p[1] > _img_h - 3:
+                            break
+                        _pre.append(_p.copy())
+                        _acc += _step
+                    _post = []
+                    _p = path[-1].copy()
+                    _t = tang[-1]
+                    _acc = 0.0
+                    while _acc < _max_ext:
+                        _p = _p + _t * _step
+                        if _p[0] < 2 or _p[1] < 2 \
+                                or _p[0] > _img_w - 3 or _p[1] > _img_h - 3:
+                            break
+                        _post.append(_p.copy())
+                        _acc += _step
+                    if _pre or _post:
+                        _pre_a = np.asarray(_pre[::-1], dtype=np.float64) \
+                            .reshape(-1, 2)
+                        _post_a = np.asarray(_post, dtype=np.float64) \
+                            .reshape(-1, 2)
+                        path = np.concatenate([_pre_a, path, _post_a], axis=0)
+                        segs = np.diff(path, axis=0)
+                        seg_len = np.hypot(segs[:, 0], segs[:, 1])
+                        cum = np.concatenate([[0.0], np.cumsum(seg_len)])
+                        arc_len = float(cum[-1])
+                        tang = segs / np.maximum(seg_len, 1e-6)[:, None]
+                except Exception:
+                    path = np.asarray(path_pts, dtype=np.float64).reshape(-1, 2)
+                    segs = np.diff(path, axis=0)
+                    seg_len = np.hypot(segs[:, 0], segs[:, 1])
+                    cum = np.concatenate([[0.0], np.cumsum(seg_len)])
+                    arc_len = float(cum[-1])
+                    tang = segs / np.maximum(seg_len, 1e-6)[:, None]
+            fit_w = int(arc_len * (0.97 if _single_src else 0.94))
+            fit_h = int(max(lh_src * 1.35, min(_rh * 1.05, lh_src * 5.0)))
+# فونت از «ارتفاعِ یک ردیف» (نه پالیِ پوشانندهٔ کلِ بلوک) + اگر
+# پشتهٔ ردیفها از ناحیه بیرون زد، فونت پله‌پله کوچک میشود تا
+# قوسِ ترجمه همیشه داخلِ ناحیهٔ متنِ اصل بماند (سرریز ممنوع)
+            font = lines = sw = None
+            _ms = min(int(max_font or 48), max(10, int(round(lh_src * 0.95))))
+            while _ms >= 10:
+                _f, _l, _s = self._wrap_and_fit(
+                    draw, txt, fit_w, fit_h, style=style, max_size=_ms)
+                if _l:
+                    _bb = _f.getbbox("آیگچ", stroke_width=_s)
+                    _lh_t = max(8, _bb[3] - _bb[1]) + 3
+                    font, lines, sw = _f, _l, _s
+                    _k_max = 4 if _single_src else 5
+                    if len(_l) <= _k_max \
+                            and _lh_t * len(_l) <= max(_rh * 1.35, lh_src * 1.6):
+                        break
+                _ms -= 2
+            _k_max = 4 if _single_src else 5
+            if font is None or not lines or len(lines) > _k_max:
+                return False
+            bb = font.getbbox("آیگچ", stroke_width=sw)
+            glyph_h = max(8, bb[3] - bb[1])
+            line_h = glyph_h + 3
+            K = len(lines)
+            _fs0 = int(getattr(font, "size", 12))
+            if os.environ.get("MANGA_DEBUG_ROT"):
+                print(f"    [dbg-arc-render] r{getattr(region, 'id', '?')} "
+                      f"rows={K} arc_len={arc_len:.0f} lh_src={lh_src:.0f} "
+                      f"font={getattr(font, 'size', '?')} sag={curve.get('sag')} "
+                      f"d_ang={curve.get('d_ang')}")
+            for i, line in enumerate(lines):
+                if not line.strip():
+                    continue
+# ردیفِ i روی قوسِ موازی: آفستِ عمود بر مماس (ردیفِ اول بیرونِ قوس)
+                off = ((K - 1) / 2.0 - i) * line_h
+                row_path = np.empty_like(path)
+                for j in range(len(path)):
+                    tj = tang[min(j, len(tang) - 1)]
+                    nx_, ny_ = tj[1], -tj[0]
+                    row_path[j, 0] = path[j, 0] + nx_ * off
+                    row_path[j, 1] = path[j, 1] + ny_ * off
+                row_segs = np.diff(row_path, axis=0)
+                row_len = np.hypot(row_segs[:, 0], row_segs[:, 1])
+                row_cum = np.concatenate([[0.0], np.cumsum(row_len)])
+                row_total = float(row_cum[-1])
+                row_tang = row_segs / np.maximum(row_len, 1e-6)[:, None]
+                _f = font
+                _sw_r = sw
+                words = [self._shape_farsi(wd) for wd in line.split()]
+                words = [wd for wd in words if wd]
+                if not words:
+                    continue
+                space_w = float(_f.getlength(" ") if hasattr(_f, "getlength")
+                                else _f.getbbox(" ")[2])
+                wwidths = [float(draw.textbbox((0, 0), wd, font=_f,
+                                               stroke_width=_sw_r)[2])
+                           for wd in words]
+                total = sum(wwidths) + space_w * (len(words) - 1)
+                _tries = 0
+                while total > row_total * 0.97 and _fs0 - _tries > 9 and _tries < 8:
+                    _tries += 1
+                    _f = self._load_font(_fs0 - _tries, style=style)
+                    _sw_r = self._stroke_width_for(_fs0 - _tries)
+                    wwidths = [float(draw.textbbox((0, 0), wd, font=_f,
+                                                   stroke_width=_sw_r)[2])
+                               for wd in words]
+                    space_w = float(_f.getlength(" ") if hasattr(_f, "getlength")
+                                    else _f.getbbox(" ")[2])
+                    total = sum(wwidths) + space_w * (len(words) - 1)
+                if total > row_total * 1.25:
+                    continue
+# فارسی = راست‌به‌چپ: واژهها از «سرِ راستِ» ردیفِ وسط‌چینِ قوس
+# می‌نشینند — ردیفِ کوتاه وسطِ قوس میماند، نه چسبیده به یک سر
+                cursor = (row_total + total) / 2.0
+                _place = []
+                for wi, wd in enumerate(words):
+                    wwd = wwidths[wi]
+                    cursor -= wwd / 2.0
+                    s = float(np.clip(cursor, 0.0, row_total))
+                    k = int(np.searchsorted(row_cum, s, side="right")) - 1
+                    k = int(np.clip(k, 0, len(row_tang) - 1))
+                    t_seg = float((s - row_cum[k]) / max(1e-6, row_len[k]))
+                    cx_ = row_path[k, 0] + row_tang[k, 0] * t_seg * row_len[k]
+                    cy_ = row_path[k, 1] + row_tang[k, 1] * t_seg * row_len[k]
+                    ang_w = float(np.degrees(np.arctan2(row_tang[k, 1],
+                                                        row_tang[k, 0])))
+                    if abs(ang_w) > 75.0:
+                        ang_w = 0.0
+# کاشیِ واژه از «باکسِ خودِ واژه» ساخته میشود (نه گلیفِ عمومی) —
+# حروفِ بلندِ فارسی (چ/ک/گ با دُم) هرگز بریده نمیشوند
+                    _wb = draw.textbbox((0, 0), wd, font=_f,
+                                        stroke_width=_sw_r)
+                    tw = int(_wb[2] - _wb[0]) + 2 * _sw_r + 8
+                    th = int(_wb[3] - _wb[1]) + 2 * _sw_r + 8
+                    tile = Image.new("RGBA", (max(8, tw), max(8, th)),
+                                     (0, 0, 0, 0))
+                    td = ImageDraw.Draw(tile)
+                    td.text((-_wb[0] + _sw_r + 4, -_wb[1] + _sw_r + 4), wd,
+                            font=_f,
+                            fill=tuple(text_rgb)[:3] + (255,),
+                            stroke_width=_sw_r,
+                            stroke_fill=tuple(stroke_rgb)[:3] + (255,))
+                    rot = tile.rotate(-ang_w, expand=True,
+                                      resample=Image.BICUBIC)
+                    _place.append((rot, cx_, cy_))
+                    cursor -= (wwd / 2.0 + space_w)
+# ناحیهٔ لبه‌چسب (مثلِ قوسِ چسبیده به لبهٔ چپِ صفحه): ردیفِ
+# بیرون‌زده از تصویر یکجا به داخل میلغزد تا هیچ واژه‌ای بریده نشود
+                try:
+                    _iw, _ih = pil_img.size
+                    _xs0 = [cx_ - rot.size[0] / 2 for rot, cx_, cy_ in _place]
+                    _xs1 = [cx_ + rot.size[0] / 2 for rot, cx_, cy_ in _place]
+                    _ys0 = [cy_ - rot.size[1] / 2 for rot, cx_, cy_ in _place]
+                    _ys1 = [cy_ + rot.size[1] / 2 for rot, cx_, cy_ in _place]
+                    _dx = 0.0
+                    if min(_xs0) < 0.0:
+                        _dx = -min(_xs0)
+                    elif max(_xs1) > float(_iw):
+                        _dx = float(_iw) - max(_xs1)
+                    _dy = 0.0
+                    if min(_ys0) < 0.0:
+                        _dy = -min(_ys0)
+                    elif max(_ys1) > float(_ih):
+                        _dy = float(_ih) - max(_ys1)
+                    for rot, cx_, cy_ in _place:
+                        rw_, rh_ = rot.size
+                        pil_img.paste(
+                            rot,
+                            (int(cx_ - rw_ / 2 + _dx), int(cy_ - rh_ / 2 + _dy)),
+                            rot)
+                except Exception:
+                    for rot, cx_, cy_ in _place:
+                        rw_, rh_ = rot.size
+                        pil_img.paste(rot, (int(cx_ - rw_ / 2),
+                                            int(cy_ - rh_ / 2)), rot)
+            return True
+        except Exception:
+            if os.environ.get("MANGA_DEBUG_ROT"):
+                import traceback
+                traceback.print_exc()
+            return False
