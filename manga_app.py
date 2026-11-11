@@ -1921,6 +1921,45 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .cmp-lab{position:absolute;top:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;z-index:3;pointer-events:none}
 .cmp-lab.b{right:12px}
 .cmp-lab.a{left:12px}
+/* —— هم‌خوانِ گربه‌ای —— */
+.mcat{position:fixed;z-index:57;right:10px;top:58px;width:64px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer}
+.mcat svg{display:block;width:100%;height:auto;pointer-events:none}
+.mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;border-radius:10px;padding:2px 8px;font-size:.66rem;font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;opacity:1;transition:opacity .35s}
+.mcat-bub.dim{opacity:0}
+.mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease}
+.mcat-say.show{opacity:1;transform:translateY(0) scale(1)}
+.mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}
+.cg-eyes,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark{display:none}
+.mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy{display:block}
+.mcat.st-sleep .cg-zzz{display:block}
+.mcat.st-stress .cg-sweat{display:block}
+.mcat.st-sad .cg-tears{display:block}
+.mcat.st-pat .cg-heart{display:block}
+.mcat.st-exc .cg-spark{display:block}
+@keyframes mcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+@keyframes mcBounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-7px) scale(1.05)}60%{transform:translateY(0) scale(.97)}}
+@keyframes mcBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+@keyframes mcWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}75%{transform:rotate(7deg)}}
+@keyframes mcTail{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}
+@keyframes mcEarT{0%,90%,100%{transform:rotate(0)}95%{transform:rotate(-9deg)}}
+@keyframes mcPop{0%{opacity:0;transform:translateY(4px)}25%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}
+@keyframes mcBlink{0%,93.5%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
+.mcat .cg-all{transform-origin:60px 104px;animation:mcBob 3.4s ease-in-out infinite}
+.mcat.st-exc .cg-all{animation:mcBounce .55s ease-in-out infinite}
+.mcat.st-sleep .cg-all{animation:mcBreath 2.8s ease-in-out infinite}
+.mcat.st-pat .cg-all{animation:mcWiggle .45s ease-in-out 3}
+.mcat.st-sad .cg-all{animation:mcBob 4.6s ease-in-out infinite}
+.mcat .cg-tail{transform-origin:84px 98px;animation:mcTail 3s ease-in-out infinite}
+.mcat.st-exc .cg-tail{animation:mcTail .45s ease-in-out infinite}
+.mcat.st-stress .cg-tail{animation:mcTail .9s ease-in-out infinite}
+.mcat.st-sleep .cg-tail{animation:none}
+.mcat .cg-ear-l{transform-origin:36px 36px;animation:mcEarT 6s ease-in-out infinite}
+.mcat .cg-ear-r{transform-origin:84px 36px;animation:mcEarT 6s ease-in-out .8s infinite}
+.mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,.mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}
+.mcat .cg-eyes-open{transform-origin:60px 52px;animation:mcBlink 5.6s infinite}
+.mcat .cg-heart{animation:mcPop 1.6s ease-out}
+.mcat .cg-zzz text{animation:mcPop 2.4s ease-in-out infinite}
+.mcat .cg-zzz text:nth-child(2){animation-delay:.5s}
 </style></head><body>
 <div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="mtoggle" style="display:none" title="حالتِ دیباگ/نهایی">دیباگ</button><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><div class="n" id="n">0</div></div>
 <div id="wrap">
@@ -1929,6 +1968,41 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 </div>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
 <button type="button" id="fab" aria-label="منو" style="display:none">منو</button>
+<div class="mcat st-read" id="mcat" title="هم‌خوانِ گربه‌ای — کشیدن = جابه‌جایی، ضربه = نوازش">
+<svg viewBox="0 0 120 118">
+<g class="cg-all">
+<g class="cg-tail"><path d="M84 98 Q110 96 104 74 Q101 65 91 68" fill="none" stroke="#e9b96f" stroke-width="8" stroke-linecap="round"/><path d="M93 67 q-3.6 1.4 -2.4 5" fill="none" stroke="#e89aa6" stroke-width="4.6" stroke-linecap="round"/></g>
+<path d="M43 76 Q60 68 77 76 L82 102 Q60 112 38 102 Z" fill="#46384f"/>
+<path d="M51 74 q9 6 18 0" fill="none" stroke="#e89aa6" stroke-width="3" stroke-linecap="round"/>
+<circle cx="41" cy="87" r="5.2" fill="#ffe3c9"/>
+<circle cx="79" cy="87" r="5.2" fill="#ffe3c9"/>
+<g class="cg-book"><rect x="40" y="84" width="40" height="25" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="85.5" x2="60" y2="107.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="45.5" y1="92" x2="55.5" y2="92"/><line x1="45.5" y1="98" x2="55.5" y2="98"/><line x1="45.5" y1="104" x2="51.5" y2="104"/><line x1="64.5" y1="92" x2="74.5" y2="92"/><line x1="64.5" y1="98" x2="74.5" y2="98"/><line x1="64.5" y1="104" x2="70.5" y2="104"/></g></g>
+<g class="cg-head">
+<g class="cg-ear cg-ear-l"><path d="M33 37 L26 10 L50 23 Z" fill="#e9b96f"/><path d="M34 31.5 L30 16.5 L43.5 24 Z" fill="#e89aa6"/></g>
+<g class="cg-ear cg-ear-r"><path d="M87 37 L94 10 L70 23 Z" fill="#e9b96f"/><path d="M86 31.5 L90 16.5 L76.5 24 Z" fill="#e89aa6"/></g>
+<circle cx="60" cy="48" r="31" fill="#ffe3c9"/>
+<path d="M29 48 Q27 18 60 17 Q93 18 91 48 Q88 26 60 25 Q32 26 29 48 Z" fill="#e9b96f"/>
+<path d="M29 48 Q27 58 33 64 Q33 54 36 48 Z" fill="#e9b96f"/>
+<path d="M91 48 Q93 58 87 64 Q87 54 84 48 Z" fill="#e9b96f"/>
+<g class="cg-eyes cg-eyes-open"><ellipse cx="48" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="50" cy="49.5" r="1.7" fill="#fff"/><ellipse cx="72" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="74" cy="49.5" r="1.7" fill="#fff"/></g>
+<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 52 Q48 46 53 52"/><path d="M67 52 Q72 46 77 52"/></g>
+<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 51 Q48 55 53 51"/><path d="M67 51 Q72 55 77 51"/></g>
+<g class="cg-eyes cg-eyes-worry"><ellipse cx="48" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><ellipse cx="72" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><path d="M41 44.5 L53 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M79 44.5 L67 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>
+<g class="cg-eyes cg-eyes-sad"><ellipse cx="48" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="49.5" cy="52" r="1.4" fill="#fff"/><ellipse cx="72" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="73.5" cy="52" r="1.4" fill="#fff"/><path d="M40 42.5 Q46 44.5 52 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M80 42.5 Q74 44.5 68 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>
+<ellipse cx="38.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>
+<ellipse cx="81.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>
+<path d="M55 61 Q57.5 64.5 60 61 Q62.5 64.5 65 61" fill="none" stroke="#b05a68" stroke-width="1.8" stroke-linecap="round"/>
+<g class="cg-sweat"><path d="M91 26 q5 7 0 10.5 q-5 -3.5 0 -10.5" fill="#7ec8f2"/></g>
+<g class="cg-tears"><ellipse cx="44" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/><ellipse cx="76" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/></g>
+<g class="cg-spark" fill="#ffd86b"><path d="M35 33 l1.7 4.2 4.2 1.7 -4.2 1.7 -1.7 4.2 -1.7 -4.2 -4.2 -1.7 4.2 -1.7 Z"/><path d="M87 37 l1.3 3.2 3.2 1.3 -3.2 1.3 -1.3 3.2 -1.3 -3.2 -3.2 -1.3 3.2 -1.3 Z"/></g>
+<path class="cg-heart" transform="translate(84 12) scale(.9)" d="M12 21s-8-4.5-8-11a4 4 0 018-1 4 4 0 018 1c0 6.5-8 11-8 11z" fill="#ff5d78"/>
+</g>
+<g class="cg-zzz" fill="#cfd2da" font-family="system-ui,sans-serif" font-weight="700"><text x="86" y="22" font-size="8">z</text><text x="95" y="13" font-size="11">Z</text></g>
+</g>
+</svg>
+<div class="mcat-bub">۰٪ · ۱/۱</div>
+<div class="mcat-say"></div>
+</div>
 <div id="cmp">
   <div class="cmp-bar">
     <button type="button" class="cbtn" id="cmpX" title="بستن">✕</button>
@@ -2762,6 +2836,142 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     updateProgress();
     updateFan();
   });
+  // ——— هم‌خوانِ گربه‌ای (وبِ زنده) — درصد/صفحهٔ خواندن + حالت‌ها ———
+  var MCAT = document.getElementById('mcat');
+  if (MCAT) {
+    var mcatBub = MCAT.querySelector('.mcat-bub');
+    var mcatSayEl = MCAT.querySelector('.mcat-say');
+    var FAD = '۰۱۲۳۴۵۶۷۸۹';
+    function faN(v){ return String(v).replace(/\d/g, function(d){ return FAD[+d]; }); }
+    function mcatInfo(){
+      var m = document.documentElement.scrollHeight - window.innerHeight;
+      var y = window.scrollY || window.pageYOffset || 0;
+      return { m: m, y: y,
+        pct: Math.min(1, Math.max(0, y / Math.max(1, m))),
+        atEnd: m > 320 && (m - y) < 5 };
+    }
+    var MCAT_PAT = ['میاو~', 'هوی؟', 'بغلم کن!', 'مممنون~', 'خرخر نکردم، استراحت میکردم!'];
+    var MCAT_READ = ['یه صفحهٔ دیگه؟', 'قشنگه…', 'چی میشه آخرش؟!', 'چایی بخورم؟', 'ادامه بده~', 'این حباب رو من بهتر ترجمه میکردم!'];
+    var mcatState = 'st-read';
+    var mcatLastTs = 0, mcatLastY = -1, mcatFastT = 0, mcatMoveT = Date.now();
+    var mcatBotT = 0, mcatPatT = 0, mcatSayUntil = 0;
+    var mcatLastN = -1, mcatLastMk = '';
+    function mcatSet(st){
+      if (mcatState === st) return;
+      MCAT.classList.remove(mcatState);
+      MCAT.classList.add(st);
+      mcatState = st;
+    }
+    function mcatSayNow(txt, ms){
+      mcatSayEl.textContent = txt;
+      mcatSayEl.classList.add('show');
+      mcatSayUntil = Date.now() + (ms || 5000);
+    }
+    function mcatUpdate(){
+      var inf = mcatInfo();
+      mcatBub.textContent = faN(Math.round(inf.pct * 100)) + '٪ · ' +
+        faN(curPageIdx() + 1) + '/' + faN(stackCount());
+    }
+    function mcatTick(){
+      var now = Date.now(), inf = mcatInfo();
+      if (inf.atEnd) { if (!mcatBotT) mcatBotT = now; }
+      else mcatBotT = 0;
+      if (mcatPatT > now) { mcatSet('st-pat'); return; }
+      if (inf.atEnd && now - mcatBotT > 2200) mcatSet('st-sad');
+      else if (mcatFastT > now - 1200) mcatSet('st-exc');
+      else if (mcatMoveT < now - 22000) mcatSet('st-sleep');
+      else if (inf.m > 320 && inf.pct >= 0.9) mcatSet('st-stress');
+      else mcatSet('st-read');
+      // حبابِ درصد: ۴ثانیه بی‌حرکتی = محو (مزاحمِ متن نمیشود)
+      mcatBub.classList.toggle('dim', now - mcatMoveT > 4000);
+      if (mcatSayUntil && mcatSayUntil < now) {
+        mcatSayEl.classList.remove('show');
+        mcatSayUntil = 0;
+      }
+    }
+    function mcatOnScroll(){
+      var now = Date.now(), y = window.scrollY || window.pageYOffset || 0;
+      if (mcatLastY < 0) mcatLastY = y;
+      var dt = Math.max(40, now - mcatLastTs);
+      if (Math.abs(y - mcatLastY) / dt > 0.85) mcatFastT = now;
+      mcatLastY = y; mcatLastTs = now; mcatMoveT = now;
+      if (mcatState === 'st-sleep') mcatSet('st-read');
+      mcatUpdate();
+      mcatTick();
+    }
+    window.addEventListener('scroll', mcatOnScroll, false);
+    // جابه‌جایی + نوازش
+    var mcatDrag = null;
+    function mcatPlace(cx, cy){
+      var x = Math.min(Math.max(cx, 40), window.innerWidth - 40);
+      var y = Math.min(Math.max(cy, 64), window.innerHeight - 76);
+      MCAT.style.left = (x - 32) + 'px';
+      MCAT.style.top = (y - 32) + 'px';
+      MCAT.style.right = 'auto';
+    }
+    try {
+      var msp = JSON.parse(localStorage.getItem('mangaCatPos') || 'null');
+      if (msp && typeof msp.x === 'number') mcatPlace(msp.x, msp.y);
+    } catch (e0) {}
+    MCAT.addEventListener('pointerdown', function(e){
+      mcatDrag = { x: e.clientX, y: e.clientY, moved: false };
+      try { MCAT.setPointerCapture(e.pointerId); } catch (e1) {}
+      e.preventDefault();
+    });
+    MCAT.addEventListener('pointermove', function(e){
+      if (!mcatDrag) return;
+      if (!mcatDrag.moved &&
+          Math.hypot(e.clientX - mcatDrag.x, e.clientY - mcatDrag.y) > 10)
+        mcatDrag.moved = true;
+      if (mcatDrag.moved) mcatPlace(e.clientX, e.clientY);
+    });
+    function mcatUp(){
+      if (!mcatDrag) return;
+      var moved = mcatDrag.moved;
+      mcatDrag = null;
+      if (moved) {
+        try {
+          var r = MCAT.getBoundingClientRect();
+          localStorage.setItem('mangaCatPos',
+            JSON.stringify({ x: r.left + 32, y: r.top + 32 }));
+        } catch (e2) {}
+        return;
+      }
+      // ضربه = نوازش
+      mcatPatT = Date.now() + 1700;
+      mcatMoveT = Date.now();
+      mcatSayNow(MCAT_PAT[Math.floor(Math.random() * MCAT_PAT.length)], 2600);
+      mcatTick();
+      setTimeout(mcatTick, 1780);
+    }
+    MCAT.addEventListener('pointerup', mcatUp);
+    MCAT.addEventListener('pointercancel', function(){ mcatDrag = null; });
+    // قلابِ تست (بی‌ضرر)
+    window.__mcatForce = function(st){
+      if (st === 'st-sleep') mcatMoveT = 0;
+      if (st === 'st-exc') mcatFastT = Date.now();
+      mcatTick();
+    };
+    setInterval(function(){
+      mcatTick();
+      mcatUpdate();
+      // جشنِ صفحهٔ تازه — فقط وقتی حالت (دیباگ/نهایی) عوض نشده
+      var mk = dbgMode ? 'd' : 'f';
+      var n = stackCount();
+      if (mcatLastN >= 0 && n > mcatLastN && mk === mcatLastMk &&
+          mcatPatT < Date.now()) {
+        mcatFastT = Date.now() + 900;
+        mcatSayNow('یه صفحهٔ تازه رسید!', 3200);
+        mcatTick();
+      }
+      mcatLastN = n; mcatLastMk = mk;
+      if (mcatState === 'st-read' && !mcatSayUntil && Math.random() < 0.055)
+        mcatSayNow(MCAT_READ[Math.floor(Math.random() * MCAT_READ.length)], 5200);
+    }, 3000);
+    mcatUpdate();
+    mcatTick();
+  }
+
   pollTotal();
   probe();
   updateProgress();
@@ -2866,6 +3076,60 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ".rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}"
             ".rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}"
             "}"
+            "/* —— هم‌خوانِ گربه‌ای —— */"
+            ".mcat{position:fixed;z-index:57;right:10px;top:58px;width:64px;touch-action:none;"
+            "-webkit-tap-highlight-color:transparent;user-select:none;"
+            "filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer}"
+            ".mcat svg{display:block;width:100%;height:auto;pointer-events:none}"
+            ".mcat-bub{position:absolute;top:calc(100% + 3px);right:0;white-space:nowrap;"
+            "background:rgba(12,12,14,.92);border:1px solid #2a2a2e;color:#e8e6e1;"
+            "border-radius:10px;padding:2px 8px;font-size:.66rem;"
+            "font-variant-numeric:tabular-nums;direction:rtl;pointer-events:none;"
+            "opacity:1;transition:opacity .35s}"
+            ".mcat-bub.dim{opacity:0}"
+            ".mcat-say{position:absolute;top:calc(100% + 26px);right:-2px;white-space:nowrap;"
+            "background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;"
+            "pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);"
+            "transition:opacity .18s ease,transform .18s ease}"
+            ".mcat-say.show{opacity:1;transform:translateY(0) scale(1)}"
+            ".mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;"
+            "background:#fff;transform:rotate(45deg)}"
+            ".cg-eyes,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark{display:none}"
+            ".mcat.st-read .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,"
+            ".mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-pat .cg-eyes-happy{display:block}"
+            ".mcat.st-sleep .cg-zzz{display:block}"
+            ".mcat.st-stress .cg-sweat{display:block}"
+            ".mcat.st-sad .cg-tears{display:block}"
+            ".mcat.st-pat .cg-heart{display:block}"
+            ".mcat.st-exc .cg-spark{display:block}"
+            "@keyframes mcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}"
+            "@keyframes mcBounce{0%,100%{transform:translateY(0) scale(1)}"
+            "30%{transform:translateY(-7px) scale(1.05)}60%{transform:translateY(0) scale(.97)}}"
+            "@keyframes mcBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}"
+            "@keyframes mcWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg)}"
+            "75%{transform:rotate(7deg)}}"
+            "@keyframes mcTail{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}"
+            "@keyframes mcEarT{0%,90%,100%{transform:rotate(0)}95%{transform:rotate(-9deg)}}"
+            "@keyframes mcPop{0%{opacity:0;transform:translateY(4px)}25%{opacity:1;"
+            "transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}"
+            "@keyframes mcBlink{0%,93.5%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}"
+            ".mcat .cg-all{transform-origin:60px 104px;animation:mcBob 3.4s ease-in-out infinite}"
+            ".mcat.st-exc .cg-all{animation:mcBounce .55s ease-in-out infinite}"
+            ".mcat.st-sleep .cg-all{animation:mcBreath 2.8s ease-in-out infinite}"
+            ".mcat.st-pat .cg-all{animation:mcWiggle .45s ease-in-out 3}"
+            ".mcat.st-sad .cg-all{animation:mcBob 4.6s ease-in-out infinite}"
+            ".mcat .cg-tail{transform-origin:84px 98px;animation:mcTail 3s ease-in-out infinite}"
+            ".mcat.st-exc .cg-tail{animation:mcTail .45s ease-in-out infinite}"
+            ".mcat.st-stress .cg-tail{animation:mcTail .9s ease-in-out infinite}"
+            ".mcat.st-sleep .cg-tail{animation:none}"
+            ".mcat .cg-ear-l{transform-origin:36px 36px;animation:mcEarT 6s ease-in-out infinite}"
+            ".mcat .cg-ear-r{transform-origin:84px 36px;animation:mcEarT 6s ease-in-out .8s infinite}"
+            ".mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,"
+            ".mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}"
+            ".mcat .cg-eyes-open{transform-origin:60px 52px;animation:mcBlink 5.6s infinite}"
+            ".mcat .cg-heart{animation:mcPop 1.6s ease-out}"
+            ".mcat .cg-zzz text{animation:mcPop 2.4s ease-in-out infinite}"
+            ".mcat .cg-zzz text:nth-child(2){animation-delay:.5s}"
         )
 # جاوااسکریپت روی اسکرولِ خودِ سند (window) — کشِ IndexedDB +
 # منویِ گردِ «منو» (چهار دکمه دورش) + خطِ صفحهها (قبل/بعد).
@@ -3367,10 +3631,170 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { fanState = 0; updateFan(); updateSeekVis(); }
   });
+  // ——— هم‌خوانِ گربه‌ای (نمایشگرِ مستقل) — درصد/صفحهٔ خواندن + حالت‌ها ———
+  const MCAT = document.getElementById('mcat');
+  if (MCAT) {
+    const mcatBub = MCAT.querySelector('.mcat-bub');
+    const mcatSayEl = MCAT.querySelector('.mcat-say');
+    const FAD = '۰۱۲۳۴۵۶۷۸۹';
+    const faN = (v) => String(v).replace(/\d/g, (d) => FAD[+d]);
+    const mcatInfo = () => {
+      const m = document.documentElement.scrollHeight - window.innerHeight;
+      const y = window.scrollY || window.pageYOffset || 0;
+      return { m, y,
+        pct: Math.min(1, Math.max(0, y / Math.max(1, m))),
+        atEnd: m > 320 && (m - y) < 5 };
+    };
+    const MCAT_PAT = ['میاو~', 'هوی؟', 'بغلم کن!', 'مممنون~', 'خرخر نکردم، استراحت میکردم!'];
+    const MCAT_READ = ['یه صفحهٔ دیگه؟', 'قشنگه…', 'چی میشه آخرش؟!', 'چایی بخورم؟', 'ادامه بده~', 'این حباب رو من بهتر ترجمه میکردم!'];
+    let mcatState = 'st-read';
+    let mcatLastTs = 0, mcatLastY = -1, mcatFastT = 0, mcatMoveT = Date.now();
+    let mcatBotT = 0, mcatPatT = 0, mcatSayUntil = 0;
+    const mcatSet = (st) => {
+      if (mcatState === st) return;
+      MCAT.classList.remove(mcatState);
+      MCAT.classList.add(st);
+      mcatState = st;
+    };
+    const mcatSayNow = (txt, ms) => {
+      mcatSayEl.textContent = txt;
+      mcatSayEl.classList.add('show');
+      mcatSayUntil = Date.now() + (ms || 5000);
+    };
+    const mcatUpdate = () => {
+      const inf = mcatInfo();
+      mcatBub.textContent = faN(Math.round(inf.pct * 100)) + '٪ · ' +
+        faN(curPageIdx() + 1) + '/' + faN(stackCount());
+    };
+    const mcatTick = () => {
+      const now = Date.now(), inf = mcatInfo();
+      if (inf.atEnd) { if (!mcatBotT) mcatBotT = now; }
+      else mcatBotT = 0;
+      if (mcatPatT > now) { mcatSet('st-pat'); return; }
+      if (inf.atEnd && now - mcatBotT > 2200) mcatSet('st-sad');
+      else if (mcatFastT > now - 1200) mcatSet('st-exc');
+      else if (mcatMoveT < now - 22000) mcatSet('st-sleep');
+      else if (inf.m > 320 && inf.pct >= 0.9) mcatSet('st-stress');
+      else mcatSet('st-read');
+      // حبابِ درصد: ۴ثانیه بی‌حرکتی = محو (مزاحمِ متن نمیشود)
+      mcatBub.classList.toggle('dim', now - mcatMoveT > 4000);
+      if (mcatSayUntil && mcatSayUntil < now) {
+        mcatSayEl.classList.remove('show');
+        mcatSayUntil = 0;
+      }
+    };
+    const mcatOnScroll = () => {
+      const now = Date.now(), y = window.scrollY || window.pageYOffset || 0;
+      if (mcatLastY < 0) mcatLastY = y;
+      const dt = Math.max(40, now - mcatLastTs);
+      if (Math.abs(y - mcatLastY) / dt > 0.85) mcatFastT = now;
+      mcatLastY = y; mcatLastTs = now; mcatMoveT = now;
+      if (mcatState === 'st-sleep') mcatSet('st-read');
+      mcatUpdate();
+      mcatTick();
+    };
+    window.addEventListener('scroll', mcatOnScroll, { passive: true });
+    // جابه‌جایی + نوازش
+    let mcatDrag = null;
+    const mcatPlace = (cx, cy) => {
+      const x = Math.min(Math.max(cx, 40), window.innerWidth - 40);
+      const y = Math.min(Math.max(cy, 64), window.innerHeight - 76);
+      MCAT.style.left = (x - 32) + 'px';
+      MCAT.style.top = (y - 32) + 'px';
+      MCAT.style.right = 'auto';
+    };
+    try {
+      const sp = JSON.parse(localStorage.getItem('mangaCatPos') || 'null');
+      if (sp && typeof sp.x === 'number') mcatPlace(sp.x, sp.y);
+    } catch (err) {}
+    MCAT.addEventListener('pointerdown', (e) => {
+      mcatDrag = { x: e.clientX, y: e.clientY, moved: false };
+      try { MCAT.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
+    });
+    MCAT.addEventListener('pointermove', (e) => {
+      if (!mcatDrag) return;
+      if (!mcatDrag.moved &&
+          Math.hypot(e.clientX - mcatDrag.x, e.clientY - mcatDrag.y) > 10)
+        mcatDrag.moved = true;
+      if (mcatDrag.moved) mcatPlace(e.clientX, e.clientY);
+    });
+    const mcatUp = () => {
+      if (!mcatDrag) return;
+      const moved = mcatDrag.moved;
+      mcatDrag = null;
+      if (moved) {
+        try {
+          const r = MCAT.getBoundingClientRect();
+          localStorage.setItem('mangaCatPos',
+            JSON.stringify({ x: r.left + 32, y: r.top + 32 }));
+        } catch (err) {}
+        return;
+      }
+      mcatPatT = Date.now() + 1700;
+      mcatMoveT = Date.now();
+      mcatSayNow(MCAT_PAT[Math.floor(Math.random() * MCAT_PAT.length)], 2600);
+      mcatTick();
+      setTimeout(mcatTick, 1780);
+    };
+    MCAT.addEventListener('pointerup', mcatUp);
+    MCAT.addEventListener('pointercancel', () => { mcatDrag = null; });
+    window.__mcatForce = (st) => {
+      if (st === 'st-sleep') mcatMoveT = 0;
+      if (st === 'st-exc') mcatFastT = Date.now();
+      mcatTick();
+    };
+    setInterval(() => {
+      mcatTick();
+      mcatUpdate();
+      if (mcatState === 'st-read' && !mcatSayUntil && Math.random() < 0.055)
+        mcatSayNow(MCAT_READ[Math.floor(Math.random() * MCAT_READ.length)], 5200);
+    }, 3000);
+    mcatUpdate();
+    mcatTick();
+  }
   updateProgress();
 })();
 """
 
+# ——— هم‌خوانِ گربه‌ای (نمایشگرِ مستقل): SVG دخترکِ گربه‌ای ———
+        _MCAT_HTML = (
+            '<div class="mcat st-read" id="mcat" title="هم‌خوانِ گربه‌ای — کشیدن = جابه‌جایی، ضربه = نوازش">\n'
+            '<svg viewBox="0 0 120 118">\n'
+            '<g class="cg-all">\n'
+            '<g class="cg-tail"><path d="M84 98 Q110 96 104 74 Q101 65 91 68" fill="none" stroke="#e9b96f" stroke-width="8" stroke-linecap="round"/><path d="M93 67 q-3.6 1.4 -2.4 5" fill="none" stroke="#e89aa6" stroke-width="4.6" stroke-linecap="round"/></g>\n'
+            '<path d="M43 76 Q60 68 77 76 L82 102 Q60 112 38 102 Z" fill="#46384f"/>\n'
+            '<path d="M51 74 q9 6 18 0" fill="none" stroke="#e89aa6" stroke-width="3" stroke-linecap="round"/>\n'
+            '<circle cx="41" cy="87" r="5.2" fill="#ffe3c9"/>\n'
+            '<circle cx="79" cy="87" r="5.2" fill="#ffe3c9"/>\n'
+            '<g class="cg-book"><rect x="40" y="84" width="40" height="25" rx="3" fill="#f5f2ec" stroke="#c9473f" stroke-width="2.4"/><line x1="60" y1="85.5" x2="60" y2="107.5" stroke="#c9473f" stroke-width="2.4"/><g stroke="#b9b4aa" stroke-width="2" stroke-linecap="round"><line x1="45.5" y1="92" x2="55.5" y2="92"/><line x1="45.5" y1="98" x2="55.5" y2="98"/><line x1="45.5" y1="104" x2="51.5" y2="104"/><line x1="64.5" y1="92" x2="74.5" y2="92"/><line x1="64.5" y1="98" x2="74.5" y2="98"/><line x1="64.5" y1="104" x2="70.5" y2="104"/></g></g>\n'
+            '<g class="cg-head">\n'
+            '<g class="cg-ear cg-ear-l"><path d="M33 37 L26 10 L50 23 Z" fill="#e9b96f"/><path d="M34 31.5 L30 16.5 L43.5 24 Z" fill="#e89aa6"/></g>\n'
+            '<g class="cg-ear cg-ear-r"><path d="M87 37 L94 10 L70 23 Z" fill="#e9b96f"/><path d="M86 31.5 L90 16.5 L76.5 24 Z" fill="#e89aa6"/></g>\n'
+            '<circle cx="60" cy="48" r="31" fill="#ffe3c9"/>\n'
+            '<path d="M29 48 Q27 18 60 17 Q93 18 91 48 Q88 26 60 25 Q32 26 29 48 Z" fill="#e9b96f"/>\n'
+            '<path d="M29 48 Q27 58 33 64 Q33 54 36 48 Z" fill="#e9b96f"/>\n'
+            '<path d="M91 48 Q93 58 87 64 Q87 54 84 48 Z" fill="#e9b96f"/>\n'
+            '<g class="cg-eyes cg-eyes-open"><ellipse cx="48" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="50" cy="49.5" r="1.7" fill="#fff"/><ellipse cx="72" cy="52" rx="5" ry="6.5" fill="#2b2630"/><circle cx="74" cy="49.5" r="1.7" fill="#fff"/></g>\n'
+            '<g class="cg-eyes cg-eyes-happy" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 52 Q48 46 53 52"/><path d="M67 52 Q72 46 77 52"/></g>\n'
+            '<g class="cg-eyes cg-eyes-sleep" fill="none" stroke="#2b2630" stroke-width="2.2" stroke-linecap="round"><path d="M43 51 Q48 55 53 51"/><path d="M67 51 Q72 55 77 51"/></g>\n'
+            '<g class="cg-eyes cg-eyes-worry"><ellipse cx="48" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><ellipse cx="72" cy="53" rx="3.6" ry="4.8" fill="#2b2630"/><path d="M41 44.5 L53 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M79 44.5 L67 47" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>\n'
+            '<g class="cg-eyes cg-eyes-sad"><ellipse cx="48" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="49.5" cy="52" r="1.4" fill="#fff"/><ellipse cx="72" cy="54" rx="4.4" ry="5.4" fill="#2b2630"/><circle cx="73.5" cy="52" r="1.4" fill="#fff"/><path d="M40 42.5 Q46 44.5 52 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/><path d="M80 42.5 Q74 44.5 68 43.5" fill="none" stroke="#2b2630" stroke-width="2" stroke-linecap="round"/></g>\n'
+            '<ellipse cx="38.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>\n'
+            '<ellipse cx="81.5" cy="60.5" rx="4.4" ry="2.4" fill="#ffb3ba" opacity=".75"/>\n'
+            '<path d="M55 61 Q57.5 64.5 60 61 Q62.5 64.5 65 61" fill="none" stroke="#b05a68" stroke-width="1.8" stroke-linecap="round"/>\n'
+            '<g class="cg-sweat"><path d="M91 26 q5 7 0 10.5 q-5 -3.5 0 -10.5" fill="#7ec8f2"/></g>\n'
+            '<g class="cg-tears"><ellipse cx="44" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/><ellipse cx="76" cy="61" rx="2.3" ry="3.8" fill="#7ec8f2"/></g>\n'
+            '<g class="cg-spark" fill="#ffd86b"><path d="M35 33 l1.7 4.2 4.2 1.7 -4.2 1.7 -1.7 4.2 -1.7 -4.2 -4.2 -1.7 4.2 -1.7 Z"/><path d="M87 37 l1.3 3.2 3.2 1.3 -3.2 1.3 -1.3 3.2 -1.3 -3.2 -3.2 -1.3 3.2 -1.3 Z"/></g>\n'
+            '<path class="cg-heart" transform="translate(84 12) scale(.9)" d="M12 21s-8-4.5-8-11a4 4 0 018-1 4 4 0 018 1c0 6.5-8 11-8 11z" fill="#ff5d78"/>\n'
+            '</g>\n'
+            '<g class="cg-zzz" fill="#cfd2da" font-family="system-ui,sans-serif" font-weight="700"><text x="86" y="22" font-size="8">z</text><text x="95" y="13" font-size="11">Z</text></g>\n'
+            '</g>\n'
+            '</svg>\n'
+            '<div class="mcat-bub">۰٪ · ۱/۱</div>\n'
+            '<div class="mcat-say"></div>\n'
+            '</div>\n'
+        )
         page = (
             "<!DOCTYPE html>\n"
             '<html lang="fa" dir="rtl">\n'
@@ -3400,6 +3824,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             '  <div class="rdr-progress"><div class="rdrB"></div></div>\n'
             "</div>\n"
             '<button type="button" id="fab" aria-label="منو">منو</button>\n'
+            + _MCAT_HTML +
             '<div id="seek" dir="ltr">\n'
             '  <div class="rail" id="rail">\n'
             '    <span class="bub" id="sbub">صفحهٔ ۱</span>\n'
