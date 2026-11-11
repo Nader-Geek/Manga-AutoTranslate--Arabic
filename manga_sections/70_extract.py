@@ -2345,7 +2345,10 @@ class _MangaTranslatorBody_70:
                           - np.degrees(np.arctan(2.0 * qa * cxs[0] + qb)))
             if sag < max(3.5, 0.12 * row_h):
                 return None
-            if abs(d_ang) < 12.0 or abs(d_ang) > 120.0:
+# سقفِ ۷۵°: خطِ خطاطی هرگز نیم‌دایره نمیپیچد؛ پله‌گذاریِ
+# واژه‌هایِ بلوکِ چندخطی (پالیهایِ باریک) گاهی قوسِ ‎۶۰..۹۰°
+# کاذب میسازد (باگِ «HABLA MUCHÍSIMO…» = ‎۶۸°).
+            if abs(d_ang) < 12.0 or abs(d_ang) > 75.0:
                 return None
 # جوهر باید «نوارِ خمیده» باشد — نویزِ پلکانیِ شدید (لایههای
 # پراکنده دور از منحنی) رد میشود
@@ -2355,6 +2358,33 @@ class _MangaTranslatorBody_70:
             frac_near = float(np.mean(np.abs(resid) <= 0.70 * lh))
             if resid_std > 0.55 * lh or frac_near < 0.82:
                 return None
+# ——— آزمونِ «پیچِ میانِ پالیِ پهن» ———
+# چهارگوشِ صافِ OCR (لبههای موازی) نمیتواند رویِ قطعهٔ بهشدت
+# خمیدهٔ قوسِ ادعایی بنشیند: اگر مماسِ منحنی در عرضِ یک پالیِ
+# پهن (≥ ۵۵٪ مسیر) بیش از ~۴۵° میپیچد، آن پالی در واقع «یک
+# خطِ صافِ» بلوکِ چندخطیِ موازی است و قوسْ ساختهٔ پله‌گذاریِ
+# خطوط است نه خمیدگیِ جوهر — ستونهایِ میانی از چند خط
+# میگذرند و مرکزِ جرم پایین میآید («∪ِ کاذب»). (باگِ حبابِ
+# سه‌خطیِ «HABLA MUCHÍSIMO…»: قوسِ ادعایی ‎۶۸° با سه پالیِ
+# صافِ موازی ‎+۵° — پیچِ میانِ پالیها ‎۵۵..۷۰°؛ قوسهایِ واقعیِ
+# همین صفحه: ≤ ۳۷°.)
+            try:
+                for q in polys:
+                    _ql = np.asarray(q, dtype=np.float64) \
+                        - np.array([_ix0, _iy0], np.float64)
+                    _qr = (_ql[:, 0] - cen[0]) * ca \
+                        - (_ql[:, 1] - cen[1]) * sa
+                    _p_span = float(_qr.max() - _qr.min())
+                    if _p_span < 0.55 * span:
+                        continue
+                    _t_l = float(np.degrees(np.arctan(
+                        2.0 * qa * float(_qr.min()) + qb)))
+                    _t_r = float(np.degrees(np.arctan(
+                        2.0 * qa * float(_qr.max()) + qb)))
+                    if abs(_t_r - _t_l) > 45.0:
+                        return None
+            except Exception:
+                pass
 # زاویهٔ هر پالی باید با مماسِ منحنی در جایِ خودش بخواند —
 # پالیهایِ صافِ بلوکِ پلکانی روی منحنیِ تندِ مرکزِ جرم نمیافتند.
 # پالیِ پوشانندهٔ کلِ قوس (پهن ≥ ۵۵٪ مسیر) با «زاویهٔ وتر» = ang
@@ -2362,14 +2392,20 @@ class _MangaTranslatorBody_70:
             for q in polys:
                 try:
                     _pa = float(MangaTranslator._poly_long_side_angle(q))
-                    _qr = (q[:, 0] - cen[0]) * ca - (q[:, 1] - cen[1]) * sa
+# پالیها در مختصاتِ صفحهاند ولی جوهر/برازش در قابِ کراپ
+# (‑_ix0,‑_iy0) — بدونِ این جابهجایی، مماس در جایِ غلط
+# سنجیده میشد (باگِ نهفتهٔ نگهبانِ پالیِ باریک).
+                    _ql = np.asarray(q, dtype=np.float64) \
+                        - np.array([_ix0, _iy0], np.float64)
+                    _qr = (_ql[:, 0] - cen[0]) * ca \
+                        - (_ql[:, 1] - cen[1]) * sa
                     _p_span = float(_qr.max() - _qr.min())
                     if _p_span >= 0.55 * span:
                         if abs(_pa - ang) > 16.0:
                             return None
                         continue
-                    _p_cx = float((q[:, 0].min() + q[:, 0].max()) / 2.0)
-                    _p_cy = float((q[:, 1].min() + q[:, 1].max()) / 2.0)
+                    _p_cx = float((_ql[:, 0].min() + _ql[:, 0].max()) / 2.0)
+                    _p_cy = float((_ql[:, 1].min() + _ql[:, 1].max()) / 2.0)
                     _prx = (_p_cx - cen[0]) * ca - (_p_cy - cen[1]) * sa
                     _tan = float(np.degrees(np.arctan(2.0 * qa * _prx + qb)))
                     if abs(_tan) > 60.0:
@@ -3829,9 +3865,42 @@ class _MangaTranslatorBody_70:
                         _ai = MangaTranslator._ink_slant_angle(
                             image[_uy1:_uy2, _ux1:_ux2], _umk)
                         if abs(_ai) >= (7.0 if _is_vert else 6.0):
-                            print(f"    [!] بازیابی کجی [{r.id}]: {ang:+.1f}° → "
-                                  f"{_ai:+.1f}° (جوهر؛ موتور از دست داده بود)")
-                            r.angle = _ai
+# وتوی جوهرِ ناسازگار (باگِ حبابِ «HABLA MUCHÍSIMO…»):
+# پالیهای خودِ OCR (چهارگوشِ چسبیده به متن) اگر تقریباً همه
+# یک زاویهٔ معنادارِ «مخالفِ» سنجشِ جوهر را میگویند، سنجشِ
+# جوهر برایِ بازنویسی باید «پشتیبانیِ پروجکشن» بیاورد: زاویهٔ
+# جدید باید ردیفهایِ جوهر را واقعاً ازِ افقی تیزتر کند (≥۱٫۱×).
+# بدونِ آن، قطبِ گلو/جوهرِ نویزی مولفههایِ مورب میسازد و
+# کجیِ درستِ پالی (+۵٫۸°) به ‎-۱۸°‌ِ وارونه تبدیل میشد.
+                            _keep_poly = False
+                            try:
+                                if not _is_vert and _px:
+                                    _pangs = []
+                                    for _q in _px:
+                                        try:
+                                            _va = float(
+                                                MangaTranslator._poly_long_side_angle(_q))
+                                        except Exception:
+                                            _va = 0.0
+                                        if abs(_va) >= 3.0:
+                                            _pangs.append(_va)
+                                    if (_pangs
+                                            and len(_pangs) >= max(1, len(_px) - 1)
+                                            and float(np.median(_pangs)) * _ai < 0.0):
+                                        _sup_ai = MangaTranslator._ink_slant_support(
+                                            image[_uy1:_uy2, _ux1:_ux2], _ai, _umk)
+                                        if _sup_ai is None or _sup_ai < 1.10:
+                                            _keep_poly = True
+                            except Exception:
+                                _keep_poly = False
+                            if _keep_poly:
+                                print(f"    [!] وتوی بازیابیِ کجی [{r.id}]: "
+                                      f"{ang:+.1f}° ماند — پالیهایِ OCR زاویهٔ "
+                                      f"{_ai:+.1f}° را تایید نمیکنند")
+                            else:
+                                print(f"    [!] بازیابی کجی [{r.id}]: {ang:+.1f}° → "
+                                      f"{_ai:+.1f}° (جوهر؛ موتور از دست داده بود)")
+                                r.angle = _ai
                 except Exception:
                     pass
                 continue

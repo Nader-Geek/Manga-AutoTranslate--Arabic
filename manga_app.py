@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.259"
+APP_VER = "1.14.261"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1878,9 +1878,12 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .t{flex:1;color:#97948c;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .n{color:#fff;background:#ff4a3d;border-radius:999px;padding:3px 11px;font-size:.8rem;font-weight:700;font-variant-numeric:tabular-nums;flex:none}
 .n.done{background:#2e7d4f}
-.dbtn{display:none;background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:7px 11px;font-size:.8rem;cursor:pointer;font-family:inherit;flex:none;min-height:36px}
-.dbtn.on{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}
-.c{max-width:min(100%,900px);margin:0 auto;width:100%;position:relative}
+.zbtn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:7px 11px;font-size:.85rem;cursor:pointer;font-family:inherit;flex:none;min-height:36px;min-width:36px}
+.zbtn:active{background:#2a2a30}
+.zv{color:#97948c;font-size:.78rem;min-width:42px;text-align:center;flex:none;font-variant-numeric:tabular-nums}
+#wrap{max-width:min(100%,900px);margin:0 auto;width:100%}
+.c{position:relative;width:100%}
+.c.hide{display:none}
 .c img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;pointer-events:none;content-visibility:auto;contain-intrinsic-size:auto 1200px}
 .dslot{position:relative;width:100%}
 .dslot>img{display:block;width:100%;height:auto}
@@ -1893,49 +1896,185 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .sp{width:26px;height:26px;border-radius:50%;border:3px solid #26262a;border-top-color:#ff4a3d;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hint{padding:16px;text-align:center;color:#6b6963;font-size:.85rem}
-.zbtn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:7px 11px;font-size:.85rem;cursor:pointer;font-family:inherit;flex:none;min-height:36px;min-width:36px}
-.zbtn:active{background:#2a2a30}
-.zv{color:#97948c;font-size:.78rem;min-width:42px;text-align:center;flex:none;font-variant-numeric:tabular-nums}
 .pbar{position:fixed;bottom:0;left:0;right:0;height:4px;background:#1a1a1c;z-index:4}
 .pfill{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}
+#fab{position:fixed;z-index:60;left:50%;bottom:26px;width:60px;height:60px;margin-left:-30px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}
+#fab:active{transform:scale(.93)}
+.fbtn{position:fixed;z-index:59;width:58px;height:58px;border-radius:50%;background:#1c1c20;border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.55);opacity:0;pointer-events:none;transform:scale(.3);transition:opacity .15s ease-out,transform .15s ease-out,left .15s linear,top .15s linear}
+.fbtn.show{opacity:1;pointer-events:auto;transform:scale(1)}
+.fbtn .ic{font-size:1.02rem;line-height:1.1}
+.fbtn.on{border-color:#3a8bff;background:#101f38;color:#fff}
+.fbtn.fdbg.on{border-color:#ff4a3d;background:#2c1210}
+#seek{position:fixed;left:0;right:0;top:40%;z-index:58;display:none;padding:12px 8px 8px;direction:ltr;background:rgba(8,8,10,.86)}
+#seek.show{display:block}
+#seek .rail{position:relative;height:44px;display:flex;align-items:center;justify-content:space-between}
+#seek .line{position:absolute;left:48px;right:48px;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:#33333a}
+#seek .fill{position:absolute;left:48px;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:linear-gradient(90deg,#ff4a3d,#ff8a5e);width:0}
+#seek .th{position:absolute;top:50%;left:48px;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #ff4a3d;transform:translate(-50%,-50%);cursor:grab;touch-action:none;z-index:2}
+#seek .th:active{cursor:grabbing}
+#seek .bub{position:absolute;top:4px;left:48px;transform:translateX(-50%);background:#161619;border:1px solid #2a2a2e;color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;white-space:nowrap;direction:rtl;font-variant-numeric:tabular-nums;pointer-events:none}
+.snav{width:42px;height:42px;border-radius:50%;background:#161619;border:1px solid #2a2a2e;color:#e8e6e1;font-size:1.15rem;cursor:pointer;flex:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;z-index:2}
+.snav:active{background:#2a2a30}
+#seek .rlab{display:flex;justify-content:space-between;direction:rtl;color:#8b8880;font-size:.68rem;padding:0 48px;margin-top:2px}
 </style></head><body>
-<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><button type="button" class="dbtn" id="db">🔍 دیباگ</button><button type="button" class="dbtn on" id="od" title="detector.onnx">det</button><button type="button" class="dbtn on" id="opd" title="paddle det">p-det</button><button type="button" class="dbtn on" id="opr" title="paddle rec">rec</button><div class="n" id="n">0</div></div>
-<main class="c" id="c"><div class="hint" id="h">در انتظار اولین صفحه…</div></main>
+<div class="bar"><span class="dot" id="dot"></span><div class="t">نمایش — صفحه‌ها سر جایشان پر می‌شوند</div><button type="button" class="zbtn" id="zo" title="کوچک‌تر">−</button><span class="zv" id="zv">100%</span><button type="button" class="zbtn" id="zi" title="بزرگ‌تر">+</button><button type="button" class="zbtn" id="zf" title="پهنای صفحه">پهنا</button><div class="n" id="n">0</div></div>
+<div id="wrap">
+<main class="c" id="cF"><div class="hint" id="hF">در انتظار اولین صفحه…</div></main>
+<main class="c hide" id="cD"><div class="hint" id="hD">در انتظار دیباگ…</div></main>
+</div>
 <div class="pbar"><div class="pfill" id="pf"></div></div>
+<button type="button" id="fab" aria-label="منو">منو</button>
+<div id="seek" dir="ltr">
+  <div class="rail" id="rail">
+    <span class="bub" id="sbub">صفحهٔ ۱</span>
+    <div class="line"></div><div class="fill" id="sfill"></div>
+    <button type="button" class="snav" id="sprev" title="صفحهٔ قبل">‹</button>
+    <div class="th" id="sth"></div>
+    <button type="button" class="snav" id="snext" title="صفحهٔ بعد">›</button>
+  </div>
+  <div class="rlab"><span id="slast">آخر</span><span id="sfirst">اول</span></div>
+</div>
 <script>
 (function(){
   var P = "__PREFIX__", D = "__DIR__", DBG = "__DBGDIR__";
+  var cF = document.getElementById('cF'), cD = document.getElementById('cD'),
+      hF = document.getElementById('hF'), hD = document.getElementById('hD');
   var arrived = 0, total = 0, dbgArrived = 0, dbgMode = false, busy = false;
-  var c = document.getElementById('c'), h = document.getElementById('h'),
-      b = document.getElementById('n'), dot = document.getElementById('dot'),
-      db = document.getElementById('db');
   var haveDbg = !!DBG, dbgTotal = -1;
-  // ——— کلیدهایِ روکشِ دیباگ ———
-  // عکسِ پایه (بی‌روکش) همیشه سرِ جایش میماند؛ جعبهها «SVG»
-  // رویِ خودش کشیده میشوند. روشن/خاموشکردنِ هر کلید فقط یک
-  // کلاسِ CSS رویِ ظرف عوض میکند — نه رفرش، نه لودِ دوباره،
-  // نه تعویضِ عکس. لحظه‌ای است.
-  var ov = { det: 1, pdet: 1, rec: 1 };
-  var od = document.getElementById('od'), opd = document.getElementById('opd'),
-      opr = document.getElementById('opr');
-  var ovlCache = {};   // slot → {ok, j}
   function pad(i){ return ('000' + i).slice(-4); }
-  function curDir(){ return dbgMode ? DBG : D; }
-  function curArrived(){ return dbgMode ? dbgArrived : arrived; }
-  // آدرسِ پایدار (بدونِ r=): بازکردنِ دوبارهٔ نمایشگر از کشِ
-  // HTTP مرورگر میخواند (304) — «هی از اول لود میشه» دیگر
-  // اتفاق نمیافتد؛ فقط اسلاتِ عوضشده (mtimes) تازه میشود.
-  function imgSrc(i){ return P + curDir() + 'live_' + pad(i + 1)
-                      + (dbgMode ? '_base.jpg' : '.jpg'); }
-  function bakedSrc(i){ return P + curDir() + 'live_' + pad(i + 1) + '.jpg'; }
-  function probeSrc(i){ return dbgMode ? bakedSrc(i) : imgSrc(i); }
+  function curCont(){ return dbgMode ? cD : cF; }
+  function imgSrc(i, dbg){ return P + (dbg ? DBG : D) + 'live_' + pad(i + 1)
+                           + (dbg ? '_base.jpg' : '.jpg'); }
+  function bakedSrc(i){ return P + D + 'live_' + pad(i + 1) + '.jpg'; }
+
+  var idbOK = true, _db = null;
+  function idb(){
+    if (!idbOK) return Promise.resolve(null);
+    if (_db) return Promise.resolve(_db);
+    return new Promise(function(res){
+      try {
+        var q = indexedDB.open('mangaLiveCache', 1);
+        q.onupgradeneeded = function(e){
+          var d = e.target.result;
+          if (!d.objectStoreNames.contains('imgs')) d.createObjectStore('imgs');
+          if (!d.objectStoreNames.contains('ovls')) d.createObjectStore('ovls');
+        };
+        q.onsuccess = function(e){ _db = e.target.result; res(_db); };
+        q.onerror = function(){ idbOK = false; res(null); };
+        q.onblocked = function(){ res(null); };
+      } catch (e) { idbOK = false; res(null); }
+    });
+  }
+  function idbGet(st, k){
+    return idb().then(function(d){
+      if (!d) return undefined;
+      return new Promise(function(res){
+        try {
+          var t = d.transaction(st, 'readonly').objectStore(st).get(k);
+          t.onsuccess = function(){ res(t.result); };
+          t.onerror = function(){ res(undefined); };
+        } catch (e) { res(undefined); }
+      });
+    });
+  }
+  function idbPut(st, k, v){
+    return idb().then(function(d){
+      if (!d) return;
+      try {
+        var tx = d.transaction(st, 'readwrite');
+        tx.objectStore(st).put(v, k);
+        tx.oncomplete = function(){ if (st === 'imgs') prune(); };
+      } catch (e) {}
+    });
+  }
+  var _pruning = false;
+  function prune(){
+    if (_pruning) return;
+    _pruning = true;
+    idb().then(function(d){
+      if (!d) { _pruning = false; return; }
+      try {
+        var rq = d.transaction('imgs', 'readonly').objectStore('imgs').count();
+        rq.onsuccess = function(){
+          var n = rq.result;
+          if (n < 1600) { _pruning = false; return; }
+          var tx = d.transaction('imgs', 'readonly');
+          var cur = tx.objectStore('imgs').openCursor();
+          var items = [];
+          cur.onsuccess = function(e){
+            var c2 = e.target.result;
+            if (c2) { items.push([c2.key, (c2.value && c2.value.t) || 0]); c2.continue(); }
+            else {
+              items.sort(function(a, b){ return a[1] - b[1]; });
+              var del = items.slice(0, Math.max(0, n - 1200));
+              try {
+                var tx2 = d.transaction('imgs', 'readwrite');
+                for (var i = 0; i < del.length; i++)
+                  tx2.objectStore('imgs').delete(del[i][0]);
+              } catch (e3) {}
+              _pruning = false;
+            }
+          };
+        };
+        rq.onerror = function(){ _pruning = false; };
+      } catch (e) { _pruning = false; }
+    });
+  }
+  var blobs = new Map(), fails = new Map();
+  function imgGet(url, fresh, noFail){
+    if (!fresh && blobs.has(url)) return Promise.resolve(blobs.get(url));
+    if (!noFail && !fresh && fails.has(url) && (Date.now() - fails.get(url)) < 8000)
+      return Promise.reject(0);
+    if (fresh) fails.delete(url);
+    var pre = (!fresh)
+      ? idbGet('imgs', url).then(function(hit){
+          if (hit && hit.b) {
+            var u = URL.createObjectURL(hit.b);
+            blobs.set(url, u);
+            return u;
+          }
+          return null;
+        })
+      : Promise.resolve(null);
+    return pre.then(function(u){
+      if (u) return u;
+      return fetch(url + (fresh ? ('?r=' + Date.now()) : ''),
+                   fresh ? { cache: 'no-store' } : {})
+        .then(function(r){ if (!r.ok) throw 0; return r.blob(); })
+        .then(function(b){
+          idbPut('imgs', url, { b: b, t: Date.now() });
+          var u2 = URL.createObjectURL(b);
+          blobs.set(url, u2);
+          return u2;
+        })
+        .catch(function(e){ fails.set(url, Date.now()); throw e; });
+    });
+  }
+  var ovlMem = new Map();
+  function ovlGet(url, fresh){
+    if (!fresh && ovlMem.has(url)) return Promise.resolve(ovlMem.get(url));
+    var pre = (!fresh)
+      ? idbGet('ovls', url).then(function(h){ return (h && h.j) ? h.j : null; })
+      : Promise.resolve(null);
+    return pre.then(function(j){
+      if (j) { ovlMem.set(url, j); return j; }
+      return fetch(url + (fresh ? ('?r=' + Date.now()) : ''),
+                   fresh ? { cache: 'no-store' } : {})
+        .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+        .then(function(j2){
+          ovlMem.set(url, j2);
+          idbPut('ovls', url, { j: j2, t: Date.now() });
+          return j2;
+        });
+    });
+  }
+
   function mkPh(){
     var d = document.createElement('div');
     d.className = 'ph';
     d.innerHTML = '<span class="sp"></span>در حال ترجمه…';
     return d;
   }
-  // ——— سازندهٔ SVG روکش ———
   var SVGNS = 'http://www.w3.org/2000/svg';
   function svgEl(t, at){
     var e = document.createElementNS(SVGNS, t);
@@ -2010,121 +2149,338 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       el.appendChild(buildOvlSvg(j));
     } catch (e) {}
   }
+  var ovlBusy = {};
   function ensureOvl(slot){
-    var el = c.children[slot - 1];
-    if (!el || !el.classList || !el.classList.contains('dslot')) return;
-    var cc = ovlCache[slot];
-    if (cc && cc.ok) {
-      if (!el.querySelector('svg.dovl')) putOvl(el, cc.j);
-      return;
-    }
-    if (cc && !cc.ok && (Date.now() - cc.t) < 5000) return;
-    if (el.__ovlBusy) return;
-    el.__ovlBusy = 1;
-    fetch(P + DBG + 'live_' + pad(slot) + '.json?r=' + Date.now(),
-          { cache: 'no-store' })
-      .then(function(r){ if (!r.ok) throw 0; return r.json(); })
-      .then(function(j){ ovlCache[slot] = { ok: 1, j: j }; putOvl(el, j); })
-      .catch(function(){ ovlCache[slot] = { ok: 0, t: Date.now() }; })
-      .then(function(){ el.__ovlBusy = 0; });
-  }
-  // ——— اسلات‌ها ———
-  function mkImg(i){
-    var el = document.createElement('img');
-    el.src = imgSrc(i);
-    el.alt = 'صفحهٔ ' + (i + 1);
-    el.loading = 'lazy'; el.decoding = 'async';
-    return el;
-  }
-  function mkDbgSlot(i){
-    var w = document.createElement('div');
-    w.className = 'dslot';
-    var im = document.createElement('img');
-    im.alt = 'صفحهٔ ' + (i + 1);
-    im.decoding = 'async';
-    // پایه نبود (دادهٔ روکش نبود) → تصویرِ سوختهٔ دیباگ
-    im.onerror = function(){
-      if (String(im.getAttribute('src') || '').indexOf('_base') >= 0)
-        im.src = bakedSrc(i);
-      try { w.dataset.baked = '1'; } catch (e) {}
-    };
-    im.src = imgSrc(i);
-    w.appendChild(im);
-    return w;
+    var el = cD.children[slot - 1];
+    if (!el || !el.classList || !el.classList.contains('dslot') || !el.__ok) return;
+    if (el.querySelector('svg.dovl')) return;
+    if (ovlBusy[slot]) return;
+    ovlBusy[slot] = 1;
+    ovlGet(P + DBG + 'live_' + pad(slot) + '.json')
+      .then(function(j){ putOvl(el, j); ovlBusy[slot] = 0; })
+      .catch(function(){ ovlBusy[slot] = 0; });
   }
   function slotFilled(el){
-    return !!el && (el.tagName === 'IMG' ||
-           (el.classList && el.classList.contains('dslot') &&
-            el.firstChild && el.firstChild.tagName === 'IMG'));
+    return !!(el && el.__ok);
   }
-  // رندر پایدار: اسلات‌ها سر جایشان می‌مانند، فقط جای خالی پر می‌شود.
-  function render(){
-    var a = curArrived(), want = Math.max(total, a);
-    if (h && h.parentNode === c) { c.removeChild(h); h = null; }
-    while (c.children.length < want) c.appendChild(mkPh());
-    for (var i = 0; i < want; i++) {
-      var el = c.children[i];
-      // ضدِ چشمک: تصویرِ نو بیرون از DOM دیکود میشود و بعد
-      // جای placeholder مینشیند — زمینهٔ خالی دیده نمیشود.
-      if (i < a && !slotFilled(el) && !el.__pend) {
-        el.__pend = 1;
-        (function(idx){
-          var node = dbgMode ? mkDbgSlot(idx) : mkImg(idx);
-          var im = dbgMode ? node.firstChild : node;
-          if (dbgMode) im.loading = 'eager';
-          var put = function(){
-            if (node.parentNode) return;
-            var cur = c.children[idx];
-            if (cur && !slotFilled(cur) && cur.__pend) {
-              c.replaceChild(node, cur);
-              // روکشِ SVG بعد از نشستنِ اسلات وصل میشود
-              if (dbgMode) ensureOvl(idx + 1);
-            }
-          };
-          if (im.decode) { im.decode().then(put, put); }
-          else { im.onload = put; im.onerror = put; }
-        })(i);
-      }
+  function fillSlot(cont, i){
+    var cur = cont.children[i];
+    if (!cur || slotFilled(cur) || cur.__pend) return;
+    if (cur.__failT && (Date.now() - cur.__failT) < 8000) return;
+    var dbg = (cont === cD);
+    var node, im;
+    if (dbg) {
+      node = document.createElement('div');
+      node.className = 'dslot';
+      im = document.createElement('img');
+      im.alt = 'صفحهٔ ' + (i + 1);
+      im.decoding = 'async';
+      node.appendChild(im);
+    } else {
+      im = document.createElement('img');
+      im.alt = 'صفحهٔ ' + (i + 1);
+      im.decoding = 'async';
+      node = im;
     }
+    cur.__pend = 1;
+    var placed = false;
+    var place = function(ok){
+      if (placed) return;
+      placed = true;
+      var c2 = cont.children[i];
+      if (ok && c2 === cur) {
+        cont.replaceChild(node, cur);
+        node.__ok = 1;
+        if (dbg) ensureOvl(i + 1);
+      } else if (!ok) {
+        cur.__pend = 0;
+        cur.__failT = Date.now();
+      }
+    };
+    im.onload = function(){ place(1); };
+    im.onerror = function(){
+      if (dbg && String(im.getAttribute('src') || '').indexOf('_base') >= 0) {
+        node.__baked = 1;
+        placed = false;
+        imgGet(bakedSrc(i)).then(function(u){ im.src = u; })
+          .catch(function(){ im.src = bakedSrc(i); });
+        im.onerror = function(){ place(0); };
+        return;
+      }
+      place(0);
+    };
+    imgGet(imgSrc(i, dbg))
+      .then(function(u){ im.src = u; if (im.complete && im.naturalWidth > 0) place(1); })
+      .catch(function(){
+        if (!dbg) { im.src = imgSrc(i, false); }
+      });
+  }
+  var b = document.getElementById('n'), dot = document.getElementById('dot');
+  function render(){
+    var cont = dbgMode ? cD : cF, hEl = dbgMode ? hD : hF;
+    var a = dbgMode ? dbgArrived : arrived;
+    var want = Math.max(total, a);
+    if (hEl && hEl.parentNode === cont && (a > 0 || total > 0)) {
+      cont.removeChild(hEl);
+    }
+    while (cont.children.length < want) cont.appendChild(mkPh());
+    for (var i = 0; i < want && i < a; i++)
+      fillSlot(cont, i);
     b.textContent = a + (total > 0 ? ' / ' + total : '');
     var fin = (total > 0 && a >= total);
     b.className = 'n' + (fin ? ' done' : '');
     dot.className = 'dot' + (fin ? ' off' : '');
-    if (haveDbg) db.style.display = ((dbgTotal > 0 || dbgArrived > 0) && (arrived > 0 || dbgArrived > 0 || total > 0)) ? 'inline-block' : 'none';
-    if (haveDbg) {
-      var _ov = (dbgTotal > 0 || dbgArrived > 0) && dbgMode ? 'inline-block' : 'none';
-      if (od) od.style.display = _ov;
-      if (opd) opd.style.display = _ov;
-      if (opr) opr.style.display = _ov;
-      if (dbgMode) for (var s = 1; s <= dbgArrived; s++) ensureOvl(s);
+    updateSeekPos();
+  }
+
+  function setMode(dbg){
+    if (dbg && !haveDbg) return;
+    if (dbg === dbgMode) return;
+    dbgMode = dbg;
+    cF.classList.toggle('hide', dbgMode);
+    cD.classList.toggle('hide', !dbgMode);
+    applyOv();
+    updateFan();
+    render();
+    probe();
+  }
+  var ov = { det: 1, pdet: 1, rec: 1 };
+  try {
+    var _so = JSON.parse(localStorage.getItem('mangaLiveOv') || 'null');
+    if (_so && typeof _so === 'object')
+      ov = { det: _so.det ? 1 : 0, pdet: _so.pdet ? 1 : 0, rec: _so.rec ? 1 : 0 };
+  } catch (e) {}
+  function saveOv(){
+    try { localStorage.setItem('mangaLiveOv', JSON.stringify(ov)); } catch (e) {}
+  }
+  function applyOv(){
+    cD.classList.toggle('no-det', !ov.det);
+    cD.classList.toggle('no-pdet', !ov.pdet);
+    cD.classList.toggle('no-rec', !ov.rec);
+  }
+  applyOv();
+
+  var fab = document.getElementById('fab');
+  var fanState = 0;
+  var fans = [];
+  var fanDefs = [
+    { key: 'dbg', ic: '🔍', lb: 'دیباگ' },
+    { key: 'det', ic: '◫', lb: 'det' },
+    { key: 'pdet', ic: '◺', lb: 'p-det' },
+    { key: 'rec', ic: '▤', lb: 'rec' }
+  ];
+  for (var fi = 0; fi < fanDefs.length; fi++) {
+    var fb = document.createElement('button');
+    fb.type = 'button';
+    fb.className = 'fbtn';
+    fb.innerHTML = '<span class="ic"></span><span class="lb"></span>';
+    fb.setAttribute('data-k', fanDefs[fi].key);
+    document.body.appendChild(fb);
+    fans.push(fb);
+  }
+  (function(){
+    var px = null;
+    try { px = JSON.parse(localStorage.getItem('mangaLiveFabPos') || 'null'); } catch (e) {}
+    if (px && typeof px.x === 'number' && typeof px.y === 'number') {
+      placeFabXY(px.x, px.y);
+    }
+  })();
+  function placeFabXY(cx, cy){
+    var r = 30;
+    var x = Math.min(Math.max(cx, r + 4), window.innerWidth - r - 4);
+    var y = Math.min(Math.max(cy, r + 46), window.innerHeight - r - 8);
+    fab.style.left = (x - r) + 'px';
+    fab.style.top = (y - r) + 'px';
+    fab.style.right = 'auto';
+    fab.style.bottom = 'auto';
+    fab.style.marginLeft = '0';
+  }
+  var fdrag = null;
+  fab.addEventListener('pointerdown', function(e){
+    fdrag = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
+    try { fab.setPointerCapture(e.pointerId); } catch (e2) {}
+    e.preventDefault();
+  });
+  fab.addEventListener('pointermove', function(e){
+    if (!fdrag) return;
+    var dx = e.clientX - fdrag.x, dy = e.clientY - fdrag.y;
+    if (!fdrag.moved && Math.hypot(dx, dy) > 10) fdrag.moved = true;
+    if (fdrag.moved) {
+      fdrag.x = e.clientX; fdrag.y = e.clientY;
+      placeFabXY(e.clientX, e.clientY);
+      updateFan();
+    }
+  });
+  function fabUp(e){
+    if (!fdrag) return;
+    var moved = fdrag.moved;
+    fdrag = null;
+    if (moved) {
+      try {
+        var fr = fab.getBoundingClientRect();
+        localStorage.setItem('mangaLiveFabPos',
+          JSON.stringify({ x: fr.left + fr.width / 2, y: fr.top + fr.height / 2 }));
+      } catch (e2) {}
+      return;
+    }
+    if (!haveDbg) { fanState = fanState ? 0 : 2; }
+    else { fanState = (fanState + 1) % 3; }
+    updateFan();
+    updateSeekVis();
+  }
+  fab.addEventListener('pointerup', fabUp);
+  fab.addEventListener('pointercancel', function(){ fdrag = null; });
+  function fanAngles(){
+    var fr = fab.getBoundingClientRect();
+    var up = (fr.top + fr.height / 2) > window.innerHeight * 0.45;
+    return up ? [-152, -108, -72, -28] : [152, 108, 72, 28];
+  }
+  function updateFan(){
+    var fr = fab.getBoundingClientRect();
+    var cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
+    var angs = fanAngles();
+    var R = Math.min(104, Math.max(84, window.innerWidth * 0.16));
+    var show = fanState >= 1 && haveDbg;
+    for (var i = 0; i < fans.length; i++) {
+      var fb = fans[i];
+      var def = fanDefs[i];
+      var a = angs[i] * Math.PI / 180;
+      var bx = cx + Math.cos(a) * R, by = cy + Math.sin(a) * R;
+      bx = Math.min(Math.max(bx, 32), window.innerWidth - 32);
+      by = Math.min(Math.max(by, 76), window.innerHeight - 32);
+      fb.style.left = (bx - 29) + 'px';
+      fb.style.top = (by - 29) + 'px';
+      fb.querySelector('.ic').textContent =
+        (def.key === 'dbg') ? (dbgMode ? '📖' : '🔍') : def.ic;
+      fb.querySelector('.lb').textContent =
+        (def.key === 'dbg') ? (dbgMode ? 'نهایی' : 'دیباگ') : def.lb;
+      fb.classList.toggle('fdbg', def.key === 'dbg');
+      var on = (def.key === 'dbg') ? !!dbgMode : !!ov[def.key];
+      fb.classList.toggle('on', on);
+      fb.title = (def.key === 'dbg') ? 'نهایی/دیباگ' :
+                 (({ det: 'detector.onnx', pdet: 'paddle det', rec: 'paddle rec' })[def.key] || '');
+      fb.classList.toggle('show', show);
     }
   }
-  function setOvlBtns(){
-    var on = dbgMode ? 'inline-block' : 'none';
-    if (od) od.style.display = on;
-    if (opd) opd.style.display = on;
-    if (opr) opr.style.display = on;
+  for (var fj = 0; fj < fans.length; fj++) {
+    (function(fb){
+      fb.addEventListener('click', function(e){
+        e.stopPropagation();
+        var k = fb.getAttribute('data-k');
+        if (k === 'dbg') { setMode(!dbgMode); updateFan(); return; }
+        ov[k] = ov[k] ? 0 : 1;
+        saveOv();
+        applyOv();
+        if (!dbgMode) setMode(true);
+        updateFan();
+      });
+    })(fans[fj]);
   }
-  function bindOvl(btn, key, cls){
-    if (!btn) return;
-    btn.addEventListener('click', function(){
-      ov[key] = ov[key] ? 0 : 1;
-      btn.classList.toggle('on', !!ov[key]);
-      c.classList.toggle(cls, !ov[key]);
+
+  var seek = document.getElementById('seek'),
+      sth = document.getElementById('sth'),
+      sfill = document.getElementById('sfill'),
+      sbub = document.getElementById('sbub'),
+      rail = document.getElementById('rail');
+  function stackCount(){
+    return Math.max(1, (dbgMode ? dbgArrived : arrived) || curCont().children.length || 1);
+  }
+  function curPageIdx(){
+    var cont = curCont();
+    var best = 0;
+    for (var i = 0; i < cont.children.length; i++) {
+      var ch = cont.children[i];
+      var top = ch.getBoundingClientRect().top;
+      if (top <= window.innerHeight * 0.35) best = i;
+      else break;
+    }
+    return best;
+  }
+  function goToPage(idx){
+    var cont = curCont();
+    if (idx < 0) idx = 0;
+    var n = cont.children.length;
+    if (idx >= n) idx = n - 1;
+    var ch = cont.children[idx];
+    if (!ch) return;
+    var top = ch.getBoundingClientRect().top + window.scrollY - 54;
+    window.scrollTo(0, Math.max(0, top));
+  }
+  function setSeekFrac(f){
+    var n = stackCount();
+    var pg = Math.min(n, Math.max(1, Math.round(f * (n - 1)) + 1));
+    var w = Math.max(0, rail.clientWidth - 96);
+    var x = 48 + f * w;
+    sth.style.left = x + 'px';
+    sfill.style.width = (f * w) + 'px';
+    sbub.style.left = x + 'px';
+    sbub.textContent = 'صفحهٔ ' + pg + ' از ' + n;
+    return pg;
+  }
+  function updateSeekPos(){
+    if (!seek.classList.contains('show')) return;
+    var n = stackCount();
+    var cur = Math.min(n - 1, curPageIdx());
+    setSeekFrac(n > 1 ? cur / (n - 1) : 0);
+  }
+  function updateSeekVis(){
+    var show = (fanState === 2);
+    seek.classList.toggle('show', show);
+    if (show) updateSeekPos();
+  }
+  var sdrag = false, sraf = 0;
+  function seekFromX(cx){
+    var r = rail.getBoundingClientRect();
+    var w = Math.max(1, r.width - 96);
+    var f = Math.min(1, Math.max(0, (cx - r.left - 48) / w));
+    var pg = setSeekFrac(f);
+    if (!sraf) sraf = requestAnimationFrame(function(){
+      sraf = 0;
+      goToPage(pg - 1);
     });
   }
-  bindOvl(od, 'det', 'no-det');
-  bindOvl(opd, 'pdet', 'no-pdet');
-  bindOvl(opr, 'rec', 'no-rec');
-  // دکمهٔ 🔍 دیباگ فقط وقتی نشان داده میشود که حداقل یک
-  // صفحهٔ دیباگ واقعاً وجود دارد. total.txt دیباگ هر ۴ ثانیه چک میشود.
+  sth.addEventListener('pointerdown', function(e){
+    sdrag = true;
+    try { sth.setPointerCapture(e.pointerId); } catch (e2) {}
+    e.preventDefault();
+  });
+  sth.addEventListener('pointermove', function(e){ if (sdrag) seekFromX(e.clientX); });
+  sth.addEventListener('pointerup', function(){ sdrag = false; });
+  sth.addEventListener('pointercancel', function(){ sdrag = false; });
+  rail.addEventListener('pointerdown', function(e){
+    if (e.target === sth) return;
+    if (e.target.closest && e.target.closest('.snav')) return;
+    seekFromX(e.clientX);
+  });
+  document.getElementById('sprev').addEventListener('click', function(){
+    goToPage(curPageIdx() - 1); updateSeekPos();
+  });
+  document.getElementById('snext').addEventListener('click', function(){
+    goToPage(curPageIdx() + 1); updateSeekPos();
+  });
+  document.addEventListener('pointerdown', function(e){
+    if (fanState === 0) return;
+    if (e.target === fab || fab.contains(e.target)) return;
+    for (var i = 0; i < fans.length; i++)
+      if (fans[i].contains(e.target)) return;
+    if (seek.contains(e.target)) return;
+    fanState = 0;
+    updateFan();
+    updateSeekVis();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      fanState = 0; updateFan(); updateSeekVis();
+    }
+  });
+
   function pollDbgTotal(){
     if (!haveDbg || dbgTotal > 0) return;
     fetch(P + DBG + 'total.txt', { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.text() : ''; })
       .then(function(t){
         var v = parseInt((t || '').trim(), 10);
-        if (v > 0) { dbgTotal = v; render(); }
+        if (v > 0) { dbgTotal = v; if (dbgMode) render(); }
       })
       .catch(function(){});
   }
@@ -2132,39 +2488,25 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   pollDbgTotal();
   function probe(){
     if (busy) return;
-    var a = curArrived(), mode = dbgMode;
+    var a = dbgMode ? dbgArrived : arrived, mode = dbgMode;
     if (total > 0 && a >= total) return;
     busy = true;
-    var im = new Image();
-    im.onload = function(){
-      busy = false;
-      if (dbgMode === mode) {
-        if (mode) dbgArrived = Math.max(dbgArrived, a + 1);
-        else arrived = Math.max(arrived, a + 1);
-        render();
-        setTimeout(probe, 60);
-      }
-    };
-    im.onerror = function(){ busy = false; };
-    im.src = probeSrc(a);
+    var u = mode ? bakedSrc(a) : imgSrc(a, false);
+// نظرسنجیِ رسیدنِ صفحهٔ بعد — از کش: صفحهٔ ازقبل‌دیده‌شده بی‌شبکه
+// تأیید میشود (بارِ اول = بارِ تنها)؛ صفحهٔ نرسیده همان ۱٫۸ثانیهٔ
+// قبل نظرسنجی میشود (noFail = بی‌کشِ منفی).
+    imgGet(u, false, true)
+      .then(function(){
+        busy = false;
+        if (dbgMode === mode) {
+          if (mode) dbgArrived = Math.max(dbgArrived, a + 1);
+          else arrived = Math.max(arrived, a + 1);
+          render();
+          setTimeout(probe, 60);
+        }
+      })
+      .catch(function(){ busy = false; });
   }
-  if (haveDbg) {
-    db.addEventListener('click', function(){
-      dbgMode = !dbgMode;
-      db.classList.toggle('on', dbgMode);
-      db.textContent = dbgMode ? '📖 نهایی' : '🔍 دیباگ';
-      c.innerHTML = '';
-      h = document.createElement('div');
-      h.className = 'hint';
-      h.textContent = dbgMode ? 'در انتظار دیباگ…' : 'در انتظار صفحه…';
-      c.appendChild(h);
-      setOvlBtns();
-      render();
-      probe();
-    });
-  }
-  // تعویضِ بیفلاش: تصویرِ نو کامل دیکود میشود و «رویِ» تصویرِ
-  // قدیم می‌نشیند؛ پیکسلهایِ قدیم هرگز دور نمیشوند.
   function hotSwap(el, url){
     try {
       if (!el || el.tagName !== 'IMG') return;
@@ -2212,60 +2554,59 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       try { el.src = url; } catch (e2) {}
     }
   }
-  // mtimes هر پوشه جدا حفظ میشود: اولین poll هر پوشه فقط
-  // «ثبت» است (تصاویرِ تازه‌لودشده همین حالا تازهاند)؛ بعد از
-  // آن فقط اسلاتی که واقعاً عوض شده دوباره گرفته میشود —
-  // برگشت از دیباگ به نهایی هیچ لودِ دسته‌ای نمیسازد.
-  var mtimesByDir = {};
-  function dirMtimes(){
-    var k = curDir();
-    return mtimesByDir[k] || (mtimesByDir[k] = {});
-  }
-  var mtimeBusy = false;
-  function pollMtimes(){
-    if (mtimeBusy || curArrived() <= 0) return;
-    mtimeBusy = true;
-    fetch(P + curDir() + 'mtimes.txt?r=' + Date.now(), { cache: 'no-store' })
+  var mtF = {}, mtD = {};
+  function pollMtimesDir(mm, dirKey, isDbg){
+    if (!(isDbg ? dbgArrived : arrived)) return;
+    fetch(P + dirKey + 'mtimes.txt?r=' + Date.now(), { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.text() : ''; })
       .then(function(t){
-        mtimeBusy = false;
         if (!t) return;
-        var mm = dirMtimes();
         var firstPass = !mm.__init;
         var lines = t.split('\n');
         for (var k = 0; k < lines.length; k++) {
           var m = lines[k].trim().split(/\s+/);
           if (m.length < 2) continue;
           var slot = parseInt(m[0], 10), mt = m[1];
-          if (!(slot >= 1 && slot <= curArrived())) continue;
+          var cnt = isDbg ? dbgArrived : arrived;
+          if (!(slot >= 1 && slot <= cnt)) continue;
           if (mm[slot] === mt) continue;
           mm[slot] = mt;
           if (firstPass) continue;
-          var el = c.children[slot - 1];
-          var im = null;
-          if (el && el.tagName === 'IMG') im = el;
-          else if (el && el.querySelector) im = el.querySelector('img');
-          if (!im) continue;
-          var nu;
-          if (dbgMode) {
-            var baked = false;
-            try { baked = (el.dataset && el.dataset.baked === '1'); } catch (e1) {}
-            nu = baked ? bakedSrc(slot) + '?r=' + Date.now()
-                       : P + DBG + 'live_' + pad(slot) + '_base.jpg?r=' + Date.now();
-            delete ovlCache[slot];   // جعبهها هم با ترجمه عوض میشوند
-          } else {
-            nu = P + D + 'live_' + pad(slot) + '.jpg?r=' + Date.now();
-          }
-          hotSwap(im, nu);
-          if (dbgMode) {
+          if (isDbg) {
+            var el = cD.children[slot - 1];
+            var im = el && el.querySelector ? el.querySelector('img') : null;
+            if (!im) continue;
+            var nu = P + DBG + 'live_' + pad(slot) + '_base.jpg';
+            imgGet(nu, true)
+              .then(function(u){
+                if (dbgMode) hotSwap(im, u);
+                else { im.src = u; }
+              })
+              .catch(function(){});
+            ovlMem.delete(P + DBG + 'live_' + pad(slot) + '.json');
+            var svgs = el.querySelectorAll('svg.dovl');
+            for (var si = 0; si < svgs.length; si++)
+              if (svgs[si].parentNode === el) el.removeChild(svgs[si]);
             (function(s2){ setTimeout(function(){ ensureOvl(s2); }, 450); })(slot);
+          } else {
+            var el2 = cF.children[slot - 1];
+            if (!el2 || el2.tagName !== 'IMG') continue;
+            imgGet(P + D + 'live_' + pad(slot) + '.jpg', true)
+              .then(function(u){
+                if (!dbgMode) hotSwap(el2, u);
+                else el2.src = u;
+              })
+              .catch(function(){});
           }
         }
         mm.__init = 1;
       })
-      .catch(function(){ mtimeBusy = false; });
+      .catch(function(){});
   }
-  // total.txt: تعداد کل صفحه‌ها → اسلاتِ لودینگ برای همه
+  function pollMtimes(){
+    pollMtimesDir(mtF, D, false);
+    if (haveDbg) pollMtimesDir(mtD, DBG, true);
+  }
   function pollTotal(){
     if (total > 0) return;
     fetch(P + D + 'total.txt', { cache: 'no-store' })
@@ -2281,8 +2622,9 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     pollMtimes();
     probe();
   }, 1800);
-  // ——— زوم پهنا + نوار پیشرفت ———
+
   var zv = document.getElementById('zv'), pf = document.getElementById('pf');
+  var wrap = document.getElementById('wrap');
   var z = 1;
   var baseW = function(){ return Math.max(200, Math.min(900, window.innerWidth || 360)); };
   var applyZoom = function(nz){
@@ -2290,14 +2632,15 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     var midY = window.innerHeight / 2;
     var relY = (window.scrollY + midY) / Math.max(0.01, z);
     z = nz;
-    c.style.maxWidth = 'none';
-    c.style.width = Math.round(baseW() * z) + 'px';
-    c.style.marginLeft = 'auto';
-    c.style.marginRight = 'auto';
+    wrap.style.maxWidth = 'none';
+    wrap.style.width = Math.round(baseW() * z) + 'px';
+    wrap.style.marginLeft = 'auto';
+    wrap.style.marginRight = 'auto';
     window.scrollTo(0, Math.max(0, relY * z - midY));
     if (zv) zv.textContent = Math.round(z * 100) + '%';
   };
-  var zi = document.getElementById('zi'), zo = document.getElementById('zo'), zf = document.getElementById('zf');
+  var zi = document.getElementById('zi'), zo = document.getElementById('zo'),
+      zf = document.getElementById('zf');
   if (zi) zi.addEventListener('click', function(){ applyZoom(z * 1.25); });
   if (zo) zo.addEventListener('click', function(){ applyZoom(z * 0.8); });
   if (zf) zf.addEventListener('click', function(){ applyZoom(1); });
@@ -2318,10 +2661,13 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   };
   window.addEventListener('scroll', function(){
     updateProgress();
+    updateSeekPos();
   }, { passive: true });
   window.addEventListener('resize', function(){
     if (z !== 1) applyZoom(z);
     updateProgress();
+    updateFan();
+    updateSeekPos();
   });
   pollTotal();
   probe();
@@ -2331,7 +2677,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 </body></html>"""
 
     def build_reader_html(files, standalone: bool = True):
-        
+
         import gradio as _gr
         gv = getattr(_gr, "__version__", "4")
         major = int(str(gv).split(".")[0] or 4)
@@ -2346,8 +2692,11 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
                 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
                 f"<title>خواندن</title></head><body style='background:#000;color:#999'>{body}</body></html>"
             )
+# عکسها با data-src تزریق میشوند (نه src مستقیم) — لودِ تدریجی +
+# کشِ «بارِ اول» (IndexedDB): هر صفحه فقط یک بار از شبکه میآید و
+# بازکردنِ دوبارهٔ همان فصل بی‌نت لود میشود (گوشی/PC/لینوکس/وب).
         imgs = "".join(
-            f'<img src="{u}" loading="lazy" decoding="async" alt="" draggable="false">'
+            f'<img data-src="{u}" alt="" draggable="false">'
             for u in urls
         )
         title = os.path.basename(os.path.dirname(files[0])) or "مانهوا"
@@ -2377,22 +2726,55 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             ".rdrS{position:relative;background:#000}"
             ".rdrC{margin:0 auto;max-width:min(100%,900px);width:100%}"
             ".rdrC img{display:block;width:100%;height:auto;max-width:none;user-select:none;"
-            "-webkit-user-drag:none;pointer-events:none;content-visibility:auto;contain-intrinsic-size:auto 1200px}"
+            "-webkit-user-drag:none;pointer-events:none;content-visibility:auto;contain-intrinsic-size:auto 1200px;"
+            "background:#0b0b0d}"
             ".rdr-progress{position:fixed;bottom:0;left:0;right:0;height:3px;background:#1a1a1c;z-index:3}"
             ".rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}"
             ".zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}"
-            ".ph{width:100%;aspect-ratio:2/3;background:linear-gradient(100deg,#101012 40%,#17171a 50%,#101012 60%);background-size:200% 100%;animation:shph 1.6s infinite;border-radius:10px;margin:0 0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#5d5b55;font-size:.8rem}"
-            "@keyframes shph{0%{background-position:120% 0}100%{background-position:-80% 0}}"
-            ".sp{width:26px;height:26px;border-radius:50%;border:3px solid #26262a;border-top-color:#ff4a3d;animation:spinph 1s linear infinite}"
-            "@keyframes spinph{to{transform:rotate(360deg)}}"
+            "#fab{position:fixed;z-index:60;left:50%;bottom:26px;width:60px;height:60px;margin-left:-30px;"
+            "border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;"
+            "font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;"
+            "justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);"
+            "-webkit-tap-highlight-color:transparent;user-select:none}"
+            "#fab:active{transform:scale(.93)}"
+            ".fbtn{position:fixed;z-index:59;width:58px;height:58px;border-radius:50%;background:#1c1c20;"
+            "border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;"
+            "cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;"
+            "gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;"
+            "box-shadow:0 4px 14px rgba(0,0,0,.55);opacity:0;pointer-events:none;transform:scale(.3);"
+            "transition:opacity .15s ease-out,transform .15s ease-out,left .15s linear,top .15s linear}"
+            ".fbtn.show{opacity:1;pointer-events:auto;transform:scale(1)}"
+            ".fbtn .ic{font-size:1.05rem;line-height:1.1}"
+            ".fbtn.on{border-color:#3a8bff;background:#101f38;color:#fff}"
+            "#seek{position:fixed;left:0;right:0;top:40%;z-index:58;display:none;padding:12px 8px 8px;"
+            "direction:ltr;background:rgba(8,8,10,.86)}"
+            "#seek.show{display:block}"
+            "#seek .rail{position:relative;height:44px;display:flex;align-items:center;justify-content:space-between}"
+            "#seek .line{position:absolute;left:48px;right:48px;top:50%;height:4px;margin-top:-2px;"
+            "border-radius:2px;background:#33333a}"
+            "#seek .fill{position:absolute;left:48px;top:50%;height:4px;margin-top:-2px;border-radius:2px;"
+            "background:linear-gradient(90deg,#ff4a3d,#ff8a5e);width:0}"
+            "#seek .th{position:absolute;top:50%;left:48px;width:28px;height:28px;border-radius:50%;"
+            "background:#fff;border:3px solid #ff4a3d;transform:translate(-50%,-50%);cursor:grab;"
+            "touch-action:none;z-index:2}"
+            "#seek .th:active{cursor:grabbing}"
+            "#seek .bub{position:absolute;top:4px;left:48px;transform:translateX(-50%);background:#161619;"
+            "border:1px solid #2a2a2e;color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;"
+            "white-space:nowrap;direction:rtl;font-variant-numeric:tabular-nums;pointer-events:none}"
+            ".snav{width:42px;height:42px;border-radius:50%;background:#161619;border:1px solid #2a2a2e;"
+            "color:#e8e6e1;font-size:1.15rem;cursor:pointer;flex:none;touch-action:manipulation;"
+            "-webkit-tap-highlight-color:transparent;z-index:2}"
+            ".snav:active{background:#2a2a30}"
+            "#seek .rlab{display:flex;justify-content:space-between;direction:rtl;color:#8b8880;"
+            "font-size:.68rem;padding:0 48px;margin-top:2px}"
             "@media (max-width:480px){"
             ".rdr-bar{gap:4px;padding:6px 8px}"
             ".rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}"
             ".rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}"
             "}"
         )
-# جاوااسکریپت روی اسکرولِ خودِ سند (window) — نه داخل باکس
-# نوار بالا sticky است و با اسکرول، بالای صفحه می‌چسبد (وب + اندروید).
+# جاوااسکریپت روی اسکرولِ خودِ سند (window) — کشِ IndexedDB +
+# منویِ گردِ «منو» (چهار دکمه دورش) + خطِ صفحهها (قبل/بعد).
         js = r"""
 (function(){
   const root = document.getElementById('manga_rdr');
@@ -2401,6 +2783,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   const bar = root.querySelector('.zlv');
   const prog = root.querySelector('.rdrB');
   if (!c) return;
+  const PH1 = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   let z = 1;
   const MIN = 0.5, MAX = 4;
   const baseWidth = () => Math.max(200, Math.min(900, window.innerWidth || 360));
@@ -2421,6 +2804,135 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
   };
   const setZoom = (nz) => applyZoom(nz);
   const zoomBy = (f, cx, cy) => applyZoom(z * f, cx, cy);
+  // ——— کشِ «بارِ اول» ——— هر عکس فقط یک بار از شبکه میآید؛
+  // blob در IndexedDB میماند (گوشی/PC/لینوکس/وب) و بازگشتهای بعدی
+  // — حتی بعد از بستنِ صفحه — بی‌شبکه از کش میآیند.
+  const idbOK = (() => { try { return !!window.indexedDB; } catch (err) { return false; } })();
+  let _db = null;
+  const idb = () => {
+    if (!idbOK) return Promise.resolve(null);
+    if (_db) return Promise.resolve(_db);
+    return new Promise((res) => {
+      try {
+        const q = indexedDB.open('mangaLiveCache', 1);
+        q.onupgradeneeded = (e) => {
+          const d = e.target.result;
+          if (!d.objectStoreNames.contains('imgs')) d.createObjectStore('imgs');
+          if (!d.objectStoreNames.contains('ovls')) d.createObjectStore('ovls');
+        };
+        q.onsuccess = (e) => { _db = e.target.result; res(_db); };
+        q.onerror = () => res(null);
+        q.onblocked = () => res(null);
+      } catch (err) { res(null); }
+    });
+  };
+  const idbGet = (st, k) => idb().then((d) => {
+    if (!d) return undefined;
+    return new Promise((res) => {
+      try {
+        const t = d.transaction(st, 'readonly').objectStore(st).get(k);
+        t.onsuccess = () => res(t.result);
+        t.onerror = () => res(undefined);
+      } catch (err) { res(undefined); }
+    });
+  });
+  let _pruneBusy = false;
+  const idbPut = (st, k, v) => idb().then((d) => {
+    if (!d) return;
+    try {
+      const tx = d.transaction(st, 'readwrite');
+      tx.objectStore(st).put(v, k);
+      tx.oncomplete = () => { if (st === 'imgs' && !_pruneBusy && Math.random() < 0.1) pruneOld(); };
+    } catch (err) {}
+  });
+  const pruneOld = () => {
+    _pruneBusy = true;
+    idb().then((d) => {
+      if (!d) { _pruneBusy = false; return; }
+      try {
+        const rq = d.transaction('imgs', 'readonly').objectStore('imgs').count();
+        rq.onsuccess = () => {
+          const n = rq.result;
+          if (n < 1600) { _pruneBusy = false; return; }
+          const cur = d.transaction('imgs', 'readonly').objectStore('imgs').openCursor();
+          const items = [];
+          cur.onsuccess = (e) => {
+            const c2 = e.target.result;
+            if (c2) { items.push([c2.key, (c2.value && c2.value.t) || 0]); c2.continue(); }
+            else {
+              items.sort((a, b) => a[1] - b[1]);
+              try {
+                const tx2 = d.transaction('imgs', 'readwrite');
+                items.slice(0, Math.max(0, n - 1200)).forEach((it) => {
+                  tx2.objectStore('imgs').delete(it[0]);
+                });
+              } catch (err) {}
+              _pruneBusy = false;
+            }
+          };
+        };
+        rq.onerror = () => { _pruneBusy = false; };
+      } catch (err) { _pruneBusy = false; }
+    });
+  };
+  const abs = (u) => { try { return new URL(u, location.href).href; } catch (err) { return u; } };
+  const blobMem = new Map(), blobFail = new Map();
+  const imgGet = (u) => {
+    if (blobMem.has(u)) return Promise.resolve(blobMem.get(u));
+    if (blobFail.has(u) && (Date.now() - blobFail.get(u)) < 8000) return Promise.reject(0);
+    return idbGet('imgs', u).then((h) => {
+      if (h && h.b) { const u2 = URL.createObjectURL(h.b); blobMem.set(u, u2); return u2; }
+      return null;
+    }).then((b) => {
+      if (b) return b;
+      return fetch(u).then((r) => { if (!r.ok) throw 0; return r.blob(); })
+        .then((b2) => {
+          idbPut('imgs', u, { b: b2, t: Date.now() });
+          const u3 = URL.createObjectURL(b2);
+          blobMem.set(u, u3);
+          return u3;
+        })
+        .catch((err) => { blobFail.set(u, Date.now()); throw err; });
+    });
+  };
+  // ——— لودِ تدریجی از کش ——— عکسهایِ تزریقی data-src دارند؛
+  // نوارِ اطرافِ دید از کش/شبکه پر میشود و صفحاتِ دور به
+  // placeholderِ ۱px برمیگردند (رمِ کمتر) — بازگشت = از کش، بی‌نت.
+  const mgIO = ('IntersectionObserver' in window) ? new IntersectionObserver((es) => {
+    for (const en of es) {
+      const im = en.target;
+      if (en.isIntersecting) {
+        const r = im.dataset.src || '';
+        if (r && !im.__infl && im.getAttribute('src') !== im.__cur) {
+          if (im.__blob) { im.__cur = im.__blob; im.setAttribute('src', im.__blob); }
+          else {
+            im.__infl = 1;
+            imgGet(r).then((u) => {
+              im.__infl = 0; im.__blob = u; im.__cur = u;
+              im.setAttribute('src', u);
+            }).catch(() => {
+              im.__infl = 0; im.__cur = r;
+              im.setAttribute('src', r);
+            });
+          }
+        }
+      } else if (im.naturalWidth > 1 && im.naturalHeight > 1) {
+        try { im.style.aspectRatio = im.naturalWidth + '/' + im.naturalHeight; } catch (err) {}
+        if (im.getAttribute('src') !== PH1) im.setAttribute('src', PH1);
+      }
+    }
+  }, { rootMargin: '220% 0px 220% 0px' }) : null;
+  try {
+    c.querySelectorAll('img[data-src]').forEach((im) => {
+      im.setAttribute('src', PH1);
+      im.decoding = 'async';
+      if (mgIO) mgIO.observe(im);
+      else {
+        imgGet(im.dataset.src).then((u) => { im.setAttribute('src', u); })
+          .catch(() => { im.setAttribute('src', im.dataset.src); });
+      }
+    });
+  } catch (err) {}
   root.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;
@@ -2435,14 +2947,7 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       try { if (history.length > 1) history.back(); } catch (err) {}
       return;
     }
-    if (act === 'dbg') {
-      dbgMode = !dbgMode;
-      btn.textContent = dbgMode ? '\ud83d\udcd6 نهایی' : '🔍 دیباگ';
-      btn.classList.toggle('fs', dbgMode);
-      rebuild();
-      return;
-    }
-    else if (act === 'zoom-in') zoomBy(1.25);
+    if (act === 'zoom-in') zoomBy(1.25);
     else if (act === 'zoom-out') zoomBy(0.8);
     else if (act === 'zoom-fit') setZoom(1);
     else if (act === 'fs') {
@@ -2507,8 +3012,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
     const m = document.documentElement.scrollHeight - window.innerHeight;
     prog.style.width = (m > 0 ? Math.min(100, Math.max(0, window.scrollY / m * 100)) : 0) + '%';
   };
-  window.addEventListener('scroll', updateProgress, { passive: true });
-  window.addEventListener('resize', () => { if (z !== 1) applyZoom(z); updateProgress(); });
+  window.addEventListener('scroll', () => { updateProgress(); updateSeekPos(); }, { passive: true });
+  window.addEventListener('resize', () => { if (z !== 1) applyZoom(z); updateProgress(); updateFan(); updateSeekPos(); });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       try {
@@ -2524,51 +3029,196 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
       if (btn) btn.click();
     }
   });
-  // ——— نمایش زنده داخل خواننده (اسلات لودینگ) + سوئیچ دیباگ ———
-  let dbgMode = false, arrived = c.querySelectorAll('img').length, total = 0, ndbg = 0;
-  const mkPh = () => {
-    const d = document.createElement('div');
-    d.className = 'ph';
-    d.innerHTML = '<span class="sp"></span>در حال ترجمه…';
-    return d;
+  // ——— دکمهٔ گردِ «منو»: قابلِ جابه‌جایی؛ با زدن، چهار دکمه
+  // دورش میآیند (نزدیک/دور/پهنا/فول‌اسکرین)؛ زدنِ دوبارهٔ خودش =
+  // خطِ صفحهها برای رفتنِ چپ/راست به قبل و بعد — وسطِ صفحه. ———
+  const fab = document.getElementById('fab');
+  let fanState = 0;   // ۰=بسته | ۱=منویِ چهارتایی | ۲=منو+خط
+  const fanDefs = [
+    { key: 'zin', ic: '+', lb: 'نزدیک' },
+    { key: 'zout', ic: '\u2212', lb: 'دور' },
+    { key: 'zfit', ic: '\u2194', lb: 'پهنا' },
+    { key: 'fs', ic: '\u26f6', lb: 'تمام' }
+  ];
+  const fans = fanDefs.map((def) => {
+    const fb = document.createElement('button');
+    fb.type = 'button';
+    fb.className = 'fbtn';
+    fb.innerHTML = '<span class="ic"></span><span class="lb"></span>';
+    fb.setAttribute('data-k', def.key);
+    document.body.appendChild(fb);
+    fb.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const k = fb.getAttribute('data-k');
+      if (k === 'zin') zoomBy(1.25);
+      else if (k === 'zout') zoomBy(0.8);
+      else if (k === 'zfit') setZoom(1);
+      else if (k === 'fs') {
+        const b = root.querySelector('[data-act="fs"]');
+        if (b) b.click();
+      }
+      updateFan();
+    });
+    return fb;
+  });
+  const placeFabXY = (cx, cy) => {
+    const r = 30;
+    const x = Math.min(Math.max(cx, r + 4), window.innerWidth - r - 4);
+    const y = Math.min(Math.max(cy, r + 46), window.innerHeight - r - 8);
+    fab.style.left = (x - r) + 'px';
+    fab.style.top = (y - r) + 'px';
+    fab.style.right = 'auto';
+    fab.style.bottom = 'auto';
+    fab.style.marginLeft = '0';
   };
-  const mkImg = (i) => {
-    const im = document.createElement('img');
-    im.src = (dbgMode ? 'd/' : 'i/') + i;
-    im.loading = 'lazy';
-    im.decoding = 'async';
-    im.alt = '';
-    im.draggable = false;
-    return im;
+  try {
+    const sp = JSON.parse(localStorage.getItem('mangaRdrFab') || 'null');
+    if (sp && typeof sp.x === 'number') placeFabXY(sp.x, sp.y);
+  } catch (err) {}
+  let fdrag = null;
+  fab.addEventListener('pointerdown', (e) => {
+    fdrag = { x: e.clientX, y: e.clientY, moved: false };
+    try { fab.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  fab.addEventListener('pointermove', (e) => {
+    if (!fdrag) return;
+    const dx = e.clientX - fdrag.x, dy = e.clientY - fdrag.y;
+    if (!fdrag.moved && Math.hypot(dx, dy) > 10) fdrag.moved = true;
+    if (fdrag.moved) {
+      fdrag.x = e.clientX; fdrag.y = e.clientY;
+      placeFabXY(e.clientX, e.clientY);
+      updateFan();
+    }
+  });
+  const fabUp = () => {
+    if (!fdrag) return;
+    const moved = fdrag.moved;
+    fdrag = null;
+    if (moved) {
+      try {
+        const fr = fab.getBoundingClientRect();
+        localStorage.setItem('mangaRdrFab',
+          JSON.stringify({ x: fr.left + fr.width / 2, y: fr.top + fr.height / 2 }));
+      } catch (err) {}
+      return;
+    }
+    fanState = (fanState + 1) % 3;
+    updateFan();
+    updateSeekVis();
   };
-  function rebuild() {
-    const a = dbgMode ? ndbg : arrived;
-    const w = Math.max(total, a);
-    c.innerHTML = '';
-    for (let i = 0; i < w; i++) c.appendChild(i < a ? mkImg(i) : mkPh());
-  }
-  function renderLive() {
-    const a = dbgMode ? ndbg : arrived;
-    const w = Math.max(total, a);
-    while (c.children.length < w) c.appendChild(mkPh());
-    for (let i = 0; i < w; i++) {
-      const el = c.children[i];
-      if (i < a && el && el.tagName !== 'IMG') c.replaceChild(mkImg(i), el);
+  fab.addEventListener('pointerup', fabUp);
+  fab.addEventListener('pointercancel', () => { fdrag = null; });
+  const fanAngles = () => {
+    const fr = fab.getBoundingClientRect();
+    const up = (fr.top + fr.height / 2) > window.innerHeight * 0.45;
+    return up ? [-152, -108, -72, -28] : [152, 108, 72, 28];
+  };
+  function updateFan() {
+    const fr = fab.getBoundingClientRect();
+    const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
+    const angs = fanAngles();
+    const R = Math.min(104, Math.max(84, window.innerWidth * 0.16));
+    const show = fanState >= 1;
+    for (let i = 0; i < fans.length; i++) {
+      const fb = fans[i], def = fanDefs[i];
+      const a = angs[i] * Math.PI / 180;
+      let bx = cx + Math.cos(a) * R, by = cy + Math.sin(a) * R;
+      bx = Math.min(Math.max(bx, 32), window.innerWidth - 32);
+      by = Math.min(Math.max(by, 76), window.innerHeight - 32);
+      fb.style.left = (bx - 29) + 'px';
+      fb.style.top = (by - 29) + 'px';
+      fb.querySelector('.ic').textContent = def.ic;
+      fb.querySelector('.lb').textContent = def.lb;
+      fb.classList.toggle('show', show);
     }
   }
-  window.__mangaLive = function(n, tot, nd) {
-    try {
-      if (typeof tot === 'number' && tot > 0) total = tot;
-      if (typeof nd === 'number' && nd > 0) {
-        ndbg = nd;
-        const tb = root.querySelector('[data-act="dbg"]');
-        if (tb) tb.hidden = false;
-      }
-      if (!dbgMode) arrived = Math.max(arrived, n | 0);
-      renderLive();
-    } catch (err) {}
+  // ——— خطِ صفحهها: درگِ چپ/راست = قبل/بعد ———
+  const seek = document.getElementById('seek'),
+        sth = document.getElementById('sth'),
+        sfill = document.getElementById('sfill'),
+        sbub = document.getElementById('sbub'),
+        rail = document.getElementById('rail');
+  const stackCount = () => Math.max(1, c.children.length);
+  const curPageIdx = () => {
+    let best = 0;
+    for (let i = 0; i < c.children.length; i++) {
+      const ch = c.children[i];
+      if (ch.getBoundingClientRect().top <= window.innerHeight * 0.35) best = i;
+      else break;
+    }
+    return best;
   };
-  if (arrived > 0) renderLive();
+  const goToPage = (idx) => {
+    const n = c.children.length;
+    idx = Math.max(0, Math.min(n - 1, idx));
+    const ch = c.children[idx];
+    if (!ch) return;
+    window.scrollTo(0, Math.max(0, ch.getBoundingClientRect().top + window.scrollY - 54));
+  };
+  const setSeekFrac = (f) => {
+    const n = stackCount();
+    const pg = Math.min(n, Math.max(1, Math.round(f * (n - 1)) + 1));
+    const w = Math.max(0, rail.clientWidth - 96);
+    const x = 48 + f * w;
+    sth.style.left = x + 'px';
+    sfill.style.width = (f * w) + 'px';
+    sbub.style.left = x + 'px';
+    sbub.textContent = 'صفحهٔ ' + pg + ' از ' + n;
+    return pg;
+  };
+  const updateSeekPos = () => {
+    if (!seek.classList.contains('show')) return;
+    const n = stackCount();
+    setSeekFrac(n > 1 ? Math.min(n - 1, curPageIdx()) / (n - 1) : 0);
+  };
+  const updateSeekVis = () => {
+    seek.classList.toggle('show', fanState === 2);
+    if (fanState === 2) updateSeekPos();
+  };
+  let sdrag = false, sraf = 0;
+  const seekFromX = (cx) => {
+    const r = rail.getBoundingClientRect();
+    const w = Math.max(1, r.width - 96);
+    const f = Math.min(1, Math.max(0, (cx - r.left - 48) / w));
+    const pg = setSeekFrac(f);
+    if (!sraf) sraf = requestAnimationFrame(() => {
+      sraf = 0;
+      goToPage(pg - 1);
+    });
+  };
+  sth.addEventListener('pointerdown', (e) => {
+    sdrag = true;
+    try { sth.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  sth.addEventListener('pointermove', (e) => { if (sdrag) seekFromX(e.clientX); });
+  sth.addEventListener('pointerup', () => { sdrag = false; });
+  sth.addEventListener('pointercancel', () => { sdrag = false; });
+  rail.addEventListener('pointerdown', (e) => {
+    if (e.target === sth) return;
+    if (e.target.closest && e.target.closest('.snav')) return;
+    seekFromX(e.clientX);
+  });
+  document.getElementById('sprev').addEventListener('click', () => {
+    goToPage(curPageIdx() - 1); updateSeekPos();
+  });
+  document.getElementById('snext').addEventListener('click', () => {
+    goToPage(curPageIdx() + 1); updateSeekPos();
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (fanState === 0) return;
+    if (e.target === fab || fab.contains(e.target)) return;
+    for (let i = 0; i < fans.length; i++)
+      if (fans[i].contains(e.target)) return;
+    if (seek.contains(e.target)) return;
+    fanState = 0;
+    updateFan();
+    updateSeekVis();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { fanState = 0; updateFan(); updateSeekVis(); }
+  });
   updateProgress();
 })();
 """
@@ -2600,6 +3250,17 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
             f'    <div class="rdrC">{imgs}</div>\n'
             "  </div>\n"
             '  <div class="rdr-progress"><div class="rdrB"></div></div>\n'
+            "</div>\n"
+            '<button type="button" id="fab" aria-label="منو">منو</button>\n'
+            '<div id="seek" dir="ltr">\n'
+            '  <div class="rail" id="rail">\n'
+            '    <span class="bub" id="sbub">صفحهٔ ۱</span>\n'
+            '    <div class="line"></div><div class="fill" id="sfill"></div>\n'
+            '    <button type="button" class="snav" id="sprev" title="صفحهٔ قبل">‹</button>\n'
+            '    <div class="th" id="sth"></div>\n'
+            '    <button type="button" class="snav" id="snext" title="صفحهٔ بعد">›</button>\n'
+            "  </div>\n"
+            '  <div class="rlab"><span>آخر</span><span>اول</span></div>\n'
             "</div>\n"
             f"<script>\n{js}\n</script>\n"
             "</body>\n</html>\n"

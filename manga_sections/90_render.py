@@ -641,6 +641,47 @@ class _MangaTranslatorBody_90:
           _qq = np.asarray(_q, dtype=np.float32).reshape(-1, 2)
           _ovl["pdet"].append([[round(float(_x), 1), round(float(_y), 1)]
                                for _x, _y in _qq])
+# «همهٔ متن‌ها خط‌به‌خطِ آبی»: پالیهایِ خودِ OCR هر ناحیه —
+# خطوطی که واقعاً استخراج/ترجمه شدند — هم به روکشِ آبی
+# میآیند. پاسِ خامِ det گاهی خطی را در کراپِ دیباگ نمیبیند
+# (دستورِ سازنده: p-det همهٔ متنها را خط‌به‌خط آبی نشان دهد).
+# کوارِ تکراریِ همانِ خام (همپوشانیِ باکس ≥ ۰٫۵۵) اضافه نمیشود.
+        def _pdet_iou(a2, b2) -> float:
+            try:
+                ax1, ay1 = float(a2[:, 0].min()), float(a2[:, 1].min())
+                ax2, ay2 = float(a2[:, 0].max()), float(a2[:, 1].max())
+                bx1, by1 = float(b2[:, 0].min()), float(b2[:, 1].min())
+                bx2, by2 = float(b2[:, 0].max()), float(b2[:, 1].max())
+                _iw = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+                _ih = max(0.0, min(ay2, by2) - max(ay1, by1))
+                _inter = _iw * _ih
+                _un = (ax2 - ax1) * (ay2 - ay1) \
+                    + (bx2 - bx1) * (by2 - by1) - _inter
+                return _inter / max(1e-6, _un)
+            except Exception:
+                return 0.0
+        for _r in (regions or []):
+            for _p in (getattr(_r, "ocr_polys", None) or []):
+                try:
+                    _qq2 = np.asarray(_p, dtype=np.float32).reshape(-1, 2)
+                except Exception:
+                    continue
+                if _qq2.shape[0] < 3 or _qq2.size < 6:
+                    continue
+                _dup = False
+                for _e in _ovl["pdet"]:
+                    try:
+                        _ee = np.asarray(_e, dtype=np.float32).reshape(-1, 2)
+                        if _pdet_iou(_qq2, _ee) >= 0.55:
+                            _dup = True
+                            break
+                    except Exception:
+                        continue
+                if _dup:
+                    continue
+                _ovl["pdet"].append(
+                    [[round(float(_x), 1), round(float(_y), 1)]
+                     for _x, _y in _qq2])
         for _r in (regions or []):
           try:
             _ovl["rec"].append([

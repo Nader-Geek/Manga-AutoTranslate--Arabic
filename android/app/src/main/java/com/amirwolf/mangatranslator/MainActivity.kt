@@ -3408,19 +3408,12 @@ class MainActivity : AppCompatActivity() {
             .replace("__TITLE__", title)
             .replace("__IMGS__", imgs)
             .replace("data-act=\"close\"", "data-act=\"close\" hidden")
-// تعدادِ صفحه‌های دیباگ با data-ndbg به JS تزریق می‌شود —
-// در نمایشِ غیرِزنده __mangaLive هرگز صدا نمی‌خورد و قبلاً JS تعدادِ
-// دیباگ را صفر فرض می‌کرد → سوییچِ صفحهٔ خالی می‌ساخت
-        html = if (dpaths.isNotEmpty()) {
-// دکمهٔ دیباگ وقتی صفحهٔ دیباگ هست قرمز و پررنگ می‌شود
-            html.replace(
-                "data-act=\"dbg\" hidden",
-                "data-act=\"dbg\" data-ndbg=\"${dpaths.size}\" style=\"background:#b3261e;border-color:#d64545;color:#fff;font-weight:700\"")
-        } else {
-            html.replace(
-                "data-act=\"dbg\" hidden",
-                "data-act=\"dbg\" data-ndbg=\"0\" hidden")
-        }
+// تعدادِ صفحه‌هایِ دیباگ به «body data-ndbg» تزریق می‌شود — منویِ
+// گردِ چهاردکمه‌ای (دیباگ/det/p-det/rec) از همان می‌فهمد؛ دکمه‌هایِ
+// قدیمیِ نوارِ بالا حذف شده‌اند (دستورِ سازنده).
+        html = html.replace(
+            "data-ndbg=\"0\"",
+            "data-ndbg=\"${dpaths.size}\"")
 
         wv.loadDataWithBaseURL("https://localhost/", html, "text/html", "utf-8", null)
 
