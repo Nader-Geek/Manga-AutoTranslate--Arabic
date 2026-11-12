@@ -4853,7 +4853,9 @@ class _MangaTranslatorBody_85:
         except Exception:
             _max_side = 0
         if _max_side <= 0:
-            _max_side = 1024 if _on_android() else 2048
+# v1.14.283 — همهجا 2048 (قبلاً اندروید 1024 بود → نتیجهٔ
+# گوشی با PC فرق داشت؛ «مگ همشون یکس نیستن»).
+            _max_side = 2048
         _pl, _ph = int(sub_img.shape[1]), int(sub_img.shape[0])
         ctx = {"img_h": int(img_h), "img_w": int(img_w),
                "ex0": int(ex0), "ey0": int(ey0),

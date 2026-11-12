@@ -797,7 +797,9 @@ def _lama_static_side() -> int:
     فعال باشد، هر ورودیِ LaMa دقیقاً به (side×side) پد می‌شود → xnnpack
     فقط یک‌بار کامپایل می‌کند و واقعاً کار می‌کند (سریع‌تر از CPUِ خالی).
     env: MANGA_LAMA_STATIC_SIDE=0 (خاموش) | N (اندازه) | خالی = خودکار
-    (اندروید + xnnpack موجود → 384، بقیه → 0)."""
+    (اندروید + xnnpack موجود → 512 — هم‌مقیاسِ PC؛ v1.14.283:
+    «مگ همشون یکس نیستن» — 384یِ قدیم مقیاسِ گوشی را با PC فرق
+    میداد؛ بقیه → 0)."""
     global _LAMA_STATIC_SIDE
     if _LAMA_STATIC_SIDE is not None:
         return int(_LAMA_STATIC_SIDE)
@@ -818,7 +820,10 @@ def _lama_static_side() -> int:
             if _on_android() and ort is not None and (
                     "XnnpackExecutionProvider"
                     in list(ort.get_available_providers())):
-                side = 384
+# v1.14.283 — 512 (نه 384): پچِ LaMa همهجا 512 شد؛ باکتِ کوچکتر
+# مقیاسِ ورودیِ گوشی را با PC فرق میداد (خواستهٔ سازنده: نتایجِ
+# همهجا یکسان). 512² برایِ xnnpack هم یک کامپایل است.
+                side = 512
         except Exception:
             side = 0
     _LAMA_STATIC_SIDE = int(side)
@@ -1592,30 +1597,12 @@ class LamaMangaONNX:
 # شکلِ داینامیک ORT_FAIL می‌دهد واقعاً کار کند (پچِ LaMa زنده
 # می‌ماند → بدونِ فال‌بکِ OpenCV → بدونِ لکهٔ قرمز + سریع‌تر).
         self._static_bucket = 0
-# پچِ تطبیقیِ LaMa (فقط اندروید — MANGA_LAMA_PATCH512):
-# پچِ 384 کلِ ورودی را به مقیاسِ ~0.5 (بلوکِ تمامعرض) و ~0.2
-# (گروهِ پراکنده) له میکند → LaMa «متنِ قلابی» میسازد (لکهٔ
-# کثیف). با رمِ آزادِ ≥1200MB و ≥۶ هسته، پچِ 512 (کیفیتِ
-# بالاتر) امن است؛ گوشیِ کم‌رم مثلِ قبل 384 میماند. env دستی
-# (MANGA_LAMA_PATCH_SIDE) همیشه حاکم است.
-        try:
-            if (_on_android()
-                    and not os.environ.get("MANGA_LAMA_PATCH_SIDE")
-                    and _android_gate("MANGA_LAMA_PATCH512")):
-                _free_mb2 = 0
-                with open("/proc/meminfo", "r") as _mi2:
-                    for _ln2 in _mi2:
-                        if _ln2.startswith("MemAvailable:"):
-                            _free_mb2 = int(_ln2.split()[1]) // 1024
-                            break
-                if _free_mb2 >= 1200 and (os.cpu_count() or 2) >= 6:
-                    os.environ["MANGA_LAMA_PATCH_SIDE"] = "512"
-                    os.environ["MANGA_LAMA_STATIC_SIDE"] = "512"
-                    globals()["_LAMA_STATIC_SIDE"] = None  # بازخوانیِ کش
-                    print("[*] پچِ تطبیقی LaMa: رمِ آزادِ کافی → 512",
-                          flush=True)
-        except Exception:
-            pass
+# پچِ تطبیقیِ LaMa حذف شد (v1.14.283 — خواستهٔ سازنده: «پاکسازیم gpu
+# cpu میبینی فرق داره هردوش یکجور میپاکه تو گوشی همچنین یک جور دیگ
+# میپاکه مگ همشون یکس نیستن»): پچِ 384ِ گوشیِ کم‌رم و گیتِ
+# MANGA_LAMA_PATCH512 (وابسته به رم/هسته) نتیجه را وابسته به دستگاه
+# میکرد — حالا همهجا 512 (مانندِ PC). تنظیمِ دستیِ
+# MANGA_LAMA_PATCH_SIDE همچنان حاکم است (فقط برایِ دیباگِ سرعت).
         try:
             _pv = [str(p).lower()
                      for p in (self.session.get_providers() or [])]
@@ -1634,8 +1621,8 @@ class LamaMangaONNX:
             _env_ps = 0
         if _env_ps > 0:
             self._input_cap = _env_ps
-        elif not prefer_gpu and _on_android():
-            self._input_cap = 384
+# v1.14.283 — پچِ LaMa در همهجا 512 (PC/GPU/CPU/گوشی یکسان؛
+# 384یِ گوشیِ کم‌رم حذف شد — «مگ همشون یکس نیستن»).
         self._fixed_size = False
         self._dyn_size = 512
         try:
