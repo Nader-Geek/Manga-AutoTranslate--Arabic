@@ -302,6 +302,41 @@ jobs:
           echo "[✓] 01.jpg emulator gate passed"
           cp /tmp/emulout/* emul-artifacts/ || true
 
+      # ── v1.14.282 — گیتِ «جهتِ OCR: متنِ کج + خمیده» (D279) ──────
+      # خواستهٔ سازنده: «چند تا عکس فیک متن خمیده شده و متن کج هردو
+      # جدا فرق دارن بسازی و ocr تست کنی ببینی جهتشون درست میخونه یا
+      # درست سرجاشون میزاره هم پی سی هم لینوکس هم اندروید».
+      # صفحهٔ فیکِ ترکیبی (۳ خطِ کج −18/10/−26° + ۲ کمان) رویِ
+      # امولاتورِ واقعی ران میشود؛ گیت = ≥۴ ناحیه از لاگِ موتور.
+      # نسخهٔ PC/لینوکس: scripts/test_v114282_ocr_direction.py
+      - name: Run APK with OCR-direction fixture (tilted + curved text)
+        run: |
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          set -x
+          B1="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/${GITHUB_SHA}/ci_imgs/fixtures/page_mixed.png"
+          B2="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/ci_imgs/fixtures/page_mixed.png"
+          curl -fsSL --retry 2 --max-time 120 -o /tmp/mt/imgs/page_mixed.png "$B1" \
+            || curl -fsSL --retry 2 --max-time 120 -o /tmp/mt/imgs/page_mixed.png "$B2"
+          test -s /tmp/mt/imgs/page_mixed.png
+          adb push /tmp/mt/imgs/page_mixed.png /data/local/tmp/test3.png
+          adb shell "run-as com.amirwolf.mangatranslator sh -c 'cat /data/local/tmp/test3.png > /data/user/0/com.amirwolf.mangatranslator/files/test3.png'"
+          adb shell am force-stop com.amirwolf.mangatranslator || true
+          sleep 3
+          adb shell "run-as com.amirwolf.mangatranslator sh -c 'mkdir -p /data/user/0/com.amirwolf.mangatranslator/shared_prefs && echo PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiIHN0YW5kYWxvbmU9InllcyIgPz4KPG1hcD4KICAgIDxzdHJpbmcgbmFtZT0iaW5wX3VwbG9hZF9wYXRoIj4vZGF0YS91c2VyLzAvY29tLmFtaXJ3b2xmLm1hbmdhdHJhbnNsYXRvci9maWxlcy90ZXN0My5wbmc8L3N0cmluZz4KICAgIDxzdHJpbmcgbmFtZT0iZmFrZV90ZXN0Ij50cnVlPC9zdHJpbmc+CiAgICA8c3RyaW5nIG5hbWU9ImNsZWFuX29ubHkiPnRydWU8L3N0cmluZz4KICAgIDxzdHJpbmcgbmFtZT0id2ViX2RlYnVnIj50cnVlPC9zdHJpbmc+CiAgICA8c3RyaW5nIG5hbWU9Im91dF9mbXQiPlBERjwvc3RyaW5nPgogICAgPHN0cmluZyBuYW1lPSJyZWFkZXIiPnJ0bDwvc3RyaW5nPgogICAgPGJvb2xlYW4gbmFtZT0iYmF0dGVyeV9hc2tlZCIgdmFsdWU9InRydWUiIC8+CjwvbWFwPgo= | base64 -d > /data/user/0/com.amirwolf.mangatranslator/shared_prefs/manga_settings.xml'"
+          adb logcat -c || true
+          adb shell am start -W -n com.amirwolf.mangatranslator/.MainActivity || true
+          sleep 15
+          adb logcat -d -b crash > /tmp/emulout/logcat_crash3.txt 2>/dev/null || true
+          python3 .ci_scripts/tap_run.py || { adb exec-out run-as com.amirwolf.mangatranslator cat files/manga.log > /tmp/emulout/manga_pm_fail.log || true; cp /tmp/emulout/* emul-artifacts/ || true; exit 1; }
+          python3 .ci_scripts/wait_done.py 60
+          adb exec-out run-as com.amirwolf.mangatranslator cat files/manga.log > /tmp/emulout/manga_pm.log || true
+          adb shell rm -f /data/local/tmp/test3.png || true
+          # گیت: ≥۴ ناحیه (۵ آیتمِ فیکسچر — ۳ کج + ۲ خمیده)
+          python3 .ci_scripts/check_extract.py /tmp/emulout/manga_pm.log 4
+          echo "[✓] OCR-direction fixture emulator gate passed"
+          cp /tmp/emulout/* emul-artifacts/ || true
+
       # ── v1.14.134 — گیتِ «مجموعهٔ گستردهٔ کاربر» (جایگزینِ سیاستِ v1.14.127) ──
       # درخواستِ جدیدِ کاربر: «همه لینک هایی ک گذاشتم تست کن الکی رد نکن خوب چک کن
       # خودت عکس کره ای ژاپنی چینی از اینترنت پیدا کن زبان اصلی چندتا تست کن

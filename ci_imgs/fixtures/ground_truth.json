@@ -1,0 +1,162 @@
+{
+ "font": "fonts/Vazirmatn-Bold.ttf",
+ "fixtures": {
+  "rot_m26.png": {
+   "kind": "rotated",
+   "text": "WHERE ARE YOU GOING",
+   "angle": -26,
+   "center": [
+    600,
+    350
+   ],
+   "size": [
+    1200,
+    700
+   ]
+  },
+  "rot_m18.png": {
+   "kind": "rotated",
+   "text": "WHERE ARE YOU GOING",
+   "angle": -18,
+   "center": [
+    600,
+    350
+   ],
+   "size": [
+    1200,
+    700
+   ]
+  },
+  "rot_m10.png": {
+   "kind": "rotated",
+   "text": "WHERE ARE YOU GOING",
+   "angle": -10,
+   "center": [
+    600,
+    350
+   ],
+   "size": [
+    1200,
+    700
+   ]
+  },
+  "rot_p10.png": {
+   "kind": "rotated",
+   "text": "WHERE ARE YOU GOING",
+   "angle": 10,
+   "center": [
+    600,
+    350
+   ],
+   "size": [
+    1200,
+    700
+   ]
+  },
+  "rot_p18.png": {
+   "kind": "rotated",
+   "text": "WHERE ARE YOU GOING",
+   "angle": 18,
+   "center": [
+    600,
+    350
+   ],
+   "size": [
+    1200,
+    700
+   ]
+  },
+  "arc_r260.png": {
+   "kind": "curved",
+   "text": "THE HIDDEN POWER",
+   "radius": 300,
+   "center": [
+    797,
+    1167
+   ],
+   "size": [
+    1600,
+    2260
+   ],
+   "angle_mean": 0.3683300111555305
+  },
+  "arc_r520.png": {
+   "kind": "curved",
+   "text": "I WILL NEVER GIVE UP",
+   "radius": 560,
+   "center": [
+    796,
+    1104
+   ],
+   "size": [
+    1600,
+    2260
+   ],
+   "angle_mean": -0.4060582588259753
+  },
+  "page_mixed.png": {
+   "kind": "page_mixed",
+   "items": [
+    {
+     "kind": "rotated",
+     "text": "WHERE ARE YOU GOING",
+     "angle": -18,
+     "center": [
+      430,
+      250
+     ]
+    },
+    {
+     "kind": "rotated",
+     "text": "THE HIDDEN POWER",
+     "angle": 10,
+     "center": [
+      1150,
+      400
+     ]
+    },
+    {
+     "kind": "rotated",
+     "text": "I WILL NEVER GIVE UP",
+     "angle": -26,
+     "center": [
+      560,
+      600
+     ]
+    },
+    {
+     "kind": "curved",
+     "text": "SHADOW STRIKE",
+     "radius": 300,
+     "center": [
+      808,
+      970
+     ],
+     "size": [
+      1600,
+      2260
+     ],
+     "angle_mean": -1.6790846496194962
+    },
+    {
+     "kind": "curved",
+     "text": "DESTINY",
+     "radius": 560,
+     "center": [
+      801,
+      2102
+     ],
+     "size": [
+      1600,
+      2260
+     ],
+     "angle_mean": 0.11693016227159725
+    }
+   ],
+   "size": [
+    1600,
+    2260
+   ]
+  }
+ }
+}

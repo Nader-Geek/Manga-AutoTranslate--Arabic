@@ -1,0 +1,46 @@
+{
+ "platform": "linux",
+ "results": {
+  "rot_m26.png": {
+   "text": true,
+   "pos": true,
+   "angle": true,
+   "det_angle": 26.228268695687508
+  },
+  "rot_m18.png": {
+   "text": true,
+   "pos": true,
+   "angle": true,
+   "det_angle": 18.22616762488329
+  },
+  "rot_m10.png": {
+   "text": true,
+   "pos": true,
+   "angle": true,
+   "det_angle": 10.101340041993325
+  },
+  "rot_p10.png": {
+   "text": true,
+   "pos": true,
+   "angle": true,
+   "det_angle": -10.024486795946615
+  },
+  "rot_p18.png": {
+   "text": true,
+   "pos": true,
+   "angle": true,
+   "det_angle": -18.076107296573273
+  },
+  "arc_r260.png": {
+   "words": "2/3",
+   "pos": true
+  },
+  "arc_r520.png": {
+   "words": "5/5",
+   "pos": true
+  },
+  "page_mixed": {
+   "found": "5/5"
+  }
+ }
+}
