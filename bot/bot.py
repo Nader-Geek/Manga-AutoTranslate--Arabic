@@ -17,6 +17,7 @@ from . import ui
 from . import stats as st
 from .config import Config, load_config
 from .db import Database, Job
+from .fetch import FetchError, classify, fetch_link
 from .runner import ALLOWED_EXTS, UploadError, batch_by_size, inspect_upload
 from .worker import Worker
 
@@ -175,9 +176,17 @@ class MangaBot(discord.Client):
 
     # --------------------------------------------------------------- submission
     async def submit(self, interaction: discord.Interaction, kind: str,
-                     attachment: discord.Attachment, options: Dict[str, Any]) -> None:
+                     attachment: Optional[discord.Attachment], options: Dict[str, Any],
+                     link: Optional[str] = None) -> None:
         assert self.db is not None and self.worker is not None
         cfg = self.cfg
+        if bool(attachment) == bool(link and link.strip()):
+            await interaction.response.send_message(
+                "أرفق ملفاً في `file` **أو** الصق رابطاً في `link` (واحد فقط).", ephemeral=True)
+            return
+        if link and not cfg.allow_links:
+            await interaction.response.send_message("الروابط غير مفعّلة على هذا البوت.", ephemeral=True)
+            return
         await interaction.response.defer(thinking=True)
 
         if await self.db.count_active(interaction.user.id) >= cfg.max_active_per_user:
@@ -185,30 +194,46 @@ class MangaBot(discord.Client):
                 f"لديك {cfg.max_active_per_user} مهام قيد التنفيذ بالفعل. انتظر حتى تنتهي أو "
                 f"استخدم `/cancel`.", ephemeral=True)
             return
-        ext = Path(attachment.filename).suffix.lower()
-        if ext not in ALLOWED_EXTS:
-            await interaction.followup.send(
-                "الصيغة غير مدعومة. المسموح: صورة (jpg/png/webp) أو ZIP أو PDF.", ephemeral=True)
-            return
-        if attachment.size > cfg.max_upload_mb * 1024 * 1024:
-            await interaction.followup.send(
-                f"الملف ({attachment.size / 1024 ** 2:.0f}MB) أكبر من الحد المسموح "
-                f"({cfg.max_upload_mb}MB). قسّم الفصل إلى أجزاء أصغر.", ephemeral=True)
-            return
+        if attachment is not None:
+            ext = Path(attachment.filename).suffix.lower()
+            if ext not in ALLOWED_EXTS:
+                await interaction.followup.send(
+                    "الصيغة غير مدعومة. المسموح: صورة (jpg/png/webp) أو ZIP أو PDF.", ephemeral=True)
+                return
+            if attachment.size > cfg.max_upload_mb * 1024 * 1024:
+                await interaction.followup.send(
+                    f"الملف ({attachment.size / 1024 ** 2:.0f}MB) أكبر من الحد المسموح "
+                    f"({cfg.max_upload_mb}MB). ارفعه على Google Drive/Gofile وأرسل الرابط في "
+                    f"`link`، أو قسّم الفصل.", ephemeral=True)
+                return
+        else:
+            try:   # fail fast on a bad link before creating anything
+                classify(link or "")
+            except FetchError as e:
+                await interaction.followup.send(f"❌ {e}", ephemeral=True)
+                return
 
         max_pages = cfg.max_pages_translate if kind == "translate" else cfg.max_pages
         workdir = cfg.work_dir / uuid.uuid4().hex
         workdir.mkdir(parents=True)
-        input_path = workdir / f"input{ext}"
         try:
-            await attachment.save(input_path)
+            if attachment is not None:
+                input_path = workdir / f"input{ext}"
+                source_name = attachment.filename
+                await attachment.save(input_path)
+            else:
+                got = await fetch_link(link or "", workdir / "dl", cfg.max_link_mb * 1024 * 1024)
+                ext = Path(got.filename).suffix.lower()
+                input_path = workdir / f"input{ext}"
+                got.path.replace(input_path)
+                source_name = got.filename
             pages = await asyncio.to_thread(inspect_upload, input_path, cfg, max_pages)
             job = await self.db.create_job(
                 user_id=interaction.user.id, guild_id=interaction.guild_id,
                 channel_id=interaction.channel_id or 0, kind=kind,
-                source_name=attachment.filename, workdir=str(workdir),
+                source_name=source_name, workdir=str(workdir),
                 input_path=str(input_path), total_pages=pages, options=options)
-        except UploadError as e:
+        except (UploadError, FetchError) as e:
             shutil.rmtree(workdir, ignore_errors=True)
             await interaction.followup.send(f"❌ {e}", ephemeral=True)
             return
@@ -228,48 +253,48 @@ class MangaBot(discord.Client):
         tree = self.tree
 
         @tree.command(name="clean", description="تنظيف الصفحات: مسح النص من الفقاعات وإرجاع صفحات نظيفة")
-        @app_commands.describe(file="صورة أو ZIP أو PDF", quality="جودة المسح",
+        @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", quality="جودة المسح",
                                format="صيغة الصور الناتجة", ocr="لغة النص الأصلي",
                                layout="شكل الناتج")
         @app_commands.choices(quality=QUALITY_CHOICES, format=FORMAT_CHOICES, ocr=OCR_CHOICES,
                               layout=LAYOUT_CHOICES)
-        async def clean(interaction: discord.Interaction, file: discord.Attachment,
+        async def clean(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                         quality: str = "fast", format: str = "jpg", ocr: str = "en",
                         layout: str = "strips"):
             await self.submit(interaction, "clean", file,
                               {"lama": quality == "lama", "img_format": format, "ocr": ocr,
-                               "layout": layout})
+                               "layout": layout}, link=link)
 
         @tree.command(name="extract", description="استخراج النصوص الأصلية من الصفحات (ملف txt + json)")
-        @app_commands.describe(file="صورة أو ZIP أو PDF", ocr="لغة النص الأصلي",
+        @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", ocr="لغة النص الأصلي",
                                reading_order="ترتيب القراءة")
         @app_commands.choices(ocr=OCR_CHOICES, reading_order=ORDER_CHOICES)
-        async def extract(interaction: discord.Interaction, file: discord.Attachment,
+        async def extract(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                           ocr: str = "en", reading_order: str = "rtl"):
             await self.submit(interaction, "extract", file,
-                              {"ocr": ocr, "reading_order": reading_order})
+                              {"ocr": ocr, "reading_order": reading_order}, link=link)
 
         @tree.command(name="typer", description="تنظيف + إحداثيات الفقاعات لاستيرادها في TypeR Web")
-        @app_commands.describe(file="صورة أو ZIP أو PDF", quality="جودة المسح",
+        @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", quality="جودة المسح",
                                ocr="لغة النص الأصلي", reading_order="ترتيب القراءة",
                                layout="شكل الناتج", format="صيغة صور التصدير")
         @app_commands.choices(quality=QUALITY_CHOICES, ocr=OCR_CHOICES, reading_order=ORDER_CHOICES,
                               layout=LAYOUT_CHOICES, format=FORMAT_CHOICES)
-        async def typer(interaction: discord.Interaction, file: discord.Attachment,
+        async def typer(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                         quality: str = "fast", ocr: str = "en", reading_order: str = "rtl",
                         layout: str = "strips", format: str = "jpg"):
             await self.submit(interaction, "typer", file,
                               {"lama": quality == "lama", "ocr": ocr, "img_format": format,
-                               "reading_order": reading_order, "layout": layout})
+                               "reading_order": reading_order, "layout": layout}, link=link)
 
         @tree.command(name="translate", description="ترجمة المانجا إلى العربية (Ollama محلي) مع تنظيف وكتابة النص")
-        @app_commands.describe(file="صورة أو ZIP أو PDF", dialect="أسلوب العربية",
+        @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", dialect="أسلوب العربية",
                                ocr="لغة النص الأصلي", reading_order="ترتيب القراءة",
                                output="صيغة الناتج", quality="جودة المسح",
                                model="نموذج Ollama", layout="شكل الناتج")
         @app_commands.choices(dialect=DIALECT_CHOICES, ocr=OCR_CHOICES, reading_order=ORDER_CHOICES,
                               output=OUTFMT_CHOICES, quality=QUALITY_CHOICES, layout=LAYOUT_CHOICES)
-        async def translate(interaction: discord.Interaction, file: discord.Attachment,
+        async def translate(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                             dialect: str = "msa", ocr: str = "en", reading_order: str = "rtl",
                             output: str = "zip", quality: str = "fast",
                             model: Optional[str] = None, layout: str = "strips"):
@@ -281,7 +306,7 @@ class MangaBot(discord.Client):
             await self.submit(interaction, "translate", file, {
                 "dialect": dialect, "ocr": ocr, "reading_order": reading_order,
                 "format": output, "lama": quality == "lama", "layout": layout,
-                "model": model or self.cfg.ollama_model})
+                "model": model or self.cfg.ollama_model}, link=link)
 
         @translate.autocomplete("model")
         async def _model_ac(interaction: discord.Interaction, current: str):
