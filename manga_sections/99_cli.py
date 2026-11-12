@@ -9,7 +9,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("-i", "--input", required=True)
     p.add_argument("-o", "--output", required=True,
-                   help="مسیر خروجی: پوشه، فایل کامل، یا فقط پسوند (.pdf / .zip / .html / .psd)")
+                   help="مسیر خروجی: فایل کامل یا فقط پسوند (.pdf / .zip / .html / .psd) — خروجیِ پوشه‌ای حذف شد")
     p.add_argument(
         "--provider",
         default="gemini",

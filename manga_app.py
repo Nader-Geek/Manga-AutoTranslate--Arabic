@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.278"
+APP_VER = "1.14.279"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1121,9 +1121,14 @@ def run_cli_interactive():
         print(f"❌ مسیر پیدا نشد: {src}")
         return
 
-    print("\nقالب خروجی:  1) PDF   2) ZIP   3) HTML   4) پوشهٔ تصاویر   5) PSD")
-    f = input("انتخاب [1-5] (پیش‌فرض 1): ").strip() or "1"
-    ext = {"1": ".pdf", "2": ".zip", "3": ".html", "4": "", "5": ".psd"}.get(f, ".pdf")
+# فرمتِ «پوشهٔ تصاویر» حذف شد (v1.14.279 — خواستهٔ سازنده:
+# «ذخیره سازی پوشه ای اصلا کار نمیکنه و بنظرم کلا حذف کن نیاز
+# نمیشه») — فقط PDF/ZIP/HTML/PSD میماند؛ انتخابِ قدیمیِ 4/5 به
+# PDF/PSD میرسد تا انگشتِ خاطرهٔ کاربر خطا ندهد.
+    print("\nقالب خروجی:  1) PDF   2) ZIP   3) HTML   4) PSD")
+    f = input("انتخاب [1-4] (پیش‌فرض 1): ").strip() or "1"
+    ext = {"1": ".pdf", "2": ".zip", "3": ".html", "4": ".psd",
+           "5": ".psd"}.get(f, ".pdf")
 
     print("\nارائه‌دهندهٔ AI را انتخاب کنید:")
     #)
@@ -5748,8 +5753,13 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۳</span> خروجی</div>')
             with gr.Row():
-                out_fmt = gr.Radio(["PDF", "ZIP", "HTML", "PSD", "پوشهٔ تصاویر"],
-                                   value=cfg.get("out_fmt", "PDF"), label=TX("app.out_fmt", "قالب"))
+# «پوشهٔ تصاویر» حذف شد (v1.14.279 — خواستهٔ سازنده). مقدارِ
+# ذخیره‌شدهٔ قدیمی (بکاپ/فرمِ مرورگر) خودکار → PDF.
+                _of0 = str(cfg.get("out_fmt", "PDF") or "PDF")
+                if _of0 not in ("PDF", "ZIP", "HTML", "PSD"):
+                    _of0 = "PDF"
+                out_fmt = gr.Radio(["PDF", "ZIP", "HTML", "PSD"],
+                                   value=_of0, label=TX("app.out_fmt", "قالب"))
                 quality = gr.Slider(60, 100, value=int(cfg.get("quality", 92)),
                                     step=1, label=TX("app.quality", "کیفیت تصویر"))
 
@@ -6195,20 +6205,40 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     _last_out_dir = _lo_d
             except Exception:
                 _last_out_dir = ""
-            if _last_out_dir:
+            if _last_out_dir and os.path.isdir(_last_out_dir):
                 search_dirs.append(_last_out_dir)
             else:
-                _cache_subs = ("out", "out_safe_v3")
+# فالبکِ بدونِ نشانگر (کشِ قدیمی): قبلاً «همهٔ» زیرپوشههایِ
+# out* جمع میشدند → سبکهایِ پاکسازیِ قدیمی و جدید (opencv +
+# lama) با هم نمایش داده میشدند (باگِ سازنده: «اول opencv پاکیدم
+# دوم بار lama پاکیدم هر دوشو نمایش میده»). حالا فقط
+# «جدیدترین» پوشهٔ out* (بر اساسِ mtime) جمع میشود.
+                _cache_root_fb = _cache_dir_for(out_v)
+                _newest_out = ""
+                _newest_mt = -1.0
                 try:
-                    cache_root = _cache_dir_for(out_v)
-                    if os.path.isdir(cache_root):
-                        for sub in _cache_subs:
-                            search_dirs.append(os.path.join(cache_root, sub))
-                        for name in os.listdir(cache_root):
-                            if name.startswith("out"):
-                                search_dirs.append(os.path.join(cache_root, name))
+                    if os.path.isdir(_cache_root_fb):
+                        for _name_fb in os.listdir(_cache_root_fb):
+                            if _name_fb != "out" and not _name_fb.startswith("out_"):
+                                continue
+                            _p_fb = os.path.join(_cache_root_fb, _name_fb)
+                            if not os.path.isdir(_p_fb):
+                                continue
+                            try:
+                                if not any(_fn.lower().endswith(
+                                        (".webp", ".png", ".jpg", ".jpeg"))
+                                        for _fn in os.listdir(_p_fb)):
+                                    continue
+                            except Exception:
+                                continue
+                            _mt_fb = os.path.getmtime(_p_fb)
+                            if _mt_fb > _newest_mt:
+                                _newest_mt = _mt_fb
+                                _newest_out = _p_fb
                 except Exception:
-                    pass
+                    _newest_out = ""
+                if _newest_out:
+                    search_dirs.append(_newest_out)
             cache_debug = os.path.join(_cache_dir_for(out_v), "debug_safe_v3")
             if not os.path.isdir(cache_debug):
                 cache_debug = os.path.join(_cache_dir_for(out_v), "debug")
@@ -7222,7 +7252,13 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                  "❌ provider «custom» به نام مدل نیاز دارد (مثال: gpt-4o-mini).")
                 api_base_v = _ab
 
-            ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html", "PSD": ".psd", "پوشهٔ تصاویر": ""}[out_fmt_v]
+# «پوشهٔ تصاویر» حذف شد — مقدارِ کهنه (بکاپ/فرمِ ذخیرهشدهٔ مرورگر)
+# اینجا هم پالایش میشود تا KeyError ندهد: هرچه شناخته نشد → PDF.
+            out_fmt_v = str(out_fmt_v or "PDF")
+            if out_fmt_v not in ("PDF", "ZIP", "HTML", "PSD"):
+                out_fmt_v = "PDF"
+            ext = {"PDF": ".pdf", "ZIP": ".zip", "HTML": ".html",
+                   "PSD": ".psd"}[out_fmt_v]
             base = multi_base or smart_output_base(str(src))
             user_out_dir = os.path.join(OUT_DIR, sid[:12])
             os.makedirs(user_out_dir, exist_ok=True)

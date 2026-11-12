@@ -61,11 +61,38 @@ def last_out_dir(cache):
     return ""
 
 
+def latest_out_dir(cache):
+    """جدیدترین پوشهٔ out* با تصویر — فالبکِ نبودِ last_out.json
+    (v1.14.279): قبلاً همهٔ پوشههایِ out* جمع میشدند → سبکهایِ
+    پاکسازیِ قدیمی/جدید (opencv + lama) با هم نمایش داده میشدند؛
+    حالا فقط همان که تازهتر است (mtime)."""
+    best, best_mt = "", -1.0
+    try:
+        for name in os.listdir(cache):
+            if name != "out" and not name.startswith("out_"):
+                continue
+            p = os.path.join(cache, name)
+            if not os.path.isdir(p):
+                continue
+            try:
+                if not any(f.lower().endswith(_IMG_EXTS)
+                           for f in os.listdir(p)):
+                    continue
+            except Exception:
+                continue
+            mt = os.path.getmtime(p)
+            if mt > best_mt:
+                best, best_mt = p, mt
+    except Exception:
+        return ""
+    return best
+
+
 def collect(out_file_path: str, job_out: str):
     """(imgs, dbg) — خروجیهایِ نهایی و دیباگِ همین ران، مرتبشده."""
     imgs, dbg = [], []
     cache = cache_dir_of(out_file_path)
-    last = last_out_dir(cache)
+    last = last_out_dir(cache) or latest_out_dir(cache)
     # ۱) کشِ خودِ ران: فقط پوشههایِ out*/debug* — بقیهٔ کش (src و …) نه
     for root, _d, files in os.walk(cache):
         dname = os.path.basename(os.path.normpath(root)).lower()

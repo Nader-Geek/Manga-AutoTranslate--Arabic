@@ -10,9 +10,11 @@
 چکها:
   ۱) سینتکسِ فایلهایِ دست‌خورده
   ۲) موتور: نوشتنِ last_out.json در ابتدای ران (نامِ پوشه + clean_only)
-  ۳) اندروید (out_collect.py): جداییِ کامل با نشانگر + فالبکِ قدیمی
+  ۳) اندروید (out_collect.py): جداییِ کامل با نشانگر + فالبکِ نو
+     (v1.14.279: بدونِ نشانگر فقط «جدیدترین» out* — نه همه؛ ریشهٔ
+     «اول opencv پاکیدم دوم بار lama پاکیدم هر دوشو نمایش میده»)
   ۴) وب (manga_app.py): اولویتِ نشانگر در جمع‌آوریِ نمایشگر
-  ۵) نسخهها: APP_VER/VERSION/gradle = 1.14.278/280
+  ۵) نسخهها: APP_VER/VERSION/gradle = 1.14.279/281
 """
 import importlib.util
 import json
@@ -81,10 +83,15 @@ try:
     os.makedirs(job_out)
 
     out_pdf = os.path.join(tmp, "ch5.pdf")
-    # ۳-۱) بدونِ نشانگر = رفتارِ قدیمی (همهٔ outها)
+# ۳-۱) بدونِ نشانگر = فقط جدیدترینِ out* (فالبکِ نو v279 —
+#     mtimeِ پوشهها را مشخص میکنیم تا تست قطعی باشد)
+    os.utime(out_tr, (3000, 3000))    # جدیدترین
+    os.utime(out_co, (2000, 2000))
+    os.utime(out_old, (1000, 1000))
     imgs, dbg = oc.collect(out_pdf, job_out)
-    check("بدونِ نشانگر: همهٔ صفحاتِ out (۶ = ۳ پوشه × دوتا/یک‌تا…)",
-          len(imgs) >= 5, f"{len(imgs)}")
+    check("بدونِ نشانگر: فقط جدیدترینِ out (۲ صفحه از ترجمه)",
+          len(imgs) == 2 and all(out_tr in p for p in imgs),
+          f"{len(imgs)}: {imgs}")
     check("بدونِ نشانگر: دیباگ جدا", len(dbg) == 1)
 
     # ۳-۲) نشانگر → فقط-پاکسازی: فقط پوشهٔ cleanonly
@@ -109,17 +116,21 @@ try:
                                  and "_cleanonly" not in p for p in imgs),
           f"{len(imgs)}")
 
-    # ۳-۴) نشانگرِ خراب/ناموجود → فالبکِ قدیمی
+    # ۳-۴) نشانگرِ خراب/ناموجود → فالبکِ نو (فقط جدیدترین)
     with open(os.path.join(cache, "last_out.json"), "w",
               encoding="utf-8") as fh:
         fh.write("{not json")
     imgs, _ = oc.collect(out_pdf, job_out)
-    check("نشانگرِ خراب: فالبکِ رفتارِ قدیمی", len(imgs) >= 5)
+    check("نشانگرِ خراب: فالبکِ نو — فقط جدیدترین",
+          len(imgs) == 2 and all(out_tr in p for p in imgs),
+          f"{len(imgs)}")
 
-    # ۳-۵) پاک‌کردنِ نشانگر → فالبک
+    # ۳-۵) پاک‌کردنِ نشانگر → فالبکِ نو
     os.remove(os.path.join(cache, "last_out.json"))
     imgs, _ = oc.collect(out_pdf, job_out)
-    check("حذفِ نشانگر: فالبکِ رفتارِ قدیمی", len(imgs) >= 5)
+    check("حذفِ نشانگر: فالبکِ نو — فقط جدیدترین",
+          len(imgs) == 2 and all(out_tr in p for p in imgs),
+          f"{len(imgs)}")
 
     # ۳-۶) تلاشِ مسیرِ فرار از کش در نشانگر → نادیده
     os.makedirs(os.path.join(tmp, "evil"), exist_ok=True)
@@ -137,25 +148,25 @@ print("۴) وب (manga_app.py)")
 asrc = open(APP, encoding="utf-8").read()
 check("خواندنِ نشانگر در نمایشگرِ وب", "last_out.json" in asrc)
 check("اولویتِ نشانگر بر جمع‌آوریِ همهٔ outها",
-      "_last_out_dir" in asrc and "if _last_out_dir:" in asrc)
-check("فالبکِ قدیمی حفظ شده",
-      '_cache_subs = ("out", "out_safe_v3")' in asrc)
+      "_last_out_dir" in asrc and "if _last_out_dir and os.path.isdir" in asrc)
+check("فالبکِ نو (فقط جدیدترینِ out*) در وب",
+      "_newest_out" in asrc and "out_safe_v3")
 check("شرطِ داشتنِ تصویر در پوشهٔ نشانگر (فالبک اگر خالی)",
       'any(_fn.lower().endswith(' in asrc)
 
 print("۵) نسخهها")
 base = open(os.path.join(SEC, "00_base.py"), encoding="utf-8").read()
-check("APP_VER بخشها = 1.14.278", 'APP_VER = "1.14.278"' in base)
+check("APP_VER بخشها = 1.14.279", 'APP_VER = "1.14.279"' in base)
 loader = open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
-check("APP_VER لودر = 1.14.278", 'APP_VER = "1.14.278"' in loader)
-check("APP_VER اپ = 1.14.278", 'APP_VER = "1.14.278"' in asrc)
+check("APP_VER لودر = 1.14.279", 'APP_VER = "1.14.279"' in loader)
+check("APP_VER اپ = 1.14.279", 'APP_VER = "1.14.279"' in asrc)
 v = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-check("VERSION = 280 / 1.14.278",
-      "versionCode=280" in v and "versionName=1.14.278" in v)
+check("VERSION = 281 / 1.14.279",
+      "versionCode=281" in v and "versionName=1.14.279" in v)
 g = open(os.path.join(ROOT, "android", "app", "build.gradle.kts"),
          encoding="utf-8").read()
-check("gradle = 280 / 1.14.278",
-      'versionCode = 280' in g and 'versionName = "1.14.278"' in g)
+check("gradle = 281 / 1.14.279",
+      'versionCode = 281' in g and 'versionName = "1.14.279"' in g)
 
 print()
 if fails:

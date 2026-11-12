@@ -556,6 +556,11 @@ def start_job(params_json, files_dir):
         if fmt == "PSD" and _android():
             fmt = "PDF"
             p["fmt"] = "PDF"
+# خروجیِ «پوشهٔ تصاویر» حذف شد (v1.14.279) — مقدارِ ذخیرهشدهٔ قدیمی
+# در تنظیماتِ گوشی → PDF تا فایلِ بی‌پسوند/خراب ساخته نشود.
+        if fmt not in ("PDF", "ZIP", "HTML", "PSD"):
+            fmt = "PDF"
+            p["fmt"] = "PDF"
         ext = "pdf" if fmt == "PDF" else fmt.lower()
         _stem = _out_stem_from_src(p.get("src") or p.get("url") or "")
         out_file = os.path.join(out, (_stem or "manga") + "." + ext)
@@ -619,6 +624,9 @@ def trans_sig_check(params_json, files_dir):
 # در src می‌دهد) — پس کشِ همان رانِ قبل را می‌بینیم
         fmt = str(p.get("fmt", "PDF")).upper()
         if fmt == "PSD" and _android():
+            fmt = "PDF"
+# همان پالایشِ v1.14.279 — مقدارِ قدیمیِ «پوشهٔ تصاویر» → PDF
+        if fmt not in ("PDF", "ZIP", "HTML", "PSD"):
             fmt = "PDF"
         ext = "pdf" if fmt == "PDF" else fmt.lower()
         _stem = _out_stem_from_src(p.get("src") or p.get("url") or "")

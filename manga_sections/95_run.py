@@ -2109,16 +2109,15 @@ class _MangaTranslatorBody_95:
             self._write_image(img, output_path)
             print(f"[✓] ذخیره شد در: {output_path}")
         else:
-            os.makedirs(output_path, exist_ok=True)
-            for f in processed_files:
-                shutil.copy(f, os.path.join(output_path, os.path.basename(f)))
-            print(f"[✓] {len(processed_files)} تصویر در پوشه‌ی {output_path} ذخیره شد.")
-            html_path = output_path.rstrip("/\\") + ".html"
-            try:
-                self._save_as_html(processed_files, html_path)
-                print(f"[✓] HTML همراه هم ساخته شد: {html_path}")
-            except Exception as e:
-                print(f"    [!] ساخت HTML همراه ناموفق: {e}")
+# خروجیِ «پوشهٔ تصاویر» حذف شد (v1.14.279 — خواستهٔ سازنده:
+# «ذخیره سازی پوشه ای اصلا کار نمیکنه و بنظرم کلا حذف کن نیاز
+# نمیشه» — نمایشگر هم با آن باگِ «opencv+lama با هم» داشت).
+# پسوندِ ناشناخته/خالی → PDF (امن‌ترین پیشفرض) تا هیچ مسیری
+# بی‌خروجی نماند.
+            if out_ext != ".pdf":
+                output_path = os.path.splitext(output_path)[0] + ".pdf"
+            self._save_as_pdf(processed_files, output_path)
+            print(f"[✓] PDF نهایی ذخیره شد در: {output_path}")
 # جمعِ زمان‌ها (ذخیره + کلِ ران)
         try:
             print(f"[TIME] save={time.time() - _t_save:.1f}s | "
