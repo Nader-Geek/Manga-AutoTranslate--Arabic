@@ -1,0 +1,164 @@
+# -*- coding: utf-8 -*-
+"""تستِ v1.14.277 — نشانگرِ «خروجیِ همین ران» (last_out.json)
+
+خواستهٔ سازنده: «اگ حالت پاکسازی گذاشتم فقط پاکسازیش نشون بده نه
+دیتای قبلی اوکی شده … هرچی عوض کردم همون بخش کار کنه» — قبل از این
+نسخه، نمایشگر (وب + اندروید) تصاویرِ «همهٔ» پوشههایِ out* کش را جمع
+می‌کرد: خروجیِ فقط-پاکسازی با ترجمهٔ قبلی و سبکهایِ پاکسازیِ قدیمی
+قاطی می‌شد (صفحههایِ تکراری با یک نام از چند پوشه).
+
+چکها:
+  ۱) سینتکسِ فایلهایِ دست‌خورده
+  ۲) موتور: نوشتنِ last_out.json در ابتدای ران (نامِ پوشه + clean_only)
+  ۳) اندروید (out_collect.py): جداییِ کامل با نشانگر + فالبکِ قدیمی
+  ۴) وب (manga_app.py): اولویتِ نشانگر در جمع‌آوریِ نمایشگر
+  ۵) نسخهها: APP_VER/VERSION/gradle = 1.14.277/279
+"""
+import importlib.util
+import json
+import os
+import shutil
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+SEC = os.path.join(ROOT, "manga_sections")
+APP = os.path.join(ROOT, "manga_app.py")
+
+fails = []
+
+
+def check(name, cond, extra=""):
+    print(("  ✔ " if cond else "  ✘ ") + name + ((" — " + extra) if extra else ""))
+    if not cond:
+        fails.append(name)
+
+
+print("۱) سینتکس")
+import ast  # noqa: E402
+for fn in ("manga_sections/95_run.py", "manga_app.py",
+           "android/app/src/main/python/out_collect.py"):
+    try:
+        ast.parse(open(os.path.join(ROOT, fn), encoding="utf-8").read())
+        check(fn, True)
+    except SyntaxError as e:
+        check(fn, False, str(e)[:80])
+
+print("۲) موتور: نشانگرِ last_out.json")
+run_src = open(os.path.join(SEC, "95_run.py"), encoding="utf-8").read()
+check("نوشتنِ نشانگر در ران",
+      'last_out.json' in run_src and '"dir": os.path.basename(out_dir)'
+      in run_src)
+check("نوشتهشدن در همان ابتدای ران (قبل از حلقهٔ صفحات)",
+      run_src.find('last_out.json') < run_src.find("pending = []"))
+check("ثبتِ حالتِ فقط-پاکسازی در نشانگر",
+      '"clean_only": bool(getattr(self, "clean_only"' in run_src)
+
+print("۳) اندروید: out_collect.py")
+oc_path = os.path.join(ROOT, "android", "app", "src", "main",
+                       "python", "out_collect.py")
+spec = importlib.util.spec_from_file_location("oc", oc_path)
+oc = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(oc)
+
+# ساختِ کشِ ساختگی: دو پوشهٔ out (ترجمه + فقط-پاکسازی) + دیباگ
+tmp = tempfile.mkdtemp(prefix="oc277_")
+try:
+    cache = os.path.join(tmp, "ch5.cache")
+    out_tr = os.path.join(cache, "out_safe_v3_style-aaaa1111")
+    out_co = os.path.join(cache, "out_safe_v3_style-aaaa1111_cleanonly")
+    out_old = os.path.join(cache, "out_safe_v3_style-bbbb2222")
+    dbg_dir = os.path.join(cache, "debug_safe_v3")
+    for d in (out_tr, out_co, out_old, dbg_dir):
+        os.makedirs(d)
+    for d, name in ((out_tr, "page_1.jpg"), (out_tr, "page_2.jpg"),
+                    (out_co, "page_1.jpg"), (out_co, "page_2.jpg"),
+                    (out_old, "page_1.jpg"),
+                    (dbg_dir, "page_1_debug.jpg")):
+        open(os.path.join(d, name), "wb").write(b"x")
+    job_out = os.path.join(tmp, "job")
+    os.makedirs(job_out)
+
+    out_pdf = os.path.join(tmp, "ch5.pdf")
+    # ۳-۱) بدونِ نشانگر = رفتارِ قدیمی (همهٔ outها)
+    imgs, dbg = oc.collect(out_pdf, job_out)
+    check("بدونِ نشانگر: همهٔ صفحاتِ out (۶ = ۳ پوشه × دوتا/یک‌تا…)",
+          len(imgs) >= 5, f"{len(imgs)}")
+    check("بدونِ نشانگر: دیباگ جدا", len(dbg) == 1)
+
+    # ۳-۲) نشانگر → فقط-پاکسازی: فقط پوشهٔ cleanonly
+    with open(os.path.join(cache, "last_out.json"), "w",
+              encoding="utf-8") as fh:
+        json.dump({"dir": os.path.basename(out_co), "clean_only": True},
+                  fh)
+    imgs, dbg = oc.collect(out_pdf, job_out)
+    check("نشانگرِ پاکسازی: فقط ۲ صفحهٔ cleanonly",
+          len(imgs) == 2 and all("_cleanonly" in p for p in imgs),
+          f"{len(imgs)}")
+    check("نشانگرِ پاکسازی: دیباگ سرِ جایش", len(dbg) == 1)
+
+    # ۳-۳) نشانگر → ترجمه: فقط پوشهٔ ترجمه (نه cleanonly نه سبکِ قدیمی)
+    with open(os.path.join(cache, "last_out.json"), "w",
+              encoding="utf-8") as fh:
+        json.dump({"dir": os.path.basename(out_tr), "clean_only": False},
+                  fh)
+    imgs, dbg = oc.collect(out_pdf, job_out)
+    check("نشانگرِ ترجمه: فقط صفحاتِ همین سبک",
+          len(imgs) == 2 and all("style-aaaa1111" in p
+                                 and "_cleanonly" not in p for p in imgs),
+          f"{len(imgs)}")
+
+    # ۳-۴) نشانگرِ خراب/ناموجود → فالبکِ قدیمی
+    with open(os.path.join(cache, "last_out.json"), "w",
+              encoding="utf-8") as fh:
+        fh.write("{not json")
+    imgs, _ = oc.collect(out_pdf, job_out)
+    check("نشانگرِ خراب: فالبکِ رفتارِ قدیمی", len(imgs) >= 5)
+
+    # ۳-۵) پاک‌کردنِ نشانگر → فالبک
+    os.remove(os.path.join(cache, "last_out.json"))
+    imgs, _ = oc.collect(out_pdf, job_out)
+    check("حذفِ نشانگر: فالبکِ رفتارِ قدیمی", len(imgs) >= 5)
+
+    # ۳-۶) تلاشِ مسیرِ فرار از کش در نشانگر → نادیده
+    os.makedirs(os.path.join(tmp, "evil"), exist_ok=True)
+    open(os.path.join(tmp, "evil", "x.jpg"), "wb").write(b"x")
+    with open(os.path.join(cache, "last_out.json"), "w",
+              encoding="utf-8") as fh:
+        json.dump({"dir": "../evil"}, fh)
+    imgs, _ = oc.collect(out_pdf, job_out)
+    check("نشانگرِ مسیر-فرار: نادیده گرفته شد",
+          all("evil" not in p for p in imgs))
+finally:
+    shutil.rmtree(tmp, ignore_errors=True)
+
+print("۴) وب (manga_app.py)")
+asrc = open(APP, encoding="utf-8").read()
+check("خواندنِ نشانگر در نمایشگرِ وب", "last_out.json" in asrc)
+check("اولویتِ نشانگر بر جمع‌آوریِ همهٔ outها",
+      "_last_out_dir" in asrc and "if _last_out_dir:" in asrc)
+check("فالبکِ قدیمی حفظ شده",
+      '_cache_subs = ("out", "out_safe_v3")' in asrc)
+check("شرطِ داشتنِ تصویر در پوشهٔ نشانگر (فالبک اگر خالی)",
+      'any(_fn.lower().endswith(' in asrc)
+
+print("۵) نسخهها")
+base = open(os.path.join(SEC, "00_base.py"), encoding="utf-8").read()
+check("APP_VER بخشها = 1.14.277", 'APP_VER = "1.14.277"' in base)
+loader = open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
+check("APP_VER لودر = 1.14.277", 'APP_VER = "1.14.277"' in loader)
+check("APP_VER اپ = 1.14.277", 'APP_VER = "1.14.277"' in asrc)
+v = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
+check("VERSION = 279 / 1.14.277",
+      "versionCode=279" in v and "versionName=1.14.277" in v)
+g = open(os.path.join(ROOT, "android", "app", "build.gradle.kts"),
+         encoding="utf-8").read()
+check("gradle = 279 / 1.14.277",
+      'versionCode = 279' in g and 'versionName = "1.14.277"' in g)
+
+print()
+if fails:
+    print("✘ %d چک قرمز: %s" % (len(fails), "; ".join(fails[:8])))
+    sys.exit(1)
+print("✔ همهٔ چکها سبز است (نشانگرِ خروجیِ همین ران — v1.14.277)")

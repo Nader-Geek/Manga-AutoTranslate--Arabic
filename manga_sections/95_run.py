@@ -200,6 +200,22 @@ class _MangaTranslatorBody_95:
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
 
+# نشانگرِ «خروجیِ همین ران» (v1.14.277) — نمایشگرها (وب/اندروید)
+# فقط همین پوشه را به‌عنوانِ خروجیِ نهایی نشان می‌دهند تا کارِ
+# فقط-پاکسازی با ترجمهٔ قبلی و سبکهایِ پاکسازیِ قدیمی قاطی نشود
+# (خواستهٔ سازنده: «اگ حالت پاکسازی گذاشتم فقط پاکسازیش نشون بده
+# نه دیتای قبلی»). نشانگر در همان ابتدای ران نوشته میشود تا
+# نمایشِ میانی هم درست باشد.
+        try:
+            with open(os.path.join(cache_dir, "last_out.json"), "w",
+                      encoding="utf-8") as _fh:
+                json.dump({"dir": os.path.basename(out_dir),
+                           "clean_only": bool(getattr(self, "clean_only",
+                                                      False)),
+                           "ts": int(time.time())}, _fh)
+        except Exception:
+            pass
+
         title_skips = self._extract_title_skips_from_path(input_path)
         self._title_skip_patterns = title_skips
         MangaTranslator._title_skip_patterns = title_skips

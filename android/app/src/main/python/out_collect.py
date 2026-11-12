@@ -12,7 +12,15 @@
    خروجیِ نهایی جمع میشدند و صفحههایِ دیباگ وسطِ نمایشِ اصلی
    میآمدند، در حالی که لیستِ دیباگ (دکمهٔ سوئیچ) خالی میماند.
    حالا «پوشه» هم چک میشود: هر پوشهٔ debugدار = دیباگ.
+
+(v1.14.277) نشانگرِ «خروجیِ همین ران» — موتور در کش، last_out.json
+می‌نویسد (نامِ پوشهٔ outِ همین ران). وقتی هست، تصاویرِ نهایی فقط از
+همان پوشه جمع میشوند تا خروجیِ فقط-پاکسازی با ترجمهٔ قبلی و
+سبکهایِ پاکسازیِ قدیمی قاطی نشود (خواستهٔ سازنده: «اگ حالت
+پاکسازی گذاشتم فقط پاکسازیش نشون بده نه دیتای قبلی»). نبودِ
+نشانگر (کشِ قدیمی) = رفتارِ قبلی.
 """
+import json
 import os
 import re
 
@@ -36,10 +44,28 @@ def _natkey(s):
     return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
 
 
+def last_out_dir(cache):
+    """پوشهٔ خروجیِ آخرین ران — نشانگرِ last_out.json موتور (v275+).
+    برگشت: مسیرِ پوشه یا "" (نبود/خراب)."""
+    try:
+        with open(os.path.join(cache, "last_out.json"),
+                  encoding="utf-8") as fh:
+            name = str((json.load(fh) or {}).get("dir") or "").strip()
+        if (name and name not in (".", "..")
+                and "/" not in name and os.sep not in name):
+            p = os.path.join(cache, name)
+            if os.path.isdir(p):
+                return p
+    except Exception:
+        pass
+    return ""
+
+
 def collect(out_file_path: str, job_out: str):
     """(imgs, dbg) — خروجیهایِ نهایی و دیباگِ همین ران، مرتبشده."""
     imgs, dbg = [], []
     cache = cache_dir_of(out_file_path)
+    last = last_out_dir(cache)
     # ۱) کشِ خودِ ران: فقط پوشههایِ out*/debug* — بقیهٔ کش (src و …) نه
     for root, _d, files in os.walk(cache):
         dname = os.path.basename(os.path.normpath(root)).lower()
@@ -50,6 +76,11 @@ def collect(out_file_path: str, job_out: str):
         is_out = dname == "out" or dname.startswith("out_")
         if not is_out and not is_dbg:
             continue
+        # v1.14.277: نشانگر هست؟ تصاویرِ نهایی فقط از پوشهٔ خودِ همین
+        # ران میآیند (جداییِ فقط-پاکسازی/ترجمه و سبکها)
+        take_imgs = (not last) and is_out and not is_dbg
+        if last and os.path.normpath(root) == os.path.normpath(last):
+            take_imgs = True
         for f in sorted(files):
             if not f.lower().endswith(_IMG_EXTS):
                 continue
@@ -58,7 +89,7 @@ def collect(out_file_path: str, job_out: str):
                 if "_base." in f.lower():
                     continue  # پایهٔ روکش — فقط برای کلیدهای نمایشگر
                 dbg.append(lp)
-            else:
+            elif take_imgs:
                 imgs.append(lp)
     # ۲) فالبک: پوشهٔ کاریِ همین ران — live (نهایی) + live_debug (دیباگ)
     #    و هیچ چیزِ دیگر (input_batch و … صفحهٔ اصلی را شلوغ نکنند)

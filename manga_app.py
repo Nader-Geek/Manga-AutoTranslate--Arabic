@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.275"
+APP_VER = "1.14.277"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -6175,17 +6175,40 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             search_dirs = [
                 out_v if os.path.isdir(out_v) else None,
             ]
-            _cache_subs = ("out", "out_safe_v3")
+# v1.14.277 — نشانگرِ «خروجیِ همین ران» از موتور (last_out.json):
+# نمایشگر فقط همین پوشه را نشان میدهد تا خروجیِ فقط-پاکسازی با
+# ترجمهٔ قبلی و سبکهایِ پاکسازیِ قدیمی قاطی نشود (خواستهٔ سازنده:
+# «اگ حالت پاکسازی گذاشتم فقط پاکسازیش نشون بده نه دیتای قبلی»).
+# نبودِ نشانگر (کشِ قدیمی) = رفتارِ قبلی.
+            _last_out_dir = ""
             try:
-                cache_root = _cache_dir_for(out_v)
-                if os.path.isdir(cache_root):
-                    for sub in _cache_subs:
-                        search_dirs.append(os.path.join(cache_root, sub))
-                    for name in os.listdir(cache_root):
-                        if name.startswith("out"):
-                            search_dirs.append(os.path.join(cache_root, name))
+                _cache_root_v = _cache_dir_for(out_v)
+                with open(os.path.join(_cache_root_v, "last_out.json"),
+                          encoding="utf-8") as _fh:
+                    _lo_j = json.load(_fh) or {}
+                _lo_d = os.path.join(_cache_root_v,
+                                     str(_lo_j.get("dir") or ""))
+                if (_lo_j.get("dir") and os.path.isdir(_lo_d)
+                        and any(_fn.lower().endswith(
+                            (".webp", ".png", ".jpg", ".jpeg"))
+                            for _fn in os.listdir(_lo_d))):
+                    _last_out_dir = _lo_d
             except Exception:
-                pass
+                _last_out_dir = ""
+            if _last_out_dir:
+                search_dirs.append(_last_out_dir)
+            else:
+                _cache_subs = ("out", "out_safe_v3")
+                try:
+                    cache_root = _cache_dir_for(out_v)
+                    if os.path.isdir(cache_root):
+                        for sub in _cache_subs:
+                            search_dirs.append(os.path.join(cache_root, sub))
+                        for name in os.listdir(cache_root):
+                            if name.startswith("out"):
+                                search_dirs.append(os.path.join(cache_root, name))
+                except Exception:
+                    pass
             cache_debug = os.path.join(_cache_dir_for(out_v), "debug_safe_v3")
             if not os.path.isdir(cache_debug):
                 cache_debug = os.path.join(_cache_dir_for(out_v), "debug")
