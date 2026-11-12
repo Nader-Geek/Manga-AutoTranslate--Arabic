@@ -156,17 +156,17 @@ check("شرطِ داشتنِ تصویر در پوشهٔ نشانگر (فالبک
 
 print("۵) نسخهها")
 base = open(os.path.join(SEC, "00_base.py"), encoding="utf-8").read()
-check("APP_VER بخشها = 1.14.280", 'APP_VER = "1.14.284"' in base)
+check("APP_VER بخشها = 1.14.286", 'APP_VER = "1.14.286"' in base)
 loader = open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
-check("APP_VER لودر = 1.14.280", 'APP_VER = "1.14.284"' in loader)
-check("APP_VER اپ = 1.14.280", 'APP_VER = "1.14.284"' in asrc)
+check("APP_VER لودر = 1.14.286", 'APP_VER = "1.14.286"' in loader)
+check("APP_VER اپ = 1.14.286", 'APP_VER = "1.14.286"' in asrc)
 v = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-check("VERSION = 286 / 1.14.284",
-      "versionCode=286" in v and "versionName=1.14.284" in v)
+check("VERSION = 288 / 1.14.286",
+      "versionCode=288" in v and "versionName=1.14.286" in v)
 g = open(os.path.join(ROOT, "android", "app", "build.gradle.kts"),
          encoding="utf-8").read()
-check("gradle = 286 / 1.14.284",
-      'versionCode = 286' in g and 'versionName = "1.14.284"' in g)
+check("gradle = 288 / 1.14.286",
+      'versionCode = 288' in g and 'versionName = "1.14.286"' in g)
 
 print()
 if fails:

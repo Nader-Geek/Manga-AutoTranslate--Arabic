@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.285"
+APP_VER = "1.14.286"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -2033,6 +2033,8 @@ html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans
 .c{position:relative;width:100%}
 .c.hide{display:none}
 .c img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;pointer-events:none;content-visibility:auto;contain-intrinsic-size:auto 1200px}
+.slotw{width:100%}
+.slotw img{background:#0b0b0d}
 .dslot{position:relative;width:100%}
 .dslot>img{display:block;width:100%;height:auto}
 .dslot>svg.dovl{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:block}
@@ -2409,6 +2411,34 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   function imgSrc(i, dbg){ return P + (dbg ? DBG : D) + 'live_' + pad(i + 1)
                            + (dbg ? '_base.jpg' : '.jpg'); }
   function bakedSrc(i){ return P + D + 'live_' + pad(i + 1) + '.jpg'; }
+  // ——— برشِ وبِ ۲۰۰۰px (فقط رابطِ وب) ——— نوارهایِ بلندِ پوشهٔ live
+  // به برشهایِ ۲۰۰۰px («w_NNNN_k.jpg») بریده میشوند؛ مارکرِ
+  // «w_NNNN.json» بعد از کاملشدنِ برشها مینشیند (بودنش = سالمند).
+  // فایلهایِ اصلیِ live_NNNN.jpg دستِ موتور میمانند — اندروید/PC بی‌خبر.
+  function sliceMark(i){ return P + D + 'w_' + pad(i + 1) + '.json'; }
+  function sliceUrl(i, k){ return P + D + 'w_' + pad(i + 1) + '_' + k + '.jpg'; }
+  var sliceMem = {};
+  function slicesFor(i, fresh){
+    var now = Date.now();
+    var m = sliceMem[i];
+    if (!fresh && m && (now - m.t) < 5000)
+      return Promise.resolve(m.ok ? m : null);
+    return fetch(sliceMark(i) + '?r=' + now, { cache: 'no-store' })
+      .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+      .then(function(j){
+// توجه: parseInt — «|0» مقدار را به ۳۲بیت میبُرد و میلیثانیههایِ
+// epoch (۱۳ رقم) را خراب میکرد (سنجشِ تازگی همیشه شکست میخورد).
+        m = { n: (parseInt(j && j.n, 10) || 0),
+              src: (parseInt(j && j.src, 10) || 0),
+              t: Date.now(), ok: true };
+        sliceMem[i] = m;
+        return m;
+      })
+      .catch(function(){
+        sliceMem[i] = { n: 0, src: 0, t: Date.now(), ok: false };
+        return null;
+      });
+  }
 
   var idbOK = true, _db = null;
   function idb(){
@@ -2631,20 +2661,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
     if (!cur || slotFilled(cur) || cur.__pend) return;
     if (cur.__failT && (Date.now() - cur.__failT) < 8000) return;
     var dbg = (cont === cD);
-    var node, im;
-    if (dbg) {
-      node = document.createElement('div');
-      node.className = 'dslot';
-      im = document.createElement('img');
-      im.alt = 'صفحهٔ ' + (i + 1);
-      im.decoding = 'async';
-      node.appendChild(im);
-    } else {
-      im = document.createElement('img');
-      im.alt = 'صفحهٔ ' + (i + 1);
-      im.decoding = 'async';
-      node = im;
-    }
+    var node = null, im = null;
     cur.__pend = 1;
     var placed = false;
     var place = function(ok){
@@ -2660,23 +2677,65 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         cur.__failT = Date.now();
       }
     };
-    im.onload = function(){ place(1); };
-    im.onerror = function(){
-      if (dbg && String(im.getAttribute('src') || '').indexOf('_base') >= 0) {
-        node.__baked = 1;
-        placed = false;
-        imgGet(bakedSrc(i)).then(function(u){ im.src = u; })
-          .catch(function(){ im.src = bakedSrc(i); });
-        im.onerror = function(){ place(0); };
-        return;
-      }
-      place(0);
-    };
-    imgGet(imgSrc(i, dbg))
-      .then(function(u){ im.src = u; if (im.complete && im.naturalWidth > 0) place(1); })
-      .catch(function(){
-        if (!dbg) { im.src = imgSrc(i, false); }
+    if (dbg) {
+      node = document.createElement('div');
+      node.className = 'dslot';
+      im = document.createElement('img');
+      im.alt = 'صفحهٔ ' + (i + 1);
+      im.decoding = 'async';
+      node.appendChild(im);
+      im.onload = function(){ place(1); };
+      im.onerror = function(){
+        if (String(im.getAttribute('src') || '').indexOf('_base') >= 0) {
+          node.__baked = 1;
+          placed = false;
+          imgGet(bakedSrc(i)).then(function(u){ im.src = u; })
+            .catch(function(){ im.src = bakedSrc(i); });
+          im.onerror = function(){ place(0); };
+          return;
+        }
+        place(0);
+      };
+      imgGet(imgSrc(i, true))
+        .then(function(u){ im.src = u; if (im.complete && im.naturalWidth > 0) place(1); })
+        .catch(function(){ im.src = imgSrc(i, true); });
+    } else {
+      // ——— برشِ وبِ ۲۰۰۰px: اول مارکر (~۴۰ بایت)؛ نبود/صفر = عکسِ کامل ———
+      slicesFor(i).then(function(sl){
+        if (placed) return;
+        if (sl && sl.n > 0) {
+          node = document.createElement('div');
+          node.className = 'slotw';
+          node.__n = sl.n;
+          var firstIm = null;
+          for (var k = 1; k <= sl.n; k++) {
+            (function(kk){
+              var im2 = document.createElement('img');
+              im2.alt = 'صفحهٔ ' + (i + 1) + ' — ' + kk + '/' + sl.n;
+              im2.decoding = 'async';
+              node.appendChild(im2);
+              if (kk === 1) firstIm = im2;
+              imgGet(sliceUrl(i, kk)).then(function(u){ im2.src = u; })
+                .catch(function(){ im2.src = sliceUrl(i, kk); });
+            })(k);
+          }
+          if (firstIm) {
+            firstIm.onload = function(){ place(1); };
+            firstIm.onerror = function(){ place(0); };
+          } else { place(0); }
+        } else {
+          im = document.createElement('img');
+          im.alt = 'صفحهٔ ' + (i + 1);
+          im.decoding = 'async';
+          node = im;
+          im.onload = function(){ place(1); };
+          im.onerror = function(){ place(0); };
+          imgGet(imgSrc(i, false))
+            .then(function(u){ im.src = u; if (im.complete && im.naturalWidth > 0) place(1); })
+            .catch(function(){ im.src = imgSrc(i, false); });
+        }
       });
+    }
   }
   var b = document.getElementById('n'), dot = document.getElementById('dot');
   function render(){
@@ -3027,26 +3086,46 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   }
   setInterval(pollDbgTotal, 4000);
   pollDbgTotal();
+  var probeMiss = 0;
   function probe(){
     if (busy) return;
     var a = dbgMode ? dbgArrived : arrived, mode = dbgMode;
     if (total > 0 && a >= total) return;
     busy = true;
-    var u = mode ? bakedSrc(a) : imgSrc(a, false);
-// نظرسنجیِ رسیدنِ صفحهٔ بعد — از کش: صفحهٔ ازقبل‌دیده‌شده بی‌شبکه
-// تأیید میشود (بارِ اول = بارِ تنها)؛ صفحهٔ نرسیده همان ۱٫۸ثانیهٔ
-// قبل نظرسنجی میشود (noFail = بی‌کشِ منفی).
-    imgGet(u, false, true)
-      .then(function(){
-        busy = false;
-        if (dbgMode === mode) {
-          if (mode) dbgArrived = Math.max(dbgArrived, a + 1);
-          else arrived = Math.max(arrived, a + 1);
-          render();
-          setTimeout(probe, 60);
-        }
-      })
-      .catch(function(){ busy = false; });
+    var done = function(ok){
+      busy = false;
+      if (ok && dbgMode === mode) {
+        if (mode) dbgArrived = Math.max(dbgArrived, a + 1);
+        else arrived = Math.max(arrived, a + 1);
+        render();
+        setTimeout(probe, 60);
+      }
+    };
+// نظرسنجیِ رسیدنِ صفحهٔ بعد — سبکِ قدیم کلِ عکس را دانلود میکرد فقط
+// برای فهمیدنِ «رسید؟» (نوارِ بلند = مگابایت در هر پول!). حالا:
+// دیباگ = HEADِ بی‌بدنه؛ نهایی = مارکرِ برش (~۴۰ بایت). فال‌بکِ
+// سلامت: ۵ نبودِ پیاپی = HEADِ خودِ عکس؛ ۱۲ ناکامی = GETِ قدیم.
+    if (mode) {
+      fetch(bakedSrc(a), { method: 'HEAD', cache: 'no-store' })
+        .then(function(r){ done(r.ok); })
+        .catch(function(){ done(false); });
+    } else {
+      fetch(sliceMark(a) + '?r=' + Date.now(), { cache: 'no-store' })
+        .then(function(r){
+          if (r.ok) { probeMiss = 0; done(true); return; }
+          probeMiss++;
+          if (probeMiss >= 12) {
+            imgGet(imgSrc(a, false), false, true)
+              .then(function(){ probeMiss = 0; done(true); })
+              .catch(function(){ done(false); });
+          } else if (probeMiss >= 5) {
+            fetch(imgSrc(a, false), { method: 'HEAD', cache: 'no-store' })
+              .then(function(r2){ done(r2.ok); })
+              .catch(function(){ done(false); });
+          } else done(false);
+        })
+        .catch(function(){ done(false); });
+    }
   }
   function hotSwap(el, url){
     try {
@@ -3095,6 +3174,53 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
       try { el.src = url; } catch (e2) {}
     }
   }
+  // ——— جابهجایی/بازسازیِ اسلات با برشهایِ وب (بهروزرسانیِ زنده) ———
+  function swapFullSlot(el2, slot){
+    var u = P + D + 'live_' + pad(slot) + '.jpg';
+    if (el2.tagName === 'IMG') {
+      imgGet(u, true)
+        .then(function(w){ if (!dbgMode) hotSwap(el2, w); else el2.src = w; })
+        .catch(function(){});
+      return;
+    }
+    var im = document.createElement('img');
+    im.alt = 'صفحهٔ ' + slot;
+    im.decoding = 'async';
+    im.onload = function(){
+      try { cF.replaceChild(im, el2); im.__ok = 1; } catch (e) {}
+    };
+    imgGet(u, true)
+      .then(function(w){ im.src = w; })
+      .catch(function(){ im.src = u; });
+  }
+  function rebuildSlotSlices(el2, slot, n){
+    var d = document.createElement('div');
+    d.className = 'slotw';
+    d.__n = n;
+    var firstIm = null;
+    for (var k = 1; k <= n; k++) {
+      (function(kk){
+        var im = document.createElement('img');
+        im.alt = 'صفحهٔ ' + slot + ' — ' + kk + '/' + n;
+        im.decoding = 'async';
+        d.appendChild(im);
+        if (kk === 1) firstIm = im;
+        imgGet(sliceUrl(slot - 1, kk), true)
+          .then(function(u){ im.src = u; })
+          .catch(function(){ im.src = sliceUrl(slot - 1, kk); });
+      })(k);
+    }
+    var swapped = false;
+    var swap = function(){
+      if (swapped) return;
+      swapped = true;
+      try { cF.replaceChild(d, el2); d.__ok = 1; } catch (e) {}
+    };
+    if (firstIm) {
+      firstIm.onload = swap;
+      setTimeout(swap, 2500);
+    } else swap();
+  }
   var mtF = {}, mtD = {};
   function pollMtimesDir(mm, dirKey, isDbg){
     if (!(isDbg ? dbgArrived : arrived)) return;
@@ -3104,40 +3230,88 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         if (!t) return;
         var firstPass = !mm.__init;
         var lines = t.split('\n');
+// ——— فیکسِ حلقهٔ رفرشِ بی‌نهایت ——— mtimes.txt پیوسته رشد میکند
+// (هر بهروزرسانیِ اسلات یک خطِ تازه میچسباند)؛ مقایسهٔ خط‌به‌خط
+// مقدارِ کهنه/جدیدِ همان اسلات را هر بار عوض میکند و همان تصویر
+// را بی‌پایان دوباره میکشد («هی رفرش میشود، از اول لود میخورد»).
+// ملاک فقط «آخرین» خطِ هر اسلات است.
+        var last = {};
         for (var k = 0; k < lines.length; k++) {
           var m = lines[k].trim().split(/\s+/);
           if (m.length < 2) continue;
-          var slot = parseInt(m[0], 10), mt = m[1];
-          var cnt = isDbg ? dbgArrived : arrived;
+          var s0 = parseInt(m[0], 10);
+          if (s0 >= 1) last[s0] = m[1];
+        }
+        var cnt = isDbg ? dbgArrived : arrived;
+        for (var slotStr in last) {
+          var slot = parseInt(slotStr, 10);
+          var mt = last[slotStr];
           if (!(slot >= 1 && slot <= cnt)) continue;
           if (mm[slot] === mt) continue;
           mm[slot] = mt;
           if (firstPass) continue;
           if (isDbg) {
-            var el = cD.children[slot - 1];
-            var im = el && el.querySelector ? el.querySelector('img') : null;
-            if (!im) continue;
-            var nu = P + DBG + 'live_' + pad(slot) + '_base.jpg';
-            imgGet(nu, true)
-              .then(function(u){
-                if (dbgMode) hotSwap(im, u);
-                else { im.src = u; }
-              })
-              .catch(function(){});
-            ovlMem.delete(P + DBG + 'live_' + pad(slot) + '.json');
-            var svgs = el.querySelectorAll('svg.dovl');
-            for (var si = 0; si < svgs.length; si++)
-              if (svgs[si].parentNode === el) el.removeChild(svgs[si]);
-            (function(s2){ setTimeout(function(){ ensureOvl(s2); }, 450); })(slot);
+// فیکسِ همزمان: بستنِ هر اسلات در IIFEیِ خودش — قبلاً varِ مشترکِ
+// el/im توسطِ آخرین تکرارِ حلقه بازنویسی میشد و بهروزرسانیِ چند
+// اسلات همگی رویِ «آخرین» اسلات اعمال میشد (عکسِ ناجور).
+            (function(slot){
+              var el = cD.children[slot - 1];
+              var im = el && el.querySelector ? el.querySelector('img') : null;
+              if (!im) return;
+              var nu = P + DBG + 'live_' + pad(slot) + '_base.jpg';
+              imgGet(nu, true)
+                .then(function(u){
+                  if (dbgMode) hotSwap(im, u);
+                  else { im.src = u; }
+                })
+                .catch(function(){});
+              ovlMem.delete(P + DBG + 'live_' + pad(slot) + '.json');
+              var svgs = el.querySelectorAll('svg.dovl');
+              for (var si = 0; si < svgs.length; si++)
+                if (svgs[si].parentNode === el) el.removeChild(svgs[si]);
+              (function(s2){ setTimeout(function(){ ensureOvl(s2); }, 450); })(slot);
+            })(slot);
           } else {
-            var el2 = cF.children[slot - 1];
-            if (!el2 || el2.tagName !== 'IMG') continue;
-            imgGet(P + D + 'live_' + pad(slot) + '.jpg', true)
-              .then(function(u){
-                if (!dbgMode) hotSwap(el2, u);
-                else el2.src = u;
-              })
-              .catch(function(){});
+            (function(slot, engMt){
+              var el2 = cF.children[slot - 1];
+              if (!el2) return;
+              var applySlices = function(sl2){
+                if (sl2 && sl2.n > 0 && sl2.src >= engMt - 400) {
+                  if (el2.classList && el2.classList.contains('slotw')
+                      && el2.__n === sl2.n) {
+// همان شمارِ برش: فقط srcها تازه شوند — بی‌لرزش، مثلِ قبل
+                    for (var k2 = 1; k2 <= sl2.n; k2++) {
+                      (function(kk){
+                        var im3 = el2.children[kk - 1];
+                        if (!im3) return;
+                        imgGet(sliceUrl(slot - 1, kk), true)
+                          .then(function(u){
+                            if (!dbgMode) hotSwap(im3, u);
+                            else im3.src = u;
+                          })
+                          .catch(function(){});
+                      })(k2);
+                    }
+                  } else {
+                    rebuildSlotSlices(el2, slot, sl2.n);
+                  }
+                } else if (sl2 && sl2.n > 0) {
+// برشِ تازه هنوز ننشسته (برشکار ~۰٫۲۵ثانیه پشتِ موتور است) —
+// یک تأخیرِ کوتاه و دوباره؛ نبود = عکسِ کامل
+                  setTimeout(function(){
+                    slicesFor(slot - 1, true).then(function(sl3){
+                      if (sl3 && sl3.n > 0 && sl3.src >= engMt - 400)
+                        applySlices(sl3);
+                      else
+                        swapFullSlot(el2, slot);
+                    });
+                  }, 450);
+                } else {
+                  swapFullSlot(el2, slot);
+                }
+              };
+              slicesFor(slot - 1, true).then(applySlices);
+            })(slot, parseInt(mt, 10) || 0);
           }
         }
         mm.__init = 1;
@@ -3843,13 +4017,22 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
                 f"<title>{TX('app.read_title', 'خواندن')}</title></head><body style='background:#000;color:#999'>{body}</body></html>"
             )
-# ——— پچِ فشرده‌سازی v272: پیش‌نمایشِ کم‌حجمِ ریدر ——— برایِ هر عکسِ
+# ——— پچِ فشرده‌سازی v272 + برشِ وبِ ۲۰۰۰px ——— برایِ هر عکسِ
 # محلی (به‌جزِ GIF) یک نسخهٔ JPEGِ ۱۱۰۰px (فقط کوچک‌کردن — هرگز
 # بزرگ‌کردن نیست، LANCZOS) با کیفیتِ ۸۰ و progressive در پوشهٔ
 # <img_dir>_webprev ساخته میشود و ریدرِ وب همان را میکشد: دانلودِ
 # مرورگر ~۲۰-۲۵٪ سبک‌تر میشود ولی فایلهایِ نهایی رویِ دیسک
 # دست‌نخورده میمانند. ساختن idempotent است (وجود + mtime) و خطایِ
 # هر فایل = برگشت به همان URLِ اصلی.
+# ——— برشِ وبِ ۲۰۰۰px (خواستهٔ سازنده: «کوتاه برش بزنه، طولش دو
+# هزار بگذار، برشِ امن نمیخواهد، سریع، فقط برایِ وب») ——— عکسهایِ
+# بلندتر از ۲۰۰۰px بعد از کوچک‌کردنِ پهنا به برشهایِ ۲۰۰۰px
+# («…_v2_k.jpg») بریده میشوند و هر برش یک <img> جدا میگیرد: لودِ
+# تدریجیِ واقعی (اولین برش ~۶× زودتر دیده میشود) و رمِ مرورگرِ
+# کمتر. برشِ خام است — بدونِ جستجویِ خطِ امن. فقط رابطِ وب؛ فایلهایِ
+# خروجی رویِ دیسک (PC/لینوکس/اندروید) دست‌نخورده میمانند. نامِ
+# «_v2» عمداً با کشِ قدیمیِ «_w» فرق دارد تا نسخههایِ پیشین دوباره
+# ساخته شوند.
         try:
             import zlib as _zlib
             from PIL import Image as _PILImage
@@ -3863,13 +4046,21 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     if _ps.lower().endswith(".gif") or not os.path.isfile(_ps):
                         continue
                     _dir, _fn = os.path.split(_ps)
-                    _pv = os.path.join(
-                        _dir + "_webprev",
-                        "%08x" % (zlib.crc32(_ps.encode("utf-8")) & 0xFFFFFFFF)
-                        + "_" + os.path.splitext(_fn)[0] + "_w.jpg")
-                    if not (os.path.isfile(_pv)
-                            and os.path.getmtime(_pv) >= os.path.getmtime(_ps)):
-                        os.makedirs(os.path.dirname(_pv), exist_ok=True)
+                    _stem = os.path.splitext(_fn)[0]
+                    _pvd = _dir + "_webprev"
+                    _crc = "%08x" % (_zlib.crc32(_ps.encode("utf-8"))
+                                     & 0xFFFFFFFF)
+                    _pv1 = os.path.join(_pvd, _crc + "_" + _stem + "_v2.jpg")
+                    _pvk = os.path.join(_pvd, _crc + "_" + _stem + "_v2_%d.jpg")
+                    _pvdn = os.path.join(_pvd, _crc + "_" + _stem + "_v2.done")
+                    _mt = os.path.getmtime(_ps)
+# کشِ معتبر: تک‌عکسِ تازه (کوتاه) یا مارکرِ پایانِ برشها (بلند)
+                    _done_short = (os.path.isfile(_pv1)
+                                   and os.path.getmtime(_pv1) >= _mt)
+                    _done_tall = (os.path.isfile(_pvdn)
+                                  and os.path.getmtime(_pvdn) >= _mt)
+                    if not (_done_short or _done_tall):
+                        os.makedirs(_pvd, exist_ok=True)
                         with _PILImage.open(_ps) as _im:
                             _im = _im.convert("RGB")
                             if _im.width > 1100:
@@ -3877,14 +4068,49 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                     (1100, max(1, round(
                                         _im.height * 1100.0 / _im.width))),
                                     _lz)
-                            _im.save(_pv, format="JPEG", quality=80,
-                                     optimize=True, progressive=True)
-                    _prev[_ps] = prefix + _pv.replace(os.sep, "/")
+                            if _im.height > 2000:
+                                _n = (_im.height + 1999) // 2000
+                                _us = []
+                                for _k in range(_n):
+                                    _chk = _im.crop(
+                                        (0, _k * 2000, _im.width,
+                                         min(_im.height, (_k + 1) * 2000)))
+                                    _fp = _pvk % (_k + 1)
+                                    _chk.save(_fp, format="JPEG", quality=80,
+                                              optimize=True, progressive=True)
+                                    _us.append(prefix
+                                               + _fp.replace(os.sep, "/"))
+                                _prev[_ps] = _us
+# مارکرِ «برشها کاملند» — آخر از همه مینشیند
+                                with open(_pvdn, "wb") as _f:
+                                    _f.write(b"1")
+                            else:
+                                _im.save(_pv1, format="JPEG", quality=80,
+                                         optimize=True, progressive=True)
+                                _prev[_ps] = prefix + _pv1.replace(os.sep, "/")
+                    elif _done_tall:
+# کشِ برش — شمارش از رویِ دیسک
+                        _us = []
+                        _k = 1
+                        while (_k < 99 and os.path.isfile(_pvk % _k)):
+                            _us.append(prefix
+                                       + (_pvk % _k).replace(os.sep, "/"))
+                            _k += 1
+                        _prev[_ps] = (_us if _us
+                                      else prefix + _pv1.replace(os.sep, "/"))
+                    else:
+                        _prev[_ps] = prefix + _pv1.replace(os.sep, "/")
                 except Exception:
                     continue
             if _prev:
-                urls = [_prev.get(str(_p), _u)
-                        for _p, _u in zip(files, urls)]
+                _urls2 = []
+                for _p, _u in zip(files, urls):
+                    _v = _prev.get(str(_p))
+                    if isinstance(_v, list) and _v:
+                        _urls2.extend(_v)
+                    else:
+                        _urls2.append(_v if _v else _u)
+                urls = _urls2
         except Exception:
             pass
 # عکسها با data-src تزریق میشوند (نه src مستقیم) — لودِ تدریجی +
@@ -5938,6 +6164,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     "t0": None,
                     "live_dir": None,
                     "live_files": [],
+                    "live_slicer": None,
                 }
             return live_jobs[sid]
 
@@ -7505,6 +7732,17 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 job["live_dbg_dir"] = live_dbg_dir or None
                 job["live_files"] = []
                 job["live_run"] = _live_run_tok
+                _old_slicer = job.get("live_slicer")
+            if _old_slicer:
+# کارِ نو = برشکارِ کهنه را نگرفتن (پوشه تازهسازی شد)
+                try:
+                    _old_slicer["stop"] = True
+                except Exception:
+                    pass
+            try:
+                _start_live_slicer(live_dir, job)
+            except Exception as _e:
+                print(f"[!] برشکارِ وبِ live ناموفق: {_e}")
 
             _env = os.environ.copy()
             _env["PYTHONUNBUFFERED"] = "1"
@@ -8745,6 +8983,101 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 f.write(html)
             return path
 
+        def _start_live_slicer(live_dir: str, job: dict) -> None:
+            """برشکارِ وبِ ۲۰۰۰px — فقط رابطِ وب (خواستهٔ سازنده).
+
+            عکسهایِ بلندِ پوشهٔ live (بیش از ۲۰۰۰px ارتفاع) به برشهایِ
+            ۲۰۰۰px («w_NNNN_k.jpg») بریده میشوند تا خواندنِ وبِ تدریجی
+            و سبک باشد؛ مارکرِ «w_NNNN.json» ({n,src}) بعد از کاملشدنِ
+            برشها مینشیند (بودنش = برشها سالمند؛ src = میلیثانیهٔ
+            خودِ عکسِ منبع برایِ سنجشِ تازگی در نمایشگر). برشِ خام و
+            سریع است — بدونِ جستجویِ خطِ امن (خواستهٔ سازنده). فایلهایِ
+            اصلیِ live_NNNN.jpg / mtimes.txt دستِ موتور میمانند و
+            نامِ برشها با «live_» شروع نمیشود تا شمارشِ صفحهها
+            (اسکنهایِ _scan_live_dir و live_cnt) آنها را نبینند —
+            PC/لینوکس/اندروید کاملاً بی‌خبرند.
+            """
+            try:
+                from PIL import Image as _PILImage
+            except Exception:
+                return
+            state = {"stop": False}
+
+            def _slice_one(path: str, st_mtime_ms: int) -> None:
+                try:
+                    slot = os.path.basename(path)[5:-4]
+                    mark = os.path.join(live_dir, "w_%s.json" % slot)
+                    try:
+                        with open(mark, encoding="utf-8") as f:
+                            old = json.load(f) or {}
+                        if int(old.get("src") or 0) == st_mtime_ms:
+                            return  # همین نسخه قبلاً بریده شده
+                    except Exception:
+                        pass
+                    with _PILImage.open(path) as im:
+                        im = im.convert("RGB")
+                        w, h = im.size
+                        n = 0
+                        if h > 2000:
+                            n = (h + 1999) // 2000
+                            for k in range(n):
+                                chk = im.crop(
+                                    (0, k * 2000, w, min(h, (k + 1) * 2000)))
+                                fp = os.path.join(
+                                    live_dir, "w_%s_%d.jpg" % (slot, k + 1))
+                                tmp = fp + ".tmp"
+                                chk.save(tmp, format="JPEG", quality=82,
+                                         optimize=True, progressive=True)
+                                os.replace(tmp, fp)
+# سخت‌سازیِ نوشتنِ همزمان: اگر موتور وسطِ نوشتنِ همین فایل
+# بود (imreadِ پارهشده / نسخهٔ کهنه)، mtime بعد از برش عوض
+# شده — مارکر ننویس؛ چرخهٔ بعدی نسخهٔ تازه را میبرد.
+                    try:
+                        if int(os.path.getmtime(path) * 1000) != st_mtime_ms:
+                            return
+                    except OSError:
+                        return
+# مارکر آخر مینشیند — بودنش یعنی برشها کاملند
+                    tmpm = mark + ".tmp"
+                    with open(tmpm, "w", encoding="utf-8") as f:
+                        json.dump({"n": n, "src": st_mtime_ms}, f)
+                    os.replace(tmpm, mark)
+                except Exception:
+                    pass
+
+            def _worker():
+                seen = {}
+                idle = 0.0
+                while not state.get("stop") and os.path.isdir(live_dir):
+                    changed = False
+                    try:
+                        for f in os.listdir(live_dir):
+                            if not (f.startswith("live_")
+                                    and f.endswith(".jpg")):
+                                continue
+                            if f.endswith("_base.jpg"):
+                                continue
+                            p = os.path.join(live_dir, f)
+                            try:
+                                mt = os.path.getmtime(p)
+                            except OSError:
+                                continue
+                            if seen.get(f) == mt:
+                                continue
+                            seen[f] = mt
+                            changed = True
+                            _slice_one(p, int(mt * 1000))
+                    except Exception:
+                        pass
+# بی‌کاریِ طولانی = نظرسنجیِ آرام (صفحهٔ دیررسِ ذخیرهٔ نهایی)
+                    idle = (0.0 if changed else idle + 0.25)
+                    time.sleep(0.25 if idle < 300 else 2.0)
+
+            threading.Thread(target=_worker, daemon=True,
+                             name="manga-live-slicer").start()
+            with job["lock"]:
+                job["live_slicer"] = state
+
         def _poll_live_gallery(sid_v, sid_box_v):
             pref = (sid_v or sid_box_v or "").strip()
             job = live_jobs.get(pref)
@@ -9045,7 +9378,14 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 with job["lock"]:
                     d = job.get("live_dir")
                     rt = job.get("live_run") or ""
+                    _sl = job.get("live_slicer")
                 if d and os.path.isdir(d):
+# شروعِ تنبلِ برشکار — اگر به هر دلیلی (اپِ تازه‌بالا) نبود
+                    if not _sl:
+                        try:
+                            _start_live_slicer(d, job)
+                        except Exception:
+                            pass
                     try:
                         path = os.path.join(d, "live_reader.html")
                         if not os.path.isfile(path):
