@@ -1444,8 +1444,11 @@ class LamaONNX:
         m = max(int(w), int(h))
         if getattr(self, "_fixed_size", False):
             return self.size
-        if not self.prefer_gpu:
-            return 256
+# v1.14.285 — یکسانِ GPU/CPU (خواستهٔ سازنده: «پاکسازیم gpu cpu فرق
+# داره … مگ همشون یکس نیستن»): قبلاً CPU همیشه ۲۵۶ بود و GPU
+# پلکانِ ۲۵۶/۳۸۴/۵۱۲ → رزولوشنِ ورودیِ LaMa فرق می‌کرد = نتایجِ
+# متفاوت. حالا هر دو (و گوشی) همان پلکانِ واحد را میگیرند؛
+# GPU رفتارش عوض نشد، CPU به کیفیتی که GPU میداد رسید.
         if m <= 180:
             return 256
         if m <= 320:
@@ -1474,10 +1477,9 @@ class LamaONNX:
             return Image.fromarray(img_rgb.copy())
         orig_size = (img_rgb.shape[1], img_rgb.shape[0])
         run_size = self._pick_size(orig_size[0], orig_size[1])
-        if not self.prefer_gpu and not getattr(self, "_fixed_size", False):
-            cov = float(np.count_nonzero(original_mask)) / float(original_mask.size)
-            if cov > 0.22:
-                run_size = 512
+# v1.14.285 — هکِ فقط-CPU (cov>0.22 → 512) حذف شد: پلکانِ واحدِ
+# _pick_size حاکم است؛ رفتارِ GPU/CPU/گوشی یکسان (خواستهٔ سازنده:
+# «مگ همشون یکس نیستن»).
 
         scale = run_size / max(orig_size)
         rw, rh = (max(1, round(d * scale)) for d in orig_size)
