@@ -379,21 +379,23 @@ def source_has_letters(text: str) -> bool:
         return False
     return True
 
-# لیستِ آفلاینِ مدلهایِ Gemini — یک‌بار از فهرستِ رسمیِ
-# Gemini API (نوامبر ۲۰۲۶ — aistudio.google.com/docs/models) گرفته شد
-# فقط مدلهایِ متنِ خانوادهٔ flash (شاملِ flash-lite و flash-preview) —
-# بدونِ pro/argon و بدونِ نسل‌هایِ مردهٔ ۱/۲ (۲.۵ها یا محدود به
-# کاربرانِ قدیمیاند یا مسیرِ ۳.۵ میشوند). ترتیب = همان _model_sort_key
-# (Lite اول، بعدِ آن Flash کامل، بعدِ preview/aliasها). اگر گوگل مدلِ
-# تازه‌ای بیاورد، کاربر با دکمهٔ ↻ فهرستِ زنده را میگیرد.
+# لیستِ آفلاینِ مدلهایِ Gemini (فقط مدلهایِ رایگان) — یک‌بار از
+# فهرستِ رسمیِ Gemini API (نوامبر ۲۰۲۶ — aistudio.google.com/docs/pricing)
+# گرفته شد. فقط مدلهایِ «رایگانِ» متنِ ترجمه‌پذیر: خانوادهٔ flash
+# (شاملِ flash-lite/flash-preview) + gemini-4-hydrogen (مدلِ رایگانِ
+# جدیدِ گوگل که flash نیست — نامِ «hydrogen» = نسلِ ۴ِ سبک).
+# بدونِ carbon/argon/pro (پولی — در tierِ رایگان نیستند) و بدونِ نسلهایِ
+# مردهٔ ۱/۲. ترتیب = همان _model_sort_key. اگر گوگل مدلِ تازه‌ای
+# بیاورد، کاربر با دکمهٔ ↻ فهرستِ زنده میگیرد — کد خودش فقط
+# رایگانها را نگه میدارد (_gemini_model_is_free).
 GEMINI_FLASH_MODELS_OFFLINE = [
     "gemini-3.5-flash-lite",     # پایدارِ سبک — پیش‌فرضِ برنامه
     "gemini-3.1-flash-lite",     # پایدارِ سبک
-    "gemini-flash-lite-latest",  # alias زنده
+    "gemini-4-hydrogen",         # نسلِ ۴ِ سبک — رایگان (بدونِ flash)
     "gemini-3.8-flash",          # جدیدترین Flash کامل
+    "gemini-3.7-flash",          # Flash کامل
     "gemini-3.6-flash",          # پایدارِ کامل
     "gemini-3-flash-preview",    # preview
-    "gemini-flash-latest",       # alias زنده
 ]
 
 def gemini_offline_models() -> List[str]:
@@ -401,10 +403,75 @@ def gemini_offline_models() -> List[str]:
     فال‌بکِ دکمهٔ ↻ اندروید/وب وقتی اتصال برقرار نشد)."""
     return list(GEMINI_FLASH_MODELS_OFFLINE)
 
+# مدلهایِ Gemini که در tierِ رایگانِ API نیستند (پولی). از
+# قیمت‌گذاریِ رسمیِ aistudio.google.com/docs/pricing (نوامبر ۲۰۲۶):
+# «Gemini 4 Carbon / Gemini 4 Argon is not available on the Free tier»
+# و مدلهایِ pro (پیش‌فرضِ پروژه = فقط رایگان). نامِ فایلِ سرور مدل را
+# «not available on the free tier» برمیگرداند ولی ما از رویِ نام تشخیص
+# میدهیم تا به شبکه وابسته نباشیم — مدلِ جدیدِ رایگانی که «flash»
+# نیست هم (مثلِ hydrogen) در لیست میماند.
+_GEMINI_PAID_SUBSTRINGS = (
+    "carbon",      # gemini-4-carbon — پولی
+    "argon",       # gemini-4-argon — پولی
+    "pro",         # همهٔ proها — پولی
+    "image", "tts", "audio", "live", "embedding", "gemma",
+    "robotics", "omni", "nano-banana", "imagen", "computer-use",
+    "computer_use", "antigravity", "veo", "lyria", "chirp",
+    "dialog", "code-execution", "aqa", "text-embedding",
+    "gecko", "vision", "dream", "bard", "transcribe",
+    "decision", "robotics-er",
+)
+
+_GEMINI_PAID_NAMES = {
+    "gemini-4-carbon", "gemini-4-argon",
+}
+
+def gemini_model_is_free(name: str) -> bool:
+    """آیا این مدلِ Gemini در tierِ رایگانِ API است؟
+    تشخیص از رویِ نام (بی‌نیاز از شبکه):
+      • carbon/argon/pro و مدلهایِ غیرمتنی → پولی
+      • بقیهٔ مدلهایِ ترجمه‌پذیر (flash/flash-lite/hydrogen/…) → رایگان
+    اگر گوگل مدلِ رایگانِ جدیدی بیاورد که flash نیست، همین
+    تابع آن را رایگان میشناسد (همه‌چیزِ شناخته‌نشده = رایگان،
+    چون فهرستِ سیاه فقط نامهایِ قطعاً-پولی را دارد)."""
+    low = str(name or "").lower().replace("models/", "").strip()
+    if not low.startswith("gemini"):
+        return False
+    if low in _GEMINI_PAID_NAMES:
+        return False
+    for b in _GEMINI_PAID_SUBSTRINGS:
+        if b in low:
+            return False
+    return True
+
+def parse_model_list(raw: str) -> List[str]:
+    """رشتهٔ «چند مدلِ» کاربر را به فهرستِ تمیز تبدیل میکند.
+    جداکننده: کاما / خطِ نو / فاصله / سمی‌کلون — مثال:
+      'gemini-3.5-flash-lite, gemini-3.1-flash-lite'
+      'gpt-4o-mini,deepseek-chat'"""
+    if isinstance(raw, (list, tuple)):
+        items = [str(x) for x in raw]
+    else:
+        items = re.split(r"[\s,;\n]+", str(raw or ""))
+    out: List[str] = []
+    for m in items:
+        m = m.strip().strip('"').strip("'")
+        if m and m not in out:
+            out.append(m)
+    return out
+
+def join_model_list(models: List[str]) -> str:
+    """فهرستِ مدلها به رشتهٔ نمایشیِ کاما-جدا (برای فرم/UI)."""
+    return ", ".join(str(m or "").strip() for m in (models or [])
+                      if str(m or "").strip())
+
 def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                          timeout: float = 20.0) -> Tuple[List[str], str]:
-    """ — فهرستِ مدلهایِ موجود از خودِ سرویس (). Gemini: GET v1beta/models (فقط مدلهایِ ترجمهپذیر
-    : فقط flash/flash-lite/flash-preview — صافیِ _is_bad_list_model).
+    """ — فهرستِ مدلهایِ موجود از خودِ سرویس (). Gemini: GET v1beta/models
+    — فقط مدلهایِ «رایگانِ» ترجمه‌پذیر: صافیِ _is_bad_list_model برای
+    مدلهایِ نامناسب + صافیِ gemini_model_is_free برای پولیها (دستورِ
+    سازنده: «از لیستِ اپدیت مدلا فقط رایگان هاشو بگیره — مدلِ جدیدِ
+    رایگان اومده فلش نیست باید خوده کد تشخیص بده کدوما رایگانه»).
     custom: GET /models بر اساسِ فرمتِ خودکارِ لینک
     (openai/responses/anthropic/google). خروجی: (مدلها، خطا). برایِ دکمهٔ
     ↻ فهرستِ مدلها در رابط."""
@@ -448,6 +515,10 @@ def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                 if meths and "generateContent" not in meths:
                     continue
                 if MangaTranslator._is_bad_list_model(name):
+                    continue
+# فقط مدلهایِ رایگان — hydrogen/flash/flash-lite میمانند؛
+# carbon/argon/pro (پولی) از فهرستِ زنده حذف میشوند
+                if not gemini_model_is_free(name):
                     continue
                 out.append(name)
             if out:

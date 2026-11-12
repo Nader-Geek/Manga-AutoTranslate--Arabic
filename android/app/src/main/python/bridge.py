@@ -233,9 +233,8 @@ def _defaults(mf):
         _mg = _manga()
         _cfgp = str(manga_app.load_config().get("provider") or "gemini")
         _cfgm = str(manga_app.load_config().get("model") or "")
-        _auto_prompt = str(_mg.prompt_preset_text("auto", _cfgp, _cfgm) or "")
+        _auto_prompt = str(_mg.prompt_preset_text("professional", _cfgp, _cfgm) or "")
         _preset_map = {
-            "auto": _auto_prompt,
             "professional": str(_mg.PROMPT_PRESETS.get("professional") or ""),
             "lite": str(_mg.PROMPT_PRESETS.get("lite") or ""),
         }
@@ -259,8 +258,8 @@ def _defaults(mf):
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()
-                        in ("auto", "professional", "lite")):
-                    f["default"] = "auto"
+                        in ("professional", "lite")):
+                    f["default"] = "professional"
             elif f.get("id") in ("prompt_preview_body", "prompt_body"):
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
@@ -459,12 +458,13 @@ def _out_stem_from_src(src: str) -> str:
 
 def _prompt_params(p):
     """(prompt_mode, instruction) از پارامترهایِ جابِ گوشی — .
-    prompt_mode: گزینهٔ دروپ‌داونِ سبکِ پرامپت در گوشی.
+    prompt_mode: گزینهٔ دروپ‌داونِ سبکِ پرامپت در گوشی (auto حذف شد —
+    پیشفرض = professional؛ مقدارِ کهنهٔ auto خودکار → professional).
     instruction: متنِ کادرِ پرامپتِ گوشی — اگر برابرِ پیشفرضهایِ شناختهشده
     باشد سفارشی حساب نمیشود (خودِ MangaTranslator هم نرمالایز میکند)."""
     _pm = str(p.get("prompt_mode") or "").strip().lower()
-    if _pm not in ("auto", "professional", "lite"):
-        _pm = "auto"
+    if _pm not in ("professional", "lite"):
+        _pm = "professional"
     _body = ""
     for _k in ("prompt_body", "prompt_preview_body", "instruction", "instruction_text"):
         _v = str(p.get(_k) or "").strip()
@@ -1173,10 +1173,13 @@ def _run(job):
                         mf = {}
                 font_by_style, active = _resolve_tones(job, mf)
                 _pmode, _instr = _prompt_params(p)
+# چند-مدلی (دستورِ سازنده): فیلدِ مدل در فرمِ گوشی هم میتواند
+# «چند مدل با کاما» بگیرد — رشته به همان شکل به موتور پاس
+# میشود و MangaTranslator خودش فهرست/کاسکید میسازد
                 tr = _manga().MangaTranslator(
                     api_key=keys or ["placeholder"],
                     provider=str(p.get("provider") or "gemini"),
-                    model_name=(str(p.get("model")) or None) if p.get("model") else None,
+                    model_name=(str(p.get("model") or "").strip() or None),
                     api_base=(str(p.get("api_base") or "").strip()
                               or _cfg("api_base") or None) or None,
                     ocr_langs=langs,
@@ -1492,7 +1495,7 @@ def test_keys(params_json):
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 def _gemini_offline_models():
-    """ — لیستِ آفلاینِ مدلهایِ Gemini () — از manga.py
+    """ — لیستِ آفلاینِ مدلهایِ Gemini (فقط رایگان) — از manga.py
     اگر import نشد، نسخهٔ داخلی همین‌جا."""
     try:
         from manga import gemini_offline_models as _g
@@ -1504,11 +1507,11 @@ def _gemini_offline_models():
     return [
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
-        "gemini-flash-lite-latest",
+        "gemini-4-hydrogen",
         "gemini-3.8-flash",
+        "gemini-3.7-flash",
         "gemini-3.6-flash",
         "gemini-3-flash-preview",
-        "gemini-flash-latest",
     ]
 
 def list_models(params_json):

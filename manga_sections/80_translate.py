@@ -1097,7 +1097,7 @@ class _MangaTranslatorBody_80:
 
         def _make_prompt():
             _pm = resolve_prompt_mode(
-                getattr(self, "prompt_mode", "auto"),
+                getattr(self, "prompt_mode", "professional"),
                 getattr(self, "provider", "gemini"),
                 getattr(self, "model_name", ""),
             )
@@ -1654,7 +1654,7 @@ class _MangaTranslatorBody_80:
                 try:
                     _rules = (getattr(self, "custom_instruction", "") or "").strip() \
                         or PROMPT_PRESETS[resolve_prompt_mode(
-                            getattr(self, "prompt_mode", "auto"),
+                            getattr(self, "prompt_mode", "professional"),
                             getattr(self, "provider", "gemini"),
                             getattr(self, "model_name", ""))]
                     try:

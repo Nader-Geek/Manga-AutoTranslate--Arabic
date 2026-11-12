@@ -10,7 +10,7 @@
 from __future__ import annotations
 import time as _time_t0  # سنجشِ زمانِ importها (باید اول باشد)
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.286"
+APP_VER = "1.14.287"
 
 # پرامپتِ classic کلاً حذف شد (دستورِ سازنده) — تنها سبکها: auto / professional / lite
 
@@ -109,13 +109,18 @@ PROMPT_PRESETS = {
     "professional": FLASH_PROMPT,
     "lite": FLASH_LITE_PROMPT,
 }
-PROMPT_MODES = ("auto", "professional", "lite")
+# auto حذف شد (دستورِ سازنده: «اون قسمتِ پرامپت ک auto pro و lite
+# نوشته دکمه auto حذف کن بزار رو pro») — فقط دو سبک: professional
+# (پیش‌فرض) و lite. مقدارِ کهنهٔ auto خودکار → professional.
+PROMPT_MODES = ("professional", "lite")
 
 def resolve_prompt_mode(mode: str, provider: str = "gemini", model: str = "") -> str:
-    """انتخابِ سبکِ پرامپت — عینِ مرجع: پیشفرض = حرفه‌ای
-    (Prompts[0] در APK)؛ فقط مدل‌های «lite» پرامپتِ سبک می‌گیرند.
-    مقدارِ قدیمیِ classic → مسیرِ خودکار (بر اساسِ مدل)."""
-    m = (mode or "auto").lower().strip()
+    """انتخابِ سبکِ پرامپت — پیشفرض = حرفه‌ای (professional)؛
+    فقط مدل‌های «lite» پرامپتِ سبک می‌گیرند (اگر کاربر خودش
+    lite انتخاب نکرده باشد). مقدارِ قدیمیِ auto/classic →
+    مسیرِ خودکار (بر اساسِ مدل — ولی حالا خروجیِ همین مسیر
+    professional/lite است، نه گزینهٔ سوم)."""
+    m = (mode or "").lower().strip()
     if m in PROMPT_PRESETS:
         return m
     name = (model or "").lower().strip()

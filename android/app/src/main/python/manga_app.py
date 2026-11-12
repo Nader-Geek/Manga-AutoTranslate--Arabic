@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.286"
+APP_VER = "1.14.287"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -387,33 +387,36 @@ def _cli_ask(prompt: str) -> str:
         print()
         return ""
 
-PROMPT_MODE_DEFAULT = "auto"  # پیشفرضِ مشترکِ وب و فرمِ گوشی
+PROMPT_MODE_DEFAULT = "professional"  # پیشفرضِ مشترکِ وب و فرمِ گوشی (auto حذف شد — دستورِ سازنده)
 
 PROMPT_MODE_LABELS = {
-    "auto": "خودکار (بر اساس سرویس و مدل)",
     "professional": "حرفه‌ای — مخصوص Gemini Flash و Pro",
     "lite": "سبک — مخصوص Flash Lite و سرویس‌های غیر Gemini",
 }
 
 # برچسبهایِ نمایشیِ نسخههایِ قبلیِ وباپ (رادیو) — برایِ سازگاریِ کانفیگِ قدیمی
+# «auto»یِ قدیمی → مسیرِ خودکار = مدلهایِ Lite خودشان lite میگیرند؛
+# در سمتِ UI دیگر گزینه نیست ولی مقدارِ ذخیرهشده معتبر میماند
 _PROMPT_MODE_LEGACY_LABELS = {
-    "خودکار (بر اساس سرویس و مدل)": "auto",
+    "auto": "professional",
+    "خودکار (بر اساس سرویس و مدل)": "professional",
     "حرفه‌ای — Flash و Pro": "professional",
     "سبک — Flash Lite و غیرِ Gemini": "lite",
 }
 
 def sanitize_prompt_mode(v) -> str:
-    """هر ورودیِ (مقدار یا برچسبِ قدیمی) به یکی از auto/professional/lite —
-    : پیشفرضِ همیشه auto (فیکسِ ارورِ invalid choice در manga.py)."""
+    """هر ورودیِ (مقدار یا برچسبِ قدیمی) به یکی از professional/lite —
+    مقدارِ کهنهٔ auto خودکار → professional (سبکِ خودکار حذف شد؛
+    مدلهایِ Lite در موتور خودشان lite میگیرند)."""
     s = str(v or "").strip()
-    if s in ("auto", "professional", "lite"):
+    if s in ("professional", "lite"):
         return s
     if s in _PROMPT_MODE_LEGACY_LABELS:
         return _PROMPT_MODE_LEGACY_LABELS[s]
     for _k, _lab in PROMPT_MODE_LABELS.items():
         if s == _lab:
             return _k
-    return "auto"
+    return "professional"
 
 def resolve_prompt_preview(mode_v, provider_v, model_v, instr_v):
     """متنِ کاملِ پرامپتِ مؤثر — : تیترِ «پرامپت فعلی: …» حذف شد
@@ -423,7 +426,7 @@ def resolve_prompt_preview(mode_v, provider_v, model_v, instr_v):
         return t
     m = sanitize_prompt_mode(mode_v)
     prov = (provider_v or "gemini").strip()
-    mdl = (model_v or "").strip()
+    mdl = _model_str(model_v)
     try:
         from manga import resolve_prompt_mode as _rpm, PROMPT_PRESETS as _PP
         resolved = _rpm(m, prov, mdl)
@@ -571,11 +574,45 @@ def _ai_choices(models: list) -> list:
     out.append("custom")
     return out
 
+def _model_str(v) -> str:
+    """مقدارِ فیلدِ مدل (دراپ‌داونِ چند-انتخابیِ جدید یا رشتهٔ قدیمی)
+    به رشتهٔ تمیزِ «کاما-جدا» تبدیل میشود — همهٔ مصرفکنندهها
+    (CLI/امضا/نمایش/بکاپ) همین را میبینند. مثال:
+      ['gemini-3.8-flash', 'gemini-4-hydrogen'] → 'gemini-3.8-flash,gemini-4-hydrogen'
+      'gpt-4o-mini, deepseek-chat'              → 'gpt-4o-mini,deepseek-chat'
+      [] / '' / None                             → ''"""
+    if v is None:
+        return ""
+    if isinstance(v, (list, tuple, set)):
+        items = [str(x or "").strip() for x in v]
+    else:
+        s = str(v or "").strip()
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                import json as _js
+                _p = _js.loads(s)
+                if isinstance(_p, list):
+                    items = [str(x or "").strip() for x in _p]
+                else:
+                    items = [s]
+            except Exception:
+                items = [s]
+        else:
+            items = [s]
+    out = []
+    for m in items:
+        for piece in str(m).replace(";", ",").split(","):
+            piece = piece.strip().strip('"').strip("'")
+            if piece and piece not in out:
+                out.append(piece)
+    return ",".join(out)
+
 def _gemini_offline_models() -> list:
-    """ — لیستِ آفلاینِ مدلهایِ Gemini () — از
-    manga.py میآید (GEMINI_FLASH_MODELS_OFFLINE؛ فقط flash و flash-lite
-    و flash-preview). اگر import نشد (مثلاً وبِ هاست با بک‌اندِ سبک)
-    همین نسخهٔ داخلی استفاده میشود تا دراپ‌داون هرگز خالی نباشد."""
+    """ — لیستِ آفلاینِ مدلهایِ Gemini (فقط رایگان) — از
+    manga.py میآید (GEMINI_FLASH_MODELS_OFFLINE؛ flash/flash-lite/
+    flash-preview + gemini-4-hydrogen). اگر import نشد (مثلاً وبِ
+    هاست با بک‌اندِ سبک) همین نسخهٔ داخلی استفاده میشود تا
+    دراپ‌داون هرگز خالی نباشد."""
     try:
         from manga import gemini_offline_models as _g
         _lst = _g()
@@ -586,11 +623,11 @@ def _gemini_offline_models() -> list:
     return [
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
-        "gemini-flash-lite-latest",
+        "gemini-4-hydrogen",
         "gemini-3.8-flash",
+        "gemini-3.7-flash",
         "gemini-3.6-flash",
         "gemini-3-flash-preview",
-        "gemini-flash-latest",
     ]
 
 def resolve_ai_named(models: list, pick: str, api_keys: str = "",
@@ -1059,10 +1096,10 @@ def _trans_sig_of(provider, model, api_base, prompt_mode,
     import hashlib as _hl
     try:
         prov = str(provider or "").strip().lower()
-        mdl = str(model or "").strip()
+        mdl = _model_str(model)
         ab = (str(api_base or "").strip().lower()
               if prov == "custom" else "")
-        pm = str(prompt_mode or "auto").strip().lower() or "auto"
+        pm = str(prompt_mode or "professional").strip().lower() or "professional"
         instr = str(instruction or "").strip()
         if instr and not is_custom_instruction(instr):
             instr = ""
@@ -5902,8 +5939,11 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 model = gr.Dropdown(
                     choices=_gemini_offline_models(), value="",
                     allow_custom_value=True,
-                    label=TX("app.model_gemini", ("مدل — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
-                          "فهرستِ زنده (یا خودت بنویس) | خالی = پیش‌فرض")),
+                    multiselect=True,
+                    max_choices=12,
+                    label=TX("app.model_gemini", ("مدل (ها) — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
+                          "فهرستِ زندهٔ رایگان | چند مدل = فال‌بکِ خودکار (مثال: "
+                          "gemini-3.8-flash, gemini-4-hydrogen) | خالی = پیش‌فرض")),
                     scale=2, elem_id="manga_model")
                 model_ref_btn = gr.Button(
                     TX("app.refresh_models", "↻ مدل‌ها"), variant="secondary", scale=1,
@@ -6081,10 +6121,10 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                         value=bool(cfg.get("web_debug", False)))
 # گزینهها جمع شد در یک دروپ‌داون (کلیک → گزینهها میآید)
 # مقادیرِ انگلیسیِ خالص — دقیقاً همان که manga.py میپذیرد (فیکسِ invalid choice).
-# مقدارِ literal «auto» تا استخراجِ فرمِ گوشی (APK قدیمی) هم پیشفرض را ببیند —
-# classic حذف شد (دستورِ سازنده) — فقط auto/professional/lite
+# auto حذف شد (دستورِ سازنده: «دکمه auto حذف کن بزار رو pro») —
+# فقط professional (پیشفرض) / lite؛ مقدارِ کهنهٔ auto = professional
             prompt_mode = gr.Dropdown(
-                choices=["auto", "professional", "lite"],
+                choices=["professional", "lite"],
                 value=PROMPT_MODE_DEFAULT,
                 label=TX("app.prompt_style", "سبک پرامپت مترجم"), scale=1)
 # پرامپتِ دستیِ جدا حذف شد — خودِ پرامپتِ اصلی قابلِ ویرایش است.
@@ -7288,7 +7328,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
 # تستِ همهٔ مدلها (gemini + مدلهایِ کاربر)
                 lines = []
                 _cands = [("Gemini", "gemini", "", str(api_keys_v or ""),
-                           str(model_v or ""))]
+                           _model_str(model_v))]
                 for m in (models_v or []):
                     if isinstance(m, dict) and str(m.get("name") or "").strip():
                         _cands.append((str(m.get("name")).strip(), "custom",
@@ -7304,7 +7344,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 return gr.update(value="\n\n".join(lines), visible=True)
 # مدلِ مشخصِ کاربر از منویِ AI → resolve به فیلدهایش
             _nm = resolve_ai_named(models_v, prov,
-                                   str(api_keys_v or ""), str(model_v or ""))
+                                   str(api_keys_v or ""), _model_str(model_v))
             if _nm is not None:
                 prov, api_base_v, api_keys_v, model_v = _nm
             try:
@@ -7445,7 +7485,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                            and str(m.get("name") or "").strip()]
             _auto_log_lines = []
             _named = resolve_ai_named(_models_now, prov_s,
-                                      str(api_keys_v or ""), str(model_v or ""))
+                                      str(api_keys_v or ""), _model_str(model_v))
             if _named is not None:
                 prov_s, api_base_v, api_keys_v, model_v = _named
                 provider_v = prov_s
@@ -7454,7 +7494,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     f"(provider={prov_s}، model={str(model_v or '')[:40]}) — فقط همین.")
             elif prov_s == "auto":
                 _ap, _ab, _ak, _am, _auto_log_lines = resolve_ai_auto(
-                    _models_now, str(api_keys_v or ""), str(model_v or ""))
+                    _models_now, str(api_keys_v or ""), _model_str(model_v))
                 if not _ap:
                     return _pack(
                         "🚀  شروع ترجمه",
@@ -7474,7 +7514,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                  "❌ provider «custom» به دامنهٔ API معتبر نیاز دارد.\n"
                                  "   مثال: https://api.example.com/v1\n"
                                  "   (https:// اگر جا افتاده باشد خودکار اضافه می‌شود.)")
-                if not str(model_v or "").strip():
+                if not _model_str(model_v).strip():
                     return _pack("🚀  شروع ترجمه",
                                  "❌ provider «custom» به نام مدل نیاز دارد (مثال: gpt-4o-mini).")
                 api_base_v = _ab
@@ -7559,7 +7599,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 if _instr_sig and not is_custom_instruction(_instr_sig):
                     _instr_sig = ""
                 _sig_cur = _trans_sig_of(
-                    prov_s, str(model_v or ""), str(api_base_v or ""),
+                    prov_s, _model_str(model_v), str(api_base_v or ""),
                     sanitize_prompt_mode(prompt_mode_v), _instr_sig,
                     bool(fake_test_v),
                     (temp_v if temp_v not in (None, "") else 0.7),
@@ -7648,8 +7688,8 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 cmd += ["--api-key", ",".join(klist)]
             if ocr_lang_v and str(ocr_lang_v).strip() and str(ocr_lang_v).strip() != "en":
                 cmd += ["--ocr-lang"] + [p for p in str(ocr_lang_v).split() if p]
-            if model_v and str(model_v).strip():
-                cmd += ["--model", str(model_v).strip()]
+            if model_v and _model_str(model_v):
+                cmd += ["--model", _model_str(model_v)]
             _cm_v = str(clean_method_v or "lama-manga").strip()
             if _cm_v not in ("lama-manga", "lama-big", "opencv"):
                 _cm_v = "lama-manga"
@@ -7814,7 +7854,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             if last in ("gemini", "custom") and last != v:
                 bank[last] = {"base": str(cur_base or ""),
                               "key": str(cur_key or ""),
-                              "model": str(cur_model or "")}
+                              "model": _model_str(cur_model)}
             bank["_last"] = v
 # مقادیرِ providerِ جدید همیشه از بانک میآید (بانکِ
 # خالی = فیلدهای خالی) — هرگز مقادیرِ providerِ قبلی زیرِ منویِ
@@ -7823,7 +7863,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             saved = saved if isinstance(saved, dict) else {}
             nb = str(saved.get("base") or "")
             nk = str(saved.get("key") or "")
-            nm = str(saved.get("model") or "")
+            nm = _model_str(saved.get("model"))
             if not is_custom:
                 nb = ""   # دامنهٔ API فقط مالِ custom است
             if on_auto or mine:
@@ -7840,14 +7880,17 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
 # لیستِ آفلاینِ داخلِ کد برمیگردد (دستور: «مدل هارو افلاین
 # هم بزار»).
             if v == "gemini":
-                mdl_label = ("مدل — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
-                             "فهرستِ زنده (یا خودت بنویس) | خالی = پیش‌فرض")
+                mdl_label = ("مدل (ها) — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
+                             "فهرستِ زندهٔ رایگان | چند مدل = فال‌بکِ خودکار | خالی = پیش‌فرض")
                 mdl_upd = gr.update(visible=True, value=nm, label=mdl_label,
-                                    choices=_gemini_offline_models())
+                                    choices=_gemini_offline_models(),
+                                    multiselect=True)
             else:
-                mdl_label = "مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"
+                mdl_label = ("مدل (ها) — شناسه‌ها را بنویس؛ چند مدل با کاما = "
+                             "فال‌بکِ خودکار | خالی = پیش‌فرض")
                 mdl_upd = gr.update(visible=row_vis, value=nm,
-                                    label=mdl_label, choices=[])
+                                    label=mdl_label, choices=[],
+                                    multiselect=True)
             return (gr.update(visible=is_custom, value=nb),
                     gr.update(visible=row_vis),
                     gr.update(visible=row_vis, value=nk),
@@ -7901,7 +7944,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             entry = {"name": nm,
                      "api_base": str(base or "").strip(),
                      "api_key": str(key or "").strip(),
-                     "model": str(mdl or "").strip()}
+                     "model": _model_str(mdl)}
             new_models[idx] = entry
             _link = entry["api_base"] or "Gemini رسمی (بدونِ دامنهٔ سفارشی)"
             _mdl = f" — مدلِ هوش: {entry['model']}" if entry["model"] else ""
@@ -7971,7 +8014,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             try:
                 _nm = resolve_ai_named(custom_models_state.value, prov,
                                        str(api_keys_v or ""),
-                                       str(model_v or ""))
+                                       _model_str(model_v))
             except Exception:
                 pass
             if _nm is not None:
@@ -7979,7 +8022,10 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 prov, api_base_v, api_keys_v = _p, _b, _k
             models, err = list_provider_models(
                 prov, str(api_keys_v or ""), str(api_base_v or ""))
-            keep = str(model_v or "").strip()
+# انتخابهایِ فعلیِ کاربر (چند-انتخابی) — همانها میمانند اگر
+# هنوز در فهرستِ تازه هستند
+            keep_raw = _model_str(model_v)
+            keep_list = [m for m in keep_raw.split(",") if m.strip()]
             # → ↻ فهرستِ زنده میگیرد؛ اگر اتصال/کلید برقرار نشد
 # به‌جای خطا، فهرستِ آفلاینِ داخلِ کد برمیگردد (کاربر بی‌درنگ
 # گزینه دارد) و دلیلِ قطعی در لیبل میآید.
@@ -7989,13 +8035,15 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     _why = f" — {str(err or '')[:60]}" if err else ""
                     return gr.update(
                         choices=offline,
-                        value=keep,
-                        label=(f"مدل — اتصال برقرار نشد{_why}؛ فهرستِ "
-                               f"آفلاینِ برنامه ({len(offline)} مدل)"))
+                        value=[m for m in keep_list if m in offline],
+                        multiselect=True,
+                        label=(f"مدل (ها) — اتصال برقرار نشد{_why}؛ فهرستِ "
+                               f"آفلاینِ برنامه ({len(offline)} مدلِ رایگان)"))
                 raise gr.Error(err or "مدلی پیدا نشد — کلید/لینک را با «تست کلیدها / لینک» چک کنید.")
             return gr.update(choices=models,
-                             value=keep if keep in models else keep,
-                             label=f"مدل — {len(models)} مدلِ زنده پیدا شد؛ انتخاب کن")
+                             value=[m for m in keep_list if m in models],
+                             multiselect=True,
+                             label=f"مدل (ها) — {len(models)} مدلِ زندهٔ رایگان پیدا شد؛ انتخاب کن")
 
         try:
             model_ref_btn.click(
@@ -8040,7 +8088,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             entry = {"name": name,
                      "api_base": str(it.get("api_base") or "").strip(),
                      "api_key": str(it.get("api_key") or "").strip(),
-                     "model": str(it.get("model") or "").strip()}
+                     "model": _model_str(it.get("model"))}
             models = [m for m in (models or [])
                       if str(m.get("name") or "") != name]
             models.append(entry)
@@ -8084,7 +8132,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 merged.append({"name": name,
                                "api_base": str(it.get("api_base") or ""),
                                "api_key": str(it.get("api_key") or ""),
-                               "model": str(it.get("model") or "")})
+                               "model": _model_str(it.get("model"))})
             return _cm_pack(merged, prov_cur)
 
 # جاوااسکریپتِ دکمهٔ «+ افزودن به لیست مدل‌ها»: نام را با
@@ -8265,6 +8313,10 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 settings = {k: (v if isinstance(v, (int, float, bool))
                                 else str(v or ""))
                             for (k, _), v in zip(_BACKUP_FIELDS, args[:n])}
+# مدل چند-انتخابی (لیست) → رشتهٔ کاما-جدا در بکاپ (سازگار با
+# بازیابیِ قدیمی هم هست — _model_str هر دو قالب را میفهمد)
+                if "model" in settings:
+                    settings["model"] = _model_str(settings.get("model"))
                 models = list(args[n] or [])
                 payload = {
                     "_type": "manga_autotranslate_backup",
@@ -8348,7 +8400,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 if _newv in ("gemini", "custom"):
                     _bank[_newv] = {"base": str(st.get("api_base") or ""),
                                     "key": str(st.get("api_keys") or ""),
-                                    "model": str(st.get("model") or "")}
+                                    "model": _model_str(st.get("model"))}
                 bank_up = _bank
                 return (*ups, merged,
                         json.dumps(merged, ensure_ascii=False),
@@ -8637,6 +8689,12 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 v = data.get(key)
                 if v is None:
                     return gr.update()
+# مدل چند-انتخابی: مقدارِ ذخیرهشده (رشته یا لیست) به قالبِ
+# دراپ‌داونِ چند-انتخابی تبدیل میشود
+                if key == "model":
+                    _ms = _model_str(v)
+                    return gr.update(value=[m for m in _ms.split(",")
+                                             if m.strip()]) if _ms else gr.update()
                 s = str(v).strip()
                 if s.lower() in ("null", "undefined"):
                     return gr.update()

@@ -69,7 +69,7 @@ PAGE = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
  </div>
  <div id="customBox" style="display:none;margin-top:8px">
   <input id="api_base" type="url" placeholder="دامنهٔ API سفارشی — مثال: https://api.example.com/v1" style="width:100%%;background:#08080a;color:#e8e6e1;border:1px solid #1f1f24;border-radius:10px;padding:12px">
-  <input id="cmodel" type="text" placeholder="نام مدل (برای custom اجباری) — مثال: gpt-4o-mini" style="width:100%%;margin-top:8px;background:#08080a;color:#e8e6e1;border:1px solid #1f1f24;border-radius:10px;padding:12px">
+  <input id="cmodel" type="text" placeholder="مدل (ها) — چند مدل با کاما = فال‌بکِ خودکار؛ مثال: gpt-4o-mini,deepseek-chat" style="width:100%%;margin-top:8px;background:#08080a;color:#e8e6e1;border:1px solid #1f1f24;border-radius:10px;padding:12px">
  </div>
  <div style="margin-top:10px;font-size:.85rem;color:#97948c">زبان متن مانگا (OCR):</div>
  <div id="langs" style="display:flex;flex-wrap:wrap">%(langs)s</div>

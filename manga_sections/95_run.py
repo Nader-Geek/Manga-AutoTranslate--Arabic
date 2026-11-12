@@ -112,7 +112,7 @@ class _MangaTranslatorBody_95:
             mdl = str(model or "").strip()
             ab = (str(api_base or "").strip().lower()
                   if prov == "custom" else "")
-            pm = str(prompt_mode or "auto").strip().lower() or "auto"
+            pm = str(prompt_mode or "professional").strip().lower() or "professional"
             instr = str(instruction or "").strip()
             parts = [
                 "t1", prov, mdl, ab, pm,
@@ -802,7 +802,7 @@ class _MangaTranslatorBody_95:
             model=getattr(self, "model_name_raw",
                           getattr(self, "model_name", "")),
             api_base=getattr(self, "api_base", ""),
-            prompt_mode=getattr(self, "prompt_mode", "auto"),
+            prompt_mode=getattr(self, "prompt_mode", "professional"),
             instruction=(getattr(self, "custom_instruction", "") or ""),
             fake=bool(getattr(self, "fake_translate", False)),
             temperature=float(getattr(self, "translation_temperature", 0.7) or 0.7),

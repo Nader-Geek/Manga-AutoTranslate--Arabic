@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""تستِ v1.14.286 — برشِ وبِ ۲۰۰۰px + فیکسِ حلقهٔ رفرشِ ریدرِ زنده.
+"""تستِ v1.14.287 — برشِ وبِ ۲۰۰۰px + فیکسِ حلقهٔ رفرشِ ریدرِ زنده.
 
 دستورِ سازنده: «وقتی طرف با وب میره میخونه قسمت نمایش عکس‌های خروجی
 کوتاه برش بزنه برایش، طولش دو هزار بگذار، برش امن نمیخواهد برایش
@@ -24,7 +24,7 @@
      • هر اسلات در IIFEیِ خودش (فیکسِ closure)
      • parseInt برایِ src مارکر (نه |0 — خرابیِ ۳۲بیتیِ epoch)
      • سرکِ سبکِ رسیدن: مارکر/HEAD (نه دانلودِ کامل)
-  ۴) نسخهها: APP_VER ×۳ + VERSION + gradle = 1.14.286
+  ۴) نسخهها: APP_VER ×۳ + VERSION + gradle = 1.14.287
 """
 import json
 import os
@@ -186,17 +186,17 @@ chk("پیشفرضِ بدونِ برشکار — فال‌بکِ عکسِ کام�
 
 # ———————————————————— ۴) نسخهها ————————————————————
 print("۴) نسخهها:")
-for p, v in (("manga_app.py", "1.14.286"), ("manga.py", "1.14.286"),
-             ("manga_sections/00_base.py", "1.14.286")):
+for p, v in (("manga_app.py", "1.14.287"), ("manga.py", "1.14.287"),
+             ("manga_sections/00_base.py", "1.14.287")):
     t = open(os.path.join(HERE, p), encoding="utf-8").read()
     chk(f"APP_VER در {p} = {v}", f'APP_VER = "{v}"' in t)
 vt = open(os.path.join(HERE, "VERSION"), encoding="utf-8").read()
-chk("VERSION = 288 / 1.14.286",
-    "versionCode=288" in vt and "versionName=1.14.286" in vt)
+chk("VERSION = 288 / 1.14.287",
+    "versionCode=289" in vt and "versionName=1.14.287" in vt)
 gt = open(os.path.join(HERE, "android/app/build.gradle.kts"),
           encoding="utf-8").read()
-chk("gradle = 288 / 1.14.286",
-    "versionCode = 288" in gt and 'versionName = "1.14.286"' in gt)
+chk("gradle = 288 / 1.14.287",
+    "versionCode = 289" in gt and 'versionName = "1.14.287"' in gt)
 
 # ———————————————————— جمع‌بندی ————————————————————
 print(f"\n{'='*50}\n✔ {len(PASS)} سبز | ✘ {len(FAIL)} قرمز")

@@ -222,10 +222,11 @@ class MangaTranslator:
         if _raw_instr and is_known_default_instruction(_raw_instr):
             _raw_instr = ""
         self.custom_instruction = _raw_instr
-# سبکِ پرامپت: auto بر اساسِ سرویس/مدل انتخاب میکند
+# سبکِ پرامپت: پیش‌فرض = professional (auto حذف شد — دستورِ
+# سازنده: «دکمه auto حذف کن بزار رو pro»)
         _pm = ((prompt_mode if prompt_mode is not None
-                else os.environ.get("MANGA_PROMPT_MODE", "")) or "auto").lower().strip()
-        self.prompt_mode = _pm if _pm in PROMPT_MODES else "auto"
+                else os.environ.get("MANGA_PROMPT_MODE", "")) or "professional").lower().strip()
+        self.prompt_mode = _pm if _pm in PROMPT_MODES else "professional"
         self.det_confidence = float(det_confidence)
         provider = (provider or "gemini").lower().strip()
         if provider not in PROVIDER_PRESETS:
@@ -258,9 +259,17 @@ class MangaTranslator:
         self._daily_dead: Dict[Tuple[str, str], bool] = {}
 
 # مدلِ «خواسته‌شده» (قبل از پیش‌فرض/کَسکید) — برای امضای ترجمه:
-# تشخیصِ عوض‌شدنِ مدل در پرسشِ ادامه/از-نوِ اپ
+# تشخیصِ عوض‌شدنِ مدل در پرسشِ ادامه/از-نوِ اپ.
+# چند-مدلی (دستورِ سازنده): فیلدِ مدل میتواند «چند مدل با کاما»
+# بگیرد (مثلاً «gemini-3.5-flash,Gemini-3.7-flash») — در Gemini و
+# custom یکسان. کاسکید = همان ترتیبِ کاربر؛ مدلِ اول = اصلی،
+# بقیه = فال‌بک وقتی اولی مرده/محدود شد (عینِ رفتارِ چند-کلیدی).
         self.model_name_raw = (model_name or "").strip()
-        self.model_name = (model_name or self.provider_cfg.get("default_model") or "gemini-3.5-flash-lite").strip()
+        _user_models = parse_model_list(self.model_name_raw)
+        self.model_list = _user_models
+        self.model_name = (_user_models[0] if _user_models
+                           else (self.provider_cfg.get("default_model")
+                                 or "gemini-3.5-flash-lite")).strip()
         self._model_cascade: List[str] = []
         self._model_index: int = 0
         self._last_good_model: str = ""
@@ -704,7 +713,13 @@ class MangaTranslator:
                 self.client = None
             self._model_cascade = self._build_model_cascade(self.model_name, self.client)
             self.model_name = self._model_cascade[0]
-            if len(self._api_keys) > 1:
+            _nm = len(getattr(self, "model_list", []) or [])
+            if _nm > 1:
+                print(f"[*] مترجم: {self.model_name} (+{_nm - 1} مدلِ فال‌بک: "
+                      f"{', '.join(self._model_cascade[1:_nm])})")
+                if len(self._api_keys) > 1:
+                    print(f"    {len(self._api_keys)} کلید (چرخش خودکار)")
+            elif len(self._api_keys) > 1:
                 print(f"[*] مترجم: {self.model_name} | {len(self._api_keys)} کلید")
             else:
                 print(f"[*] مترجم: {self.model_name}")
@@ -722,8 +737,20 @@ class MangaTranslator:
                 self._apply_api_key(self._api_keys[0])
             else:
                 self.client = None
-            self._model_cascade = [self.model_name]
-            print(f"[*] مترجم: {self.model_name} ({self.provider})")
+# چند-مدلی در custom/سرویسهایِ openai-سازگار هم (دستورِ
+# سازنده: «تو همشون هم کاستوم هم Gemini»): کاسکید = فهرستِ
+# مدلهایِ کاربر به همان ترتیب؛ فال‌بک خودکار وقتی مدلِ اول
+# مرده/محدود شد
+            self._model_cascade = ([m for m in
+                                    (getattr(self, "model_list", None) or [])]
+                                   or [self.model_name])
+            self.model_name = self._model_cascade[0]
+            if len(self._model_cascade) > 1:
+                print(f"[*] مترجم: {self.model_name} "
+                      f"(+{len(self._model_cascade) - 1} مدلِ فال‌بک: "
+                      f"{', '.join(self._model_cascade[1:])}) ({self.provider})")
+            else:
+                print(f"[*] مترجم: {self.model_name} ({self.provider})")
             if len(self._api_keys) > 1:
                 print(f"    {len(self._api_keys)} کلید (جابه‌جایی خودکار)")
 
@@ -1345,12 +1372,17 @@ class MangaTranslator:
             "computer-use", "computer_use", "antigravity", "veo", "lyria",
             "image", "tts", "live", "audio", "embedding", "gemma", "robotics",
             "omni", "imagen", "chirp", "aqa", "dream",
-            "gemini-pro-latest",
+            "gemini-pro-latest", "transcribe", "decision",
         )
         if any(b in low for b in ban):
             return True
         if not low.startswith("gemini"):
             return True
+# «hydrogen» نسلِ ۴ِ سبک و رایگان است (بدونِ flash/pro) —
+# در ترجمه پذیرفته میشود (دستورِ سازنده: مدلِ رایگانِ جدیدِ
+# غیر-flash هم باید شناخته شود)
+        if "hydrogen" in low:
+            return False
 # «argon» نامِ پرچمدارِ نسلِ ۴ است (بدونِ flash/pro)
         if "argon" in low:
             return False
@@ -1374,13 +1406,18 @@ class MangaTranslator:
     @staticmethod
     def _is_bad_list_model(name: str) -> bool:
         """ — صافیِ «فهرستِ مدلها» (دراپ‌داونِ وب / ↻ اندروید /
-        کشفِ زندهٔ API): فقط flash و flash-lite و flash-preview () — pro و argon دیگر در هیچ
-        فهرستی نمیآیند. این صافی فقط برایِ فهرست است؛ تایپِ دستیِ
-        مدلهایِ دیگر (argon/pro) در فیلدِ مدل همچنان آزاد و در ترجمه
-        پذیرفته میشود (_is_bad_translate_model سرِ جایش است)."""
+        کشفِ زندهٔ API): فقط مدلهایِ متنِ ترجمه‌پذیرِ رایگان —
+        flash/flash-lite/flash-preview + hydrogen (مدلِ رایگانِ
+        نسلِ ۴ که flash نیست). carbon/argon/pro (پولی) و مدلهایِ
+        غیرمتنی در هیچ فهرستی نمیآیند. این صافی فقط برایِ فهرست
+        است؛ تایپِ دستیِ مدلهایِ دیگر (argon/pro) در فیلدِ مدل
+        همچنان آزاد و در ترجمه پذیرفته میشود
+        (_is_bad_translate_model سرِ جایش است)."""
         if MangaTranslator._is_bad_translate_model(name):
             return True
         low = (name or "").lower().replace("models/", "")
+        if "hydrogen" in low:
+            return False
         return "flash" not in low
 
     @staticmethod
@@ -1405,6 +1442,18 @@ class MangaTranslator:
         if primary and self._is_bad_translate_model(primary):
             primary = ""
 
+# چند-مدلیِ کاربر (دستورِ سازنده: «بجاش بنویسن مثل کاستوم …
+# بتونن چند تا مدل بدن»): کلِ فهرستِ کاربر با همان ترتیبش
+# اولِ کاسکید مینشیند؛ بعد مدلهایِ کشف‌شدهٔ زنده و در آخر
+# فهرستِ آفلاین. مدلِ مرده/بن‌شده از وسط برداشته میشود و
+# ادامه از بعدیِ همان فهرستِ کاربر است.
+        user_list = [m.strip().replace("models/", "") for m in
+                     (getattr(self, "model_list", None) or [])
+                     if str(m or "").strip()]
+        user_list = [m for m in user_list if not self._is_bad_translate_model(m)]
+        if primary and primary not in user_list:
+            user_list.insert(0, primary)
+
         discovered: List[str] = []
         if client is not None:
             discovered = self._discover_models_from_api(client)
@@ -1422,8 +1471,11 @@ class MangaTranslator:
             )
 
             cascade: List[str] = []
-            if primary and primary in discovered:
-                cascade.append(primary)
+            for m in user_list:
+                if m in discovered and m not in cascade:
+                    cascade.append(m)
+                elif m not in cascade:
+                    cascade.append(m)
             for m in discovered:
                 if m not in cascade:
                     cascade.append(m)
@@ -1433,7 +1485,7 @@ class MangaTranslator:
                 return ("pro" in low and "flash" not in low)
 
             if cascade:
-                head = cascade[:1] if (primary and primary in cascade) else []
+                head = [m for m in user_list if m in cascade]
                 rest = [m for m in cascade if m not in head]
                 cheap = [m for m in rest if not _costly(m)]
                 costly = [m for m in rest if _costly(m)]
@@ -1443,7 +1495,8 @@ class MangaTranslator:
         print("[*] کشف API ممکن نشد / خالی → fallback محافظه‌کارانه")
         static = self._static_fallback_models(primary or "gemini-3.5-flash-lite")
         kept = [m for m in static if m not in getattr(self, "_model_banned", set())]
-        return kept or static
+        out = user_list + [m for m in (kept or static) if m not in user_list]
+        return out or static
 
     def _note_model_ok(self, name: str = "") -> None:
         """ — مدلی که یک بار جوابِ درست داد «اثباتشده» میشود:

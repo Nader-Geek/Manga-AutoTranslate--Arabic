@@ -1672,11 +1672,27 @@ class MainActivity : AppCompatActivity() {
                         Toast.LENGTH_LONG).show()
                     return@runOnUiThread
                 }
+// چند-انتخابی (دستورِ سازنده: «بتونن چند تا مدل بدن»):
+// چند مدل = فال‌بکِ خودکار در موتور؛ انتخابها با کاما در کادر
+// مینشینند. مدلهایِ انتخابشده = همان ترتیبِ لمس.
+                val picked = LinkedHashSet<String>()
+                val curSet = et.text.toString().split(",")
+                    .map { it.trim() }.filter { it.isNotBlank() }
+                curSet.forEach { if (list.contains(it)) picked.add(it) }
+                val names = list.map { m ->
+                    (if (picked.contains(m)) "✓ " else "") + m
+                }.toTypedArray()
                 AlertDialog.Builder(this)
-                    .setTitle("مدلها (${list.size})${if (offline) " — آفلاین (اتصال/کلید برقرار نشد)" else ""} — یکی را انتخاب کن")
-                    .setItems(list.toTypedArray()) { _, w ->
-                        et.setText(list[w])
-                    }.show()
+                    .setTitle("مدلها (${list.size})${if (offline) " — آفلاین (اتصال/کلید برقرار نشد)" else ""} — یکی یا چند مدل (فال‌بکِ خودکار)")
+                    .setMultiChoiceItems(names, list.map { picked.contains(it) }.toBooleanArray()) { _, w, isChecked ->
+                        val m = list[w]
+                        if (isChecked) picked.add(m) else picked.remove(m)
+                    }
+                    .setPositiveButton("باشه") { _, _ ->
+                        et.setText(picked.joinToString(","))
+                    }
+                    .setNegativeButton("بی‌خیال", null)
+                    .show()
             }
         }.start()
     }
@@ -2502,7 +2518,7 @@ class MainActivity : AppCompatActivity() {
                         setTextColor(TXT); setHintTextColor(MUT); textSize = 14f
                         background = rounded(CARD2, 10, 1)
                         setPadding(dp(12), dp(11), dp(12), dp(11))
-                        hint = "خالی = پیش‌فرض"
+                        hint = "چند مدل با کاما = فال‌بکِ خودکار | خالی = پیش‌فرض"
                         val dfltStr: String = when {
                             dflt == null || dflt === org.json.JSONObject.NULL -> ""
                             else -> {
@@ -2865,7 +2881,7 @@ class MainActivity : AppCompatActivity() {
         map.put("readord", firstNonEmpty(o, "readord") ?: "rtl")
         map.put("instruction", firstNonEmpty(o, "instruction_text", "instruction") ?: "")
 // سبکِ پرامپت (auto/professional/lite) + متنِ کادرِ پرامپتِ قابلِ ویرایش
-        map.put("prompt_mode", firstNonEmpty(o, "prompt_mode") ?: "auto")
+        map.put("prompt_mode", firstNonEmpty(o, "prompt_mode") ?: "professional")
         map.put("prompt_body", firstNonEmpty(o, "prompt_preview_body", "prompt_body") ?: "")
 
         for (k in listOf("workers", "bubbles", "batchw", "timeout", "maxre", "reqdelay", "temp", "top_p")) {

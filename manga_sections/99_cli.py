@@ -133,10 +133,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="فایل متنی دستور مترجم (System Instruction) — محتوای این فایل جایگزین "
                         "کامل متن دستور داخل کد می‌شود")
     p.add_argument("--prompt-mode", default=None,
-                   choices=["auto", "professional", "lite"],
-                   help="سبک پرامپت وقتی --instruction داده نشده: auto (پیشفرض؛ بر اساس مدل: "
-                        "مدلهای Lite → سبک، بقیه → حرفهای)، "
-                        "professional (حرفهای انگلیسی)، lite (سبک انگلیسی)")
+                   choices=["professional", "lite", "auto"],
+                   help="سبک پرامپت وقتی --instruction داده نشده: professional "
+                        "(پیشفرض — حرفهای انگلیسی؛ مدلهای Lite خودکار سبکِ "
+                        "lite میگیرند)، lite (سبک انگلیسی). مقدارِ کهنهٔ auto "
+                        "= همان رفتارِ خودکارِ professional/lite")
     p.add_argument("--temperature", type=float, default=0.7)  # دستور: ۰.۷ (عینِ مرجع)
     p.add_argument("--top-p", type=float, default=0.9)  # مرجع تنظیمِ top_p
     p.add_argument(
