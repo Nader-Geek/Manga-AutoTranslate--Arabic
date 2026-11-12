@@ -6,6 +6,8 @@ streamed to disk with a hard size cap, and the file type is checked by extension
 bytes. Nothing from the reply is executed.
 
 Supported:
+  * Google Drive FOLDER shared as "Anyone with the link": needs a free Google API key
+    (GOOGLE_API_KEY, Drive API enabled); the images are downloaded and zipped for you.
   * Google Drive file shared as "Anyone with the link":  drive.google.com/file/d/<id>/view,
     /open?id=<id>, /uc?id=<id>   (folders are NOT supported — zip the chapter into one file)
   * Gofile content link:  gofile.io/d/<id>  (guest token + content listing; if the folder has
@@ -29,9 +31,10 @@ import aiohttp
 ALLOWED_EXTS = {".zip", ".pdf", ".jpg", ".jpeg", ".png", ".webp"}
 DRIVE_DOWNLOAD = "https://drive.usercontent.google.com/download"
 GOFILE_API = "https://api.gofile.io"
+DRIVE_API = "https://www.googleapis.com/drive/v3"
 # hosts we are willing to talk to (suffix match); tests extend this with 127.0.0.1
 ALLOWED_HOSTS = ["gofile.io", "drive.google.com", "drive.usercontent.google.com",
-                 "docs.google.com", "googleusercontent.com"]
+                 "docs.google.com", "googleusercontent.com", "googleapis.com"]
 
 
 class FetchError(RuntimeError):
@@ -57,7 +60,7 @@ def _host_ok(url: str, extra: Tuple[str, ...] = ()) -> bool:
 
 
 def classify(link: str) -> Tuple[str, str]:
-    """-> ("drive", file_id) | ("gofile", content_id). Raises FetchError for anything else."""
+    """-> ("drive", file_id) | ("drive_folder", id) | ("gofile", content_id). Raises FetchError for anything else."""
     link = (link or "").strip()
     p = urlparse(link)
     host = (p.hostname or "").lower()
@@ -69,8 +72,9 @@ def classify(link: str) -> Tuple[str, str]:
             raise FetchError("رابط Gofile غير مفهوم. المتوقع شكل `https://gofile.io/d/xxxxxx`.")
         return "gofile", m.group(1)
     if host in ("drive.google.com", "docs.google.com"):
-        if "/folders/" in p.path:
-            raise FetchError("روابط **مجلدات** Drive غير مدعومة. اضغط الفصل في ملف ZIP واحد وشاركه.")
+        m = re.search(r"/folders/([A-Za-z0-9_-]{10,})", p.path)
+        if m:
+            return "drive_folder", m.group(1)
         m = re.search(r"/file/d/([A-Za-z0-9_-]{10,})", p.path)
         fid = m.group(1) if m else (parse_qs(p.query).get("id") or [""])[0]
         if re.fullmatch(r"[A-Za-z0-9_-]{10,}", fid or ""):
@@ -149,15 +153,80 @@ async def _stream(session: aiohttp.ClientSession, url: str, dest_dir: Path, max_
     raise FetchError("تحويلات كثيرة جداً في الرابط.")
 
 
+def _natural(name: str):
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", name)]
+
+
+async def _fetch_drive_folder(s: aiohttp.ClientSession, folder_id: str, dest_dir: Path,
+                              max_bytes: int, api_key: str, max_files: int, api: str,
+                              extra: Tuple[str, ...]) -> Fetched:
+    import zipfile
+    if not api_key:
+        raise FetchError("مجلدات Drive تحتاج مفتاح Google API (`GOOGLE_API_KEY`) يضيفه أدمن البوت. "
+                         "أو اضغط الفصل في ZIP واحد وشاركه كملف.")
+    files, token = [], ""
+    for _ in range(20):
+        params = {"q": f"'{folder_id}' in parents and trashed=false", "key": api_key,
+                  "fields": "nextPageToken,files(id,name,mimeType,size)", "pageSize": "1000"}
+        if token:
+            params["pageToken"] = token
+        if not _host_ok(api, extra):
+            raise FetchError("عنوان Drive API غير مسموح.")
+        async with s.get(f"{api}/files", params=params) as r:
+            if r.status in (400, 401, 403):
+                raise FetchError("رفض Drive الطلب: تأكد أن المجلد مشارك «أي شخص لديه الرابط» "
+                                 "وأن مفتاح API صحيح ومفعّل عليه Drive API.")
+            if r.status == 404:
+                raise FetchError("مجلد Drive غير موجود.")
+            if r.status >= 400:
+                raise FetchError(f"Drive API رد بخطأ HTTP {r.status}.")
+            data = await r.json(content_type=None)
+        files += [f for f in data.get("files", []) if f.get("mimeType") != "application/vnd.google-apps.folder"]
+        token = data.get("nextPageToken", "")
+        if not token:
+            break
+    imgs = [f for f in files if Path(f["name"]).suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")]
+    docs = [f for f in files if Path(f["name"]).suffix.lower() in (".zip", ".pdf")]
+    if not imgs and len(docs) == 1:
+        imgs = docs                      # a folder holding just one zip/pdf
+    if not imgs:
+        raise FetchError("لم أجد صوراً (jpg/png/webp) داخل المجلد.")
+    if len(imgs) > 1 and any(f in docs for f in imgs):
+        raise FetchError("المجلد يخلط ملفات ZIP/PDF بالصور؛ ضع الصور فقط أو ملفاً واحداً.")
+    if len(imgs) > max_files:
+        raise FetchError(f"المجلد فيه {len(imgs)} صورة وأقصى عدد مسموح {max_files}. قسّم الفصل.")
+    imgs.sort(key=lambda f: _natural(f["name"]))
+    if len(imgs) == 1:
+        f = imgs[0]
+        return await _stream(s, f"{api}/files/{f['id']}?alt=media&key={api_key}",
+                             dest_dir / "one", max_bytes, Path(f["name"]).name, extra)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    out = dest_dir / "folder.zip"
+    budget, total = max_bytes, 0
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as zf:
+        for i, f in enumerate(imgs):
+            got = await _stream(s, f"{api}/files/{f['id']}?alt=media&key={api_key}",
+                                dest_dir / f"p{i}", budget, Path(f["name"]).name, extra)
+            budget -= got.size; total += got.size
+            zf.write(got.path, f"{i + 1:04d}{Path(got.filename).suffix.lower()}")
+            got.path.unlink(missing_ok=True)
+    return Fetched(out, "folder.zip", total, f"drive-folder:{folder_id}")
+
+
 async def fetch_link(link: str, dest_dir: Path, max_bytes: int, *, timeout_s: float = 1800,
                      extra_hosts: Tuple[str, ...] = (), drive_url: str = "",
-                     gofile_api: str = "") -> Fetched:
+                     gofile_api: str = "", google_api_key: str = "", max_files: int = 60,
+                     drive_api: str = "") -> Fetched:
     kind, ident = classify(link)
     drive_url = drive_url or DRIVE_DOWNLOAD
     gofile_api = (gofile_api or GOFILE_API).rstrip("/")
     timeout = aiohttp.ClientTimeout(total=timeout_s, sock_connect=30)
     try:
         async with aiohttp.ClientSession(timeout=timeout) as s:
+            if kind == "drive_folder":
+                return await _fetch_drive_folder(s, ident, dest_dir, max_bytes, google_api_key,
+                                                 max_files, (drive_api or DRIVE_API).rstrip("/"),
+                                                 extra_hosts)
             if kind == "drive":
                 url = f"{drive_url}?id={ident}&export=download&confirm=t"
                 return await _stream(s, url, dest_dir, max_bytes, f"{ident}.bin", extra_hosts)

@@ -51,6 +51,7 @@ class Config:
     max_upload_mb: int = 100            # per input file (Discord itself caps non-Nitro users at 10MB)
     reply_limit_mb: int = 0             # 0 = use the server's own upload limit
     max_link_mb: int = 500              # max size of a chapter downloaded from a Drive/Gofile link
+    google_api_key: str = ""           # enables public Google Drive *folder* links
     allow_links: bool = True            # accept `link:` (Google Drive / Gofile) instead of an attachment
     max_unzipped_mb: int = 600          # zip-bomb guard
     max_pages: int = 60                 # clean / extract / typer
@@ -103,6 +104,7 @@ def load_config() -> Config:
         max_upload_mb=_int("MAX_UPLOAD_MB", 100),
         reply_limit_mb=_int("REPLY_LIMIT_MB", 0),
         max_link_mb=_int("MAX_LINK_MB", 500),
+        google_api_key=os.environ.get("GOOGLE_API_KEY", "").strip(),
         allow_links=_bool("ALLOW_LINKS", True),
         max_unzipped_mb=_int("MAX_UNZIPPED_MB", 600),
         max_pages=_int("MAX_PAGES", 60),

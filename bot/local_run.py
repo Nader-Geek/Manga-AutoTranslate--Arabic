@@ -80,43 +80,57 @@ def run_job(kind: str, input_path: "str | os.PathLike[str]", options: Optional[D
     timed_out = {"v": False}
 
     started = time.monotonic()
-    proc = subprocess.Popen(
-        plan.argv, cwd=str(cfg.repo_root), env=plan.env, stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
-        text=True, encoding="utf-8", errors="replace", bufsize=1)
+    retried = False
+    while True:
+        proc = subprocess.Popen(
+            plan.argv, cwd=str(cfg.repo_root), env=plan.env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
+            text=True, encoding="utf-8", errors="replace", bufsize=1)
 
-    def _kill() -> None:
-        timed_out["v"] = True
-        try:
-            os.killpg(proc.pid, signal.SIGTERM)
-        except Exception:
-            proc.terminate()
-
-    timer = threading.Timer(cfg.job_timeout_minutes * 60, _kill)
-    timer.daemon = True
-    timer.start()
-    try:
-        with open(log_path, "w", encoding="utf-8") as lf:
-            assert proc.stdout is not None
-            for raw in proc.stdout:
-                line = raw.rstrip("\r\n")
-                lf.write(line + "\n")
-                tail.append(line)
-                if on_line:
-                    on_line(line)
-                if lp.feed(line) and on_progress:
-                    on_progress(lp)
-        rc = proc.wait()
-    except KeyboardInterrupt:
-        _kill()
-        raise
-    finally:
-        timer.cancel()
-        if proc.poll() is None:
+        def _kill() -> None:
+            timed_out["v"] = True
             try:
-                os.killpg(proc.pid, signal.SIGKILL)
+                os.killpg(proc.pid, signal.SIGTERM)
             except Exception:
-                proc.kill()
+                proc.terminate()
+
+        timer = threading.Timer(cfg.job_timeout_minutes * 60, _kill)
+        timer.daemon = True
+        timer.start()
+        try:
+            with open(log_path, "w", encoding="utf-8") as lf:
+                assert proc.stdout is not None
+                for raw in proc.stdout:
+                    line = raw.rstrip("\r\n")
+                    lf.write(line + "\n")
+                    tail.append(line)
+                    if on_line:
+                        on_line(line)
+                    if lp.feed(line) and on_progress:
+                        on_progress(lp)
+            rc = proc.wait()
+        except KeyboardInterrupt:
+            _kill()
+            raise
+        finally:
+            timer.cancel()
+            if proc.poll() is None:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except Exception:
+                    proc.kill()
+
+        seam = rc != 0 and not timed_out["v"] and any("--stitch-max-height 3600" in l for l in tail)
+        if seam and not retried and not job["options"].get("stitch_height"):
+            # "original pages" layout chained too many pages: use 3600px strips, as manga.py advises
+            retried = True
+            print("[bot] retrying with --stitch-max-height 3600")
+            job["options"] = {**job["options"], "stitch_height": 3600, "layout": "strips"}
+            plan = build_plan(job, cfg)
+            shutil.rmtree(plan.typer_dir, ignore_errors=True)
+            lp = st.LogProgress(); tail.clear(); timed_out["v"] = False
+            continue
+        break
     elapsed = time.monotonic() - started
 
     if timed_out["v"]:

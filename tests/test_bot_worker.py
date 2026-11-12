@@ -177,6 +177,15 @@ async def main():
     assert r["status"] == "failed" and "JPG" in r["error"], r["error"]
     nt.limit = 10 * 1024 * 1024
 
+    # seam-chain error with layout "original" -> automatic retry with --stitch-max-height 3600
+    os.environ["FAKE_MODE"] = "seam"
+    j = await mkjob("clean", layout="original"); r = await run_one(j)
+    assert r["status"] == "done", r["error"]
+    called = json.loads((Path(j["workdir"]) / "argv.json").read_text())["argv"]
+    assert called[called.index("--stitch-max-height") + 1] == "3600"
+    assert any("أُعيدت المعالجة" in x for x in nt.last("done")[4]), nt.last("done")[4]
+    os.environ["FAKE_MODE"] = "ok"
+
     # ------------------------------------------------------------- external host (gofile)
     import dataclasses, bot.worker as bw
     from bot.hosting import Uploaded, UploadFailed

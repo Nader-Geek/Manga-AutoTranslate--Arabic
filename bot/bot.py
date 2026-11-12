@@ -222,7 +222,8 @@ class MangaBot(discord.Client):
                 source_name = attachment.filename
                 await attachment.save(input_path)
             else:
-                got = await fetch_link(link or "", workdir / "dl", cfg.max_link_mb * 1024 * 1024)
+                got = await fetch_link(link or "", workdir / "dl", cfg.max_link_mb * 1024 * 1024,
+                                      google_api_key=cfg.google_api_key, max_files=max_pages)
                 ext = Path(got.filename).suffix.lower()
                 input_path = workdir / f"input{ext}"
                 got.path.replace(input_path)

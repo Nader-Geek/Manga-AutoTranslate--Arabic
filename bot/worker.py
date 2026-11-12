@@ -152,11 +152,30 @@ class Worker:
                 except Exception:
                     log.exception("progress update failed")
 
+        retry_note: List[str] = []
         rep = asyncio.create_task(reporter())
         try:
             res = await run_plan(
                 plan, cwd=self.cfg.repo_root, log_path=wd / "run.log",
                 timeout_s=self.cfg.job_timeout_minutes * 60, on_line=on_line, handle=handle)
+            # "original pages" layout can chain pages that share text into one over-long image;
+            # manga.py then asks for --stitch-max-height 3600. Do that automatically, once.
+            if (res.returncode not in (0, None) and not res.cancelled and not res.timed_out
+                    and any("--stitch-max-height 3600" in l for l in res.tail)
+                    and not (job.get("options") or {}).get("stitch_height")):
+                log.info("job %s: retrying with --stitch-max-height 3600", jid)
+                retry_note.append("🔁 أُعيدت المعالجة تلقائياً بدمج الصفحات في شرائط 3600px "
+                                  "(الصفحات الأصلية كانت متصلة النص بشكل طويل جداً).")
+                job = {**job, "options": {**(job.get("options") or {}), "stitch_height": 3600,
+                                          "layout": "strips"}}
+                plan = build_plan(job, self.cfg)
+                shutil.rmtree(plan.typer_dir, ignore_errors=True)
+                lp = st.LogProgress()
+                dirty["v"] = False
+                act["t"] = time.monotonic()
+                res = await run_plan(
+                    plan, cwd=self.cfg.repo_root, log_path=wd / "run.log",
+                    timeout_s=self.cfg.job_timeout_minutes * 60, on_line=on_line, handle=handle)
         finally:
             rep.cancel()
             self.handles.pop(jid, None)
@@ -171,15 +190,15 @@ class Worker:
             return await self._fail(
                 job, f"manga.py انتهى بخطأ (كود {res.returncode}).", res.tail)
 
-        await self._finish(job, plan, lp, elapsed, res.tail)
+        await self._finish(job, plan, lp, elapsed, res.tail, retry_note)
 
     async def _finish(self, job: Job, plan, lp: st.LogProgress, elapsed: float,
-                      tail: List[str]) -> None:
+                      tail: List[str], pre_notes: Optional[List[str]] = None) -> None:
         wd = Path(job["workdir"])
         job_json = plan.typer_dir / "typer_job.json"
 
         files: List[Path] = list(plan.deliver)
-        notes: List[str] = []
+        notes: List[str] = list(pre_notes or [])
         try:
             base = st.stats_from_typer_job(job_json)
         except (FileNotFoundError, ValueError, OSError) as e:

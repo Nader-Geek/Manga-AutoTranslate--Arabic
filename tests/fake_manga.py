@@ -11,7 +11,7 @@ p.add_argument("--lama", action="store_true"); p.add_argument("--provider")
 p.add_argument("--reading-order"); p.add_argument("--ocr-lang", nargs="+")
 p.add_argument("--img-format"); p.add_argument("--workers"); p.add_argument("--model")
 p.add_argument("--target-lang"); p.add_argument("--ar-dialect")
-p.add_argument("--bubbles-per-request"); p.add_argument("--batch-workers")
+p.add_argument("--stitch-max-height"); p.add_argument("--bubbles-per-request"); p.add_argument("--batch-workers")
 a = p.parse_args()
 
 mode = os.environ.get("FAKE_MODE", "ok")
@@ -27,6 +27,8 @@ else:
     n = 1
 if mode == "hang":
     print("starting", flush=True); time.sleep(600)
+if mode == "seam" and a.stitch_max_height != "3600":
+    print("RuntimeError: سلسلة الصور ... فعّل --stitch-max-height 3600.", file=sys.stderr, flush=True); sys.exit(1)
 if mode == "fail":
     print("[المرحلة 1 - اكتشاف الفقاعات + OCR] ...", flush=True)
     print("Traceback: boom", file=sys.stderr, flush=True); sys.exit(3)

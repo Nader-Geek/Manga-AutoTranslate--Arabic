@@ -153,7 +153,9 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
     # "original" keeps the uploaded pages as separate files instead of manga.py's default
     # tall strips (--stitch-max-height 8000): smaller files, but bubbles that cross a page
     # seam are no longer repaired.
-    if opts.get("layout") == "original":
+    if opts.get("stitch_height"):          # set by the worker's automatic retry
+        argv += ["--stitch-max-height", str(int(opts["stitch_height"]))]
+    elif opts.get("layout") == "original":
         argv += ["--stitch-max-height", "0"]
 
     if kind in ("clean", "extract", "typer"):
