@@ -31,3 +31,7 @@ manga_sections/__pycache__/
 
 # v1.14.251 — خروجیِ توزیعِ تک‌فایلی (تولید: scripts/build_manga.py --single)
 manga_single.py
+
+# v1.14.279 — کپیهایِ sync_sources (تولیدی — هر بار با android/scripts/sync_sources.py ساخته میشوند)
+android/app/src/main/python/manga.py
+android/app/src/main/python/manga_app.py

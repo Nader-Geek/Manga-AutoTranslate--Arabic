@@ -1073,6 +1073,114 @@ class _MangaTranslatorBody_95:
             except Exception:
                 pass
 
+# ——— رم → دیسک (v1.14.280) — خواستهٔ سازنده: «این حالت های ک درست
+# کردی رو رم سیو نگه نداره رو حافظه سیو کنه نگه داره رم نمیرسه؛
+# منظورم عکس پاک شده و قسمت های متن عکس برش شده … دیتا استخراج شده
+# همچنین». اسلاتهایِ تصویریِ extracted_map از این پس «مرجع»‌اند:
+#   • ndarray  = موقتاً در رم (همان لحظهٔ کار)
+#   • str(مسیر) = ریخته‌شده روی دیسک — عکسِ اصلی = همان فایلِ ورودیِ
+#     صفحه (_src_of_page)؛ پاکشده = کشِ دیسکِ پاکسازی (clean_cache_dir)
+# فقط برای پاکسازی/رندر بارگذاری میشوند و بعد آزاد میشوند — فصلِ
+# بزرگ دیگر «همهٔ» صفحات (اصلی + پاکشده) را تا آخرِ ران در رم نگه
+# نمی‌دارد (گوشیِ کم‌رم = OOM؛ قبلاً extracted_map کلِ صفحات را از
+# لحظهٔ استخراج تا پایانِ رندر در رم پین می‌کرد).
+        def _ref_img(v):
+            """مرجعِ اسلات → تصویرِ واقعی (ndarray) — اگر روی دیسک
+            ریخته شده باشد از همان‌جا بارگذاری میشود؛ None = نبود."""
+            if v is None:
+                return None
+            if isinstance(v, np.ndarray):
+                return v
+            try:
+                return MangaTranslator._imread_any(str(v))
+            except Exception:
+                return None
+
+        def _dbg_spill_dir() -> str:
+            return os.path.join(cache_dir, "dbgspill" + cache_tag)
+
+        def _dbg_spill(dbg, page_i: int):
+            """نمایِ دیباگ (تصویرِ سوخته + ovl + base) → مرجعِ سبک:
+            {ovl, burn} — سوخته روی دیسک می‌رود تا دو تصویرِ کاملِ
+            (سوخته + پایه) در رم نماند."""
+            try:
+                if dbg is None:
+                    return None
+                if isinstance(dbg, np.ndarray):
+                    _ovl = getattr(dbg, "ovl", None)
+                    _d = _dbg_spill_dir()
+                    os.makedirs(_d, exist_ok=True)
+                    _p = os.path.join(_d, "page_%04d.png" % page_i)
+# همیشه بازنویسی — در رانِ «ادامه» (resume) دیباگِ همین صفحه
+# با ترجمههایِ تازه عوض میشود؛ فایلِ کهنه هرگز نباید برگردد.
+                    import cv2
+                    cv2.imwrite(_p, np.asarray(dbg))
+                    return {"ovl": _ovl, "burn": _p}
+                return dbg
+            except Exception:
+                return dbg
+
+        def _dbg_view(dbg, image: Optional[np.ndarray]):
+            """مرجعِ سبکِ دیباگ → نمایِ ndarray (ovl + base) — برای
+            _live_dump/ذخیرهٔ دیباگ؛ پایه = تصویرِ همین لحظه."""
+            try:
+                if dbg is None:
+                    return None
+                if isinstance(dbg, np.ndarray):
+                    return dbg
+                _ovl = (dbg or {}).get("ovl")
+                _burn = (dbg or {}).get("burn")
+                _img = None
+                if _burn and os.path.isfile(_burn):
+                    _img = MangaTranslator._imread_any(str(_burn))
+                if _img is None:
+                    return None
+                _v = _img.view(_DebugPageVis)
+                _v.ovl = _ovl
+                _v.base = image
+                return _v
+            except Exception:
+                return None
+
+        def _map_spill_page(page_i: int) -> None:
+            """ریختنِ اسلاتهایِ سنگینِ همین صفحه روی دیسک — بعد از
+            مرحله‌هایی که تصویر لازم دارند. عکسِ اصلی → مسیرِ فایلِ
+            ورودی؛ پاکشده → مسیرِ کشِ دیسکِ پاکسازی؛ دیباگ → مرجعِ
+            سبک (ovl + مسیرِ سوخته). خواندن+نوشتن زیرِ _clean_cond تا
+            با نوشتنِ همزمانِ کارگرِ پاکسازی (اسلاتِ پاکشده) قاطی
+            نشود."""
+            try:
+                with _clean_cond:
+                    _e = extracted_map.get(page_i)
+                    if _e is None:
+                        return
+                    _of, _im, _pc, _regs, _dbg = _e
+                    _im2 = _im
+                    if isinstance(_im2, np.ndarray):
+                        _f = _src_of_page.get(page_i)
+                        if _f and os.path.isfile(_f):
+                            _im2 = str(_f)
+                    _pc2 = _pc
+                    if isinstance(_pc2, np.ndarray):
+                        _ccp = os.path.join(clean_cache_dir,
+                                            "page_%04d.png" % page_i)
+                        try:
+                            os.makedirs(clean_cache_dir, exist_ok=True)
+# همیشه بازنویسی — ndarrayِ اسلات «وضعیتِ همین ران» است؛
+# فایلِ کهنهٔ رانِ قبل (resume) هرگز نباید برگردد.
+                            import cv2
+                            cv2.imwrite(_ccp, _pc2)
+                            if os.path.isfile(_ccp):
+                                _pc2 = _ccp
+                        except Exception:
+                            _pc2 = _pc
+                    _dbg2 = _dbg_spill(_dbg, page_i)
+                    if (_im2 is not _im) or (_pc2 is not _pc) \
+                            or (_dbg2 is not _dbg):
+                        extracted_map[page_i] = (_of, _im2, _pc2, _regs, _dbg2)
+            except Exception:
+                pass
+
         def _ctx_quads_from_ovl(ovl) -> list:
             """بازسازیِ کوارهایِ دیباگ از ovlِ کش (ادامهٔ از کش — بدونِ
             پاسِ تازهٔ det، جعبههایِ آبی از همان کش برمیگردند)."""
@@ -1136,6 +1244,11 @@ class _MangaTranslatorBody_95:
             if entry is None:
                 return
             out_file, image, precleaned, regions, dbg = entry
+# رم → دیسک: اسلات‌ها مرجع‌اند (ndarray یا مسیر) — همین‌جا به
+# تصویرِ واقعی حل میشوند و بعد از پایان، دوباره آزاد میشوند.
+            image = _ref_img(image)
+            precleaned = _ref_img(precleaned)
+            dbg = _dbg_spill(dbg, page_i)
             _pctx = _ctx_get(page_i)
             finished_pages.add(page_i)
 
@@ -1145,7 +1258,16 @@ class _MangaTranslatorBody_95:
                     results_by_i[page_i] = (out_file, None, dbg)
                     return
                 if not regions:
-                    results_by_i[page_i] = (out_file, image, dbg)
+# بدونِ ناحیه: خروجی = خودِ عکسِ اصلی — قبلاً ndarray تا حلقهٔ
+# ذخیرهٔ پایانی در results_by_i pin می‌شد؛ حالا همان‌جا نوشته
+# میشود (محتوای یکسان، رم صفر).
+                    try:
+                        self._write_image(image, out_file)
+                        _live_page_dump(out_file, key=out_file,
+                                        slot=page_i + 1)
+                    except Exception:
+                        pass
+                    results_by_i[page_i] = (out_file, True, dbg)
                     return
                 _t_fin = time.time()  # پاکسازی+رندر
                 result, page_debug = self.finish_page_phase(
@@ -1165,23 +1287,30 @@ class _MangaTranslatorBody_95:
                 except Exception:
                     pass
                 dbg_out = page_debug if page_debug is not None else dbg
+# رم → دیسک: در results_by_i «مرجعِ سبکِ» دیباگ مینشیند (نه نمایِ
+# کامل که تصویرِ سوخته + پایه را در رم پین می‌کند)؛ نمایِ ndarray
+# فقط برای همین لحظهٔ لایو ساخته میشود.
+                _dbg_view_now = dbg_out if isinstance(dbg_out, np.ndarray) \
+                    else _dbg_view(dbg_out, image)
                 try:
                     self._write_image(result, out_file)
-                    results_by_i[page_i] = (out_file, True, dbg_out)
+                    results_by_i[page_i] = (out_file, True,
+                                            _dbg_spill(dbg_out, page_i))
 # ریشهٔ «یهو عکس وسط شده اولی عکس»: اسلاتِ
 # زنده قبلاً از «ترتیبِ اتمام» میآمد و در استخراجِ
 # دوطرفه/پیشنمایشِ جریانی، عکسِ وسطِ فصل در اسلاتِ اول
 # مینشست. حالا اسلاتِ صریح = شمارهٔ واقعیِ صفحه؛ هر
 # صفحه در جایگاهِ خودش پر میشود.
                     _live_page_dump(out_file, key=out_file, slot=page_i + 1)
-                    if self.debug and dbg_out is not None:
+                    if self.debug and _dbg_view_now is not None:
 # اسلاتِ صریحِ صفحه: دیباگِ صفحهٔ iام همیشه
 # live_00(i+1).jpg — ریزِ دومِ پایانِ کار همان فایل را
 # بهروز میکند، نه فایلِ تازه («دیباگ دو بار نشون میده»)
-                        _live_dump(dbg_out, dbg=True, slot=page_i + 1)
+                        _live_dump(_dbg_view_now, dbg=True, slot=page_i + 1)
                 except Exception as _werr:
                     print(f"  [!] ذخیرهٔ تصویر #{page_i + 1} ناموفق: {_werr}")
-                    results_by_i[page_i] = (out_file, None, dbg_out)
+                    results_by_i[page_i] = (out_file, None,
+                                            _dbg_spill(dbg_out, page_i))
                 del result
             except GeminiQuotaExhausted as e:
                 print(f"\n[!] {e}")
@@ -1234,6 +1363,9 @@ class _MangaTranslatorBody_95:
                 if entry is None:
                     continue
                 out_file, image, precleaned, regions, dbg = entry
+# رم → دیسک: حلِ مرجع‌ها (عکس اصلی/پاکشده از دیسک اگر ریخته شده)
+                image = _ref_img(image)
+                precleaned = _ref_img(precleaned)
                 if image is None or not regions or precleaned is None:
                     continue
                 if pending_by_page.get(page_i, 0) <= 0:
@@ -1481,6 +1613,11 @@ class _MangaTranslatorBody_95:
                         return False  # کارگرِ دیگری همین حالا رویِ آن است
                     clean_claimed.add(_p)
                 _did = True
+# رم → دیسک: مرجعِ عکسِ اصلی → تصویرِ واقعی (فایلِ ورودی یا
+# ndarrayِ هنوز-در-رم) — پاکسازِ همین صفحه فقط همین را می‌بیند.
+                im = _ref_img(im)
+                if im is None:
+                    return False
 # کشِ دیسکِ پاکسازی: تعویضِ «فقطِ ترجمه» — فیک↔واقعی، مدل/پرامپت،
 # «از اول ترجمه کن» — استخراج و پاکسازی را از نو نمیگیرد؛
 # تصویرِ پاکشدهٔ همین سبک از دیسک برمی‌گردد و فقط رندرِ متنِ
@@ -1496,8 +1633,12 @@ class _MangaTranslatorBody_95:
                         with _clean_cond:
                             if _p in finished_pages:
                                 return True
-                            extracted_map[_p] = (_of, im, _pc_disk,
-                                                 regions, _dbg)
+# مرجعِ پاکشده = مسیرِ دیسک (نه ndarray) — رم آزاد؛ بقیهٔ
+# اسلات‌ها از «وضعیتِ فعلیِ» نقشه (نه snapshotِ قدیمی) حفظ
+# میشوند تا کارگرِ دیگر (ریختن روی دیسک) بازنویسی نشود.
+                            _cur = extracted_map.get(_p) or _e
+                            extracted_map[_p] = (_cur[0], _cur[1], _cc_path,
+                                                 _cur[3], _cur[4])
                         try:
                             print(f"[*] صفحهٔ {_p + 1} — پاکسازی از "
                                   f"کشِ دیسک (بدونِ LaMa)", flush=True)
@@ -1514,19 +1655,28 @@ class _MangaTranslatorBody_95:
                 _pctxc = _ctx_get(_p)
                 _pcn = self.clean_image(im, regs,
                                         page_boxes=_pctxc.get("boxes"))
-                with _clean_cond:
-                    if _p in finished_pages:
-                        return True  # همزمان تمام شده بود — بیخیال
-                    extracted_map[_p] = (_of, im, _pcn, regions, _dbg)
 # نوشتنِ کشِ دیسکِ پاکسازی: رانِ بعدی که «فقط ترجمه» عوض شده
 # (فیک↔واقعی/مدل/پرامپت/از-نو) بدونِ LaMa همین تصویر را
 # برمی‌دارد — پاکسازیِ انجام‌شده دوباره اجرا نمی‌شود.
+                _cc_wrote = False
                 try:
                     import cv2 as _cv2
                     os.makedirs(clean_cache_dir, exist_ok=True)
                     _cv2.imwrite(_cc_path, _pcn)
+                    _cc_wrote = os.path.isfile(_cc_path)
                 except Exception:
-                    pass
+                    _cc_wrote = False
+                with _clean_cond:
+                    if _p in finished_pages:
+                        return True  # همزمان تمام شده بود — بیخیال
+# رم → دیسک: مرجعِ پاکشده = مسیرِ دیسک (اگر نوشته شد)؛ اسلات‌هایِ
+# دیگر از وضعیتِ فعلیِ نقشه حفظ میشوند (کارگرِ ریختن روی دیسک
+# ممکن است عکسِ اصلی را از قبل مرجع کرده باشد).
+                    _cur = extracted_map.get(_p) or _e
+                    extracted_map[_p] = (_cur[0], _cur[1],
+                                         (_cc_path if _cc_wrote else _pcn),
+                                         _cur[3], _cur[4])
+                del _pcn
                 try:
                     print(f"[TIME] page#{_p + 1} "
                           f"clean={time.time() - _t0:.1f}s",
@@ -1756,6 +1906,11 @@ class _MangaTranslatorBody_95:
                     return
                 except Exception:
                     pass
+# رم → دیسک (v1.14.280): مرحله‌هایِ نیازمندِ تصویرِ همین صفحه
+# (نجاتِ OCR/صف‌شدن/نمایش) تمام شد → عکسِ اصلی و دیباگِ سوخته
+# روی دیسک ریخته میشوند؛ فصلِ بزرگ دیگر همهٔ صفحات را در رم
+# نگه نمی‌دارد (خواستهٔ سازنده: «رو حافظه سیو کنه رم نمیرسه»).
+                _map_spill_page(page_i)
 
         print(f"[*] استخراج دوطرفه: صفحهٔ ۱→{max(0, len(pending))} و "
               f"صفحهٔ {max(0, len(pending))}→۱ همزمان (دیدار در وسط).")
@@ -2022,10 +2177,19 @@ class _MangaTranslatorBody_95:
             results_by_i[page_i] = (out_file, None, None)
             if self.debug and dbg is not None:
                 try:
-# همان اسلاتِ صفحه؛ قبلاً فایلِ دومیِ تکراری میساخت
-                    _live_dump(dbg, dbg=True, slot=page_i + 1)
+# رم → دیسک: dbg اینجا «مرجعِ سبک» است ({ovl, burn}) → نمایِ
+# ndarray با پایهٔ فایلِ ورودیِ همین صفحه بازسازی میشود؛ فقط
+# همین یک صفحه در رم میآید و بعد آزاد میشود.
+                    _bs_img = _ref_img(_src_of_page.get(page_i))
+                    dbg = _dbg_view(dbg, _bs_img)
                 except Exception:
-                    pass
+                    dbg = dbg if isinstance(dbg, np.ndarray) else None
+                if dbg is not None:
+                    try:
+# همان اسلاتِ صفحه؛ قبلاً فایلِ دومیِ تکراری میساخت
+                        _live_dump(dbg, dbg=True, slot=page_i + 1)
+                    except Exception:
+                        pass
             if self.debug and dbg is not None:
                 debug_dir = os.path.join(cache_dir, "debug" + cache_tag)
                 os.makedirs(debug_dir, exist_ok=True)
