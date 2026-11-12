@@ -2967,13 +2967,61 @@ class MainActivity : AppCompatActivity() {
             onCancelJob()
             return
         }
+        val p: JSONObject
         try {
-            val p = collect()
+            p = collect()
             if ((p.optString("src") ?: "").isBlank() ||
                 (p.optString("src") ?: "").equals("null", true)) {
                 Toast.makeText(this, "فایل یا لینک ورودی بده", Toast.LENGTH_SHORT).show()
                 return
             }
+        } catch (e: Exception) {
+            setLog("❌ " + (e.message ?: e.toString()))
+            finishJobUi()
+            return
+        }
+// پرسشِ «ادامه یا از-نو ترجمه» وقتی مدل/پرامپتِ ترجمه با دفعهٔ
+// قبل فرق دارد و روی همین ورودی کارِ انجام‌شده مانده — همان
+// پنجرهٔ وب. سنجش در پس‌زمینه تا UI نگیرد؛ پاسخ: ادامه بده
+// (پیشفرضِ موتور) / از اول ترجمه کن / بی‌خیال. استخراج و
+// پاکسازی در هر دو حالت از کش می‌مانند (خواستهٔ سازنده).
+        Thread {
+            var ask = false
+            try {
+                val r = JSONObject(bridge.callAttr(
+                    "trans_sig_check", p.toString(),
+                    filesDir.absolutePath).toString())
+                ask = r.optBoolean("ask", false)
+            } catch (_: Exception) {
+            }
+            ui.post {
+                if (ask) askRetranslate(p) else beginJob(p)
+            }
+        }.start()
+    }
+
+    private fun askRetranslate(p: JSONObject) {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("مدل یا پرامپتِ ترجمه عوض شده")
+                .setMessage("دفعهٔ قبل با مدل/پرامپتِ دیگری روی همین ورودی کار شده است.\nادامه بده یا از اول ترجمه کن؟\n(استخراج و پاکسازی در هر دو حالت از کش می‌ماند)")
+                .setPositiveButton("از اول ترجمه کن") { _, _ ->
+                    p.put("retranslate", true)
+                    beginJob(p)
+                }
+                .setNegativeButton("ادامه بده") { _, _ ->
+                    p.put("retranslate", false)
+                    beginJob(p)
+                }
+                .setNeutralButton("بی‌خیال", null)
+                .show()
+        } catch (_: Exception) {
+            beginJob(p)
+        }
+    }
+
+    private fun beginJob(p: JSONObject) {
+        try {
             maybeAskBatteryExemption()
             jobRunning = true
             cancelPending = false

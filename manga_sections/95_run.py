@@ -197,6 +197,31 @@ class _MangaTranslatorBody_95:
                                + (("_style-" + style_tag) if style_tag else "")
                                + ("_cleanonly" if getattr(self, "clean_only", False)
                                   else ""))
+# برچسبِ کشِ دیسکِ «تصویرِ پاکسازی‌شده» — فقط پارامترهایی که
+# خودِ پاکسازی را عوض میکنند؛ فرمت/کیفیت/عرضِ رندرِ صفحه
+# (jpg↔webp، کیفیت، max_width) عمداً بیرونند تا تعویضشان LaMa
+# را از نو نگیرد. clean_only جایش جدا است (junk/شمارهٔ صفحه هم
+# پاک میشود) و گیتِ اندرویدیِ text_free هم در برچسب میآید.
+        def _clean_img_tag() -> str:
+            import hashlib as _hl
+            try:
+                parts = [
+                    str(getattr(self, "clean_method", "") or "").strip().lower(),
+                    1 if getattr(self, "force_lama", False) else 0,
+                    1 if getattr(self, "clean_sfx", False) else 0,
+                    int(getattr(self, "mask_padding", 3) or 0),
+                    round(float(getattr(self, "pad_ratio", 0.06) or 0), 4),
+                    int(getattr(self, "inpaint_radius", 3) or 0),
+                    round(float(getattr(self, "mag_ratio", 1.35) or 0), 4),
+                    1 if getattr(self, "clean_only", False) else 0,
+                    1 if _android_gate("MANGA_CLEAN_TEXTFREE") else 0,
+                ]
+                return _hl.sha256(
+                    "|".join(str(p) for p in parts).encode()).hexdigest()[:8]
+            except Exception:
+                return ""
+        clean_cache_dir = os.path.join(
+            cache_dir, "clean" + cache_tag + "_c-" + (_clean_img_tag() or "x"))
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
 
@@ -707,7 +732,8 @@ class _MangaTranslatorBody_95:
                           ignore_errors=True)
             try:
                 for _n in os.listdir(cache_dir):
-                    if _n == "out" or _n.startswith("out_"):
+                    if (_n == "out" or _n.startswith("out_")
+                            or _n.startswith("clean")):
                         shutil.rmtree(os.path.join(cache_dir, _n),
                                       ignore_errors=True)
             except Exception:
@@ -1455,6 +1481,29 @@ class _MangaTranslatorBody_95:
                         return False  # کارگرِ دیگری همین حالا رویِ آن است
                     clean_claimed.add(_p)
                 _did = True
+# کشِ دیسکِ پاکسازی: تعویضِ «فقطِ ترجمه» — فیک↔واقعی، مدل/پرامپت،
+# «از اول ترجمه کن» — استخراج و پاکسازی را از نو نمیگیرد؛
+# تصویرِ پاکشدهٔ همین سبک از دیسک برمی‌گردد و فقط رندرِ متنِ
+# تازه رویش مینشیند (خواستهٔ سازنده: «نباید از اول استخراج یا
+# پاکسازی کنه — میره فقط ترجمش عوض میکنه»).
+                _cc_path = os.path.join(clean_cache_dir,
+                                        "page_%04d.png" % _p)
+                if resume and os.path.isfile(_cc_path):
+                    _pc_disk = MangaTranslator._imread_any(_cc_path)
+                    if (_pc_disk is not None
+                            and im is not None
+                            and _pc_disk.shape[:2] == im.shape[:2]):
+                        with _clean_cond:
+                            if _p in finished_pages:
+                                return True
+                            extracted_map[_p] = (_of, im, _pc_disk,
+                                                 regions, _dbg)
+                        try:
+                            print(f"[*] صفحهٔ {_p + 1} — پاکسازی از "
+                                  f"کشِ دیسک (بدونِ LaMa)", flush=True)
+                        except Exception:
+                            pass
+                        return True
                 regs = _clean_regions_for_page(_p)
                 if not regs:
                     return True
@@ -1469,6 +1518,15 @@ class _MangaTranslatorBody_95:
                     if _p in finished_pages:
                         return True  # همزمان تمام شده بود — بیخیال
                     extracted_map[_p] = (_of, im, _pcn, regions, _dbg)
+# نوشتنِ کشِ دیسکِ پاکسازی: رانِ بعدی که «فقط ترجمه» عوض شده
+# (فیک↔واقعی/مدل/پرامپت/از-نو) بدونِ LaMa همین تصویر را
+# برمی‌دارد — پاکسازیِ انجام‌شده دوباره اجرا نمی‌شود.
+                try:
+                    import cv2 as _cv2
+                    os.makedirs(clean_cache_dir, exist_ok=True)
+                    _cv2.imwrite(_cc_path, _pcn)
+                except Exception:
+                    pass
                 try:
                     print(f"[TIME] page#{_p + 1} "
                           f"clean={time.time() - _t0:.1f}s",

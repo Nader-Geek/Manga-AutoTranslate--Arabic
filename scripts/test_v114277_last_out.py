@@ -12,7 +12,7 @@
   ۲) موتور: نوشتنِ last_out.json در ابتدای ران (نامِ پوشه + clean_only)
   ۳) اندروید (out_collect.py): جداییِ کامل با نشانگر + فالبکِ قدیمی
   ۴) وب (manga_app.py): اولویتِ نشانگر در جمع‌آوریِ نمایشگر
-  ۵) نسخهها: APP_VER/VERSION/gradle = 1.14.277/279
+  ۵) نسخهها: APP_VER/VERSION/gradle = 1.14.278/280
 """
 import importlib.util
 import json
@@ -145,17 +145,17 @@ check("شرطِ داشتنِ تصویر در پوشهٔ نشانگر (فالبک
 
 print("۵) نسخهها")
 base = open(os.path.join(SEC, "00_base.py"), encoding="utf-8").read()
-check("APP_VER بخشها = 1.14.277", 'APP_VER = "1.14.277"' in base)
+check("APP_VER بخشها = 1.14.278", 'APP_VER = "1.14.278"' in base)
 loader = open(os.path.join(ROOT, "manga.py"), encoding="utf-8").read()
-check("APP_VER لودر = 1.14.277", 'APP_VER = "1.14.277"' in loader)
-check("APP_VER اپ = 1.14.277", 'APP_VER = "1.14.277"' in asrc)
+check("APP_VER لودر = 1.14.278", 'APP_VER = "1.14.278"' in loader)
+check("APP_VER اپ = 1.14.278", 'APP_VER = "1.14.278"' in asrc)
 v = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-check("VERSION = 279 / 1.14.277",
-      "versionCode=279" in v and "versionName=1.14.277" in v)
+check("VERSION = 280 / 1.14.278",
+      "versionCode=280" in v and "versionName=1.14.278" in v)
 g = open(os.path.join(ROOT, "android", "app", "build.gradle.kts"),
          encoding="utf-8").read()
-check("gradle = 279 / 1.14.277",
-      'versionCode = 279' in g and 'versionName = "1.14.277"' in g)
+check("gradle = 280 / 1.14.278",
+      'versionCode = 280' in g and 'versionName = "1.14.278"' in g)
 
 print()
 if fails:

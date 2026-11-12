@@ -574,6 +574,107 @@ def start_job(params_json, files_dir):
     threading.Thread(target=_run, args=(job,), daemon=True).start()
     return json.dumps({"ok": True}, ensure_ascii=False)
 
+
+def trans_sig_check(params_json, files_dir):
+    """پرسشِ «ادامه یا از-نو» قبل از استارت (اندروید) — خواستهٔ
+    سازنده: «اگ مدل عوض کنی یا پرامپت عوض کنی سوال کنه از اول
+    ترجمه کنه یا ادامه ترجمه». فقط وقتی می‌پرسد که همان ورودیِ
+    قبلی کارِ انجام‌شده داشته باشد و مدل/پرامپتِ ترجمه با دفعهٔ
+    قبل فرق کند؛ حالتِ تست که عوض شود خودکار «از نو» است
+    (موتور خودش میفهمد) و clean_only ترجمه ندارد. خروجی:
+    {"ask": true/false} — خطا/نبودِ داده = پرسش نیست (موتور با
+    پیشفرضِ «ادامه» میرود). سبکِ همتای وب: همان state.json و
+    همان امضای ترجمه."""
+    try:
+        p = json.loads(params_json)
+        if bool(p.get("clean_only")):
+            return json.dumps({"ask": False}, ensure_ascii=False)
+        _prov = str(p.get("provider") or "").strip()
+        if not _prov or _prov == "auto":
+# auto با سنجشِ شبکه انتخاب میشود — پیش از استارت قابلِ
+# پیش‌بینی نیست؛ پرسش بی‌معنی است (موتور ادامه میدهد)
+            return json.dumps({"ask": False}, ensure_ascii=False)
+# مدلِ نامیِ کاربر → provider/مدلِ واقعی (بدونِ شبکه — مثلِ وب)
+        try:
+            _cm = p.get("custom_models")
+            if isinstance(_cm, str):
+                _cm = json.loads(_cm) if _cm.strip().startswith("[") else []
+            _cm = [m for m in (_cm or [])
+                   if isinstance(m, dict) and str(m.get("name") or "").strip()]
+            if _prov not in ("gemini", "custom"):
+                _named = getattr(manga_app, "resolve_ai_named", None)
+                _r = (_named(_cm, _prov, str(p.get("keys") or ""),
+                             str(p.get("model") or ""))
+                      if (_named and _cm) else None)
+                if _r:
+                    _np, _nb, _nk, _nm = _r
+                    p["provider"] = _np
+                    if _nb:
+                        p["api_base"] = _nb
+                    if _nm:
+                        p["model"] = _nm
+        except Exception:
+            pass
+# همان out_file که start_job میسازد (پیش از هر تغییری که _run
+# در src می‌دهد) — پس کشِ همان رانِ قبل را می‌بینیم
+        fmt = str(p.get("fmt", "PDF")).upper()
+        if fmt == "PSD" and _android():
+            fmt = "PDF"
+        ext = "pdf" if fmt == "PDF" else fmt.lower()
+        _stem = _out_stem_from_src(p.get("src") or p.get("url") or "")
+        out_file = os.path.join(files_dir, "work", "out",
+                                (_stem or "manga") + "." + ext)
+        _cdf = getattr(manga_app, "_cache_dir_for", None)
+        cache_dir = (_cdf(out_file) if _cdf else out_file + ".cache")
+# امضای همین تنظیم — همان امضایی که موتور در run میسازد
+        _sigf = getattr(manga_app, "_trans_sig_of", None)
+        if not _sigf:
+            return json.dumps({"ask": False}, ensure_ascii=False)
+        _pm, _instr = _prompt_params(p)
+        try:
+            _temp = float(p.get("temp") or 0.7)
+        except Exception:
+            _temp = 0.7
+        try:
+            _topp = float(p.get("top_p") or 0.9)
+        except Exception:
+            _topp = 0.9
+        _sig_cur = _sigf(
+            str(p.get("provider") or "gemini"),
+            str(p.get("model") or ""),
+            (str(p.get("api_base") or "").strip() or _cfg("api_base") or ""),
+            _pm, _instr or "", bool(p.get("fake")), _temp, _topp)
+# امضای رانِ قبل + کارِ انجام‌شده
+        _sig_prev = ""
+        _fake_prev = None
+        try:
+            with open(os.path.join(cache_dir, "state.json"),
+                      encoding="utf-8") as _fh:
+                _st = json.load(_fh) or {}
+            _sig_prev = str(_st.get("trans_sig") or "")
+            _fake_prev = _st.get("fake")
+        except Exception:
+            pass
+        if not _sig_prev or not _sig_cur or _sig_prev == _sig_cur:
+            return json.dumps({"ask": False}, ensure_ascii=False)
+        if _fake_prev is not None and bool(_fake_prev) != bool(p.get("fake")):
+# حالتِ تست عوض شد → خودکار از نو (بدونِ پرسش — موتور)
+            return json.dumps({"ask": False}, ensure_ascii=False)
+        _has = False
+        try:
+            _has = (
+                os.path.isfile(os.path.join(cache_dir, "trans.json"))
+                or any(_fn.endswith(".json") for _fn in os.listdir(
+                    os.path.join(cache_dir, "extract")))
+                or any((_n == "out" or _n.startswith("out_"))
+                       and os.listdir(os.path.join(cache_dir, _n))
+                       for _n in os.listdir(cache_dir)))
+        except Exception:
+            _has = False
+        return json.dumps({"ask": bool(_has)}, ensure_ascii=False)
+    except Exception:
+        return json.dumps({"ask": False}, ensure_ascii=False)
+
 # ترتیبِ نشانهها مهم است (اولین تطبیق برنده میشود).
 # («آماده شد» حذف شد — خطِ «صفحهٔ N آماده شد» را میدزدید و اعلان
 # را رویِ «رندر و ذخیره» قفل میکرد؛ شمارهٔ صفحه از regexِ پایین
@@ -1093,6 +1194,7 @@ def _run(job):
                     active_tones=active or None,
                     instruction_text=_instr,
                     prompt_mode=_pmode,
+                    translate_retranslate=bool(p.get("retranslate")),
                 )
 
                 if (getattr(manga, "_on_android", lambda: False)()
