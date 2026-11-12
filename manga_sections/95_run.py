@@ -225,6 +225,43 @@ class _MangaTranslatorBody_95:
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
 
+# GCِ سبکهایِ کهنه (v1.14.284) — خواستهٔ سازنده: «اگ عکس جدید واسه
+# استخراج دادن اونا پاک شه بره نگه نداره فقط خروجیش — pdf psd zip
+# html لاگ (فقط اندروید) اینا بمونه». فقط «خروجیهایِ رندرشدهٔ» سبکهایِ
+# دیگر (out_*ِ غیرِ فعلی) و دیباگهایِ ریختهٔ رانِ قبل (dbgspill*)
+# پاک میشوند — کشِ «عکسِ پاکشده» (clean_c-*) میماند (خواستهٔ صریح:
+# «عکس پاک شده رو حافظه سیو کنه نگه داره») تا برگشت به سبکِ قبلی
+# بدونِ LaMa از همان دیسک برآید. کشِ استخراج و پوشهٔ سادهٔ «out»
+# (سازگاریِ قدیمی) هم لمس نمیشوند. نمایشگرها فقط پوشهٔ last_out را
+# نشان میدهند (v1.14.279+) → خروجیِ رندرشدهٔ سبکِ کهنه هیچ مصرفی
+# ندارد و قاطی هم نمیشود.
+        try:
+            for _nm in os.listdir(cache_dir):
+                if not ((_nm == "out" or _nm.startswith("out_")
+                         or _nm.startswith("dbgspill"))
+                        and os.path.isdir(os.path.join(cache_dir, _nm))):
+                    continue
+                if _nm in (os.path.basename(out_dir), "out"):
+                    continue
+                shutil.rmtree(os.path.join(cache_dir, _nm),
+                              ignore_errors=True)
+        except Exception:
+            pass
+
+# GCِ کشِ خروجیهایِ دیگر (v1.14.284) — کشِ *.cacheِ کنارِ خروجیِ
+# «دیگر» در همین پوشه = کارِ نیمهتمامِ ورودی/فصلِ قبل → ورودیِ نو
+# آمده → پاک (فقط خودِ خروجیها — pdf/psd/zip/html — میمانند).
+        try:
+            _gc_root = os.path.dirname(os.path.abspath(output_path))
+            _cur_cache = os.path.abspath(cache_dir)
+            for _nm in os.listdir(_gc_root):
+                if _nm.endswith(".cache"):
+                    _p = os.path.abspath(os.path.join(_gc_root, _nm))
+                    if _p != _cur_cache and os.path.isdir(_p):
+                        shutil.rmtree(_p, ignore_errors=True)
+        except Exception:
+            pass
+
 # نشانگرِ «خروجیِ همین ران» (v1.14.277) — نمایشگرها (وب/اندروید)
 # فقط همین پوشه را به‌عنوانِ خروجیِ نهایی نشان می‌دهند تا کارِ
 # فقط-پاکسازی با ترجمهٔ قبلی و سبکهایِ پاکسازیِ قدیمی قاطی نشود

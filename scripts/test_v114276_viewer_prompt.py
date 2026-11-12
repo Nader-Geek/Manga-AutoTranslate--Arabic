@@ -158,14 +158,14 @@ check("هینتِ نمایشگر بدونِ فول‌اسکرین",
       "بزرگ/کوچک/پهنا\"" in k and "فول‌اسکرین\"" not in k)
 
 print("۶) نسخهها")
-check("APP_VER = 1.14.283", manga.APP_VER == "1.14.283")
+check("APP_VER = 1.14.284", manga.APP_VER == "1.14.284")
 v = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read()
-check("VERSION = 285 / 1.14.283",
-      "versionCode=285" in v and "versionName=1.14.283" in v)
+check("VERSION = 286 / 1.14.284",
+      "versionCode=286" in v and "versionName=1.14.284" in v)
 g = open(os.path.join(ROOT, "android", "app", "build.gradle.kts"),
          encoding="utf-8").read()
-check("gradle = 285 / 1.14.283",
-      'versionCode = 285' in g and 'versionName = "1.14.283"' in g)
+check("gradle = 286 / 1.14.284",
+      'versionCode = 286' in g and 'versionName = "1.14.284"' in g)
 
 print()
 if fails:

@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.283"
+APP_VER = "1.14.284"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -7303,6 +7303,23 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 except Exception:
                     pass
             out_v = os.path.join(user_out_dir, base + ext)
+
+# جارویِ کشِ جلسههایِ دیگر (v1.14.284) — خواستهٔ سازنده: «اگ عکس
+# جدید واسه استخراج دادن اونا پاک شه بره نگه نداره فقط خروجیش —
+# pdf psd zip html لاگ (فقط اندروید) اینا بمونه». کشِ *.cacheِ
+# جلسههایِ قبلی (کنارِ خروجیهایِ خودشان) پاک میشود؛ خودِ فایلهایِ
+# خروجی و کشِ همین جلسه (توقف/ادامه) دستنخورده میمانند.
+            try:
+                for _sn in os.listdir(OUT_DIR):
+                    _sd = os.path.join(OUT_DIR, _sn)
+                    if not os.path.isdir(_sd) or _sn == sid[:12]:
+                        continue
+                    for _cn in os.listdir(_sd):
+                        if _cn.endswith(".cache"):
+                            shutil.rmtree(os.path.join(_sd, _cn),
+                                          ignore_errors=True)
+            except Exception:
+                pass
 
 # ——— پرسشِ «ادامه یا از اول» وقتی مدل/پرامپتِ ترجمه عوض شده ———
 # خواستهٔ سازنده: «اگ ترجمش عوض کردم پرامپتش یا مدل ai شو استارت
