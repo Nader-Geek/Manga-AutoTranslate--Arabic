@@ -111,6 +111,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--clean-only", action="store_true",
                    help="فقط پاکسازی متن (inpaint) بدون ترجمه و بدون رندر فارسی — "
                         "برای تست تشخیص حباب/پاکسازی؛ کلید API لازم نیست")
+    p.add_argument("--export-typer", metavar="DIR",
+                   help="با --clean-only: صفحات پاک‌شده + typer_job.json (مختصات حباب‌ها) را در DIR "
+                        "(و DIR.zip) می‌نویسد؛ برای TypeR Web و بوت دیسکورد")
     p.add_argument("--translate-retranslate", action="store_true",
                    help="با عوض‌شدنِ مدل/پرامپت: ترجمه‌ها از نو ساخته شوند "
                         "(پیش‌فرض: ادامه — حباب‌های ترجمه‌شده از کش می‌مانند؛ "
@@ -295,6 +298,8 @@ def main():
     if getattr(args, "lama", False):
         translator.use_lama = True
         print("[*] --lama → پاک‌سازی باکیفیت LaMa ONNX فعال (کندتر از OpenCV).")
+    if getattr(args, "export_typer", None):
+        translator.typer_export_dir = os.path.abspath(args.export_typer)
     translator.batch_workers = max(1, int(getattr(args, "batch_workers", 3) or 3))
     translator.min_translate_batch = max(1, int(getattr(args, "min_translate_batch", 15) or 15))
 

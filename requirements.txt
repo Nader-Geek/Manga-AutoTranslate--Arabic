@@ -1,15 +1,23 @@
-# Manga-AutoTranslate — وابستگی‌های PC
-# نکتهٔ سرعت (v1.14.112): «rapidocr» جدید (PP-OCRv6) حدود ۲۵٪ سریع‌تر از
-# rapidocr-onnxruntime (PP-OCRv3) است و مدل‌هایش از ریلیزِ «models» همین
-# ریپو دانلود می‌شود. اگر فقط rapidocr-onnxruntime نصب باشد، موتور به
-# PP-OCRv3 فال‌بک می‌کند (کندتر + recallِ کمتر).
+# Manga-AutoTranslate (Arabic / Ollama) - dependencies
+# manga.py also self-installs anything missing on first start (and tries the optional,
+# heavy paddleocr + torch); installing these up-front avoids that first-run delay.
+numpy>=1.24
 opencv-python-headless>=4.8
 onnxruntime>=1.16
-rapidocr>=3.9.2
-rapidocr-onnxruntime>=1.3
 pillow>=10.0
-numpy>=1.24
 requests>=2.31
 arabic-reshaper>=3.0
 python-bidi>=0.4
+huggingface_hub
+beautifulsoup4
+pyyaml
+tqdm
 pymupdf>=1.24
+# OCR: the newer `rapidocr` (PP-OCRv6, ~25% faster, adapted from the amirwolf512k fork);
+# the legacy package has no wheels for Python 3.13+, so it is only a fallback below that.
+# manga.py falls back to rapidocr-onnxruntime if it is unavailable.
+rapidocr>=3.9.2
+rapidocr-onnxruntime>=1.3; python_version < "3.13"
+# LLM client: the Ollama provider talks to Ollama through its OpenAI-compatible API
+openai
+google-genai

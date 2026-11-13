@@ -62,14 +62,9 @@ _CACHE_MAGIC = b"MGLDR\x01"
 
 # همان زنجیرهٔ میرورهایِ لانچرِ اندروید (raw گیت‌هاب →
 # jsDelivr که در ایران باز است → gh-proxy) — فقط برای خودترمیمی.
-_UPDATE_MIRRORS = (
-    "https://raw.githubusercontent.com/"
-    "amirwolf512k/Manga-AutoTranslate/main/",
-    "https://cdn.jsdelivr.net/gh/"
-    "amirwolf512k/Manga-AutoTranslate@main/",
-    "https://gh-proxy.com/raw.githubusercontent.com/"
-    "amirwolf512k/Manga-AutoTranslate/main/",
-)
+# این نسخه (بوت دیسکورد/عربی) خودش را از ریپوی upstream به‌روز نمیکند؛ وگرنه تغییراتِ ما
+# (export-typer و...) رونویسی میشد.
+_UPDATE_MIRRORS = ()
 _REFRESH_STAMP = _os.path.join(_HERE, ".manga_sections_refresh")
 _STALE_RETRY_S = 600.0   # تازهسازیِ کهنه: حداکثر یک تلاش در ۱۰ دقیقه
 _MISSING_RETRY_S = 120.0  # بخشِ غایب/ناقص: یک تلاش در ۲ دقیقه

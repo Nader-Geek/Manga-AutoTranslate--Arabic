@@ -126,6 +126,84 @@ class _MangaTranslatorBody_95:
         except Exception:
             return ""
 
+    def _typer_export_page(self, page_i: int, out_file: str, regions: List["TextRegion"],
+                           cleaned: Optional[np.ndarray]) -> None:
+        """Keep the text-erased page (PNG, nothing drawn on it) and its regions for TypeR."""
+        d = getattr(self, "typer_export_dir", None)
+        if not d or cleaned is None:
+            return
+        try:
+            os.makedirs(d, exist_ok=True)
+            # PNG by default (lossless); MANGA_TYPER_FORMAT=jpg|webp makes the export far smaller
+            # (same pixel size, so the region coordinates in typer_job.json stay valid).
+            fmt = (os.environ.get("MANGA_TYPER_FORMAT") or "png").lower().lstrip(".")
+            fmt = "jpg" if fmt == "jpeg" else (fmt if fmt in ("png", "jpg", "webp") else "png")
+            params = {"jpg": [cv2.IMWRITE_JPEG_QUALITY, 92],
+                      "webp": [cv2.IMWRITE_WEBP_QUALITY, 92]}.get(fmt, [])
+            name = f"page_{page_i + 1:03d}.{fmt}"
+            if not cv2.imwrite(os.path.join(d, name), cleaned, params):
+                if fmt == "png":
+                    raise RuntimeError("cv2.imwrite failed")
+                name = f"page_{page_i + 1:03d}.png"   # e.g. height beyond the codec limit
+                if not cv2.imwrite(os.path.join(d, name), cleaned):
+                    raise RuntimeError("cv2.imwrite failed")
+            h, w = cleaned.shape[:2]
+            items = []
+            for r in regions:
+                x, y, rw, rh = [int(v) for v in r.rect]
+                polys = []
+                for b in (r.boxes or []):
+                    try:
+                        polys.append(np.asarray(b).reshape(-1, 2).round().astype(int).tolist())
+                    except Exception:
+                        pass
+                items.append({
+                    "id": int(r.id),
+                    "kind": r.kind,
+                    "det_class": r.det_class,
+                    "rect": [x, y, rw, rh],
+                    "angle": float(r.angle or 0.0),
+                    "tone": getattr(r, "bubble_style", "") or "",
+                    "source": r.source_text or "",
+                    "text": r.translated_text or "",
+                    "polys": polys,
+                })
+            if not hasattr(self, "_typer_pages"):
+                self._typer_pages = {}
+            self._typer_pages[page_i] = {
+                "index": page_i, "file": name, "width": int(w), "height": int(h),
+                "origin": os.path.basename(out_file), "regions": items,
+            }
+        except Exception as e:
+            print(f"    [!] تصدير TypeR للصفحة #{page_i + 1} فشل: {e}")
+
+    def _typer_finalize(self) -> None:
+        d = getattr(self, "typer_export_dir", None)
+        pages = getattr(self, "_typer_pages", None)
+        if not d or not pages:
+            return
+        import json as _json
+        ordered = [pages[i] for i in sorted(pages)]
+        job = {
+            "format": "manga-autotranslate/typer-job", "version": 1,
+            "reading_order": getattr(self, "reading_order", "rtl"),
+            "target_lang": os.environ.get("MANGA_TARGET_LANG", "ar"),
+            "translated": any(r["text"] for pg in ordered for r in pg["regions"]),
+            "pages": ordered,
+        }
+        with open(os.path.join(d, "typer_job.json"), "w", encoding="utf-8") as f:
+            _json.dump(job, f, ensure_ascii=False, indent=1)
+        zip_path = os.path.abspath(d.rstrip("/\\")) + ".zip"
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as z:
+                z.write(os.path.join(d, "typer_job.json"), "typer_job.json")
+                for pg in ordered:
+                    z.write(os.path.join(d, pg["file"]), pg["file"])
+            print(f"[✓] تصدير TypeR: {len(ordered)} صفحة → {zip_path}")
+        except Exception as e:
+            print(f"    [!] تعذّر إنشاء zip لـ TypeR: {e}")
+            print(f"[✓] تصدير TypeR (مجلد): {d}")
+
     def run(self, input_path: str, output_path: str, resume: bool = True,
             clean_old: bool = True) -> None:
 # بریف داستان حذف شد (مرجع ندارد) — اینجا فقط ریستِ قدیمی بود
@@ -1020,8 +1098,10 @@ class _MangaTranslatorBody_95:
                     raise ValueError(f"تصویر قابل خواندن نیست: {f}")
                 basename = os.path.basename(f)
                 if self._is_mostly_blank(image):
-                    print(f"[!] رد شد (صفحه خالی): {basename}")
-                    return page_i, out_file, None, None, None
+                    print(f"[!] رد شد (صفحه خالی): {basename} — بدون تغییر في الخرج")
+# صفحهٔ خالی حذف نمیشود: همان‌طور که هست در خروجی/TypeR میماند
+# تا شمارهٔ صفحه‌ها با ورودی یکی بماند.
+                    return page_i, out_file, image, [], None
                 print(f"[*] {basename}")
                 regions, dbg, page_ctx = self.extract_regions_phase(image)
                 _ctx_put(page_i, page_ctx)
@@ -1304,6 +1384,8 @@ class _MangaTranslatorBody_95:
                                         slot=page_i + 1)
                     except Exception:
                         pass
+                    if getattr(self, "clean_only", False):
+                        self._typer_export_page(page_i, out_file, [], image)
                     results_by_i[page_i] = (out_file, True, dbg)
                     return
                 _t_fin = time.time()  # پاکسازی+رندر
@@ -1312,6 +1394,8 @@ class _MangaTranslatorBody_95:
                     final=True,
                     det_quads=_pctx.get("quads"),
                     page_boxes=_pctx.get("boxes"))  # رندرِ نهایی با سدِ «تا همشو ترجمه کنه»
+                if getattr(self, "clean_only", False):
+                    self._typer_export_page(page_i, out_file, regions, result)
 # ترجمه‌های همین صفحه (از دورهای داخلیِ نهایی/پسگیری) به انبار
                 try:
                     _trans_store_save(regions)
@@ -2323,6 +2407,7 @@ class _MangaTranslatorBody_95:
                 output_path = os.path.splitext(output_path)[0] + ".pdf"
             self._save_as_pdf(processed_files, output_path)
             print(f"[✓] PDF نهایی ذخیره شد در: {output_path}")
+        self._typer_finalize()
 # جمعِ زمان‌ها (ذخیره + کلِ ران)
         try:
             print(f"[TIME] save={time.time() - _t_save:.1f}s | "
