@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.295"
+APP_VER = "1.14.296"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -8094,26 +8094,55 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
 # دامنهٔ فیلد (سایتِ همان سرویس)؛ مدلِ نامی → مبدأِ دامنهٔ
 # ذخیرهشدهٔ همان مدل («فقط سایتشون بیاره بالا»)؛ بدونِ دامنه →
 # سایتِ Gemini (پیش‌فرضِ امن).
+# v1.14.296 — فیکسِ «تو وب فقط Gemini باز میشود»: گرادیو ۶ مقدارِ
+# gr.State را به رویدادِ خالصِ JS «null» میفرستد (تستِ رفتاری:
+# textbox پاس میشود، State نه) → مدلهایِ ذخیرهشده هرگز به
+# جاوااسکریپت نمیرسید و همیشه فال‌بکِ Gemini میشد (روی گوشی با
+# گرادیویِ قدیمی درست بود). حالا State کلاً حذف شد — همه چیز از
+# خودِ DOM خوانده میشود: منویِ AI (#manga_provider_row)، دامنهٔ
+# سفارشی (#manga_api_base) و لیستِ مدلها از کادرِ مخفیِ
+# #manga_cm_json + localStorage (manga_custom_models) — در هر
+# نسخهٔ گرادیو یکی از این دو همیشه زنده است.
         try:
             token_btn.click(
                 fn=None,
-                inputs=[provider, custom_models_state, api_base],
+                inputs=[provider],
                 outputs=None,
-                js="""(p, models, base) => {
+                js="""(p) => {
   try {
     const GEM = 'https://aistudio.google.com/docs/api-key';
+    const gv = (id) => {
+      try {
+        const root = document.getElementById(id);
+        if (!root) return "";
+        const el = root.querySelector("input, textarea") || root;
+        return String((el.value || "")).trim();
+      } catch (e) { return ""; }
+    };
     const norm = (u) => { try { return new URL(u); } catch (e) {
       try { return new URL('https://' + u); } catch (e2) { return null; } } };
-    p = String(p || '').trim();
+    const provInp = (typeof p === 'string' && p.trim())
+      ? p.trim() : gv("manga_provider_row");
+    let models = [];
+    try {
+      models = JSON.parse(gv("manga_cm_json") || "[]") || [];
+    } catch (e) { models = []; }
+    if (!Array.isArray(models) || !models.length) {
+      try {
+        models = JSON.parse(
+          localStorage.getItem("manga_custom_models") || "[]") || [];
+      } catch (e) { models = []; }
+    }
+    if (!Array.isArray(models)) models = [];
     let url = '';
-    if (p === 'gemini' || p === 'auto' || p === '') {
+    if (provInp === 'gemini' || provInp === 'auto' || provInp === '') {
       url = GEM;
-    } else if (p === 'custom') {
-      const u = norm(String(base || '').trim());
+    } else if (provInp === 'custom') {
+      const u = norm(gv("manga_api_base"));
       url = u ? u.origin : GEM;
     } else {
-      const m = (Array.isArray(models) ? models : []).find(
-        (x) => x && String(x.name || '').trim() === p);
+      const m = models.find(
+        (x) => x && String(x.name || '').trim() === provInp);
       const b = m ? String(m.api_base || '').trim() : '';
       const u = b ? norm(b) : null;
       url = u ? u.origin : GEM;
