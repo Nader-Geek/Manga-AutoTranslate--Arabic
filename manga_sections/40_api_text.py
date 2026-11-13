@@ -379,22 +379,21 @@ def source_has_letters(text: str) -> bool:
         return False
     return True
 
-# لیستِ آفلاینِ مدلهایِ Gemini (فقط مدلهایِ رایگان) — یک‌بار از
-# فهرستِ رسمیِ Gemini API (نوامبر ۲۰۲۶ — aistudio.google.com/docs/pricing)
-# گرفته شد. فقط مدلهایِ «رایگانِ» متنِ ترجمه‌پذیر: خانوادهٔ flash
-# (شاملِ flash-lite/flash-preview) + gemini-4-hydrogen (مدلِ رایگانِ
-# جدیدِ گوگل که flash نیست — نامِ «hydrogen» = نسلِ ۴ِ سبک).
+# لیستِ آفلاینِ مدلهایِ Gemini (فقط مدلهایِ رایگان) — عینِ فهرستِ
+# ۷تاییِ سازنده (v1.14.288): «gemini-3.5-flash-lite,
+# gemini-3.1-flash-lite,gemini-3.8-flash,gemini-3.7-flash,
+# gemini-3.6-flash,gemini-3.5-flash,gemini-3-flash-preview».
 # بدونِ carbon/argon/pro (پولی — در tierِ رایگان نیستند) و بدونِ نسلهایِ
-# مردهٔ ۱/۲. ترتیب = همان _model_sort_key. اگر گوگل مدلِ تازه‌ای
-# بیاورد، کاربر با دکمهٔ ↻ فهرستِ زنده میگیرد — کد خودش فقط
-# رایگانها را نگه میدارد (_gemini_model_is_free).
+# مردهٔ ۱/۲. اگر گوگل مدلِ رایگانِ تازه‌ای بیاورد (مثلِ hydrogen —
+# رایگان ولی flash نیست)، کاربر با دکمهٔ ↻ فهرستِ زنده میگیرد —
+# کد خودش فقط رایگانها را نگه میدارد (gemini_model_is_free).
 GEMINI_FLASH_MODELS_OFFLINE = [
     "gemini-3.5-flash-lite",     # پایدارِ سبک — پیش‌فرضِ برنامه
     "gemini-3.1-flash-lite",     # پایدارِ سبک
-    "gemini-4-hydrogen",         # نسلِ ۴ِ سبک — رایگان (بدونِ flash)
     "gemini-3.8-flash",          # جدیدترین Flash کامل
     "gemini-3.7-flash",          # Flash کامل
     "gemini-3.6-flash",          # پایدارِ کامل
+    "gemini-3.5-flash",          # Flash کامل
     "gemini-3-flash-preview",    # preview
 ]
 

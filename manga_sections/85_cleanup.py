@@ -1996,8 +1996,35 @@ class _MangaTranslatorBody_85:
             if t_near > 130.0:
                 return None
             zone = cv2.dilate(polyf, np.ones((5, 5), np.uint8))
-            ink = ((np.abs(g.astype(np.float32) - t_near) > 45.0)
+# محفظهٔ «سیاهِ نزدیک» (عنوانِ استایل‌دار — THE BLUE MOON در
+# img3: زمینهٔ ~۱۰، گلو/دورخطِ ۱۶-۱۱۹): آستانهٔ ۴۵ گلوهایِ
+# کم‌نور (۱۶-۵۵) را جا میانداخت → پرکننده با اسمیرِ TELEA
+# همان گلو را با رنگِ ۱۶-۳۱ برمیگرداند = «شبحِ خوانایِ حروف»
+# (گزارشِ VLM رویِ خروجی: MEETING. هنوز خوانا بود). وقتی محفظه
+# تقریباً سیاه است (t_near ≤ ۳۰) هر پیکسلِ «روشنتر از زمینه»
+# داخلِ zone جوهر است — گلو هرقدر کم‌نور باشد با خودش میآید.
+            _diff_thr = 45.0
+            if t_near <= 30.0:
+                _diff_thr = 6.0
+            ink = ((np.abs(g.astype(np.float32) - t_near) > _diff_thr)
                    & (zone > 0)).astype(np.uint8) * 255
+# هالهٔ «مرزی» (عنوانِ img3): پیکسلهایِ ۱۶-۳۱ که فقط ۶-۲۱
+# سطح از زمینهٔ ~۱۰ روشنترند — آشکارا گلوی حروفند ولی
+# با آستانهٔ ۶ بیرون میمانند → شبحِ خوانایِ «MEETING.» در
+# خروجی. جذبِ هالهٔ مرزی: هر پیکسلِ داخلِ zone که از
+# زمینه روشنتر است (≥۴ سطح) و به جوهرِ قطعی چسبیده
+# (دیلیتِ ۹) — همان منطقِ «هالهٔ ۱۴..۳۰» در نوارِ کامپوز.
+            if t_near <= 30.0:
+                try:
+                    _certain = (g.astype(np.float32) - t_near) > _diff_thr
+                    _near2 = cv2.dilate((_certain).astype(np.uint8),
+                                        np.ones((9, 9), np.uint8)) > 0
+                    _faint = ((g.astype(np.float32) - t_near) >= 4.0) \
+                        & (~_certain) & _near2 & (zone > 0)
+                    if float(_faint.mean()) <= 0.30:
+                        ink = ink | (_faint.astype(np.uint8) * 255)
+                except Exception:
+                    pass
             ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE,
                                    np.ones((3, 3), np.uint8))
             n_i, lab_i, st_i, _ = cv2.connectedComponentsWithStats(ink, 8)
@@ -3530,6 +3557,26 @@ class _MangaTranslatorBody_85:
             ink, _tone = _cands[0][1], _cands[0][2]
             if float(ink.mean()) > 0.55:
                 return None
+# متنِ سفید/روشن روی زمینهٔ تیره (عنوانِ استایل‌دار — THE BLUE
+# MOON در img3): هالهٔ گلو/دورخطِ دورِ حروف جزو جوهر است —
+# بدونِ آن، ماسک فقط هستهٔ سفید را میگیرد و پرکننده اسمیرِ
+# TELEA گلو را با رنگِ ۱۶-۳۱ برمیگرداند = «شبحِ خوانایِ حروف»
+# در خروجی (گزارشِ VLM: MEETING. هنوز خوانا بود). گلو جدا از
+# «ink» حساب میشود تا گاردهای تراکمِ (۰.۵۵/اندازهٔ کامپوننت)
+# آن را با بلوکِ هنر اشتباه نگیرند؛ محدود به «نزدیکِ جوهرِ
+# روشن» (دیلیتِ ۲۱) + روشنتر از زمینهٔ دور و تیرهتر از مد+
+# ۹۰ — هنرِ بیرون که به این شرطها نمی‌چسبد قفل میماند.
+            _glow_extra = None
+            if bright is not None and ink is bright and med < 130.0:
+                try:
+                    _far = float(np.percentile(g, 15))
+                    _nearG = cv2.dilate((bright).astype(np.uint8),
+                                        cv2.getStructuringElement(
+                                            cv2.MORPH_ELLIPSE, (21, 21))) > 0
+                    _glow_extra = ((g > _far + 8.0)
+                                   & (g < med + 90.0) & _nearG)
+                except Exception:
+                    _glow_extra = None
             n, lab, st, _ = cv2.connectedComponentsWithStats(
                 ink.astype(np.uint8), connectivity=8)
             out = np.zeros_like(g, dtype=np.uint8)
@@ -3628,6 +3675,14 @@ class _MangaTranslatorBody_85:
                 _cur_seed = seed | (_lvl_new)
             if not _n_kept:
                 return None
+# لایهٔ گلو (فقط برای متنِ روشن روی زمینهٔ تیره — بالا):
+# بعد از فیلترِ کامپوننتها اضافه میشود تا گاردهای تراکم/اندازه
+# آن را نکشند. + کلوزِ ۳ تا گلوهایِ پاره‌پاره به هم بچسبند.
+            if _glow_extra is not None and bool(np.any(_glow_extra)):
+                try:
+                    out[_glow_extra] = 255
+                except Exception:
+                    pass
             full = np.zeros((h, w), dtype=np.uint8)
             full[wy0:wy1, wx0:wx1] = out
             full = cv2.morphologyEx(full, cv2.MORPH_CLOSE,
@@ -8056,6 +8111,19 @@ class _MangaTranslatorBody_85:
                     _ring_o = ring & (m[y0:y1, x0:x1] == 0)
                     if int(np.count_nonzero(_ring_o)) >= 40:
                         ring = _ring_o
+                except Exception:
+                    pass
+# حلقه هرگز از «جوهر/گلوی متنِ اورجینال» نیاید (عنوانِ
+# استایل‌دار — THE BLUE MOON در img3): حلقهٔ اطرافِ نوار
+# وقتی خودش گلوی حروف باشد، پولیش نوار را «همرنگِ گلو»
+# میکند ([۲۹،۲۰،۶] بهجایِ زمینهٔ [۱۰،۴،۲]) = شبحِ خوانای
+# حروف در خروجی (گزارشِ VLM: MEETING. هنوز خوانا بود).
+# گلو/جوهر در ماسکِ متنیِ خام (پایهٔ کامپوز) هست → حذفش
+# از حلقه؛ اگر حلقه خالی شد، این مؤلفه پولیش نمیخورد.
+                try:
+                    _ctmP = getattr(self, "_compose_text_mask", None)
+                    if _ctmP is not None and _ctmP.shape == out.shape[:2]:
+                        ring &= (_ctmP[y0:y1, x0:x1] == 0)
                 except Exception:
                     pass
 # دیوار از حلقه بیرون بماند تا سفیدیِ حباب را

@@ -1160,6 +1160,14 @@ class _MangaTranslatorBody_80:
                             _applied_pages.add(str(p.get("filename")))
                         self._apply_mt_pages(
                             _new, work_regions, _pctx.get("region_page"))
+# لنگرِ سبکِ زنده (فیکسِ v1.14.288): همان لحظه که استریم
+# ترجمهها را مینشاند، نمونههایِ سبک هم تازه میشوند — تا اگر
+# همین وسط استریم شکست و AutoRetry/تلاشِ نهایی آمد، پرامپتِ
+# مجدد لحنِ همین فصل را همراه داشته باشد و «کتابی» نشود.
+                        try:
+                            self._note_style_samples(work_regions)
+                        except Exception:
+                            pass
                         _done = sum(1 for r in work_regions
                                     if (r.translated_text or "").strip())
                         print(f"    ← استریم: {_done}/{len(work_regions)} "
@@ -1191,6 +1199,14 @@ class _MangaTranslatorBody_80:
 
                 self._parse_translation_response(
                     text, work_regions, _pctx.get("region_page"))
+# لنگرِ سبک (فیکسِ v1.14.288): بعد از هر پاسخِ موفق/نیمهکاره،
+# نمونهها تازه میشوند تا «تلاشِ مجددِ حبابهایِ جامانده» و
+# دورهایِ بعدی لحنِ فصل را نگه دارند (ریشهٔ «اول خوب، بعد
+# کتابی» همینجا بود: نجاتِ جاماندهها بدونِ لنگر می‌رفت).
+                try:
+                    self._note_style_samples(regions)
+                except Exception:
+                    pass
                 self._note_model_ok()  # مدل جواب داد → اثباتشده
 
                 for r in work_regions:
@@ -1552,6 +1568,13 @@ class _MangaTranslatorBody_80:
             work_regions = [r for r in work_regions if not (r.translated_text or "").strip()]
             if not work_regions:
                 return
+# لنگرِ سبک برایِ تلاشِ نهایی (فیکسِ v1.14.288): ترجمههایِ
+# نشستهٔ استریمهایِ قبلی همان لحظه یادداشت میشوند تا نجاتِ
+# نهایی (۲۷۳ بالنِ v287) با همان لحنِ فصل بیاید نه کتابیِ خام.
+            try:
+                self._note_style_samples(regions)
+            except Exception:
+                pass
             user_prompt = _make_prompt()
             with self._api_lock:
                 if self.provider_type == "gemini":
