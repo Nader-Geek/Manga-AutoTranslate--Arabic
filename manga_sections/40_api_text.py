@@ -384,9 +384,9 @@ def source_has_letters(text: str) -> bool:
 # gemini-3.1-flash-lite,gemini-3.8-flash,gemini-3.7-flash,
 # gemini-3.6-flash,gemini-3.5-flash,gemini-3-flash-preview».
 # بدونِ carbon/argon/pro (پولی — در tierِ رایگان نیستند) و بدونِ نسلهایِ
-# مردهٔ ۱/۲. اگر گوگل مدلِ رایگانِ تازه‌ای بیاورد (مثلِ hydrogen —
-# رایگان ولی flash نیست)، کاربر با دکمهٔ ↻ فهرستِ زنده میگیرد —
-# کد خودش فقط رایگانها را نگه میدارد (gemini_model_is_free).
+# مردهٔ ۱/۲. اگر گوگل مدلِ رایگانِ تازه‌ای بیاورد (هرچه باشد —
+# flash یا نه)، کاربر با دکمهٔ ↻ فهرستِ زنده میگیرد — کد خودش
+# فقط رایگانها را نگه میدارد (gemini_model_is_free؛ ناشناخته = رایگان).
 GEMINI_FLASH_MODELS_OFFLINE = [
     "gemini-3.5-flash-lite",     # پایدارِ سبک — پیش‌فرضِ برنامه
     "gemini-3.1-flash-lite",     # پایدارِ سبک
@@ -408,7 +408,7 @@ def gemini_offline_models() -> List[str]:
 # و مدلهایِ pro (پیش‌فرضِ پروژه = فقط رایگان). نامِ فایلِ سرور مدل را
 # «not available on the free tier» برمیگرداند ولی ما از رویِ نام تشخیص
 # میدهیم تا به شبکه وابسته نباشیم — مدلِ جدیدِ رایگانی که «flash»
-# نیست هم (مثلِ hydrogen) در لیست میماند.
+# نیست هم) در لیست میماند — هیچ نامِ خاصی دستی نوشته نمیشود.
 _GEMINI_PAID_SUBSTRINGS = (
     "carbon",      # gemini-4-carbon — پولی
     "argon",       # gemini-4-argon — پولی
@@ -429,7 +429,7 @@ def gemini_model_is_free(name: str) -> bool:
     """آیا این مدلِ Gemini در tierِ رایگانِ API است؟
     تشخیص از رویِ نام (بی‌نیاز از شبکه):
       • carbon/argon/pro و مدلهایِ غیرمتنی → پولی
-      • بقیهٔ مدلهایِ ترجمه‌پذیر (flash/flash-lite/hydrogen/…) → رایگان
+      • بقیهٔ مدلهایِ ترجمه‌پذیر (هر نامِ ناشناخته) → رایگان
     اگر گوگل مدلِ رایگانِ جدیدی بیاورد که flash نیست، همین
     تابع آن را رایگان میشناسد (همه‌چیزِ شناخته‌نشده = رایگان،
     چون فهرستِ سیاه فقط نامهایِ قطعاً-پولی را دارد)."""
@@ -515,7 +515,7 @@ def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                     continue
                 if MangaTranslator._is_bad_list_model(name):
                     continue
-# فقط مدلهایِ رایگان — hydrogen/flash/flash-lite میمانند؛
+# فقط مدلهایِ رایگان — تشخیصِ خودکار (ناشناخته = رایگان)؛
 # carbon/argon/pro (پولی) از فهرستِ زنده حذف میشوند
                 if not gemini_model_is_free(name):
                     continue

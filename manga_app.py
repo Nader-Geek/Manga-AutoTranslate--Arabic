@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.288"
+APP_VER = "1.14.289"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -578,7 +578,7 @@ def _model_str(v) -> str:
     """مقدارِ فیلدِ مدل (دراپ‌داونِ چند-انتخابیِ جدید یا رشتهٔ قدیمی)
     به رشتهٔ تمیزِ «کاما-جدا» تبدیل میشود — همهٔ مصرفکنندهها
     (CLI/امضا/نمایش/بکاپ) همین را میبینند. مثال:
-      ['gemini-3.8-flash', 'gemini-4-hydrogen'] → 'gemini-3.8-flash,gemini-4-hydrogen'
+      ['gemini-3.8-flash', 'gemini-3.5-flash-lite'] → 'gemini-3.8-flash,gemini-3.5-flash-lite'
       'gpt-4o-mini, deepseek-chat'              → 'gpt-4o-mini,deepseek-chat'
       [] / '' / None                             → ''"""
     if v is None:

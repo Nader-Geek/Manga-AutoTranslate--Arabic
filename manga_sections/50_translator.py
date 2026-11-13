@@ -1276,12 +1276,21 @@ class MangaTranslator:
                     continue
                 if not low.startswith("gemini"):
                     continue
-                # → کشفِ SDK هم فقط
-# flash؛ pro/argon دیگر در چرخِ کشف نمیآیند.
-                if "flash" not in low:
+# تشخیصِ خودکارِ رایگان (دستورِ v1.14.289: «دستی نباید بگی
+# gemini-4-hydrogen باشه بزار — خودش باید بفهمه کدوم مدلا
+# رایگانه»): فهرستِ سیاهِ پولیها (gemini_model_is_free)؛ هیچ
+# نامِ مدلِ خاصی دستی اینجا نیست — مدلِ رایگانِ جدیدِ گوگل
+# هرچه باشد (flash یا نه) خودش میآید.
+                if not gemini_model_is_free(short):
                     continue
-                if "preview" in low and "flash" not in low:
-                    continue
+# نسلهایِ مردهٔ ۱/۲ خاموشند (generateContent=404) — از کشف حذف
+                _dg = re.match(r"gemini-(\d+)", low)
+                if _dg:
+                    try:
+                        if int(_dg.group(1)) <= 2:
+                            continue
+                    except ValueError:
+                        pass
 
                 actions = getattr(m, "supported_actions", None) or []
                 methods = getattr(m, "supported_generation_methods", None) or []
@@ -1291,7 +1300,9 @@ class MangaTranslator:
                 elif methods:
                     ok = "generateContent" in methods
                 else:
-                    ok = "flash" in low
+# بدونِ متادیتا: مدلِ رایگانِ متن را سالم فرض میکنیم (فیلترهای
+# بالا پاس شده) — «فقط flash» دستی حذف شد
+                    ok = True
                 if not ok:
                     continue
                 names.append(short)
@@ -1347,12 +1358,19 @@ class MangaTranslator:
                     continue
                 if any(b in low for b in ban_substrings):
                     continue
-# فقط flash/flash-lite/flash-preview (دستورِ
-# سازنده) — pro/argon از کشفِ REST هم حذف شدند.
-                if "flash" not in low:
+# تشخیصِ خودکارِ رایگان (v1.14.289): فهرستِ سیاهِ پولیها؛
+# مدلِ رایگانِ جدیدِ غیر-flash هرچه باشد خودش میآید (هیچ
+# نامِ دستی اینجا نیست).
+                if not gemini_model_is_free(short):
                     continue
-                if "preview" in low and "flash" not in low:
-                    continue
+# نسلهایِ مردهٔ ۱/۲ — از کشف حذف
+                _dg = re.match(r"gemini-(\d+)", low)
+                if _dg:
+                    try:
+                        if int(_dg.group(1)) <= 2:
+                            continue
+                    except ValueError:
+                        pass
                 methods = m.get("supportedGenerationMethods") or []
                 if methods and "generateContent" not in methods:
                     continue
@@ -1378,17 +1396,10 @@ class MangaTranslator:
             return True
         if not low.startswith("gemini"):
             return True
-# «hydrogen» نسلِ ۴ِ سبک و رایگان است (بدونِ flash/pro) —
-# در ترجمه پذیرفته میشود (دستورِ سازنده: مدلِ رایگانِ جدیدِ
-# غیر-flash هم باید شناخته شود)
-        if "hydrogen" in low:
-            return False
-# «argon» نامِ پرچمدارِ نسلِ ۴ است (بدونِ flash/pro)
-        if "argon" in low:
-            return False
-        if "flash" not in low and "pro" not in low:
-            return True
-        #): سرویسِ gوگل در models.list هنوز اسمهایِ مُرده را
+# (دستورِ v1.14.289): هیچ نامِ مدلِ خاصی (نه hydrogen نه چیزِ
+# دیگر) دستی اینجا پذیرفته/رد نمیشود — مدلِ ناشناخته = سالم؛
+# خودِ API در عمل معلوم میکند (404/سهمیه → cascade مدلِ بعدی).
+# سرویسِ گوگل در models.list هنوز اسمهایِ مُرده را
 # مدل‌هایِ مُردهٔ نسلِ ۱/۲ (
 # برمیگرداند ولی generateContent رویشان 404 میدهد (تاییدِ رسمی:
 # gemini-2.0-flash و 2.0-flash-lite خاموش؛ 2.5-flash/pro بهمرور
@@ -1405,20 +1416,18 @@ class MangaTranslator:
 
     @staticmethod
     def _is_bad_list_model(name: str) -> bool:
-        """ — صافیِ «فهرستِ مدلها» (دراپ‌داونِ وب / ↻ اندروید /
-        کشفِ زندهٔ API): فقط مدلهایِ متنِ ترجمه‌پذیرِ رایگان —
-        flash/flash-lite/flash-preview + hydrogen (مدلِ رایگانِ
-        نسلِ ۴ که flash نیست). carbon/argon/pro (پولی) و مدلهایِ
-        غیرمتنی در هیچ فهرستی نمیآیند. این صافی فقط برایِ فهرست
-        است؛ تایپِ دستیِ مدلهایِ دیگر (argon/pro) در فیلدِ مدل
-        همچنان آزاد و در ترجمه پذیرفته میشود
-        (_is_bad_translate_model سرِ جایش است)."""
+        """ — صافیِ «فهرستِ مدلها» (فیلدِ وب / ↻ اندروید /
+        کشفِ زندهٔ API): فقط مدلهایِ رایگانِ ترجمه‌پذیر —
+        تشخیصِ خودکار با gemini_model_is_free (فهرستِ سیاهِ
+        پولیها: carbon/argon/pro/غیرمتنی = حذف؛ ناشناخته =
+        رایگان). هیچ نامِ مدلِ خاصی (مثلِ hydrogen) دستی اینجا
+        نیست — مدلِ رایگانِ جدیدِ گوگل هرچه باشد خودش پیدا
+        میشود (دستورِ v1.14.289). تایپِ دستیِ مدلهایِ دیگر
+        (argon/pro) در فیلدِ مدل آزاد است (_is_bad_translate_model
+        سرِ جایش است)."""
         if MangaTranslator._is_bad_translate_model(name):
             return True
-        low = (name or "").lower().replace("models/", "")
-        if "hydrogen" in low:
-            return False
-        return "flash" not in low
+        return not gemini_model_is_free(name)
 
     @staticmethod
     def _extract_suggested_model(err: Exception) -> Optional[str]:
