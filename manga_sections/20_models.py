@@ -1688,6 +1688,102 @@ class LamaMangaONNX:
             self.session_cpu = None
             print(f"[!] dual-device پاکسازی غیرفعال ({_e})", flush=True)
 
+# ── v1.14.292 — خودآزمونِ «لکهٔ آبیِ GPU» ═══════════════════
+# دستورِ سازنده: «روشِ پاکسازیِ GPU تست کن … یک لگهٔ آبی میزاره؛
+# رویِ CPU لگهٔ آبی نیست؛ هر دو پاکسازی را CPU/GPU چک کن».
+# GPU-EP (CUDA/DML/TRT) گاهی دقتِ کانالهای LaMa را کمی جابهجا
+# میکند (الگوریتمِ cudnn/شبه‌fp) → پرِ «سفید» ته‌رنگِ سردِ ~۵-۱۲
+# میگیرد که از آستانههایِ QC هم رد میشود = لکهٔ آبیِ محو در
+# خروجی. این آزمون درست بعدِ ساختِ سشن اجرا میشود: یک پچِ
+# آزمایشیِ رنگی (کارتِ آبیِ اشباع + سفید + «متنِ» مشکی) به
+# «هر دو» سشن (GPU و مرجعِ CPU) داده میشود؛ اختلافِ خروجیِ
+# > ۶ واحد = GPU رنگ‌ساز است → سشنِ LaMa همان‌جا به CPU
+# برمیگردد (لکه ریشه‌کن؛ فقط پاکسازی کندتر). GPU سالم →
+# بی‌صدا میماند (فقط یک خطِ لاگ). خاموشِ دستی:
+# MANGA_LAMA_GPU_PARITY=0.
+        try:
+            self._gpu_fill_parity_check()
+        except Exception:
+            pass
+
+    def _gpu_fill_parity_check(self) -> bool:
+        try:
+            if str(os.environ.get("MANGA_LAMA_GPU_PARITY", "1")
+                   or "").strip() in ("0", "off", "no"):
+                return False
+            prov = [str(p) for p in
+                    (self.session.get_providers() or [])]
+            head = str(prov[0]) if prov else ""
+            if not head.lower().startswith(
+                    ("cuda", "dml", "tensorrt", "rocm", "migraphx")):
+                return False
+# پچِ آزمایشی — عمداً رنگی: ته‌رنگِ GPU رویِ زمینهٔ بی‌رنگ
+# پیدا نشد (سفید خالص همهجا سالم میماند)؛ کارتِ آبیِ اشباعِ
+# وبتونی همانجاست که «خاکستریِ خیشامی» ظاهر میشود.
+            h, w = 128, 160
+            img = np.zeros((h, w, 3), np.uint8)
+            img[:, :] = (250, 250, 250)
+            img[:, :w // 2] = (170, 70, 40)   # آبیِ اشباع (BGR)
+            cv2.circle(img, (w // 4, h // 2), 12, (20, 20, 20), -1)
+            cv2.circle(img, (3 * w // 4, h // 2), 12, (20, 20, 20), -1)
+            msk = np.zeros((h, w), np.uint8)
+            cv2.circle(msk, (w // 4, h // 2), 13, 255, -1)
+            cv2.circle(msk, (3 * w // 4, h // 2), 13, 255, -1)
+            t = self._prep_sample(img, msk)
+            if not t.get("has_mask"):
+                return False
+            feeds = {self._in_image:
+                     t["img_in"].astype(np.float32),
+                     self._in_mask:
+                     t["mask_in"].astype(np.float32)}
+            _t0 = time.time()
+            try:
+                _out_g = np.asarray(
+                    self.session.run(None, feeds)[0], np.float32)
+            except Exception:
+                return False
+            cpu_sess = self.session_cpu
+            if cpu_sess is None:
+                try:
+                    cpu_sess = _lama_session_cached(
+                        self.model_path,
+                        _ort_session_options(2),
+                        ["CPUExecutionProvider"])
+                except Exception:
+                    return False
+            try:
+                _out_c = np.asarray(
+                    cpu_sess.run(None, feeds)[0], np.float32)
+            except Exception:
+                return False
+            if _out_g.shape != _out_c.shape:
+                return False
+# خروجیِ خامِ مدل در مقیاسِ [0,1] است → اختلاف به مقیاسِ ۲۵۵
+# میرود تا آستانه («۶ واحدِ رنگ») با واحدِ پیکسل هم‌معنا باشد.
+            d = float(np.max(np.abs(_out_g - _out_c))) * 255.0
+            _dt = time.time() - _t0
+            if d > 6.0:
+                self.session = cpu_sess
+                self.session_cpu = None   # dual دیگر به GPU نچرخد
+                try:
+                    print(f"[!] سنجشِ تطبیقِ رنگِ LaMa: خروجیِ {head} "
+                          f"{d:.1f} واحد با CPU فرق دارد (ته‌رنگ = "
+                          f"لکهٔ آبیِ GPU) → پاکسازِ LaMa به CPU برگشت "
+                          f"(خاموش: MANGA_LAMA_GPU_PARITY=0)",
+                          flush=True)
+                except Exception:
+                    pass
+                return True
+            try:
+                print(f"[✓] سنجشِ تطبیقِ رنگِ LaMa — {head}: اختلافِ "
+                      f"{d:.2f} ≤ ۶ ({_dt:.1f}s) → GPU سالم",
+                      flush=True)
+            except Exception:
+                pass
+            return False
+        except Exception:
+            return False
+
     def _ep_real_shape_ab(self, threads: int) -> None:
         try:
             if os.environ.get("MANGA_LAMA_AB", "1") == "0":

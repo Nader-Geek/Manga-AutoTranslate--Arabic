@@ -8915,6 +8915,20 @@ class _MangaTranslatorBody_85:
                 return 0
             _diff = cv2.absdiff(donor, original).max(axis=2)
             ch = (_diff > 12) & zm
+# v1.14.292 — «لکهٔ آبی» (دستورِ سازنده: «روشِ پاکسازیِ GPU …
+# لگهٔ آبی؛ رویِ CPU نیست»): پیکسلهایِ ته‌رنگدار — پخشِ کانالهایِ
+# پر ≥۵ رویِ پیکسلِ بی‌رنگِ اصل (پخش ≤۳) — هم «تغییرکرده» حساب
+# میشوند تا درمانِ هماهنگی کلِ نوار را بازپر کند (نه فقط
+# جوهرِ متن). پرِ سالمِ CPU رویِ زمینهٔ بی‌رنگ خودش بی‌رنگ است
+# (پخش ≤۳) → این شاخه رویِ CPU نمیگیرد؛ رگرسیون حفظ است.
+            try:
+                _spd = (donor.max(axis=2).astype(np.int16)
+                        - donor.min(axis=2).astype(np.int16))
+                _spo = (original.max(axis=2).astype(np.int16)
+                        - original.min(axis=2).astype(np.int16))
+                ch |= ((_spd >= 5) & (_spo <= 3) & zm)
+            except Exception:
+                pass
             if not ch.any():
                 return 0
             _g = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
@@ -9009,6 +9023,16 @@ class _MangaTranslatorBody_85:
                     pch_p = np.zeros((by1 - by0, bx1 - bx0), bool)
                     pch_p[y0 - by0:y1 - by0 + 1,
                           x0 - bx0:x1 - bx0 + 1] = pch_b
+# v1.14.292 — نمایندگیِ «کلِ قطعه» برایِ گاردِ حلقه (پایین):
+# نمونه‌گیریِ قبلی فقط از pch (پیکسلهایِ تغییرکرده = جوهرِ متن)
+# بود → زیرِ قطعه همیشه «تیره» میخواند و گاردِ «حلقه=زمینهٔ
+# دیگری» هر قطعهٔ متن را رد میکرد (با متنِ اسپارس: QC هیچوقت
+# به درمان نمیرسید). متنِ توضیحِ خودِ گارد: «پس‌زمینه اکثریت
+# است — متن اقلیت» → میانهٔ لومیایِ اورجینال رویِ «کلِ» قطعه
+# سنجیده میشود (جوهرِ کم، پس‌زمینهٔ غالب).
+                    pcc_p = np.zeros((by1 - by0, bx1 - bx0), bool)
+                    pcc_p[y0 - by0:y1 - by0 + 1,
+                          x0 - bx0:x1 - bx0 + 1] = pcc
                     _m0 = float(0.5 * (_edges[_mb] + _edges[_mb + 1]))
                     fbm = cand & (np.abs(_lum_map - _m0) <= 40.0)
                     if int(fbm.sum()) < 80:
@@ -9040,6 +9064,16 @@ class _MangaTranslatorBody_85:
                     _fsp = float(np.max(fmed) - np.min(fmed))
                     if _fsp <= 12.0 and rsp >= 30.0:
                         _thr = min(_thr, 14.0)  # پرِ خنثی رویِ رنگی
+# v1.14.292 — دفاعِ دومِ «لکهٔ آبی» (دستورِ سازنده: «روشِ
+# پاکسازیِ GPU … یک لگهٔ آبی میزاره؛ رویِ CPU نیست»): ته‌رنگِ
+# ~۵-۱۲یِ پر (که از آستانهٔ d «سالم» میگذرد) رویِ حلقهٔ
+# بی‌رنگ = رنگِ غلط (پرِ سردِ GPU/دقتِ کانال) → همان درمانِ
+# هماهنگی (دوبارهپر از حلقه) اجرا میشود. پرِ سالمِ CPU رویِ
+# زمینهٔ بی‌رنگ پخشِ ≤۳ دارد → این شاخه رویِ CPU نمیگیرد و
+# رگرسیون بیت‌به‌بیت حفظ است.
+                    _rspread = float(np.max(rmed) - np.min(rmed))
+                    if d < _thr and _rspread <= 6.0 and _fsp >= 5.0:
+                        d = _thr + 1.0
                     if d < _thr:
                         if _dbg:
                             print(f"    [228d] قطعه@({x0},{y0}) "
@@ -9059,7 +9093,7 @@ class _MangaTranslatorBody_85:
 # حلقه زمینهٔ «دیگری» را توصیف میکند → قطعه
 # دستنخورده میماند.
                     try:
-                        _ul = _lum_map[pch_p]
+                        _ul = _lum_map[pcc_p]
                         if _ul.size >= 40:
                             _umed = float(np.median(_ul))
                             if abs(_umed - _m0) > 60.0:
