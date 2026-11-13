@@ -135,6 +135,14 @@ class DiscordNotifier:
                          embed=embed)
 
 
+def _read_token(path: str) -> str:
+    """Fresh Google access token written (and refreshed) by the Colab notebook, if any."""
+    try:
+        return Path(path).read_text().strip() if path else ""
+    except OSError:
+        return ""
+
+
 class MangaBot(discord.Client):
     def __init__(self, cfg: Config):
         super().__init__(intents=discord.Intents.default())
@@ -223,7 +231,8 @@ class MangaBot(discord.Client):
                 await attachment.save(input_path)
             else:
                 got = await fetch_link(link or "", workdir / "dl", cfg.max_link_mb * 1024 * 1024,
-                                      google_api_key=cfg.google_api_key, max_files=max_pages)
+                                      google_api_key=cfg.google_api_key, max_files=max_pages,
+                                      google_token=_read_token(cfg.google_token_file))
                 ext = Path(got.filename).suffix.lower()
                 input_path = workdir / f"input{ext}"
                 got.path.replace(input_path)
@@ -359,6 +368,10 @@ class MangaBot(discord.Client):
             await interaction.response.send_message(
                 f"⚙️ قيد المعالجة: **{q['running']}** • ⏳ في الانتظار: **{q['pending']}**",
                 ephemeral=True)
+
+        @tree.command(name="help", description="شرح الأوامر والروابط والميزات الجديدة")
+        async def help_cmd(interaction: discord.Interaction):
+            await interaction.response.send_message(embed=ui.help_embed(self.cfg), ephemeral=True)
 
         @tree.command(name="ping", description="فحص البوت وقاعدة البيانات وOllama")
         async def ping(interaction: discord.Interaction):

@@ -184,6 +184,39 @@ def history_embed(jobs: List[Dict[str, Any]], totals: Dict[str, Any]) -> discord
     return e
 
 
+def help_embed(cfg: Any) -> discord.Embed:
+    """/help — what each command does and how the newer features work. Reflects this bot's config."""
+    e = discord.Embed(title="📖 دليل البوت", color=0x5865F2,
+                      description="كل أمر يقبل **ملفاً مرفوعاً** (`file`) **أو رابطاً** (`link`) — واحداً فقط.")
+    e.add_field(name="الأوامر", inline=False, value=(
+        "🧹 `/clean` — يمسح النص من الفقاعات ويعيد صفحات نظيفة\n"
+        "🔎 `/extract` — يستخرج النص الأصلي (txt + json)\n"
+        "🧩 `/typer` — تنظيف + إحداثيات الفقاعات لاستيرادها في TypeR Web\n"
+        "🌐 `/translate` — ترجمة عربية (Ollama) + كتابة النص على الصفحة\n"
+        "📊 `/status` `/queue` `/history` `/cancel` `/ping` — متابعة المهام"))
+    if getattr(cfg, "allow_links", True):
+        gd = ("ملفات Drive **العامة** تعمل دائماً. " + (
+            "المجلدات والملفات الخاصة مفعّلة ✅" if (getattr(cfg, "google_token_file", "")
+                                                    or getattr(cfg, "google_api_key", ""))
+            else "مجلدات Drive تحتاج ربط حساب Google (Colab) أو `GOOGLE_API_KEY` — غير مفعّل هنا."))
+        e.add_field(name="🔗 الروابط بدل الرفع", inline=False, value=(
+            f"الصق في `link` رابط **Google Drive** أو **Gofile** (ملف واحد ZIP/PDF/صورة، حتى "
+            f"{cfg.max_link_mb}MB).\n{gd}\nمجلد صور في Drive يُضغط تلقائياً ZIP بترتيب الأسماء."))
+    if getattr(cfg, "external_host", ""):
+        e.add_field(name="⬆️ النتائج الكبيرة", inline=False, value=(
+            "لو الناتج أكبر من حد ديسكورد يُرفع **بجودته الأصلية** على Gofile ويصلك الرابط "
+            "(أي شخص معه الرابط يقدر يحمّله). لو فشل الرفع يُرسل مضغوطاً/مقسّماً عبر ديسكورد."))
+    e.add_field(name="🛠️ إصلاح تلقائي", inline=False, value=(
+        "لو فشل التقطيع بسبب نص ممتد بين صفحات كثيرة، يُعاد التشغيل تلقائياً مرة واحدة "
+        "(شرائط 3600px، أو قصّ إجباري) وتظهر ملاحظة 🔁 في النتيجة — راجع الحدود في هذه الحالة."))
+    e.add_field(name="📐 خيارات مفيدة", inline=False, value=(
+        "`layout`: *شرائط طويلة* (افتراضي، يصلح الفقاعات الممتدة بين صفحتين) أو *الصفحات الأصلية*.\n"
+        "`format`: jpg أخف بكثير من png. `quality`: `lama` أجود وأبطأ.\n"
+        f"حدود: {cfg.max_pages} صفحة (ترجمة {cfg.max_pages_translate})، "
+        f"{cfg.max_active_per_user} مهام نشطة لكل مستخدم."))
+    return e
+
+
 def _safe(text: str, limit: int = 60) -> str:
     t = (text or "").replace("`", "'").replace("\n", " ")
     return t if len(t) <= limit else t[: limit - 1] + "…"

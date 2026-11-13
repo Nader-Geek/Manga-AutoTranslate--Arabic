@@ -159,31 +159,35 @@ def _natural(name: str):
 
 async def _fetch_drive_folder(s: aiohttp.ClientSession, folder_id: str, dest_dir: Path,
                               max_bytes: int, api_key: str, max_files: int, api: str,
-                              extra: Tuple[str, ...]) -> Fetched:
+                              extra: Tuple[str, ...], token: str = "") -> Fetched:
     import zipfile
-    if not api_key:
-        raise FetchError("مجلدات Drive تحتاج مفتاح Google API (`GOOGLE_API_KEY`) يضيفه أدمن البوت. "
-                         "أو اضغط الفصل في ZIP واحد وشاركه كملف.")
-    files, token = [], ""
+    if not api_key and not token:
+        raise FetchError("مجلدات Drive تحتاج صلاحية: مفتاح `GOOGLE_API_KEY` أو (في Colab) تسجيل دخول "
+                         "Google من الـ notebook. أو اضغط الفصل في ZIP واحد وشاركه كملف.")
+    auth = {"Authorization": f"Bearer {token}"} if token else {}
+    key_q = "" if token else f"&key={api_key}"
+    files, page_token = [], ""
     for _ in range(20):
-        params = {"q": f"'{folder_id}' in parents and trashed=false", "key": api_key,
+        params = {"q": f"'{folder_id}' in parents and trashed=false",
                   "fields": "nextPageToken,files(id,name,mimeType,size)", "pageSize": "1000"}
-        if token:
-            params["pageToken"] = token
+        if not token:
+            params["key"] = api_key
+        if page_token:
+            params["pageToken"] = page_token
         if not _host_ok(api, extra):
             raise FetchError("عنوان Drive API غير مسموح.")
-        async with s.get(f"{api}/files", params=params) as r:
+        async with s.get(f"{api}/files", params=params, headers=auth) as r:
             if r.status in (400, 401, 403):
                 raise FetchError("رفض Drive الطلب: تأكد أن المجلد مشارك «أي شخص لديه الرابط» "
-                                 "وأن مفتاح API صحيح ومفعّل عليه Drive API.")
+                                 "وأن المفتاح/الحساب صحيح ومفعّل عليه Drive API.")
             if r.status == 404:
                 raise FetchError("مجلد Drive غير موجود.")
             if r.status >= 400:
                 raise FetchError(f"Drive API رد بخطأ HTTP {r.status}.")
             data = await r.json(content_type=None)
         files += [f for f in data.get("files", []) if f.get("mimeType") != "application/vnd.google-apps.folder"]
-        token = data.get("nextPageToken", "")
-        if not token:
+        page_token = data.get("nextPageToken", "")
+        if not page_token:
             break
     imgs = [f for f in files if Path(f["name"]).suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")]
     docs = [f for f in files if Path(f["name"]).suffix.lower() in (".zip", ".pdf")]
@@ -198,15 +202,15 @@ async def _fetch_drive_folder(s: aiohttp.ClientSession, folder_id: str, dest_dir
     imgs.sort(key=lambda f: _natural(f["name"]))
     if len(imgs) == 1:
         f = imgs[0]
-        return await _stream(s, f"{api}/files/{f['id']}?alt=media&key={api_key}",
-                             dest_dir / "one", max_bytes, Path(f["name"]).name, extra)
+        return await _stream(s, f"{api}/files/{f['id']}?alt=media{key_q}",
+                             dest_dir / "one", max_bytes, Path(f["name"]).name, extra, headers=auth)
     dest_dir.mkdir(parents=True, exist_ok=True)
     out = dest_dir / "folder.zip"
     budget, total = max_bytes, 0
     with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as zf:
         for i, f in enumerate(imgs):
-            got = await _stream(s, f"{api}/files/{f['id']}?alt=media&key={api_key}",
-                                dest_dir / f"p{i}", budget, Path(f["name"]).name, extra)
+            got = await _stream(s, f"{api}/files/{f['id']}?alt=media{key_q}",
+                                dest_dir / f"p{i}", budget, Path(f["name"]).name, extra, headers=auth)
             budget -= got.size; total += got.size
             zf.write(got.path, f"{i + 1:04d}{Path(got.filename).suffix.lower()}")
             got.path.unlink(missing_ok=True)
@@ -216,7 +220,7 @@ async def _fetch_drive_folder(s: aiohttp.ClientSession, folder_id: str, dest_dir
 async def fetch_link(link: str, dest_dir: Path, max_bytes: int, *, timeout_s: float = 1800,
                      extra_hosts: Tuple[str, ...] = (), drive_url: str = "",
                      gofile_api: str = "", google_api_key: str = "", max_files: int = 60,
-                     drive_api: str = "") -> Fetched:
+                     drive_api: str = "", google_token: str = "") -> Fetched:
     kind, ident = classify(link)
     drive_url = drive_url or DRIVE_DOWNLOAD
     gofile_api = (gofile_api or GOFILE_API).rstrip("/")
@@ -226,7 +230,22 @@ async def fetch_link(link: str, dest_dir: Path, max_bytes: int, *, timeout_s: fl
             if kind == "drive_folder":
                 return await _fetch_drive_folder(s, ident, dest_dir, max_bytes, google_api_key,
                                                  max_files, (drive_api or DRIVE_API).rstrip("/"),
-                                                 extra_hosts)
+                                                 extra_hosts, google_token)
+            if kind == "drive" and google_token:
+                api = (drive_api or DRIVE_API).rstrip("/")
+                auth = {"Authorization": f"Bearer {google_token}"}
+                try:
+                    async with s.get(f"{api}/files/{ident}", params={"fields": "name"},
+                                     headers=auth) as r:
+                        name = (await r.json(content_type=None)).get("name") if r.status == 200 else None
+                    if name:
+                        return await _stream(s, f"{api}/files/{ident}?alt=media", dest_dir,
+                                             max_bytes, Path(name).name, extra_hosts, headers=auth)
+                except FetchError:
+                    raise
+                except (aiohttp.ClientError, ValueError):
+                    pass
+                # not visible to the signed-in account -> try the public route below
             if kind == "drive":
                 url = f"{drive_url}?id={ident}&export=download&confirm=t"
                 return await _stream(s, url, dest_dir, max_bytes, f"{ident}.bin", extra_hosts)

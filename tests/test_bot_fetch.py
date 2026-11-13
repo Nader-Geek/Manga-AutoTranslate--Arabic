@@ -33,7 +33,7 @@ async def main():
         return web.Response(body=ZIP, content_type="application/zip")
     PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 50
     async def flist(req):
-        seen["key"] = req.query.get("key")
+        seen["key"] = req.query.get("key"); seen["bearer"] = req.headers.get("Authorization")
         if req.query.get("key") == "BAD": return web.Response(status=403)
         q = req.query["q"]
         if "emptyfolderid" in q: return web.json_response({"files": []})
@@ -43,8 +43,12 @@ async def main():
             return web.json_response({"files": [{"id": "c", "name": "10.png", "mimeType": "image/png"}, {"id": "d", "name": "sub", "mimeType": "application/vnd.google-apps.folder"}]})
         return web.json_response({"nextPageToken": "T2", "files": [{"id": "a", "name": "2.png", "mimeType": "image/png"}, {"id": "b", "name": "1.png", "mimeType": "image/png"}, {"id": "t", "name": "notes.txt", "mimeType": "text/plain"}]})
     async def fget(req):
-        fid = req.match_info["fid"]
-        return web.Response(body=ZIP if fid == "z1" else PNG + fid.encode(), content_type="application/octet-stream")
+        fid = req.match_info["fid"]; seen["bearer_get"] = req.headers.get("Authorization")
+        if req.query.get("alt") != "media":
+            if fid == "privatefile1": return web.json_response({"name": "secret.zip"})
+            return web.Response(status=404)
+        if fid == "privatefile1" and not req.headers.get("Authorization"): return web.Response(status=404)
+        return web.Response(body=ZIP if fid in ("z1", "privatefile1") else PNG + fid.encode(), content_type="application/octet-stream")
     app = web.Application(); app.router.add_get("/api/files", flist); app.router.add_get("/api/files/{fid}", fget)
     app.router.add_get("/download", drive); app.router.add_post("/accounts", accounts)
     app.router.add_get("/contents/{cid}", contents); app.router.add_get("/f/{x}", f)
@@ -84,8 +88,15 @@ async def main():
     with zipfile.ZipFile(r.path) as z:
         assert z.namelist() == ["0001.png", "0002.png", "0003.png"], z.namelist()   # 1, 2, 10 (natural order); txt/sub ignored
         assert z.read("0001.png").endswith(b"b") and z.read("0003.png").endswith(b"c")
-    assert r.filename == "folder.zip" and seen["key"] == "K"
+    assert r.filename == "folder.zip", r.filename; assert seen["key"] == "K", seen
     r = await fetch_link(F + "onezipfolder1", out(), 10**8, google_api_key="K", **kw2); assert r.filename == "ch.zip" and r.path.read_bytes() == ZIP
+    # signed-in Colab account: no API key, Bearer token everywhere, private files work
+    r = await fetch_link(F + "1AbCdEfGhIjKlMn", out(), 10**8, google_token="TOK", **kw2)
+    assert seen["key"] is None and seen["bearer"] == "Bearer TOK" and seen["bearer_get"] == "Bearer TOK"
+    r = await fetch_link("https://drive.google.com/file/d/privatefile1/view", out(), 10**8, google_token="TOK", **kw2)
+    assert r.filename == "secret.zip" and r.path.read_bytes() == ZIP
+    r = await fetch_link("https://drive.google.com/file/d/1AbCdEfGhIjKlMn/view", out(), 10**8, google_token="TOK", **kw2)
+    assert r.filename == "فصل.zip"     # not visible to the account -> falls back to the public route
     for fid, key, why, mx, mf in (("emptyfolderid", "K", "لم أجد صوراً", 10**8, 60), ("manyfolderid1", "K", "أقصى عدد", 10**8, 60),
                                   ("1AbCdEfGhIjKlMn", "BAD", "رفض Drive", 10**8, 60), ("1AbCdEfGhIjKlMn", "K", "أكبر", 100, 60)):
         try: await fetch_link(F + fid, out(), mx, google_api_key=key, max_files=mf, **kw2); raise SystemExit(f"should fail {fid}")

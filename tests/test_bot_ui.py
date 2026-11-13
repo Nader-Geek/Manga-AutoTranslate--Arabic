@@ -55,4 +55,15 @@ for la in (now - timedelta(seconds=20), now - timedelta(minutes=30), None):
     d = {f["name"]: f["value"] for f in e.to_dict()["fields"]}
     assert ("🔴" in d["الحالة"]) == (la is not None and (now - la).total_seconds() > 600), d["الحالة"]
 assert ui.progress_bar(0, 0).count("░") == 12 and "100%" in ui.progress_bar(9, 3) and "0%" in ui.progress_bar(0, 10)
+import dataclasses
+from bot.config import Config
+for cfg in (Config(), dataclasses.replace(Config(), external_host="gofile", google_token_file="/x"),
+            dataclasses.replace(Config(), allow_links=False)):
+    d = ui.help_embed(cfg).to_dict(); tot = len(d.get("title", "")) + len(d.get("description", ""))
+    for f in d["fields"]:
+        assert len(f["name"]) <= 256 and len(f["value"]) <= 1024, f["name"]; tot += len(f["name"]) + len(f["value"])
+    assert tot <= 6000, tot
+h = {f["name"]: f["value"] for f in ui.help_embed(dataclasses.replace(Config(), external_host="gofile", google_token_file="/x")).to_dict()["fields"]}
+assert "مفعّلة" in h["🔗 الروابط بدل الرفع"] and "⬆️ النتائج الكبيرة" in h
+assert "🔗 الروابط بدل الرفع" not in {f["name"] for f in ui.help_embed(dataclasses.replace(Config(), allow_links=False)).to_dict()["fields"]}
 print("test_bot_ui OK")
