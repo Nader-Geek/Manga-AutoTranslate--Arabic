@@ -35,3 +35,7 @@ manga_single.py
 # v1.14.279 — کپیهایِ sync_sources (تولیدی — هر بار با android/scripts/sync_sources.py ساخته میشوند)
 android/app/src/main/python/manga.py
 android/app/src/main/python/manga_app.py
+
+# v1.14.292 — بخشهای موتور در زمانِ اجرا از میرورها میرسند (تستِ محلی آنها را اینجا ساخت)
+android/app/src/main/python/manga_sections/
+android/app/src/main/python/.manga_sections_refresh
