@@ -8049,7 +8049,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             models, err = list_provider_models(
                 prov, str(api_keys_v or ""), str(api_base_v or ""))
 # دستورِ سازنده (v1.14.288): «رفرش زدم اون قسمتِ مدلِ نوشتن
-# همهٔ مالها رو وارد کنه» — ↻ همهٔ مدلهایِ (رایگانِ) یافتشده را
+# همهٔ مالها رو وارد کنه» — ↻ همهٔ مدلهایِ (سالمِ) یافتشده را
 # کاما-جدا داخلِ فیلدِ متنیِ مدل مینویسد تا طرف ببیند چجور
 # وارد شده؛ کاربر بعد خودش کم/زیاد میکند (چند مدل = فال‌بک).
             if not models:
@@ -8065,9 +8065,59 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                f"آفلاینِ برنامه ({len(offline)} مدلِ رایگان) "
                                f"داخلِ فیلد نوشته شد"))
                 raise gr.Error(err or "مدلی پیدا نشد — کلید/لینک را با «تست کلیدها / لینک» چک کنید.")
+
+# v1.14.290 — سنجشِ زندهٔ سبک (دستورِ سازنده: «چیزی نداره بتونع
+# بفهمه کدوم مدل کتابی میده بیرون؟ فقط اونای ک اوکی خروجی میده
+# نگه داره»): به هر مدلِ زندهٔ یافتشده یک درخواستِ واقعیِ کوچک
+# (۴ خطِ دیالوگِ محاوره‌ای) فرستاده میشود؛ هر مدلی که خودش جواب
+# نداد (پولی/سهمیه/قطعی — رایگان بودن هم همینجا خودکار معلوم
+# میشود؛ هیچ نامی در کد نیست) یا جوابش کتابی بود کنار گذاشته
+# میشود و فقط مدلهایِ «اوکی» داخلِ فیلد نوشته میشوند.
+            _probe_note = ""
+            if prov == "gemini":
+                _pm = None
+                try:
+                    from manga import gemini_style_probe_many as _pm
+                except Exception:
+                    _pm = None
+                if _pm is not None:
+                    try:
+                        _good, _res = _pm(models, str(api_keys_v or ""))
+                    except Exception:
+                        _good, _res = [], {}
+                    if _good:
+                        _n_all = len(models)
+                        _bk = [m for m, r in (_res or {}).items()
+                               if (r or {}).get("verdict") == "bookish"]
+                        _er = [m for m, r in (_res or {}).items()
+                               if (r or {}).get("verdict") == "error"]
+                        models = _good
+                        _probe_note = (f" — سنجشِ زنده: {len(_good)} مدلِ سالم "
+                                       f"(محاوره‌ای ✓) از {_n_all}")
+                        if _bk or _er:
+                            _probe_note += (f"؛ حذف: {len(_bk)} کتابی، "
+                                           f"{len(_er)} بی‌پاسخ (پولی/سهمیه)")
+                    elif _res:
+                        _n_err = sum(1 for r in (_res or {}).values()
+                                     if (r or {}).get("verdict") == "error")
+                        _n_run = len(_res)
+                        if _n_err >= _n_run and _n_run:
+# همهٔ سنجشها خطا (شبکه/سهمیه در همین لحظه) — فهرستِ خامِ زنده
+# نگه داشته میشود تا کاربر بی‌درنگ گزینه داشته باشد.
+                            _probe_note = (" — سنجشِ زندهٔ سبک در همین لحظه "
+                                           "جواب نداد (شبکه/سهمیه)؛ فهرستِ خام")
+                        else:
+# سنجشها اجرا شد ولی هیچ جوابِ سالمی نبود (همه کتابی/خاموش) —
+# فهرستِ آفلاینِ ثابتِ برنامه داخلِ فیلد نوشته میشود.
+                            offline = _gemini_offline_models()
+                            return gr.update(
+                                value=_models_join(offline),
+                                label=(f"مدل (ها) — هیچ مدلی جوابِ سالمِ محاوره‌ای "
+                                       f"نداد؛ فهرستِ آفلاینِ برنامه ({len(offline)} مدل) "
+                                       f"داخلِ فیلد نوشته شد"))
             return gr.update(
                 value=_models_join(models),
-                label=(f"مدل (ها) — {len(models)} مدلِ زندهٔ رایگان پیدا شد؛ "
+                label=(f"مدل (ها) — {len(models)} مدلِ زنده پیدا شد{_probe_note}؛ "
                        f"همه داخلِ فیلد نوشته شد (چند مدل = فال‌بکِ خودکار)"))
 
         try:

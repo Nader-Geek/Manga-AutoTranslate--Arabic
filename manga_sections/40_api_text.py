@@ -379,14 +379,17 @@ def source_has_letters(text: str) -> bool:
         return False
     return True
 
-# لیستِ آفلاینِ مدلهایِ Gemini (فقط مدلهایِ رایگان) — عینِ فهرستِ
+# لیستِ آفلاینِ مدلهایِ Gemini (پیش‌فرضِ برنامه) — عینِ فهرستِ
 # ۷تاییِ سازنده (v1.14.288): «gemini-3.5-flash-lite,
 # gemini-3.1-flash-lite,gemini-3.8-flash,gemini-3.7-flash,
 # gemini-3.6-flash,gemini-3.5-flash,gemini-3-flash-preview».
-# بدونِ carbon/argon/pro (پولی — در tierِ رایگان نیستند) و بدونِ نسلهایِ
-# مردهٔ ۱/۲. اگر گوگل مدلِ رایگانِ تازه‌ای بیاورد (هرچه باشد —
-# flash یا نه)، کاربر با دکمهٔ ↻ فهرستِ زنده میگیرد — کد خودش
-# فقط رایگانها را نگه میدارد (gemini_model_is_free؛ ناشناخته = رایگان).
+# این فقط فهرستِ «پیش‌فرض/آفلاین» است — رایگان بودن یا کتابی
+# بودنِ هیچ مدلی اینجا با نام تشخیص داده نمیشود (دستورِ
+# v1.14.289/290: هیچ نامی دستی نوشته نشود). وقتی رفرش زده
+# شود و اینترنت باشد، فهرستِ زنده از گوگل گرفته میشود و
+# «سنجشِ زنده» (gemini_style_probe) خودش هر مدلی را که جواب
+# نمیدهد (پولی/سهمیه) یا کتابی مینویسد کنار میگذارد — مدلِ
+# جدیدِ رایگانِ گوگل هرچه باشد خودش میآید.
 GEMINI_FLASH_MODELS_OFFLINE = [
     "gemini-3.5-flash-lite",     # پایدارِ سبک — پیش‌فرضِ برنامه
     "gemini-3.1-flash-lite",     # پایدارِ سبک
@@ -402,46 +405,187 @@ def gemini_offline_models() -> List[str]:
     فال‌بکِ دکمهٔ ↻ اندروید/وب وقتی اتصال برقرار نشد)."""
     return list(GEMINI_FLASH_MODELS_OFFLINE)
 
-# مدلهایِ Gemini که در tierِ رایگانِ API نیستند (پولی). از
-# قیمت‌گذاریِ رسمیِ aistudio.google.com/docs/pricing (نوامبر ۲۰۲۶):
-# «Gemini 4 Carbon / Gemini 4 Argon is not available on the Free tier»
-# و مدلهایِ pro (پیش‌فرضِ پروژه = فقط رایگان). نامِ فایلِ سرور مدل را
-# «not available on the free tier» برمیگرداند ولی ما از رویِ نام تشخیص
-# میدهیم تا به شبکه وابسته نباشیم — مدلِ جدیدِ رایگانی که «flash»
-# نیست هم) در لیست میماند — هیچ نامِ خاصی دستی نوشته نمیشود.
-_GEMINI_PAID_SUBSTRINGS = (
-    "carbon",      # gemini-4-carbon — پولی
-    "argon",       # gemini-4-argon — پولی
-    "pro",         # همهٔ proها — پولی
-    "image", "tts", "audio", "live", "embedding", "gemma",
-    "robotics", "omni", "nano-banana", "imagen", "computer-use",
-    "computer_use", "antigravity", "veo", "lyria", "chirp",
-    "dialog", "code-execution", "aqa", "text-embedding",
-    "gecko", "vision", "dream", "bard", "transcribe",
-    "decision", "robotics-er",
+# ── سنجشِ زندهٔ سبکِ مدل (v1.14.290) ─────────────────────────────
+# دستورِ سازنده: «چیزی نداره بتونع بفهمه کدوم مدل کتابی میده بیرون؟
+# فقط اونای که اوکی خروجی میده نگه داره» + «خودش باید بفهمه کدوم
+# مدلها رایگانه — دستی ممنوع». پس هیچ نامِ مدلی (نه فهرستِ سیاهِ
+# پولیها، نه لیستِ سفید) در کد نیست؛ تشخیص از رویِ «رفتارِ» خودِ
+# مدل است — یک درخواستِ واقعیِ کوچک به هر مدلِ زنده فرستاده
+# میشود (۴ خطِ دیالوگِ محاوره‌ای) و نتیجه معلوم میشود:
+#   • پاسخ نداد (پولی/سهمیه/قطعی/خاموش) → کنار میرود
+#     ← رایگان بودن هم همینجا خودکار معلوم میشود
+#   • جوابش کتابی/رسمی بود (می‌باشد، آیا، بیایید…) → کنار میرود
+#   • جوابش سالم و محاوره‌ای بود (می‌خوام، بریم، وای…) → میماند
+# مدلِ جدیدِ گوگل هرچه باشد (flash یا نه، هر نامی) خودش پیدا میشود.
+_GEMINI_PROBE_PROMPT = (
+    "این دیالوگ‌های مانگا را به فارسیِ محاوره‌ایِ طبیعیِ گفتاری "
+    "ترجمه کن — دقیقاً ۴ خطِ شماره‌دار. لحن: صمیمی و کوچه‌بازاری؛ "
+    "هرگز کتابی/رسمی/نوشتاری ننویس.\n"
+    "1. Hey, watch this!\n"
+    "2. No way! You're kidding me, right?\n"
+    "3. Ugh... I'm beat. Let's head home.\n"
+    "4. Come on, don't be like that!"
 )
 
-_GEMINI_PAID_NAMES = {
-    "gemini-4-carbon", "gemini-4-argon",
-}
+# نشانه‌های «کتابی» در جوابِ همین تست (فقط همین جملات؛ لحنِ
+# عامیانه هرگز اینها را نمینویسد):
+_GEMINI_BOOKISH_MARKERS = (
+    "می‌باشد", "می‌باشند", "می‌باشیم", "می‌باشید",
+    "آیا", "بنابراین", "می‌گردد", "گردید", "می‌بایست",
+    "خواهد بود", "خواهد شد", "خواهد رفت", "خواهد کرد",
+    "می‌خواهم", "می‌خواهی", "می‌خواهیم", "می‌توانم",
+    "می‌توانی", "می‌رویم", "نمی‌دانم", "لطفاً", "منزل",
+)
 
-def gemini_model_is_free(name: str) -> bool:
-    """آیا این مدلِ Gemini در tierِ رایگانِ API است؟
-    تشخیص از رویِ نام (بی‌نیاز از شبکه):
-      • carbon/argon/pro و مدلهایِ غیرمتنی → پولی
-      • بقیهٔ مدلهایِ ترجمه‌پذیر (هر نامِ ناشناخته) → رایگان
-    اگر گوگل مدلِ رایگانِ جدیدی بیاورد که flash نیست، همین
-    تابع آن را رایگان میشناسد (همه‌چیزِ شناخته‌نشده = رایگان،
-    چون فهرستِ سیاه فقط نامهایِ قطعاً-پولی را دارد)."""
-    low = str(name or "").lower().replace("models/", "").strip()
-    if not low.startswith("gemini"):
-        return False
-    if low in _GEMINI_PAID_NAMES:
-        return False
-    for b in _GEMINI_PAID_SUBSTRINGS:
-        if b in low:
-            return False
-    return True
+# نشانه‌های «محاوره‌ای» — مدلِ سالم برایِ همین دیالوگها اینها را
+# مینویسد (می‌خوام، بریم، وای، میزاب…):
+_GEMINI_CASUAL_MARKERS = (
+    "می‌خوام", "می‌خوای", "می‌تونم", "می‌تونی", "می‌ریم",
+    "بریم", "بذار", "بزار", "ببین", "نمی‌دونم", "نمی‌دونی",
+    "میزاب", "شوخی", "وای", "خب", "ایول", "یارو",
+    "خسته‌ام", "خسته‌م", "جمدی", "باور",
+)
+
+def _gemini_probe_norm(text: str) -> str:
+    """نرمال‌سازی برایِ مقایسهٔ نشانه‌ها (نیم‌فاصله/علامتِ راست‌به‌چپ
+    حذف میشوند تا «می‌خواهم» و «میخواهم» هر دو گرفته شوند)."""
+    return str(text or "").replace("\u200c", "").replace("\u200f", "")
+
+def _gemini_probe_score(text: str) -> Tuple[str, List[str], List[str]]:
+    """امتیازِ سبکِ جوابِ تست: ok (محاوره‌ای/خنثی) یا bookish.
+    قانون: دو نشانهٔ کتابی یا «کتابی بدونِ حتی یک نشانهٔ محاوره‌ای»
+    = کتابی؛ خنثیِ بی‌نشانه هم اوکی است — تقصیرِ مدل نیست."""
+    norm = _gemini_probe_norm(text)
+    bookish = [m for m in _GEMINI_BOOKISH_MARKERS
+               if _gemini_probe_norm(m) in norm]
+    casual = [m for m in _GEMINI_CASUAL_MARKERS
+              if _gemini_probe_norm(m) in norm]
+    verdict = "ok"
+    if len(bookish) >= 2 or (bookish and not casual):
+        verdict = "bookish"
+    return verdict, bookish, casual
+
+def gemini_style_probe(model: str, api_key: str,
+                       timeout: float = 24.0) -> dict:
+    """یک درخواستِ واقعیِ کوچک به مدل: ۴ خطِ دیالوگِ محاوره‌ای.
+    خروجی: {"verdict": ok|bookish|error, "reason": …, "text": …}
+    error = خودِ مدل جواب نداد (پولی/سهمیه/قطعی) — رایگان نبودن هم
+    همینجا خودکار معلوم میشود؛ هیچ نامی در کد نیست."""
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+    model = str(model or "").replace("models/", "").strip()
+    key = str(api_key or "").strip()
+    if not model or not key:
+        return {"verdict": "error", "reason": "مدل/کلید خالی", "text": ""}
+    url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+           + urllib.parse.quote(model)
+           + ":generateContent?key=" + urllib.parse.quote(key))
+    body = {"contents": [{"role": "user",
+                          "parts": [{"text": _GEMINI_PROBE_PROMPT}]}],
+            "generationConfig": {"temperature": 0.7,
+                                 "maxOutputTokens": 400}}
+    try:
+        req = urllib.request.Request(
+            url, data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json",
+                     "User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read(2 * 1024 * 1024)
+            data = json.loads(raw.decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        try:
+            detail = str(e.read(400), "utf-8", "replace")
+        except Exception:
+            detail = ""
+        why = f"HTTP {e.code}" + (f" — {detail[:110]}" if detail else "")
+        return {"verdict": "error", "reason": why, "text": ""}
+    except Exception as e:
+        return {"verdict": "error",
+                "reason": str(e).split(chr(10))[0][:110], "text": ""}
+    parts: List[str] = []
+    try:
+        for cand in (data.get("candidates") or []):
+            for p in ((cand.get("content") or {}).get("parts") or []):
+                _t = str(p.get("text") or "")
+                if _t:
+                    parts.append(_t)
+    except Exception:
+        parts = []
+    text = "\n".join(parts).strip()
+    if not text:
+        return {"verdict": "error",
+                "reason": "پاسخِ خالی (سهمیه/مدلِ خاموش)", "text": ""}
+    _fa = [ch for ch in text if "\u0600" <= ch <= "\u06ff"]
+    if len(_fa) < 12:
+        return {"verdict": "error", "reason": "متنِ فارسی در پاسخ نبود",
+                "text": text[:80]}
+    verdict, bookish, casual = _gemini_probe_score(text)
+    reason = ("محاوره‌ای ✓"
+              + (f" ({len(casual)} نشانه)" if casual else "")
+              ) if verdict == "ok" else (
+              "کتابی ✗ — " + "، ".join(bookish[:3]))
+    return {"verdict": verdict, "reason": reason, "text": text[:200]}
+
+# کشِ نتیجه‌ها: سنجشِ موفق ۶ ساعت، سنجشِ خطادار ۱۰ دقیقه معتبر
+# است (رفرشِ بعدی همان جوابِ کش را میدهد — نه خرجِ دوباره).
+_GEMINI_STYLE_CACHE: dict = {}
+_GEMINI_STYLE_TTL_OK_S = 6.0 * 3600.0
+_GEMINI_STYLE_TTL_ERR_S = 600.0
+
+def gemini_style_probe_many(models, keys_text, timeout: float = 24.0,
+                            max_workers: int = 8, fresh: bool = False
+                            ) -> Tuple[List[str], dict]:
+    """سنجشِ زندهٔ همهٔ مدلها (دکمهٔ ↻ فهرست + چرخِ ترجمه):
+    هر مدل یک تستِ کوچک میگیرد — فقط پاسخ‌دهندهٔ محاوره‌ای در
+    خروجی میماند (دستورِ v1.14.290: «فقط اونای که اوکی خروجی میده
+    نگه داره»). چند-کلیدی: تا ۳ کلید امتحان میشود. موازی
+    (ThreadPool) تا ۸ مدل همزمان. خروجی: (مدلهایِ سالم،
+    {مدل: نتیجه})."""
+    import time as _time
+    from concurrent.futures import ThreadPoolExecutor
+    keys = [k.strip() for k in re.split(r"[\s,;\n]+", str(keys_text or ""))
+            if k.strip()]
+    models = [str(m or "").replace("models/", "").strip()
+              for m in (models or []) if str(m or "").strip()]
+    if not models:
+        return [], {}
+    now = _time.time()
+    results: dict = {}
+    todo: List[str] = []
+    for m in models:
+        hit = _GEMINI_STYLE_CACHE.get(m)
+        if hit:
+            ttl = (_GEMINI_STYLE_TTL_OK_S
+                   if hit[1].get("verdict") == "ok"
+                   else _GEMINI_STYLE_TTL_ERR_S)
+            if not fresh and (now - hit[0]) < ttl:
+                results[m] = hit[1]
+                continue
+        todo.append(m)
+
+    def _work(m: str):
+        last = {"verdict": "error", "reason": "کلیدی نبود", "text": ""}
+        for k in keys[:3]:
+            last = gemini_style_probe(m, k, timeout)
+            if last.get("verdict") != "error":
+                break
+        return m, last
+
+    if todo:
+        try:
+            with ThreadPoolExecutor(max_workers=max(1, max_workers)) as ex:
+                for m, r in ex.map(_work, todo):
+                    results[m] = r
+                    _GEMINI_STYLE_CACHE[m] = (_time.time(), r)
+        except Exception:
+            for m in todo:
+                if m not in results:
+                    results[m] = {"verdict": "error",
+                                  "reason": "سنجش انجام نشد", "text": ""}
+    good = [m for m in models
+            if (results.get(m) or {}).get("verdict") == "ok"]
+    return good, results
 
 def parse_model_list(raw: str) -> List[str]:
     """رشتهٔ «چند مدلِ» کاربر را به فهرستِ تمیز تبدیل میکند.
@@ -467,10 +611,12 @@ def join_model_list(models: List[str]) -> str:
 def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                          timeout: float = 20.0) -> Tuple[List[str], str]:
     """ — فهرستِ مدلهایِ موجود از خودِ سرویس (). Gemini: GET v1beta/models
-    — فقط مدلهایِ «رایگانِ» ترجمه‌پذیر: صافیِ _is_bad_list_model برای
-    مدلهایِ نامناسب + صافیِ gemini_model_is_free برای پولیها (دستورِ
-    سازنده: «از لیستِ اپدیت مدلا فقط رایگان هاشو بگیره — مدلِ جدیدِ
-    رایگان اومده فلش نیست باید خوده کد تشخیص بده کدوما رایگانه»).
+    — فهرستِ خامِ زنده (صافیِ _is_bad_list_model فقط برایِ مدلهایِ
+    غیرمتنی/مُردهٔ نسلِ ۱-۲). رایگان بودن و «کتابی نبودنِ» جواب با
+    «سنجشِ زنده» (gemini_style_probe_many — تستِ کوچکِ واقعی به
+    خودِ مدل) بعد از همین تابع انجام میشود؛ هیچ تشخیصی از رویِ
+    نامِ مدل انجام نمیشود (دستورِ سازنده: «خودش باید بفهمه کدوم
+    مدلها رایگانه؛ فقط اونای که اوکی خروجی میده نگه داره»).
     custom: GET /models بر اساسِ فرمتِ خودکارِ لینک
     (openai/responses/anthropic/google). خروجی: (مدلها، خطا). برایِ دکمهٔ
     ↻ فهرستِ مدلها در رابط."""
@@ -515,10 +661,11 @@ def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                     continue
                 if MangaTranslator._is_bad_list_model(name):
                     continue
-# فقط مدلهایِ رایگان — تشخیصِ خودکار (ناشناخته = رایگان)؛
-# carbon/argon/pro (پولی) از فهرستِ زنده حذف میشوند
-                if not gemini_model_is_free(name):
-                    continue
+# رایگان/پولی و کتابی/محاوره‌ای اینجا با نامِ مدل تشخیص
+# داده نمیشود (دستورِ v1.14.290) — فهرستِ خامِ زنده برگردد و
+# «سنجشِ زنده» (gemini_style_probe_many؛ در _refresh_model_list
+# و چرخِ ترجمه) خودش هر مدل را با یک درخواستِ واقعیِ کوچک
+# میآزماید: بی‌پاسخ (پولی/سهمیه) یا کتابی = حذف.
                 out.append(name)
             if out:
                 return sorted(set(out), key=MangaTranslator._model_sort_key), ""

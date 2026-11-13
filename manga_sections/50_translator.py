@@ -1276,13 +1276,12 @@ class MangaTranslator:
                     continue
                 if not low.startswith("gemini"):
                     continue
-# تشخیصِ خودکارِ رایگان (دستورِ v1.14.289: «دستی نباید بگی
-# gemini-4-hydrogen باشه بزار — خودش باید بفهمه کدوم مدلا
-# رایگانه»): فهرستِ سیاهِ پولیها (gemini_model_is_free)؛ هیچ
-# نامِ مدلِ خاصی دستی اینجا نیست — مدلِ رایگانِ جدیدِ گوگل
-# هرچه باشد (flash یا نه) خودش میآید.
-                if not gemini_model_is_free(short):
-                    continue
+# رایگان/پولی اینجا با نامِ مدل تشخیص داده نمیشود (دستورِ
+# v1.14.290: «فقط اونای که اوکی خروجی میده نگه داره») — همهٔ
+# مدلهایِ متنِِ زنده میآیند و بعد «سنجشِ زنده»
+# (gemini_style_probe_many؛ در _build_model_cascade) هر کدام را
+# با یک درخواستِ واقعیِ کوچک میآزماید: بی‌پاسخ (پولی/سهمیه)
+# یا کتابی = حذف. هیچ نامِ مدلِ خاصی در کد نیست.
 # نسلهایِ مردهٔ ۱/۲ خاموشند (generateContent=404) — از کشف حذف
                 _dg = re.match(r"gemini-(\d+)", low)
                 if _dg:
@@ -1358,11 +1357,8 @@ class MangaTranslator:
                     continue
                 if any(b in low for b in ban_substrings):
                     continue
-# تشخیصِ خودکارِ رایگان (v1.14.289): فهرستِ سیاهِ پولیها؛
-# مدلِ رایگانِ جدیدِ غیر-flash هرچه باشد خودش میآید (هیچ
-# نامِ دستی اینجا نیست).
-                if not gemini_model_is_free(short):
-                    continue
+# رایگان/پولی با نام تشخیص داده نمیشود (v1.14.290) —
+# سنجشِ زنده در _build_model_cascade خودش معلوم میکند.
 # نسلهایِ مردهٔ ۱/۲ — از کشف حذف
                 _dg = re.match(r"gemini-(\d+)", low)
                 if _dg:
@@ -1417,17 +1413,15 @@ class MangaTranslator:
     @staticmethod
     def _is_bad_list_model(name: str) -> bool:
         """ — صافیِ «فهرستِ مدلها» (فیلدِ وب / ↻ اندروید /
-        کشفِ زندهٔ API): فقط مدلهایِ رایگانِ ترجمه‌پذیر —
-        تشخیصِ خودکار با gemini_model_is_free (فهرستِ سیاهِ
-        پولیها: carbon/argon/pro/غیرمتنی = حذف؛ ناشناخته =
-        رایگان). هیچ نامِ مدلِ خاصی (مثلِ hydrogen) دستی اینجا
-        نیست — مدلِ رایگانِ جدیدِ گوگل هرچه باشد خودش پیدا
-        میشود (دستورِ v1.14.289). تایپِ دستیِ مدلهایِ دیگر
-        (argon/pro) در فیلدِ مدل آزاد است (_is_bad_translate_model
-        سرِ جایش است)."""
-        if MangaTranslator._is_bad_translate_model(name):
-            return True
-        return not gemini_model_is_free(name)
+        کشفِ زندهٔ API): فقط مدلهایِ ترجمه‌پذیرِ متن (غیرمتنیها و
+        نسلهایِ مردهٔ ۱/۲ حذف). رایگان/پولی و کتابی/محاوره‌ای با
+        «سنجشِ زنده» (gemini_style_probe_many — درخواستِ واقعیِ
+        کوچک به خودِ مدل) معلوم میشود، نه با نام (دستورِ
+        v1.14.290: «فقط اونای که اوکی خروجی میده نگه داره»؛
+        هیچ نامِ مدلِ خاصی — مثلِ hydrogen — در کد نیست).
+        تایپِ دستیِ مدلهایِ دیگر در فیلدِ مدل آزاد است
+        (_is_bad_translate_model سرِ جایش است)."""
+        return MangaTranslator._is_bad_translate_model(name)
 
     @staticmethod
     def _extract_suggested_model(err: Exception) -> Optional[str]:
@@ -1474,6 +1468,37 @@ class MangaTranslator:
         if discovered:
             discovered = [m for m in discovered if not self._is_bad_translate_model(m)]
             discovered = sorted(set(discovered), key=self._model_sort_key)
+
+# v1.14.290 — سنجشِ زندهٔ سبک/دسترسی (دستورِ سازنده: «فقط
+# اونای که اوکی خروجی میده نگه داره»): به هر مدلِ کشف‌شده یک
+# درخواستِ واقعیِ کوچک (۴ خطِ دیالوگِ محاوره‌ای) فرستاده
+# میشود؛ بی‌پاسخ (پولی/سهمیه/قطعی) یا جوابِ کتابی = حذف از
+# چرخ. نتیجه ۶ ساعت کش میشود — رفرش/فصلِ بعدی دوباره خرج
+# نمیکند. اگر سنجش ممکن نشد (کلید/شبکه) فهرستِ خام باقی
+# میماند و همان رفتارِ قبلیِ «خطا → مدلِ بعدی» کار میکند.
+            try:
+                _keys_txt = ""
+                try:
+                    _keys_txt = str(self._current_api_key() or "")
+                except Exception:
+                    _keys_txt = ""
+                if _keys_txt and len(discovered) > 1:
+                    _good, _res = gemini_style_probe_many(discovered, _keys_txt)
+                    if _good:
+                        _drop = [m for m in discovered if m not in _good]
+                        if _drop:
+                            print(
+                                f"[*] سنجشِ زندهٔ سبک: {len(_good)} مدلِ سالم "
+                                f"ماند؛ حذف شد: {'، '.join(_drop[:6])}"
+                                + ("…" if len(_drop) > 6 else ""))
+                        discovered = _good
+                    elif _res:
+                        print("[!] سنجشِ زنده: هیچ مدلی جوابِ سالم نداد — "
+                              "چرخِ خام همان رفتارِ «خطا → مدلِ بعدی» را دارد.")
+            except Exception as _pe:
+                print(f"[!] سنجشِ زندهٔ سبک انجام نشد ({str(_pe)[:80]}) — "
+                      "ادامه با فهرستِ خام.")
+
             print(
                 f"[*] {len(discovered)} مدل فعال از API | "
                 f"{' → '.join(discovered[:10])}{'…' if len(discovered) > 10 else ''}"
