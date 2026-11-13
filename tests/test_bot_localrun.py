@@ -36,6 +36,8 @@ assert called["leaked"] == [] and called["dialect"] == "egyptian"
 os.environ["FAKE_MODE"] = "seam"
 r = run_job("clean", inp, {"layout": "original"}, cfg=cfg)
 assert "--stitch-max-height" in r.log_path.parent.joinpath("argv.json").read_text() and r.stats["pages"] == 3
+os.environ["FAKE_MODE"] = "nocut"
+r = run_job("clean", inp, cfg=cfg); assert r.stats["pages"] == 3
 os.environ["FAKE_MODE"] = "fail"
 try: run_job("clean", inp, cfg=cfg); raise SystemExit("expected PipelineError")
 except PipelineError as e: assert "code 3" in str(e) and any("boom" in l for l in e.tail)

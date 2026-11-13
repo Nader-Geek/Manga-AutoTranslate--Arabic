@@ -26,7 +26,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 
 from . import stats as st
 from .config import Config, load_config
-from .runner import build_plan, build_typer_parts, inspect_upload
+from .runner import build_plan, build_typer_parts, inspect_upload, retry_options
 
 
 class PipelineError(RuntimeError):
@@ -120,12 +120,13 @@ def run_job(kind: str, input_path: "str | os.PathLike[str]", options: Optional[D
                 except Exception:
                     proc.kill()
 
-        seam = rc != 0 and not timed_out["v"] and any("--stitch-max-height 3600" in l for l in tail)
-        if seam and not retried and not job["options"].get("stitch_height"):
-            # "original pages" layout chained too many pages: use 3600px strips, as manga.py advises
+        fix = None
+        if rc != 0 and not timed_out["v"] and not retried:
+            fix = retry_options(job["options"], list(tail))
+        if fix:
             retried = True
-            print("[bot] retrying with --stitch-max-height 3600")
-            job["options"] = {**job["options"], "stitch_height": 3600, "layout": "strips"}
+            job["options"], note = fix
+            print("[bot] " + note)
             plan = build_plan(job, cfg)
             shutil.rmtree(plan.typer_dir, ignore_errors=True)
             lp = st.LogProgress(); tail.clear(); timed_out["v"] = False

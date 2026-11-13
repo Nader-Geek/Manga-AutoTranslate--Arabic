@@ -153,6 +153,8 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
     # "original" keeps the uploaded pages as separate files instead of manga.py's default
     # tall strips (--stitch-max-height 8000): smaller files, but bubbles that cross a page
     # seam are no longer repaired.
+    if opts.get("allow_forced_cut"):       # set by the automatic retry (no text-safe cut found)
+        argv.append("--allow-forced-cut")
     if opts.get("stitch_height"):          # set by the worker's automatic retry
         argv += ["--stitch-max-height", str(int(opts["stitch_height"]))]
     elif opts.get("layout") == "original":
@@ -504,3 +506,19 @@ def build_typer_parts(typer_dir: Path, out_dir: Path, limit_bytes: int) -> Tuple
         notes.append(f"الصفحات {first}–{last} قُسّمت إلى {len(groups)} ملفات TypeR مستقلة "
                      f"(استورد كل ملف على حدة).")
     return files, notes
+
+
+def retry_options(opts: Dict[str, Any], tail: List[str]) -> Optional[Tuple[Dict[str, Any], str]]:
+    """manga.py failed: if its last lines show a known, fixable layout error return
+    (new_options, Arabic note) for ONE automatic retry, else None."""
+    text = "\n".join(tail)
+    o = dict(opts or {})
+    if "--stitch-max-height 3600" in text and not o.get("stitch_height"):
+        o.update(stitch_height=3600, layout="strips")
+        return o, ("🔁 أُعيدت المعالجة تلقائياً بدمج الصفحات في شرائط 3600px "
+                   "(الصفحات الأصلية كانت متصلة النص بشكل طويل جداً).")
+    if "موضع قص آمن" in text and not o.get("allow_forced_cut"):
+        o.update(allow_forced_cut=True)
+        return o, ("🔁 أُعيدت المعالجة بقصّ إجباري: لا يوجد موضع قص خالٍ من النص في جزء طويل من الفصل، "
+                   "فقد ينقطع نص عند حدود بعض الشرائط — راجع النتيجة.")
+    return None

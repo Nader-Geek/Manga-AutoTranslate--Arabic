@@ -184,6 +184,12 @@ async def main():
     called = json.loads((Path(j["workdir"]) / "argv.json").read_text())["argv"]
     assert called[called.index("--stitch-max-height") + 1] == "3600"
     assert any("أُعيدت المعالجة" in x for x in nt.last("done")[4]), nt.last("done")[4]
+    # no text-safe cut anywhere (strips layout) -> retried with --allow-forced-cut and a warning note
+    os.environ["FAKE_MODE"] = "nocut"
+    j = await mkjob("clean"); r = await run_one(j)
+    assert r["status"] == "done", r["error"]
+    assert "--allow-forced-cut" in json.loads((Path(j["workdir"]) / "argv.json").read_text())["argv"]
+    assert any("قصّ إجباري" in x for x in nt.last("done")[4])
     os.environ["FAKE_MODE"] = "ok"
 
     # ------------------------------------------------------------- external host (gofile)

@@ -13,8 +13,8 @@ from . import stats as st
 from .hosting import UploadFailed, upload_gofile
 from .config import Config
 from .db import Database, Job
-from .runner import (ProcessHandle, UploadError, build_plan, build_typer_parts, run_plan,
-                     shrink_oversized_images, split_zip)
+from .runner import (ProcessHandle, UploadError, build_plan, build_typer_parts, retry_options,
+                     run_plan, shrink_oversized_images, split_zip)
 
 log = logging.getLogger("mangabot.worker")
 
@@ -158,16 +158,16 @@ class Worker:
             res = await run_plan(
                 plan, cwd=self.cfg.repo_root, log_path=wd / "run.log",
                 timeout_s=self.cfg.job_timeout_minutes * 60, on_line=on_line, handle=handle)
-            # "original pages" layout can chain pages that share text into one over-long image;
-            # manga.py then asks for --stitch-max-height 3600. Do that automatically, once.
-            if (res.returncode not in (0, None) and not res.cancelled and not res.timed_out
-                    and any("--stitch-max-height 3600" in l for l in res.tail)
-                    and not (job.get("options") or {}).get("stitch_height")):
-                log.info("job %s: retrying with --stitch-max-height 3600", jid)
-                retry_note.append("🔁 أُعيدت المعالجة تلقائياً بدمج الصفحات في شرائط 3600px "
-                                  "(الصفحات الأصلية كانت متصلة النص بشكل طويل جداً).")
-                job = {**job, "options": {**(job.get("options") or {}), "stitch_height": 3600,
-                                          "layout": "strips"}}
+            # a known layout error (pages chained too long / no text-safe cut) -> retry once
+            # with the fix manga.py itself suggests, and tell the user
+            fix = None
+            if res.returncode not in (0, None) and not res.cancelled and not res.timed_out:
+                fix = retry_options(job.get("options") or {}, res.tail)
+            if fix:
+                new_opts, note = fix
+                log.info("job %s: retrying (%s)", jid, note[:40])
+                retry_note.append(note)
+                job = {**job, "options": new_opts}
                 plan = build_plan(job, self.cfg)
                 shutil.rmtree(plan.typer_dir, ignore_errors=True)
                 lp = st.LogProgress()

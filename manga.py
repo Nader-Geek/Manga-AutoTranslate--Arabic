@@ -2255,6 +2255,7 @@ class MangaTranslator:
         active_tones: Optional[List[str]] = None,
         instruction_text: Optional[str] = None,
         repair_page_seams: bool = True,
+        allow_forced_cut: bool = False,
     ):
         self.fake_translate = bool(fake_translate)
         self.clean_only = bool(clean_only)
@@ -2354,6 +2355,7 @@ class MangaTranslator:
         self.stitch_short_threshold = int(stitch_short_threshold) if stitch_short_threshold else 0
         self.stitch_keep_first = bool(stitch_keep_first)
         self.repair_page_seams = bool(repair_page_seams)
+        self.allow_forced_cut = bool(allow_forced_cut)
         self.debug = bool(debug)
         self._last_debug_image = None  
 
@@ -9192,6 +9194,18 @@ html, body { background: #0a0a0b; }
                         strip, target, offset + min_strip, max_cut,
                         search_radius=ih, protected_ranges=protected,
                     )
+                if cut_y is None and self.allow_forced_cut and \
+                        (ih - offset) > max(32000, work_h * 8):
+                    # no text-safe cut anywhere in a very long run: instead of failing the whole
+                    # chapter, cut at the quietest row near the target (ignoring protected ranges)
+                    cut_y = self._find_safe_cut_y(
+                        strip, target, offset + min_strip, max_cut,
+                        search_radius=lookahead, protected_ranges=[],
+                    )
+                    if cut_y is None:
+                        cut_y = min(max_cut, target)
+                    print(f"    [!] لا يوجد موضع قص آمن؛ قصّ إجباري عند y={cut_y} "
+                          "(قد ينقطع نص عند هذا الحد)")
                 if cut_y is None:
                     break
                 bounds = [b - offset for b in current_bounds if offset < b < cut_y]
@@ -10115,6 +10129,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--stitch-max-height", type=int, default=8000,
                    help="0 = بدون إعادة قص للارتفاع (يبقى إصلاح حدود النص مفعّلًا). رقم آخر = الارتفاع التقريبي المستهدف للشريط؛ "
                          "وللحفاظ على النص والفقاعة قد تصبح المخرجات أطول")
+    p.add_argument("--allow-forced-cut", action="store_true",
+                   help="عند عدم وجود موضع قص آمن لشريط طويل جدًا: قصّ إجباري بدل إيقاف المعالجة (قد ينقطع نص عند الحد)")
     p.add_argument("--no-seam-repair", action="store_true",
                    help="مع ارتفاع قص 0، أوقف أيضًا الإصلاح التلقائي للنص المشترك بين صورتين (قد ينقسم النص إلى نصفين)")
     p.add_argument("--stitch-short-threshold", type=int, default=0,
@@ -10291,6 +10307,7 @@ def main():
         stitch_short_threshold=args.stitch_short_threshold,
         stitch_keep_first=not args.no_stitch_keep_first,
         repair_page_seams=not bool(getattr(args, "no_seam_repair", False)),
+        allow_forced_cut=bool(getattr(args, "allow_forced_cut", False)),
         debug=bool(getattr(args, "debug", False)),
         glossary_path=getattr(args, "glossary", None),
         story_brief=not getattr(args, "no_brief", False),
