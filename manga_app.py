@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.294"
+APP_VER = "1.14.295"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -7196,8 +7196,20 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
               if (k) setVal(k, d.keys);
             }}
             if (d.model) {{
-              const m = byId("manga_model");
-              if (m) setVal(m, d.model);
+              // v1.14.295 — بازیابیِ مدل از localStorage: زبالهٔ سریالایز
+              // (بک‌اسلش/دکمه/براکتِ چسبیده به اسمِ مدل — باگِ قدیمیِ repr)
+              // همینجا پاک میشود تا فیلدِ مدل همیشه تمیز دیده شود و به
+              // درخواستها هم نرود.
+              const mRaw = String(d.model || "");
+              const mClean = mRaw.replace(/[\\'"\[\]{{}}()<>]+/g, "")
+                                 .replace(/\s+/g, " ").trim();
+              if (mClean) {{
+                const m = byId("manga_model");
+                if (m) setVal(m, mClean);
+                if (mClean !== mRaw) {{
+                  try {{ d.model = mClean; localStorage.setItem(KEY, JSON.stringify(d)); }} catch (e) {{}}
+                }}
+              }}
             }}
           }}
         }}

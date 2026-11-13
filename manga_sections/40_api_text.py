@@ -588,18 +588,33 @@ def gemini_style_probe_many(models, keys_text, timeout: float = 24.0,
             if (results.get(m) or {}).get("verdict") == "ok"]
     return good, results
 
+def _clean_model_token(m: str) -> str:
+    """پاکسازیِ یک نامِ مدل از زبالهٔ سریالایز (v1.14.295):
+    رشتهٔ مدلِ کاربر گاهی از مسیرِ localStorage/JSON دوباره
+    اسکیپ میشود — بک‌اسلش/دکمه/براکت به اسمِ مدل میچسبد (تستِ
+    زندهٔ کاربر: فال‌بکِ مدلِ خراب). نامِ مدلِ واقعی فقط از
+    حروف/رقم/نقطه/خط/کُلون/اسلِش ساخته میشود؛ هر چیزِ دیگر
+    (بک‌اسلش، دکمه، براکت، پرانتز) حذف میشود."""
+    m = re.sub(r"[\\'\"\[\]{}()<>]+", "", str(m or ""))
+    m = m.strip().strip(",").strip()
+    m = re.sub(r"\s+", " ", m).strip()
+    return m.strip()
+
 def parse_model_list(raw: str) -> List[str]:
     """رشتهٔ «چند مدلِ» کاربر را به فهرستِ تمیز تبدیل میکند.
     جداکننده: کاما / خطِ نو / فاصله / سمی‌کلون — مثال:
       'gemini-3.5-flash-lite, gemini-3.1-flash-lite'
-      'gpt-4o-mini,deepseek-chat'"""
+      'gpt-4o-mini,deepseek-chat'
+    v1.14.295 — هر توکن از زبالهٔ سریالایز (repr پایتونی/اسکیپِ
+    تکراریِ JSON: بک‌اسلش، دکمه، براکت، پرانتز) پاک میشود تا
+    اسمِ مدلِ خراب به چرخِ فال‌بک نرود."""
     if isinstance(raw, (list, tuple)):
         items = [str(x) for x in raw]
     else:
         items = re.split(r"[\s,;\n]+", str(raw or ""))
     out: List[str] = []
     for m in items:
-        m = m.strip().strip('"').strip("'")
+        m = _clean_model_token(m)
         if m and m not in out:
             out.append(m)
     return out

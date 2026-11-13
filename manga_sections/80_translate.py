@@ -179,6 +179,20 @@ class _MangaTranslatorBody_80:
                           "your best interpretation of the intended dialogue. "
                           "Placeholders and refusals are strictly forbidden.")
 
+# v1.14.295 — بندِ تقویتیِ ضدِکتابی: وقتی سدِ سبک ترجمههایِ کتابی
+# را بی‌اثر کرد و دورِ مجدد شروع شد، این بند به پرامپت میچسبد تا
+# مدل بداند پاسخِ قبلی رسمی/نوشتاری بوده و این بار باید گفتاری باشد.
+    _STYLE_RETRY_NOTE = ("\r\n\r\nSTYLE RETRY NOTE: A previous attempt for "
+                         "this chapter came back formal/bookish Persian "
+                         "(\u0645\u06cc\u200c\u0628\u0627\u0634\u062f, "
+                         "\u0622\u06cc\u0627, \u0628\u0646\u0627\u0628\u0631\u0627\u06cc\u0646\u061b). "
+                         "That register is WRONG for spoken comic dialogue. "
+                         "Rewrite the blocks below in natural, spoken, "
+                         "colloquial Persian — the way people actually talk "
+                         "(\u0645\u06cc\u200c\u062e\u0648\u0645, \u0645\u06cc\u200c\u062a\u0648\u0646\u0645, "
+                         "\u0628\u0631\u06cc\u0645, \u0646\u0645\u06cc\u200c\u062f\u0648\u0646\u0645). "
+                         "Formal/bookish wording is strictly forbidden.")
+
     @classmethod
     def _is_censored_translation(cls, fa: str) -> bool:
         """— پاسخِ «جای‌نگهدار/انکار» مترجم (دستورِ سازنده — v1.14.262):
@@ -861,7 +875,11 @@ class _MangaTranslatorBody_80:
     def _note_style_samples(self, regions) -> None:
         """برداشتِ نمونه‌هایِ سبک از ترجمه‌هایِ تازهٔ همین فصل (سقفِ ۲۴).
         بعد از هر دورِ ترجمه صدا میشود؛ ذخیره رویِ self میماند تا
-        پسگیریها/دورهایِ بعدی و ادامهٔ کار بعد از توقف هم لنگر داشته باشند."""
+        پسگیریها/دورهایِ بعدی و ادامهٔ کار بعد از توقف هم لنگر داشته باشند.
+        v1.14.295 — نمونهٔ «کتابی» هرگز لنگر نمیشود: اگر پاسخِ اولِ
+        مدل کتابی باشد و بی‌فیلتر داخلِ لنگر بنشیند، دورهایِ بعدی
+        هم عیناً کتابی تقلید میکنند (ریشهٔ «یهو کلِ فصل کتابی میشه»)؛
+        فقط نمونهٔ محاوره‌ای/خنثی میماند."""
         try:
             store = getattr(self, "_chapter_style_samples", None)
             if store is None:
@@ -879,6 +897,8 @@ class _MangaTranslatorBody_80:
                     continue
                 if len(fa) < 4 or len(fa) > 200 or len(src) > 200:
                     continue
+                if self._fa_style_verdict(fa) == "bookish":
+                    continue
                 key = (src, fa)
                 if key in seen:
                     continue
@@ -888,6 +908,63 @@ class _MangaTranslatorBody_80:
                 del store[:len(store) - 24]
         except Exception:
             pass
+
+    @staticmethod
+    def _fa_style_verdict(text: str) -> str:
+        """حکمِ سبکِ یک متنِ فارسی: ok (محاوره‌ای/خنثی) یا bookish
+        (v1.14.295). از همان نشانه‌های سنجشِ زندهٔ مدل
+        (40_api_text) استفاده میکند — نیم‌فاصله نرمال میشود تا
+        «می‌خواهم» و «میخواهم» هر دو گرفته شوند. خنثیِ بی‌نشانه
+        اوکی است (تقصیرِ مدل نیست)."""
+        try:
+            verdict, _bk, _cs = _gemini_probe_score(str(text or ""))
+            return verdict
+        except Exception:
+            try:
+                norm = str(text or "").replace("\u200c", "").replace("\u200f", "")
+                _b = sum(1 for m in ("می‌باشد", "می‌باشند", "آیا", "بنابراین",
+                                     "می‌گردد", "می‌بایست", "خواهد بود")
+                         if m.replace("\u200c", "") in norm)
+                _c = sum(1 for m in ("می‌خوام", "می‌تونم", "بریم", "بذار",
+                                     "نمی‌دونم", "خب", "وای")
+                         if m.replace("\u200c", "") in norm)
+                return "bookish" if (_b >= 2 or (_b and not _c)) else "ok"
+            except Exception:
+                return "ok"
+
+    def _style_retry_bookish(self, regions) -> bool:
+        """سدِ سبکِ دورِ ترجمه (v1.14.295 — «بعضی وقتا یهو کتابی
+        میشه»): ترجمه‌هایِ تازه سنجیده میشوند؛ اگر بهاندازهٔ مشکل
+        واقعی (دو یا بیشتر، یا بیش از ۲۵٪) کتابی بودند همانها
+        بی‌اثر میشوند تا دورِ بعدی/نجات با لنگرِ سالم + بندِ
+        تقویتی دوباره پرسیده شوند. فقط یکبار در هر فصل. True =
+        چیزی پاک شد و باید دوباره پرسیده شود."""
+        if getattr(self, "_style_retried", False):
+            return False
+        done = [r for r in (regions or [])
+                if str(getattr(r, "translated_text", "") or "").strip()]
+        if not done:
+            return False
+        bad = []
+        for r in done:
+            try:
+                if self._fa_style_verdict(r.translated_text) == "bookish":
+                    bad.append(r)
+            except Exception:
+                pass
+        _need = max(2, int(round(len(done) * 0.25)))
+        if not bad or len(bad) < _need:
+            return False
+        self._style_retried = True
+        self._style_retry_mode = True
+        for r in bad:
+            try:
+                r.translated_text = ""
+            except Exception:
+                pass
+        print(f"    [!] سبک: {len(bad)}/{len(done)} ترجمه کتابی آمد — "
+              f"دوباره با لنگرِ محاوره‌ای پرسیده میشوند.")
+        return True
 
     def translate_regions(self, regions: List[TextRegion]) -> None:
         _raise_if_stop()
@@ -1048,6 +1125,17 @@ class _MangaTranslatorBody_80:
 # پسگیریها (با مدل/توکنِ دیگر) همان لحن را نگه دارند — «یوهو
 # کتابی میشه» دیگر نه؛ حتی وقتی همه در دورِ اول تمام شد
             self._note_style_samples(regions)
+# v1.14.295 — سدِ سبک در خودِ دورِ ترجمه: اگر پاسخِ مدل
+# «کتابی» درآمد (می‌باشد/آیا/بنابراین…) همان ترجمهها را
+# بی‌اثر میکند تا دورِ بعدی با لنگرِ سالم + بندِ تقویتیِ
+# ضدِکتابی دوباره پرسیده شوند (ریشهٔ «یهو کتابی میشه»: پاسخِ
+# اولِ مدلِ فال‌بک). فقط یکبار در هر فصل — حلقه بی‌نهایت نیست.
+            try:
+                if self._style_retry_bookish(regions):
+                    pending = [r for r in regions
+                               if not (r.translated_text or "").strip()]
+            except Exception:
+                pass
             if not pending:
                 break
             if round_i < 3:
@@ -1118,9 +1206,13 @@ class _MangaTranslatorBody_80:
             _sref = self._style_ref_samples()
             _out = mt_user_prompt(rules, pages, _jp, style_ref=_sref)
 # دورِ مجدد (پس از ردِ [CENSORED] یا بی‌پاسخی): بندِ ضدِ فیک —
-# «متن خامِ OCR است، رد نکن، حدسِ معنایی بزن»
+# «متن خامِ OCR است، رد نکن، حدسِ معنایی بزن"
             if _attempt_cell[0] > 1:
                 _out += self._CENSOR_RETRY_NOTE
+# دورِ مجددِ سبکی (v1.14.295): پاسخِ قبلی کتابی بود — این بار
+# گفتاری/محاوره‌ای بخواه
+            if getattr(self, "_style_retry_mode", False):
+                _out += self._STYLE_RETRY_NOTE
             return _out
 
         for attempt in range(1, self.max_retries + 1):
