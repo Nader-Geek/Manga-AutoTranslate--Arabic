@@ -9570,9 +9570,106 @@ class _MangaTranslatorBody_85:
                           f"عکسِ دوم = خروجیِ نهایی")
             except Exception:
                 pass
+# ── فیدرِ گوشهها (v1.14.291 — دستورِ سازنده: «یک کم چهار گوشه
+# فقط گوشش خیلی کوچک openvc بزنه یکجور نشون نده انتقال داده
+# شده»): هر پچِ منتقل‌شده (مؤلفهٔ ماسکِ کامپوز) در چهار گوشهٔ
+# جعبه‌اش یک بلورِ خیلی کوچکِ OpenCV میگیرد تا درزِ «برش →
+# انتقال» به چشم نیاید. قواعد:
+#   • اندازهٔ گوشه = ~۱۲px (سقفِ یک‌ششمِ عرض/ارتفاعِ پچ)
+#   • فقط داخلِ هالهٔ ۲۵px اطرافِ ماسک (چکِ قراردادِ CI همان
+#     حلقه را مستثنا میکند — بیرونِ آن هر پیکسلی دست نمیخورد)
+#   • دیوارِ حباب/نقشهٔ protect/هنر سرِ جایشان
+            try:
+                if os.environ.get("MANGA_CORNER_FEATHER", "1") != "0" \
+                        and _out is not None \
+                        and _out.ndim == 3 and _cmp.any():
+                    _nF = self._compose_corner_feather(_out, _cmp)
+                    if _nF and verbose:
+                        print(f"  [✓] فیدرِ گوشه: {_nF} پچ "
+                              f"بلورِ کوچک گرفت")
+            except Exception:
+                pass
             return _out
         except Exception:
             return donor
+
+    def _compose_corner_feather(self, out: np.ndarray,
+                                cmp_mask: np.ndarray) -> int:
+        """فیدرِ گوشهها (v1.14.291) — بلورِ خیلی کوچکِ OpenCV در
+        چهار گوشهٔ هر پچِ منتقل‌شدهٔ دو-عکسی (دستورِ سازنده:
+        «یک کم چهار گوشه فقط گوشش خیلی کوچک openvc بزنه یکجور
+        نشون نده انتقال داده شده»).
+        قواعد:
+          • گوشه = مربعِ ~۱۲px روی رأسِ جعبهٔ مؤلفه، نیمه-بیرون/
+            نیمه-داخل (درزِ انتقال همان گوشههای پچ است)
+          • فقط داخلِ هالهٔ ۲۵px اطرافِ ماسکِ کامپوز (حلقه‌ای که
+            چکِ قراردادِ CI مستثنا میکند — قراردادِ «بیرون = \
+            اورجینال» سالم میماند)
+          • دیوارِ حباب/قابِ رنگی/protect/هنرِ سرِ جایشان —
+            گوشهها فقط روی زمینه‌های صافِ پیرامونِ متن
+          • مؤلفه‌های خیلی ریز (<۶۰px) که گوشه‌شان معنا ندارد رد
+        خروجی: تعدادِ پچهایِ بلور-گرفته (۰ = هیچ)."""
+        try:
+            if out is None or cmp_mask is None or out.ndim != 3:
+                return 0
+            h, w = cmp_mask.shape[:2]
+            if h < 40 or w < 40:
+                return 0
+            m8 = (cmp_mask > 0).astype(np.uint8)
+# هالهٔ مجاز = دیلیتِ ۲۵px دورِ ماسک — تنها ناحیه‌ای که چکِ
+# قراردادِ دو-عکسی از آن چشم میپوشد
+            halo = cv2.dilate(m8, np.ones((25, 25), np.uint8)) > 0
+# نواحیِ ممنوع: دیوارِ حباب + قابِ رنگی + نقشهٔ protect
+            forbid = np.zeros((h, w), bool)
+            for attr in ("_page_wall_band",):
+                bw = getattr(self, attr, None)
+                if bw is not None and np.asarray(bw).shape == (h, w):
+                    forbid |= (np.asarray(bw) > 0)
+            ppC = getattr(self, "_page_protect", None)
+            if ppC is not None and np.asarray(ppC).shape == (h, w):
+                forbid |= (np.asarray(ppC) > 0)
+            pcC = getattr(self, "_page_colored_protect", None)
+            if pcC is not None and np.asarray(pcC).shape == (h, w):
+                forbid |= (np.asarray(pcC) > 0)
+            n_cc, labels, stats, _ = cv2.connectedComponentsWithStats(
+                m8 * 255, 8)
+            did = 0
+            for j in range(1, n_cc):
+                x, y, bw_, bh_ = (int(stats[j, cv2.CC_STAT_LEFT]),
+                                  int(stats[j, cv2.CC_STAT_TOP]),
+                                  int(stats[j, cv2.CC_STAT_WIDTH]),
+                                  int(stats[j, cv2.CC_STAT_HEIGHT]))
+                area = int(stats[j, cv2.CC_STAT_AREA])
+                if area < 48 or bw_ < 20 or bh_ < 14:
+                    continue
+                s = int(min(12, max(5, bw_ // 8, bh_ // 6)))
+                if s < 4:
+                    continue
+                sub = (labels == j)
+                for (cx, cy) in ((x, y), (x + bw_, y),
+                                 (x, y + bh_), (x + bw_, y + bh_)):
+                    x0 = max(0, min(w - 1, cx - s))
+                    x1 = max(0, min(w, cx + s))
+                    y0 = max(0, min(h - 1, cy - s))
+                    y1 = max(0, min(h, cy + s))
+                    if x1 - x0 < 6 or y1 - y0 < 6:
+                        continue
+                    win = halo[y0:y1, x0:x1] & (~forbid[y0:y1, x0:x1])
+                    if not win.any():
+                        continue
+# گوشه باید «کنارِ ماسک» باشد (درز واقعی)، نه وسطِ پچ
+                    subw = sub[y0:y1, x0:x1]
+                    if not (win & ~subw).any():
+                        continue
+                    roi = out[y0:y1, x0:x1]
+                    blur = cv2.GaussianBlur(roi, (0, 0), 1.6)
+                    m3 = win[..., None]
+                    out[y0:y1, x0:x1] = np.where(
+                        m3, blur.astype(out.dtype), roi)
+                did += 1
+            return did
+        except Exception:
+            return 0
 
     def _fill_system_box_interiors(self, image: np.ndarray,
                                    regions: List[TextRegion],
