@@ -1466,6 +1466,26 @@ class MainActivity : AppCompatActivity() {
         prow.addView(btn, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+// ↗ «دریافت توکن» (دستورِ v1.14.292: «توکن گرفتن فقط فلش بزاری
+// کافیه و کوچک کن کنار مدل ai بیاد نه پایینش»): دکمهٔ کوچکِ
+// فقط-فلشِ چسبیده به خودِ منو (همان ژستِ ✖)؛ کلیک = سایتِ توکنِ
+// همان انتخاب در مرورگر باز میشود — gemini/auto → aistudio.google
+// .com/docs/api-key؛ custom → مبدأِ دامنهٔ فیلد؛ مدلِ ذخیره‌شده →
+// مبدأِ دامنهٔ خودِ همان سرویس («فقط سایتشون بیاره بالا»).
+        val tok = Button(this).apply {
+            text = "↗"
+            setTextColor(Color.parseColor("#ffd28a")); textSize = 13f
+            background = rounded(Color.TRANSPARENT, 999, 1,
+                Color.parseColor("#66ffd28a"))
+            setPadding(dp(10), dp(2), dp(10), dp(2))
+            stateListAnimator = null
+            minWidth = 0
+            minimumWidth = 0
+        }
+        tok.setOnClickListener { openTokenSite() }
+        prow.addView(tok, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
         val del = Button(this).apply {
             text = "✖"
             setTextColor(Color.parseColor("#ff7b7b")); textSize = 13f
@@ -1578,6 +1598,51 @@ class MainActivity : AppCompatActivity() {
         btn.visibility = if (mine) View.VISIBLE else View.GONE
     }
 
+// ↗ «دریافت توکن» — سایتِ توکنِ همان انتخاب در مرورگر باز میشود:
+// gemini/auto/خالی → سایتِ رسمیِ Gemini؛ custom → مبدأِ دامنهٔ فیلدِ
+// همین صفحه؛ مدلِ نامی → مبدأِ دامنهٔ ذخیرهشدهٔ همان مدل؛ بدونِ
+// دامنه → سایتِ Gemini (پیشفرضِ امن).
+    private fun openTokenSite() {
+        val gem = "https://aistudio.google.com/docs/api-key"
+        val cur = (values[providerFieldId]
+            ?: prefs.getString(providerFieldId, null))?.toString()?.trim() ?: ""
+        var url = gem
+        try {
+            if (cur == "custom") {
+                val b = fieldText("manga_api_base", "api_base").trim()
+                url = originOf(b) ?: gem
+            } else if (cur.isNotEmpty() && cur != "gemini" && cur != "auto") {
+                val m = cmLoad().firstOrNull { it.optString("name") == cur }
+                val b = m?.optString("api_base")?.trim() ?: ""
+                url = originOf(b) ?: gem
+            }
+        } catch (e: Exception) {
+            url = gem
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            Toast.makeText(this, "مرورگر باز نشد — $url",
+                Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun originOf(raw: String): String? {
+        var s = raw.trim()
+        if (s.isEmpty()) return null
+        if (!s.startsWith("http://") && !s.startsWith("https://")) s = "https://$s"
+        return try {
+            val u = java.net.URI(s)
+            val sch = u.scheme ?: "https"
+            val host = u.host ?: return null
+            val dfltPort = if (sch == "https") 443 else 80
+            val port = if (u.port > 0 && u.port != dfltPort) ":${u.port}" else ""
+            if (host.isBlank()) null else "$sch://$host$port"
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 // رویِ «auto» هیچ فیلدی برایِ واردکردن نمیماند
     // → دکمهٔ «+ افزودن» و راهنما فقط رویِ custom؛ «دامنهٔ API» هم
 // فقط رویِ custom؛ رویِ مدلِ نامی فیلدها پنهان میشوند و مشخصاتِ ذخیره
@@ -1642,6 +1707,7 @@ class MainActivity : AppCompatActivity() {
             var offline = false
             var models: List<String> = emptyList()
             var err = ""
+            var probe = ""
             try {
                 val payload = JSONObject().apply {
                     put("provider", "gemini")
@@ -1653,6 +1719,7 @@ class MainActivity : AppCompatActivity() {
                 if (r.optBoolean("ok")) {
                     val arr = r.optJSONArray("models")
                     offline = r.optBoolean("offline")
+                    probe = r.optString("probe")
                     models = (0 until (arr?.length() ?: 0))
                         .mapNotNull { arr?.optString(it) }.filter { it.isNotBlank() }
                 } else {
@@ -1663,6 +1730,7 @@ class MainActivity : AppCompatActivity() {
             }
             val list = models
             val error = err
+            val probeNote = probe
             runOnUiThread {
                 if (list.isEmpty()) {
                     Toast.makeText(this@MainActivity,
@@ -1675,6 +1743,8 @@ class MainActivity : AppCompatActivity() {
 // چند-انتخابی (دستورِ سازنده: «بتونن چند تا مدل بدن»):
 // چند مدل = فال‌بکِ خودکار در موتور؛ انتخابها با کاما در کادر
 // مینشینند. مدلهایِ انتخابشده = همان ترتیبِ لمس.
+// v1.14.292 — عنوان، آمارِ «سنجشِ زندهٔ سبک» را هم نشان میدهد
+// (فقط مدلهایِ سالم در لیستند؛ کتابی/بی‌پاسخ حذف شدهاند).
                 val picked = LinkedHashSet<String>()
                 val curSet = et.text.toString().split(",")
                     .map { it.trim() }.filter { it.isNotBlank() }
@@ -1683,7 +1753,10 @@ class MainActivity : AppCompatActivity() {
                     (if (picked.contains(m)) "✓ " else "") + m
                 }.toTypedArray()
                 AlertDialog.Builder(this)
-                    .setTitle("مدلها (${list.size})${if (offline) " — آفلاین (اتصال/کلید برقرار نشد)" else ""} — یکی یا چند مدل (فال‌بکِ خودکار)")
+                    .setTitle("مدلها (${list.size})" +
+                        (if (offline) " — آفلاین (اتصال/کلید برقرار نشد)" else "") +
+                        (if (probeNote.isNotBlank()) " — $probeNote" else "") +
+                        " — یکی یا چند مدل (فال‌بکِ خودکار)")
                     .setMultiChoiceItems(names, list.map { picked.contains(it) }.toBooleanArray()) { _, w, isChecked ->
                         val m = list[w]
                         if (isChecked) picked.add(m) else picked.remove(m)

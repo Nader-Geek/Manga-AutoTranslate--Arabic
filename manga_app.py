@@ -1555,6 +1555,22 @@ div.styler{background:transparent !important;border:none !important;
   transition:all .15s ease}
 #manga_cm_del_btn:hover{background:rgba(255,70,70,.18) !important;color:#ff4d4d !important}
 #manga_cm_del_btn:active{transform:scale(.94)}
+/* ↗ «دریافت توکن» (دستورِ v1.14.292: «فقط فلش بزاری کافیه و کوچک
+   کن کنار مدل ai بیاد نه پایینش»): دکمهٔ فقط-فلشِ ۳۰×۳۰ — همان ژستِ
+   ✖، همترازِ خودِ منو؛ ردیفِ منو هرگز نمی‌شکند تا در موبایل فلش
+   زیرِ منو نیفتد. متنِ راهنما در tooltip (aria-label) میآید. */
+#manga_provider_row{flex-wrap:nowrap !important}
+#manga_provider_row > *{min-width:0 !important}
+#manga_token_btn{max-width:30px !important;min-width:30px !important;
+  width:30px !important;height:30px !important;min-height:30px !important;
+  max-height:30px !important;
+  flex:none !important;align-self:flex-end !important;
+  background:transparent !important;border:1px solid rgba(255,210,138,.4) !important;
+  border-radius:999px !important;color:#ffd28a !important;font-size:.95rem !important;
+  line-height:1 !important;padding:0 !important;margin:0 0 16px 0 !important;
+  transition:all .15s ease}
+#manga_token_btn:hover{background:rgba(255,210,138,.14) !important;color:#ffd28a !important}
+#manga_token_btn:active{transform:scale(.94)}
 /* فیلدِ کلید از سمتِ سرور type="password"
    است (پیشفرضِ مخفی) و دکمهٔ 👁 داخلِ فیلد آن را نشان/مخفی میکند */
 #manga_api_keys .wrap, #manga_api_keys .input-container{position:relative !important}
@@ -5934,11 +5950,13 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
 # ↗ «دریافت توکن» (دستورِ v1.14.291: «کنار انتخاب ai یک دکمه فلش بزار
 # وقتی زدن بهش وارد سایت توکن گرفتن بشن هم مدل gemini هم مدل دستی ست
 # شده اونای ک دستی ست شده سیو شده فقط سایتشون بیاره بالا؛ جمنای بره
-# سایت اصلیش»): کلیک = همان ژستِ کاربر → سایتِ توکنِ همان انتخاب در
-# تبِ جدید باز میشود (Gemini → aistudio.google.com/docs/api-key؛
-# custom/مدلِ ذخیره‌شده → سایتِ خودش = مبدأِ دامنهٔ ذخیرهشده).
+# سایت اصلیش» + v1.14.292: «فقط فلش بزاری کافیه و کوچک کن کنار مدل ai
+# بیاد نه پایینش»): دکمهٔ فقط-فلشِ ۳۰×۳۰ چسبیده به خودِ منو (CSS)؛
+# کلیک = همان ژستِ کاربر → سایتِ توکنِ همان انتخاب در تبِ جدید باز
+# میشود (Gemini → aistudio.google.com/docs/api-key؛ custom/مدلِ
+# ذخیره‌شده → سایتِ خودش = مبدأِ دامنهٔ ذخیرهشده).
                 token_btn = gr.Button(
-                    TX("app.get_token", "↗ توکن"), variant="secondary",
+                    TX("app.get_token", "↗"), variant="secondary",
                     scale=0, elem_id="manga_token_btn")
 # مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدلِ هوش/
 # کلیدِ ماسکشده) — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
@@ -7352,6 +7370,23 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
           {{ childList: true, subtree: true }});
       }} catch (e) {{}}
     }}
+  }} catch (e) {{}}
+
+  // ↗ «دریافت توکن» — دکمهٔ فقط-فلش است (v1.14.292)؛ متنِ راهنما
+  // در tooltip/aria-label میآید تا کارِ دکمه بدونِ برچسب معلوم بماند.
+  try {{
+    const attachTokTip = () => {{
+      const root = document.getElementById("manga_token_btn");
+      const el = root ? (root.tagName === "BUTTON" ? root
+        : root.querySelector("button")) : null;
+      if (el && !el.dataset.mangaTokTip) {{
+        el.dataset.mangaTokTip = "1";
+        el.title = "دریافت توکن — سایتِ همان انتخاب (Gemini → aistudio؛ سرویسِ دلخواه → سایتِ خودش)";
+        el.setAttribute("aria-label", el.title);
+      }}
+    }};
+    attachTokTip();
+    [300, 1500, 5000].forEach((t) => setTimeout(attachTokTip, t));
   }} catch (e) {{}}
 
   return [];

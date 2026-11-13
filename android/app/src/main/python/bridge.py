@@ -278,6 +278,15 @@ def _defaults(mf):
             elif f.get("id") == "clean_method":
                 if f.get("default") not in ("lama-manga", "lama-big", "opencv"):
                     f["default"] = "lama-manga"
+# v1.14.292 — فیلدِ مدل از همان اول با فهرستِ پیشفرض پُر میشود (دستورِ
+# سازنده: «پیشفرض هم همچنین وارد شده باشه خالی نشون نده؛ طرف بفهمه
+# چجور وارد شده» — عینِ وبِ v1.14.288/291؛ استخراجِ گرادیو مقدارِ
+# شرطیِ فیلد را خالی میداد → رویِ گوشی کادرِ مدل خالی میآمد).
+            elif f.get("id") in ("manga_model", "model"):
+                cur = f.get("default")
+                cur = cur.get("default") if isinstance(cur, dict) else cur
+                if not (isinstance(cur, str) and cur.strip()):
+                    f["default"] = ",".join(_gemini_offline_models())
 
 def _bundled_source(name):
 
@@ -1504,6 +1513,8 @@ def _gemini_offline_models():
             return list(lst)
     except Exception:
         pass
+# عینِ فهرستِ موتور (v1.14.291 — دستورِ سازنده)؛ فقط فالِبکِ
+# قطعیِ import است.
     return [
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
@@ -1511,6 +1522,7 @@ def _gemini_offline_models():
         "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
+        "gemini-3.5-flash",
         "gemini-3-flash-preview",
     ]
 
@@ -1522,6 +1534,11 @@ def list_models(params_json):
      — فال‌بکِ آفلاین: اگر گرفتنِ فهرستِ زندهٔ Gemini نشد
     (اینترنت/کلید)، لیستِ هاردکدِ داخلِ کد با پرچمِ offline=true
     برمیگردد (دستور: «اگ اپدیتی چیزی شد خودشون رفرش میزنن»).
+    v1.14.292 — «سنجشِ زندهٔ سبک» عینِ وب (v1.14.290): هر مدلِ زندهٔ
+    یافتشده یک درخواستِ واقعیِ کوچک میگیرد؛ کتابی/بی‌پاسخ کنار
+    میرود و فقط مدلهایِ «اوکی» برمیگردند + آمار در "probe"
+    («X مدلِ سالم از Y؛ حذف: N کتابی، M بی‌پاسخ») برای عنوانِ
+    دیالوگِ گوشی. همه-error → فهرستِ خام؛ هیچ-سالم → آفلاین.
     """
     try:
         p = json.loads(params_json or "{}")
@@ -1540,6 +1557,34 @@ def list_models(params_json):
         models = models or []
     except Exception as e:
         err = str(e)
+# ── سنجشِ زندهٔ سبک (فقط gemini + کلید + فهرستِ زنده) ──
+    probe = ""
+    if provider == "gemini" and models and keys.strip():
+        good, res = [], {}
+        try:
+            from manga import gemini_style_probe_many as _pm
+            good, res = _pm(models, keys)
+        except Exception:
+            good, res = [], {}
+        if good:
+            _n_all = len(models)
+            _bk = sum(1 for r in (res or {}).values()
+                      if (r or {}).get("verdict") == "bookish")
+            _er = sum(1 for r in (res or {}).values()
+                      if (r or {}).get("verdict") == "error")
+            models = good
+            probe = ("سنجشِ زنده: %d مدلِ سالم (محاوره‌ای ✓) از %d؛ "
+                     "حذف: %d کتابی، %d بی‌پاسخ (پولی/سهمیه)"
+                     % (len(good), _n_all, _bk, _er))
+        elif res:
+            _n_err = sum(1 for r in (res or {}).values()
+                         if (r or {}).get("verdict") == "error")
+            if _n_err >= len(res):
+# همهٔ سنجشها خطا (شبکه/سهمیه در همین لحظه) — فهرستِ خامِ زنده
+                probe = "سنجشِ زنده در همین لحظه جواب نداد — فهرستِ خام"
+            else:
+# سنجش اجرا شد ولی هیچ سالمی نبود → آفلاین (شاخهٔ پایین)
+                models = []
     if not models and provider == "gemini":
         return json.dumps(
             {"ok": True, "models": _gemini_offline_models(),
@@ -1547,5 +1592,5 @@ def list_models(params_json):
             ensure_ascii=False)
     return json.dumps(
         {"ok": bool(models), "models": models,
-         "error": str(err or "")},
+         "error": str(err or ""), "probe": probe},
         ensure_ascii=False)

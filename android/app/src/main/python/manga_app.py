@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.287"
+APP_VER = "1.14.289"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -578,7 +578,7 @@ def _model_str(v) -> str:
     """مقدارِ فیلدِ مدل (دراپ‌داونِ چند-انتخابیِ جدید یا رشتهٔ قدیمی)
     به رشتهٔ تمیزِ «کاما-جدا» تبدیل میشود — همهٔ مصرفکنندهها
     (CLI/امضا/نمایش/بکاپ) همین را میبینند. مثال:
-      ['gemini-3.8-flash', 'gemini-4-hydrogen'] → 'gemini-3.8-flash,gemini-4-hydrogen'
+      ['gemini-3.8-flash', 'gemini-3.5-flash-lite'] → 'gemini-3.8-flash,gemini-3.5-flash-lite'
       'gpt-4o-mini, deepseek-chat'              → 'gpt-4o-mini,deepseek-chat'
       [] / '' / None                             → ''"""
     if v is None:
@@ -608,11 +608,11 @@ def _model_str(v) -> str:
     return ",".join(out)
 
 def _gemini_offline_models() -> list:
-    """ — لیستِ آفلاینِ مدلهایِ Gemini (فقط رایگان) — از
-    manga.py میآید (GEMINI_FLASH_MODELS_OFFLINE؛ flash/flash-lite/
-    flash-preview + gemini-4-hydrogen). اگر import نشد (مثلاً وبِ
-    هاست با بک‌اندِ سبک) همین نسخهٔ داخلی استفاده میشود تا
-    دراپ‌داون هرگز خالی نباشد."""
+    """ — لیستِ آفلاینِ مدلهایِ Gemini — از manga.py میآید
+    (GEMINI_FLASH_MODELS_OFFLINE؛ فهرستِ ۸تاییِ سازنده v1.14.291
+    — با gemini-4-hydrogen). اگر import نشد (مثلاً وبِ هاست با
+    بک‌اندِ سبک) همین نسخهٔ داخلی استفاده میشود تا فیلد هرگز
+    خالی نباشد."""
     try:
         from manga import gemini_offline_models as _g
         _lst = _g()
@@ -627,8 +627,27 @@ def _gemini_offline_models() -> list:
         "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
+        "gemini-3.5-flash",
         "gemini-3-flash-preview",
     ]
+
+def _gemini_default_models_str() -> str:
+    """رشتهٔ کاما-جدایِ فهرستِ پیش‌فرضِ Gemini (۸ مدل v1.14.291 —
+    با hydrogen) — برایِ پرکردنِ فیلدِ مدل از همان ابتدا (دستورِ
+    سازنده v1.14.288:
+    «پیشفرض هم همچنین وارد شده باشه خالی نشون نده؛ طرف بفهمه
+    چجور وارد شده»)."""
+    return ",".join(_gemini_offline_models())
+
+def _models_join(models) -> str:
+    """هر فهرستِ مدل (زنده/آفلاین) به رشتهٔ کاما-جدا برایِ
+    نوشتن داخلِ فیلدِ مدل (دکمهٔ ↻: «همهٔ مالها رو وارد کنه»)."""
+    try:
+        from manga import join_model_list as _j
+        return _j(list(models or []))
+    except Exception:
+        return ",".join(str(m or "").strip() for m in (models or [])
+                        if str(m or "").strip())
 
 def resolve_ai_named(models: list, pick: str, api_keys: str = "",
                      model_id: str = ""):
@@ -1092,11 +1111,29 @@ def _trans_sig_of(provider, model, api_base, prompt_mode,
                   instruction, fake, temperature, top_p) -> str:
     """امضای تنظیماتِ ترجمه — آینهٔ دقیقِ
     MangaTranslator._trans_sig_of موتور (باید برایِ ورودیِ یکسان،
-    خروجیِ یکسان بدهند — تستِ scripts آن را چک می‌کند)."""
+    خروجیِ یکسان بدهند — تستِ scripts آن را چک می‌کند).
+    نرمال‌سازیِ مدل: خودتنها (بدون وابستگیِ بیرونی) تا اجرایِ
+    مستقلِ تست هم عینِ اپ رفتار کند — لیست → کاما-جدا."""
     import hashlib as _hl
+
+    def _ms(v) -> str:
+        if v is None:
+            return ""
+        if isinstance(v, (list, tuple, set)):
+            items = [str(x or "").strip() for x in v]
+        else:
+            items = [str(v or "").strip()]
+        out = []
+        for m0 in items:
+            for piece in m0.replace(";", ",").split(","):
+                piece = piece.strip().strip('"').strip("'")
+                if piece and piece not in out:
+                    out.append(piece)
+        return ",".join(out)
+
     try:
         prov = str(provider or "").strip().lower()
-        mdl = _model_str(model)
+        mdl = _ms(model)
         ab = (str(api_base or "").strip().lower()
               if prov == "custom" else "")
         pm = str(prompt_mode or "professional").strip().lower() or "professional"
@@ -1518,6 +1555,22 @@ div.styler{background:transparent !important;border:none !important;
   transition:all .15s ease}
 #manga_cm_del_btn:hover{background:rgba(255,70,70,.18) !important;color:#ff4d4d !important}
 #manga_cm_del_btn:active{transform:scale(.94)}
+/* ↗ «دریافت توکن» (دستورِ v1.14.292: «فقط فلش بزاری کافیه و کوچک
+   کن کنار مدل ai بیاد نه پایینش»): دکمهٔ فقط-فلشِ ۳۰×۳۰ — همان ژستِ
+   ✖، همترازِ خودِ منو؛ ردیفِ منو هرگز نمی‌شکند تا در موبایل فلش
+   زیرِ منو نیفتد. متنِ راهنما در tooltip (aria-label) میآید. */
+#manga_provider_row{flex-wrap:nowrap !important}
+#manga_provider_row > *{min-width:0 !important}
+#manga_token_btn{max-width:30px !important;min-width:30px !important;
+  width:30px !important;height:30px !important;min-height:30px !important;
+  max-height:30px !important;
+  flex:none !important;align-self:flex-end !important;
+  background:transparent !important;border:1px solid rgba(255,210,138,.4) !important;
+  border-radius:999px !important;color:#ffd28a !important;font-size:.95rem !important;
+  line-height:1 !important;padding:0 !important;margin:0 0 16px 0 !important;
+  transition:all .15s ease}
+#manga_token_btn:hover{background:rgba(255,210,138,.14) !important;color:#ffd28a !important}
+#manga_token_btn:active{transform:scale(.94)}
 /* فیلدِ کلید از سمتِ سرور type="password"
    است (پیشفرضِ مخفی) و دکمهٔ 👁 داخلِ فیلد آن را نشان/مخفی میکند */
 #manga_api_keys .wrap, #manga_api_keys .input-container{position:relative !important}
@@ -5894,6 +5947,17 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     TX("app.del_model", "✖"), variant="secondary", scale=0,
                     elem_id="manga_cm_del_btn",
                     visible=(_init_prov in _cm_names(_init_models)))
+# ↗ «دریافت توکن» (دستورِ v1.14.291: «کنار انتخاب ai یک دکمه فلش بزار
+# وقتی زدن بهش وارد سایت توکن گرفتن بشن هم مدل gemini هم مدل دستی ست
+# شده اونای ک دستی ست شده سیو شده فقط سایتشون بیاره بالا؛ جمنای بره
+# سایت اصلیش» + v1.14.292: «فقط فلش بزاری کافیه و کوچک کن کنار مدل ai
+# بیاد نه پایینش»): دکمهٔ فقط-فلشِ ۳۰×۳۰ چسبیده به خودِ منو (CSS)؛
+# کلیک = همان ژستِ کاربر → سایتِ توکنِ همان انتخاب در تبِ جدید باز
+# میشود (Gemini → aistudio.google.com/docs/api-key؛ custom/مدلِ
+# ذخیره‌شده → سایتِ خودش = مبدأِ دامنهٔ ذخیرهشده).
+                token_btn = gr.Button(
+                    TX("app.get_token", "↗"), variant="secondary",
+                    scale=0, elem_id="manga_token_btn")
 # مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدلِ هوش/
 # کلیدِ ماسکشده) — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
             cm_info_md = gr.Markdown("", visible=False,
@@ -5924,26 +5988,21 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                       elem_id="manga_api_keys",
                                       info=TX("app.api_keys_info", "کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ."))
 
-                #مدل دستی حذف شد؛ دراپ‌داون + دکمهٔ ↻ —
-# با کلیدهای همین صفحه فهرستِ مدلهایِ زنده از خودِ سرویس
-# میآید (Gemini: فقط مدلهایِ ترجمهپذیر) و کاربر انتخاب
-# میکند؛ در custom هم میشود از فهرستِ همان سرویس گرفت و
-# هم آزادانه تایپ کرد (allow_custom_value).
-                #
-# دراپ‌داونِ زنده + ↻ فقط رویِ Gemini؛ رویِ custom فیلدِ دستیِ
-# ساده (لیبلِ جدا)؛ رویِ auto/مدلِ نامی کلِ ردیف پنهان است.
-                # → دراپ‌داون از همان
-# اول لیستِ آفلاینِ داخلِ کد را دارد (فقط flash و
-# flash-lite و flash-preview)؛ ↻ همان لحظه از خودِ گوگل
-# فهرستِ تازه میگیرد و جایگزین میکند.
-                model = gr.Dropdown(
-                    choices=_gemini_offline_models(), value="",
-                    allow_custom_value=True,
-                    multiselect=True,
-                    max_choices=12,
-                    label=TX("app.model_gemini", ("مدل (ها) — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
-                          "فهرستِ زندهٔ رایگان | چند مدل = فال‌بکِ خودکار (مثال: "
-                          "gemini-3.8-flash, gemini-4-hydrogen) | خالی = پیش‌فرض")),
+# فیلدِ متنیِ چند-مدلی (عینِ custom — دستورِ سازنده v1.14.288:
+# «مدلا انتخابیه … اون قسمتِ مدلِ نوشتن همهٔ مالها رو وارد
+# کنه و پیشفرض هم همچنین وارد شده باشه خالی نشون نده؛
+# طرف بفهمه چجور وارد شده») — پیش‌فرضِ Gemini از همان اول
+# داخلِ فیلد نوشته شده (کاما-جدا؛ ۷ مدل)؛ ↻ همهٔ مدلهایِ
+# رایگانِ زنده را داخلِ فیلد میریزد؛ در custom هم همین
+# فیلدِ متنی است. چند مدل با کاما = فال‌بکِ خودکار.
+                model = gr.Textbox(
+                    value=(_gemini_default_models_str()
+                           if _init_prov == "gemini" else ""),
+                    label=TX("app.model_gemini", ("مدل (ها) — چند مدل با کاما = فال‌بکِ خودکار "
+                          "(مثال: gemini-3.5-flash-lite,gemini-3.8-flash) | "
+                          "↻ همهٔ مدلهایِ رایگان را داخلِ فیلد می‌نویسد | "
+                          "خالی = پیش‌فرض")),
+                    placeholder=TX("app.model_ph", "gemini-3.5-flash-lite,gemini-3.8-flash"),
                     scale=2, elem_id="manga_model")
                 model_ref_btn = gr.Button(
                     TX("app.refresh_models", "↻ مدل‌ها"), variant="secondary", scale=1,
@@ -7313,6 +7372,23 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
     }}
   }} catch (e) {{}}
 
+  // ↗ «دریافت توکن» — دکمهٔ فقط-فلش است (v1.14.292)؛ متنِ راهنما
+  // در tooltip/aria-label میآید تا کارِ دکمه بدونِ برچسب معلوم بماند.
+  try {{
+    const attachTokTip = () => {{
+      const root = document.getElementById("manga_token_btn");
+      const el = root ? (root.tagName === "BUTTON" ? root
+        : root.querySelector("button")) : null;
+      if (el && !el.dataset.mangaTokTip) {{
+        el.dataset.mangaTokTip = "1";
+        el.title = "دریافت توکن — سایتِ همان انتخاب (Gemini → aistudio؛ سرویسِ دلخواه → سایتِ خودش)";
+        el.setAttribute("aria-label", el.title);
+      }}
+    }};
+    attachTokTip();
+    [300, 1500, 5000].forEach((t) => setTimeout(attachTokTip, t));
+  }} catch (e) {{}}
+
   return [];
 }}
 """
@@ -7870,27 +7946,25 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 nk, nm = "", ""   # رویِ auto/مدلِ نامی فیلدی برایِ ورود نیست
             info = _cm_info_html(models, v) if mine else ""
             row_vis = not on_auto and not mine
-# لیبلِ فیلدِ مدل به ازایِ هر provider: رویِ Gemini
-# دراپ‌داونِ زنده + ↻؛ بقیه (custom/ویرایشِ مدلِ نامی) دستی —
-# «بقیش باید دستی مینوشتن»؛ ↻ هم فقط رویِ gemini دیده میشود
-# فیکسِ «وقتی میرم کاستوم مدلهایِ gemini نشون
-# میده فقط باید رو خودش میومد»: منویِ دراپ‌داون رویِ هر
-# providerِ غیرِ gemini خالی میشود (choices=) تا مدلهایِ
-# Gemini فقط و فقط در خودِ Gemini دیده شوند؛ رویِ Gemini
-# لیستِ آفلاینِ داخلِ کد برمیگردد (دستور: «مدل هارو افلاین
-# هم بزار»).
+# فیلدِ مدل در همهٔ providerها یک Textboxِ متنیِ کاما-جدا است
+# (دستورِ سازنده v1.14.288 — «مثلِ کاستوم»). رویِ Gemini از همان
+# لحظهٔ ورود، پیش‌فرضِ ۷مدلی داخلِ فیلد نوشته شده (خالی shown
+# نمیشود تا طرف بفهمد چجور وارد میشود)؛ ↻ هم فقط رویِ gemini
+# دیده میشود و همهٔ مدلهایِ رایگانِ زنده را داخلِ فیلد مینویسد.
             if v == "gemini":
-                mdl_label = ("مدل (ها) — Gemini: فهرستِ آفلاین آماده است؛ ↻ برای "
-                             "فهرستِ زندهٔ رایگان | چند مدل = فال‌بکِ خودکار | خالی = پیش‌فرض")
-                mdl_upd = gr.update(visible=True, value=nm, label=mdl_label,
-                                    choices=_gemini_offline_models(),
-                                    multiselect=True)
+# پیش‌فرضِ ۷مدلی از همان اول داخلِ فیلد نوشته میشود (خالی
+# نشان داده نمیشود) مگر اینکه کاربر مدلِ ذخیرهشده داشته باشد
+                mdl_label = ("مدل (ها) — چند مدل با کاما = فال‌بکِ خودکار | "
+                             "↻ همهٔ مدلهایِ رایگان را داخلِ فیلد می‌نویسد | "
+                             "خالی = پیش‌فرض")
+                mdl_upd = gr.update(visible=True,
+                                    value=(nm or _gemini_default_models_str()),
+                                    label=mdl_label)
             else:
                 mdl_label = ("مدل (ها) — شناسه‌ها را بنویس؛ چند مدل با کاما = "
                              "فال‌بکِ خودکار | خالی = پیش‌فرض")
                 mdl_upd = gr.update(visible=row_vis, value=nm,
-                                    label=mdl_label, choices=[],
-                                    multiselect=True)
+                                    label=mdl_label)
             return (gr.update(visible=is_custom, value=nb),
                     gr.update(visible=row_vis),
                     gr.update(visible=row_vis, value=nk),
@@ -7921,8 +7995,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                               value=str(m.get("api_key") or "")),
                     gr.update(visible=True,
                               value=str(m.get("model") or ""),
-                              label="مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض",
-                              choices=[]),  # ویرایشِ مدلِ نامی هم دستی؛ منویِ Gemini نمیآید
+                              label="مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"),  # ویرایشِ مدلِ نامی هم دستی (فیلدِ متنی)
                     gr.update(visible=False),   # «+ افزودن» پنهان
                     gr.update(visible=False),   # « ویرایش» پنهان
                     gr.update(visible=True),    # « ذخیرهٔ ویرایش»
@@ -8000,6 +8073,45 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         except Exception:
             pass
 
+# ↗ «دریافت توکن» — کال‌بکِ خالصِ JS (بدونِ رفت‌وبرگشتِ سرور تا
+# window.open در همین ژستِ کلیکِ کاربر اجرا شود و مسدود نشود).
+# ورودیها: provider (متنِ منو) + custom_models_state (لیستِ
+# مدلهایِ ذخیرهشده: name/api_base/…) + api_base (فیلدِ custom).
+# منطق: gemini/auto/خالی → سایتِ رسمیِ توکنِ Gemini؛ custom → مبدأِ
+# دامنهٔ فیلد (سایتِ همان سرویس)؛ مدلِ نامی → مبدأِ دامنهٔ
+# ذخیرهشدهٔ همان مدل («فقط سایتشون بیاره بالا»)؛ بدونِ دامنه →
+# سایتِ Gemini (پیش‌فرضِ امن).
+        try:
+            token_btn.click(
+                fn=None,
+                inputs=[provider, custom_models_state, api_base],
+                outputs=None,
+                js="""(p, models, base) => {
+  try {
+    const GEM = 'https://aistudio.google.com/docs/api-key';
+    const norm = (u) => { try { return new URL(u); } catch (e) {
+      try { return new URL('https://' + u); } catch (e2) { return null; } } };
+    p = String(p || '').trim();
+    let url = '';
+    if (p === 'gemini' || p === 'auto' || p === '') {
+      url = GEM;
+    } else if (p === 'custom') {
+      const u = norm(String(base || '').trim());
+      url = u ? u.origin : GEM;
+    } else {
+      const m = (Array.isArray(models) ? models : []).find(
+        (x) => x && String(x.name || '').trim() === p);
+      const b = m ? String(m.api_base || '').trim() : '';
+      const u = b ? norm(b) : null;
+      url = u ? u.origin : GEM;
+    }
+    if (url) window.open(url, '_blank', 'noopener');
+  } catch (e) {}
+}""",
+            )
+        except Exception:
+            pass
+
 # ↻ فهرستِ مدل‌ها از خودِ سرویس ──
         def _refresh_model_list(provider_v, api_keys_v, api_base_v, model_v):
             try:
@@ -8022,28 +8134,77 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 prov, api_base_v, api_keys_v = _p, _b, _k
             models, err = list_provider_models(
                 prov, str(api_keys_v or ""), str(api_base_v or ""))
-# انتخابهایِ فعلیِ کاربر (چند-انتخابی) — همانها میمانند اگر
-# هنوز در فهرستِ تازه هستند
-            keep_raw = _model_str(model_v)
-            keep_list = [m for m in keep_raw.split(",") if m.strip()]
-            # → ↻ فهرستِ زنده میگیرد؛ اگر اتصال/کلید برقرار نشد
-# به‌جای خطا، فهرستِ آفلاینِ داخلِ کد برمیگردد (کاربر بی‌درنگ
-# گزینه دارد) و دلیلِ قطعی در لیبل میآید.
+# دستورِ سازنده (v1.14.288): «رفرش زدم اون قسمتِ مدلِ نوشتن
+# همهٔ مالها رو وارد کنه» — ↻ همهٔ مدلهایِ (سالمِ) یافتشده را
+# کاما-جدا داخلِ فیلدِ متنیِ مدل مینویسد تا طرف ببیند چجور
+# وارد شده؛ کاربر بعد خودش کم/زیاد میکند (چند مدل = فال‌بک).
             if not models:
+# اگر اتصال/کلید برقرار نشد به‌جای خطا، فهرستِ آفلاینِ داخلِ
+# کد کاما-جدا داخلِ فیلد نوشته میشود (کاربر بی‌درنگ گزینه
+# دارد) و دلیلِ قطعی در لیبل میآید.
                 if prov == "gemini":
                     offline = _gemini_offline_models()
                     _why = f" — {str(err or '')[:60]}" if err else ""
                     return gr.update(
-                        choices=offline,
-                        value=[m for m in keep_list if m in offline],
-                        multiselect=True,
+                        value=_models_join(offline),
                         label=(f"مدل (ها) — اتصال برقرار نشد{_why}؛ فهرستِ "
-                               f"آفلاینِ برنامه ({len(offline)} مدلِ رایگان)"))
+                               f"آفلاینِ برنامه ({len(offline)} مدلِ رایگان) "
+                               f"داخلِ فیلد نوشته شد"))
                 raise gr.Error(err or "مدلی پیدا نشد — کلید/لینک را با «تست کلیدها / لینک» چک کنید.")
-            return gr.update(choices=models,
-                             value=[m for m in keep_list if m in models],
-                             multiselect=True,
-                             label=f"مدل (ها) — {len(models)} مدلِ زندهٔ رایگان پیدا شد؛ انتخاب کن")
+
+# v1.14.290 — سنجشِ زندهٔ سبک (دستورِ سازنده: «چیزی نداره بتونع
+# بفهمه کدوم مدل کتابی میده بیرون؟ فقط اونای ک اوکی خروجی میده
+# نگه داره»): به هر مدلِ زندهٔ یافتشده یک درخواستِ واقعیِ کوچک
+# (۴ خطِ دیالوگِ محاوره‌ای) فرستاده میشود؛ هر مدلی که خودش جواب
+# نداد (پولی/سهمیه/قطعی — رایگان بودن هم همینجا خودکار معلوم
+# میشود؛ هیچ نامی در کد نیست) یا جوابش کتابی بود کنار گذاشته
+# میشود و فقط مدلهایِ «اوکی» داخلِ فیلد نوشته میشوند.
+            _probe_note = ""
+            if prov == "gemini":
+                _pm = None
+                try:
+                    from manga import gemini_style_probe_many as _pm
+                except Exception:
+                    _pm = None
+                if _pm is not None:
+                    try:
+                        _good, _res = _pm(models, str(api_keys_v or ""))
+                    except Exception:
+                        _good, _res = [], {}
+                    if _good:
+                        _n_all = len(models)
+                        _bk = [m for m, r in (_res or {}).items()
+                               if (r or {}).get("verdict") == "bookish"]
+                        _er = [m for m, r in (_res or {}).items()
+                               if (r or {}).get("verdict") == "error"]
+                        models = _good
+                        _probe_note = (f" — سنجشِ زنده: {len(_good)} مدلِ سالم "
+                                       f"(محاوره‌ای ✓) از {_n_all}")
+                        if _bk or _er:
+                            _probe_note += (f"؛ حذف: {len(_bk)} کتابی، "
+                                           f"{len(_er)} بی‌پاسخ (پولی/سهمیه)")
+                    elif _res:
+                        _n_err = sum(1 for r in (_res or {}).values()
+                                     if (r or {}).get("verdict") == "error")
+                        _n_run = len(_res)
+                        if _n_err >= _n_run and _n_run:
+# همهٔ سنجشها خطا (شبکه/سهمیه در همین لحظه) — فهرستِ خامِ زنده
+# نگه داشته میشود تا کاربر بی‌درنگ گزینه داشته باشد.
+                            _probe_note = (" — سنجشِ زندهٔ سبک در همین لحظه "
+                                           "جواب نداد (شبکه/سهمیه)؛ فهرستِ خام")
+                        else:
+# سنجشها اجرا شد ولی هیچ جوابِ سالمی نبود (همه کتابی/خاموش) —
+# فهرستِ آفلاینِ ثابتِ برنامه داخلِ فیلد نوشته میشود.
+                            offline = _gemini_offline_models()
+                            return gr.update(
+                                value=_models_join(offline),
+                                label=(f"مدل (ها) — هیچ مدلی جوابِ سالمِ محاوره‌ای "
+                                       f"نداد؛ فهرستِ آفلاینِ برنامه ({len(offline)} مدل) "
+                                       f"داخلِ فیلد نوشته شد"))
+            return gr.update(
+                value=_models_join(models),
+                label=(f"مدل (ها) — {len(models)} مدلِ زنده پیدا شد{_probe_note}؛ "
+                       f"همه داخلِ فیلد نوشته شد (چند مدل = فال‌بکِ خودکار)"))
 
         try:
             model_ref_btn.click(

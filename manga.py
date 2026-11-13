@@ -51,7 +51,7 @@ import time as _time
 
 # همگام با APP_VER در manga_sections/00_base.py —
 # «scripts/build_manga.py --check» ناهمخوانی را رد میکند.
-APP_VER = "1.14.291"
+APP_VER = "1.14.292"
 
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
 _SECTIONS_DIR = _os.path.join(_HERE, "manga_sections")
