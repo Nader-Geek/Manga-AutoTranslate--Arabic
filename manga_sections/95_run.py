@@ -1604,6 +1604,10 @@ class _MangaTranslatorBody_95:
 # عوض نشود فقط جایِ اجرا عقب برده شده:
             if _android_gate("MANGA_CLEAN_TEXTFREE"):
                 regs = regs + [r for r in regions if r.kind == "text_free"]
+# v1.14.294 — واترمارک/بنرِ promo در clean-only پاک میشود
+# (دستورِ تازه: لوگوی سایتِ منبع در خروجی نماند)
+            if getattr(self, "clean_only", False):
+                regs = regs + [r for r in regions if r.kind == "promo"]
             if getattr(self, "clean_sfx", False):
                 regs = regs + [r for r in regions if r.kind == "sfx"]
 # همسانسازیِ هدفها با شاخهٔ clean-onlyِ

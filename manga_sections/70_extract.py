@@ -2313,6 +2313,57 @@ class _MangaTranslatorBody_70:
                 return None
             cxs = np.array([p[0] for p in cols])
             cys = np.array([p[1] for p in cols])
+# ── گاردِ F (v1.14.294 — باگِ 4e2e77): باندِ عمودیِ پیوسته ──
+# متنِ «قوسی» واقعی یک «نوارِ جوهرِ پیوسته» است؛ بلوکِ چند-
+# خطیِ صاف (WHAT'S THIS…؟ / [I. KIM MINWOO'S / STAGE 6, HUH…)
+# چند باندِ جدا با گپِ خالیِ عمودی دارد → قوسِ کاذب. قوسِ
+# واقعیِ arc_r520: تک-باندِ ۱۰۸px؛ دوخطیِ 4e2e77: دو باندِ ۴۳px
+# با گپِ ۱۲px (≥۰٫۲×باند) → رد.
+            try:
+                _rs = ink.sum(axis=1)
+                _bands = []
+                _inr = False
+                _bs = 0
+                for _yy in range(ink.shape[0]):
+                    if _rs[_yy] > 0:
+                        if not _inr:
+                            _inr = True
+                            _bs = _yy
+                    else:
+                        if _inr:
+                            _inr = False
+                            _bands.append((_bs, _yy))
+                if _inr:
+                    _bands.append((_bs, ink.shape[0]))
+                if len(_bands) >= 2:
+                    _bh = [b - a for (a, b) in _bands]
+                    _bg = [_bands[k + 1][0] - _bands[k][1]
+                           for k in range(len(_bands) - 1)]
+                    if _bh and _bg and max(_bg) >= 0.20 * max(_bh):
+                        return None
+            except Exception:
+                pass
+# ── گاردِ A + C' + E (v1.14.294): فقط ستونهایِ کامل در برازش ──
+# ستونهایِ «ناقص» (براکتِ [ ] در دو سر، لبهٔ حروف، حروفِ
+# نیمه-بیرون) فقط ۳px جوهر دارند و y شان پایینتر است → قوسِ
+# کاذبِ quadratic (sag=39 برایِ خطِ صافِ [I. KIM MINWOO'S).
+# ستونهایِ کامل (ch ≥ ۰٫۶×میانه) فقط؛ یکنواختیِ ch رویِ
+# ستونهایِ کامل (بلوکِ چند-خطیِ ناهمگون = رد)؛ و پرشدگیِ
+# عمودیِ ≤۰٫۷ (دیوارِ بیضیِ حباب = قوسِ کاذبِ ۲۷°).
+            _cha = np.asarray(chs, dtype=np.float64)
+            _med_ch = float(np.median(_cha))
+            if _med_ch <= 0.0:
+                return None
+            if _med_ch > 0.70 * float(_iy1 - _iy0):
+                return None
+            _full = _cha >= 0.60 * _med_ch
+            if int(_full.sum()) < 8:
+                return None
+            _fch = _cha[_full]
+            if float(_fch.std()) > 0.28 * float(np.median(_fch)):
+                return None
+            cxs = cxs[_full]
+            cys = cys[_full]
 # ارتفاعِ واقعیِ «یک ردیف»: ستونهایِ لبهٔ قوس فقط از یک ردیف
 # می‌گذرند (ردیفها پلکانی‌اند و هر ردیف همهٔ عرض را نمی‌گیرد)؛
 # ستونهایِ میانی از چند ردیف. استخرِ (دو کوینتایلِ لبه + صدکِ ۲۵
@@ -2381,7 +2432,10 @@ class _MangaTranslatorBody_70:
                         2.0 * qa * float(_qr.min()) + qb)))
                     _t_r = float(np.degrees(np.arctan(
                         2.0 * qa * float(_qr.max()) + qb)))
-                    if abs(_t_r - _t_l) > 45.0:
+# سقفِ پیچِ ۶۰° (v1.14.294): قوسِ واقعیِ ملایمِ تک-پالی
+# (arc_r520 = ۵۳°) باید زنده بماند؛ بلوکِ پلکانیِ کاذبِ
+# «HABLA MUCHÍSIMO…» ۶۸° هنوز رد میشود.
+                    if abs(_t_r - _t_l) > 60.0:
                         return None
             except Exception:
                 pass
@@ -2437,6 +2491,82 @@ class _MangaTranslatorBody_70:
             }
         except Exception:
             return None
+
+    @staticmethod
+    def _add_watermark_regions(image, regions):
+        """ — واترمارک/URL بیرونِ حباب (v1.14.294).
+
+        گزارشِ سازنده: «www.sexyversecomics.com» و «CHAPTER 1
+        PAGE 1» پایینِ صفحه در خروجیِ clean ماندند. ریشه:
+        استخراج فقط داخلِ باکسهایِ detector (حباب) است؛ متنِ
+        بیرونِ حباب هرگز ناحیه نمیشود. متنِ بیرونِ حباب «هنر/
+        امضا» حساب میشود و دستنخورده میماند — ولی واترمارکِ
+        سایتِ منبع باید پاک شود. این تابع کلِ صفحه را با
+        rapidocr میخواند و فقط نواحی «الگویِ سایت» را اضافه
+        میکند: www./http(s):// یا دامنهٔ .com/.net/.org/.io/
+        .xyz/پاترِئون یا «CHAPTER n ... PAGE n». خروجی: فهرستِ
+        نواحی (جدیدیها bubble_style=free_text، kind=dialogue)."""
+        try:
+            import re as _re
+            ocr_engine = None
+            try:
+                from rapidocr_onnxruntime import RapidOCR as _R
+                ocr_engine = _R()
+            except Exception:
+                return regions
+            res, _ = ocr_engine(image)
+            if not res:
+                return regions
+            _wm_pat = _re.compile(
+                r"(www\.|https?://|[a-z0-9-]+\.(?:com|net|org|io|xyz)"
+                r"(?:/[A-Za-z0-9._/-]*)?|patreon\b|chapter\s*\d+\s*"
+                r".{0,30}?page\s*\d+)", _re.I)
+            existing = []
+            for _r in (regions or []):
+                try:
+                    existing.append(tuple(int(v) for v in _r.rect[:4]))
+                except Exception:
+                    pass
+            out = list(regions or [])
+            for box, txt, conf in res:
+                try:
+                    t = str(txt or "").strip()
+                    if not t or float(conf) < 0.60:
+                        continue
+                    if not _wm_pat.search(t):
+                        continue
+                    xs = [p[0] for p in box]
+                    ys = [p[1] for p in box]
+                    x0, y0 = int(min(xs)), int(min(ys))
+                    x1, y1 = int(max(xs)), int(max(ys))
+                    if (x1 - x0) < 12 or (y1 - y0) < 6:
+                        continue
+# همپوشانیِ نواحیِ موجود → همان ناحیه پاکش میکند؛ دوباره نگیر
+                    _ov = False
+                    for (_ex, _ey, _ew, _eh) in existing:
+                        if not (x1 < _ex or x0 > _ex + _ew
+                                or y1 < _ey or y0 > _ey + _eh):
+                            _ov = True
+                            break
+                    if _ov:
+                        continue
+                    _nr = TextRegion(
+                        id=-1,
+                        boxes=[np.asarray(box, dtype=np.int32)],
+                        source_text=t,
+                        translated_text="",
+                        rect=(x0, y0,
+                              max(1, x1 - x0), max(1, y1 - y0)),
+                        det_class="text",
+                        kind="promo",
+                        bubble_style="free_text",
+                        ocr_polys=[np.asarray(box, dtype=np.int32)])
+                    out.append(_nr)
+                except Exception:
+                    continue
+            return out
+        except Exception:
+            return regions
 
     @staticmethod
     def _polys_dense(polys) -> bool:
@@ -4461,12 +4591,20 @@ class _MangaTranslatorBody_70:
 # متنِ «محتوایِ» دیگری (زیررشته) با احتیاطِ بیشتر (۶۰٪ داخل).
 # متنِ تکراریِ واقعی در حبابهایِ جدا = بدونِ همپوشانی → هر دو
 # میمانند (رفتارِ قبلی).
+        _raise_if_stop()
+# v1.14.294 — واترمارک/لوگوی سایتِ منبع بیرونِ حباب: detector فقط
+# حباب/کپشنِ داخلِ پنل را باکس میگیرد؛ متنِ «سایت/آدرس/صفحه»
+# بیرونِ حباب هرگز ناحیه نشد و هرگز پاک نشد (گزارشِ سازنده:
+# www.sexyversecomics.com و CHAPTER 1 PAGE 1 در خروجی ماند).
+# نواحیِ rapidocrِ سراسرِ صفحه که متنشان الگویِ URL/واترمارک
+# است (www./http/.com/.net/.org/patreon) یا «CHAPTER n PAGE n»
+# همیشه ناحیهٔ پاکساز میشوند — بیرونِ حباب هم. متنِ عادیِ
+# بیرونِ حباب دستنخورده میماند (هنر/امضا).
         try:
-            unique_regions = self._dedup_duplicate_text_regions(
-                unique_regions)
+            unique_regions = MangaTranslator._add_watermark_regions(
+                image, unique_regions)
         except Exception:
             pass
-        _raise_if_stop()
 
 # نشانه‌گذاریِ «فقط عدد/نماد» برایِ همهٔ فازها:
 # متنِ بدونِ هیچ حرف ('....'، '123124') نه ترجمه میشود نه
@@ -4951,7 +5089,12 @@ class _MangaTranslatorBody_70:
 # و…) و SFX نباید پاک شه یا حساب شه — ازش رد شه.» در حالتِ
 # فقط-پاکسازی فقط دیالوگ (+junk: شمارهٔ صفحه) پاک می‌شود
 # بنرِ تبلیغ و افکتِ صوتی دست‌نخورده می‌مانند.
-            clean_targets = [r for r in regions if r.kind in ("dialogue", "junk")]
+# v1.14.294 — دستورِ تازهٔ سازنده: واترمارک/لوگوی سایتِ منبع
+# (www.sexyversecomics.com، PATREON، CHAPTER 1 PAGE 1) در
+# خروجیِ clean مانده بود (گزارشِ اسکرین‌شات) → promo هم در
+# clean-only پاک میشود (بنرِ توپر). SFX همچنان هنر و دستنخورده.
+            clean_targets = [r for r in regions
+                             if r.kind in ("dialogue", "junk", "promo")]
 # اندروید (MANGA_CLEAN_TEXTFREE): ناحیههایِ
 # text_free در clean-only پاک نمیشدند (فیلترِ فقط
 # dialogue/junk) — ولی text_free = متنِ واقعیِ OCRشده

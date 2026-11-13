@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.289"
+APP_VER = "1.14.294"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -6050,7 +6050,8 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             custom_models_state = gr.State(_init_models)
             cm_json_box = gr.Textbox(
                 value=json.dumps(custom_models_state.value, ensure_ascii=False),
-                visible=False, elem_id="manga_cm_json", container=False)
+                visible=True, elem_id="manga_cm_json", container=False,
+                elem_classes=["manga-hide-channel"])
 # کانالهایِ مرورگر↔سرور باید در DOM بمانند (gradio 6
 # کامپوننتِ visible=False را از DOM حذف میکند) → visible=True +
 # کلاسِ مخفیِ CSS؛ در وب هم اندروید هم PC همین مرورگر است.
@@ -8853,9 +8854,12 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
 # مدل چند-انتخابی: مقدارِ ذخیرهشده (رشته یا لیست) به قالبِ
 # دراپ‌داونِ چند-انتخابی تبدیل میشود
                 if key == "model":
+# v1.14.294 — فیلدِ مدل Textbox است نه دراپ‌داونِ چند-انتخابیِ
+# قدیم؛ مقدارِ لیست = reprِ پایتونیِ ['a', 'b'] در فیلد نوشته
+# میشد (گزارشِ سازنده: «چرا لیست مدلا اینجور نشون میده؟»).
+# همیشه رشتهٔ کاما-جدا.
                     _ms = _model_str(v)
-                    return gr.update(value=[m for m in _ms.split(",")
-                                             if m.strip()]) if _ms else gr.update()
+                    return gr.update(value=_ms) if _ms else gr.update()
                 s = str(v).strip()
                 if s.lower() in ("null", "undefined"):
                     return gr.update()
@@ -9108,10 +9112,32 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     _tot = _ltot or (_live_total_of(_ld) if _ld else 0)
                     _done = (not running) and ("✅" in log or "تمام شد" in log)
                     if _done or _ph or running:
-                        _prog_upd = gr.update(
-                            value=_web_prog_html(_ph, _cur, _tot, running,
-                                                 _done, _unit),
-                            visible=True)
+                        if not _done and not _ph:
+                            _last = job.get("_last_prog_state") or ()
+                            if len(_last) == 4:
+                                _ph, _cur, _unit = _last[0], _last[1], _last[3]
+                                _tot = _tot or _last[2]
+                            else:
+                                _ph, _cur, _unit = job.get(
+                                    "_last_prog_phase", ""), 0, ""
+                        else:
+                            try:
+                                job["_last_prog_phase"] = _ph
+                                job["_last_prog_state"] = (_ph, _cur, _tot, _unit)
+                            except Exception:
+                                pass
+                        _html_p = _web_prog_html(_ph, _cur, _tot, running,
+                                                 _done, _unit)
+# v1.14.294 — ضدِ چشمک: نوار فقط وقتی بهروز شود که HTMLِ
+# تازه با قبلیِ فرق کند؛ بازنویسیِ هرثانیه‌ایِ بی-تغییر، DOMِ
+# gr.HTML را هر بار میسازد و نوار «خاموش/روشن» دیده میشود.
+                        _prev_p = job.get("_last_prog_html")
+                        if _html_p != _prev_p:
+                            job["_last_prog_html"] = _html_p
+                            _prog_upd = gr.update(
+                                value=_html_p, visible=True)
+                        else:
+                            _prog_upd = gr.update(visible=True)
             except Exception:
                 _prog_upd = gr.update()
 # نمایش اصلی/دیباگ حذف — همه‌جا مخفی؛ فقط «نمایش» (دکمهٔ ) می‌ماند

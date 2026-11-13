@@ -9000,6 +9000,22 @@ class _MangaTranslatorBody_85:
                     if int(cand.sum()) < 80:
                         cand = (cv2.dilate(_pcp, _kernel) > 0) \
                             & (~_edc) & (~_chc)
+# v1.14.294 — قطعهٔ بلندِ چند-خطی: حلقهٔ بالا/پایین از «نوارِ
+# مجاور» (همین donorِ سفید) میآید و رنگِ غلط میدهد (باگِ
+# img4: متنِ رویِ اسکرین‌تون ۱۳۶-۱۵۷ با سفید پر شد چون حلقه =
+# نوارِ سفیدِ بالایی). قطعهٔ h>۹۰px: حلقه فقط از «چپ و راستِ»
+# همان ردیفها — زمینهٔ همان خط — گرفته شود.
+                    try:
+                        if (_sh > 90) and int(cand.sum()) > 0:
+                            _cw = bx1 - bx0
+                            _side = np.zeros_like(cand)
+                            _side[:, :max(3, int(_cw * 0.13))] = True
+                            _side[:, -max(3, int(_cw * 0.13)):] = True
+                            _side_c = cand & _side
+                            if int(_side_c.sum()) >= 80:
+                                cand = _side_c
+                    except Exception:
+                        pass
                     _nr = int(cand.sum())
                     if _nr < 80:
                         if _dbg:
@@ -9437,6 +9453,18 @@ class _MangaTranslatorBody_85:
 # (img4/4e2e77 — ) دیگر فقط
 # اندروید نیست؛ همسازِ ردیفیِ خط، نوار را با زمینهٔ اورجینالِ
 # همان ردیف تراز میکند (گاردها: std/هدفِ ناهوار/دلتا ۱۵-۶۰).
+# v1.14.294 — نجاتِ «سفیدِ یکدستِ غلط» (باگِ img4/سفیدِ بی-جا):
+# نوارِ کامپوز که donor آن «سفیدِ تقریبا-تخت» است ولی همان
+# جعبه در اصلِ اورجینال «تُنِ/اسکرین‌تون» است (Δلومِ حلقه ≥ ۳۰)
+# با گرادیانِ سادهٔ زمینهٔ اورجینال بازپر میشود — متنِ
+# حاشیه-سفید (outline) رویِ اسکرین‌تون فقط باید حروفِ تیره
+# پاک شود، نه کلِ نوار سفید.
+            try:
+                if os.environ.get("MANGA_WHITE_RESCUE", "1") != "0":
+                    self._flat_white_rescue(_out, original, _cmp,
+                                            verbose=False)
+            except Exception:
+                pass
             if _gate_default_on("MANGA_STRIP_HARM"):
                 try:
                     _hH, _wH = _cmp.shape
@@ -9614,7 +9642,15 @@ class _MangaTranslatorBody_85:
 #     حلقه را مستثنا میکند — بیرونِ آن هر پیکسلی دست نمیخورد)
 #   • دیوارِ حباب/نقشهٔ protect/هنر سرِ جایشان
             try:
-                if os.environ.get("MANGA_CORNER_FEATHER", "1") != "0" \
+# v1.14.294 — فیدرِ گوشه فقط برایِ «lama/opencv»: بلورِ گوشه رویِ
+# پرِ فلت (سفیدِ یکدست) سایهٔ خاکستری میسازد و خروجی را بدتر
+# میکند (گزارشِ سازنده: «بعد این ک گفتم عکس دوم چهار گوشش با
+# opencv تمیز کنه بدتر شده»). flat → فیدر خاموش.
+                _cm_low = str(getattr(self, "clean_method", "") or "").lower()
+                _corner_ok = bool(getattr(self, "use_lama", False)) \
+                    or (_cm_low == "opencv")
+                if _corner_ok \
+                        and os.environ.get("MANGA_CORNER_FEATHER", "1") != "0" \
                         and _out is not None \
                         and _out.ndim == 3 and _cmp.any():
                     _nF = self._compose_corner_feather(_out, _cmp)
@@ -9676,8 +9712,8 @@ class _MangaTranslatorBody_85:
                 area = int(stats[j, cv2.CC_STAT_AREA])
                 if area < 48 or bw_ < 20 or bh_ < 14:
                     continue
-                s = int(min(12, max(5, bw_ // 8, bh_ // 6)))
-                if s < 4:
+                s = int(min(8, max(4, bw_ // 10, bh_ // 8)))
+                if s < 3:
                     continue
                 sub = (labels == j)
                 for (cx, cy) in ((x, y), (x + bw_, y),
@@ -9696,14 +9732,168 @@ class _MangaTranslatorBody_85:
                     if not (win & ~subw).any():
                         continue
                     roi = out[y0:y1, x0:x1]
-                    blur = cv2.GaussianBlur(roi, (0, 0), 1.6)
+                    blur = cv2.GaussianBlur(roi, (0, 0), 1.0)
                     m3 = win[..., None]
+# ۶۰٪ بلور + ۴۰٪ اصلی (v1.14.294): بلورِ کاملِ گوشه رویِ زمینهٔ
+# گرادیانی خودش لکهٔ محوِ واضح میسازد — وزنِ نیمه-کم آن را
+# فقط برایِ «محوکردنِ درز» نگه میدارد.
                     out[y0:y1, x0:x1] = np.where(
-                        m3, blur.astype(out.dtype), roi)
+                        m3, (0.6 * blur.astype(np.float32)
+                             + 0.4 * roi.astype(np.float32)
+                             ).astype(out.dtype), roi)
                 did += 1
             return did
         except Exception:
             return 0
+
+    def _flat_white_rescue(self, out, original, cmp_mask,
+                           verbose=False) -> int:
+        """نجتِ سفیدِ یکدستِ غلط (v1.14.294) — ردیف-به-ردیف."""
+        n_res = 0
+        n_px = 0
+        try:
+            if out is None or original is None or cmp_mask is None:
+                return 0
+            if out.ndim != 3 or cmp_mask.shape[:2] != out.shape[:2]:
+                return 0
+            H, W = cmp_mask.shape[:2]
+            _m_all = (cmp_mask > 0)
+            _n, _lab, _st, _ = cv2.connectedComponentsWithStats(
+                _m_all.astype(np.uint8), 8)
+            _of = original.astype(np.float32)
+            for _j in range(1, _n):
+                try:
+                    _x = int(_st[_j, cv2.CC_STAT_LEFT])
+                    _y = int(_st[_j, cv2.CC_STAT_TOP])
+                    _w = int(_st[_j, cv2.CC_STAT_WIDTH])
+                    _h = int(_st[_j, cv2.CC_STAT_HEIGHT])
+                    _a = int(_st[_j, cv2.CC_STAT_AREA])
+                    if _a < 300 or _w < 30 or _h < 10:
+                        continue
+                    _y0 = max(0, _y)
+                    _y1 = min(H, _y + _h)
+                    _x0 = max(0, _x)
+                    _x1 = min(W, _x + _w)
+                    _sub = (_lab[_y0:_y1, _x0:_x1] == _j)
+                    if not _sub.any():
+                        continue
+                    _fill = out[_y0:_y1, _x0:_x1][_sub]
+                    if float((_fill.min(axis=1) >= 244).mean()) < 0.60:
+                        continue
+                    _outf = out[_y0:_y1, _x0:_x1].astype(np.float32)
+                    _ch_rows = 0
+                    for _ry in range(_sub.shape[0]):
+                        _cols = np.nonzero(_sub[_ry])[0]
+                        if _cols.size < 6:
+                            continue
+                        _row_fill = _outf[_ry, _cols]
+                        if float((_row_fill.min(axis=1) >= 244).mean()) < 0.80:
+                            continue
+                        _o_row = _of[_y0 + _ry, _x0:_x1][_cols]
+                        _orow_m = float(np.median(_o_row.mean(axis=1)))
+                        if _orow_m >= 233.0:
+                            continue
+# رنگِ زمینهٔ ردیف = میانگینِ اصلِ همان ردیف «بدونِ جوهرِ تیره»
+# (lum ≥ ۱۲۰) — اسکرین‌تونِ بینِ حروف؛ متنِ بولد نادیده. اگر
+# نمونهٔ روشنِ کافی نبود، از نمونهٔ چپ/راستِ بیرونِ نوار.
+                        _lum_r = _o_row.mean(axis=1)
+                        _bg_r = _o_row[_lum_r >= 120.0]
+                        _have_bg = int(_bg_r.shape[0]) >= 6
+                        _cx0 = int(_cols.min())
+                        _cx1 = int(_cols.max())
+                        _side_l = []
+                        _sx = _cx0 - 1
+                        while _sx >= 0 and len(_side_l) < 26:
+                            if not _m_all[_y0 + _ry, _sx]:
+                                _side_l.append(_sx)
+                            _sx -= 1
+                        _side_r = []
+                        _sx = _cx1 + 1
+                        while _sx < W and len(_side_r) < 26:
+                            if not _m_all[_y0 + _ry, _sx]:
+                                _side_r.append(_sx)
+                            _sx += 1
+                        if len(_side_l) < 8 and len(_side_r) < 8:
+                            continue
+                        _lv = (_of[_y0 + _ry, _side_l]
+                               if len(_side_l) >= 2 else None)
+                        _rv = (_of[_y0 + _ry, _side_r]
+                               if len(_side_r) >= 2 else None)
+                        if _lv is not None and float(
+                                np.mean(_lv.std(axis=0))) > 30.0:
+                            _lv = None
+                        if _rv is not None and float(
+                                np.mean(_rv.std(axis=0))) > 30.0:
+                            _rv = None
+                        if _lv is None and _rv is None:
+                            continue
+                        _lc = (np.median(_lv, axis=0)
+                               if _lv is not None else None)
+                        _rc = (np.median(_rv, axis=0)
+                               if _rv is not None else None)
+                        if _have_bg:
+# لنگرِ عمودی: نزدیکترینِ ردیفهایِ «کاملاً آزاد» (بیرونِ کلِ
+# ماسکِ متن) به همین ردیف در همان ستونها — زمینهٔ اسکرین‌تونِ
+# واقعی؛ جستجو تا ±۶۴ ردیف (پرش از نوارهایِ مجاور). یافت
+# نشد → رنگِ بین‌حروفِ همان ردیف (بدونِ جوهر).
+                            _anc = None
+                            try:
+                                _rows_out = []
+                                for _dy in (-2, -4, -8, -16, -32,
+                                            -64, 2, 4, 8, 16, 32, 64):
+                                    _yy = _y0 + _ry + _dy
+                                    if 0 <= _yy < H:
+                                        _free = _cols[
+                                            ~_m_all[_yy, _cols]]
+                                        if _free.size >= max(
+                                                6, int(0.15 * _cols.size)):
+                                            _v = _of[_yy, _free]
+                                            if float(np.mean(
+                                                    _v.std(axis=0))) > 26.0:
+                                                continue
+                                            _rows_out.append(_v)
+                                            if len(_rows_out) >= 2:
+                                                break
+                                if _rows_out:
+                                    _anc = np.median(
+                                        np.concatenate(_rows_out, axis=0),
+                                        axis=0)
+                            except Exception:
+                                _anc = None
+                            if _anc is not None:
+                                _outf[_ry, _cols] = _anc[None, :]
+                            else:
+                                _outf[_ry, _cols] = np.median(
+                                    _bg_r, axis=0)[None, :]
+                            _ch_rows += 1
+                            continue
+                        if _lc is None:
+                            _lc = _rc
+                        elif _rc is not None:
+                            _t = ((_cols - _cols.min())
+                                  / max(1.0, float(_cols.max()
+                                                   - _cols.min())))
+                            _row_new = (_lc[None, :]
+                                        * (1.0 - _t[:, None])
+                                        + _rc[None, :] * _t[:, None])
+                            _outf[_ry, _cols] = _row_new
+                            _ch_rows += 1
+                            continue
+                        _outf[_ry, _cols] = _lc[None, :]
+                        _ch_rows += 1
+                    if _ch_rows:
+                        out[_y0:_y1, _x0:_x1] = np.clip(
+                            np.rint(_outf), 0, 255).astype(np.uint8)
+                        n_res += 1
+                        n_px += int(_sub.sum())
+                except Exception:
+                    continue
+            if n_res and verbose:
+                print(f"  [!] نجاتِ سفیدِ غلط: {n_res} نوار "
+                      f"({n_px}px) بازپر شد", flush=True)
+            return n_res
+        except Exception:
+            return n_res
 
     def _fill_system_box_interiors(self, image: np.ndarray,
                                    regions: List[TextRegion],
