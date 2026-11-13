@@ -608,10 +608,11 @@ def _model_str(v) -> str:
     return ",".join(out)
 
 def _gemini_offline_models() -> list:
-    """ — لیستِ آفلاینِ مدلهایِ Gemini (فقط رایگان) — از
-    manga.py میآید (GEMINI_FLASH_MODELS_OFFLINE؛ فهرستِ ۷تاییِ
-    سازنده). اگر import نشد (مثلاً وبِ هاست با بک‌اندِ سبک)
-    همین نسخهٔ داخلی استفاده میشود تا فیلد هرگز خالی نباشد."""
+    """ — لیستِ آفلاینِ مدلهایِ Gemini — از manga.py میآید
+    (GEMINI_FLASH_MODELS_OFFLINE؛ فهرستِ ۸تاییِ سازنده v1.14.291
+    — با gemini-4-hydrogen). اگر import نشد (مثلاً وبِ هاست با
+    بک‌اندِ سبک) همین نسخهٔ داخلی استفاده میشود تا فیلد هرگز
+    خالی نباشد."""
     try:
         from manga import gemini_offline_models as _g
         _lst = _g()
@@ -622,6 +623,7 @@ def _gemini_offline_models() -> list:
     return [
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
+        "gemini-4-hydrogen",
         "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
@@ -630,8 +632,9 @@ def _gemini_offline_models() -> list:
     ]
 
 def _gemini_default_models_str() -> str:
-    """رشتهٔ کاما-جدایِ فهرستِ پیش‌فرضِ Gemini (۷ مدل) — برایِ
-    پرکردنِ فیلدِ مدل از همان ابتدا (دستورِ سازنده v1.14.288:
+    """رشتهٔ کاما-جدایِ فهرستِ پیش‌فرضِ Gemini (۸ مدل v1.14.291 —
+    با hydrogen) — برایِ پرکردنِ فیلدِ مدل از همان ابتدا (دستورِ
+    سازنده v1.14.288:
     «پیشفرض هم همچنین وارد شده باشه خالی نشون نده؛ طرف بفهمه
     چجور وارد شده»)."""
     return ",".join(_gemini_offline_models())
@@ -5928,6 +5931,15 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     TX("app.del_model", "✖"), variant="secondary", scale=0,
                     elem_id="manga_cm_del_btn",
                     visible=(_init_prov in _cm_names(_init_models)))
+# ↗ «دریافت توکن» (دستورِ v1.14.291: «کنار انتخاب ai یک دکمه فلش بزار
+# وقتی زدن بهش وارد سایت توکن گرفتن بشن هم مدل gemini هم مدل دستی ست
+# شده اونای ک دستی ست شده سیو شده فقط سایتشون بیاره بالا؛ جمنای بره
+# سایت اصلیش»): کلیک = همان ژستِ کاربر → سایتِ توکنِ همان انتخاب در
+# تبِ جدید باز میشود (Gemini → aistudio.google.com/docs/api-key؛
+# custom/مدلِ ذخیره‌شده → سایتِ خودش = مبدأِ دامنهٔ ذخیرهشده).
+                token_btn = gr.Button(
+                    TX("app.get_token", "↗ توکن"), variant="secondary",
+                    scale=0, elem_id="manga_token_btn")
 # مشخصاتِ مدلِ ذخیرهشدهٔ انتخابشده (لینک/مدلِ هوش/
 # کلیدِ ماسکشده) — فقط وقتی مدلِ کاربر در منو انتخاب شده باشد
             cm_info_md = gr.Markdown("", visible=False,
@@ -8020,6 +8032,45 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   try {
     const b = document.getElementById('manga_model_ref');
     if (b) b.style.display = (String(p || '').trim() === 'gemini') ? '' : 'none';
+  } catch (e) {}
+}""",
+            )
+        except Exception:
+            pass
+
+# ↗ «دریافت توکن» — کال‌بکِ خالصِ JS (بدونِ رفت‌وبرگشتِ سرور تا
+# window.open در همین ژستِ کلیکِ کاربر اجرا شود و مسدود نشود).
+# ورودیها: provider (متنِ منو) + custom_models_state (لیستِ
+# مدلهایِ ذخیرهشده: name/api_base/…) + api_base (فیلدِ custom).
+# منطق: gemini/auto/خالی → سایتِ رسمیِ توکنِ Gemini؛ custom → مبدأِ
+# دامنهٔ فیلد (سایتِ همان سرویس)؛ مدلِ نامی → مبدأِ دامنهٔ
+# ذخیرهشدهٔ همان مدل («فقط سایتشون بیاره بالا»)؛ بدونِ دامنه →
+# سایتِ Gemini (پیش‌فرضِ امن).
+        try:
+            token_btn.click(
+                fn=None,
+                inputs=[provider, custom_models_state, api_base],
+                outputs=None,
+                js="""(p, models, base) => {
+  try {
+    const GEM = 'https://aistudio.google.com/docs/api-key';
+    const norm = (u) => { try { return new URL(u); } catch (e) {
+      try { return new URL('https://' + u); } catch (e2) { return null; } } };
+    p = String(p || '').trim();
+    let url = '';
+    if (p === 'gemini' || p === 'auto' || p === '') {
+      url = GEM;
+    } else if (p === 'custom') {
+      const u = norm(String(base || '').trim());
+      url = u ? u.origin : GEM;
+    } else {
+      const m = (Array.isArray(models) ? models : []).find(
+        (x) => x && String(x.name || '').trim() === p);
+      const b = m ? String(m.api_base || '').trim() : '';
+      const u = b ? norm(b) : null;
+      url = u ? u.origin : GEM;
+    }
+    if (url) window.open(url, '_blank', 'noopener');
   } catch (e) {}
 }""",
             )

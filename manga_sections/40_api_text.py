@@ -393,6 +393,7 @@ def source_has_letters(text: str) -> bool:
 GEMINI_FLASH_MODELS_OFFLINE = [
     "gemini-3.5-flash-lite",     # پایدارِ سبک — پیش‌فرضِ برنامه
     "gemini-3.1-flash-lite",     # پایدارِ سبک
+    "gemini-4-hydrogen",         # نسلِ ۴ (دستورِ v1.14.291)
     "gemini-3.8-flash",          # جدیدترین Flash کامل
     "gemini-3.7-flash",          # Flash کامل
     "gemini-3.6-flash",          # پایدارِ کامل
