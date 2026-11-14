@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import re
 import logging
 import shutil
 import time
@@ -214,6 +216,8 @@ class Worker:
             log.warning("job %s: no usable typer_job.json (%s)", job["id"], e)
             base = None
 
+        notes.extend(self._page_notes(job, wd, job_json))
+
         # Too big for Discord? Upload the ORIGINAL, full-quality result to the external host
         # and send a link; if that is off or fails, fall through to compress/split below.
         limit = self.notifier.upload_limit(job)
@@ -277,6 +281,28 @@ class Worker:
                     tail)
 
         await self._complete(job, base, lp, elapsed, final, notes, [])
+
+    @staticmethod
+    def _page_notes(job: Job, wd: Path, job_json: Path) -> List[str]:
+        """Say out loud when pages failed or are missing, instead of delivering a short chapter."""
+        out: List[str] = []
+        if job["kind"] == "translate":
+            return out
+        try:
+            got = len(json.loads(job_json.read_text(encoding="utf-8")).get("pages", []))
+        except (OSError, ValueError):
+            got = None
+        want = int(job.get("total_pages") or 0)
+        if got is not None and want and got < want:
+            out.append(f"⚠️ الناتج فيه {got} صفحة من أصل {want}: {want - got} صفحة لم تُنتَج (راجع run.log).")
+        try:
+            txt = (wd / "run.log").read_text(encoding="utf-8", errors="replace")
+            bad = sorted({int(n) for n in re.findall(r"PAGE_FAILED #(\d+)", txt)})
+        except OSError:
+            bad = []
+        if bad:
+            out.append("⚠️ صفحات فشل تنظيفها وتُركت أصلية: " + ", ".join(f"#{n}" for n in bad[:30]))
+        return out
 
     async def _build_chapter(self, job: Job, plan, wd: Path, lp: st.LogProgress,
                              elapsed: float) -> None:

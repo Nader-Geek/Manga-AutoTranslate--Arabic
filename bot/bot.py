@@ -306,7 +306,7 @@ class MangaBot(discord.Client):
         async def chapter(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                           translate: bool = False, dialect: str = "msa", quality: str = "fast",
                           ocr: str = "en", reading_order: str = "rtl", format: str = "jpg",
-                          model: Optional[str] = None, provider: str = "ollama", tone_fonts: bool = True, style_pack_opt: bool = False,
+                          model: Optional[str] = None, provider: str = "auto", tone_fonts: bool = True, style_pack_opt: bool = False,
                           api_model: Optional[str] = None):
             if model and model not in self.cfg.allowed_models:
                 await interaction.response.send_message(

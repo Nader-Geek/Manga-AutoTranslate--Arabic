@@ -22,7 +22,7 @@ API_PROVIDERS: Dict[str, Dict[str, str]] = {
     "together": {"base": "https://api.together.xyz/v1",
                  "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "env": "TOGETHER_API_KEY"},
 }
-PROVIDER_CHOICES = ("ollama",) + tuple(API_PROVIDERS)
+PROVIDER_CHOICES = ("auto", "ollama") + tuple(API_PROVIDERS)
 KEY_ENV_NAMES = tuple(sorted({p["env"] for p in API_PROVIDERS.values()}))
 
 
@@ -31,9 +31,16 @@ def api_key(provider: str) -> str:
     return os.environ.get(p["env"], "").strip() if p else ""
 
 
+def resolve(provider: str) -> str:
+    """'auto' = the first API provider that has a key (gemini first), else local Ollama."""
+    if provider != "auto":
+        return provider
+    return next((n for n in API_PROVIDERS if api_key(n)), "ollama")
+
+
 def available(provider: str) -> bool:
     """ollama is always selectable (reachability is checked at run time); APIs need a key."""
-    return provider == "ollama" or bool(api_key(provider))
+    return provider in ("ollama", "auto") or bool(api_key(provider))
 
 
 def missing_key_message(provider: str) -> Optional[str]:

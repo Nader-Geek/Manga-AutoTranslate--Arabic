@@ -45,7 +45,13 @@ def _extract_json(text: str):
 
 
 async def _chat(session: aiohttp.ClientSession, url: str, model: str, system: str, lines: List[str],
-                num_ctx: int, timeout_s: float, api_key: str = "") -> Optional[List[str]]:
+                num_ctx: int, timeout_s: float, api_key: str = "",
+                errs: Optional[List[str]] = None) -> Optional[List[str]]:
+    def bad(why: str):
+        if errs is not None:
+            errs.append(why)
+        return None
+
     msgs = [{"role": "system", "content": system},
             {"role": "user", "content": json.dumps({"lines": lines}, ensure_ascii=False)}]
     tmo = aiohttp.ClientTimeout(total=timeout_s)
@@ -61,10 +67,10 @@ async def _chat(session: aiohttp.ClientSession, url: str, model: str, system: st
                     async with session.post(f"{url}/chat/completions", json=body, headers=hdr,
                                             timeout=tmo) as r2:
                         if r2.status >= 400:
-                            return None
+                            return bad(f"HTTP {r2.status}: {(await r2.text())[:160]}")
                         data = await r2.json(content_type=None)
                 elif r.status >= 400:
-                    return None
+                    return bad(f"HTTP {r.status}: {(await r.text())[:160]}")
                 else:
                     data = await r.json(content_type=None)
             out = _extract_json(data["choices"][0]["message"]["content"])["translations"]
@@ -73,19 +79,19 @@ async def _chat(session: aiohttp.ClientSession, url: str, model: str, system: st
                     "options": {"temperature": 0.2, "num_ctx": num_ctx}, "messages": msgs}
             async with session.post(f"{url}/api/chat", json=body, timeout=tmo) as r:
                 if r.status >= 400:
-                    return None
+                    return bad(f"HTTP {r.status}: {(await r.text())[:160]}")
                 data = await r.json(content_type=None)
             out = json.loads(data["message"]["content"])["translations"]
-    except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, IndexError, ValueError, TypeError):
-        return None
+    except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, IndexError, ValueError, TypeError) as e:
+        return bad(f"{type(e).__name__}: {str(e)[:120]}")
     if not isinstance(out, list) or len(out) != len(lines):
-        return None
+        return bad("رد غير صالح (عدد الأسطر لا يطابق)")
     return [str(x).strip() for x in out]
 
 
 async def translate_texts(texts: List[str], *, url: str, model: str, src: str = "en",
                           dialect: str = "msa", num_ctx: int = 8192, batch: int = 8,
-                          timeout_s: float = 300, api_key: str = "",
+                          timeout_s: float = 300, api_key: str = "", errs: Optional[List[str]] = None,
                           on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None
                           ) -> List[str]:
     """Returns one Arabic string per input text ('' when it could not be translated)."""
@@ -97,13 +103,13 @@ async def translate_texts(texts: List[str], *, url: str, model: str, src: str = 
         for start in range(0, len(todo), batch):
             idx = todo[start:start + batch]
             lines = [texts[i].strip() for i in idx]
-            res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s, api_key)
+            res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s, api_key, errs)
             if res is None:                       # retry once, then one line at a time
-                res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s, api_key)
+                res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s, api_key, errs)
             if res is None:
                 res = []
                 for ln in lines:
-                    one = await _chat(s, url.rstrip("/"), model, system, [ln], num_ctx, timeout_s, api_key)
+                    one = await _chat(s, url.rstrip("/"), model, system, [ln], num_ctx, timeout_s, api_key, errs)
                     res.append(one[0] if one else "")
             for i, t in zip(idx, res):
                 out[i] = t

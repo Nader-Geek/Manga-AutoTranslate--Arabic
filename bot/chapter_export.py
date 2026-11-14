@@ -101,6 +101,17 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                 rgb = tuple(int(st_["color"][i:i + 2], 16) for i in (1, 3, 5))
                 color["fill"] = st_["color"]
                 caps = bool(st_["caps"] and not translated)
+            ss = r.get("srcstyle") or None      # measured on the ORIGINAL page (heuristic)
+            if ss and not st_:                  # no style pack: reuse the original look
+                try:
+                    rgb = tuple(int(ss["fill"][i:i + 2], 16) for i in (1, 3, 5))
+                    color["fill"] = ss["fill"]
+                except Exception:
+                    pass
+                if ss.get("stroke"):
+                    stroke_out = {"width": ss["stroke"]["width"], "color": ss["stroke"]["color"]}
+            if stroke_out:
+                color["outline"] = stroke_out["color"]
             is_tr = bool(translated and tr)
             total += 1
             done += 1 if is_tr else 0
@@ -119,6 +130,9 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                              "color": "rgb(%d, %d, %d)" % rgb, "lineHeight": f"{fs * 1.2:.1f}px",
                              "letterSpacing": "normal"},
                 "stroke": stroke_out,
+                "sourceStyle": ss,   # {fill, stroke:{color,width}|null, glow:{color,radius}|null, gradient:{from,to,angle}|null}
+                **({"glow": ss["glow"]} if ss and ss.get("glow") else {}),
+                **({"gradient": ss["gradient"]} if ss and ss.get("gradient") else {}),
                 **({"typerStyle": st_["name"], "typerPrefix": (st_["prefixes"] or [""])[0]} if st_ else {})})
         pages_out.append({
             "index": idx, "sourceFilename": (source_names or {}).get(idx) or pg.get("origin") or "",
@@ -177,9 +191,10 @@ async def make_chapter(typer_dir: Path, out_zip: Path, *, title: str, opts: Dict
     translated = bool(opts.get("translate"))
     src = opts.get("ocr", "en")
     if translated:
-        from .providers import API_PROVIDERS, api_key
+        from .providers import API_PROVIDERS, api_key, resolve as providers_resolve
         from .translate_ollama import translate_texts
-        prov = opts.get("provider") or "ollama"
+        prov = providers_resolve(opts.get("provider") or "auto")
+        errs: list = []
         key = ""
         if prov in API_PROVIDERS:
             key = api_key(prov)
@@ -192,7 +207,12 @@ async def make_chapter(typer_dir: Path, out_zip: Path, *, title: str, opts: Dict
         outs = await translate_texts(
             [(r.get("source") or "") for r in regs], url=ollama_url, model=model, src=src,
             dialect=opts.get("dialect", "msa"), num_ctx=num_ctx, on_progress=on_progress,
-            api_key=key)
+            api_key=key, errs=errs)
+        n_ok = sum(1 for t in outs if t)
+        n_all = sum(1 for r in regs if (r.get("source") or "").strip())
+        if n_all and n_ok == 0:
+            raise RuntimeError(f"فشلت الترجمة بالكامل عبر {prov} ({model}): "
+                               f"{errs[-1] if errs else 'لا رد'}")
         for r, t in zip(regs, outs):
             r["text"] = t
         typer["translated"] = True

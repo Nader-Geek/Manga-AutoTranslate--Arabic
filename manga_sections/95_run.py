@@ -126,8 +126,88 @@ class _MangaTranslatorBody_95:
         except Exception:
             return ""
 
+    @staticmethod
+    def _source_style(orig: Optional[np.ndarray], cleaned: Optional[np.ndarray],
+                      rect) -> Optional[dict]:
+        """Estimate the ORIGINAL text look (fill / stroke / glow / gradient) from the pixels the
+        cleaner erased inside `rect`. Heuristic — returns None when there is nothing to measure."""
+        try:
+            if orig is None or cleaned is None or orig.shape != cleaned.shape:
+                return None
+            x, y, w, h = [int(v) for v in rect]
+            H, W = orig.shape[:2]
+            x0, y0, x1, y1 = max(0, x - 6), max(0, y - 6), min(W, x + w + 6), min(H, y + h + 6)
+            if x1 - x0 < 6 or y1 - y0 < 6:
+                return None
+            o = orig[y0:y1, x0:x1].astype(np.int16)
+            c = cleaned[y0:y1, x0:x1].astype(np.int16)
+            diff = np.abs(o - c).sum(axis=2)
+            strong = (diff > 90).astype(np.uint8)
+            if int(strong.sum()) < 20:
+                return None
+            k = np.ones((3, 3), np.uint8)
+            dist = cv2.distanceTransform(strong, cv2.DIST_L2, 3)
+            sm = strong > 0
+            def med(mask):
+                px = o[mask]
+                return [int(v) for v in np.median(px, axis=0)[::-1]] if len(px) else None   # RGB
+            def dist_rgb(a, b):
+                return float(np.linalg.norm(np.array(a, float) - np.array(b, float)))
+            def hx(rgb):
+                return "#%02x%02x%02x" % tuple(rgb)
+            # two colour clusters inside the erased mask: inner (fill) vs outer (stroke)
+            ys0, xs0 = np.nonzero(sm)
+            feats = o[ys0, xs0][:, ::-1].astype(np.float32)
+            fill_mask = sm
+            stroke_info = None
+            if len(feats) >= 40:
+                crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
+                _, lab, cen = cv2.kmeans(feats, 2, None, crit, 3, cv2.KMEANS_PP_CENTERS)
+                lab = lab.ravel()
+                dd = dist[ys0, xs0]
+                m0, m1 = float(dd[lab == 0].mean()) if (lab == 0).any() else 0, \
+                    float(dd[lab == 1].mean()) if (lab == 1).any() else 0
+                inner, outer = (0, 1) if m0 >= m1 else (1, 0)
+                n_out = int((lab == outer).sum())
+                if (n_out >= 0.12 * len(lab) and np.linalg.norm(cen[0] - cen[1]) > 70
+                        and min(m0, m1) < 0.8 * max(m0, m1)):
+                    fm = np.zeros_like(sm); fm[ys0[lab == inner], xs0[lab == inner]] = True
+                    om = np.zeros_like(sm); om[ys0[lab == outer], xs0[lab == outer]] = True
+                    fill_mask = fm
+                    per = max(1.0, float(cv2.countNonZero(cv2.erode(strong, k) ^ strong)))
+                    stroke_info = {"color": hx(med(om)), "width": round(max(1.0, n_out / per), 1)}
+            fill = med(fill_mask)
+            out = {"fill": hx(fill), "stroke": stroke_info, "glow": None, "gradient": None}
+            core = fill_mask
+            # --- glow: weak, soft halo just outside the strong mask
+            weak = (diff > 18) & (diff <= 90)
+            halo = cv2.dilate(strong, np.ones((13, 13), np.uint8)) > 0
+            glow = weak & halo & (strong == 0)
+            if glow.sum() > 0.35 * strong.sum():
+                gc = med(glow & (diff >= np.percentile(diff[glow], 70)))   # the strongest part
+                if out["stroke"]:
+                    gc = [int(out["stroke"]["color"][i:i + 2], 16) for i in (1, 3, 5)]
+                if gc and dist_rgb(gc, fill) > 25:
+                    out["stroke"] = None   # a soft halo explains the coloured outer pixels
+                    out["glow"] = {"color": hx(gc), "radius": round(float(glow.sum()) /
+                                   max(1.0, float(cv2.countNonZero(cv2.dilate(strong, k) ^ strong))), 1)}
+            # --- gradient: the fill colour drifts from top to bottom of the core
+            ys, xs = np.nonzero(core)
+            if len(ys) >= 40:
+                span = ys.max() - ys.min()
+                if span >= 6:
+                    top = core & (np.arange(core.shape[0])[:, None] <= ys.min() + span * 0.3)
+                    bot = core & (np.arange(core.shape[0])[:, None] >= ys.max() - span * 0.3)
+                    a, b = med(top), med(bot)
+                    if a and b and dist_rgb(a, b) > 60:
+                        out["gradient"] = {"from": hx(a), "to": hx(b), "angle": 90}
+            return out
+        except Exception:
+            return None
+
     def _typer_export_page(self, page_i: int, out_file: str, regions: List["TextRegion"],
-                           cleaned: Optional[np.ndarray]) -> None:
+                           cleaned: Optional[np.ndarray],
+                           original: Optional[np.ndarray] = None) -> None:
         """Keep the text-erased page (PNG, nothing drawn on it) and its regions for TypeR."""
         d = getattr(self, "typer_export_dir", None)
         if not d or cleaned is None:
@@ -167,6 +247,7 @@ class _MangaTranslatorBody_95:
                     "source": r.source_text or "",
                     "text": r.translated_text or "",
                     "polys": polys,
+                    "srcstyle": self._source_style(original, cleaned, (x, y, rw, rh)),
                 })
             if not hasattr(self, "_typer_pages"):
                 self._typer_pages = {}
@@ -1385,7 +1466,7 @@ class _MangaTranslatorBody_95:
                     except Exception:
                         pass
                     if getattr(self, "clean_only", False):
-                        self._typer_export_page(page_i, out_file, [], image)
+                        self._typer_export_page(page_i, out_file, [], image, image)
                     results_by_i[page_i] = (out_file, True, dbg)
                     return
                 _t_fin = time.time()  # پاکسازی+رندر
@@ -1395,7 +1476,7 @@ class _MangaTranslatorBody_95:
                     det_quads=_pctx.get("quads"),
                     page_boxes=_pctx.get("boxes"))  # رندرِ نهایی با سدِ «تا همشو ترجمه کنه»
                 if getattr(self, "clean_only", False):
-                    self._typer_export_page(page_i, out_file, regions, result)
+                    self._typer_export_page(page_i, out_file, regions, result, image)
 # ترجمه‌های همین صفحه (از دورهای داخلیِ نهایی/پسگیری) به انبار
                 try:
                     _trans_store_save(regions)
@@ -1439,6 +1520,16 @@ class _MangaTranslatorBody_95:
             except Exception as e:
                 print(f"    [!] خطا در تکمیل {os.path.basename(out_file)}: {e}", file=sys.stderr)
                 results_by_i[page_i] = (out_file, None, dbg)
+                if getattr(self, "clean_only", False) and image is not None:
+                    # bot patch: never drop a page silently — keep the ORIGINAL page in the output
+                    try:
+                        self._write_image(image, out_file)
+                        self._typer_export_page(page_i, out_file, [], image)
+                        results_by_i[page_i] = (out_file, True, dbg)
+                        print(f"    [!] PAGE_FAILED #{page_i + 1}: الصفحة لم تُنظَّف ({e}) — "
+                              f"حُفظت الأصلية", flush=True)
+                    except Exception:
+                        print(f"    [!] PAGE_FAILED #{page_i + 1}: تعذّر حفظ الصفحة", flush=True)
 
         def _finish_ready_pages() -> None:
 # صفحهای که دیالوگهایش هنوز در صف‌شدن است
