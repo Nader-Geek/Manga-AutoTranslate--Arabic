@@ -13,7 +13,7 @@ import aiohttp
 import discord
 from discord import app_commands
 
-from . import providers, ui
+from . import providers, style_pack, ui
 from . import stats as st
 from .config import Config, load_config
 from .db import Database, Job
@@ -297,14 +297,16 @@ class MangaBot(discord.Client):
                                reading_order="ترتيب القراءة", format="صيغة الصور", model="نموذج Ollama",
                                provider="مصدر الترجمة: Ollama محلي أو API (يحتاج مفتاح على السيرفر)",
                                tone_fonts="خط مختلف لكل نوع فقاعة (صراخ/همس/تفكير/راوي...) داخل chapter.json",
+                               style_pack_opt="استخدم حزمة ستايلاتك (/styles upload) لتحديد الخط واللون لكل نوع",
                                api_model="اسم نموذج الـ API (اختياري، الافتراضي حسب الموفر)")
         @app_commands.choices(dialect=DIALECT_CHOICES, quality=QUALITY_CHOICES, ocr=OCR_CHOICES,
                               reading_order=ORDER_CHOICES, format=FORMAT_CHOICES,
                               provider=PROVIDER_CHOICES_UI)
+        @app_commands.rename(style_pack_opt="style_pack")
         async def chapter(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                           translate: bool = False, dialect: str = "msa", quality: str = "fast",
                           ocr: str = "en", reading_order: str = "rtl", format: str = "jpg",
-                          model: Optional[str] = None, provider: str = "ollama", tone_fonts: bool = True,
+                          model: Optional[str] = None, provider: str = "ollama", tone_fonts: bool = True, style_pack_opt: bool = False,
                           api_model: Optional[str] = None):
             if model and model not in self.cfg.allowed_models:
                 await interaction.response.send_message(
@@ -315,11 +317,82 @@ class MangaBot(discord.Client):
                 if msg:
                     await interaction.response.send_message(msg, ephemeral=True)
                     return
+            sp_dir = self.cfg.work_dir / "style_packs" / str(interaction.user.id)
+            if style_pack_opt and style_pack.load_pack(sp_dir) is None:
+                await interaction.response.send_message(
+                    "لا توجد حزمة ستايلات محفوظة. ارفع واحدة بـ `/styles upload` أولاً.", ephemeral=True)
+                return
             await self.submit(interaction, "chapter", file, {
+                "style_pack_dir": str(sp_dir) if style_pack_opt else "",
                 "provider": provider, "tone_fonts": tone_fonts, "api_model": (api_model or "").strip()[:100],
                 "translate": translate, "dialect": dialect, "lama": quality == "lama", "ocr": ocr,
                 "reading_order": reading_order, "img_format": format,
                 "model": model or self.cfg.ollama_model}, link=link)
+
+        # ------------------------------------------------ /styles (per-user style pack)
+        styles = app_commands.Group(name="styles", description="حزمة ستايلات (خطوط/نبرات) لاستخدامها في /chapter")
+
+        def pack_dir(uid: int) -> Path:
+            return self.cfg.work_dir / "style_packs" / str(uid)
+
+        @styles.command(name="upload", description="ارفع zip فيه ملف ستايلات TypeR (.json) + ملفات الخطوط")
+        @app_commands.describe(file="ملف zip: ستايلات TypeR + مجلد الخطوط")
+        async def styles_upload(interaction: discord.Interaction, file: discord.Attachment):
+            if not file.filename.lower().endswith(".zip") or file.size > style_pack.MAX_ZIP:
+                await interaction.response.send_message("ارفع ملف .zip (حتى 40MB).", ephemeral=True)
+                return
+            await interaction.response.defer(thinking=True, ephemeral=True)
+            tmp = self.cfg.work_dir / f"stylepack_{uuid.uuid4().hex}.zip"
+            try:
+                await file.save(tmp)
+                pack = await asyncio.to_thread(style_pack.install_pack, tmp, pack_dir(interaction.user.id))
+            except style_pack.PackError as e:
+                await interaction.followup.send(f"❌ {e}", ephemeral=True)
+                return
+            except Exception:
+                log.exception("styles upload")
+                await interaction.followup.send("❌ تعذّر قراءة الملف.", ephemeral=True)
+                return
+            finally:
+                tmp.unlink(missing_ok=True)
+            note = ""
+            if all(s["arabic"] < 0.9 for s in pack["styles"]):
+                note = ("\n\n⚠️ كل خطوط الحزمة **بدون حروف عربية**: ستُستخدم للنص الأصلي فقط، "
+                        "وللنص المترجم سأستخدم خطاً عربياً بديلاً لكل نوع.")
+            await interaction.followup.send(
+                f"✅ تم حفظ الحزمة.\n{style_pack.summary(pack)}{note}\n\n"
+                "استخدمها بـ `/chapter style_pack:True`. غيّر الربط بـ `/styles map`.", ephemeral=True)
+
+        @styles.command(name="show", description="عرض حزمتك والربط بين الأنواع والستايلات")
+        async def styles_show(interaction: discord.Interaction):
+            pack = style_pack.load_pack(pack_dir(interaction.user.id))
+            await interaction.response.send_message(
+                style_pack.summary(pack) if pack else "لا توجد حزمة. ارفع واحدة بـ `/styles upload`.",
+                ephemeral=True)
+
+        async def _style_ac(interaction: discord.Interaction, current: str):
+            pack = style_pack.load_pack(pack_dir(interaction.user.id))
+            names = [s["name"] for s in (pack or {}).get("styles", [])]
+            return [app_commands.Choice(name=n, value=n) for n in names if current.lower() in n.lower()][:25]
+
+        @styles.command(name="map", description="اربط نوع فقاعة بستايل من حزمتك")
+        @app_commands.describe(tone="نوع الفقاعة", style="اسم الستايل")
+        @app_commands.choices(tone=[app_commands.Choice(name=ui.tone_label(t), value=t) for t in style_pack.TONES])
+        @app_commands.autocomplete(style=_style_ac)
+        async def styles_map(interaction: discord.Interaction, tone: str, style: str):
+            try:
+                style_pack.set_mapping(pack_dir(interaction.user.id), tone, style)
+            except style_pack.PackError as e:
+                await interaction.response.send_message(f"❌ {e}", ephemeral=True)
+                return
+            await interaction.response.send_message(f"✅ {ui.tone_label(tone)} → {style}", ephemeral=True)
+
+        @styles.command(name="clear", description="حذف حزمتك")
+        async def styles_clear(interaction: discord.Interaction):
+            shutil.rmtree(pack_dir(interaction.user.id), ignore_errors=True)
+            await interaction.response.send_message("تم الحذف.", ephemeral=True)
+
+        tree.add_command(styles)
 
         @tree.command(name="translate", description="ترجمة المانجا إلى العربية (Ollama محلي) مع تنظيف وكتابة النص")
         @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", dialect="أسلوب العربية",

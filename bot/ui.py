@@ -197,7 +197,7 @@ def help_embed(cfg: Any) -> discord.Embed:
         "🧹 `/clean` — يمسح النص من الفقاعات ويعيد صفحات نظيفة\n"
         "🔎 `/extract` — يستخرج النص الأصلي (txt + json)\n"
         "🧩 `/typer` — تنظيف + إحداثيات الفقاعات لاستيرادها في TypeR Web\n"
-        "📦 `/chapter` — zip فيه مجلد `images/` + `chapter.json` (خط مختلف لكل نوع فقاعة `tone_fonts`، ترجمة اختيارية بـ `translate:True`، المصدر `provider`: Ollama أو API)\n"
+        "📦 `/chapter` — zip فيه مجلد `images/` + `chapter.json` (حزمة ستايلاتك `style_pack` (`/styles`)، خط مختلف لكل نوع فقاعة `tone_fonts`، ترجمة اختيارية بـ `translate:True`، المصدر `provider`: Ollama أو API)\n"
         "🌐 `/translate` — ترجمة عربية (Ollama) + كتابة النص على الصفحة\n"
         "📊 `/status` `/queue` `/history` `/cancel` `/ping` — متابعة المهام"))
     if getattr(cfg, "allow_links", True):
@@ -226,3 +226,8 @@ def help_embed(cfg: Any) -> discord.Embed:
 def _safe(text: str, limit: int = 60) -> str:
     t = (text or "").replace("`", "'").replace("\n", " ")
     return t if len(t) <= limit else t[: limit - 1] + "…"
+
+
+def tone_label(tone: str) -> str:
+    from .stats import TONE_LABELS
+    return {**TONE_LABELS, "sfx": "مؤثر صوتي"}.get(tone, tone)

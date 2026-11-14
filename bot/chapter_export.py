@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .font_styles import font_for
+from . import style_pack as sp
 
 SCHEMA = "manhuarmtl-v1"
 FONT_FAMILY = "Vazirmatn, sans-serif"
@@ -58,11 +59,13 @@ def fit_font_size(text: str, w: int, h: int, lo: int = 8, hi: int = 80) -> float
 
 def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, source_lang: str,
                        translated: bool, target_lang: str = "ar", tone_fonts: bool = True,
+                       pack: Optional[Dict[str, Any]] = None,
                        source_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]:
     from PIL import Image
     pages_out: List[Dict[str, Any]] = []
     stitched: List[Dict[str, Any]] = []
     total = done = 0
+    used_fonts: Dict[str, str] = {}
     for pg in typer.get("pages", []):
         idx = int(pg.get("index", len(pages_out)))
         fname = pg.get("file") or f"page_{idx + 1:03d}.jpg"
@@ -84,6 +87,20 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                 {"fill": None, "outline": None, "background": None, "confidence": None}, (0, 0, 0))
             fs = fit_font_size(shown, bw, bh)
             fam, wt = font_for(r.get("tone") or "normal", r.get("kind") or "", tone_fonts)
+            st_ = sp.style_for(pack, r.get("tone") or "normal", r.get("kind") or "") if pack else None
+            stroke_out = None
+            if st_:
+                use_pack_font = st_["fontFile"] and (not translated or st_["arabic"] >= 0.9)
+                if use_pack_font:
+                    fam, wt = st_["fontName"] or st_["font"], "400"
+                    used_fonts[st_["fontFile"]] = st_["font"]
+                if st_["stroke"]:
+                    stroke_out = {"width": st_["stroke"]["size"], "color": st_["stroke"]["color"]}
+            caps = False
+            if st_ and st_["color"]:
+                rgb = tuple(int(st_["color"][i:i + 2], 16) for i in (1, 3, 5))
+                color["fill"] = st_["color"]
+                caps = bool(st_["caps"] and not translated)
             is_tr = bool(translated and tr)
             total += 1
             done += 1 if is_tr else 0
@@ -98,16 +115,17 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                 "layout": {"baseFontSize": round(fs * 1.36, 2), "maxWidth": None,
                            "capSize": None, "pageWidth": w},
                 "computed": {"fontFamily": f"{fam}, sans-serif", "fontSize": fs, "fontWeight": wt,
-                             "fontStyle": "normal", "textTransform": "none", "textAlign": "center",
+                             "fontStyle": "normal", "textTransform": "uppercase" if caps else "none", "textAlign": "center",
                              "color": "rgb(%d, %d, %d)" % rgb, "lineHeight": f"{fs * 1.2:.1f}px",
                              "letterSpacing": "normal"},
-                "stroke": None})
+                "stroke": stroke_out,
+                **({"typerStyle": st_["name"], "typerPrefix": (st_["prefixes"] or [""])[0]} if st_ else {})})
         pages_out.append({
             "index": idx, "sourceFilename": (source_names or {}).get(idx) or pg.get("origin") or "",
             "imageFilename": out_name, "width": w, "height": h, "textCount": len(texts),
             "texts": texts, "sourcePageIndexes": [idx], "imageSource": "bot-clean"})
         stitched.append({"filename": out_name, "width": w, "height": h, "pageIndexes": [idx]})
-    return {
+    chapter = {
         "schema": SCHEMA, "title": title, "mangaSlug": slugify(title), "chapterSlug": "",
         "url": "", "extractedAt": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
         "userAgent": "manga-autotranslate-bot", "pageCount": len(pages_out),
@@ -116,17 +134,23 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                         "translatedTexts": done, "totalTexts": total,
                         "insufficient": bool(translated and total and done < total * 0.8)},
         "stitchMode": "none", "stitchedImages": stitched, "failedPages": [], "pages": pages_out}
+    if pack:
+        chapter["styleProfile"] = {"name": pack["name"], "fonts": sorted(used_fonts.values())}
+        chapter["_fontFiles"] = used_fonts   # file -> PostScript name (popped by build_chapter_zip)
+    return chapter
 
 
 def build_chapter_zip(typer_dir: Path, out_zip: Path, *, title: str, source_lang: str = "en",
                       translated: bool = False, target_lang: str = "ar", tone_fonts: bool = True,
+                      pack: Optional[Dict[str, Any]] = None,
                       source_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]:
     """typer_dir holds the cleaned pages + typer_job.json (with 'text' filled when translated).
     Returns the chapter.json dict that was written into the zip."""
     typer = json.loads((Path(typer_dir) / "typer_job.json").read_text(encoding="utf-8"))
     chapter = build_chapter_json(typer, Path(typer_dir), title=title, source_lang=source_lang,
                                  translated=translated, target_lang=target_lang,
-                                 tone_fonts=tone_fonts, source_names=source_names)
+                                 tone_fonts=tone_fonts, pack=pack, source_names=source_names)
+    font_files = chapter.pop("_fontFiles", {})
     out_zip = Path(out_zip)
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_STORED) as zf:
@@ -134,6 +158,10 @@ def build_chapter_zip(typer_dir: Path, out_zip: Path, *, title: str, source_lang
             src = Path(typer_dir) / (pg.get("file") or "")
             if src.is_file():
                 zf.write(src, f"images/{entry['imageFilename']}")   # images are already compressed
+        for fname in sorted(font_files):   # only the pack fonts actually used
+            fp = Path(pack["dir"]) / "fonts" / fname
+            if fp.is_file():
+                zf.write(fp, f"fonts/{fname}")
         zf.writestr("chapter.json", json.dumps(chapter, ensure_ascii=False, indent=2))
     return chapter
 
@@ -170,4 +198,5 @@ async def make_chapter(typer_dir: Path, out_zip: Path, *, title: str, opts: Dict
         typer["translated"] = True
         job_path.write_text(json.dumps(typer, ensure_ascii=False, indent=1), encoding="utf-8")
     return build_chapter_zip(typer_dir, out_zip, title=title, source_lang=src,
-                             translated=translated, tone_fonts=bool(opts.get("tone_fonts", True)))
+                             translated=translated, tone_fonts=bool(opts.get("tone_fonts", True)),
+                             pack=sp.load_pack(Path(opts["style_pack_dir"])) if opts.get("style_pack_dir") else None)

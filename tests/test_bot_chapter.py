@@ -89,3 +89,43 @@ async def main():
     assert 8 <= fit_font_size("hello world", 100, 50) <= 50
 
 asyncio.run(main()); print("test_bot_chapter OK")
+
+# ---- style pack (real TypeR export when available, else skipped)
+import glob
+PACK = glob.glob("/tmp/fz/*.json")
+if PACK:
+    import shutil
+    from bot import style_pack as sp
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t); zp = t / "p.zip"
+        with zipfile.ZipFile(zp, "w") as z:
+            z.write(PACK[0], "styles.json")
+            for f in glob.glob("/tmp/fz/fonts/*"): z.write(f, "fonts/" + Path(f).name)
+        pack = sp.install_pack(zp, t / "pack")
+        assert len(pack["styles"]) == 17 and pack["map"]["normal"] == "Speech" and pack["map"]["shout"] == "Shout"
+        assert pack["map"]["thought"] == "Thinking" and all(s["arabic"] == 0 for s in pack["styles"])
+        assert sp.set_mapping(t / "pack", "whisper", "Stress")["map"]["whisper"] == "Stress"
+        try: sp.set_mapping(t / "pack", "whisper", "nope"); raise SystemExit("bad style accepted")
+        except sp.PackError: pass
+        d = t / "typer"; d.mkdir(); make_dir(d)
+        async def go(translate):
+            return await make_chapter(d, t / f"c{translate}.zip", title="x", ollama_url="http://127.0.0.1:9", model="m",
+                                      opts={"translate": translate, "style_pack_dir": str(t / "pack")})
+        ch = asyncio.run(go(False))      # source text: pack fonts + stroke + prefix, fonts shipped in the zip
+        a, b = ch["pages"][0]["texts"]
+        assert a["typerStyle"] == "Speech" and a["computed"]["fontFamily"].startswith("CCMildMannered") and a["stroke"]["width"] == 3
+        assert a["computed"]["textTransform"] == "uppercase"
+        assert b["typerStyle"] == "Hand letters" and b["computed"]["fontFamily"].startswith("SS Soapy")
+        with zipfile.ZipFile(t / "cFalse.zip") as z:
+            assert any(n.startswith("fonts/CCMildMannered") for n in z.namelist())
+        ch = asyncio.run(go(True))       # Arabic: pack fonts lack glyphs -> fallback font, no pack fonts shipped
+        a, b = ch["pages"][0]["texts"]
+        assert a["computed"]["fontFamily"].startswith("Vazirmatn") and a["typerStyle"] == "Speech"
+        with zipfile.ZipFile(t / "cTrue.zip") as z:
+            assert not any(n.startswith("fonts/") for n in z.namelist())
+        # hostile zips
+        bad = t / "bad.zip"
+        with zipfile.ZipFile(bad, "w") as z: z.writestr("x.json", "{}")
+        try: sp.install_pack(bad, t / "p2"); raise SystemExit("accepted junk")
+        except sp.PackError: pass
+    print("style pack tests OK")
