@@ -146,12 +146,22 @@ async def make_chapter(typer_dir: Path, out_zip: Path, *, title: str, opts: Dict
     translated = bool(opts.get("translate"))
     src = opts.get("ocr", "en")
     if translated:
+        from .providers import API_PROVIDERS, api_key
         from .translate_ollama import translate_texts
+        prov = opts.get("provider") or "ollama"
+        key = ""
+        if prov in API_PROVIDERS:
+            key = api_key(prov)
+            if not key:
+                raise RuntimeError(f"مفتاح {prov} غير مضبوط على السيرفر")
+            ollama_url = API_PROVIDERS[prov]["base"]
+            model = opts.get("api_model") or API_PROVIDERS[prov]["model"]
         regs = [r for pg in typer.get("pages", []) for r in (pg.get("regions") or [])
                 ]
         outs = await translate_texts(
             [(r.get("source") or "") for r in regs], url=ollama_url, model=model, src=src,
-            dialect=opts.get("dialect", "msa"), num_ctx=num_ctx, on_progress=on_progress)
+            dialect=opts.get("dialect", "msa"), num_ctx=num_ctx, on_progress=on_progress,
+            api_key=key)
         for r, t in zip(regs, outs):
             r["text"] = t
         typer["translated"] = True

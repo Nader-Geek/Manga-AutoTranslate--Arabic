@@ -33,21 +33,50 @@ def system_prompt(src: str, dialect: str) -> str:
         "line, in the same order.")
 
 
-async def _chat(session: aiohttp.ClientSession, url: str, model: str, system: str, lines: List[str],
-                num_ctx: int, timeout_s: float) -> Optional[List[str]]:
-    body = {"model": model, "stream": False, "format": "json",
-            "options": {"temperature": 0.2, "num_ctx": num_ctx},
-            "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": json.dumps(
-                             {"lines": lines}, ensure_ascii=False)}]}
+def _extract_json(text: str):
+    """API models sometimes wrap JSON in prose/```; take the outermost {...}."""
     try:
-        async with session.post(f"{url}/api/chat", json=body,
-                                timeout=aiohttp.ClientTimeout(total=timeout_s)) as r:
-            if r.status >= 400:
-                return None
-            data = await r.json(content_type=None)
-        out = json.loads(data["message"]["content"])["translations"]
-    except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, ValueError, TypeError):
+        return json.loads(text)
+    except ValueError:
+        a, b = text.find("{"), text.rfind("}")
+        if a < 0 or b <= a:
+            raise
+        return json.loads(text[a:b + 1])
+
+
+async def _chat(session: aiohttp.ClientSession, url: str, model: str, system: str, lines: List[str],
+                num_ctx: int, timeout_s: float, api_key: str = "") -> Optional[List[str]]:
+    msgs = [{"role": "system", "content": system},
+            {"role": "user", "content": json.dumps({"lines": lines}, ensure_ascii=False)}]
+    tmo = aiohttp.ClientTimeout(total=timeout_s)
+    try:
+        if api_key:   # hosted OpenAI-compatible API
+            hdr = {"Authorization": f"Bearer {api_key}"}
+            body = {"model": model, "temperature": 0.2, "messages": msgs,
+                    "response_format": {"type": "json_object"}}
+            async with session.post(f"{url}/chat/completions", json=body, headers=hdr,
+                                    timeout=tmo) as r:
+                if r.status == 400:   # some providers reject response_format: retry without it
+                    body.pop("response_format")
+                    async with session.post(f"{url}/chat/completions", json=body, headers=hdr,
+                                            timeout=tmo) as r2:
+                        if r2.status >= 400:
+                            return None
+                        data = await r2.json(content_type=None)
+                elif r.status >= 400:
+                    return None
+                else:
+                    data = await r.json(content_type=None)
+            out = _extract_json(data["choices"][0]["message"]["content"])["translations"]
+        else:         # local Ollama
+            body = {"model": model, "stream": False, "format": "json",
+                    "options": {"temperature": 0.2, "num_ctx": num_ctx}, "messages": msgs}
+            async with session.post(f"{url}/api/chat", json=body, timeout=tmo) as r:
+                if r.status >= 400:
+                    return None
+                data = await r.json(content_type=None)
+            out = json.loads(data["message"]["content"])["translations"]
+    except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, IndexError, ValueError, TypeError):
         return None
     if not isinstance(out, list) or len(out) != len(lines):
         return None
@@ -56,7 +85,7 @@ async def _chat(session: aiohttp.ClientSession, url: str, model: str, system: st
 
 async def translate_texts(texts: List[str], *, url: str, model: str, src: str = "en",
                           dialect: str = "msa", num_ctx: int = 8192, batch: int = 8,
-                          timeout_s: float = 300,
+                          timeout_s: float = 300, api_key: str = "",
                           on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None
                           ) -> List[str]:
     """Returns one Arabic string per input text ('' when it could not be translated)."""
@@ -68,13 +97,13 @@ async def translate_texts(texts: List[str], *, url: str, model: str, src: str = 
         for start in range(0, len(todo), batch):
             idx = todo[start:start + batch]
             lines = [texts[i].strip() for i in idx]
-            res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s)
+            res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s, api_key)
             if res is None:                       # retry once, then one line at a time
-                res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s)
+                res = await _chat(s, url.rstrip("/"), model, system, lines, num_ctx, timeout_s, api_key)
             if res is None:
                 res = []
                 for ln in lines:
-                    one = await _chat(s, url.rstrip("/"), model, system, [ln], num_ctx, timeout_s)
+                    one = await _chat(s, url.rstrip("/"), model, system, [ln], num_ctx, timeout_s, api_key)
                     res.append(one[0] if one else "")
             for i, t in zip(idx, res):
                 out[i] = t

@@ -20,7 +20,8 @@ ALLOWED_EXTS = IMAGE_EXTS | {".zip", ".pdf"}
 KINDS = ("clean", "extract", "typer", "translate", "chapter")
 
 # Environment variables that must never reach the manga.py subprocess.
-_SECRET_ENV = ("DISCORD_TOKEN", "DATABASE_URL")
+from .providers import KEY_ENV_NAMES  # noqa: E402
+_SECRET_ENV = ("DISCORD_TOKEN", "DATABASE_URL", "GOFILE_TOKEN") + KEY_ENV_NAMES
 
 OCR_CHOICES = {"en": ["en"], "ja": ["ja", "en"], "ko": ["ko", "en"], "zh": ["zh", "en"]}
 

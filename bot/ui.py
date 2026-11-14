@@ -197,7 +197,7 @@ def help_embed(cfg: Any) -> discord.Embed:
         "🧹 `/clean` — يمسح النص من الفقاعات ويعيد صفحات نظيفة\n"
         "🔎 `/extract` — يستخرج النص الأصلي (txt + json)\n"
         "🧩 `/typer` — تنظيف + إحداثيات الفقاعات لاستيرادها في TypeR Web\n"
-        "📦 `/chapter` — zip فيه مجلد `images/` + `chapter.json` (ترجمة اختيارية بـ `translate:True`)\n"
+        "📦 `/chapter` — zip فيه مجلد `images/` + `chapter.json` (ترجمة اختيارية بـ `translate:True`، المصدر `provider`: Ollama أو API)\n"
         "🌐 `/translate` — ترجمة عربية (Ollama) + كتابة النص على الصفحة\n"
         "📊 `/status` `/queue` `/history` `/cancel` `/ping` — متابعة المهام"))
     if getattr(cfg, "allow_links", True):

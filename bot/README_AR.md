@@ -7,7 +7,7 @@
 | `/clean` | مسح النص من الفقاعات | ZIP صفحات نظيفة |
 | `/extract` | استخراج النصوص الأصلية | `extract.txt` + `extract.json` |
 | `/typer` | تنظيف + إحداثيات الفقاعات | `typer.zip` (للاستيراد في TypeR Web) |
-| `/chapter` | صور نظيفة + `chapter.json` (صيغة manhuarmtl-v1) | `chapter.zip` = مجلد `images/` + `chapter.json`؛ `translate:True` يترجم النصوص للعربية عبر Ollama (اختياري) |
+| `/chapter` | صور نظيفة + `chapter.json` (صيغة manhuarmtl-v1) | `chapter.zip` = مجلد `images/` + `chapter.json`؛ `translate:True` يترجم النصوص للعربية (اختياري)؛ `provider` = Ollama المحلي أو API (gemini/openai/deepseek/groq/openrouter/xai/together) بشرط وجود المفتاح في `.env` |
 | `/translate` | ترجمة عربية كاملة عبر Ollama | ZIP أو PDF |
 | `/status` `/history` `/cancel` `/queue` `/ping` | متابعة وإدارة | — |
 

@@ -13,7 +13,7 @@ import aiohttp
 import discord
 from discord import app_commands
 
-from . import ui
+from . import providers, ui
 from . import stats as st
 from .config import Config, load_config
 from .db import Database, Job
@@ -37,6 +37,8 @@ QUALITY_CHOICES = [
     app_commands.Choice(name="سريع (OpenCV)", value="fast"),
     app_commands.Choice(name="جودة أعلى (LaMa — أبطأ)", value="lama"),
 ]
+PROVIDER_CHOICES_UI = [app_commands.Choice(name=("Ollama (محلي)" if p == "ollama" else p), value=p)
+                       for p in providers.PROVIDER_CHOICES]
 FORMAT_CHOICES = [
     app_commands.Choice(name="JPG (أصغر)", value="jpg"),
     app_commands.Choice(name="PNG (أعلى جودة)", value="png"),
@@ -292,18 +294,28 @@ class MangaBot(discord.Client):
         @tree.command(name="chapter", description="ملف chapter.zip: مجلد الصور النظيفة + chapter.json (الترجمة اختيارية)")
         @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", translate="ترجمة النصوص للعربية داخل chapter.json (Ollama)",
                                dialect="أسلوب العربية", quality="جودة المسح", ocr="لغة النص الأصلي",
-                               reading_order="ترتيب القراءة", format="صيغة الصور", model="نموذج Ollama")
+                               reading_order="ترتيب القراءة", format="صيغة الصور", model="نموذج Ollama",
+                               provider="مصدر الترجمة: Ollama محلي أو API (يحتاج مفتاح على السيرفر)",
+                               api_model="اسم نموذج الـ API (اختياري، الافتراضي حسب الموفر)")
         @app_commands.choices(dialect=DIALECT_CHOICES, quality=QUALITY_CHOICES, ocr=OCR_CHOICES,
-                              reading_order=ORDER_CHOICES, format=FORMAT_CHOICES)
+                              reading_order=ORDER_CHOICES, format=FORMAT_CHOICES,
+                              provider=PROVIDER_CHOICES_UI)
         async def chapter(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                           translate: bool = False, dialect: str = "msa", quality: str = "fast",
                           ocr: str = "en", reading_order: str = "rtl", format: str = "jpg",
-                          model: Optional[str] = None):
+                          model: Optional[str] = None, provider: str = "ollama",
+                          api_model: Optional[str] = None):
             if model and model not in self.cfg.allowed_models:
                 await interaction.response.send_message(
                     f"النموذج غير مسموح. المتاح: {', '.join(self.cfg.allowed_models)}", ephemeral=True)
                 return
+            if translate:
+                msg = providers.missing_key_message(provider)
+                if msg:
+                    await interaction.response.send_message(msg, ephemeral=True)
+                    return
             await self.submit(interaction, "chapter", file, {
+                "provider": provider, "api_model": (api_model or "").strip()[:100],
                 "translate": translate, "dialect": dialect, "lama": quality == "lama", "ocr": ocr,
                 "reading_order": reading_order, "img_format": format,
                 "model": model or self.cfg.ollama_model}, link=link)

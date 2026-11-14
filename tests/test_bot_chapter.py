@@ -1,5 +1,5 @@
 """chapter.zip builder + optional Ollama translation. Run: python3 tests/test_bot_chapter.py"""
-import asyncio, json, sys, tempfile, zipfile
+import asyncio, json, os, sys, tempfile, zipfile
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from aiohttp import web
@@ -48,6 +48,32 @@ async def main():
                 assert tx[0]["text"] == "HELLO" and not tx[0]["isTranslated"] and calls["n"] == 1 or calls["n"] == 0
             assert tx[0]["box"] == {"x": 10, "y": 10, "w": 120, "h": 60} and tx[1]["style"] == ["shout"]
             assert data["pages"][0]["imageFilename"] == "page-001.jpg"
+    # hosted API (OpenAI-compatible): bearer key, 400 on response_format -> retried without it
+    seen = {"auth": None, "rf400": 0}
+    async def comp(req):
+        seen["auth"] = req.headers.get("Authorization")
+        body = await req.json()
+        if "response_format" in body:
+            seen["rf400"] += 1
+            return web.Response(status=400, text="no response_format")
+        lines = json.loads(body["messages"][1]["content"])["lines"]
+        txt = "```json\n" + json.dumps({"translations": ["api:" + l for l in lines]}) + "\n```"
+        return web.json_response({"choices": [{"message": {"content": txt}}]})
+    app2 = web.Application(); app2.router.add_post("/v1/chat/completions", comp)
+    r2 = web.AppRunner(app2); await r2.setup()
+    s2 = web.TCPSite(r2, "127.0.0.1", 0); await s2.start()
+    base2 = f"http://127.0.0.1:{s2._server.sockets[0].getsockname()[1]}/v1"
+    from bot import providers
+    providers.API_PROVIDERS["openai"]["base"] = base2
+    os.environ["OPENAI_API_KEY"] = "sk-test"
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t); d = t / "typer"; d.mkdir(); make_dir(d)
+        ch = await make_chapter(d, t / "c.zip", title="x", opts={"translate": True, "provider": "openai"},
+                                ollama_url="http://unused", model="qwen")
+        assert ch["pages"][0]["texts"][0]["text"] == "api:HELLO" and seen["auth"] == "Bearer sk-test" and seen["rf400"] >= 1
+    del os.environ["OPENAI_API_KEY"]
+    assert providers.missing_key_message("openai") and providers.missing_key_message("ollama") is None
+    await r2.cleanup()
     # unreachable Ollama: no crash, texts stay untranslated
     with tempfile.TemporaryDirectory() as t:
         t = Path(t); d = t / "typer"; d.mkdir(); make_dir(d)
