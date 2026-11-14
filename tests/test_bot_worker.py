@@ -127,6 +127,11 @@ async def main():
     r = await run_one(j); assert r["status"] == "done", r["error"]
     assert r["stats"]["dialogue"] == 2 and r["stats"]["translated"] == 2 and nt.last("done")[3][0].suffix == ".pdf"
 
+    # chapter -> images/ + chapter.json (no translation: Ollama not needed)
+    j = await mkjob("chapter"); r = await run_one(j); assert r["status"] == "done", r["error"]
+    f = nt.last("done")[3][0]; zc = zipfile.ZipFile(f)
+    assert f.name == "chapter.zip" and "chapter.json" in zc.namelist() and any(n.startswith("images/") for n in zc.namelist())
+    assert json.loads(zc.read("chapter.json"))["schema"] == "manhuarmtl-v1"
     # missing typer_job.json: clean still delivers with approximate stats, extract fails
     os.environ["FAKE_MODE"] = "noexport"
     j = await mkjob("clean"); r = await run_one(j)

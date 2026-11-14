@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Discord bot: /clean /extract /typer /translate /status /history /cancel /queue /ping."""
+"""Discord bot: /clean /extract /typer /chapter /translate /status /history /cancel /queue /ping."""
 from __future__ import annotations
 
 import asyncio
@@ -288,6 +288,25 @@ class MangaBot(discord.Client):
             await self.submit(interaction, "typer", file,
                               {"lama": quality == "lama", "ocr": ocr, "img_format": format,
                                "reading_order": reading_order}, link=link)
+
+        @tree.command(name="chapter", description="ملف chapter.zip: مجلد الصور النظيفة + chapter.json (الترجمة اختيارية)")
+        @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", translate="ترجمة النصوص للعربية داخل chapter.json (Ollama)",
+                               dialect="أسلوب العربية", quality="جودة المسح", ocr="لغة النص الأصلي",
+                               reading_order="ترتيب القراءة", format="صيغة الصور", model="نموذج Ollama")
+        @app_commands.choices(dialect=DIALECT_CHOICES, quality=QUALITY_CHOICES, ocr=OCR_CHOICES,
+                              reading_order=ORDER_CHOICES, format=FORMAT_CHOICES)
+        async def chapter(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
+                          translate: bool = False, dialect: str = "msa", quality: str = "fast",
+                          ocr: str = "en", reading_order: str = "rtl", format: str = "jpg",
+                          model: Optional[str] = None):
+            if model and model not in self.cfg.allowed_models:
+                await interaction.response.send_message(
+                    f"النموذج غير مسموح. المتاح: {', '.join(self.cfg.allowed_models)}", ephemeral=True)
+                return
+            await self.submit(interaction, "chapter", file, {
+                "translate": translate, "dialect": dialect, "lama": quality == "lama", "ocr": ocr,
+                "reading_order": reading_order, "img_format": format,
+                "model": model or self.cfg.ollama_model}, link=link)
 
         @tree.command(name="translate", description="ترجمة المانجا إلى العربية (Ollama محلي) مع تنظيف وكتابة النص")
         @app_commands.describe(file="صورة أو ZIP أو PDF (أو استخدم link)", link="رابط Google Drive أو Gofile بدل الرفع", dialect="أسلوب العربية",

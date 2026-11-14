@@ -26,6 +26,26 @@ def _bool(name: str, default: bool = False) -> bool:
     return raw in ("1", "true", "yes", "on")
 
 
+def _gpu_present() -> bool:
+    """True when an NVIDIA GPU is visible (nvidia-smi -L lists one)."""
+    import shutil, subprocess
+    exe = shutil.which("nvidia-smi")
+    if not exe:
+        return False
+    try:
+        out = subprocess.run([exe, "-L"], capture_output=True, text=True, timeout=10).stdout
+    except Exception:
+        return False
+    return "GPU" in out
+
+
+def _use_gpu() -> bool:
+    """USE_GPU=1/0 forces it; unset = auto-detect (it used to default to CPU-only)."""
+    if os.environ.get("USE_GPU", "").strip():
+        return _bool("USE_GPU")
+    return _gpu_present()
+
+
 def _csv(name: str, default: str = "") -> Tuple[str, ...]:
     raw = os.environ.get(name, default)
     return tuple(x.strip() for x in raw.split(",") if x.strip())
@@ -103,7 +123,7 @@ def load_config() -> Config:
         python=os.environ.get("MANGA_PYTHON", sys.executable),
         legacy_script=Path(os.environ.get("LEGACY_SCRIPT", str(REPO_ROOT / "legacy" / "manga_ar.py"))),
         font=os.environ.get("MANGA_FONT", "fonts/Vazirmatn-Bold.ttf"),
-        use_gpu=_bool("USE_GPU"),
+        use_gpu=_use_gpu(),
         work_dir=Path(os.environ.get("BOT_WORK_DIR", str(REPO_ROOT / "bot_work"))),
         file_ttl_minutes=_int("FILE_TTL_MINUTES", 20),
         max_upload_mb=_int("MAX_UPLOAD_MB", 100),

@@ -286,7 +286,7 @@ def stats_fields(kind: str, st: Dict[str, Any]) -> List[tuple]:
     f.append(("📄 الصفحات", f"{pages}" + (f" (منها {st['blank_pages']} فارغة)"
                                           if st.get("blank_pages") else ""), True))
     bubbles = st.get("bubbles", 0)
-    if kind in ("clean", "typer"):
+    if kind in ("clean", "typer", "chapter"):
         f.append(("🧹 فقاعات/نصوص تم مسحها", str(bubbles), True))
     elif kind == "extract":
         f.append(("🔎 نصوص مستخرجة", str(bubbles), True))
@@ -307,11 +307,11 @@ def stats_fields(kind: str, st: Dict[str, Any]) -> List[tuple]:
             f"{KIND_LABELS.get(k, k)}: {v}" for k, v in sorted(bk.items(), key=lambda x: -x[1])),
             False))
     bt = st.get("by_tone") or {}
-    if bt and kind in ("translate", "extract", "typer"):
+    if bt and kind in ("translate", "extract", "typer", "chapter"):
         top = sorted(bt.items(), key=lambda x: -x[1])[:5]
         f.append(("🎭 النبرات", " • ".join(f"{TONE_LABELS.get(k, k)}: {v}" for k, v in top), False))
     cl = st.get("cleanup") or {}
-    if cl and kind in ("clean", "typer", "translate"):
+    if cl and kind in ("clean", "typer", "translate", "chapter"):
         names = {"flat": "تعبئة لونية", "color": "لون", "LaMa": "LaMa", "OpenCV": "OpenCV"}
         f.append(("🖌️ طريقة المسح (مجموعات)", " • ".join(
             f"{names.get(k, k)}: {v}" for k, v in cl.items() if v), False))

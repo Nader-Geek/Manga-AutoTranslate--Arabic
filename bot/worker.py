@@ -14,6 +14,7 @@ from . import sysinfo
 from .hosting import UploadFailed, upload_gofile
 from .config import Config
 from .db import Database, Job
+from .chapter_export import make_chapter
 from .runner import (ProcessHandle, UploadError, build_plan, build_typer_parts, run_plan,
                      shrink_oversized_images, split_zip)
 
@@ -216,8 +217,8 @@ class Worker:
         # Too big for Discord? Upload the ORIGINAL, full-quality result to the external host
         # and send a link; if that is off or fails, fall through to compress/split below.
         limit = self.notifier.upload_limit(job)
-        if self.cfg.external_host == "gofile" and job["kind"] in ("clean", "translate", "typer") \
-                and (job["kind"] != "typer" or base is not None):
+        if self.cfg.external_host == "gofile" and job["kind"] in ("clean", "translate", "typer", "chapter") \
+                and (job["kind"] not in ("typer", "chapter") or base is not None):
             links, ext_notes = await self._try_external(job, plan, wd, lp, elapsed, limit)
             notes.extend(ext_notes)
             if links:
@@ -227,6 +228,14 @@ class Worker:
             if base is None:
                 return await self._fail(job, "لم يُنتج الاستخراج أي نتيجة (لا يوجد typer_job.json).", tail)
             files = st.build_extract_files(job_json, wd / "extract", job.get("source_name", ""))
+        elif job["kind"] == "chapter":
+            if base is None:
+                return await self._fail(job, "لم يُنتج الفصل أي نتيجة (لا يوجد typer_job.json).", tail)
+            try:
+                await self._build_chapter(job, plan, wd, lp, elapsed)
+            except Exception as e:
+                return await self._fail(job, f"تعذّر بناء chapter.json: {e}", tail)
+            files = [wd / "chapter.zip"]
         elif job["kind"] == "typer":
             if base is None:
                 return await self._fail(job, "لم يُنتج التصدير أي نتيجة (لا يوجد typer_job.json).", tail)
@@ -269,12 +278,35 @@ class Worker:
 
         await self._complete(job, base, lp, elapsed, final, notes, [])
 
+    async def _build_chapter(self, job: Job, plan, wd: Path, lp: st.LogProgress,
+                             elapsed: float) -> None:
+        """wd/chapter.zip = images/ + chapter.json (translated with Ollama when asked)."""
+        out = wd / "chapter.zip"
+        if out.is_file():
+            return
+        opts = job.get("options") or {}
+
+        async def prog(done: int, total: int) -> None:
+            try:
+                await self.notifier.progress(job, f"🌐 ترجمة النصوص {done}/{total}", lp, elapsed, 0.0)
+            except Exception:
+                pass
+
+        stem = Path(job.get("source_name") or "chapter").stem
+        await make_chapter(plan.typer_dir, out, title=stem, opts=opts,
+                           ollama_url=self.cfg.ollama_url,
+                           model=opts.get("model") or self.cfg.ollama_model,
+                           num_ctx=self.cfg.ollama_context, on_progress=prog)
+
     async def _try_external(self, job: Job, plan, wd: Path, lp: st.LogProgress, elapsed: float,
                             limit: int):
         """Returns ([{"name","url","size"}...], notes). Empty links = use the Discord path."""
         notes: List[str] = []
         try:
-            if job["kind"] == "typer":   # one complete, unmodified export (no size limit)
+            if job["kind"] == "chapter":
+                await self._build_chapter(job, plan, wd, lp, elapsed)
+                raw = [wd / "chapter.zip"]
+            elif job["kind"] == "typer":   # one complete, unmodified export (no size limit)
                 raw, _ = await asyncio.to_thread(
                     build_typer_parts, plan.typer_dir, wd / "typer_full", 10 ** 12)
             else:

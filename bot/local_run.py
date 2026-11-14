@@ -157,6 +157,17 @@ def run_job(kind: str, input_path: "str | os.PathLike[str]", options: Optional[D
         if base is None:
             raise PipelineError("no typer_job.json was produced", list(tail), log_path)
         files, _ = build_typer_parts(plan.typer_dir, wd / "typer_out", 10 ** 12)  # local: no size limit
+    elif kind == "chapter":
+        if base is None:
+            raise PipelineError("no typer_job.json was produced", list(tail), log_path)
+        import asyncio
+        from .chapter_export import make_chapter
+        copts = job.get("options") or {}
+        asyncio.run(make_chapter(plan.typer_dir, wd / "chapter.zip", title=src.stem, opts=copts,
+                                 ollama_url=cfg.ollama_url,
+                                 model=copts.get("model") or cfg.ollama_model,
+                                 num_ctx=cfg.ollama_context))
+        files = [wd / "chapter.zip"]
     else:
         files = list(plan.deliver)
     missing = [f.name for f in files if not f.is_file()]

@@ -17,7 +17,7 @@ from .config import Config
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_EXTS = IMAGE_EXTS | {".zip", ".pdf"}
-KINDS = ("clean", "extract", "typer", "translate")
+KINDS = ("clean", "extract", "typer", "translate", "chapter")
 
 # Environment variables that must never reach the manga.py subprocess.
 _SECRET_ENV = ("DISCORD_TOKEN", "DATABASE_URL")
@@ -157,7 +157,7 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
     # every page goes in and comes out as itself.
     argv += ["--stitch-max-height", "0", "--no-seam-repair"]
 
-    if kind in ("clean", "extract", "typer"):
+    if kind in ("clean", "extract", "typer", "chapter"):
         argv += ["--clean-only", "--no-resume"]   # fresh run: the export must cover every page
         if opts.get("lama"):
             argv.append("--lama")
@@ -180,7 +180,7 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
 
     if kind == "clean":
         deliver = [out_path]
-    elif kind == "typer":
+    elif kind in ("typer", "chapter"):
         deliver = []   # built from the export folder by build_typer_parts (split to fit the limit)
     elif kind == "translate":
         deliver = [out_path]
