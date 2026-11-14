@@ -16,6 +16,8 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .font_styles import font_for
+
 SCHEMA = "manhuarmtl-v1"
 FONT_FAMILY = "Vazirmatn, sans-serif"
 
@@ -55,7 +57,7 @@ def fit_font_size(text: str, w: int, h: int, lo: int = 8, hi: int = 80) -> float
 
 
 def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, source_lang: str,
-                       translated: bool, target_lang: str = "ar",
+                       translated: bool, target_lang: str = "ar", tone_fonts: bool = True,
                        source_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]:
     from PIL import Image
     pages_out: List[Dict[str, Any]] = []
@@ -81,6 +83,7 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
             color, rgb = _bg_and_fill(img, (x, y, bw, bh)) if img else (
                 {"fill": None, "outline": None, "background": None, "confidence": None}, (0, 0, 0))
             fs = fit_font_size(shown, bw, bh)
+            fam, wt = font_for(r.get("tone") or "normal", r.get("kind") or "", tone_fonts)
             is_tr = bool(translated and tr)
             total += 1
             done += 1 if is_tr else 0
@@ -94,7 +97,7 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                 "color": color,
                 "layout": {"baseFontSize": round(fs * 1.36, 2), "maxWidth": None,
                            "capSize": None, "pageWidth": w},
-                "computed": {"fontFamily": FONT_FAMILY, "fontSize": fs, "fontWeight": "700",
+                "computed": {"fontFamily": f"{fam}, sans-serif", "fontSize": fs, "fontWeight": wt,
                              "fontStyle": "normal", "textTransform": "none", "textAlign": "center",
                              "color": "rgb(%d, %d, %d)" % rgb, "lineHeight": f"{fs * 1.2:.1f}px",
                              "letterSpacing": "normal"},
@@ -116,14 +119,14 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
 
 
 def build_chapter_zip(typer_dir: Path, out_zip: Path, *, title: str, source_lang: str = "en",
-                      translated: bool = False, target_lang: str = "ar",
+                      translated: bool = False, target_lang: str = "ar", tone_fonts: bool = True,
                       source_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]:
     """typer_dir holds the cleaned pages + typer_job.json (with 'text' filled when translated).
     Returns the chapter.json dict that was written into the zip."""
     typer = json.loads((Path(typer_dir) / "typer_job.json").read_text(encoding="utf-8"))
     chapter = build_chapter_json(typer, Path(typer_dir), title=title, source_lang=source_lang,
                                  translated=translated, target_lang=target_lang,
-                                 source_names=source_names)
+                                 tone_fonts=tone_fonts, source_names=source_names)
     out_zip = Path(out_zip)
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_STORED) as zf:
@@ -167,4 +170,4 @@ async def make_chapter(typer_dir: Path, out_zip: Path, *, title: str, opts: Dict
         typer["translated"] = True
         job_path.write_text(json.dumps(typer, ensure_ascii=False, indent=1), encoding="utf-8")
     return build_chapter_zip(typer_dir, out_zip, title=title, source_lang=src,
-                             translated=translated)
+                             translated=translated, tone_fonts=bool(opts.get("tone_fonts", True)))

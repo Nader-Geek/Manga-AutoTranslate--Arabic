@@ -296,6 +296,7 @@ class MangaBot(discord.Client):
                                dialect="أسلوب العربية", quality="جودة المسح", ocr="لغة النص الأصلي",
                                reading_order="ترتيب القراءة", format="صيغة الصور", model="نموذج Ollama",
                                provider="مصدر الترجمة: Ollama محلي أو API (يحتاج مفتاح على السيرفر)",
+                               tone_fonts="خط مختلف لكل نوع فقاعة (صراخ/همس/تفكير/راوي...) داخل chapter.json",
                                api_model="اسم نموذج الـ API (اختياري، الافتراضي حسب الموفر)")
         @app_commands.choices(dialect=DIALECT_CHOICES, quality=QUALITY_CHOICES, ocr=OCR_CHOICES,
                               reading_order=ORDER_CHOICES, format=FORMAT_CHOICES,
@@ -303,7 +304,7 @@ class MangaBot(discord.Client):
         async def chapter(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                           translate: bool = False, dialect: str = "msa", quality: str = "fast",
                           ocr: str = "en", reading_order: str = "rtl", format: str = "jpg",
-                          model: Optional[str] = None, provider: str = "ollama",
+                          model: Optional[str] = None, provider: str = "ollama", tone_fonts: bool = True,
                           api_model: Optional[str] = None):
             if model and model not in self.cfg.allowed_models:
                 await interaction.response.send_message(
@@ -315,7 +316,7 @@ class MangaBot(discord.Client):
                     await interaction.response.send_message(msg, ephemeral=True)
                     return
             await self.submit(interaction, "chapter", file, {
-                "provider": provider, "api_model": (api_model or "").strip()[:100],
+                "provider": provider, "tone_fonts": tone_fonts, "api_model": (api_model or "").strip()[:100],
                 "translate": translate, "dialect": dialect, "lama": quality == "lama", "ocr": ocr,
                 "reading_order": reading_order, "img_format": format,
                 "model": model or self.cfg.ollama_model}, link=link)

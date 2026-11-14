@@ -46,6 +46,7 @@ async def main():
                 assert data["translation"]["translatedTexts"] == 2 and not data["translation"]["insufficient"]
             else:
                 assert tx[0]["text"] == "HELLO" and not tx[0]["isTranslated"] and calls["n"] == 1 or calls["n"] == 0
+            assert tx[0]["computed"]["fontFamily"].startswith("Vazirmatn") and tx[1]["computed"]["fontFamily"].startswith("Lalezar")
             assert tx[0]["box"] == {"x": 10, "y": 10, "w": 120, "h": 60} and tx[1]["style"] == ["shout"]
             assert data["pages"][0]["imageFilename"] == "page-001.jpg"
     # hosted API (OpenAI-compatible): bearer key, 400 on response_format -> retried without it
@@ -74,6 +75,11 @@ async def main():
     del os.environ["OPENAI_API_KEY"]
     assert providers.missing_key_message("openai") and providers.missing_key_message("ollama") is None
     await r2.cleanup()
+    # tone_fonts off -> one font for all
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t); d = t / "typer"; d.mkdir(); make_dir(d)
+        ch = await make_chapter(d, t / "c.zip", title="x", opts={"tone_fonts": False}, ollama_url="http://x", model="m")
+        assert all(x["computed"]["fontFamily"].startswith("Vazirmatn") for x in ch["pages"][0]["texts"])
     # unreachable Ollama: no crash, texts stay untranslated
     with tempfile.TemporaryDirectory() as t:
         t = Path(t); d = t / "typer"; d.mkdir(); make_dir(d)
