@@ -203,6 +203,7 @@ class ProcessHandle:
     def __init__(self) -> None:
         self.proc: Optional[asyncio.subprocess.Process] = None
         self.cancelled = False
+        self.log: Callable[[str], None] = lambda _t: None   # appends a line to run.log
 
     async def cancel(self) -> None:
         self.cancelled = True
@@ -243,9 +244,15 @@ async def run_plan(plan: Plan, *, cwd: Path, log_path: Path, timeout_s: float,
         limit=1024 * 1024)
     handle.proc = proc
     timed_out = False
+    if handle.cancelled:          # /cancel arrived while the process was being spawned
+        await _kill_tree(proc)
 
     async def pump() -> None:
-        with open(log_path, "w", encoding="utf-8", errors="replace") as lf:
+        with open(log_path, "a", encoding="utf-8", errors="replace") as lf:
+            def _log(text: str) -> None:
+                lf.write(text + "\n")
+                lf.flush()
+            handle.log = _log
             assert proc.stdout is not None
             while True:
                 try:

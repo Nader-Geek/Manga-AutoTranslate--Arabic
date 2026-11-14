@@ -75,4 +75,9 @@ tr = dict((n, v) for n, v, _ in st.stats_fields("translate", full))
 assert tr["🌐 حوارات مترجمة"] == "2/3"
 fb = st.fallback_from_log(lp, elapsed_s=3, output_bytes=10)
 assert fb["bubbles"] == 5 and fb["approximate"]
+lp = st.LogProgress()
+for l in ["[+] RapidOCR (ONNX) آماده | lang=en | threads=2 | EP=CUDAExecutionProvider | det=960",
+          "[+] big-LaMa (TorchScript) آماده | device=cpu | max_side=1280"]:
+    lp.feed(l)
+assert lp.devices == {"OCR": "GPU", "LaMa": "CPU"} and st.device_text(lp) == "OCR: GPU • LaMa: CPU", lp.devices
 print("test_bot_stats OK")

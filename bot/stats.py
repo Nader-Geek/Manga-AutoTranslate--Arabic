@@ -88,6 +88,15 @@ _RE_CLEANUP = re.compile(r"Cleanup:\s*(\{.*?\})")
 _RE_X_EXTRACT = re.compile(r"\[\*\] استخراج متن:\s*(\d+)/(\d+)")
 _RE_X_CLEAN = re.compile(r"\[\*\] پاکسازی متن:\s*(\d+)/(\d+)")
 _RE_X_FIN = re.compile(r"\[TIME\] page#(\d+) clean\+render=")
+_RE_EP = re.compile(r"EP=(\w+)")
+_RE_DEV = re.compile(r"(LaMa|PaddleOCR|OCR)[^\n]*?device=(\w+)", re.I)
+_GPU_EPS = ("CUDA", "Tensorrt", "Dml", "ROCM", "CoreML", "WebGpu", "OpenVINO")
+
+
+def _dev_label(name: str) -> str:
+    return "GPU" if any(g.lower() in name.lower() for g in _GPU_EPS) or name.lower() in ("cuda", "gpu", "mps") else "CPU"
+
+
 _RE_WALLS = re.compile(r"حماية جدران الفقاعات/الإطارات:\s*(\d+)")
 
 
@@ -101,6 +110,8 @@ class LogProgress:
     cleanup: Dict[str, int] = field(default_factory=dict)
     walls_protected_px: int = 0
     last_stage: str = ""
+    devices: Dict[str, str] = field(default_factory=dict)   # what the engine REPORTED using
+    monitor: str = ""        # latest "cpu=.. ram=.. gpu=.." snapshot (set by the worker)
     _extract_n: int = 0
     _clean_n: int = 0
     _fin: set = field(default_factory=set)
@@ -122,6 +133,16 @@ class LogProgress:
             changed = True
         elif _RE_NO_TEXT.search(line):
             self.pages_done += 1
+            changed = True
+        if "EP=" in line:
+            m = _RE_EP.search(line)
+            if m:
+                self.devices["OCR" if "OCR" in line or "RapidOCR" in line else "ONNX"] = _dev_label(m.group(1))
+                changed = True
+        m = _RE_DEV.search(line)
+        if m:
+            key = "LaMa" if m.group(1).lower() == "lama" else "OCR"
+            self.devices[key] = _dev_label(m.group(2))
             changed = True
         m = _RE_X_EXTRACT.search(line)
         if m:
@@ -165,6 +186,11 @@ def parse_log(lines: Iterable[str]) -> LogProgress:
     for ln in lines:
         lp.feed(ln)
     return lp
+
+
+def device_text(lp: "LogProgress") -> str:
+    """'OCR: CPU • LaMa: GPU' from what the engine printed, or '' until it has said anything."""
+    return " • ".join(f"{k}: {v}" for k, v in lp.devices.items())
 
 
 def progress_text(lp: LogProgress, total_pages: Optional[int]) -> str:

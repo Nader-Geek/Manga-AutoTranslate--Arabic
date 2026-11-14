@@ -84,6 +84,10 @@ def running_embed(job: Dict[str, Any], text: str, lp: Optional[st.LogProgress] =
     left = eta(elapsed, done, total)
     if left:
         e.add_field(name="⏳ المتبقي تقريباً", value=left, inline=True)
+    dev = st.device_text(lp) if lp else ""
+    if dev or (lp and lp.monitor):
+        e.add_field(name="🖥️ الجهاز", inline=False,
+                    value=_safe((dev or "لم يُعلن المحرك بعد") + (f"\n{lp.monitor}" if lp and lp.monitor else ""), 200))
     if idle is not None:
         e.add_field(name="🕐 آخر نشاط", value=f"<t:{int(time.time() - idle)}:R>", inline=True)
     stage = text if text.startswith("⬆️") else ((lp.last_stage if lp else "") or "")

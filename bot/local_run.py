@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Deque, Dict, List, Optional
 
 from . import stats as st
+from . import sysinfo
 from .config import Config, load_config
 from .runner import build_plan, build_typer_parts, inspect_upload
 
@@ -98,15 +99,30 @@ def run_job(kind: str, input_path: "str | os.PathLike[str]", options: Optional[D
         timer.start()
         try:
             with open(log_path, "w", encoding="utf-8") as lf:
+                for h in sysinfo.header_lines(cfg.python, cfg.use_gpu, plan.argv):
+                    lf.write(h + "\n")
+                _lock = threading.Lock()
+                _stop = threading.Event()
+                _meter = sysinfo.CpuMeter()
+
+                def _mon() -> None:
+                    while not _stop.wait(cfg.monitor_seconds):
+                        line = sysinfo.monitor_line(_meter, True)
+                        lp.monitor = line.replace("[monitor] ", "")
+                        with _lock:
+                            lf.write(line + "\n"); lf.flush()
+                threading.Thread(target=_mon, daemon=True).start()
                 assert proc.stdout is not None
                 for raw in proc.stdout:
                     line = raw.rstrip("\r\n")
-                    lf.write(line + "\n")
+                    with _lock:
+                        lf.write(line + "\n")
                     tail.append(line)
                     if on_line:
                         on_line(line)
                     if lp.feed(line) and on_progress:
                         on_progress(lp)
+                _stop.set()
             rc = proc.wait()
         except KeyboardInterrupt:
             _kill()

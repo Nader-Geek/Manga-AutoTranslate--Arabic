@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
 from . import stats as st
+from . import sysinfo
 from .hosting import UploadFailed, upload_gofile
 from .config import Config
 from .db import Database, Job
@@ -56,6 +57,7 @@ class Worker:
 
     # --------------------------------------------------------------------- loops
     async def run_forever(self) -> None:
+        sysinfo.warm_probe(self.cfg.python)   # device facts for the run.log header, off the hot path
         while not self._stop:
             try:
                 job = await self.db.claim_job()
@@ -153,15 +155,39 @@ class Worker:
                 except Exception:
                     log.exception("progress update failed")
 
+        async def monitor() -> None:
+            meter = sysinfo.CpuMeter()
+            while True:
+                await asyncio.sleep(self.cfg.monitor_seconds)
+                line = await asyncio.to_thread(sysinfo.monitor_line, meter, True)
+                lp.monitor = line.replace("[monitor] ", "")
+                handle.log(line)
+
+        # run.log starts with a hardware/device header, then the engine's own output
+        try:
+            hdr = await sysinfo.aheader_lines(self.cfg.python, self.cfg.use_gpu, plan.argv)
+        except Exception:
+            hdr = ["[bot] (device probe failed)"]
+        with open(wd / "run.log", "w", encoding="utf-8") as _lf:
+            _lf.write("\n".join(hdr) + "\n")
         rep = asyncio.create_task(reporter())
+        mon = asyncio.create_task(monitor())
         try:
             res = await run_plan(
                 plan, cwd=self.cfg.repo_root, log_path=wd / "run.log",
                 timeout_s=self.cfg.job_timeout_minutes * 60, on_line=on_line, handle=handle)
         finally:
             rep.cancel()
+            mon.cancel()
             self.handles.pop(jid, None)
         elapsed = time.monotonic() - started
+        try:
+            with open(wd / "run.log", "a", encoding="utf-8") as _lf:
+                _lf.write(f"[bot] finished rc={res.returncode} elapsed={elapsed:.0f}s "
+                          f"timed_out={res.timed_out} cancelled={res.cancelled} "
+                          f"devices={st.device_text(lp) or 'unknown'}\n")
+        except Exception:
+            pass
 
         if res.cancelled:
             return  # /cancel already updated the row and told the user

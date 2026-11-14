@@ -31,6 +31,8 @@ if mode == "fail":
     print("[المرحلة 1 - اكتشاف الفقاعات + OCR] ...", flush=True)
     print("Traceback: boom", file=sys.stderr, flush=True); sys.exit(3)
 
+print("[+] RapidOCR (ONNX, PP-OCRv5/v6) آماده | lang=en | threads=2 | EP=CPUExecutionProvider", flush=True)
+print("[+] big-LaMa (TorchScript) آماده | device=cpu | max_side=1280", flush=True)
 translate = not a.clean_only
 pages = []
 d = Path(a.export_typer)

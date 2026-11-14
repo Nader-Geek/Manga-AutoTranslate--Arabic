@@ -80,6 +80,7 @@ class Config:
     purge_old_commands: bool = False    # drop stale per-server slash commands at startup
     poll_seconds: float = 5.0
     progress_interval: float = 8.0
+    monitor_seconds: float = 30.0       # CPU/RAM/GPU line written to run.log this often
     heartbeat_seconds: float = 30.0     # refresh the status message even if manga.py printed nothing
 
 
@@ -127,5 +128,6 @@ def load_config() -> Config:
         external_host=os.environ.get("EXTERNAL_HOST", "").strip().lower(),
         gofile_token=os.environ.get("GOFILE_TOKEN", "").strip(),
         gofile_upload_url=os.environ.get("GOFILE_UPLOAD_URL", "").strip() or Config.gofile_upload_url,
+        monitor_seconds=float(os.environ.get("MONITOR_SECONDS", "30") or 30),
         heartbeat_seconds=float(os.environ.get("HEARTBEAT_SECONDS", "30") or 30),
     )

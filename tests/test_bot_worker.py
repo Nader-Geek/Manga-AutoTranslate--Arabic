@@ -96,7 +96,7 @@ async def main():
 
     # heartbeat: manga.py goes silent for 3s -> the status keeps refreshing and "idle" grows
     os.environ["FAKE_MODE"] = "slow"
-    w.cfg = replace(cfg, heartbeat_seconds=0.5)
+    w.cfg = replace(cfg, heartbeat_seconds=0.5, monitor_seconds=0.5)
     j = await mkjob("clean"); r = await run_one(j); w.cfg = cfg
     assert r["status"] == "done", r["error"]
     ev = [e for e in nt.events if e[0] == "progress" and e[1] == j["id"]]
@@ -104,6 +104,13 @@ async def main():
     assert max(e[3] for e in ev) >= 1.5, "idle time did not grow during the silent step"
     assert max(e[4] for e in ev) >= 2.5 and ev[-1][4] >= ev[0][4], "elapsed time not reported"
     assert r["last_activity_at"] is not None
+    # run.log captures the hardware header, live CPU/RAM/GPU lines, the engine output and a footer
+    logtxt = (Path(j["workdir"]) / "run.log").read_text(encoding="utf-8")
+    assert logtxt.startswith("[bot] start"), logtxt[:80]
+    assert "requested device: CPU (--cpu)" in logtxt and "[bot] argv:" in logtxt and "GPU:" in logtxt
+    assert logtxt.count("[monitor] cpu=") >= 2, logtxt
+    assert "EP=CPUExecutionProvider" in logtxt and "[bot] finished rc=0" in logtxt
+    assert "devices=OCR: CPU • LaMa: CPU" in logtxt, logtxt[-300:]
     os.environ["FAKE_MODE"] = "ok"
 
     # extract -> txt + json only
