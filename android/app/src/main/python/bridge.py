@@ -227,9 +227,19 @@ def _defaults(mf):
     _preset_map = {}
     try:
         _mg = _manga()
-        _cfgp = str(manga_app.load_config().get("provider") or "gemini")
-        _cfgm = str(manga_app.load_config().get("model") or "")
-        _auto_prompt = str(_mg.prompt_preset_text("professional", _cfgp, _cfgm) or "")
+        _cfgd = manga_app.load_config()
+        _cfgp = str(_cfgd.get("provider") or "gemini")
+        _cfgm = str(_cfgd.get("model") or "")
+        try:
+            _auto_prompt = str(manga_app.resolve_prompt_preview(
+                str(_cfgd.get("prompt_mode") or "professional"),
+                _cfgp, _cfgm,
+                str(_cfgd.get("instruction_text") or "")) or "")
+        except Exception:
+            _auto_prompt = ""
+        if not _auto_prompt:
+            _auto_prompt = str(_mg.prompt_preset_text(
+                "professional", _cfgp, _cfgm) or "")
         _preset_map = {
             "professional": str(_mg.PROMPT_PRESETS.get("professional") or ""),
             "lite": str(_mg.PROMPT_PRESETS.get("lite") or ""),
@@ -246,31 +256,35 @@ def _defaults(mf):
         for f in sec.get("fields", []):
             if not isinstance(f, dict):
                 continue
-            if f.get("id") == "instruction_text":
+            _fid = str(f.get("id") or "")
+            _base = _fid[6:] if _fid.startswith("manga_") else _fid
+            if _base == "instruction_text":
                 f["default"] = ""
-            elif f.get("id") == "prompt_mode":
+            elif _base == "prompt_mode":
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()
                         in ("professional", "lite")):
                     f["default"] = "professional"
-            elif f.get("id") in ("prompt_preview_body", "prompt_body"):
+            elif _base in ("prompt_preview_body", "prompt_body"):
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()) and _auto_prompt:
                     f["default"] = _auto_prompt
                 if _preset_map:
-                    f["value_if"] = {"field": "prompt_mode", "values": _preset_map}
-            elif f.get("id") == "readord":
+                    _mode_fid = ("manga_prompt_mode"
+                                 if _fid.startswith("manga_") else "prompt_mode")
+                    f["value_if"] = {"field": _mode_fid, "values": _preset_map}
+            elif _base == "readord":
                 cur = f.get("default")
                 if isinstance(cur, dict):
                     cur.setdefault("default", "rtl")
                 elif cur not in ("rtl", "ltr"):
                     f["default"] = "rtl"
-            elif f.get("id") == "clean_method":
+            elif _base == "clean_method":
                 if f.get("default") not in ("lama-manga", "lama-big", "opencv"):
                     f["default"] = "lama-manga"
-            elif f.get("id") in ("manga_model", "model"):
+            elif _base == "model":
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()):
@@ -306,6 +320,80 @@ def _drop_choice(choices, token):
             continue
         kept.append(c)
     return kept
+
+def _tx(key, dflt):
+    try:
+        return str(manga_app.TX(key, dflt))
+    except Exception:
+        return dflt
+
+_FIELD_TIPS = {
+    "cb_twopass": ("app.two_pass_info",
+                   "پاسِ اول بلوکها را مییابد، پاسِ دوم متنِ داخلشان را دقیق بازمیخواند — پیش‌فرض روشن"),
+    "cb_thinking": ("app.thinking_info",
+                    "سطح High — برای جمینای و OpenAI-سازگارها؛ پیش‌فرض روشن"),
+    "cb_faketest": ("app.fake_test_info",
+                    "به‌جای API، متنِ الکی داخل حباب‌ها رندر میشود — چکِ استخراج/پاکسازی/رندر بدون کلید"),
+    "cb_cleanup": ("app.cleanup_mode_info",
+                   "فقط پاکسازی متن (inpaint) بدون ترجمه — کلید API لازم نیست"),
+    "cb_debug": ("app.web_debug_info",
+                 "مربعِ رنگی دور هر بلوک + خروجیِ دیباگ جدا (مثلاً PDF → *_debug.pdf)"),
+    "cb_safety": ("app.safety_info",
+                  "فیلترهای گوگل BLOCK_NONE میشوند (ضدِ سانسور) — پیش‌فرض خاموش"),
+    "max_tokens": ("app.max_tokens_info",
+                   "خودکار = سرویس‌دهنده خودش مدیریت میکند؛ چپترِ طولانیِ ناتمام؟ عدد را بالا ببرید"),
+    "max_tokens_custom": ("app.max_tokens_custom_info",
+                          "عددِ دلخواه سقفِ توکنِ خروجی — حداقل ۱۰۲۴"),
+    "inp_path": ("app.url_info",
+                 "چند لینک = هر لینک در یک خط (اینتر) — کاما هم کار میکند. «…/1 > 14.jpg» از اول تا آخر، «…/1 < 14.jpg» از آخر به اول، «…/*.jpg» هرچه پیدا کند"),
+    "provider": ("app.ai_menu_info",
+                 "«auto» خودش بینِ Gemini و مدل‌های شما اولینِ در دسترس را انتخاب میکند. مدلِ مشخص = فقط همان. «custom» = فیلدهای همین صفحه"),
+    "api_base": ("app.api_base_info",
+                 "۴ فرمت خودکار شناخته میشود: …/chat/completions | …/responses | …/messages | …:generateContent — لینک کامل endpoint را هم میشود چسباند"),
+    "api_keys": ("app.api_keys_info",
+                 "چند کلید با کاما = چرخش خودکار. کلید فقط روی همین دستگاه میماند. از aistudio.google.com (Gemini) یا سرویس دلخواه خودتان بگیرید."),
+    "model": ("app.model_info",
+              "چند مدل با کاما = فال‌بکِ خودکار (مثال: gemini-3.5-flash-lite,gemini-3.8-flash). خالی = پیش‌فرض."),
+    "ocr_lang": ("app.ocr_lang_info",
+                 "زبان اصلی حباب‌ها — برای مانهوا فارسی/انگلیسی همان انگلیسی بماند."),
+    "quality": ("app.quality_info",
+                "کیفیت فشرده‌سازی تصویر خروجی — ۹۰ به بالا = بدون افتِ محسوس"),
+    "font_upload": ("app.font_info",
+                    "فونت اصلی (.ttf/.otf) — خالی = فونت سرور. هر فونت لحن را جدا آپلود کن؛ با سوییچِ کنار هر لحن فعال/غیرفعالش کن."),
+    "sl_workers": ("app.ocr_workers_info",
+                   "تعداد ورکرِ موازی OCR — فقط حالت تک‌عکس"),
+    "sl_bubbles": ("app.bubbles_info",
+                   "چند حباب در هر درخواست ترجمه به AI فرستاده شود"),
+    "sl_batchw": ("app.batch_info",
+                  "بستهٔ ترجمهٔ موازی — هر بسته با کلید جدا"),
+    "sl_timeout": ("app.timeout_info",
+                   "حداکثر انتظار برای پاسخ هر درخواست (ثانیه)"),
+    "sl_maxre": ("app.max_retry_info",
+                 "حداکثر تلاش مجدد برای هر ترجمه"),
+    "sl_delay": ("app.delay_info",
+                 "تأخیر بین درخواست‌ها (ثانیه) — ضدِ محدودیتِ نرخ"),
+    "sl_temp": ("app.temperature_info",
+                "خلاقیت — ۰.۳ تحت‌اللفظی، ۰.۷+ محاوره‌ای و روان"),
+    "sl_topp": ("app.topp_info",
+                "تنوع واژگان — ۰.۹ بهترین تعادل"),
+    "readord": ("app.order_info",
+                "ترتیب خواندن حباب‌ها در صفحه — rtl برای مانگای راست‌به‌چپ"),
+    "clean_method": ("app.cleanup_info",
+                     "lama-manga = سبک و سریع | big-lama = دقیقتر و سنگینتر | opencv = فوری بدون مدل (فقط حبابهای ساده)"),
+    "prompt_mode": ("app.prompt_mode_info",
+                    "حرفه‌ای = فرآیند تفکر سه‌گانه برای Flash و Pro | سبک = برای Flash Lite و مدلهای سبکِ غیر Gemini"),
+    "prompt_body": ("app.prompt_info",
+                    "همین متن بهعنوان قوانین ترجمه به مدل فرستاده میشود — خالی = پرامپت خودکارِ بر اساس سبک و مدل"),
+}
+
+def _field_tip(fid, base):
+    if base == "clean_method" and _android():
+        return _tx("app.cleanup_info_mobile",
+                   "lama-manga = سبک و سریع | opencv = فوری بدون مدل (فقط حبابهای ساده)")
+    ent = _FIELD_TIPS.get(base) or _FIELD_TIPS.get(fid)
+    if not ent:
+        return ""
+    return _tx(ent[0], ent[1])
 
 def manifest():
 
@@ -364,10 +452,15 @@ def manifest():
                 f["drop"] = True
             if f.get("id") in ("out_fmt", "manga_out_fmt", "fmt") and _android():
                 f["choices"] = _drop_choice(f.get("choices") or [], "psd")
-            if f.get("id") == "clean_method" and _android():
+            _fid = str(f.get("id") or "")
+            _fbase = _fid[6:] if _fid.startswith("manga_") else _fid
+            if _fbase == "clean_method" and _android():
                 f["choices"] = _drop_choice(f.get("choices") or [], "lama-big")
                 if f.get("default") == "lama-big":
                     f["default"] = "lama-manga"
+            _tip = _field_tip(_fid, _fbase)
+            if _tip:
+                f["tip"] = _tip
         _forder = {"provider": 0, "manga_provider": 0,
                    "manga_api_base": 1, "api_base": 1,
                    "manga_api_keys": 2, "api_keys": 2,

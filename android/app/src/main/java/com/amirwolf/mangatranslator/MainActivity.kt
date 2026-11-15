@@ -249,7 +249,7 @@ class MainActivity : AppCompatActivity() {
     private fun addModeCell(grid: LinearLayout, f: JSONObject, idx: Int) {
         val id = f.optString("id")
         val lbl = f.optString("label", "")
-        val tip = modeTips[id] ?: ""
+        val tip = f.optString("tip", "").ifEmpty { modeTips[id] ?: "" }
         val dfltRaw = f.opt("default")
         val dflt: Any? = if (dfltRaw is JSONObject) dfltRaw.opt("default") else dfltRaw
         if (idx % 3 == 0) {
@@ -1966,6 +1966,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun settingIds(k: String): List<String> = when (k) {
         "prompt_body" -> listOf("prompt_preview_body", "manga_prompt_body", "prompt_body")
+        "workers" -> listOf("manga_sl_workers", "workers")
+        "bubbles" -> listOf("manga_sl_bubbles", "bubbles")
+        "batchw" -> listOf("manga_sl_batchw", "batchw")
+        "timeout" -> listOf("manga_sl_timeout", "timeout")
+        "maxre" -> listOf("manga_sl_maxre", "maxre")
+        "reqdelay" -> listOf("manga_sl_delay", "reqdelay")
+        "temp" -> listOf("manga_sl_temp", "temp")
+        "top_p" -> listOf("manga_sl_topp", "top_p")
         "two_pass" -> listOf("manga_cb_twopass", "two_pass", "manga_two_pass")
         "thinking", "deep_thinking" -> listOf("manga_cb_thinking", "thinking", "manga_deep_thinking")
         "safety", "safety_settings" -> listOf("manga_cb_safety", "safety", "manga_safety_settings")
@@ -2219,7 +2227,24 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         card.addView(row)
         fieldRows[id] = row
-        if (lbl.isNotEmpty() && type != "bool" && type != "slider") row.addView(label(lbl))
+        val fTip = f.optString("tip", "")
+        if (lbl.isNotEmpty() && type != "bool" && type != "slider") {
+            if (fTip.isNotEmpty()) {
+                val lrow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutDirection = View.LAYOUT_DIRECTION_RTL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                lrow.addView(label(lbl), LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT))
+                lrow.addView(tipButton(fTip), LinearLayout.LayoutParams(
+                    dp(17), dp(17)).apply { marginStart = dp(4) })
+                row.addView(lrow)
+            } else {
+                row.addView(label(lbl))
+            }
+        }
         val visIf = f.optJSONObject("visible_if")
         if (visIf != null) {
             val depId = visIf.optString("field")
@@ -2525,9 +2550,21 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 if (id.equals("manga_model", true) || id.equals("model", true)) {
-                    modelLabelTv = if (lbl.isNotEmpty() && row.childCount > 0 &&
-                        row.getChildAt(row.childCount - 1) is TextView)
-                        row.getChildAt(row.childCount - 1) as TextView else null
+                    modelLabelTv = null
+                    if (lbl.isNotEmpty() && row.childCount > 0) {
+                        val lastV = row.getChildAt(row.childCount - 1)
+                        if (lastV is TextView) {
+                            modelLabelTv = lastV
+                        } else if (lastV is ViewGroup) {
+                            for (ci in 0 until lastV.childCount) {
+                                val ch = lastV.getChildAt(ci)
+                                if (ch is TextView) {
+                                    modelLabelTv = ch
+                                    break
+                                }
+                            }
+                        }
+                    }
                     val mrow = LinearLayout(this).apply {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
@@ -2608,21 +2645,7 @@ class MainActivity : AppCompatActivity() {
                         }.show()
                 }
                 if (selected >= 0) values[id] = items[selected].second
-                val tipTxt = modeTips[id]
-                if (tipTxt != null) {
-                    val hrow = LinearLayout(this).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        layoutDirection = View.LAYOUT_DIRECTION_RTL
-                    }
-                    hrow.addView(btn, LinearLayout.LayoutParams(0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                    hrow.addView(tipButton(tipTxt), LinearLayout.LayoutParams(
-                        dp(17), dp(17)).apply { marginStart = dp(6) })
-                    row.addView(hrow)
-                } else {
-                    row.addView(btn)
-                }
+                row.addView(btn)
                 infoView()?.let { row.addView(it) }
                 fieldViews[id] = btn
                 selectMaps[id] = items
@@ -2756,6 +2779,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (lbl.isNotEmpty()) headRow.addView(label(lbl), LinearLayout.LayoutParams(0,
                     ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                fTip.takeIf { it.isNotEmpty() }?.let { t ->
+                    headRow.addView(tipButton(t), LinearLayout.LayoutParams(
+                        dp(17), dp(17)).apply { marginStart = dp(4) })
+                }
                 val valBox = TextView(this).apply {
                     text = fmt(apply((savedV ?: dfltV).toFloat()))
                     setTextColor(TXT); textSize = 13f; typeface = Typeface.DEFAULT_BOLD
@@ -2880,8 +2907,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         for ((id, path) in pickedFiles) o.put(id + "_file", path)
+        for ((id, v) in values) {
+            if (v == null) continue
+            if (!o.has(id) || o.isNull(id)) o.put(id, v.toString())
+        }
         val map = JSONObject()
-        val urlVal = (firstNonEmpty(o, "inp_path", "url") ?: "")
+        val urlVal = (firstNonEmpty(o, "manga_inp_path", "inp_path", "url") ?: "")
             .takeIf { it.isNotBlank() && !it.equals("null", true) && !it.equals("undefined", true) }
         map.put("src", urlVal
             ?: pickedFiles["inp_upload"] ?: "")
@@ -2894,30 +2925,38 @@ class MainActivity : AppCompatActivity() {
         map.put("ocr_lang", firstNonEmpty(o, "manga_ocr_lang", "ocr_lang") ?: "en")
         map.put("ocr_engine", firstNonEmpty(o, "ocr_engine")
             ?: prefs.getString("ocr_engine", null) ?: "")
-        map.put("fmt", firstNonEmpty(o, "out_fmt", "fmt") ?: "PDF")
-        map.put("quality", optInt(o, "quality", 92))
+        map.put("fmt", firstNonEmpty(o, "manga_out_fmt", "out_fmt", "fmt") ?: "PDF")
+        map.put("quality", optIntAny(o, 92, "manga_quality", "quality"))
         map.put("debug", optBool(o, "manga_cb_debug", "web_debug", "debug"))
         map.put("fake", optBool(o, "manga_cb_faketest", "fake_test", "fake"))
         map.put("clean_only", optBool(o, "manga_cb_cleanup", "clean_only"))
-        map.put("clean_method", firstNonEmpty(o, "clean_method") ?: "lama-manga")
+        map.put("clean_method", firstNonEmpty(o, "manga_clean_method", "clean_method")
+            ?: "lama-manga")
         map.put("two_pass", optBoolD(o, true, "manga_cb_twopass", "two_pass"))
         map.put("thinking", optBoolD(o, true, "manga_cb_thinking", "thinking", "deep_thinking"))
         map.put("safety", optBool(o, "manga_cb_safety", "safety", "safety_settings"))
         map.put("max_tokens", firstNonEmpty(o, "manga_max_tokens", "max_tokens") ?: "auto")
         val mtcS = firstNonEmpty(o, "manga_max_tokens_custom", "max_tokens_custom")
         map.put("max_tokens_custom", ((mtcS?.toIntOrNull() ?: 4096)).coerceAtLeast(1024))
-        map.put("readord", firstNonEmpty(o, "readord") ?: "rtl")
-        map.put("instruction", firstNonEmpty(o, "instruction_text", "instruction") ?: "")
-        map.put("prompt_mode", firstNonEmpty(o, "prompt_mode") ?: "professional")
-        map.put("prompt_body", firstNonEmpty(o, "prompt_preview_body", "prompt_body") ?: "")
+        map.put("readord", firstNonEmpty(o, "manga_readord", "readord") ?: "rtl")
+        map.put("instruction", firstNonEmpty(o, "manga_instruction_text", "instruction_text",
+            "instruction") ?: "")
+        map.put("prompt_mode", firstNonEmpty(o, "manga_prompt_mode", "prompt_mode")
+            ?: "professional")
+        map.put("prompt_body", firstNonEmpty(o, "manga_prompt_body", "prompt_preview_body",
+            "prompt_body") ?: "")
 
-        for (k in listOf("workers", "bubbles", "batchw", "timeout", "maxre", "reqdelay", "temp", "top_p")) {
-            if (o.has(k) && !o.isNull(k)) map.put(k, o.get(k))
-        }
-        for ((id, v) in values) {
-            if (v == null) continue
-            if (id !in o.keysIteratorAsList()) {
-                o.put(id, v.toString())
+        val sliderMap = mapOf(
+            "workers" to "manga_sl_workers", "bubbles" to "manga_sl_bubbles",
+            "batchw" to "manga_sl_batchw", "timeout" to "manga_sl_timeout",
+            "maxre" to "manga_sl_maxre", "reqdelay" to "manga_sl_delay",
+            "temp" to "manga_sl_temp", "top_p" to "manga_sl_topp")
+        for ((k, mid) in sliderMap) {
+            for (kk in listOf(mid, k)) {
+                if (o.has(kk) && !o.isNull(kk)) {
+                    map.put(k, o.get(kk))
+                    break
+                }
             }
         }
         for (k in o.keysIteratorAsList()) {
@@ -2961,7 +3000,15 @@ class MainActivity : AppCompatActivity() {
         return d
     }
 
-    private fun optInt(o: JSONObject, key: String, d: Int): Int = o.optInt(key, d)
+    private fun optIntAny(o: JSONObject, d: Int, vararg keys: String): Int {
+        for (k in keys) {
+            if (o.has(k) && !o.isNull(k)) {
+                (o.opt(k) as? Number)?.let { return it.toInt() }
+                o.optString(k, "").toDoubleOrNull()?.let { return it.toInt() }
+            }
+        }
+        return d
+    }
 
     private fun setLog(t: String) {
         logBox.text = t
