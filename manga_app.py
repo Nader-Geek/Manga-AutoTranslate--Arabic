@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.314"
+APP_VER = "1.14.315"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -211,11 +211,18 @@ def is_custom_instruction(text: str) -> bool:
     return True
 
 def _known_default_instruction_texts() -> list:
+    out = []
     try:
         from manga import PROMPT_PRESETS
-        return [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]
+        out += [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]
     except Exception:
-        return []
+        pass
+    try:
+        from manga import PROMPT_PRESETS_LEGACY
+        out += [p for p in PROMPT_PRESETS_LEGACY if isinstance(p, str)]
+    except Exception:
+        pass
+    return out
 
 def normalize_api_base(url: str) -> str:
     if not url:

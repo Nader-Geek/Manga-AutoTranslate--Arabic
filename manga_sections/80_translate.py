@@ -39,14 +39,18 @@ class _MangaTranslatorBody_80:
             _jp = bool(self._ocr_lang_flags()[2])
         except Exception:
             _jp = False
-        return mt_system_instruction(japanese=_jp)
+        return mt_system_instruction(
+            japanese=_jp,
+            uncensored=not bool(getattr(self, "safety_settings", False)))
 
     def _get_plain_system_instruction(self) -> str:
         try:
             _jp = bool(self._ocr_lang_flags()[2])
         except Exception:
             _jp = False
-        return mt_plain_system_instruction(japanese=_jp)
+        return mt_plain_system_instruction(
+            japanese=_jp,
+            uncensored=not bool(getattr(self, "safety_settings", False)))
 
     @staticmethod
     def _extract_plain_from_jsonish(val: str) -> str:
