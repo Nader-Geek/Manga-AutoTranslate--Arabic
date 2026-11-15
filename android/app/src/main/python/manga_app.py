@@ -6643,6 +6643,11 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         prev.log = log;
         prev.ts = Date.now();
         localStorage.setItem(JOB, JSON.stringify(prev));
+      }} else {{
+        prev.running = false;
+        prev.btn = btn || prev.btn;
+        prev.ts = Date.now();
+        localStorage.setItem(JOB, JSON.stringify(prev));
       }}
       return [];
     }}
@@ -8621,7 +8626,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         except Exception:
             pass
 
-        def _poll_job_status(sid, sid_box_v, run_btn_v=""):
+        def _poll_job_status(sid, sid_box_v, run_btn_v="", log_box_v=""):
             preferred = (sid or sid_box_v or "").strip()
             sid = _find_active_sid(preferred) or preferred
             empty = (gr.update(),) * 15
@@ -8653,7 +8658,11 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 _force_log = bool(job.get("_log_force_push"))
                 if _force_log:
                     job["_log_force_push"] = False
-                log_changed = bool(log) and (log != _last_pushed or _force_log)
+                _cl = str(log_box_v or "")
+                _stale_client = (len(_cl) < len(log)
+                                 and _cl[:400] == log[:400])
+                log_changed = bool(log) and (
+                    log != _last_pushed or _force_log or _stale_client)
                 if log_changed:
                     job["_last_poll_log"] = log
                 vis = bool(job.get("result_visible"))
@@ -8923,7 +8932,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             _timer = gr.Timer(1.0, active=True)
             _tick_evt = _timer.tick(
                 _poll_job_status,
-                inputs=[sid_holder, sid_box, run_btn],
+                inputs=[sid_holder, sid_box, run_btn, log_box],
                 outputs=_poll_outputs,
                 queue=False,
                 concurrency_limit=1,
@@ -8941,7 +8950,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 pass
         except Exception:
             try:
-                demo.load(_poll_job_status, inputs=[session_id, sid_box, run_btn], outputs=_poll_outputs)
+                demo.load(_poll_job_status, inputs=[session_id, sid_box, run_btn, log_box], outputs=_poll_outputs)
             except Exception:
                 pass
 
