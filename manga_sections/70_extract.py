@@ -3004,6 +3004,52 @@ class _MangaTranslatorBody_70:
         before = len(regions)
         regions = self._split_mixed_column_regions(regions)
         regions = self._merge_overlapping_regions(regions, iou_thresh=0.35, contain_thresh=0.65)
+        try:
+            regions = MangaTranslator._dedup_duplicate_text_regions(regions)
+        except Exception:
+            pass
+        if _raw_det_dbg:
+            try:
+                _fd: list = []
+                _seen_fd: set = set()
+                for r in regions:
+                    _bx = None
+                    try:
+                        _cr = getattr(r, "cover_rect", None)
+                        if getattr(r, "sys_split", False) and _cr:
+                            _bx = [int(_cr[0]), int(_cr[1]),
+                                   int(_cr[2]), int(_cr[3])]
+                    except Exception:
+                        _bx = None
+                    if _bx is None:
+                        try:
+                            _bl = list(getattr(r, "boxes", None) or [])
+                            if _bl:
+                                _pts = np.concatenate(
+                                    [np.asarray(p).reshape(-1, 2) for p in _bl])
+                                _bx = [int(_pts[:, 0].min()), int(_pts[:, 1].min()),
+                                       int(_pts[:, 0].max()), int(_pts[:, 1].max())]
+                        except Exception:
+                            _bx = None
+                    if _bx is None:
+                        try:
+                            _x_, _y_, _w_, _h_ = [float(v) for v in r.rect]
+                            _bx = [int(_x_), int(_y_),
+                                   int(_x_ + _w_), int(_y_ + _h_)]
+                        except Exception:
+                            continue
+                    _cls = str(getattr(r, "det_class", "") or "")
+                    _k = (tuple(_bx), _cls)
+                    if _k in _seen_fd:
+                        continue
+                    _seen_fd.add(_k)
+                    _fd.append((_bx, _cls))
+                if _fd:
+                    _raw_det_dbg = _fd
+                    for r in regions:
+                        r.det_raw = _fd
+            except Exception:
+                pass
         if self.debug:
             print(f"    [*] RT-DETR: {n0} خام → {before} OCR → {len(regions)} نهایی")
         try:
@@ -3034,6 +3080,34 @@ class _MangaTranslatorBody_70:
             except Exception:
                 return 0.0
 
+        def _fuzzy_sub(short: str, long: str) -> float:
+            if not short or not long:
+                return 0.0
+            if len(short) > len(long):
+                short, long = long, short
+            ls = len(short)
+            if ls < 5:
+                return 0.0
+            try:
+                import difflib as _dl
+                best = 0.0
+                step = max(1, ls // 3)
+                for st in range(0, max(1, len(long) - ls + 1), step):
+                    win = long[st:st + ls]
+                    r = _dl.SequenceMatcher(None, short, win).ratio()
+                    if r > best:
+                        best = r
+                    if best >= 0.97:
+                        break
+                if best < 0.97 and len(long) > ls:
+                    for pref in (long[:ls], long[-ls:]):
+                        r = _dl.SequenceMatcher(None, short, pref).ratio()
+                        if r > best:
+                            best = r
+                return best
+            except Exception:
+                return 0.0
+
         def _xyxy(r):
             try:
                 x, y, w, h = [float(v) for v in r.rect]
@@ -3048,6 +3122,24 @@ class _MangaTranslatorBody_70:
 
         def _area(a):
             return max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+
+        def _axis_near(ba, bb):
+            try:
+                ix = max(0.0, min(ba[2], bb[2]) - max(ba[0], bb[0]))
+                iy = max(0.0, min(ba[3], bb[3]) - max(ba[1], bb[1]))
+                wa = max(1.0, ba[2] - ba[0])
+                wb = max(1.0, bb[2] - bb[0])
+                ha = max(1.0, ba[3] - ba[1])
+                hb = max(1.0, bb[3] - bb[1])
+                h_ov = ix / min(wa, wb)
+                v_ov = iy / min(ha, hb)
+                v_gap = max(0.0, max(ba[1], bb[1]) - min(ba[3], bb[3]))
+                h_gap = max(0.0, max(ba[0], bb[0]) - min(ba[2], bb[2]))
+                stacked = h_ov >= 0.55 and v_gap <= max(8.0, 0.30 * min(ha, hb))
+                sided = v_ov >= 0.55 and h_gap <= max(8.0, 0.30 * min(wa, wb))
+                return stacked or sided
+            except Exception:
+                return False
 
         infos = []
         for r in regions:
@@ -3066,7 +3158,7 @@ class _MangaTranslatorBody_70:
             return regions
 
         drop_ids: set = set()
-        n_eq = n_sub = 0
+        n_eq = n_sub = n_frag = 0
         for i in range(len(infos)):
             ra, na, ba, aa, pa = infos[i]
             if id(ra) in drop_ids:
@@ -3109,6 +3201,16 @@ class _MangaTranslatorBody_70:
                 elif na in nb and cont_ab >= 0.60:
                     _kill = ra
                     n_sub += 1
+                if _kill is None and min(len(na), len(nb)) >= 5 \
+                        and abs(len(na) - len(nb)) >= 2 \
+                        and _axis_near(ba, bb):
+                    short_i, long_i = (i, j) if len(na) <= len(nb) else (j, i)
+                    ns = infos[short_i][1]
+                    nl = infos[long_i][1]
+                    if len(ns) >= 5 and len(nl) >= 8 \
+                            and _fuzzy_sub(ns, nl) >= 0.74:
+                        _kill = infos[short_i][0]
+                        n_frag += 1
                 if _kill is not None:
                     drop_ids.add(id(_kill))
         if not drop_ids:
@@ -3116,8 +3218,8 @@ class _MangaTranslatorBody_70:
         out = [r for r in regions if id(r) not in drop_ids]
         try:
             print(f"    [*] {len(drop_ids)} ناحیهٔ هممتنِ همپوشان حذف شد "
-                  f"(ضدِ رندرِ دوباره — {n_eq} یکسان / {n_sub} بخشی)",
-                  flush=True)
+                  f"(ضدِ رندرِ دوباره — {n_eq} یکسان / {n_sub} بخشی / "
+                  f"{n_frag} قطعه)", flush=True)
         except Exception:
             pass
         return out
