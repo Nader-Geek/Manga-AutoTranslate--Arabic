@@ -9313,7 +9313,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             [[p, k, u] for p, k, u in _WEB_PROG_COUNT_RES], ensure_ascii=False)
         _prog_phases_json = json.dumps(
             [list(x) for x in _WEB_PROG_PHASES], ensure_ascii=False)
-        _prog_js = """
+        _prog_js = """() => {
 window.__mangaUpdateProg = function(logText, btnLabel) {
   try {
     const host = document.getElementById('manga_prog_row');
@@ -9401,6 +9401,8 @@ window.__mangaUpdateProg = function(logText, btnLabel) {
     host.innerHTML = html;
   } catch (e) {}
 };
+try { window.__mangaUpdateProg('', ''); } catch (e) {}
+}
 """.replace("__PROG_RES__", _prog_res_json).replace("__PROG_PHASES__", _prog_phases_json)
         try:
             demo.load(js=_prog_js)
