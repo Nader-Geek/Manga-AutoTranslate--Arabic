@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.313"
+APP_VER = "1.14.314"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -7714,6 +7714,18 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 from manga import list_provider_models
             except Exception as e:
                 raise gr.Error(f"خطا در بارگذاری: {str(e)[:80]}")
+
+            def _merge_models(cur, fetched):
+                out = []
+                for m in re.split(r"[\s,;\n]+", str(cur or "")):
+                    m = m.strip()
+                    if m and m not in out:
+                        out.append(m)
+                for m in (fetched or []):
+                    m = str(m or "").strip()
+                    if m and m not in out:
+                        out.append(m)
+                return out
             prov = str(provider_v or "").strip()
             if prov in ("", "auto"):
                 raise gr.Error("روی «auto» مدلی وارد نمیشود — یک سرویس انتخاب کنید.")
@@ -7733,11 +7745,12 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 if prov == "gemini":
                     offline = _gemini_offline_models()
                     _why = f" — {str(err or '')[:60]}" if err else ""
+                    _merged = _merge_models(model_v, offline)
                     return gr.update(
-                        value=_models_join(offline),
+                        value=_models_join(_merged),
                         label=(f"مدل (ها) — اتصال برقرار نشد{_why}؛ فهرستِ "
-                               f"آفلاینِ برنامه ({len(offline)} مدلِ رایگان) "
-                               f"داخلِ فیلد نوشته شد"))
+                               f"آفلاینِ برنامه به مدل‌هایِ موجودِ شما "
+                               f"اضافه شد (مدل‌های شما اول‌اند)"))
                 raise gr.Error(err or "مدلی پیدا نشد — کلید/لینک را با «تست کلیدها / لینک» چک کنید.")
 
             _probe_note = ""
@@ -7773,15 +7786,20 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                            "جواب نداد (شبکه/سهمیه)؛ فهرستِ خام")
                         else:
                             offline = _gemini_offline_models()
+                            _merged = _merge_models(model_v, offline)
                             return gr.update(
-                                value=_models_join(offline),
+                                value=_models_join(_merged),
                                 label=(f"مدل (ها) — هیچ مدلی جوابِ سالمِ محاوره‌ای "
-                                       f"نداد؛ فهرستِ آفلاینِ برنامه ({len(offline)} مدل) "
-                                       f"داخلِ فیلد نوشته شد"))
+                                       f"نداد؛ فهرستِ آفلاینِ برنامه به "
+                                       f"مدل‌هایِ موجودِ شما اضافه شد"))
+            _merged = _merge_models(model_v, models)
+            _kept = len(_merged) - len([m for m in models if m in _merged])
             return gr.update(
-                value=_models_join(models),
+                value=_models_join(_merged),
                 label=(f"مدل (ها) — {len(models)} مدلِ زنده پیدا شد{_probe_note}؛ "
-                       f"همه داخلِ فیلد نوشته شد (چند مدل = فال‌بکِ خودکار)"))
+                       f"مدل‌هایِ خودتان اول ماندند"
+                       + (f" (+{_kept})" if _kept else "")
+                       + " (چند مدل = فال‌بکِ خودکار)"))
 
         try:
             model_ref_btn.click(

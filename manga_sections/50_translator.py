@@ -1538,6 +1538,11 @@ class MangaTranslator:
         if primary and primary not in user_list:
             user_list.insert(0, primary)
 
+        if user_list:
+            print(f"[*] مدل‌هایِ انتخابیِ شما: {' → '.join(user_list)}"
+                  " — فقط همین‌ها استفاده می‌شوند.")
+            return user_list
+
         discovered: List[str] = []
         if client is not None:
             discovered = self._discover_models_from_api(client)
