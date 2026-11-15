@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.316"
+APP_VER = "1.14.317"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -218,6 +218,11 @@ def _known_default_instruction_texts() -> list:
     except Exception:
         pass
     try:
+        from manga import visible_prompt_presets as _vpp
+        out += [v for v in _vpp().values() if isinstance(v, str)]
+    except Exception:
+        pass
+    try:
         from manga import PROMPT_PRESETS_LEGACY
         out += [p for p in PROMPT_PRESETS_LEGACY if isinstance(p, str)]
     except Exception:
@@ -278,8 +283,12 @@ def sanitize_prompt_mode(v) -> str:
 
 def resolve_prompt_preview(mode_v, provider_v, model_v, instr_v):
     t = (instr_v or "").strip()
+    try:
+        from manga import strip_hidden_rules as _shr
+    except Exception:
+        _shr = None
     if t and is_custom_instruction(t):
-        return t
+        return _shr(t) if _shr else t
     m = sanitize_prompt_mode(mode_v)
     prov = (provider_v or "gemini").strip()
     mdl = _model_str(model_v)
@@ -289,6 +298,8 @@ def resolve_prompt_preview(mode_v, provider_v, model_v, instr_v):
         txt = _PP[resolved]
     except Exception:
         resolved, txt = "professional", ""
+    if _shr:
+        txt = _shr(txt)
     return txt
 
 def ensure_dirs():
@@ -6702,6 +6713,31 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         try {{ localStorage.setItem("{LS_KEY}", raw); }} catch (e) {{}}
       }}
     }}
+    try {{
+      if (raw) {{
+        let dj = {{}};
+        try {{ dj = JSON.parse(raw) || {{}}; }} catch (e) {{ dj = {{}}; }}
+        const gv = (id) => {{
+          try {{
+            const root = document.getElementById(id);
+            if (!root) return "";
+            const el = root.querySelector("input, textarea") || root;
+            return String((el && el.value) || "").trim();
+          }} catch (e) {{ return ""; }}
+        }};
+        let ch = false;
+        const ck = gv("manga_api_keys");
+        if (ck && ck !== String(dj.keys || "")) {{ dj.keys = ck; ch = true; }}
+        const cm = gv("manga_model");
+        if (cm && cm !== String(dj.model || "")) {{ dj.model = cm; ch = true; }}
+        if (ch) {{
+          dj.ts = Date.now();
+          const nj = JSON.stringify(dj);
+          try {{ localStorage.setItem("{LS_KEY}", nj); }} catch (e) {{}}
+          raw = nj;
+        }}
+      }}
+    }} catch (e) {{}}
     const sidOnly = (localStorage.getItem("manga_sid") || "").trim();
     let job = {{}};
     try {{ job = JSON.parse(localStorage.getItem("{JOB_KEY}") || "{{}}"); }} catch (e) {{ job = {{}}; }}
@@ -6753,6 +6789,22 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   const KEY = "{LS_KEY}";
   const JOB = "{JOB_KEY}";
   const TTL = {SESSION_TTL * 1000};
+
+  if (!window.__mangaInputGuard) {{
+    window.__mangaInputGuard = true;
+    try {{
+      const markDirty = (e) => {{
+        try {{
+          const t = e.target;
+          if (!(t && t.closest)) return;
+          if (t.closest("#manga_api_keys")) window.__mangaKeysDirty = true;
+          if (t.closest("#manga_model")) window.__mangaModelDirty = true;
+        }} catch (err) {{}}
+      }};
+      document.addEventListener("input", markDirty, true);
+      document.addEventListener("paste", markDirty, true);
+    }} catch (e) {{}}
+  }}
 
   const setVal = (el, val) => {{
     if (!el || val === undefined || val === null) return;
@@ -6837,11 +6889,11 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
           const sameProv = !d.prov || !curProv
             || String(d.prov).trim() === curProv;
           if (sameProv) {{
-            if (d.keys) {{
+            if (d.keys && !window.__mangaKeysDirty) {{
               const k = byId("manga_api_keys") || document.querySelector('input[type="password"]');
               if (k) setVal(k, d.keys);
             }}
-            if (d.model) {{
+            if (d.model && !window.__mangaModelDirty) {{
               const mRaw = String(d.model || "");
               const mClean = mRaw.replace(/[\\'\\"\\[\\]{{}}()<>]+/g, "")
                                  .replace(/\\s+/g, " ").trim();
@@ -6868,7 +6920,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   }};
 
   apply();
-  [100, 300, 600, 1000, 2000, 3500, 5000].forEach((t) => setTimeout(apply, t));
+  [100, 300, 600, 1000, 2000, 3500, 5000, 8000, 12000].forEach((t) => setTimeout(apply, t));
 
   try {{
     const saveFromDom = () => {{
@@ -7573,9 +7625,12 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             else:
                 mdl_upd = gr.update(visible=row_vis, value=nm,
                                     label="مدل (ها)")
+            key_upd = gr.update(visible=row_vis, value=nk)
+            if not nk and str(cur_key or "").strip():
+                key_upd = gr.update(visible=row_vis)
             return (gr.update(visible=is_custom, value=nb),
                     gr.update(visible=row_vis),
-                    gr.update(visible=row_vis, value=nk),
+                    key_upd,
                     mdl_upd,
                     gr.update(visible=is_custom),
                     gr.update(visible=is_custom),
@@ -8522,8 +8577,8 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 html if vis else gr.update(),
                 u_str("inp"),
                 u_str("prov"),
-                u_str("keys"),
-                u_str("model"),
+                gr.update(),
+                gr.update(),
                 u_str("fmt"),
                 u_num("qual"),
                 u_num("workers"),
@@ -9177,19 +9232,74 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
   const isDesk = (new URLSearchParams(location.search)).get('desktop') === '1'
                  || !!(window.pywebview);
   if (!u) {
-    try { if (window.__mangaPopup) { window.__mangaPopup.close(); } } catch (e) {}
-    window.__mangaPopup = null;
     if (!isDesk) { alert("هنوز صفحه‌ای آماده نشده — چند لحظه بعد دوباره بزن."); }
     return [];
   }
   if (isDesk) { window.location.href = u; return []; }
-  let w = window.__mangaPopup;
-  if (w && !w.closed) {
-    try { w.location.href = u; } catch (err) { w = null; }
-  } else { w = null; }
-  window.__mangaPopup = null;
-  if (!w) { w = window.open(u, "_blank"); }
-  if (!w) { window.location.href = u; }
+  window.__mangaCloseReader = () => {
+    try {
+      const ov = document.getElementById('mangaReaderOverlay');
+      if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    } catch (e) {}
+  };
+  try { window.__mangaCloseReader(); } catch (e) {}
+  const ov = document.createElement('div');
+  ov.id = 'mangaReaderOverlay';
+  ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;'
+    + 'width:100vw;height:100vh;margin:0;padding:0;z-index:2147483647;'
+    + 'background:#000;';
+  const fr = document.createElement('iframe');
+  fr.title = 'نمایش';
+  fr.allow = 'fullscreen';
+  fr.style.cssText = 'position:absolute;top:0;left:0;width:100%;'
+    + 'height:100%;border:0;display:block;background:#000;';
+  let injected = false;
+  fr.addEventListener('load', () => {
+    try {
+      const d = fr.contentDocument;
+      if (!d) return;
+      if (d.getElementById('mangaOvClose')) { injected = true; return; }
+      const bar = d.querySelector('.bar') || d.body;
+      if (!bar) return;
+      const b = d.createElement('button');
+      b.type = 'button';
+      b.id = 'mangaOvClose';
+      b.className = 'zbtn';
+      b.textContent = '✕';
+      b.title = 'بازگشت به صفحهٔ اصلی';
+      b.setAttribute('aria-label', 'بازگشت به صفحهٔ اصلی');
+      b.style.cssText = 'background:#2a1215;border-color:#ff4a3d;'
+        + 'color:#ff8d84;font-weight:700;flex:none;';
+      b.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        try { parent.__mangaCloseReader(); } catch (e) {}
+      });
+      bar.appendChild(b);
+      d.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+          try { parent.__mangaCloseReader(); } catch (e) {}
+        }
+      }, true);
+      injected = true;
+    } catch (e) { injected = false; }
+  });
+  fr.src = u;
+  ov.appendChild(fr);
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.textContent = '✕';
+  x.title = 'بازگشت به صفحهٔ اصلی';
+  x.setAttribute('aria-label', 'بازگشت به صفحهٔ اصلی');
+  x.style.cssText = 'position:absolute;top:10px;left:10px;z-index:3;'
+    + 'width:42px;height:42px;border-radius:21px;'
+    + 'border:1px solid rgba(255,74,61,.55);background:rgba(20,10,10,.85);'
+    + 'color:#ff8d84;font-size:19px;font-weight:700;line-height:1;'
+    + 'cursor:pointer;backdrop-filter:blur(6px);display:flex;'
+    + 'align-items:center;justify-content:center;';
+  x.addEventListener('click', window.__mangaCloseReader);
+  setTimeout(() => { if (!injected) { try { ov.appendChild(x); } catch (e) {} } }, 2500);
+  document.body.appendChild(ov);
   return [];
 }
 """
@@ -9243,39 +9353,6 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         except Exception:
             try:
                 demo.load(js=_dark_js_src())
-            except Exception:
-                pass
-
-        _popup_guard_js = """
-() => {
-  try {
-    const isDesk = (new URLSearchParams(location.search)).get('desktop') === '1'
-                   || !!(window.pywebview);
-    if (isDesk) return [];
-    if (window.__mangaPopupGuard) return [];
-    window.__mangaPopupGuard = true;
-    document.addEventListener('click', function (e) {
-      try {
-        const t = e.target && e.target.closest ? e.target.closest('button') : null;
-        if (!t) return;
-        const tid = (t.id || '').toString();
-        if (tid.indexOf('manga_live_btn') === -1 &&
-            tid.indexOf('manga_view_btn') === -1 &&
-            tid.indexOf('manga_view_debug_btn') === -1) return;
-        if (!window.__mangaPopup || window.__mangaPopup.closed) {
-          window.__mangaPopup = window.open('', '_blank');
-        }
-      } catch (err) {}
-    }, true);
-  } catch (err) {}
-  return [];
-}
-"""
-        try:
-            demo.load(None, None, None, js=_popup_guard_js)
-        except Exception:
-            try:
-                demo.load(js=_popup_guard_js)
             except Exception:
                 pass
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.316"
+APP_VER = "1.14.317"
 
 
 FLASH_PROMPT = "شما دیالوگ‌نویسِ حرفه‌ای دوبله و زیرنویس فارسی هستید، نه مترجم کتاب.\n\nقانون اول و مهم‌تر از همه: خروجی تو باید «فارسیِ محاوره‌ایِ گفتاری» باشد — همان زبانی که آدم‌ها در خیابان و فیلم و دوبله حرف می‌زنند. هرگز فارسیِ نوشتاری، اداری یا کتابی تولید نکن.\n\n۱) فعل‌ها را حتماً محاوره‌ای بنویس:\nمی‌خواهم → می‌خوام | می‌خواهی → می‌خوای | می‌توانم → می‌تونم | می‌توانی → می‌تونی | می‌رویم → می‌ریم | نمی‌دانم → نمی‌دونم | می‌آید → میاد | بیاید → بیاد | نمی‌توانم → نمی‌تونم | بگذار → بذار | بده → بده | می‌کنند → می‌کنن | هستند → هستن | است (آخر جمله) → ـه\n\n۲) جمله‌بندی کوتاه و نفس‌دار مثل دیالوگ دوبله:\n- «را» گفتاری: آن را → اونو | این را → اینو\n- «همچنین / بنابراین / آیا / می‌باشد» ممنوع.\n- جمله‌های بلند رسمی را به دو جملهٔ کوتاه گفتاری بشکن.\n\n۳) متنِ OCR خراب یا بی‌معنا (حروف درهم): این‌ها افکت صوتی (SFX)، نام یا فونت تزئینی‌اند، ممنوع نیستند و هرگز CENSORED نمی‌شوند! یا محتمل‌ترین جمله را حدس بزن، یا به‌صورت صدای محیطی آوانگاری کن (مثل: «گبووم!»، «ووش...»، «تا‌رارا...») یا همان رشته را نگه دار. CENSORED فقط وقتی مجاز است که خودِ محتوای واقعیِ دیالوگ (خشونت/محتوای بزرگسال) واقعاً توسط سیستم رد شود — نه برای متنِ ناخوانا.\n\n۴) لحن هر شخصیت:\n- دوستانه/جوان → صمیمی و خودمونی (داداش، یارو، وای، خب، ایول...)\n- خشن/لات → کوچه‌بازاری و تند، بدون تعارف\n- بزرگ‌سال/رسمی → محترم ولی باز هم گفتاری، نه کتابی\n- متنِ روایت/توضیحِ کنار کادر → فارسیِ روانِ استاندارد؛ روان و شیوا، بدون ساختار اداری؛ هیچ‌وقت محاوره‌ی خیابانی لازم نیست\n\n۵) هیچ‌وقت سانسور، تلطیف یا مؤدب‌سازی نکن؛ خشونت و فحش با همان شدت برگردد.\n\n۶) نمونه‌های درست (همین سبک را باید تولید کنی):\n\"I'm here to buy saltpeter.\" → «برای خرید شوره اومدم.»\n\"Nobody told me anyone was coming.\" → «هیچی بهم نگفته بود قراره کسی بیاد.»\n\"If you want saltpeter, why come here instead of talking to the village?\" → «اگه شوره می‌خوای، چرا به جای گیر دادن به اهل روستا، خودت اومدی اینجا؟»\n\"What are you talking about?\" → «داری چی می‌گی اصلاً؟»\n\"Ugh... I'm beat. Let's head home.\" → «اوف... حسابی خسته‌ام. بریم خونه.»\n\"You're kidding me, right?\" → «شوخی می‌کنی دیگه؟»\n\"Come on, don't be like that!\" → «به‌خدا یه جور دیگه باش!»\n\"He commands dozens of knights.\" (روایت) → «ده‌ها شوالیه زیر دستِ اونه.»\n\n۷) نمونه غلط (ممنوع):\n\"I'm here to buy saltpeter.\" → «من اینجا هستم تا شوره بخرم.» (کتابی ✗)\n\"Nobody told me anyone was coming.\" → «هیچ‌کس به من نگفت کسی می‌آید.» (کتابی ✗)\n\n۸) اسامی خاص، اعداد و تکنیک‌ها را در کل فایل یکسان برگردان. هیچ دیالوگی را خالی، جا نینداز یا ادغام نکن؛ برای هر id دقیقاً یک fa بده.\n"
@@ -102,11 +102,38 @@ def mt_plain_system_instruction(japanese: bool = False, uncensored: bool = False
            "9. PLAIN TEXT OUTPUT ONLY: Reply with ONLY the Persian translation itself as plain text. Do NOT output JSON, arrays, objects, keys, filenames, quotes or any notes — just the translation sentence.")
     return out
 
+HIDDEN_ID_RULE_TEXT = ("اسامی و اعداد را در کل فایل یکسان برگردان؛ "
+                       "هیچ id را جا نینداز یا ادغام نکن.")
+
+def _has_hidden_id_rule(text: str) -> bool:
+    t = _norm_prompt_text(text)
+    return ("جا نینداز" in t) or ("id دقیقاً یک" in t)
+
+def strip_hidden_rules(text: str) -> str:
+    t = (text or "").replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
+    if not t.strip():
+        return t
+    lines = [ln for ln in t.split("\n")
+             if not ("جا نینداز" in ln and "ادغام نکن" in ln)]
+    out = "\n".join(lines)
+    while "\n\n\n" in out:
+        out = out.replace("\n\n\n", "\n\n")
+    return out.rstrip("\n") + "\n"
+
+def append_hidden_id_rule(rules: str) -> str:
+    t = (rules or "").rstrip()
+    if not t:
+        return rules or ""
+    if _has_hidden_id_rule(t):
+        return rules
+    return t + "\n" + HIDDEN_ID_RULE_TEXT + "\n"
+
 def mt_user_prompt(rules: str, pages, japanese: bool = False,
                    style_ref=None) -> str:
     import json as _json
     pages_json = _json.dumps(list(pages), ensure_ascii=False,
                              separators=(",", ":"))
+    rules = append_hidden_id_rule(rules)
     _style = ""
     if style_ref:
         _lines = []
@@ -156,6 +183,14 @@ def _norm_prompt_text(t: str) -> str:
     t = (t or "").replace("\\n", "\n")
     return re.sub(r"\s+", " ", t.strip())
 
+def visible_prompt_presets() -> dict:
+    try:
+        return {k: strip_hidden_rules(v)
+                for k, v in PROMPT_PRESETS.items()
+                if isinstance(v, str)}
+    except Exception:
+        return dict(PROMPT_PRESETS)
+
 def is_known_default_instruction(text: str) -> bool:
     t = (text or "").strip()
     if not t:
@@ -165,6 +200,11 @@ def is_known_default_instruction(text: str) -> bool:
         cands = [v for v in PROMPT_PRESETS.values() if isinstance(v, str)]
     except Exception:
         cands = []
+    try:
+        cands += [v for v in visible_prompt_presets().values()
+                  if isinstance(v, str)]
+    except Exception:
+        pass
     cands += [p for p in PROMPT_PRESETS_LEGACY if isinstance(p, str)]
     for c in cands:
         if c and _norm_prompt_text(c) == tn:
