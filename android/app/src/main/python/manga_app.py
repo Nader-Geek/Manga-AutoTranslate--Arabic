@@ -9405,9 +9405,12 @@ try { window.__mangaUpdateProg('', ''); } catch (e) {}
 }
 """.replace("__PROG_RES__", _prog_res_json).replace("__PROG_PHASES__", _prog_phases_json)
         try:
-            demo.load(js=_prog_js)
+            demo.load(None, None, None, js=_prog_js)
         except Exception:
-            pass
+            try:
+                demo.load(js=_prog_js)
+            except Exception:
+                pass
         _qtips_js = """
 () => {
   const T = __QTIP_JSON__;
