@@ -360,6 +360,8 @@ def manifest():
                     _okd = False
                 if not _okd:
                     f["default"] = 4096
+            if f.get("id") in ("device", "manga_device") and _android():
+                f["drop"] = True
             if f.get("id") in ("out_fmt", "manga_out_fmt", "fmt") and _android():
                 f["choices"] = _drop_choice(f.get("choices") or [], "psd")
             if f.get("id") == "clean_method" and _android():
@@ -371,6 +373,9 @@ def manifest():
                    "manga_api_keys": 2, "api_keys": 2,
                    "manga_model": 3, "model": 3}
         _fs = sec.get("fields") or []
+        if _android():
+            _fs = [f for f in _fs if not f.get("drop")]
+            sec["fields"] = _fs
         if any(f.get("id") in _forder for f in _fs):
             sec["fields"] = sorted(_fs,
                                    key=lambda f: _forder.get(f.get("id"), 10))
@@ -750,18 +755,11 @@ class _FullLog:
                 os.makedirs(d, exist_ok=True)
                 p = os.path.join(d, "manga.log")
                 old_p = os.path.join(d, "manga_old.log")
-                if os.path.isfile(p):
-                    try:
-                        if os.path.getsize(p) <= 8 * 1024 * 1024:
-                            try:
-                                os.remove(old_p)
-                            except Exception:
-                                pass
-                            os.replace(p, old_p)
-                        else:
-                            os.remove(p)
-                    except Exception:
-                        pass
+                try:
+                    if os.path.isfile(old_p):
+                        os.remove(old_p)
+                except Exception:
+                    pass
                 with open(p, "w", encoding="utf-8") as f:
                     f.write(_fulllog_header())
                 self._fh = open(p, "a", encoding="utf-8")

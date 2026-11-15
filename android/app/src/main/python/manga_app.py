@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.311"
+APP_VER = "1.14.312"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -140,99 +140,15 @@ _WEB_PROG_PHASES = (
 )
 
 _WEB_PROG_COUNT_RES = (
-    (re.compile(r"استخراج متن[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*صفحه"),
+    (r"استخراج متن[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*صفحه",
      "استخراج متن", "صفحه"),
-    (re.compile(r"پاکسازی متن[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*صفحه"),
+    (r"پاکسازی متن[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*صفحه",
      "پاکسازی", "صفحه"),
-    (re.compile(r"ترجمه[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*ناحیه"),
+    (r"ترجمه[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*ناحیه",
      "ترجمه", "ناحیه"),
-    (re.compile(r"استریم[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*دیالوگ"),
+    (r"استریم[:：]\s*(\d{1,4})\s*/\s*(\d{1,4})\s*دیالوگ",
      "ترجمه", "ناحیه"),
 )
-
-def _web_prog_parse(log: str):
-    tail = (log or "").splitlines()[-400:]
-    marks = {}
-    for idx, ln in enumerate(tail):
-        for rx, kind, unit in _WEB_PROG_COUNT_RES:
-            m = rx.search(ln)
-            if m:
-                marks[kind] = (idx, int(m.group(1)), int(m.group(2)), unit)
-    _ext_done_idx = None
-    _ready_idx, _ready_page = None, 0
-    _term_idx, _term_phase = -1, ""
-    for idx, ln in enumerate(tail):
-        if _ext_done_idx is None and "صفحه کامل شد" in ln:
-            _ext_done_idx = idx
-        m = re.search(r"(\d{1,4})\s+آماده شد", ln)
-        if m:
-            _ready_idx, _ready_page = idx, int(m.group(1))
-        for _k, _v in _WEB_PROG_PHASES:
-            if _k in ln and _v in ("تمام شد", "خطا", "لغو شد"):
-                _term_idx, _term_phase = idx, _v
-    _page_legacy = _ready_page
-    events = []
-    for kind, (idx, cur, tot, unit) in marks.items():
-        if (kind == "استخراج متن" and _ext_done_idx is not None
-                and idx < _ext_done_idx):
-            continue
-        events.append((idx, kind, cur, tot, unit))
-    if _ready_idx is not None:
-        events.append((_ready_idx, "رندر و ذخیره", _ready_page + 1, 0, "صفحهٔ"))
-    if _term_idx >= 0:
-        events.append((_term_idx, _term_phase, _page_legacy, 0, ""))
-    if events:
-        events.sort(key=lambda e: e[0])
-        _, ph, cur, tot, unit = events[-1]
-        return ph, cur, tot, unit
-    phase = ""
-    for ln in reversed(tail):
-        for _k, _v in _WEB_PROG_PHASES:
-            if _k in ln:
-                phase = _v
-                break
-        if phase:
-            break
-    return phase, _page_legacy, 0, ""
-
-def _web_prog_html(phase: str, cur: int, total: int, running: bool,
-                   done: bool, unit: str = "") -> str:
-    cls = ""
-    if done:
-        cls = " done"
-        pct, now = 100, total
-    elif not running and phase == "خطا":
-        cls = " err"
-        pct = min(100, int(cur * 100 / total)) if total > 0 else 0
-        now = cur
-    else:
-        now = min(cur, total) if total > 0 else cur
-        pct = int(now * 100 / total) if total > 0 else 0
-    txt = ""
-    if done:
-        txt = (f"✅ تمام شد — {total if total > 0 else cur} صفحه"
-               + (f" ({total}/{total})" if total > 0 else ""))
-    elif not running and phase == "خطا":
-        txt = f"❌ خطا — آخرین صفحهٔ آماده: {cur}" + (
-            f" از {total}" if total > 0 else "")
-    elif phase:
-        if total > 0:
-            if unit == "صفحهٔ":
-                txt = f"📊 {phase} — صفحهٔ {now} از {total} ({pct}٪)"
-            else:
-                _u = f" {unit}" if unit else ""
-                txt = f"📊 {phase} — {now} از {total}{_u} ({pct}٪)"
-        else:
-            txt = f"📊 {phase}…"
-    else:
-        txt = "📊 در حال شروع…"
-    return (
-        '<div class="mprog">'
-        f'<div class="mprog-track"><div class="mprog-fill{cls}" '
-        f'style="width:{pct}%"></div></div>'
-        f'<div class="mprog-txt">{txt}</div>'
-        '</div>'
-    )
 
 FONT_BUNDLES = [
     ("normal",       "Vazirmatn-Bold.ttf", "کودک — متن عادی حباب", [
@@ -5706,10 +5622,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                  elem_classes=["compact-upload"])
             inp_path = gr.Textbox(label=TX("app.url", "یا URL تصویر/مانهوا (چند لینک = هر لینک در یک خط با اینتر)"),
                                   placeholder=TX("app.url_ph", "https://cdn.example.com/chapter/1/001.webp\nhttps://cdn.example.com/chapter/1/002.webp"),
-                                  info=TX("app.url_info", ("چند لینک = هر لینک را در یک خط بگذار (اینتر) — هرچقدر اینتر بزنی خودش می‌خوانَد؛ کاما هم کار می‌کند. حالت‌های دیگر: "
-                                        "«…/1 > 14.jpg» از اول تا آخر، "
-                                        "«…/1 < 14.jpg» از آخر به اول، "
-                                        "«…/*.jpg» هرچه پیدا کند — همه با هم ترجمه می‌شوند.")))
+                                  elem_id="manga_inp_path")
 
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۲</span> مترجم هوش مصنوعی</div>')
@@ -5720,11 +5633,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 provider = gr.Dropdown(
                     _init_ch, value=_init_prov,
                     label=TX("app.ai_menu", "منوی انتخاب AI"), scale=6,
-                    info=TX("app.ai_menu_info", ("«auto» (فقط با مدلِ اضافهشده) خودش بینِ Gemini و "
-                          "مدل‌هایِ شما اولینِ در دسترس را انتخاب میکند "
-                          "(خطا/عدمِ دسترسی → بعدی). مدلِ مشخص = فقط و فقط "
-                          "همان. «custom» = فیلدهایِ همین صفحه. حذفِ مدلِ "
-                          "خودت = انتخابش در منو + ✖ِ کنارِ منو.")))
+                    elem_id="manga_provider")
                 cm_del_btn = gr.Button(
                     TX("app.del_model", "✖"), variant="secondary", scale=0,
                     elem_id="manga_cm_del_btn",
@@ -5743,7 +5652,6 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             api_base = gr.Textbox(label=TX("app.api_base", "دامنهٔ API سفارشی (فقط برای provider «custom»)"),
                                   value=str(cfg.get("api_base", "") or ""),
                                   placeholder=TX("app.api_base_ph", "https://opencode.ai/inference/openai/v1/chat/completions"),
-                                  info=TX("app.api_base_info", "۴ فرمت خودکار شناخته می‌شود: …/chat/completions | …/responses | …/messages (Anthropic) | …:generateContent (Google) — لینک کامل endpoint را هم می‌شود چسباند؛ https:// اگر جا افتاده باشد خودکار اضافه می‌شود."),
                                   elem_id="manga_api_base",
                                   visible=False,
                                   scale=3)
@@ -5751,16 +5659,12 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 api_keys = gr.Textbox(label=TX("app.api_keys", "کلیدهای API شما (با کاما = چرخش خودکار)"),
                                       value="",
                                       type="password", scale=3,
-                                      elem_id="manga_api_keys",
-                                      info=TX("app.api_keys_info", "کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور و نه در config دسکتاپ."))
+                                      elem_id="manga_api_keys")
 
                 model = gr.Textbox(
                     value=(_gemini_default_models_str()
                            if _init_prov == "gemini" else ""),
-                    label=TX("app.model_gemini", ("مدل (ها) — چند مدل با کاما = فال‌بکِ خودکار "
-                          "(مثال: gemini-3.5-flash-lite,gemini-3.8-flash) | "
-                          "↻ همهٔ مدلهایِ رایگان را داخلِ فیلد می‌نویسد | "
-                          "خالی = پیش‌فرض")),
+                    label=TX("app.model_gemini", "مدل (ها)"),
                     placeholder=TX("app.model_ph", "gemini-3.5-flash-lite,gemini-3.8-flash"),
                     scale=2, elem_id="manga_model")
                 model_ref_btn = gr.Button(
@@ -5776,19 +5680,8 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             cm_save_btn = gr.Button(
                 TX("app.save_edit", "💾 ذخیرهٔ ویرایش"), variant="primary", scale=1,
                 elem_id="manga_cm_save", visible=False)
-            _cm_hint_d = ("«+ افزودن» مدلِ فعلیِ همین صفحه "
-                        "(دامنه/کلید/مدل) را با یک نام در «لیست مدل‌ها» ثبت "
-                        "میکند؛ مدل در حافظهٔ مرورگر/دستگاه میماند، در منویِ "
-                        "انتخابِ AI میآید و در بکاپ هم ذخیره میشود. حذفِ مدل = "
-                        "انتخابش در منو و زدنِ ✖ِ کنارِ منو. ویرایشِ مدلِ "
-                        "ذخیرهشده = انتخابش در منو، «✎ ویرایش» و بعد «💾 "
-                        "ذخیرهٔ ویرایش». رویِ «auto» فیلدها "
-                        "قفل میشوند — خودش بینِ مدلها انتخاب میکند. کلید از "
-                        "aistudio.google.com (Gemini) یا سرویسِ دلخواهِ خودتان "
-                        "بگیرید؛ کلید در فیلد مخفی است — با 👁 دیده میشود؛ "
-                        "تنظیمات وب فقط در مرورگر ذخیره میشود.")
-            cm_hint_md = gr.Markdown("<div class='hint'>" + str(TX("app.cm_hint", _cm_hint_d)) + "</div>",
-                        visible=False)
+            cm_hint_md = gr.Markdown("", visible=False,
+                        elem_id="manga_cm_hint")
             test_key_btn = gr.Button(
                 TX("app.test_keys", "تست کلیدها / لینک"),
                 scale=1, elem_id="manga_test_key")
@@ -5817,8 +5710,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 ],
                 value=str(cfg.get("ocr_lang", "en")),
                 label=TX("app.ocr_lang", "زبان متن مانگا (OCR)"),
-                elem_id="manga_ocr_lang",
-                info="زبان اصلی حباب‌ها — برای مانهوا فارسی/انگلیسی همان انگلیسی بماند.", scale=1)
+                elem_id="manga_ocr_lang", scale=1)
 
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۳</span> خروجی</div>')
@@ -5830,16 +5722,16 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                    value=_of0, label=TX("app.out_fmt", "قالب"),
                                    elem_id="manga_out_fmt")
                 quality = gr.Slider(60, 100, value=int(cfg.get("quality", 92)),
-                                    step=1, label=TX("app.quality", "کیفیت تصویر"))
+                                    step=1, label=TX("app.quality", "کیفیت تصویر"),
+                                    elem_id="manga_quality")
 
-        with gr.Accordion("✒️ فونت‌ها (اصلی + لحن‌ها — اختیاری، خالی = فونت سرور)", open=False):
+        with gr.Accordion("✒️ فونت‌ها (اصلی + لحن‌ها — اختیاری، خالی = فونت سرور)", open=False,
+                          elem_id="manga_accordion_fonts"):
             font_upload = gr.File(label=TX("app.font", "فونت اصلی (.ttf)"),
                                   file_count="single", type="filepath",
                                   file_types=[".ttf", ".otf"],
+                                  elem_id="manga_font_upload",
                                   elem_classes=["compact-upload"])
-            gr.Markdown("<div class='hint'>هر فونت لحن را جدا آپلود کنید؛ خالی = فونت سرور. "
-                        "با سوییچ کنار هر لحن، آن فونت/لحن را فعال یا غیرفعال کن — "
-                        "لحن غیرفعال حذف می‌شود و حباب‌ها با فونت اصلی رندر می‌شوند.</div>")
             SLOT_LABELS = {
                 "normal": "کودک (عادی)", "shout": "افسانه (خشم)",
                 "comedy_shout": "کروش (کمدی)", "whisper": "زمزمه",
@@ -5874,30 +5766,40 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                         except Exception:
                             pass
 
-        with gr.Accordion("⚙️ تنظیمات پیشرفته", open=False):
+        with gr.Accordion("⚙️ تنظیمات پیشرفته", open=False,
+                          elem_id="manga_accordion_advanced"):
             with gr.Row():
                 workers = _safe(gr.Slider, 1, 8, value=int(cfg.get("workers", 2)),
-                                step=1, label=TX("app.ocr_workers", "ورکر OCR (فقط حالت تک‌عکس)"))
+                                step=1, label=TX("app.ocr_workers", "ورکر OCR (فقط حالت تک‌عکس)"),
+                                elem_id="manga_sl_workers")
                 bubbles = _safe(gr.Slider, 1, 12, value=int(cfg.get("bubbles", 6)),
-                                step=1, label=TX("app.bubbles", "حباب در هر درخواست ترجمه"))
+                                step=1, label=TX("app.bubbles", "حباب در هر درخواست ترجمه"),
+                                elem_id="manga_sl_bubbles")
                 batchw = _safe(gr.Slider, 1, 8, value=int(cfg.get("batch_workers", 3)),
-                               step=1, label=TX("app.batch", "بستهٔ ترجمهٔ موازی (کلید جدا برای هر بسته)"))
+                               step=1, label=TX("app.batch", "بستهٔ ترجمهٔ موازی (کلید جدا برای هر بسته)"),
+                               elem_id="manga_sl_batchw")
             with gr.Row():
                 timeout = _safe(gr.Slider, 10, 120, value=int(cfg.get("timeout", 40)),
-                                step=5, label=TX("app.timeout", "تایم‌اوت هر درخواست (ثانیه)"))
+                                step=5, label=TX("app.timeout", "تایم‌اوت هر درخواست (ثانیه)"),
+                                elem_id="manga_sl_timeout")
                 maxre = _safe(gr.Slider, 1, 15, value=int(cfg.get("max_retries", 8)),
-                              step=1, label=TX("app.max_retry", "حداکثر تلاش ترجمه"))
+                              step=1, label=TX("app.max_retry", "حداکثر تلاش ترجمه"),
+                              elem_id="manga_sl_maxre")
                 reqdelay = _safe(gr.Slider, 0, 5, value=float(cfg.get("request_delay", 0)),
-                                 step=0.5, label=TX("app.delay", "تأخیر بین درخواست‌ها (ثانیه)"))
+                                 step=0.5, label=TX("app.delay", "تأخیر بین درخواست‌ها (ثانیه)"),
+                                 elem_id="manga_sl_delay")
             with gr.Row():
                 temp = _safe(gr.Slider, 0.0, 1.5,
                              value=float(cfg.get("temperature", 0.7)),
-                             step=0.05, label=TX("app.temperature", "Temperature (خلاقیت)"))
+                             step=0.05, label=TX("app.temperature", "Temperature (خلاقیت)"),
+                             elem_id="manga_sl_temp")
                 top_p = _safe(gr.Slider, 0.1, 1.0,
                               value=float(cfg.get("top_p", 0.9)),
-                              step=0.05, label=TX("app.top_p", "Top P"))
+                              step=0.05, label=TX("app.top_p", "Top P"),
+                              elem_id="manga_sl_topp")
                 readord = gr.Radio(["rtl", "ltr"], value=str(cfg.get("reading_order", "rtl")),
-                                   label=TX("app.order", "ترتیب خواندن حباب‌ها"))
+                                   label=TX("app.order", "ترتیب خواندن حباب‌ها"),
+                                   elem_id="manga_readord")
             with gr.Row():
                 _cm0 = str(cfg.get("clean_method") or "lama-manga").strip()
                 if _cm0 not in ("lama-manga", "lama-big", "opencv"):
@@ -5907,7 +5809,8 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                              ["big-lama", "lama-big"],
                              ["opencv", "opencv"]],
                     value=_cm0,
-                    label=TX("app.cleanup", "روش پاکسازی"))
+                    label=TX("app.cleanup", "روش پاکسازی"),
+                    elem_id="manga_clean_method")
             with gr.Row(elem_id="manga_mode_grid"):
                 two_pass = gr.Checkbox(
                     label=TX("app.two_pass", "OCR دومرحله‌ای"), value=True,
@@ -5946,6 +5849,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     value=_dv0,
                     visible=_server_has_gpu(),
                     scale=2,
+                    elem_id="manga_device",
                     label=TX("app.device", "دستگاه پردازش (استخراج + پاکسازی)"))
             with gr.Row():
                 _mt0 = str(cfg.get("max_tokens_mode", "auto") or "auto").strip().lower()
@@ -5977,7 +5881,8 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             prompt_mode = gr.Dropdown(
                 choices=["professional", "lite"],
                 value=PROMPT_MODE_DEFAULT,
-                label=TX("app.prompt_style", "سبک پرامپت مترجم"), scale=1)
+                label=TX("app.prompt_style", "سبک پرامپت مترجم"), scale=1,
+                elem_id="manga_prompt_mode")
             _pp_body0 = resolve_prompt_preview(
                 PROMPT_MODE_DEFAULT, cfg.get("provider"), cfg.get("model"),
                 str(cfg.get("instruction_text") or ""))
@@ -5985,17 +5890,12 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 label=TX("app.prompt", "پرامپت مترجم (همین به مدل فرستاده می‌شود — قابل ویرایش)"),
                 lines=10, max_lines=25, interactive=True,
                 placeholder=TX("app.prompt_ph", "خالی = پرامپتِ خودکارِ بر اساسِ سبک و مدل…"),
-                value=_pp_body0)
+                value=_pp_body0,
+                elem_id="manga_prompt_body")
 
         with gr.Accordion("💾 بکاپ و بازیابی — مدلها + تنظیمات", open=False,
-                          elem_classes=["stepcard"]):
-            gr.Markdown("<div class='hint'>دکمهٔ «⬇️ گرفتن بکاپ» = با یکِ کلیک، "
-                        "فایلِ JSONِ «همه‌چیز» همین‌جا خودکار دانلود میشود: لیستِ "
-                        "مدلهایِ شما (نام + دامنه + کلید API + شناسهٔ مدل) و تمامِ "
-                        "تنظیمات. دکمهٔ «⬆️ Import» = یک دکمهٔ کوچکِ مثلِ خودِ "
-                        "بکاپ (بدونِ باکسِ بزرگِ آپلود) — کلیک کن، فایلِ بکاپ را "
-                        "انتخاب کن، همه‌چیز کامل برمیگردد. دکمه میگیرد (دانلودِ "
-                        "خودکار)، دکمه برمیگرداند.</div>")
+                          elem_classes=["stepcard"],
+                          elem_id="manga_accordion_backup"):
             with gr.Row():
                 backup_btn = gr.Button(TX("app.backup_btn", "⬇️ گرفتن بکاپ (دانلود JSON)"),
                                        variant="primary", scale=1,
@@ -6622,7 +6522,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                             elem_id="manga_live_log",
                             value=TX("app.log_ph", "— لاگ بعد از شروع ترجمه اینجا می‌آید —"))
             prog_html = _safe(gr.HTML, elem_id="manga_prog_row",
-                              visible=False, value="")
+                              visible=True, value="")
 
         html_state = gr.State("")
         html_debug_state = gr.State("")
@@ -6716,6 +6616,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         save_job_js = f"""
 (sid, sidBox, btnLabel, logText) => {{
   try {{ if (window.__mangaUpdateChip) window.__mangaUpdateChip(logText, btnLabel); }} catch (e) {{}}
+  try {{ if (window.__mangaUpdateProg) window.__mangaUpdateProg(logText, btnLabel); }} catch (e) {{}}
   try {{
     const JOB = "{JOB_KEY}";
     let prev = {{}};
@@ -6891,50 +6792,14 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
       }}
 
       const jobDone = (jobLog || "").indexOf("تمام شد") >= 0 || (jobLog || "").indexOf("✅") >= 0;
-      if (jobDone) {{
-        const forceStart = () => {{
-          const roots = [document.getElementById("runbtn"), ...Array.from(document.querySelectorAll("button"))];
-          for (const r of roots) {{
-            if (!r) continue;
-            const el = r.tagName === "BUTTON" ? r : (r.querySelector && r.querySelector("button"));
-            if (!el) continue;
-            const t = (el.textContent || "");
-            if (t.indexOf("متوقف") >= 0 || t.indexOf("⏹") >= 0) {{
-              el.textContent = "🚀  شروع ترجمه";
-            }}
-          }}
-        }};
-        forceStart();
-        setTimeout(forceStart, 500);
-        setTimeout(forceStart, 1500);
+      if (jobDone && job.running) {{
         try {{
           job.running = false;
           job.btn = "🚀  شروع ترجمه";
           localStorage.setItem(JOB, JSON.stringify(job));
         }} catch (e) {{}}
       }}
-      if (job.running && !jobDone) {{
-        const forceBtn = () => {{
-          const roots = [
-            document.getElementById("runbtn"),
-            ...Array.from(document.querySelectorAll("button")),
-          ];
-          for (const r of roots) {{
-            if (!r) continue;
-            const b = r.tagName === "BUTTON" ? r : r.querySelector("button");
-            const el = b || (r.tagName === "BUTTON" ? r : null);
-            if (!el) continue;
-            const t = (el.textContent || "");
-            if (t.indexOf("شروع") >= 0 || t.indexOf("🚀") >= 0 || t.indexOf("متوقف") >= 0 || t.indexOf("⏹") >= 0) {{
-              el.textContent = "⏹  متوقف ترجمه";
-            }}
-          }}
-        }};
-        forceBtn();
-        setTimeout(forceBtn, 400);
-        setTimeout(forceBtn, 1200);
-        setTimeout(forceBtn, 2500);
-      }}
+      try {{ if (window.__mangaUpdateProg) window.__mangaUpdateProg(jobLog, job.btn || ""); }} catch (e) {{}}
 
       if (jobLog && jobLog.indexOf("— لاگ بعد") !== 0) {{
         const logEl = findLogEl();
@@ -7690,17 +7555,12 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             info = _cm_info_html(models, v) if mine else ""
             row_vis = not on_auto and not mine
             if v == "gemini":
-                mdl_label = ("مدل (ها) — چند مدل با کاما = فال‌بکِ خودکار | "
-                             "↻ همهٔ مدلهایِ رایگان را داخلِ فیلد می‌نویسد | "
-                             "خالی = پیش‌فرض")
                 mdl_upd = gr.update(visible=True,
                                     value=(nm or _gemini_default_models_str()),
-                                    label=mdl_label)
+                                    label="مدل (ها)")
             else:
-                mdl_label = ("مدل (ها) — شناسه‌ها را بنویس؛ چند مدل با کاما = "
-                             "فال‌بکِ خودکار | خالی = پیش‌فرض")
                 mdl_upd = gr.update(visible=row_vis, value=nm,
-                                    label=mdl_label)
+                                    label="مدل (ها)")
             return (gr.update(visible=is_custom, value=nb),
                     gr.update(visible=row_vis),
                     gr.update(visible=row_vis, value=nk),
@@ -8542,7 +8402,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 dl = job.get("download_path")
                 html = job.get("html_state") or ""
             
-            if still_running or client_running:
+            if still_running:
                 btn = "⏹  متوقف ترجمه"
             else:
                 btn = "🚀  شروع ترجمه"
@@ -8761,7 +8621,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         except Exception:
             pass
 
-        def _poll_job_status(sid, sid_box_v):
+        def _poll_job_status(sid, sid_box_v, run_btn_v=""):
             preferred = (sid or sid_box_v or "").strip()
             sid = _find_active_sid(preferred) or preferred
             empty = (gr.update(),) * 15
@@ -8772,8 +8632,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             with job["lock"]:
                 mem_log = job.get("log") or ""
                 meta_log = meta.get("log") or ""
-                running = _job_running(job)
-                if running and meta_log and (
+                if meta_log and (
                         len(meta_log) > len(mem_log) or not mem_log
                         or mem_log.startswith("—")):
                     job["log"] = meta_log
@@ -8791,7 +8650,10 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 running = _job_running(job)
                 log = job.get("log") or ""
                 _last_pushed = job.get("_last_poll_log")
-                log_changed = bool(log) and log != _last_pushed
+                _force_log = bool(job.get("_log_force_push"))
+                if _force_log:
+                    job["_log_force_push"] = False
+                log_changed = bool(log) and (log != _last_pushed or _force_log)
                 if log_changed:
                     job["_last_poll_log"] = log
                 vis = bool(job.get("result_visible"))
@@ -8810,6 +8672,10 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 want_dbg = bool(job.get("want_debug") or meta.get("want_debug") or has_dbg)
             default_log = "— لاگ بعد از شروع ترجمه اینجا می‌آید —"
             if not running and not vis and (not log or log.strip() == default_log):
+                _bt = str(run_btn_v or "")
+                if ("متوقف" in _bt) or ("⏹" in _bt):
+                    return (sid, gr.update(value=sid), gr.update(value=sid),
+                            gr.update(value="🚀  شروع ترجمه")) + empty[4:]
                 return empty
             btn = "⏹  متوقف ترجمه" if running else "🚀  شروع ترجمه"
             show_card = bool(vis or (running and live_cnt > 0))
@@ -8819,39 +8685,6 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                     _dbg_sz = f" ({human_size(os.path.getsize(dl_dbg))})"
             except Exception:
                 pass
-            _prog_upd = gr.update()
-            try:
-                if (running or vis) and log:
-                    _ld = job.get("live_dir")
-                    _ph, _cur, _ltot, _unit = _web_prog_parse(log)
-                    _tot = _ltot or (_live_total_of(_ld) if _ld else 0)
-                    _done = (not running) and ("✅" in log or "تمام شد" in log)
-                    if _done or _ph or running:
-                        if not _done and not _ph:
-                            _last = job.get("_last_prog_state") or ()
-                            if len(_last) == 4:
-                                _ph, _cur, _unit = _last[0], _last[1], _last[3]
-                                _tot = _tot or _last[2]
-                            else:
-                                _ph, _cur, _unit = job.get(
-                                    "_last_prog_phase", ""), 0, ""
-                        else:
-                            try:
-                                job["_last_prog_phase"] = _ph
-                                job["_last_prog_state"] = (_ph, _cur, _tot, _unit)
-                            except Exception:
-                                pass
-                        _html_p = _web_prog_html(_ph, _cur, _tot, running,
-                                                 _done, _unit)
-                        _prev_p = job.get("_last_prog_html")
-                        if _html_p != _prev_p:
-                            job["_last_prog_html"] = _html_p
-                            _prog_upd = gr.update(
-                                value=_html_p, visible=True)
-                        else:
-                            _prog_upd = gr.update(visible=True)
-            except Exception:
-                _prog_upd = gr.update()
             return (
                 sid,
                 gr.update(value=sid),
@@ -8869,7 +8702,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 gr.update(visible=False),
                 gr.update(visible=bool(dl_dbg and vis)),
                 gr.update(),
-                _prog_upd,
+                gr.update(),
             )
 
         _poll_outputs = [session_id, sid_box, sid_holder, run_btn, log_box, dl_btn, btn_view, result_group, viewer_html, html_state,
@@ -9009,6 +8842,29 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             with job["lock"]:
                 job["live_slicer"] = state
 
+        def _on_sid_reconnect(sid_v):
+            sid = (sid_v or "").strip()
+            if not sid:
+                return
+            try:
+                sid = _find_active_sid(sid) or sid
+            except Exception:
+                pass
+            job = live_jobs.get(sid)
+            if job is not None:
+                with job["lock"]:
+                    job["_live_force_push"] = True
+                    job["_log_force_push"] = True
+        try:
+            sid_holder.change(_on_sid_reconnect, inputs=[sid_holder], outputs=None,
+                              queue=False)
+        except Exception:
+            try:
+                sid_box.change(_on_sid_reconnect, inputs=[sid_box], outputs=None,
+                               queue=False)
+            except Exception:
+                pass
+
         def _poll_live_gallery(sid_v, sid_box_v):
             pref = (sid_v or sid_box_v or "").strip()
             job = live_jobs.get(pref)
@@ -9023,15 +8879,22 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 prev_dbg = list(job.get("live_dbg_files") or [])
                 running = bool(job.get("running")) and (
                     job.get("proc") is None or job["proc"].poll() is None)
-            if files == prev and dbg_files == prev_dbg:
-                was_running = bool(job.get("_live_was_running"))
-                if running == was_running:
-                    return gr.update(), gr.update(), gr.update()
-            with job["lock"]:
-                job["live_files"] = files
-                job["live_dbg_files"] = dbg_files
-                job["_live_was_running"] = running
-                job["ts"] = time.time()
+                if files != prev or dbg_files != prev_dbg:
+                    job["live_files"] = files
+                    job["live_dbg_files"] = dbg_files
+                    job["_live_was_running"] = running
+                    job["ts"] = time.time()
+                _pushed = job.get("_live_last_push") or ()
+                _now_push = (running, tuple(files), tuple(dbg_files))
+                job["_live_last_push"] = _now_push
+                _force = bool(job.get("_live_force_push"))
+                if _force:
+                    job["_live_force_push"] = False
+                need_push = _force or (_pushed != _now_push) \
+                    or not job.get("_live_pushed_once")
+                job["_live_pushed_once"] = True
+            if not need_push:
+                return gr.update(), gr.update(), gr.update()
             if not running:
                 tot_end = _live_total_of(live_dir) if live_dir else 0
                 n_end = len(files)
@@ -9060,7 +8923,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             _timer = gr.Timer(1.0, active=True)
             _tick_evt = _timer.tick(
                 _poll_job_status,
-                inputs=[sid_holder, sid_box],
+                inputs=[sid_holder, sid_box, run_btn],
                 outputs=_poll_outputs,
                 queue=False,
                 concurrency_limit=1,
@@ -9078,7 +8941,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                 pass
         except Exception:
             try:
-                demo.load(_poll_job_status, inputs=[session_id, sid_box], outputs=_poll_outputs)
+                demo.load(_poll_job_status, inputs=[session_id, sid_box, run_btn], outputs=_poll_outputs)
             except Exception:
                 pass
 
@@ -9397,11 +9260,152 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                   "فیلترهای گوگل BLOCK_NONE میشوند (ضدِ سانسور) — پیش‌فرض خاموش"),
             "manga_max_tokens": TX("app.max_tokens_info",
                                    "خودکار = سرویس‌دهنده خودش مدیریت میکند؛ چپترِ طولانیِ ناتمام؟ عدد را بالا ببرید"),
+            "manga_max_tokens_custom": TX("app.max_tokens_custom_info",
+                                          "عددِ دلخواه سقفِ توکنِ خروجی — حداقل ۱۰۲۴"),
+            "manga_inp_path": TX("app.url_info",
+                                 "چند لینک = هر لینک در یک خط (اینتر) — کاما هم کار می‌کند. «…/1 > 14.jpg» از اول تا آخر، «…/1 < 14.jpg» از آخر به اول، «…/*.jpg» هرچه پیدا کند — همه با هم ترجمه می‌شوند."),
+            "manga_provider": TX("app.ai_menu_info",
+                                 "«auto» (با مدلِ اضافهشده) خودش بینِ Gemini و مدل‌های شما اولینِ در دسترس را انتخاب میکند. مدلِ مشخص = فقط همان. «custom» = فیلدهای همین صفحه. حذفِ مدل = انتخابش در منو + ✖ِ کنارِ منو. «+ افزودن» مدلِ فعلی را در لیست ثبت میکند؛ در منو میآید و در بکاپ ذخیره میشود."),
+            "manga_api_base": TX("app.api_base_info",
+                                 "۴ فرمت خودکار شناخته می‌شود: …/chat/completions | …/responses | …/messages (Anthropic) | …:generateContent (Google) — لینک کامل endpoint را هم می‌شود چسباند؛ https:// اگر جا افتاده باشد خودکار اضافه می‌شود."),
+            "manga_api_keys": TX("app.api_keys_info",
+                                 "چند کلید با کاما = چرخش خودکار. کلید فقط در localStorage مرورگر شما می‌ماند — نه روی سرور. با 👁 دیده میشود. از aistudio.google.com (Gemini) یا سرویس دلخواه خودتان بگیرید."),
+            "manga_model": TX("app.model_info",
+                              "چند مدل با کاما = فال‌بکِ خودکار (مثال: gemini-3.5-flash-lite,gemini-3.8-flash). ↻ همهٔ مدلهایِ رایگان را داخلِ فیلد می‌نویسد. خالی = پیش‌فرض."),
+            "manga_ocr_lang": TX("app.ocr_lang_info",
+                                 "زبان اصلی حباب‌ها — برای مانهوا فارسی/انگلیسی همان انگلیسی بماند."),
+            "manga_quality": TX("app.quality_info",
+                                "کیفیت فشرده‌سازی تصویر خروجی — ۹۰ به بالا = بدون افتِ محسوس"),
+            "manga_font_upload": TX("app.font_info",
+                                    "فونت اصلی (.ttf/.otf) — خالی = فونت سرور. هر فونت لحن را جدا آپلود کن؛ با سوییچِ کنار هر لحن فعال/غیرفعالش کن."),
+            "manga_sl_workers": TX("app.ocr_workers_info",
+                                   "تعداد ورکرِ موازی OCR — فقط حالت تک‌عکس"),
+            "manga_sl_bubbles": TX("app.bubbles_info",
+                                   "چند حباب در هر درخواست ترجمه به AI فرستاده شود"),
+            "manga_sl_batchw": TX("app.batch_info",
+                                  "بستهٔ ترجمهٔ موازی — هر بسته با کلید جدا"),
+            "manga_sl_timeout": TX("app.timeout_info",
+                                   "حداکثر انتظار برای پاسخ هر درخواست (ثانیه)"),
+            "manga_sl_maxre": TX("app.max_retry_info",
+                                 "حداکثر تلاش مجدد برای هر ترجمه"),
+            "manga_sl_delay": TX("app.delay_info",
+                                 "تأخیر بین درخواست‌ها (ثانیه) — ضدِ محدودیتِ نرخ"),
+            "manga_sl_temp": TX("app.temperature_info",
+                                "خلاقیت — ۰.۳ تحت‌اللفظی، ۰.۷+ محاوره‌ای و روان"),
+            "manga_sl_topp": TX("app.topp_info",
+                                "تنوع واژگان — ۰.۹ بهترین تعادل"),
+            "manga_readord": TX("app.order_info",
+                                "ترتیب خواندن حباب‌ها در صفحه — rtl برای مانگای راست‌به‌چپ"),
+            "manga_clean_method": TX("app.cleanup_info",
+                                     "lama-manga = سبک و سریع | big-lama = دقیقتر و سنگینتر | opencv = فوری بدون مدل (فقط حبابهای ساده)"),
+            "manga_device": TX("app.device_info",
+                               "دستگاه پردازش استخراج و پاکسازی — فقط وقتی سرور GPU دارد نمایش داده میشود"),
+            "manga_prompt_mode": TX("app.prompt_mode_info",
+                                    "حرفه‌ای = فرآیند تفکر سه‌گانه برای Flash و Pro | سبک = برای Flash Lite و مدلهای سبکِ غیر Gemini"),
+            "manga_prompt_body": TX("app.prompt_info",
+                                    "همین متن بهعنوان قوانین ترجمه به مدل فرستاده میشود — خالی = پرامپت خودکارِ بر اساس سبک و مدل"),
         }
         try:
             _qtip_json = json.dumps(_qtip_texts, ensure_ascii=False)
         except Exception:
             _qtip_json = "{}"
+        _prog_res_json = json.dumps(
+            [[p, k, u] for p, k, u in _WEB_PROG_COUNT_RES], ensure_ascii=False)
+        _prog_phases_json = json.dumps(
+            [list(x) for x in _WEB_PROG_PHASES], ensure_ascii=False)
+        _prog_js = """
+window.__mangaUpdateProg = function(logText, btnLabel) {
+  try {
+    const host = document.getElementById('manga_prog_row');
+    if (!host) return;
+    const log = (logText || '').toString();
+    if (!log || log.indexOf('— لاگ بعد') === 0) {
+      if (host.__mp) { host.innerHTML = ''; host.__mp = ''; }
+      return;
+    }
+    const running = !!(btnLabel && (btnLabel.indexOf('متوقف') >= 0 || btnLabel.indexOf('⏹') >= 0));
+    const RES = __PROG_RES__.map(r => [new RegExp(r[0]), r[1], r[2]]);
+    const PHASES = __PROG_PHASES__;
+    const tail = log.split('\\n').slice(-400);
+    const marks = {};
+    let extDoneIdx = null, readyIdx = null, readyPage = 0, termIdx = -1, termPhase = '';
+    tail.forEach((ln, idx) => {
+      for (const [rx, kind, unit] of RES) {
+        const m = rx.exec(ln);
+        if (m) marks[kind] = [idx, parseInt(m[1], 10), parseInt(m[2], 10), unit];
+      }
+      if (extDoneIdx === null && ln.indexOf('صفحه کامل شد') >= 0) extDoneIdx = idx;
+      const rm = /(\\d{1,4})\\s+آماده شد/.exec(ln);
+      if (rm) { readyIdx = idx; readyPage = parseInt(rm[1], 10); }
+      for (const [k, v] of PHASES) {
+        if (ln.indexOf(k) >= 0 && (v === 'تمام شد' || v === 'خطا' || v === 'لغو شد')) {
+          termIdx = idx; termPhase = v;
+        }
+      }
+    });
+    let events = [];
+    for (const kind in marks) {
+      const [idx, cur, tot, unit] = marks[kind];
+      if (kind === 'استخراج متن' && extDoneIdx !== null && idx < extDoneIdx) continue;
+      events.push([idx, kind, cur, tot, unit]);
+    }
+    if (readyIdx !== null) events.push([readyIdx, 'رندر و ذخیره', readyPage + 1, 0, 'صفحهٔ']);
+    if (termIdx >= 0) events.push([termIdx, termPhase, readyPage, 0, '']);
+    let ph = '', cur = 0, tot = 0, unit = '';
+    if (events.length) {
+      events.sort((a, b) => a[0] - b[0]);
+      const e = events[events.length - 1];
+      ph = e[1]; cur = e[2]; tot = e[3]; unit = e[4];
+    } else {
+      for (let i = tail.length - 1; i >= 0; i--) {
+        let hit = false;
+        for (const [k, v] of PHASES) {
+          if (tail[i].indexOf(k) >= 0) { ph = v; hit = true; break; }
+        }
+        if (hit) break;
+      }
+      cur = readyPage;
+    }
+    const done = !running && (log.indexOf('✅') >= 0 || log.indexOf('تمام شد') >= 0);
+    if (!running && !done && !ph) {
+      if (host.__mp) { host.innerHTML = ''; host.__mp = ''; }
+      return;
+    }
+    let cls = '', pct = 0, now = 0;
+    if (done) { cls = ' done'; pct = 100; now = tot; }
+    else if (!running && ph === 'خطا') {
+      cls = ' err';
+      pct = tot > 0 ? Math.min(100, Math.floor(cur * 100 / tot)) : 0;
+      now = cur;
+    } else {
+      now = tot > 0 ? Math.min(cur, tot) : cur;
+      pct = tot > 0 ? Math.floor(now * 100 / tot) : 0;
+    }
+    let txt;
+    if (done) {
+      txt = '✅ تمام شد — ' + (tot > 0 ? tot : cur) + ' صفحه'
+        + (tot > 0 ? ' (' + tot + '/' + tot + ')' : '');
+    } else if (!running && ph === 'خطا') {
+      txt = '❌ خطا — آخرین صفحهٔ آماده: ' + cur + (tot > 0 ? ' از ' + tot : '');
+    } else if (ph) {
+      if (tot > 0) {
+        if (unit === 'صفحهٔ') txt = '📊 ' + ph + ' — صفحهٔ ' + now + ' از ' + tot + ' (' + pct + '٪)';
+        else txt = '📊 ' + ph + ' — ' + now + ' از ' + tot + (unit ? ' ' + unit : '') + ' (' + pct + '٪)';
+      } else txt = '📊 ' + ph + '…';
+    } else txt = '📊 در حال شروع…';
+    const html = '<div class="mprog"><div class="mprog-track">'
+      + '<div class="mprog-fill' + cls + '" style="width:' + pct + '%"></div></div>'
+      + '<div class="mprog-txt">' + txt + '</div></div>';
+    if (host.__mp === html) return;
+    host.__mp = html;
+    host.innerHTML = html;
+  } catch (e) {}
+};
+""".replace("__PROG_RES__", _prog_res_json).replace("__PROG_PHASES__", _prog_phases_json)
+        try:
+            demo.load(js=_prog_js)
+        except Exception:
+            pass
         _qtips_js = """
 () => {
   const T = __QTIP_JSON__;

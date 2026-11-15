@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time as _time_t0
 _T0_IMPORT = _time_t0.time()
-APP_VER = "1.14.311"
+APP_VER = "1.14.312"
 
 
 FLASH_PROMPT = "فرایند پردازش و ترجمه (مبتنی بر خود-اصلاحی): شما باید این فرآیند را در سه گام ذهنی و متوالی اجرا کنید:\\n\r\nگام ۱: تحلیل جامع و تولید پیش‌نویس اولیه\\n\r\n* پیش از شروع ترجمه، کل محتوای متن را بخوانید تا ژانر، فضای داستانی، کنایه‌ها و ویژگی‌های شخصیتی کاراکترها را درک کنید.\\n\r\n* در مرحلهٔ اندیشیدن، بر اساس این درک، یک پیش‌نویس اولیه از ترجمه را در ذهن تولید کنید.\\n\\n\r\nگام ۲: بازبینی موشکافانه و پالایش (مرحلهٔ خود-اصلاحی)\\n\r\n* با نگاه یک ویراستار سخت‌گیر، پیش‌نویس خود را به چالش بکشید و بازبینی کنید.\\n\r\n* از خود بپرسید: آیا این جمله روان است یا بوی ترجمه می‌دهد؟ آیا لحن شخصیت حفظ شده؟ آیا معادل بهتری برای این اصطلاح وجود دارد؟\\n\\n\r\nگام ۳: ارائه خروجی نهایی\\n\r\n* نسخهٔ نهایی، سلیس و بی‌نقص را که حاصل گام دوم است، به‌عنوان خروجی قطعی ارائه دهید.\\n\\n\r\n---\\n\\n\r\nاصول کلیدی ترجمه (قوانین حاکم بر گام‌های بالا):\\n\\n\r\n1. روانی، سلیس بودن و زبان محاوره‌ای زنده (پرهیز از ترجمه تحت‌اللفظی):\\n\r\nهدف اصلی، انتقال دقیق پیام و حس دیالوگ است. از ترجمهٔ کلمه‌به‌کلمه، کتابی، نوشتاری و عبارات ماشینی اکیداً پرهیز کنید؛ ترجمه باید به زبان فارسی امروزی، طبیعی، پویا و کاملاً گیرا باشد.\\n\\n\r\n2. حفظ و بازتاب دقیق لحن و سبک شخصیت‌ها (حیاتی و بدون سانسور):\\n\r\nلحن و شیوه گفتار هر کاراکتر (رسمی، دوستانه، طنز، جدی، خشن، معصومانه و...) باید با ظرافت رعایت شود. مدل زبانی باید مانند یک بازیگر نقش‌آفرینی کند:\\n\r\n- برای شخصیت‌های بی‌پروا، لات‌منش یا بی‌سواد: ترجمه باید کاملاً عامیانه، کوچه‌بازاری و دارای اصطلاحات خیابانی باشد. از اتوکشیده کردن، مؤدب‌سازی یا رسمی کردن دیالوگ‌های این شخصیت‌ها اکیداً خودداری کنید.\\n\r\n- برای شخصیت‌های باوقار، مرموز یا اشرافی: لحن باید محترمانه باشد، اما همچنان طبیعی و روان بماند (از تبدیل گفت‌وگو به متن نوشتاری و کتابی خودداری کنید).\\n\\n\r\nتذکر بسیار مهم: ترجمه حرفه‌ای به معنای سانسور، تلطیف یا پاستوریزه کردن کلمات نیست؛ بلکه به معنای انتقال دقیق حس جمله است. اگر متن اصلی دارای کلمات رکیک، جنسی یا خشن است، ترجمه فارسی نیز باید با همان شدت و حدت (بدون سانسور) ارائه شود تا اصالت اثر حفظ گردد.\\n\\n\r\n3. بومی‌سازی هوشمندانه اصطلاحات و ارجاعات فرهنگی:\\n\r\nاصطلاحات، ضرب‌المثل‌ها، شوخی‌ها و عبارات خاص فرهنگی مانگا را شناسایی کنید. اولویت با یافتن معادل‌های دقیق، رایج و طبیعی در زبان و فرهنگ فارسی است. در صورت نبود معادل مستقیم، مفهوم را با خلاقیت و به‌گونه‌ای که برای مخاطب فارسی‌زبان جذاب و ملموس باشد منتقل کنید.\\n\\n\r\n4. دقت و یکپارچگی در اسامی و جزئیات:\\n\r\nتمامی جزئیات متن اصلی (شامل اعداد، اسامی خاص شخصیت‌ها، مکان‌ها، تکنیک‌ها و علائم نگارشی) باید با دقت کامل ترجمه شوند و در سرتاسر تمام فایل‌ها کاملاً یکسان و هماهنگ استفاده شود.\\n"
@@ -20,12 +20,9 @@ FLASH_PROMPT = _prompt_real_lines(FLASH_PROMPT)
 FLASH_LITE_PROMPT = _prompt_real_lines(FLASH_LITE_PROMPT)
 MT_SYSTEM_PROTOCOL_ITEMS = ("2. IDENTITY & TASK: You are an Expert Manga & Comic Dialogue Translation Engine.\r\n"
 "3. CONTEXT & READING FLOW: You receive an array of pages, each containing sequential dialogue items in `[id, text]` format. Translate them into natural, flowing Persian according to the provided translation rules.\r\n"
-"4. STRICT 1-TO-1 TRANSLATION & SYNTAX INTEGRITY:\r\n"
+"4. STRICT 1-TO-1 TRANSLATION:\r\n"
 "   - Maintain the exact sequence of dialogue blocks for each page.\r\n"
-"   - For every input `[id, text]` item, output an individual JSON object wrapped in CURLY BRACES: {\"id\": ..., \"fa\": \"...\"}\r\n"
-"   - CRITICAL SYNTAX: Each dialogue entry MUST be closed with a curly brace `}`. NEVER close a dialogue item with a square bracket `]`.\r\n"
-"   - Separate multiple dialogue items with a comma `,`.\r\n"
-"   - For every input item in `dialogues`, preserve its exact `id` and provide its translation in `fa`.\r\n"
+"   - For every input `[id, text]` item in `dialogues`, preserve its exact `id` and provide its translation in `fa`.\r\n"
 "   - NEVER skip, merge, reorder, or duplicate `id`s.\r\n"
 "5. EMPTY / NOISE: If a page has an empty `dialogues` list, output an empty array `[]` for its translations.\r\n"
 "6. RAW OCR INPUT — NO PLACEHOLDERS: The dialogue blocks are raw OCR output from comic pages; they may contain OCR errors, missing or garbled fragments. NEVER refuse, skip or sanitize any block, and NEVER output placeholders such as '[REDACTED]' or \"I can't translate\". Even if a block looks broken or nonsensical, interpret the most likely intended dialogue and translate it into natural Persian.\r\n"
@@ -41,6 +38,30 @@ MT_SYSTEM_PROTOCOL_ITEMS = ("2. IDENTITY & TASK: You are an Expert Manga & Comic
 "    ]\r\n"
 "  }\r\n"
 "]")
+
+MT_JSON_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "filename": {"type": "string"},
+            "translations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "fa": {"type": "string"},
+                    },
+                    "required": ["id", "fa"],
+                    "propertyOrdering": ["id", "fa"],
+                },
+            },
+        },
+        "required": ["filename", "translations"],
+        "propertyOrdering": ["filename", "translations"],
+    },
+}
 
 MT_JP_USER_DIRECTIVE = "\r\n*** CRITICAL MANDATORY DIRECTIVE FOR JAPANESE DIALOGUE BLOCKS ***\r\n1. FURIGANA / DUPLICATE CLEANUP: The input dialogue may contain both Kanji and its small Furigana phonetic reading captured together (e.g., '宿夏ライカ' or duplicated phrases). Identify the intended word/name and translate it ONLY ONCE. Do NOT translate both the Kanji and its phonetic reading.\r\n2. DEDUPLICATION: Eliminate accidental repeated words/syllables in the source block and produce exactly ONE clean, unified Persian translation.\r\n"
 MT_JP_SYSTEM_RULE = "\r\n1. MANDATORY FURIGANA & DEDUPLICATION PURGE (HIGHEST PRIORITY):\r\n   - Input dialogue blocks may contain Kanji together with their small Furigana phonetic readings (e.g. '宿夏ライカ' or duplicated phrases).\r\n   - Recognize the word and translate it ONLY ONCE. Strip away phonetic duplicate readings and repeated words.\r\n   - Provide strictly ONE clean, unified Persian translation for each dialogue block.\r\n"

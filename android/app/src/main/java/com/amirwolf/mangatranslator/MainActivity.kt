@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loadingRow: LinearLayout
     private val values = HashMap<String, Any?>()
     private val fieldViews = HashMap<String, View>()
+    private val fieldRows = HashMap<String, LinearLayout>()
     private val pickedFiles = HashMap<String, String>()
     private var pickerField: String? = null
     private var logFollow = true
@@ -452,8 +453,7 @@ class MainActivity : AppCompatActivity() {
 
         cleanupPagesDirs()
 
-        Thread { resetLogsOnStart() }.start()
-        deleteAllMangaLogsOnStart()
+        Thread { cleanupOldLogFiles() }.start()
 
         if (Build.VERSION.SDK_INT < 29 &&
             checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
@@ -1501,6 +1501,16 @@ class MainActivity : AppCompatActivity() {
                 .setItems(items.map { it.first }.toTypedArray()) { _, w ->
                     saveVal(id, items[w].second)
                     refreshProviderBtn()
+                    val nm = items[w].second
+                    if (nm == "custom") {
+                        Toast.makeText(this,
+                            "حالت کاستوم فعال شد — دامنه/کلید/مدل زیر همین منو",
+                            Toast.LENGTH_SHORT).show()
+                    } else if (nm == "auto") {
+                        Toast.makeText(this,
+                            "حالت خودکار — بینِ مدلهایِ لیست انتخاب میکند",
+                            Toast.LENGTH_SHORT).show()
+                    }
                 }.show()
         }
         prow.addView(btn, LinearLayout.LayoutParams(
@@ -1680,26 +1690,18 @@ class MainActivity : AppCompatActivity() {
             if (onAuto || (mine && !editing)) View.GONE else View.VISIBLE
         modelRefBtn?.visibility = if (cur == "gemini") View.VISIBLE else View.GONE
         modelLabelTv?.text = if (cur == "gemini")
-            "مدل — Gemini: ↻ فهرستِ مدل‌ها (آفلاین آماده؛ زنده با کلید) | خالی = پیش‌فرض"
+            "مدل — Gemini (↻ فهرستِ مدل‌ها | خالی = پیش‌فرض)"
         else
             "مدل — شناسهٔ مدل را دستی بنویس | خالی = پیش‌فرض"
         for (id in arrayOf("manga_api_base", "api_base")) {
-            val v = fieldViews[id]
-            if (v is EditText) {
-                (v.parent as? View)?.visibility =
-                    if (isCustom || editing) View.VISIBLE else View.GONE
-                v.isEnabled = !onAuto
-                v.alpha = 1f
-            }
+            fieldRows[id]?.visibility =
+                if (isCustom || editing) View.VISIBLE else View.GONE
+            fieldViews[id]?.isEnabled = !onAuto
         }
         for (id in arrayOf("manga_api_keys", "api_keys", "manga_model", "model")) {
-            val v = fieldViews[id]
-            if (v is EditText) {
-                (v.parent as? View)?.visibility =
-                    if (onAuto || (mine && !editing)) View.GONE else View.VISIBLE
-                v.isEnabled = !onAuto
-                v.alpha = 1f
-            }
+            fieldRows[id]?.visibility =
+                if (onAuto || (mine && !editing)) View.GONE else View.VISIBLE
+            fieldViews[id]?.isEnabled = !onAuto
         }
         cmAddBtn?.visibility = if (isCustom) View.VISIBLE else View.GONE
         cmEditBtn?.visibility = if (mine && !cmEditing) View.VISIBLE else View.GONE
@@ -2216,6 +2218,7 @@ class MainActivity : AppCompatActivity() {
 
         val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         card.addView(row)
+        fieldRows[id] = row
         if (lbl.isNotEmpty() && type != "bool" && type != "slider") row.addView(label(lbl))
         val visIf = f.optJSONObject("visible_if")
         if (visIf != null) {
@@ -3747,8 +3750,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun logFile(): File = File(filesDir, "manga.log")
 
-    private fun logOldFile(): File = File(filesDir, "manga_old.log")
-
     private var pendingTestBtn: Button? = null
     private var pendingTestLbl: TextView? = null
 
@@ -3778,7 +3779,7 @@ class MainActivity : AppCompatActivity() {
         if (!s.startsWith("manga")) return null
         if (!s.contains(".log") && !s.endsWith(".txt")) return null
         val noDup = s.replace(Regex(" \\(\\d+\\)"), "")
-        return if (noDup.startsWith("manga_old")) "manga_old.log" else "manga.log"
+        return if (noDup.startsWith("manga_old")) null else "manga.log"
     }
 
     private fun isMangaLogName(dn: String): Boolean = normMangaLogName(dn) != null
@@ -3962,7 +3963,6 @@ class MainActivity : AppCompatActivity() {
         Thread {
             synchronized(this@MainActivity) {
                 val cur = upsertLogInDownloads("manga.log", logFile())
-                val old = upsertLogInDownloads("manga_old.log", logOldFile())
                 cleanupLogDuplicates()
                 Thread {
                     try { Thread.sleep(2500) } catch (_: Exception) {}
@@ -3971,7 +3971,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }.start()
                 ui.post {
-                    if (cur || old) {
+                    if (cur) {
                         if (manual) Toast.makeText(this,
                             "✔ ذخیره شد: Download/manga/manga.log",
                             Toast.LENGTH_SHORT).show()
@@ -3986,10 +3986,51 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun deleteAllMangaLogsOnStart() {
-        deleteAllMangaLogsInDownloads()
-        try { logFile().delete() } catch (_: Exception) {}
-        try { logOldFile().delete() } catch (_: Exception) {}
+    private fun cleanupOldLogFiles() {
+        try {
+            val old = File(filesDir, "manga_old.log")
+            if (old.isFile) {
+                try { old.delete() } catch (_: Exception) {}
+            }
+            if (Build.VERSION.SDK_INT >= 29) {
+                val proj = arrayOf(MediaStore.MediaColumns._ID,
+                    MediaStore.MediaColumns.DISPLAY_NAME,
+                    MediaStore.MediaColumns.RELATIVE_PATH)
+                val doomed = ArrayList<Uri>()
+                contentResolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    proj, MediaStore.MediaColumns.DISPLAY_NAME + " LIKE ?",
+                    arrayOf("manga_old%"), null)?.use { c ->
+                        while (c.moveToNext()) {
+                            val id = c.getLong(0)
+                            val dn = c.getString(1) ?: continue
+                            val rp = try { c.getString(2) ?: "" }
+                                    catch (_: Exception) { "" }
+                            if (rp != "Download/manga/" && rp != "Download/") continue
+                            if (dn.lowercase().contains("manga_old")) {
+                                doomed.add(android.content.ContentUris
+                                    .withAppendedId(
+                                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                                        id))
+                            }
+                        }
+                    }
+                for (u in doomed) try {
+                    contentResolver.delete(u, null, null)
+                } catch (_: Exception) {}
+            } else {
+                for (dir in listOf("manga", "")) {
+                    val base = File(Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS), dir)
+                    for (f in base.listFiles() ?: emptyArray()) {
+                        if (!f.isFile) continue
+                        if (f.name.lowercase().contains("manga_old")) {
+                            try { f.delete() } catch (_: Exception) {}
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
     }
 
     private fun deleteAllMangaLogsInDownloads() {
@@ -4054,7 +4095,7 @@ class MainActivity : AppCompatActivity() {
                                     id), dn, rp))
                         }
                     }
-                for (kind in listOf("manga.log", "manga_old.log")) {
+                for (kind in listOf("manga.log")) {
                     val mine = rows.filter {
                         normMangaLogName(it.dn) == kind
                     }
@@ -4105,64 +4146,6 @@ class MainActivity : AppCompatActivity() {
         return false
     }
 
-    private fun resetLogsOnStart() {
-        try {
-            if (Build.VERSION.SDK_INT >= 29) {
-                val proj = arrayOf(MediaStore.MediaColumns._ID,
-                    MediaStore.MediaColumns.DISPLAY_NAME,
-                    MediaStore.MediaColumns.RELATIVE_PATH)
-                val doomed = ArrayList<Uri>()
-                contentResolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    proj, null, null, null)?.use { c ->
-                    while (c.moveToNext()) {
-                        val id = c.getLong(0)
-                        val dn = c.getString(1) ?: continue
-                        val rp = try { c.getString(2) ?: "" }
-                                catch (_: Exception) { "" }
-                        if (rp != "Download/manga/" && rp != "Download/") continue
-                        if (!isLogFamilyName(dn)) continue
-                        doomed.add(android.content.ContentUris
-                            .withAppendedId(
-                                MediaStore.Downloads.EXTERNAL_CONTENT_URI, id))
-                    }
-                }
-                for (u in doomed) {
-                    try { contentResolver.delete(u, null, null) }
-                    catch (_: Exception) {}
-                }
-            } else {
-                for (dir in listOf("manga", "")) {
-                    val base = File(Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS), dir)
-                    for (f in base.listFiles() ?: emptyArray()) {
-                        if (!f.isFile) continue
-                        if (!isLogFamilyName(f.name)) continue
-                        try { f.delete() } catch (_: Exception) {}
-                    }
-                }
-            }
-            val empty = File(filesDir, "_empty_log_tmp")
-            try {
-                empty.writeText("")
-            } catch (_: Exception) {
-            }
-            if (empty.isFile) {
-                try { upsertLogInDownloads("manga.log", empty) }
-                catch (_: Exception) {}
-                try { upsertLogInDownloads("manga_old.log", empty) }
-                catch (_: Exception) {}
-                try { empty.delete() } catch (_: Exception) {}
-            }
-            try {
-                val f = logFile()
-                if (f.exists()) f.writeText("") else f.writeText("")
-                val o = logOldFile()
-                if (o.exists()) o.writeText("") else o.writeText("")
-            } catch (_: Exception) {
-            }
-        } catch (_: Exception) {
-        }
-    }
 
     private fun autoSaveOutputs(images: List<String>, outFile: String) {
         if (outFile.isBlank() && images.isEmpty()) return

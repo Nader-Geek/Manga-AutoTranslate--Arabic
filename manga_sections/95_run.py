@@ -1350,8 +1350,36 @@ class _MangaTranslatorBody_95:
         trans_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="translate")
 
+        def _clean_parallel_n() -> int:
+            try:
+                _e = int(os.environ.get("MANGA_CLEAN_PAGES", "0") or 0)
+            except Exception:
+                _e = 0
+            if _e > 0:
+                return max(1, _e)
+            try:
+                if _IS_ANDROID:
+                    return 1
+            except Exception:
+                pass
+            _gpu = False
+            try:
+                import onnxruntime as _ort
+                _gpu = any(("CUDA" in str(p)) or ("Dml" in str(p))
+                           for p in _ort.get_available_providers())
+            except Exception:
+                _gpu = False
+            try:
+                _cpu = os.cpu_count() or 4
+            except Exception:
+                _cpu = 4
+            if _gpu:
+                return 3
+            return max(2, min(3, _cpu // 3))
+
+        _CLEAN_PAGES = _clean_parallel_n()
         clean_pool = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="clean")
+            max_workers=max(1, _CLEAN_PAGES), thread_name_prefix="clean")
         clean_all_futs: list = []
         clean_started: set = set()
         clean_claimed: set = set()
@@ -1436,8 +1464,14 @@ class _MangaTranslatorBody_95:
                           flush=True)
                 _t0 = time.time()
                 _pctxc = _ctx_get(_p)
-                _pcn = self.clean_image(im, regs,
-                                        page_boxes=_pctxc.get("boxes"))
+                if _CLEAN_PAGES > 1:
+                    _shim = object.__new__(type(self))
+                    _shim.__dict__.update(self.__dict__)
+                    _pcn = _shim._clean_image_page(
+                        im, regs, page_boxes=_pctxc.get("boxes"))
+                else:
+                    _pcn = self.clean_image(im, regs,
+                                            page_boxes=_pctxc.get("boxes"))
                 _cc_wrote = False
                 try:
                     import cv2 as _cv2
@@ -1528,7 +1562,8 @@ class _MangaTranslatorBody_95:
                 if _clean_one_page(pi):
                     _clean_done_mark(pi)
 
-        clean_all_futs.append(clean_pool.submit(_clean_sched_job))
+        for _ in range(max(1, _CLEAN_PAGES)):
+            clean_all_futs.append(clean_pool.submit(_clean_sched_job))
 
         def _wait_clean(page_i: int) -> None:
             with _clean_cond:

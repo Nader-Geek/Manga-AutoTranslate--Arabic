@@ -340,12 +340,18 @@ class _MangaTranslatorBody_80:
             try:
                 pages.append(json.loads(b))
             except Exception:
-                continue
+                try:
+                    pages.append(json.loads(
+                        cls._JSON_BRACE_REPAIR.sub(r"}\1", b)))
+                except Exception:
+                    continue
         if pages:
             try:
                 on_pages(pages)
             except Exception:
                 pass
+
+    _JSON_BRACE_REPAIR = re.compile(r'(?<=")\s*\](\s*,\s*\{)')
 
     def _parse_translation_response(self, text: str, regions: List[TextRegion],
                                     region_page: Optional[dict] = None) -> bool:
@@ -355,14 +361,27 @@ class _MangaTranslatorBody_80:
         if text.startswith("```"):
             text = re.sub(r"^```(?:json)?\s*", "", text)
             text = re.sub(r"\s*```$", "", text)
+        results = None
+        _err = None
         try:
             results = json.loads(text)
-        except json.JSONDecodeError:
-
-            m = re.search(r"\[[\s\S]*\]", text)
-            if not m:
-                raise
-            results = json.loads(m.group(0))
+        except json.JSONDecodeError as e:
+            _err = e
+            repaired = self._JSON_BRACE_REPAIR.sub(r"}\1", text)
+            for cand in (repaired, text):
+                try:
+                    results = json.loads(cand)
+                    break
+                except json.JSONDecodeError:
+                    m = re.search(r"\[[\s\S]*\]", cand)
+                    if m:
+                        try:
+                            results = json.loads(m.group(0))
+                            break
+                        except json.JSONDecodeError:
+                            continue
+        if results is None:
+            raise _err
 
         if isinstance(results, dict):
             for key in ("translations", "results", "data"):
@@ -585,6 +604,35 @@ class _MangaTranslatorBody_80:
                 _mtok = None
             if _mtok and _mtok >= 1024:
                 kwargs["max_tokens"] = _mtok
+            if not getattr(self, "_schema_unsupported", False):
+                kwargs["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "manga_translations",
+                        "strict": False,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "filename": {"type": "string"},
+                                    "translations": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {"type": "integer"},
+                                                "fa": {"type": "string"},
+                                            },
+                                            "required": ["id", "fa"],
+                                        },
+                                    },
+                                },
+                                "required": ["filename", "translations"],
+                            },
+                        },
+                    },
+                }
 
         if re.search(r"(?:^|/)(?:o[134](?:-|$)|gpt-5(?:-|$))", mlow):
             kwargs.pop("temperature", None)
@@ -599,6 +647,12 @@ class _MangaTranslatorBody_80:
                 kw = {k: v for k, v in kw.items() if k != "reasoning_effort"}
                 print("    [!] سرورِ reasoning_effort را نمی‌شناسد — "
                       "بدونِ آن ادامه میدهم.")
+                return kw
+            if ("response_format" in _et or "json_schema" in _et
+                    or "json schema" in _et) and "response_format" in kw:
+                self._schema_unsupported = True
+                kw = {k: v for k, v in kw.items() if k != "response_format"}
+                print("    [!] سرورِ json_schema را قبول نکرد — بدونِ آن.")
                 return kw
             if "max_completion_tokens" in _et and "max_tokens" in kw:
                 kw["max_completion_tokens"] = kw.pop("max_tokens")
