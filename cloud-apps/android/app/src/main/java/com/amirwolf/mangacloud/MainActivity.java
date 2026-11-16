@@ -26,6 +26,8 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
+import android.graphics.drawable.GradientDrawable;
 
 public class MainActivity extends Activity {
 
@@ -36,6 +38,7 @@ public class MainActivity extends Activity {
     private LinearLayout splash;
     private ValueCallback<Uri[]> filePathCallback;
     private static final int FILE_CHOOSER_CODE = 1001;
+    private static final int REQ_BROWSER = 1004;
     private boolean pageStarted = false;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -50,6 +53,28 @@ public class MainActivity extends Activity {
         root.addView(web, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // v1.14.322 — دکمهٔ شناورِ مرورگرِ داخلی (سایت‌های کپچادار)
+        TextView fab = new TextView(this);
+        fab.setText("🌐");
+        fab.setTextSize(20);
+        fab.setGravity(Gravity.CENTER);
+        fab.setTextColor(Color.WHITE);
+        GradientDrawable fabBg = new GradientDrawable();
+        fabBg.setShape(GradientDrawable.OVAL);
+        fabBg.setColor(0xCC1f2937);
+        fabBg.setStroke(dp(1), 0xFFE8590C);
+        fab.setBackground(fabBg);
+        fab.setElevation(dp(6));
+        fab.setContentDescription("باز کردن مرورگر + استخراج عکس");
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openInAppBrowser(); }
+        });
+        FrameLayout.LayoutParams fabLp = new FrameLayout.LayoutParams(
+                dp(48), dp(48));
+        fabLp.gravity = Gravity.BOTTOM | Gravity.START;
+        fabLp.setMargins(dp(14), dp(14), dp(14), dp(88));
+        root.addView(fab, fabLp);
 
         splash = buildSplash();
         root.addView(splash, new FrameLayout.LayoutParams(
@@ -255,6 +280,67 @@ public class MainActivity extends Activity {
         }
     }
 
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    /** v1.14.322 — مرورگرِ داخلی: آدرسِ فعلیِ فیلدِ لینک را میخواند و
+     *  BrowserActivity را باز میکند؛ نتیجه در onActivityResult به
+     *  همان فیلد تزریق میشود. */
+    private void openInAppBrowser() {
+        try {
+            final String js = "(function(){try{var el=document.querySelector('#manga_inp_path textarea')"
+                    + "||document.querySelector('[id*=\"manga_inp_path\"] textarea');"
+                    + "return el?String(el.value||''):''}catch(e){return ''}})()";
+            web.evaluateJavascript(js, new ValueCallback<String>() {
+                @Override public void onReceiveValue(String value) {
+                    String initUrl = "";
+                    try {
+                        String v = value == null ? "" : value;
+                        if (v.length() >= 2 && v.startsWith("\"")) {
+                            v = v.substring(1, v.length() - 1);
+                        }
+                        String[] parts = v.split("\\n|,");
+                        for (String p : parts) {
+                            String t = p.trim();
+                            if (t.startsWith("http://") || t.startsWith("https://")) {
+                                initUrl = t;
+                                break;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    Intent it = new Intent(MainActivity.this, BrowserActivity.class);
+                    if (!initUrl.isEmpty()) it.putExtra(BrowserActivity.EXTRA_URL, initUrl);
+                    startActivityForResult(it, REQ_BROWSER);
+                }
+            });
+        } catch (Exception e) {
+            try {
+                startActivityForResult(
+                        new Intent(this, BrowserActivity.class), REQ_BROWSER);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void injectLinksToPage(String links) {
+        try {
+            String payload = org.json.JSONObject.quote(links);
+            web.evaluateJavascript(
+                    "window.__mtFillLinks && window.__mtFillLinks(" + payload + ");",
+                    null);
+            Toast.makeText(this, "✅ لینک‌های عکس در فیلدِ ورودی نشست — «شروع ترجمه» را بزن",
+                    Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            try {
+                android.content.ClipboardManager cb =
+                        (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                cb.setPrimaryClip(android.content.ClipData.newPlainText("links", links));
+                Toast.makeText(this, "لینک‌ها کپی شد — در فیلدِ ورودی بچسبان",
+                        Toast.LENGTH_LONG).show();
+            } catch (Exception ignored) {}
+        }
+    }
+
     private void showOfflinePage() {
         String html = "<html><head><meta name=\"viewport\" content=\"width=device-width,"
                 + "initial-scale=1\"><style>body{background:#0b0e14;color:#c8ceda;"
@@ -276,6 +362,13 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQ_BROWSER && resultCode == RESULT_OK && data != null) {
+            String links = data.getStringExtra(BrowserActivity.EXTRA_LINKS);
+            if (links != null && !links.trim().isEmpty()) {
+                injectLinksToPage(links.trim());
+            }
+            return;
+        }
         if (requestCode == FILE_CHOOSER_CODE && filePathCallback != null) {
             Uri[] results = null;
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {

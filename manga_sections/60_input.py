@@ -46,6 +46,66 @@ class _MangaTranslatorBody_60:
         return False
 
     @staticmethod
+    def _expand_url_pair(u1: str, u2: str, op: str) -> Optional[List[str]]:
+        """v1.14.322 — بازهٔ دو لینکِ کاملِ هم‌الگو (فصل ۲۰ > فصل ۲۴).
+
+        اگر دو URL فقط در یک عدد تفاوت داشته باشند (مثل chapter-20 و
+        chapter-24)، همهٔ URLهای بینشان ساخته میشود. خروجی با «>» صعودی
+        و با «<» نزولی است (هم‌قراردادِ بازهٔ تک‌لینکی)."""
+        if not u1 or not u2 or u1 == u2:
+            return None
+        # یکدستسازیِ اسلشِ انتهایی (غلطِ تایپیِ رایج)
+        if u1.endswith("/") and not u2.endswith("/") \
+                and not re.search(r"\.[A-Za-z0-9]{2,5}$", u2):
+            u2 += "/"
+        elif u2.endswith("/") and not u1.endswith("/") \
+                and not re.search(r"\.[A-Za-z0-9]{2,5}$", u1):
+            u1 += "/"
+        if u1 == u2:
+            return None
+        # پیشوند مشترک (تا اولین تفاوت)
+        p = 0
+        while p < min(len(u1), len(u2)) and u1[p] == u2[p]:
+            p += 1
+        if p < len("https://x"):
+            return None
+        # اگر تفاوت وسطِ یک عدد افتاده، رقمهای مشترکِ عدد را هم
+        # به تکهٔ میانی بکش (…chapter-2|0 vs …chapter-2|4 → میانی = 20/24)
+        while p > 0 and u1[p - 1].isdigit() and u2[p - 1].isdigit():
+            p -= 1
+        # پسوند مشترک (از انتها)
+        s = 0
+        while (s < min(len(u1), len(u2)) - p
+               and u1[len(u1) - 1 - s] == u2[len(u2) - 1 - s]):
+            s += 1
+        m1 = u1[p:len(u1) - s]
+        m2 = u2[p:len(u2) - s]
+        if not m1 or not m2 or m1 == m2:
+            return None
+        # تکهٔ میانی = (متنِ غیرعددیِ آغازین) + عدد + (بقیه — باید در
+        # هر دو یکسان باشد؛ مثل «؟v=2» یا «.html»)
+        _m = re.match(r"^(\D*?)(\d+)(.*)$", m1, re.S)
+        _n = re.match(r"^(\D*?)(\d+)(.*)$", m2, re.S)
+        if not _m or not _n:
+            return None
+        if _m.group(1) != _n.group(1) or _m.group(3) != _n.group(3):
+            return None
+        a, b = int(_m.group(2)), int(_n.group(2))
+        if a == b:
+            return None
+        lo, hi = min(a, b), max(a, b)
+        if hi - lo > 2000:
+            print(f"[!] بازهٔ دو-لینکی خیلی بزرگ نادیده گرفته شد: "
+                  f"{u1[:60]} … {u2[:60]}")
+            return None
+        # صفرِ پیشوندی فقط وقتی حفظ شود که خودِ الگو صفر دارد
+        _s1, _s2 = _m.group(2), _n.group(2)
+        width = (max(len(_s1), len(_s2))
+                 if (_s1.startswith("0") or _s2.startswith("0")) else 0)
+        nums = range(lo, hi + 1) if op == ">" else range(hi, lo - 1, -1)
+        return [u1[:p] + _m.group(1) + str(n).zfill(width) + _m.group(3)
+                + u1[len(u1) - s:] for n in nums]
+
     def _expand_input_urls(input_str: str) -> List[str]:
         import requests
 
@@ -68,6 +128,23 @@ class _MangaTranslatorBody_60:
         )
 
         for part in parts:
+            # v1.14.322 — بازهٔ دو لینکِ کامل: «آدرس فصل ۲۰ > آدرس فصل ۲۴»
+            _pair = re.match(
+                r"^(https?://[^\s<>]+?)\s*([<>])\s*(https?://[^\s<>]+)$",
+                part)
+            if _pair:
+                _found_pair = MangaTranslator._expand_url_pair(
+                    _pair.group(1), _pair.group(3), _pair.group(2))
+                if _found_pair:
+                    print(f"[*] بازهٔ دو-لینکی: {_pair.group(1)[:70]} "
+                          f"{'→' if _pair.group(2) == '>' else '←'} "
+                          f"{_pair.group(3)[:70]} ({len(_found_pair)} فصل)")
+                    expanded.extend(_found_pair)
+                    continue
+                print(f"[!] دو لینک الگوی مشترک ندارند — هر دو جدا "
+                      f"اضافه می‌شوند: {part[:90]}")
+                expanded.extend([_pair.group(1), _pair.group(3)])
+                continue
             _rm = _range_re.match(part)
             if _rm and "*" not in part:
                 base = _rm.group("base")
@@ -744,6 +821,17 @@ class _MangaTranslatorBody_60:
 
         ext = spec.lower()
         raw_in = (input_path or "").strip()
+        # v1.14.322 — بازهٔ دو لینکِ کامل: نام از فصلِ اول + شمارهٔ آخر
+        _rg_pair = re.match(r"^(https?://\S+?)\s*[<>]\s*(https?://\S+)$",
+                            raw_in)
+        _rg_tail = ""
+        if _rg_pair:
+            _last_seg = (_rg_pair.group(2).split("?")[0].rstrip("/")
+                         .split("/")[-1] or "")
+            _mnum = re.search(r"(\d+)", _last_seg)
+            if _mnum:
+                _rg_tail = "-" + _mnum.group(1)
+            raw_in = _rg_pair.group(1)
         raw_in = re.split(r"[,\n\r\t]+", raw_in)[0].strip()
         if MangaTranslator._is_url(raw_in):
             from urllib.parse import urlparse, unquote
@@ -789,6 +877,8 @@ class _MangaTranslatorBody_60:
             base = re.sub(r"\*+", "", base)
             base = re.sub(r"[^\w\-.]+", "-", base).strip("-._") or "output"
 
+        if _rg_tail and not base.lower().endswith(_rg_tail):
+            base = base + _rg_tail
         return base + ext
 
     @staticmethod

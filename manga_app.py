@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.320"
+APP_VER = "1.14.322"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -342,6 +342,62 @@ def _web_host() -> bool:
             or os.environ.get("RAILWAY_STATIC_URL", "").strip() != ""
             or os.environ.get("SPACE_ID", "").strip() != ""
             or os.environ.get("HF_SPACE_ID", "").strip() != "")
+
+
+# ————— v1.14.322 — پاکسازیِ خودکارِ خروجیها فقط در نسخهٔ وبِ آنلاین —————
+# (اندروید و پی‌سی/لینوکس فایلهایشان همیشه می‌ماند؛ این منطق فقط روی
+# هاستِ وب فعال میشود و پس از ~۲ ساعتِ نبودِ کاربر، کلِ پوشهٔ همان
+# کاربر پاک میشود تا دیسکِ اشتراکی پر نشود.)
+def _web_file_ttl() -> int:
+    """مهلتِ ماندنِ خروجیها روی وب — ثانیه (پیش‌فرض ۲ ساعت)."""
+    try:
+        _m = int(os.environ.get("MANGA_WEB_TTL_MIN", "120") or 120)
+    except Exception:
+        _m = 120
+    return max(15, min(1440, _m)) * 60
+
+
+_WEB_SEEN_PATH = os.path.join(WORK_DIR, "sessions", "web_last_seen.json")
+_WEB_LAST_SEEN: dict = {}
+_web_seen_lock = threading.Lock()
+_web_seen_flush_ts = 0.0
+
+
+def _web_seen_load() -> None:
+    global _WEB_LAST_SEEN
+    try:
+        with open(_WEB_SEEN_PATH, encoding="utf-8") as _fh:
+            _WEB_LAST_SEEN = json.load(_fh) or {}
+    except Exception:
+        _WEB_LAST_SEEN = {}
+
+
+def _web_touch(sid: str) -> None:
+    """ثبتِ «کاربر آنلاین است» — هر تیکِ صفحهٔ باز این را صدا میزند."""
+    global _web_seen_flush_ts
+    sid = str(sid or "").strip()
+    if not sid or not _web_host():
+        return
+    now = time.time()
+    flush = False
+    with _web_seen_lock:
+        _WEB_LAST_SEEN[sid[:12]] = now
+        if now - _web_seen_flush_ts > 30:
+            _web_seen_flush_ts = now
+            flush = True
+    if flush:
+        try:
+            os.makedirs(os.path.dirname(_WEB_SEEN_PATH), exist_ok=True)
+            with _web_seen_lock:
+                with open(_WEB_SEEN_PATH, "w", encoding="utf-8") as _fh:
+                    json.dump(_WEB_LAST_SEEN, _fh)
+        except Exception:
+            pass
+
+
+def _web_last_seen_of(sid12: str) -> float:
+    with _web_seen_lock:
+        return float(_WEB_LAST_SEEN.get(str(sid12 or "")) or 0)
 
 def load_custom_models() -> list:
     if _web_host():
@@ -892,7 +948,17 @@ def smart_output_base(input_path: str) -> str:
     raw = (input_path or "").strip()
     if not raw:
         return "chapter_fa"
-    
+
+    # v1.14.322 — بازهٔ دو لینکِ کامل: نام از فصلِ اول + شمارهٔ آخر
+    _rg = re.match(r"^(https?://\S+?)\s*[<>]\s*(https?://\S+)$", raw)
+    if _rg:
+        _b1 = smart_output_base(_rg.group(1))
+        _b1 = re.sub(r"_fa$", "", _b1)
+        _last = _rg.group(2).split("?")[0].rstrip("/").split("/")[-1] or ""
+        _m2 = re.search(r"(\d+)", _last)
+        if _m2:
+            return _b1 + "-" + _m2.group(1) + "_fa"
+
     raw = re.split(r"[,\n\r\t]+", raw)[0].strip()
     is_url = raw.lower().startswith(("http://", "https://"))
     if is_url:
@@ -1881,6 +1947,174 @@ def _gradio_major() -> int:
         return int(gradio.__version__.split(".")[0])
     except Exception:
         return 0
+
+
+# ————— v1.14.322 — نشانکِ استخراجِ عکس (مرورگرِ کاربر، عبور از کپچا) —————
+# کاربر سایتِ مانهوا را در مرورگرِ خودش باز میکند (کپچا را خودش رد
+# میکند)، نشانک را میزند و لینکِ عکس‌ها با هشِ #imgs= به اپ برمی‌گردد.
+_MT_BM_CODE = (
+    "(function(){"
+    "var seen={},out=[];"
+    "function abs(u){try{var a=document.createElement('a');a.href=u;"
+    "return a.href}catch(e){return null}}"
+    "function junk(u){"
+    "if(!u)return 1;"
+    "if(u.indexOf('data:')===0)return 1;"
+    "if(!/^https?:/i.test(u))return 1;"
+    "if(/\\.(svg|ico)([?#]|$)/i.test(u))return 1;"
+    "if(/(logo|icon|avatar|banner|sprite|favicon|badge|flag|"
+    "ads?[._-]|button|emoji|thumb(nail)?s?[._-])/i.test(u))return 1;"
+    "return 0}"
+    "var els=document.querySelectorAll('img,source');"
+    "for(var i=0;i<els.length;i++){"
+    "var el=els[i],cs=null;"
+    "try{cs=el.currentSrc||el.src||null}catch(e){}"
+    "var c=[cs,el.getAttribute('data-src'),"
+    "el.getAttribute('data-lazy-src'),el.getAttribute('data-original'),"
+    "el.getAttribute('data-echo')];"
+    "var ss=el.getAttribute('srcset')||el.getAttribute('data-srcset');"
+    "if(ss){var p=ss.split(',');"
+    "if(p.length)c.push(p[p.length-1].trim().split(/\\s+/)[0])}"
+    "if(el.tagName==='SOURCE'&&el.parentNode){"
+    "var pp=el.parentNode.querySelector('img');"
+    "if(pp&&pp.src)c.push(pp.src)}"
+    "for(var j=0;j<c.length;j++){"
+    "var u=c[j];if(!u)continue;"
+    "u=abs(String(u).trim());"
+    "if(!u||junk(u)||seen[u])continue;"
+    "var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;"
+    "if(w&&h&&(w<120||h<120))continue;"
+    "seen[u]=1;out.push(u);break}}"
+    "if(!out.length){alert('__MT_NOLINKS__');return}"
+    "function nk(s){var t=String(s).split(/[^0-9]+/).filter(Boolean),"
+    "r=[];for(var i=0;i<t.length;i++)r.push(parseInt(t[i],10));return r}"
+    "out.sort(function(a,b){var x=nk(a),y=nk(b);"
+    "for(var i=0;i<Math.min(x.length,y.length);i++){"
+    "if(x[i]!==y[i])return x[i]-y[i]}return a<b?-1:1});"
+    "var payload=out.join('\\n');"
+    "var app='__MTAPP__';"
+    "try{var url=app+'#imgs='+encodeURIComponent(payload);"
+    "if(url.length<=1600000){window.open(url,'_blank');return}}catch(e){}"
+    "try{navigator.clipboard.writeText(payload).then(function(){"
+    "alert('__MT_COPIED__'+out.length)},function(){prompt('__MT_COPY2__',payload)})"
+    "}catch(e){prompt('__MT_COPY2__',payload)}})();"
+)
+
+
+def _browser_extract_js() -> str:
+    """جاوااسکریپتِ صفحهٔ اپ: پرکردنِ فیلدِ لینک از هشِ #imgs=، ساختِ
+    نشانکِ استخراج با آدرسِ همین اپ، و window.__mtFillLinks برای
+    مرورگرِ داخلیِ اپِ اندروید."""
+    import json as _json
+    tpl = """() => {
+  try {
+    if (!window.__mtLinksInstalled) {
+      window.__mtLinksInstalled = true;
+
+      const setVal = (el, val) => {
+        const s = String(val == null ? "" : val);
+        try {
+          const proto = el.tagName === "TEXTAREA"
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+          const desc = Object.getOwnPropertyDescriptor(proto, "value");
+          if (desc && desc.set) desc.set.call(el, s); else el.value = s;
+        } catch (e) { el.value = s; }
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+
+      const findLinksEl = () =>
+        document.querySelector("#manga_inp_path textarea")
+        || document.querySelector('[id*="manga_inp_path"] textarea')
+        || document.querySelector("#manga_inp_path input");
+
+      window.__mtFillLinks = (text) => {
+        try {
+          const el = findLinksEl();
+          if (!el) return false;
+          setVal(el, text);
+          try {
+            const box = document.querySelector(
+              '[id*="manga_inp_path"], #manga_inp_path');
+            if (box) box.scrollIntoView({ behavior: "smooth",
+                                          block: "center" });
+          } catch (e) {}
+          return true;
+        } catch (e) { return false; }
+      };
+
+      const applyHash = () => {
+        try {
+          const m = (location.hash || "").match(/^#imgs=(.+)$/);
+          if (!m) return;
+          const txt = decodeURIComponent(m[1]);
+          if (!txt) return;
+          if (window.__mtFillLinks(txt)) {
+            try {
+              history.replaceState(null, "",
+                location.pathname + location.search);
+            } catch (e) { location.hash = ""; }
+            try {
+              const n = txt.split(/\\n/).filter(Boolean).length;
+              alert("__MT_FILLED__" + n + "__MT_FILLED2__");
+            } catch (e) {}
+          }
+        } catch (e) {}
+      };
+
+      const buildBmk = () => {
+        try {
+          const a = document.getElementById("mt_bmk");
+          if (!a) return;
+          const code = __BM_CODE__.replace(/__MTAPP__/g, location.origin);
+          a.setAttribute("href", "javascript:" + encodeURIComponent(code));
+          a.addEventListener("click", (ev) => {
+            ev.preventDefault();
+          });
+        } catch (e) {}
+        try {
+          const btn = document.getElementById("mt_bmk_copy");
+          const done = document.getElementById("mt_bmk_done");
+          if (btn && !btn._mtBound) {
+            btn._mtBound = true;
+            btn.addEventListener("click", async () => {
+              try {
+                const a = document.getElementById("mt_bmk");
+                const code = (a && a.getAttribute("href") || "").trim();
+                if (!code) return;
+                await navigator.clipboard.writeText(code);
+                if (done) {
+                  done.style.display = "inline";
+                  setTimeout(() => { done.style.display = "none"; }, 2200);
+                }
+              } catch (e) {
+                try { prompt("__MT_COPY2__", code); } catch (e2) {}
+              }
+            });
+          }
+        } catch (e) {}
+      };
+
+      window.addEventListener("hashchange", applyHash);
+      const ready = () => { buildBmk(); applyHash(); };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", ready);
+      } else { ready(); }
+      setTimeout(applyHash, 700);
+      setTimeout(applyHash, 1800);
+      const mo = new MutationObserver(() => {
+        try { buildBmk(); } catch (e) {}
+      });
+      try { mo.observe(document.body, { childList: true, subtree: true }); }
+      catch (e) {}
+    }
+  } catch (e) {}
+  return [];
+}
+"""
+    return tpl.replace("__BM_CODE__", _json.dumps(_MT_BM_CODE))
+
 
 def _dark_js_src() -> str:
     return """() => {
@@ -5702,8 +5936,65 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                  file_types=[".pdf", ".zip", ".cbz", ".webp", ".jpg", ".jpeg", ".png"],
                                  elem_classes=["compact-upload"])
             inp_path = gr.Textbox(label=TX("app.url", "یا URL تصویر/مانهوا (چند لینک = هر لینک در یک خط با اینتر)"),
-                                  placeholder=TX("app.url_ph", "https://cdn.example.com/chapter/1/001.webp\nhttps://cdn.example.com/chapter/1/002.webp"),
+                                  placeholder=TX("app.url_ph", "https://mgread.io/manga/cute-war/chapter-20/ > https://mgread.io/manga/cute-war/chapter-24/\nیا هر لینک در یک خط:\nhttps://cdn.example.com/chapter/1/001.webp"),
                                   elem_id="manga_inp_path")
+            # v1.14.322 — سومین روشِ ورودی: مرورگرِ کاربر برای سایت‌های
+            # کپچادار (نشانکِ استخراجِ عکس) + دکمهٔ مرورگرِ سیستم (فقط پی‌سی)
+            gr.HTML(
+                '<details class="mt-browser" style="margin-top:8px;'
+                'border:1px solid rgba(148,163,184,.28);border-radius:12px;'
+                'background:rgba(127,127,152,.07);padding:8px 12px 10px">'
+                '<summary style="cursor:pointer;font-weight:700;'
+                'font-size:.95em;color:inherit">'
+                '🌐 ' + TX("app.br_title",
+                           "باز کردن مرورگر — سایت‌هایی که کپچا دارند") +
+                '</summary>'
+                '<div style="font-size:.86em;line-height:2;margin-top:8px;'
+                'opacity:.92">'
+                '<div>' + TX("app.br_s1",
+                             "۱) دکمهٔ نارنجیِ زیر را با ماوس بگیر و در نوارِ "
+                             "نشانک‌های مرورگرت رها کن (موبایل: «کپی نشانک» و "
+                             "دستی به نشانک‌ها اضافه کن).") + '</div>'
+                '<div>' + TX("app.br_s2",
+                             "۲) به سایتِ مانهوا برو، کپچا را خودت رد کن، فصلِ "
+                             "دلخواه را باز کن و تا آخرِ صفحه اسکرول کن تا "
+                             "همهٔ عکس‌ها لود بشن.") + '</div>'
+                '<div>' + TX("app.br_s3",
+                             "۳) روی نشانکِ «🖼 استخراج عکس» کلیک کن — لینکِ "
+                             "همهٔ عکس‌های فصل خودکار در فیلدِ بالا می‌نشیند؛ "
+                             "بعد فقط «شروع ترجمه» را بزن.") + '</div>'
+                '<div style="margin:10px 0 2px;display:flex;gap:8px;'
+                'flex-wrap:wrap;align-items:center">'
+                '<a id="mt_bmk" href="#" draggable="true" rel="noopener" '
+                'style="display:inline-block;background:linear-gradient(135deg,'
+                '#f59e0b,#ea580c);color:#fff;font-weight:800;font-size:.95em;'
+                'padding:8px 16px;border-radius:10px;text-decoration:none;'
+                'cursor:grab;box-shadow:0 2px 8px rgba(234,88,12,.35)">'
+                '🖼 ' + TX("app.br_bm", "استخراج عکس مانهوا") + '</a>'
+                '<button id="mt_bmk_copy" type="button" '
+                'style="background:transparent;border:1px solid rgba(148,163,'
+                '184,.4);color:inherit;border-radius:10px;padding:7px 14px;'
+                'font-size:.88em;cursor:pointer">📋 ' + TX("app.br_copy",
+                                                           "کپی نشانک") +
+                '</button><span id="mt_bmk_done" style="color:#7fd18a;'
+                'display:none;font-size:.85em">✔ ' + TX("app.br_done",
+                                                        "کپی شد") + '</span>'
+                '</div>'
+                '<div style="opacity:.7;font-size:.88em">' +
+                TX("app.br_note",
+                   "نشانک فقط در مرورگرِ خودِ تو اجرا میشود — پسورد و "
+                   "کوکی هیچ‌وقت به این اپ نمی‌رسد. اپِ اندروید: دکمهٔ 🌐 "
+                   "داخلِ خودِ اپ مرورگرِ داخلی دارد.") + '</div>'
+                '</div></details>')
+            _pc_local = not _web_host()
+            with gr.Row(visible=_pc_local) as browser_row:
+                mt_browser_url = gr.Textbox(
+                    label=TX("app.br_open_label",
+                             "آدرس سایت مانهوا (برای باز کردن در مرورگرِ سیستم)"),
+                    placeholder="https://mgread.io/manga/...",
+                    elem_id="mt_browser_url", scale=4)
+                mt_browser_btn = gr.Button(
+                    TX("app.br_open", "🌐 باز کردن مرورگر"), scale=1)
 
         with gr.Group(elem_classes=["stepcard"]):
             gr.HTML('<div class="steptitle"><span class="stepnum">۲</span> مترجم هوش مصنوعی</div>')
@@ -7196,6 +7487,10 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             sid = _find_active_sid(sid) or sid
             if not sid:
                 sid = _new_sid()
+            try:
+                _web_touch(sid)  # v1.14.322 — حضورِ کاربر ثبت شد
+            except Exception:
+                pass
 
             job = _get_job(sid)
             n_slots = len(tone_slots)
@@ -7333,21 +7628,38 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             _prev_src = ""
             with job["lock"]:
                 _prev_src = str(job.get("src") or "")
-            if _prev_src and _prev_src != str(src):
-                try:
-                    for _n in os.listdir(user_out_dir):
-                        if _n == "input_batch":
-                            continue
-                        _p = os.path.join(user_out_dir, _n)
-                        if os.path.isdir(_p):
-                            shutil.rmtree(_p, ignore_errors=True)
-                        else:
-                            try:
-                                os.remove(_p)
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
+            # v1.14.322 — پاکسازیِ خروجیِ قبلی فقط در نسخهٔ وب:
+            # (۱) ورودیِ عوض‌شده = پاک‌سازیِ کاملِ پوشهٔ کاربر
+            # (۲) هر شروعِ تازه = حذفِ فایلهای خروجیِ قبلی (pdf/zip/
+            #     html/psd) تا حافظهٔ سرورِ اشتراکی گرفته نشود.
+            if _web_host():
+                if _prev_src and _prev_src != str(src):
+                    try:
+                        for _n in os.listdir(user_out_dir):
+                            if _n == "input_batch":
+                                continue
+                            _p = os.path.join(user_out_dir, _n)
+                            if os.path.isdir(_p):
+                                shutil.rmtree(_p, ignore_errors=True)
+                            else:
+                                try:
+                                    os.remove(_p)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        for _n in os.listdir(user_out_dir):
+                            _p = os.path.join(user_out_dir, _n)
+                            if os.path.isfile(_p) and _n.lower().endswith(
+                                    (".pdf", ".zip", ".html", ".psd")):
+                                try:
+                                    os.remove(_p)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
             out_v = os.path.join(user_out_dir, base + ext)
 
             try:
@@ -7779,6 +8091,30 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
     if (b) b.style.display = (String(p || '').trim() === 'gemini') ? '' : 'none';
   } catch (e) {}
 }""",
+            )
+        except Exception:
+            pass
+
+        try:
+            def _open_system_browser(url_v):
+                if _web_host():
+                    return  # روی هاستِ وب، مرورگرِ سرور باز نمی‌شود
+                u = str(url_v or "").strip()
+                if not u:
+                    return
+                if not u.lower().startswith(("http://", "https://")):
+                    u = "https://" + u
+                try:
+                    import webbrowser
+                    webbrowser.open(u)
+                except Exception as e:
+                    print(f"[!] باز کردنِ مرورگرِ سیستم ناموفق: {e}")
+
+            mt_browser_btn.click(
+                _open_system_browser,
+                inputs=[mt_browser_url],
+                outputs=None,
+                queue=False,
             )
         except Exception:
             pass
@@ -8775,6 +9111,10 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             empty = (gr.update(),) * 15
             if not sid:
                 return empty
+            try:
+                _web_touch(sid)  # v1.14.322 — نبودِ ۲ ساعت = پاکسازیِ وب
+            except Exception:
+                pass
             job = _get_job(sid)
             meta = _load_job_meta(sid)
             with job["lock"]:
@@ -9110,6 +9450,11 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             pass
 
         def _cleanup_old_jobs():
+            # v1.14.322 — روی هاستِ وب: مهلت = MANGA_WEB_TTL_MIN (پیش‌فرض
+            # ۲ ساعت) از آخرینِ حضورِ کاربر (تیکِ صفحهٔ باز) یا آخرین
+            # فایل؛ فقط پوشهٔ همان کاربر پاک میشود. روی پی‌سی/اندرویدِ
+            # واقعی این نخ هیچ‌وقت اجرا نمیشود و فایلها میمانند.
+            _file_ttl = _web_file_ttl() if _web_host() else JOB_TTL
             while True:
                 try:
                     now = time.time()
@@ -9119,7 +9464,11 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                             with job["lock"]:
                                 alive = job.get("proc") is not None and job["proc"].poll() is None
                                 ts = job.get("ts") or 0
-                            if not alive and (now - ts) > JOB_TTL:
+                            # حضورِ تازهٔ کاربر (صفحهٔ باز) = نگه‌داشتن
+                            _seen = _web_last_seen_of(sid[:12])
+                            if _seen > ts:
+                                ts = _seen
+                            if not alive and (now - ts) > _file_ttl:
                                 dead.append(sid)
                                 out_sub = os.path.join(OUT_DIR, sid[:12])
                                 if os.path.isdir(out_sub):
@@ -9152,17 +9501,31 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
                                                 mtime = max(mtime, os.path.getmtime(os.path.join(root, f)))
                                             except Exception:
                                                 pass
-                                    if (now - mtime) > JOB_TTL:
+                                    _seen = _web_last_seen_of(name)
+                                    if _seen > mtime:
+                                        mtime = _seen
+                                    if (now - mtime) > _file_ttl:
                                         shutil.rmtree(p, ignore_errors=True)
+                                        with _web_seen_lock:
+                                            _WEB_LAST_SEEN.pop(name, None)
+                                        try:
+                                            print(f"[🧹 وب] پوشهٔ خروجیِ کهنه پاک شد: "
+                                                  f"{name} (بیش از "
+                                                  f"{int(_file_ttl // 60)} دقیقه از "
+                                                  f"آخرین حضور)")
+                                        except Exception:
+                                            pass
                                 except Exception:
                                     pass
 
                     old_sess = os.path.join(WORK_DIR, "sessions")
                     if os.path.isdir(old_sess):
                         for name in os.listdir(old_sess):
+                            if name == "web_last_seen.json":
+                                continue
                             fp = os.path.join(old_sess, name)
                             try:
-                                if (now - os.path.getmtime(fp)) > JOB_TTL:
+                                if (now - os.path.getmtime(fp)) > _file_ttl:
                                     if os.path.isfile(fp):
                                         os.remove(fp)
                                     elif os.path.isdir(fp):
@@ -9276,7 +9639,14 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
         except Exception:
             pass
 
-        threading.Thread(target=_cleanup_old_jobs, daemon=True).start()
+        # v1.14.322 — پاکسازیِ خودکار فقط روی هاستِ وبِ آنلاین؛ روی
+        # پی‌سی/لینوکس و اندرویدِ واقعی فایلها برای همیشه میمانند.
+        if _web_host():
+            try:
+                _web_seen_load()
+            except Exception:
+                pass
+            threading.Thread(target=_cleanup_old_jobs, daemon=True).start()
 
         def _reader_file_url(path: str) -> str:
             if not path or not os.path.isfile(path):
@@ -9419,6 +9789,15 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             except Exception:
                 pass
 
+        # v1.14.322 — نشانکِ استخراجِ عکس + پرکردنِ فیلد از هشِ #imgs=
+        try:
+            demo.load(None, None, None, js=_browser_extract_js())
+        except Exception:
+            try:
+                demo.load(js=_browser_extract_js())
+            except Exception:
+                pass
+
         _qtip_texts = {
             "manga_cb_twopass": TX("app.two_pass_info",
                                    "پاسِ اول بلوکها را مییابد، پاسِ دوم متنِ داخلشان را دقیق بازمیخواند — پیش‌فرض روشن"),
@@ -9437,7 +9816,7 @@ function UT(k,d){try{var t=window.UI_T;return (t&&t[k]!=null)?t[k]:d}catch(e){re
             "manga_max_tokens_custom": TX("app.max_tokens_custom_info",
                                           "عددِ دلخواه سقفِ توکنِ خروجی — حداقل ۱۰۲۴"),
             "manga_inp_path": TX("app.url_info",
-                                 "چند لینک = هر لینک در یک خط (اینتر) — کاما هم کار می‌کند. «…/1 > 14.jpg» از اول تا آخر، «…/1 < 14.jpg» از آخر به اول، «…/*.jpg» هرچه پیدا کند — همه با هم ترجمه می‌شوند."),
+                                 "چند لینک = هر لینک در یک خط (اینتر) — کاما هم کار می‌کند. «آدرس فصلِ ۲۰ > آدرس فصلِ ۲۴» بازهٔ کاملِ فصلها، «…/1 > 14.jpg» از اول تا آخر، «…/1 < 14.jpg» از آخر به اول، «…/*.jpg» هرچه پیدا کند — همه با هم ترجمه می‌شوند."),
             "manga_provider": TX("app.ai_menu_info",
                                  "«auto» (با مدلِ اضافهشده) خودش بینِ Gemini و مدل‌های شما اولینِ در دسترس را انتخاب میکند. مدلِ مشخص = فقط همان. «custom» = فیلدهای همین صفحه. حذفِ مدل = انتخابش در منو + ✖ِ کنارِ منو. «+ افزودن» مدلِ فعلی را در لیست ثبت میکند؛ در منو میآید و در بکاپ ذخیره میشود."),
             "manga_api_base": TX("app.api_base_info",
