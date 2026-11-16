@@ -69,7 +69,8 @@ jobs:
       - name: Build Windows x86 shell (WebView2)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq gcc-mingw-w64-i686 binutils-mingw-w64-i686
+          sudo apt-get install -y -qq \
+            gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686
           curl -sL -o wv2.nupkg \
             "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.2903.40"
           unzip -o -q wv2.nupkg "runtimes/win-x86/native/*" -d wv2sdk
