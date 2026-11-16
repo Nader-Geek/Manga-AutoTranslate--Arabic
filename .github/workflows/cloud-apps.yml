@@ -111,6 +111,23 @@ jobs:
               --title "clouds" --target main --notes "$NOTES"
           fi
 
+      - name: Upload clouds to amirwolf5122 (اکشنزِ 5122 بن است)
+        env:
+          GH_TOKEN: ${{ secrets.PAT_5122 }}
+        run: |
+          set -e
+          if gh release view apks --repo amirwolf5122/Manga-AutoTranslate > /dev/null 2>&1; then
+            gh release view clouds --repo amirwolf5122/Manga-AutoTranslate > /dev/null 2>&1 && \
+              gh release upload clouds dist/MangaCloud-* \
+                --repo amirwolf5122/Manga-AutoTranslate --clobber || \
+              gh release create clouds dist/MangaCloud-* \
+                --repo amirwolf5122/Manga-AutoTranslate \
+                --title "clouds" --target main \
+                --notes "مانگا کلود — نسخه سبک ابری (همه پردازش روی سرور)"
+          else
+            echo "ریلیز apks هنوز در 5122 نیست — clouds هم رد شد (بعداً با APK میآید)"
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
