@@ -1,7 +1,4 @@
 # BUILD-STRIP-START
-# CLI — build_arg_parser و main
-# None
-# (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -53,6 +50,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="اجبار به GPU برای OCR و LaMa ONNX")
     p.add_argument("--cpu", dest="gpu", action="store_false",
                    help="اجبار به CPU (OpenCV inpaint)")
+    p.add_argument("--device", choices=["auto", "cpu", "gpu"], default="auto",
+                   help="دستگاهِ استخراجِ متن و پاکسازی: auto (پیش‌فرض — با GPU: "
+                        "۲ ورکر GPU + ۲ ورکر CPU؛ بدون GPU: ۲ ورکر CPU) | "
+                        "cpu (فقط ۲ ورکر CPU) | gpu (فقط ۲ ورکر GPU)")
     p.add_argument("--lama", action="store_true", default=False,
                    help="حتی روی CPU هم پاک‌سازی big-lama.pt را فعال کن (کندتر، تمیزتر)")
     p.add_argument("--clean-method", dest="clean_method",
@@ -118,9 +119,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="با عوض‌شدنِ مدل/پرامپت: ترجمه‌ها از نو ساخته شوند "
                         "(پیش‌فرض: ادامه — حباب‌های ترجمه‌شده از کش می‌مانند؛ "
                         "استخراج/پاکسازی در هر دو حالت از کش می‌مانند)")
-# منسوخ (no-op): فلگِ قدیمیِ «بدونِ بریفِ داستان» — بریف حذف شده ولی
-# ورک‌فلویِ CI و اسکریپتهایِ قدیمی هنوز میفرستند؛ پذیرفته میشود و
-# هیچ کاری نمیکند تا خطایِ argparse رد نشود (فیکسِ CI Visual QA)
     p.add_argument("--no-brief", action="store_true",
                    help=argparse.SUPPRESS)
     p.add_argument("--clean-sfx", action="store_true",
@@ -141,8 +139,32 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         "(پیشفرض — حرفهای انگلیسی؛ مدلهای Lite خودکار سبکِ "
                         "lite میگیرند)، lite (سبک انگلیسی). مقدارِ کهنهٔ auto "
                         "= همان رفتارِ خودکارِ professional/lite")
-    p.add_argument("--temperature", type=float, default=0.7)  # دستور: ۰.۷ (عینِ مرجع)
-    p.add_argument("--top-p", type=float, default=0.9)  # مرجع تنظیمِ top_p
+    p.add_argument("--temperature", type=float, default=0.7)
+    p.add_argument("--top-p", type=float, default=0.9)
+    p.add_argument(
+        "--deep-thinking", dest="deep_thinking", action="store_true", default=True,
+        help="حالت تفکر عمیق (پیش‌فرض روشن — K3 v4.4): جمینای → thinkingLevel=high؛ "
+             "OpenAI-سازگار → reasoning_effort=high؛ بدونِ محدودیتِ مدل",
+    )
+    p.add_argument(
+        "--no-deep-thinking", dest="deep_thinking", action="store_false",
+        help="حالت تفکر عمیق خاموش شود",
+    )
+    p.add_argument(
+        "--safety-settings", action="store_true", default=False,
+        help="فیلترهای ایمنی گوگل را BLOCK_NONE کند (ضدِ سانسور) — "
+             "پیش‌فرض خاموش؛ env: MANGA_SAFETY=1",
+    )
+    p.add_argument(
+        "--max-tokens", default="auto",
+        choices=["auto", "8192", "16384", "32768", "65536", "custom"],
+        help="حداکثر توکنِ خروجی (K3 v4.4). auto = نمی‌فرستد و سرویس‌دهنده "
+             "خودش مدیریت میکند (پیش‌فرض)",
+    )
+    p.add_argument(
+        "--max-tokens-custom", type=int, default=4096,
+        help="مقدارِ دلخواهِ حداکثر توکنِ خروجی برای --max-tokens custom (≥۱۰۲۴)",
+    )
     p.add_argument(
         "--debug",
         action="store_true",
@@ -158,13 +180,18 @@ def main():
         pass
     args = build_arg_parser().parse_args()
 
-# «تستِ سرعت» (دکمهٔ واحدِ پنل): به‌جایِ ترجمه، همهٔ
-# حالتهایِ استخراج اندازهگیری و برنده در speed_test.json ذخیره
-# میشود. نیازی به کلیدِ API/فونت/موتورِ ترجمه ندارد؛ زودتر از همهٔ
-# اعتبارسنجیها میآید. (اپِ PC با MANGA_SPEED_TEST=1 میفرستد.)
+    _dev_arg = str(getattr(args, "device", "auto") or "auto").strip().lower()
+    if _dev_arg not in ("auto", "cpu", "gpu"):
+        _dev_arg = "auto"
+    if _dev_arg != "auto":
+        os.environ["MANGA_DEVICE"] = _dev_arg
+    _cpu_flag = args.gpu is False
+    if _dev_arg != "auto" and args.gpu is None:
+        args.gpu = (_dev_arg == "gpu")
+
     if str(os.environ.get("MANGA_SPEED_TEST", "") or "").strip() == "1":
         try:
-            speed_lab_env({})  # برندهٔ ذخیرهشدهٔ قبلی + خطِ لاگِ آن
+            speed_lab_env({})
         except Exception:
             pass
         speed_test_run(src=args.input,
@@ -257,7 +284,7 @@ def main():
         force_lama=bool(getattr(args, "lama", False)),
         clean_method=(getattr(args, "clean_method", None)
                       or ("lama-big" if getattr(args, "lama", False)
-                          else ("opencv" if args.gpu is False else "lama-manga"))),
+                          else ("opencv" if _cpu_flag else "lama-manga"))),
         max_retries=args.max_retries,
         det_confidence=getattr(args, "det_confidence", 0.28),
         request_delay=args.request_delay,
@@ -274,13 +301,12 @@ def main():
         mag_ratio=args.mag_ratio,
         two_pass_ocr=not args.no_two_pass_ocr,
         translation_temperature=args.temperature,
-        translation_top_p=getattr(args, "top_p", 0.9),  # مرجع
+        translation_top_p=getattr(args, "top_p", 0.9),
         max_output_width=(args.max_width or None),
         stitch_max_height=(8000 if getattr(args, "stitch_max_height", None) is None
                            else int(args.stitch_max_height)),
         stitch_short_threshold=args.stitch_short_threshold,
         stitch_keep_first=not args.no_stitch_keep_first,
-# اگر کاربرِ CLI خودش فلگ را داده باشد، حالتِ مستقل رد می‌شود
         stitch_explicit=(getattr(args, "stitch_max_height", None) is not None),
         repair_page_seams=not bool(getattr(args, "no_seam_repair", False)),
         debug=bool(getattr(args, "debug", False)),
@@ -294,6 +320,14 @@ def main():
             if getattr(args, "instruction", None) and os.path.isfile(args.instruction) else None
         ),
         prompt_mode=getattr(args, "prompt_mode", None),
+        deep_thinking=bool(getattr(args, "deep_thinking", True)) and (
+            os.environ.get("MANGA_NO_THINKING", "").strip().lower()
+            not in ("1", "true", "yes")),
+        safety_settings=bool(getattr(args, "safety_settings", False)) or (
+            os.environ.get("MANGA_SAFETY", "").strip() in ("1", "true", "yes")),
+        max_tokens_mode=str(getattr(args, "max_tokens", "auto") or "auto"),
+        max_tokens_custom=int(getattr(args, "max_tokens_custom", 4096) or 4096),
+        device_pref=_dev_arg,
     )
     if getattr(args, "lama", False):
         translator.use_lama = True
@@ -374,8 +408,6 @@ def main():
             clean_old=not args.keep_old,
         )
     finally:
-# خطا/لغو وسطِ کار هم نباید صفحه‌هایِ نمایشِ زنده را
-# برای همیشه در گیتِ ترتیب قفل نگه دارد.
         try:
             _live_seq_flush()
         except Exception:

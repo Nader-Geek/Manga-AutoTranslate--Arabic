@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""ساختِ عکسهایِ فیکِ «متنِ کج» و «متنِ خمیده» — برایِ تستِ جهتِ OCR
-(D279 — خواستهٔ سازنده: «چند تا عکس فیک متن خمیده شده و متن کج هردو
-جدا فرق دارن بسازی و ocr تست کنی ببینی جهتشون درست میخونه یا درست
-سرجاشون میزاره»).
-
-خروجی (پیشفرض ci_imgs/fixtures/):
-  rot_m26.png … rot_p18.png  — متنِ «کج»: خطِ صافِ چرخیده (زاویهٔ
-                             مشخصِ −26…+18 درجه)
-  arc_r260.png / arc_r520.png — متنِ «خمیده»: حروف رویِ کمانِ دایره
-                             (هر حرف به مماسِ کمان چرخیده)
-  page_mixed.png             — همه در یک صفحه (تستِ اندرویدِ CI)
-  ground_truth.json          — حقیقتِ زمینیِ هر فیکسچر
-"""
 import argparse
 import json
 import math
@@ -44,12 +30,9 @@ def _text_size(text: str, f) -> tuple:
 
 def make_rotated(text: str, angle_deg: float, font_px: int = 54,
                  size=(1200, 700)) -> tuple:
-    """متنِ «کج» — خطِ صافِ چرخیده (مثبت = پادساعتگردِ PIL). بوم
-    طوری حساب میشود که متنِ چرخیده «هیچجا» بریده نشود."""
     f = _font(font_px)
     tw, th = _text_size(text, f)
     a = math.radians(abs(angle_deg))
-    # چهارگوشِ چرخیده
     ext_w = tw * math.cos(a) + th * math.sin(a) + 2 * font_px
     ext_h = tw * math.sin(a) + th * math.cos(a) + 2 * font_px
     W = max(int(size[0]), int(ext_w) + 80)
@@ -70,23 +53,19 @@ def make_rotated(text: str, angle_deg: float, font_px: int = 54,
 def _draw_arc(img: ImageDraw.Draw, text: str, radius: float,
               cx: int, cy: int, f, bulge_up: bool = True,
               fill=(20, 20, 20)):
-    """حروفِ متن رویِ کمانِ دایره — هر حرف با مماسِ محلیِ کمان
-    میچرخد. (cx, cy) = مرکزِ دایره؛ bulge_up = متن بالای مرکز.
-    برگشت: فهرستِ (x, y, زاویهٔ بصریِ درجه) برایِ حقیقتِ زمینی."""
     pts = []
     widths = [_text_size(ch, f)[0] if ch != " " else _text_size("n", f)[0]
               for ch in text]
-    total_ang = sum(w / radius for w in widths)  # رادیان
+    total_ang = sum(w / radius for w in widths)
     theta = -total_ang / 2
     glyph_cache = {}
     for ch, w in zip(text, widths):
         if ch != " ":
-            # موقعیت رویِ کمان (y-down: بالای مرکز = cy - R)
             th = theta + (w / radius) / 2
             if bulge_up:
                 x = cx + radius * math.sin(th)
                 y = cy - radius * math.cos(th)
-                rot = -math.degrees(th)  # PIL: مثبت = پادساعتگرد
+                rot = -math.degrees(th)
             else:
                 x = cx + radius * math.sin(th)
                 y = cy + radius * math.cos(th)
@@ -115,7 +94,6 @@ def _draw_arc(img: ImageDraw.Draw, text: str, radius: float,
 
 
 class _ArcCanvas:
-    """پوشِ کوچک — draw + canvas برایِ _draw_arc."""
 
     def __init__(self, img):
         self.canvas = img
@@ -124,20 +102,15 @@ class _ArcCanvas:
 
 def make_curved(text: str, radius: float, font_px: int = 52,
                 bulge_up: bool = True, pad: int = 70) -> tuple:
-    """متنِ «خمیده» در بومِ خودش — بوم «دقیقاً» دورِ نوارِ کمان +
-    حاشیهٔ گلیف؛ هیچ نقطه/گلیفی بیرونِ بوم نمیماند (cropِ PIL
-    بیرونِ بوم را clamp میکند — ریشهٔ خرابیِ قبلی)."""
     f = _font(font_px)
     widths = [_text_size(ch, f)[0] if ch != " " else _text_size("n", f)[0]
               for ch in text]
-    total_ang = sum(w / radius for w in widths)  # رادیان
+    total_ang = sum(w / radius for w in widths)
     half = total_ang / 2
     chord = 2 * radius * math.sin(half)
     gs = f.size * 3
     m = gs // 2 + pad
     W = int(chord + 2 * m)
-    # نوارِ کمان: y ∈ [cy-R, cy] (بالا) یا [cy, cy+R] (پایین) +
-    # نیمِ گلیف در دو طرف
     H = int(radius + gs + 2 * pad)
     img = Image.new("RGB", (W, H), (255, 255, 255))
     ac = _ArcCanvas(img)
@@ -156,10 +129,6 @@ def make_curved(text: str, radius: float, font_px: int = 52,
 def make_curved_page(text: str, radius: float, font_px: int = 52,
                      bulge_up: bool = True, size=(1600, 2260),
                      cy_frac: float = 0.5) -> tuple:
-    """متنِ خمیده «در قالبِ صفحهٔ مانگا» — detِ OCR در مقیاسِ صفحه
-    (مانندِ واقعی) کار میکند؛ کمانِ استالونِ در بومِ چسبیده به متن
-    رفتارِ det را مصنوعی عوض میکند (استروکِ ضخیم در مقیاسِ ۱٫۰).
-    برگشت: صفحه + حقیقتِ زمینی."""
     from PIL import Image
     img = Image.new("RGB", size, (255, 255, 255))
     ac = _ArcCanvas(img)
@@ -177,7 +146,6 @@ def make_curved_page(text: str, radius: float, font_px: int = 52,
 
 
 def make_page_mixed() -> tuple:
-    """صفحهٔ ترکیبی — ۳ خطِ کج + ۲ کمان، بدونِ بریدگی."""
     gt = {"kind": "page_mixed", "items": [], "size": None}
     f = _font(52)
     W, H = 1600, 2260
@@ -189,7 +157,6 @@ def make_page_mixed() -> tuple:
         a = math.radians(abs(ang))
         ew = tw * math.cos(a) + th * math.sin(a)
         eh = tw * math.sin(a) + th * math.cos(a)
-        # مرکز طوری clamp شود که چهارگوشِ چرخیده داخلِ بوم بماند
         cx = min(max(cx, ew / 2 + 20), W - ew / 2 - 20)
         cy = min(max(cy, eh / 2 + 20), H - eh / 2 - 20)
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -200,7 +167,6 @@ def make_page_mixed() -> tuple:
         img = Image.alpha_composite(img.convert("RGBA"), rot).convert("RGB")
         gt["items"].append({"kind": "rotated", "text": text,
                             "angle": ang, "center": [int(cx), int(cy)]})
-    # دو کمان — هرکدام در بومِ خودش ساخته و پاست میشود (بدونِ برش)
     for text, r, up, ytop in ((WORDS[3], 300, True, 800),
                               ("DESTINY", 560, False, 1400)):
         sub, g = make_curved(text, r, font_px=50, bulge_up=up)

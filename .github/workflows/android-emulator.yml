@@ -1,23 +1,4 @@
 name: Android Emulator Test (real APK — red-stain gate + 01.jpg)
-# v1.14.127 — فقط 01.jpg تست میشود (درخواستِ کاربر: «فقط یک دونه عکس تست
-# کنه کافیه همون 01.jpg شش تا عکس تست میکنه وقت میگیره») — ۶ استریپِ
-# کاربر از CI حذف شد.
-
-# درخواستِ کاربر (v1.14.67): «رو GitHub action واقعی اندروید ایجاد بشه
-# ران بزنه — سیستم تو رمش کمه، اونجا حداقل رم واسه تست داره، اونجا تست کن»
-# → APKِ واقعی رویِ امولاتورِ واقعیِ اندروید (KVM) نصب و ران می‌شود؛
-# همان تصویرِ webpِ لکهٔ قرمز (img5) با مسیرِ «فایلِ محلی» داده می‌شود؛
-# خروجیِ PDF کشیده می‌شود و گیتِ «لکهٔ قرمز» (check_red.py) سنجیده می‌شود.
-#
-# v1.14.80 — درخواستِ کاربر: «ymlِ اندروید لینکِ عکس‌هاش رو آپدیت کن —
-# اونجا بدتر می‌بینی، PC لینوکس بهتره، خوب تست کن»
-# → ① لینکِ CDN (asurascans) که منقضی می‌شود حذف شد؛ هر ۶ عکسِ واقعیِ
-#   کاربر از ci_imgs/ همین commit خوانده می‌شود (rawِ گیت‌هاب — پایدار).
-# ② هر ۶ عکس با «fake-translateِ کامل» (نه فقط clean-only) روی امولاتور
-#   ران می‌شود تا مسیرِ رندرِ اندروید با PC قابلِ مقایسه باشد؛
-#   PDF + لاگِ هرکدام به آرتیفکت‌ها می‌رود. گیت: هر ۶ تا باید PDF بدهند.
-# ③ تجربهٔ کاربر: اندروید بدتر از PC دیده می‌شد — حالا با همین ۶ عکس
-#   می‌شود تفاوتِ واقعی را دید (همین عکس‌ها روی PC با v1.14.80 تست شدند).
 
 on:
   workflow_dispatch:
@@ -41,7 +22,7 @@ permissions:
 jobs:
   emulator-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 150 # v1.14.134 — حلقهٔ ۷ صفحهٔ گسترده (+3 آپلودیِ کاربر + ja/ko/zh)
+    timeout-minutes: 150
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,13 +60,10 @@ jobs:
       - name: Sync engine sources into APK
         run: python3 android/scripts/sync_sources.py
 
-      # v1.14.188 — مدلهایِ RapidOCR (PP-OCRv6): detِ small (همان PC) +
-      # recِ MEDIUM (دستورِ صریحِ سازنده) از ریلیزِ modelsِ خودمان +
-      # cls/ja/ko از ModelScopeِ رسمی — باندل در assetsِ APK
       - name: Fetch RapidOCR models (PP-OCRv6 — det small + rec MEDIUM)
         run: |
           base="https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2"
-          rel="https://github.com/amirwolf512k/Manga-AutoTranslate/releases/download/models"
+          rel="https://github.com/amirwolf5122/Manga-AutoTranslate/releases/download/models"
           A=android/app/src/main/assets/models
           mkdir -p $A/det $A/cls $A/rec $A/rec_ko
           curl -fL --retry 3 --max-time 600 -o $A/det/inference.onnx \
@@ -96,8 +74,6 @@ jobs:
             "$rel/ppocrv6_chars.txt"
           curl -fL --retry 3 --max-time 600 -o $A/cls/inference.onnx \
             "$base/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx"
-          # v1.14.190 — واریانتِ ja حذف (v6_medium بهتر)؛ ko = v5 + دیکشنریِ
-          # رسمیِ خودش (۱۱۹۴۵ نویسه — جفتِ v4 غلط/۴۰۴ بود)
           curl -fL --retry 3 --max-time 600 -o $A/rec_ko/inference.onnx \
             "$base/onnx/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx"
           curl -fL --retry 3 --max-time 600 -o $A/rec_ko/dict.txt \
@@ -124,28 +100,19 @@ jobs:
       - name: Build x86_64 debug APK (emulator — arm64 under libndk translation SIGSEGVs in libpython)
         working-directory: android
         run: |
-          # v1.14.184 — بدونِ -PortVer: نسخهٔ رسمیِ 1.21.1 (همان READMEِ
-          # ppocr-android) رویِ همهٔ بیلدها یکسان است؛ «1.28»یِ قدیمی اصلاً
-          # در Maven وجود نداشت (checkDebugAarMetadata میخورد)
           gradle :app:assembleDebug -PappAbis="x86_64" -PlegacyJni=true \
             -PchaquopyBuildPython="$(command -v python3)"
           mkdir -p ../dist
           cp app/build/outputs/apk/debug/app-debug.apk ../dist/MangaTranslator-x86_64.apk
           ls -la ../dist
 
-      # v1.14.127 — فقط 01.jpg + مدلها (۶ استریپ حذف شد — وقتِ CI)
-      # توجه: img5.webp برایِ گیتِ ردلکه (red-stain) همچنان لازم است.
       - name: Prepare test assets (01.jpg + img5 red-stain + models)
         run: |
           mkdir -p /tmp/mt/imgs /tmp/models
-          B1="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/${GITHUB_SHA}/ci_imgs"
-          B2="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/ci_imgs"
-          # v1.14.73 — درخواستِ کاربر: «این عکس اولی ناقص استخراج میشه و بد
-          # میپاکه رو گوشی — همین عکسو هم تست بزن» → examples/01.jpg
-          # روی امولاتور با گیتِ شمارشِ ناحیه‌ها اجرا می‌شود
+          B1="https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/${GITHUB_SHA}/ci_imgs"
+          B2="https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/main/ci_imgs"
           curl -sL --max-time 120 -o /tmp/mt/imgs/01.jpg \
-            "https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/examples/01.jpg" || true
-          # img5.webp = گیتِ ردلکه
+            "https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/main/examples/01.jpg" || true
           curl -fsSL --retry 2 --max-time 120 -o /tmp/mt/imgs/img5.webp "$B1/img5.webp" \
             || curl -fsSL --retry 2 --max-time 120 -o /tmp/mt/imgs/img5.webp "$B2/img5.webp" \
             || echo "::warning::img5.webp download failed from both refs"
@@ -153,21 +120,18 @@ jobs:
           test -s /tmp/mt/imgs/01.jpg
           test -s /tmp/mt/imgs/img5.webp
           curl -fL --retry 3 --max-time 300 -o /tmp/models/detector-v4-s_int8.onnx \
-            "https://github.com/amirwolf512k/Manga-AutoTranslate/releases/download/models/detector-v4-s_int8.onnx" || true
+            "https://github.com/amirwolf5122/Manga-AutoTranslate/releases/download/models/detector-v4-s_int8.onnx" || true
           curl -fL --retry 3 --max-time 600 -o /tmp/models/lama-manga-dyn.onnx \
-            "https://github.com/amirwolf512k/Manga-AutoTranslate/releases/download/models/lama-manga-dyn.onnx" || true
+            "https://github.com/amirwolf5122/Manga-AutoTranslate/releases/download/models/lama-manga-dyn.onnx" || true
           ls -la /tmp/models
 
       - name: Check KVM
         run: |
           ls -la /dev/kvm || true
-          # مهم: adduser برایِ پروسهٔ همین استپ اعمال نمی‌شود → chmodِ مستقیم
           sudo chmod 666 /dev/kvm 2>/dev/null || true
           ls -la /dev/kvm
           "${ANDROID_HOME}/emulator/emulator" -accel-check || true
 
-      # v1.14.67 — از ران ۱۸ به بعد `adb` روی PATH نبود (`command not found`)
-      # → حلقهٔ بوت هیچ‌وقت وضعیت را نمی‌خواند و امولاتور هم adb-daemon پیدا نمی‌کرد
       - name: Install platform-tools (adb)
         run: |
           P="$ANDROID_HOME/platform-tools/adb"
@@ -175,10 +139,6 @@ jobs:
           "$P" version
           "$P" start-server
 
-      # v1.14.67 — امولاتورِ دستی (۴ هسته — AVDِ پیش‌فرضِ اکشن ۲ هسته است
-      # و ORT-androidِ x86_64 با ۲ هسته SIGFPE می‌دهد)
-      # رمِ 5GB: گیتِ LaMa «حداقل ۴GB رمِ کل» دارد — با 3GB به OpenCV
-      # برمی‌گشت و مسیرِ واقعیِ لکهٔ قرمز آزموده نمی‌شد (ران ۲۵)
       - name: Create AVD (4 cores, 5GB)
         run: |
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"; AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"; yes | "$SDKM" "system-images;android-30;google_apis;x86_64" > /dev/null 2>&1 || true
@@ -188,7 +148,6 @@ jobs:
           echo "AVD path: $CFG"
           grep -q "hw.cpu.ncore" "$CFG/config.ini" && sed -i 's/hw.cpu.ncore=.*/hw.cpu.ncore=4/' "$CFG/config.ini" || echo "hw.cpu.ncore=4" >> "$CFG/config.ini"
           echo "hw.ramSize=5120MB" >> "$CFG/config.ini"
-          # v1.14.67 — مسیرِ AVDِ avdmanager با مسیرِ جست‌وجویِ emulator فرق دارد → symlink
           mkdir -p "$HOME/.android/avd"
           ln -sfn "$CFG" "$HOME/.android/avd/ciavd.avd"
           INI="$(dirname "$CFG")/ciavd.ini"
@@ -239,7 +198,6 @@ jobs:
           adb logcat -d -b crash > /tmp/emulout/logcat_crash.txt 2>/dev/null || true
           sleep 10
           python3 .ci_scripts/tap_run.py || { adb shell screencap -p /sdcard/scr_fail.png || true; adb pull /sdcard/scr_fail.png /tmp/emulout/scr_fail.png || true; adb exec-out run-as com.amirwolf.mangatranslator cat files/manga.log > /tmp/emulout/manga.log || true; adb exec-out run-as com.amirwolf.mangatranslator ls -R files/work > /tmp/emulout/work_ls.txt || true; adb logcat -d -t 4000 > /tmp/emulout/logcat_fail.txt || true; adb logcat -d -b crash > /tmp/emulout/logcat_crash2.txt || true; cp /tmp/emulout/* emul-artifacts/ || true; exit 1; }
-          # v1.14.184 — لاگکتِ بعد از کار (ریشهٔ خطایِ پلِ OCR اگر باشد)
           adb logcat -d -t 3000 > /tmp/emulout/logcat_after.txt 2>/dev/null || true
           adb logcat -d -s PaddleOcrBridge:V OpenCVUtils:V > /tmp/emulout/logcat_bridge.txt 2>/dev/null || true
           python3 .ci_scripts/wait_done.py 60
@@ -250,9 +208,6 @@ jobs:
           adb shell rm -f /data/local/tmp/test.webp /data/local/tmp/det.onnx /data/local/tmp/lama.onnx || true
           test -s /tmp/emulout/test_out.pdf
           python3 .ci_scripts/check_red.py /tmp/emulout/test_out.pdf /tmp/mt/imgs/img5.webp
-          # ── v1.14.69 — گیتِ «لاگ فقط دوتا» ─────────────────────────────
-          # اجرایِ دومِ موتور + شمارشِ فایل‌هایِ خانوادهٔ لاگ در
-          # Download/manga/ — باید بدونِ «manga.log (N).txt» بماند
           sleep 8
           adb shell ls -la /sdcard/Download/manga/ | tee /tmp/emulout/dl_ls_run1.txt || true
           adb exec-out run-as com.amirwolf.mangatranslator sh -c ': > files/manga.log' || true
@@ -263,11 +218,6 @@ jobs:
           python3 .ci_scripts/check_logs.py
           cp /tmp/emulout/* emul-artifacts/ || true
 
-      # ── v1.14.73 — گیتِ «استخراجِ کامل» با examples/01.jpg ─────
-      # درخواستِ کاربر: عکسِ اول روی گوشی ناقص استخراج و بد پاک می‌شد؛
-      # اینجا همان عکس روی امولاتورِ واقعی اجرا می‌شود و تعدادِ ناحیه‌های
-      # استخراج‌شده (≥۷ — روی PC با RapidOCR =۸) به‌علاوهٔ سلامتِ
-      # پاکسازی (بدون کرش) گیت می‌شود.
       - name: Run APK with 01.jpg (extraction-completeness gate)
         run: |
           export ANDROID_AVD_HOME="$HOME/.android/avd"
@@ -293,29 +243,18 @@ jobs:
           adb exec-out run-as com.amirwolf.mangatranslator cat files/work/out/test2.pdf > /tmp/emulout/test2_out.pdf || true
           adb exec-out run-as com.amirwolf.mangatranslator cat files/work/out/test2_debug.pdf > /tmp/emulout/test2_debug.pdf || true
           adb shell rm -f /data/local/tmp/test2.jpg || true
-          # گیت ۱: استخراجِ کامل (≥۷ ناحیه — PC با Paddle ONNX =۸)
-          # + گیتِ محتوا (1.14.128): BESIDES+SWIM | I'LL+INCREASE |
-          #   ترتیبِ GO!→EVEN→FASTER | بدونِ آلودگیِ متقابلِ حبابها
           python3 .ci_scripts/check_extract.py /tmp/emulout/manga_01.log 7 content
-          # گیت ۲: خروجی ساخته شده
           test -s /tmp/emulout/test2_out.pdf
           echo "[✓] 01.jpg emulator gate passed"
           cp /tmp/emulout/* emul-artifacts/ || true
 
-      # ── v1.14.282 — گیتِ «جهتِ OCR: متنِ کج + خمیده» (D279) ──────
-      # خواستهٔ سازنده: «چند تا عکس فیک متن خمیده شده و متن کج هردو
-      # جدا فرق دارن بسازی و ocr تست کنی ببینی جهتشون درست میخونه یا
-      # درست سرجاشون میزاره هم پی سی هم لینوکس هم اندروید».
-      # صفحهٔ فیکِ ترکیبی (۳ خطِ کج −18/10/−26° + ۲ کمان) رویِ
-      # امولاتورِ واقعی ران میشود؛ گیت = ≥۴ ناحیه از لاگِ موتور.
-      # نسخهٔ PC/لینوکس: scripts/test_v114282_ocr_direction.py
       - name: Run APK with OCR-direction fixture (tilted + curved text)
         run: |
           export ANDROID_AVD_HOME="$HOME/.android/avd"
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
           set -x
-          B1="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/${GITHUB_SHA}/ci_imgs/fixtures/page_mixed.png"
-          B2="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/ci_imgs/fixtures/page_mixed.png"
+          B1="https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/${GITHUB_SHA}/ci_imgs/fixtures/page_mixed.png"
+          B2="https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/main/ci_imgs/fixtures/page_mixed.png"
           curl -fsSL --retry 2 --max-time 120 -o /tmp/mt/imgs/page_mixed.png "$B1" \
             || curl -fsSL --retry 2 --max-time 120 -o /tmp/mt/imgs/page_mixed.png "$B2"
           test -s /tmp/mt/imgs/page_mixed.png
@@ -332,35 +271,18 @@ jobs:
           python3 .ci_scripts/wait_done.py 60
           adb exec-out run-as com.amirwolf.mangatranslator cat files/manga.log > /tmp/emulout/manga_pm.log || true
           adb shell rm -f /data/local/tmp/test3.png || true
-          # گیت: ≥۴ ناحیه (۵ آیتمِ فیکسچر — ۳ کج + ۲ خمیده)
           python3 .ci_scripts/check_extract.py /tmp/emulout/manga_pm.log 4
           echo "[✓] OCR-direction fixture emulator gate passed"
           cp /tmp/emulout/* emul-artifacts/ || true
 
-      # ── v1.14.134 — گیتِ «مجموعهٔ گستردهٔ کاربر» (جایگزینِ سیاستِ v1.14.127) ──
-      # درخواستِ جدیدِ کاربر: «همه لینک هایی ک گذاشتم تست کن الکی رد نکن خوب چک کن
-      # خودت عکس کره ای ژاپنی چینی از اینترنت پیدا کن زبان اصلی چندتا تست کن
-      # باید بتونه کامل درست همه متن هارو استخراج کنه خوب بپاکه»
-      # → ۳ آپلودیِ جدیدِ کاربر + صفحههایِ زبانِ اصلی (ja/ko/zh) روی
-      #   امولاتورِ واقعی با ocr_langِ درستِ هر صفحه ران میشوند؛ هر
-      #   صفحه باید PDFِ کامل بدهد (بدونِ کرش/فالبکِ OpenCV).
       - name: Run APK on extended test set (3 uploads + ja/ko/zh pages)
         run: |
           export ANDROID_AVD_HOME="$HOME/.android/avd"
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
           set -x
-          B1="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/${GITHUB_SHA}/ci_imgs"
-          B2="https://raw.githubusercontent.com/amirwolf512k/Manga-AutoTranslate/main/ci_imgs"
+          B1="https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/${GITHUB_SHA}/ci_imgs"
+          B2="https://raw.githubusercontent.com/amirwolf5122/Manga-AutoTranslate/main/ci_imgs"
           mkdir -p /tmp/mt/ext
-          # file → ocr_lang (زبانِ واقعیِ هر صفحه؛ «_» در زبان = فاصله)
-          # img4.jpg = صفحهٔ قانونیِ 690×11200 (همان خانوادهٔ صفحهٔ _9 کاربر از
-          # imgsrv5 1dx2/chapter-264/9) — درخواستِ کاربر: «تستِ اندرویدِ واقعیِ
-          # arm64 رویِ همان صفحهای که خراب درمیآید»
-          # v1.14.171 — img6.jpg = صفحهٔ ناراضیِ کاربر: متنِ گوشهٔ
-          # بالا-چپِ «you're the real attraction here.» با موتورِ آن
-          # روزِ گوشی (ML Kit) پیدا نمیشد → از v1.14.183 با موتورِ رسمیِ
-          # اندروید (PP-OCRv4_mobile) باید برگردد؛ گیتِ کلمهٔ
-          # «Youre» (you're — خوانشِ پایدارِ v4) آن را الزامی میکند.
           EXT_SET="img4.jpg:en up0929_zh.jpg:zh_en up0904_en.jpg:en up0822_en.jpg:en lang_ja_bw.jpg:ja_en lang_ja_color.jpg:ja_en lang_ko.jpg:ko_en lang_zh.jpg:zh_en img6.jpg:en"
           for tok in $EXT_SET; do
             F="${tok%%:*}"; L="${tok#*:}"; L="${L//_/ }"
@@ -408,20 +330,10 @@ jobs:
             if [ "$SZ" -lt 8000 ]; then
               echo "::error::$F — PDF too small ($SZ bytes)"; FAIL=1; continue
             fi
-            # گیتِ پاکسازی: بدونِ فالبکِ OpenCV و بدونِ «پاکسازی نشد»
             if grep -q "OpenCV': [1-9]" "/tmp/emulout/ext_${N}.log" 2>/dev/null || \
                grep -qE "Cleanup: .*'OpenCV': [1-9]" "/tmp/emulout/ext_${N}.log"; then
               echo "::warning::$F — OpenCV fallback in cleanup"
             fi
-            # ── v1.14.170/184 — گیتِ استخراجِ چندزبانهٔ موتورِ گوشی: متنِ واقعیِ هر زبان باید
-            # خوانده شده باشد؛ img6 کلمهٔ «Youre» را هم الزامی میکند
-            # دستورِ سازنده: «همه زبان هارو خوب بتونه استخراج کنه انگلیسی
-            # ژاپنی کره چینی … رو GitHub action تست کن» + «فقط از همین لینک»
-            # v1.14.184 — زبانِ کره‌ای: هر سه مدلِ رسمیِ پرتِ اندروید
-            # (v6_small/v6_medium/v5_mobile) دیکشنریِ بدونِ هانگول دارند
-            # (۱۰/۰/۲ نویسه) — راهِ رسمی برایِ هانگول، مدلِ جداگانهٔ korean
-            # است که دستورِ «فقط همین لینک» آن را حذف کرده → برایِ صفحهٔ
-            # ko فقط گیتِ «PDF کاملِ بدونِ کرش» اعمال میشود.
             _WORD171=""
             if [ "$F" = "img6.jpg" ]; then _WORD171="Youre"; fi
             if [ "$F" = "lang_ko.jpg" ]; then
@@ -437,10 +349,6 @@ jobs:
           if [ "$FAIL" != "0" ]; then echo "::error::extended test set FAILED"; exit 1; fi
           if [ "$RAN" -lt 8 ]; then echo "::error::only $RAN/8 images ran"; exit 1; fi
           echo "[✓] extended test set passed ($RAN images)"
-
-      # ── v1.14.127 — گیتِ ۶ استریپِ کاربر حذف شد ──
-      # درخواستِ کاربر: «فقط یک دونه عکس تست کنه کافیه همون 01.jpg
-      # شش تا عکس تست میکنه وقت میگیره» → فقط گیتِ 01.jpg بالا میماند.
 
       - name: Capture diagnostics (always on failure)
         if: failure()

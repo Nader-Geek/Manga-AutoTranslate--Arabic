@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""سنجشِ متنِ جامانده در خروجیِ clean-only ().
-
-هر صفحهٔ خروجی با RapidOCR خوانده میشود؛ هر باکسِ متنِ بااطمینان که در
-«اورجینال» هم بود ولی در خروجی هنوز خوانده میشود = متنِ جامانده.
-(واترمارک/تبلیغ عمداً دست‌نخورده میماند — جدا گزارش میشود.)
-
-کاربرد:
-  python3 scripts/webbatch_check.py <out_dir> <input_batch_dir>
-"""
 import os
 import sys
 import glob
@@ -16,7 +6,7 @@ import glob
 import cv2
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import manga  # noqa: E402
+import manga
 
 OUT = sys.argv[1]
 INP = sys.argv[2]
@@ -65,7 +55,6 @@ def main():
         if not os.path.isfile(op):
             continue
         base = os.path.splitext(os.path.basename(op))[0]
-# اورجینالِ متناظر (همان نام، هر پسوندی)
         cands = glob.glob(os.path.join(INP, base + ".*"))
         print(f"\n===== {os.path.basename(op)} =====")
         im_o = cv2.imread(op)

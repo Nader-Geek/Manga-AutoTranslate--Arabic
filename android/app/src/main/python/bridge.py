@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import contextlib
 import json
@@ -224,16 +223,23 @@ def _slot_fields(mf):
     return mapping
 
 def _defaults(mf):
-# متنِ پرامپتِ خودکار (برایِ پیش‌فرضِ کادرِ پرامپتِ گوشی)
-# نقشهٔ value_if: با تغییرِ دروپ‌داونِ سبک، متنِ کادرِ پرامپت
-# زنده عوض میشود (فیکسِ «سبک را میگذارم lite ولی پرامپت عوض نمیشود»).
     _auto_prompt = ""
     _preset_map = {}
     try:
         _mg = _manga()
-        _cfgp = str(manga_app.load_config().get("provider") or "gemini")
-        _cfgm = str(manga_app.load_config().get("model") or "")
-        _auto_prompt = str(_mg.prompt_preset_text("professional", _cfgp, _cfgm) or "")
+        _cfgd = manga_app.load_config()
+        _cfgp = str(_cfgd.get("provider") or "gemini")
+        _cfgm = str(_cfgd.get("model") or "")
+        try:
+            _auto_prompt = str(manga_app.resolve_prompt_preview(
+                str(_cfgd.get("prompt_mode") or "professional"),
+                _cfgp, _cfgm,
+                str(_cfgd.get("instruction_text") or "")) or "")
+        except Exception:
+            _auto_prompt = ""
+        if not _auto_prompt:
+            _auto_prompt = str(_mg.prompt_preset_text(
+                "professional", _cfgp, _cfgm) or "")
         _preset_map = {
             "professional": str(_mg.PROMPT_PRESETS.get("professional") or ""),
             "lite": str(_mg.PROMPT_PRESETS.get("lite") or ""),
@@ -250,39 +256,35 @@ def _defaults(mf):
         for f in sec.get("fields", []):
             if not isinstance(f, dict):
                 continue
-            if f.get("id") == "instruction_text":
-# دیگر متنِ کلاسیک پیشفرض نمینشیند — خالی = خودکار
-# (پُرکردنِ قبلی باعثِ «رویِ گوشی پرامپت auto نمیشود» بود)
+            _fid = str(f.get("id") or "")
+            _base = _fid[6:] if _fid.startswith("manga_") else _fid
+            if _base == "instruction_text":
                 f["default"] = ""
-            elif f.get("id") == "prompt_mode":
+            elif _base == "prompt_mode":
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()
                         in ("professional", "lite")):
                     f["default"] = "professional"
-            elif f.get("id") in ("prompt_preview_body", "prompt_body"):
+            elif _base in ("prompt_preview_body", "prompt_body"):
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()) and _auto_prompt:
                     f["default"] = _auto_prompt
                 if _preset_map:
-# MainActivity با تغییرِ prompt_mode متن را
-# بر اساسِ این نقشه زنده عوض میکند
-                    f["value_if"] = {"field": "prompt_mode", "values": _preset_map}
-            elif f.get("id") == "readord":
+                    _mode_fid = ("manga_prompt_mode"
+                                 if _fid.startswith("manga_") else "prompt_mode")
+                    f["value_if"] = {"field": _mode_fid, "values": _preset_map}
+            elif _base == "readord":
                 cur = f.get("default")
                 if isinstance(cur, dict):
                     cur.setdefault("default", "rtl")
                 elif cur not in ("rtl", "ltr"):
                     f["default"] = "rtl"
-            elif f.get("id") == "clean_method":
+            elif _base == "clean_method":
                 if f.get("default") not in ("lama-manga", "lama-big", "opencv"):
                     f["default"] = "lama-manga"
-# v1.14.292 — فیلدِ مدل از همان اول با فهرستِ پیشفرض پُر میشود (دستورِ
-# سازنده: «پیشفرض هم همچنین وارد شده باشه خالی نشون نده؛ طرف بفهمه
-# چجور وارد شده» — عینِ وبِ v1.14.288/291؛ استخراجِ گرادیو مقدارِ
-# شرطیِ فیلد را خالی میداد → رویِ گوشی کادرِ مدل خالی میآمد).
-            elif f.get("id") in ("manga_model", "model"):
+            elif _base == "model":
                 cur = f.get("default")
                 cur = cur.get("default") if isinstance(cur, dict) else cur
                 if not (isinstance(cur, str) and cur.strip()):
@@ -299,13 +301,12 @@ def _bundled_source(name):
 
 def _android() -> bool:
     try:
-        import java  # noqa: F401 — فقط روی Chaquopy موجود است
+        import java
         return True
     except Exception:
         return False
 
 def _drop_choice(choices, token):
-    """حذف یک گزینه از لیست انتخاب — مقدار می‌شود c[0] نه برچسب c[1]."""
     bad = str(token or "").strip().lower()
     if not bad:
         return choices
@@ -319,6 +320,80 @@ def _drop_choice(choices, token):
             continue
         kept.append(c)
     return kept
+
+def _tx(key, dflt):
+    try:
+        return str(manga_app.TX(key, dflt))
+    except Exception:
+        return dflt
+
+_FIELD_TIPS = {
+    "cb_twopass": ("app.two_pass_info",
+                   "پاسِ اول بلوکها را مییابد، پاسِ دوم متنِ داخلشان را دقیق بازمیخواند — پیش‌فرض روشن"),
+    "cb_thinking": ("app.thinking_info",
+                    "سطح High — برای جمینای و OpenAI-سازگارها؛ پیش‌فرض روشن"),
+    "cb_faketest": ("app.fake_test_info",
+                    "به‌جای API، متنِ الکی داخل حباب‌ها رندر میشود — چکِ استخراج/پاکسازی/رندر بدون کلید"),
+    "cb_cleanup": ("app.cleanup_mode_info",
+                   "فقط پاکسازی متن (inpaint) بدون ترجمه — کلید API لازم نیست"),
+    "cb_debug": ("app.web_debug_info",
+                 "مربعِ رنگی دور هر بلوک + خروجیِ دیباگ جدا (مثلاً PDF → *_debug.pdf)"),
+    "cb_safety": ("app.safety_info",
+                  "فیلترهای گوگل BLOCK_NONE میشوند (ضدِ سانسور) — پیش‌فرض خاموش"),
+    "max_tokens": ("app.max_tokens_info",
+                   "خودکار = سرویس‌دهنده خودش مدیریت میکند؛ چپترِ طولانیِ ناتمام؟ عدد را بالا ببرید"),
+    "max_tokens_custom": ("app.max_tokens_custom_info",
+                          "عددِ دلخواه سقفِ توکنِ خروجی — حداقل ۱۰۲۴"),
+    "inp_path": ("app.url_info",
+                 "چند لینک = هر لینک در یک خط (اینتر) — کاما هم کار میکند. «…/1 > 14.jpg» از اول تا آخر، «…/1 < 14.jpg» از آخر به اول، «…/*.jpg» هرچه پیدا کند"),
+    "provider": ("app.ai_menu_info",
+                 "«auto» خودش بینِ Gemini و مدل‌های شما اولینِ در دسترس را انتخاب میکند. مدلِ مشخص = فقط همان. «custom» = فیلدهای همین صفحه"),
+    "api_base": ("app.api_base_info",
+                 "۴ فرمت خودکار شناخته میشود: …/chat/completions | …/responses | …/messages | …:generateContent — لینک کامل endpoint را هم میشود چسباند"),
+    "api_keys": ("app.api_keys_info",
+                 "چند کلید با کاما = چرخش خودکار. کلید فقط روی همین دستگاه میماند. از aistudio.google.com (Gemini) یا سرویس دلخواه خودتان بگیرید."),
+    "model": ("app.model_info",
+              "چند مدل با کاما = فال‌بکِ خودکار (مثال: gemini-3.5-flash-lite,gemini-3.8-flash). خالی = پیش‌فرض."),
+    "ocr_lang": ("app.ocr_lang_info",
+                 "زبان اصلی حباب‌ها — برای مانهوا فارسی/انگلیسی همان انگلیسی بماند."),
+    "quality": ("app.quality_info",
+                "کیفیت فشرده‌سازی تصویر خروجی — ۹۰ به بالا = بدون افتِ محسوس"),
+    "font_upload": ("app.font_info",
+                    "فونت اصلی (.ttf/.otf) — خالی = فونت سرور. هر فونت لحن را جدا آپلود کن؛ با سوییچِ کنار هر لحن فعال/غیرفعالش کن."),
+    "sl_workers": ("app.ocr_workers_info",
+                   "تعداد ورکرِ موازی OCR — فقط حالت تک‌عکس"),
+    "sl_bubbles": ("app.bubbles_info",
+                   "چند حباب در هر درخواست ترجمه به AI فرستاده شود"),
+    "sl_batchw": ("app.batch_info",
+                  "بستهٔ ترجمهٔ موازی — هر بسته با کلید جدا"),
+    "sl_timeout": ("app.timeout_info",
+                   "حداکثر انتظار برای پاسخ هر درخواست (ثانیه)"),
+    "sl_maxre": ("app.max_retry_info",
+                 "حداکثر تلاش مجدد برای هر ترجمه"),
+    "sl_delay": ("app.delay_info",
+                 "تأخیر بین درخواست‌ها (ثانیه) — ضدِ محدودیتِ نرخ"),
+    "sl_temp": ("app.temperature_info",
+                "خلاقیت — ۰.۳ تحت‌اللفظی، ۰.۷+ محاوره‌ای و روان"),
+    "sl_topp": ("app.topp_info",
+                "تنوع واژگان — ۰.۹ بهترین تعادل"),
+    "readord": ("app.order_info",
+                "ترتیب خواندن حباب‌ها در صفحه — rtl برای مانگای راست‌به‌چپ"),
+    "clean_method": ("app.cleanup_info",
+                     "lama-manga = سبک و سریع | big-lama = دقیقتر و سنگینتر | opencv = فوری بدون مدل (فقط حبابهای ساده)"),
+    "prompt_mode": ("app.prompt_mode_info",
+                    "حرفه‌ای = فرآیند تفکر سه‌گانه برای Flash و Pro | سبک = برای Flash Lite و مدلهای سبکِ غیر Gemini"),
+    "prompt_body": ("app.prompt_info",
+                    "همین متن بهعنوان قوانین ترجمه به مدل فرستاده میشود — خالی = پرامپت خودکارِ بر اساس سبک و مدل"),
+}
+
+def _field_tip(fid, base):
+    if base == "clean_method" and _android():
+        return _tx("app.cleanup_info_mobile",
+                   "lama-manga = سبک و سریع | opencv = فوری بدون مدل (فقط حبابهای ساده)")
+    ent = _FIELD_TIPS.get(base) or _FIELD_TIPS.get(fid)
+    if not ent:
+        return ""
+    return _tx(ent[0], ent[1])
 
 def manifest():
 
@@ -349,9 +424,6 @@ def manifest():
     for sec in mf.get("sections", []):
         for f in sec.get("fields", []):
             if f.get("choices_from") == "PROVIDERS" or f.get("id") == "provider":
-# «auto» اولِ منو (همان ترتیبِ وب: auto|gemini|
-# مدلهایِ کاربر|custom — مدلهایِ کاربر را MainActivity از
-# حافظهٔ دستگاه به گزینهها اضافه میکند)
                 _pc = ["auto"] + [str(x) for x in provs
                                   if str(x).lower() not in ("auto",)]
                 f["choices"] = [[p, p] for p in _pc]
@@ -359,21 +431,44 @@ def manifest():
             if f.get("id") in ("manga_api_base", "api_base"):
                 f["visible_if"] = {"field": "provider", "equals": "custom"}
                 f["label"] = "دامنهٔ API سفارشی (فقط برای custom — مثال: https://api.example.com/v1)"
-# گوشی: گزینهٔ PSD از قالب خروجی حذف می‌شود (درخواست کاربر) ---
+            if f.get("id") in ("max_tokens", "manga_max_tokens"):
+                _mtc = f.get("default")
+                _mtc = _mtc.get("default") if isinstance(_mtc, dict) else _mtc
+                if not (isinstance(_mtc, str) and _mtc.strip()
+                        in ("auto", "8192", "16384", "32768",
+                            "65536", "custom")):
+                    f["default"] = "auto"
+            if f.get("id") in ("max_tokens_custom", "manga_max_tokens_custom"):
+                f["visible_if"] = {"field": "manga_max_tokens", "equals": "custom"}
+                _mtd = f.get("default")
+                _mtd = _mtd.get("default") if isinstance(_mtd, dict) else _mtd
+                try:
+                    _okd = int(_mtd) >= 1024
+                except Exception:
+                    _okd = False
+                if not _okd:
+                    f["default"] = 4096
+            if f.get("id") in ("device", "manga_device") and _android():
+                f["drop"] = True
             if f.get("id") in ("out_fmt", "manga_out_fmt", "fmt") and _android():
                 f["choices"] = _drop_choice(f.get("choices") or [], "psd")
-# گوشی: lama-big قابل اجرا نیست → فقط دو حالت دیگر می‌آید ---
-            if f.get("id") == "clean_method" and _android():
+            _fid = str(f.get("id") or "")
+            _fbase = _fid[6:] if _fid.startswith("manga_") else _fid
+            if _fbase == "clean_method" and _android():
                 f["choices"] = _drop_choice(f.get("choices") or [], "lama-big")
                 if f.get("default") == "lama-big":
                     f["default"] = "lama-manga"
-# ترتیبِ خواستهٔ کاربر: ارائه‌دهنده → لینک(custom) → کلید → مدل ---
-# (دکمهٔ «تست کلید» در MainActivity بعد از «مدل» رندر می‌شود)
+            _tip = _field_tip(_fid, _fbase)
+            if _tip:
+                f["tip"] = _tip
         _forder = {"provider": 0, "manga_provider": 0,
                    "manga_api_base": 1, "api_base": 1,
                    "manga_api_keys": 2, "api_keys": 2,
                    "manga_model": 3, "model": 3}
         _fs = sec.get("fields") or []
+        if _android():
+            _fs = [f for f in _fs if not f.get("drop")]
+            sec["fields"] = _fs
         if any(f.get("id") in _forder for f in _fs):
             sec["fields"] = sorted(_fs,
                                    key=lambda f: _forder.get(f.get("id"), 10))
@@ -466,11 +561,6 @@ def _out_stem_from_src(src: str) -> str:
     return stem[:80]
 
 def _prompt_params(p):
-    """(prompt_mode, instruction) از پارامترهایِ جابِ گوشی — .
-    prompt_mode: گزینهٔ دروپ‌داونِ سبکِ پرامپت در گوشی (auto حذف شد —
-    پیشفرض = professional؛ مقدارِ کهنهٔ auto خودکار → professional).
-    instruction: متنِ کادرِ پرامپتِ گوشی — اگر برابرِ پیشفرضهایِ شناختهشده
-    باشد سفارشی حساب نمیشود (خودِ MangaTranslator هم نرمالایز میکند)."""
     _pm = str(p.get("prompt_mode") or "").strip().lower()
     if _pm not in ("professional", "lite"):
         _pm = "professional"
@@ -488,12 +578,6 @@ def _prompt_params(p):
     return _pm, (_body or None)
 
 def _resolve_auto_or_named(p, keys, log):
-    """ — resolveِ «auto» و «مدلِ نامیِ کاربر» قبل از ساختِ
-    MangaTranslator (مثلِ وب؛ manga.py دستنخورده میماند).
-    ورودی: p (پارامترهایِ job — شاملِ custom_models از MainActivity)،
-    keys (لیستِ کلیدها)، log (تابعِ لاگِ زنده).
-    خروجی: keysِ (احتمالاً) بهروزشده؛ p هم درجا بهروز میشود (provider/
-    api_base/keys/model همیشه providerِ واقعیِ gemini/custom میشوند)."""
     try:
         _cm = p.get("custom_models")
         if isinstance(_cm, str):
@@ -504,8 +588,6 @@ def _resolve_auto_or_named(p, keys, log):
         _keys0 = str(p.get("keys") or "")
         _mdl0 = str(p.get("model") or "")
         if _prov0 and _prov0 not in ("auto", "gemini", "custom"):
-# مدلِ نامیِ کاربر — اگر در لیست نبود/لیست خالی بود → gemini
-# (providerِ «ناموجود» هرگز به موتور نمیرود)
             _named = getattr(manga_app, "resolve_ai_named", None)
             _r = _named(_cm, _prov0, _keys0, _mdl0) if (_named and _cm) else None
             if _r:
@@ -561,12 +643,9 @@ def start_job(params_json, files_dir):
         os.makedirs(work, exist_ok=True)
         out = os.path.join(work, "out")
         fmt = str(p.get("fmt", "PDF")).upper()
-# گوشی: PSD پشتیبانی نمی‌شود (حذف شد) → PDF ---
         if fmt == "PSD" and _android():
             fmt = "PDF"
             p["fmt"] = "PDF"
-# خروجیِ «پوشهٔ تصاویر» حذف شد (v1.14.279) — مقدارِ ذخیرهشدهٔ قدیمی
-# در تنظیماتِ گوشی → PDF تا فایلِ بی‌پسوند/خراب ساخته نشود.
         if fmt not in ("PDF", "ZIP", "HTML", "PSD"):
             fmt = "PDF"
             p["fmt"] = "PDF"
@@ -590,25 +669,13 @@ def start_job(params_json, files_dir):
 
 
 def trans_sig_check(params_json, files_dir):
-    """پرسشِ «ادامه یا از-نو» قبل از استارت (اندروید) — خواستهٔ
-    سازنده: «اگ مدل عوض کنی یا پرامپت عوض کنی سوال کنه از اول
-    ترجمه کنه یا ادامه ترجمه». فقط وقتی می‌پرسد که همان ورودیِ
-    قبلی کارِ انجام‌شده داشته باشد و مدل/پرامپتِ ترجمه با دفعهٔ
-    قبل فرق کند؛ حالتِ تست که عوض شود خودکار «از نو» است
-    (موتور خودش میفهمد) و clean_only ترجمه ندارد. خروجی:
-    {"ask": true/false} — خطا/نبودِ داده = پرسش نیست (موتور با
-    پیشفرضِ «ادامه» میرود). سبکِ همتای وب: همان state.json و
-    همان امضای ترجمه."""
     try:
         p = json.loads(params_json)
         if bool(p.get("clean_only")):
             return json.dumps({"ask": False}, ensure_ascii=False)
         _prov = str(p.get("provider") or "").strip()
         if not _prov or _prov == "auto":
-# auto با سنجشِ شبکه انتخاب میشود — پیش از استارت قابلِ
-# پیش‌بینی نیست؛ پرسش بی‌معنی است (موتور ادامه میدهد)
             return json.dumps({"ask": False}, ensure_ascii=False)
-# مدلِ نامیِ کاربر → provider/مدلِ واقعی (بدونِ شبکه — مثلِ وب)
         try:
             _cm = p.get("custom_models")
             if isinstance(_cm, str):
@@ -629,12 +696,9 @@ def trans_sig_check(params_json, files_dir):
                         p["model"] = _nm
         except Exception:
             pass
-# همان out_file که start_job میسازد (پیش از هر تغییری که _run
-# در src می‌دهد) — پس کشِ همان رانِ قبل را می‌بینیم
         fmt = str(p.get("fmt", "PDF")).upper()
         if fmt == "PSD" and _android():
             fmt = "PDF"
-# همان پالایشِ v1.14.279 — مقدارِ قدیمیِ «پوشهٔ تصاویر» → PDF
         if fmt not in ("PDF", "ZIP", "HTML", "PSD"):
             fmt = "PDF"
         ext = "pdf" if fmt == "PDF" else fmt.lower()
@@ -643,7 +707,6 @@ def trans_sig_check(params_json, files_dir):
                                 (_stem or "manga") + "." + ext)
         _cdf = getattr(manga_app, "_cache_dir_for", None)
         cache_dir = (_cdf(out_file) if _cdf else out_file + ".cache")
-# امضای همین تنظیم — همان امضایی که موتور در run میسازد
         _sigf = getattr(manga_app, "_trans_sig_of", None)
         if not _sigf:
             return json.dumps({"ask": False}, ensure_ascii=False)
@@ -661,7 +724,6 @@ def trans_sig_check(params_json, files_dir):
             str(p.get("model") or ""),
             (str(p.get("api_base") or "").strip() or _cfg("api_base") or ""),
             _pm, _instr or "", bool(p.get("fake")), _temp, _topp)
-# امضای رانِ قبل + کارِ انجام‌شده
         _sig_prev = ""
         _fake_prev = None
         try:
@@ -675,7 +737,6 @@ def trans_sig_check(params_json, files_dir):
         if not _sig_prev or not _sig_cur or _sig_prev == _sig_cur:
             return json.dumps({"ask": False}, ensure_ascii=False)
         if _fake_prev is not None and bool(_fake_prev) != bool(p.get("fake")):
-# حالتِ تست عوض شد → خودکار از نو (بدونِ پرسش — موتور)
             return json.dumps({"ask": False}, ensure_ascii=False)
         _has = False
         try:
@@ -692,17 +753,9 @@ def trans_sig_check(params_json, files_dir):
     except Exception:
         return json.dumps({"ask": False}, ensure_ascii=False)
 
-# ترتیبِ نشانهها مهم است (اولین تطبیق برنده میشود).
-# («آماده شد» حذف شد — خطِ «صفحهٔ N آماده شد» را میدزدید و اعلان
-# را رویِ «رندر و ذخیره» قفل میکرد؛ شمارهٔ صفحه از regexِ پایین
-# میآید. «لود نشد» = خطایِ بارگذاریِ موتور ( — فالبکی
-# نیست؛ کاربر در اعلان خطا را میبیند).
 _PROG_PHASES = (
     ("بارگذاری موتور", "بارگذاری مدلها"),
     ("لود نشد", "خطا"),
-# نشانگرهایِ شروعِ فازِ هر صفحه (پرینتهایِ جدیدِ manga.py)
-# + حالتهایِ پایانی. ترتیب مهم است (اولین تطبیق برنده): خطهایِ
-# «[OCR] … خطا: …» اول گاردِ استخراج را میگیرند نه «خطا» را.
     ("استخراج متن", "استخراج متن"),
     ("متن استخراج شد", "استخراج متن"),
     ("(PaddleOCR)", "استخراج متن"),
@@ -710,7 +763,6 @@ _PROG_PHASES = (
     ("ترجمه:", "ترجمه"),
     ("فاز ۳", "ترجمه"),
     ("ترجمه با", "ترجمه"),
-# استریمِ زندهٔ مرجع (درخواستِ واحد): خطوطِ «← استریم: X/Y دیالوگ…»
     ("استریم:", "ترجمه"),
     ("پاکسازی متن", "پاکسازی"),
     ("روش پاکسازی", "پاکسازی"),
@@ -725,7 +777,6 @@ _PROG_PHASES = (
 )
 
 def _update_prog(job, msg):
-    """فازِ فعلی و شمارهٔ صفحه برای اعلانِ پیشزمینه."""
     try:
         m = re.search(r"(\d{1,4})\s+آماده شد", msg)
         ph = None
@@ -743,11 +794,6 @@ def _update_prog(job, msg):
         pass
 
 def _heal_models_dirs(job):
-    """ — پیشدرمانِ EACCES (system error 13): رویِ بعضیِ گوشیها
-    فایلهایِ مدل بعد از بهروزرسانیِ اپ مجوزِ خواندن ندارند → ONNX
-    Runtime میشکند و استخراجِ همان کراپ خالی میماند. اینجا قبل از
-    بارگذاریِ موتور، مجوزِ همهٔ فایلهایِ پوشههایِ مدل اصلاح میشود
-    (chmodِ 0o644). فقط اندروید؛ خروجی/کارِ قبلی دستنخورده."""
     if not _android():
         return
     fd = str((job or {}).get("files_dir") or "").strip()
@@ -780,14 +826,11 @@ def _log(job, msg):
     with STATE["lock"]:
         txt = str(job.get("log") or "")
         job["log"] = (txt + "\n" + str(msg))[-12000:]
-    _FULLLOG.write(str(msg) + "\n")  # لاگ کامل
+    _FULLLOG.write(str(msg) + "\n")
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 class _FullLog:
-    """: لاگ کاملِ بدون برش → <files_dir>/manga.log
-    لاگِ باکسِ UI هر خط را تا ۳۰۰ نویسه و کل را تا ۱۲هزار نویسه برش می‌زند؛
-    این فایل همه‌چیز را خام نگه می‌دارد تا کاربر بتواند متن کامل را بفرستد."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -805,19 +848,11 @@ class _FullLog:
                 os.makedirs(d, exist_ok=True)
                 p = os.path.join(d, "manga.log")
                 old_p = os.path.join(d, "manga_old.log")
-# لاگ اجرای قبلی → manga_old.log (دو فایل، همان‌طور که کاربر خواست)
-                if os.path.isfile(p):
-                    try:
-                        if os.path.getsize(p) <= 8 * 1024 * 1024:
-                            try:
-                                os.remove(old_p)
-                            except Exception:
-                                pass
-                            os.replace(p, old_p)
-                        else:
-                            os.remove(p)
-                    except Exception:
-                        pass
+                try:
+                    if os.path.isfile(old_p):
+                        os.remove(old_p)
+                except Exception:
+                    pass
                 with open(p, "w", encoding="utf-8") as f:
                     f.write(_fulllog_header())
                 self._fh = open(p, "a", encoding="utf-8")
@@ -922,7 +957,7 @@ class _TeeStream:
             self._len = 0
         if not chunk:
             return
-        _FULLLOG.write(chunk)  # خام و بدون برش به فایل
+        _FULLLOG.write(chunk)
         pieces = chunk.replace("\r", "\n").split("\n")
         for ln in pieces[:-1]:
             self._emit(ln)
@@ -937,11 +972,6 @@ class _TeeStream:
             return
         if len(ln) > 300:
             ln = "…" + ln[-300:]
-# ریشهٔ «اعلان گیرِ درحال بارگیری، عوض نمیشه»:
-# ماشینِ فاز فقط خطهایِ _log را میدید؛ ولی تقریباً همهٔ پیامهایِ
-# پایپلاین (صفحهٔ N آماده شد / OCR: / فاز ۳) با print از
-# _TeeStream میآیند → فاز هیچوقت عوض نمیشد. حالا هر خطِ
-# stdout هم فاز/شمارهٔ صفحه را بهروز میکند.
         _update_prog(self._job, ln)
         with STATE["lock"]:
             txt = str(self._job.get("log") or "")
@@ -1010,14 +1040,10 @@ def _detach_log_handlers(attached):
 def _run(job):
     p = job["params"]
     job["_t0"] = time.time()
-    _FULLLOG.open(job.get("files_dir"))  # لاگ کامل
+    _FULLLOG.open(job.get("files_dir"))
     _FULLLOG.write(_fulllog_params(job) + "\n")
     try:
         os.makedirs(job["out"], exist_ok=True)
-# توقف/ادامه: خروجی و کشِ «همین فصل» نگه داشته میشوند تا کار
-# از همان‌جا ادامه یابد؛ موتور با اثرانگشتِ ورودی تشخیص میدهد
-# که لینک/فایل عوض شده (→ از اول) یا نه (→ ادامه). فصلهایِ
-# دیگر مثل قبل پاک میشوند.
         _stem_cur = os.path.splitext(
             os.path.basename(job["out_file_path"]))[0]
         for old in os.listdir(job["out"]):
@@ -1041,18 +1067,12 @@ def _run(job):
         shutil.rmtree(job["live_dbg"], ignore_errors=True)
         os.makedirs(job["live_dbg"], exist_ok=True)
         os.environ["MANGA_LIVE_DEBUG_DIR"] = job["live_dbg"]
-# توکنِ ران: نمایشگر اندروید کلیدهای کشش (IndexedDB) و آدرسِ پایه را
-# با این جدا میکند — عکسِ جدید = توکنِ جدید = تصویرِ رانِ قبل هرگز
-# از کش نشان داده نمیشود؛ بازگشتن به همان ران = همان توکن = کشِ بی‌نت
         try:
             with open(os.path.join(job["live"], "run.txt"), "w",
                       encoding="utf-8") as _rf:
                 _rf.write(str(int(time.time() * 1000)))
         except Exception:
             pass
-# v1.14.274 — متن‌های نمایشگر از «فایلِ واحدِ متن‌ها»ٔ برنامه
-# (manga_sections/05_ui_texts.py) — MainActivity همان‌جا میخواندش و
-# به ریدر تزریق میکند (window.UI_T)؛ نبودش = پیش‌فرضهای خودِ ریدر.
         try:
             _utj = getattr(manga_app, "_ui_t_json_file", None)
             _utj = _utj() if callable(_utj) else ""
@@ -1070,14 +1090,6 @@ def _run(job):
         except Exception:
             pass
         langs = [x for x in str(p.get("ocr_lang") or "en").split() if x.strip()]
-# سبکِ «استخراج و پاکسازی»ٔ گوشی حذف شد؛ موتورِ استخراج
-# فقط یکی است (همان سبکِ PC): detector-v4-s مکانِ متن را پیدا
-# میکند و OCR فقط رویِ همان کراپها اجرا میشود.
-# →184 — موتورِ OCRِ گوشی = SDKِ رسمیِ PaddleOCR
-# اندروید (ppocr-sdkِ وندورشده با PP-OCRv6_smallِ باندل).
-# «هرروشی تو گوشی واسه استخراج شده حذف کن فقط از
-# همین لینک بالا استفاده کنه» → هر انتخابِ کهنه
-# (mlkit/rapidocr/onnx/paddle/…) نادیده گرفته میشود.
         try:
             _oe = str(p.get("ocr_engine") or "").strip().lower()
             if _oe:
@@ -1087,7 +1099,6 @@ def _run(job):
         except Exception:
             pass
         _src0 = str(p.get("src") or "")
-# چند فایل انتخاب‌شده (اندروید: با کاما جدا شده) → پوشهٔ دسته‌ای ---
         if ("," in _src0 and "://" not in _src0
                 and not _src0.lower().startswith(("http://", "https://"))):
             _parts = [s.strip() for s in _src0.split(",") if s.strip()]
@@ -1110,15 +1121,7 @@ def _run(job):
         if _src1 != _src0:
             p["src"] = _src1
             _log(job, "پسوند ورودی اصلاح شد → %s" % os.path.basename(_src1))
-# دکمهٔ «تستِ سرعت»  کامل حذف شد؛ روشِ
-# استخراج = فقط SDKِ رسمیِ PaddleOCR — speed_lab_env پایینتر
-# اعمالش میکند.
         keys = [k.strip() for k in str(p.get("keys") or "").split(",") if k.strip()]
-# resolveِ «auto» و «مدلِ نامیِ کاربر» (مثلِ وب) ──
-# لیستِ مدلهایِ سفارشی از MainActivity (custom_models) میآید
-# سنجشِ دسترسی = همان probeِ موتور (manga.test_api_keys)
-# manga.py هیچ تغییری نمیکند — خروجیِ resolve همیشه providerِ
-# واقعیِ gemini/custom است.
         keys = _resolve_auto_or_named(p, keys, lambda m: _log(job, str(m)))
         if not keys and not (bool(p.get("fake")) or bool(p.get("clean_only"))):
             _log(job, "[!] حداقل یک کلید API لازم است — کلید بده یا "
@@ -1152,8 +1155,6 @@ def _run(job):
         hb = threading.Thread(target=_heartbeat, args=(job,), daemon=True)
         hb.start()
         handlers = _attach_log_handlers(tee)
-# «آزمایشگاهِ سرعتِ استخراج»: تنظیمهایِ پنلِ اپ →
-# envهایِ OCRِ گوشی (پیشفرض = رفتارِ قبل) + ریستِ سنجههایِ سرعت
         try:
             _sl = getattr(_manga(), "speed_lab_env", None)
             if _sl:
@@ -1171,7 +1172,7 @@ def _run(job):
 
         try:
             with contextlib.redirect_stdout(tee), contextlib.redirect_stderr(tee):
-                _heal_models_dirs(job)  # پیشدرمانِ EACCES
+                _heal_models_dirs(job)
                 _log(job, "در حال بارگذاری موتور و مدل‌ها…"
                           " (بار اول مدل‌ها دانلود می‌شوند)")
                 mf = _MF_CACHE["mf"]
@@ -1182,9 +1183,6 @@ def _run(job):
                         mf = {}
                 font_by_style, active = _resolve_tones(job, mf)
                 _pmode, _instr = _prompt_params(p)
-# چند-مدلی (دستورِ سازنده): فیلدِ مدل در فرمِ گوشی هم میتواند
-# «چند مدل با کاما» بگیرد — رشته به همان شکل به موتور پاس
-# میشود و MangaTranslator خودش فهرست/کاسکید میسازد
                 tr = _manga().MangaTranslator(
                     api_key=keys or ["placeholder"],
                     provider=str(p.get("provider") or "gemini"),
@@ -1197,6 +1195,12 @@ def _run(job):
                     gpu=False if (p.get("force_cpu") and not p.get("clean_method")) else None,
                     clean_method=_clean_method_of(p),
                     two_pass_ocr=bool(p.get("two_pass", True)),
+                    deep_thinking=bool(p.get("thinking",
+                                             p.get("deep_thinking", True))),
+                    safety_settings=bool(p.get("safety",
+                                               p.get("safety_settings", False))),
+                    max_tokens_mode=str(p.get("max_tokens", "auto") or "auto"),
+                    max_tokens_custom=_i("max_tokens_custom", 4096),
                     debug=bool(p.get("debug")),
                     fake_translate=bool(p.get("fake")),
                     clean_only=bool(p.get("clean_only")),
@@ -1205,8 +1209,7 @@ def _run(job):
                     api_timeout=_f("timeout", 40.0),
                     max_retries=_i("maxre", 8),
                     request_delay=_f("reqdelay", 0.0),
-                    translation_temperature=_f("temp", 0.7),  # دستور: ۰.۷ (عینِ مرجع)
-# تنظیمِ top_p (پیشفرض 0.9) — از فرمِ اندروید
+                    translation_temperature=_f("temp", 0.7),
                     translation_top_p=_f("top_p", 0.9),
                     img_quality=_i("quality", 92),
                     img_format=_resolve_img_format(p),
@@ -1220,8 +1223,6 @@ def _run(job):
                 if (getattr(manga, "_on_android", lambda: False)()
                         and getattr(tr, "det", None) is not None):
                     tr.stitch_max_height = 4000
-# اندروید صراحتاً برش می‌خواهد (رمِ کم)
-# حالتِ صفحاتِ مستقل روی گوشی رد می‌شود (رفتارِ قبلی)
                     tr.stitch_explicit = True
                 tr.batch_workers = _i("batchw", 3)
 
@@ -1238,15 +1239,11 @@ def _run(job):
                 tr.run(str(p.get("src")), job["out_file_path"], resume=True)
         finally:
             _detach_log_handlers(handlers)
-# خطا/لغو وسطِ کار: صفحه‌هایِ در انتظارِ گیتِ ترتیبِ
-# نمایشِ زنده به‌ترتیب آزاد شوند تا نمایش ناقص نماند.
             try:
                 _manga()._live_seq_flush()
             except Exception:
                 pass
             os.environ.pop("MANGA_LIVE_DIR", None)
-# گزارشِ سرعتِ «این اجرا» (آزمایشگاهِ سرعت): میانگینِ
-# کراپ + سهمِ پلهها → سازنده بینِ حالتهایِ پنل مقایسه میکند
             try:
                 _rep = getattr(_manga(), "_mt_speed_report", None)
                 if _rep:
@@ -1257,12 +1254,6 @@ def _run(job):
                 pass
 
         _ORIG_DIRS = ("src", "normalized", "stitched")
-# v1.14.276 — جمعآوریِ خروجی به out_collect.py منتقل شد:
-# ۱) مسیرِ کشِ «مستقل از فرمتِ» موتور (res.pdf → res.cache؛ قبلاً
-#    res.pdf.cache هیچ‌وقت وجود نداشت و جمعآوری همیشه خالی بود)
-# ۲) فالبک: فایلهایِ live_debug (نامِ فایلشان debug ندارد!) دیگر
-#    داخلِ «نمایشِ اصلی» نمیآیند — پوشهٔ debugدار = دیباگ؛
-#    input_batch هم از نمایشِ اصلی بیرون ماند.
         try:
             from out_collect import collect as _collect_outputs
         except Exception:
@@ -1297,7 +1288,7 @@ def _run(job):
                     lp = os.path.join(root, f)
                     if is_dbg or "debug" in f.lower():
                         if "_base." in f.lower():
-                            continue  # پایهٔ روکش — فقط برای کلیدهای نمایشگر
+                            continue
                         dbg.append(lp)
                     else:
                         imgs.append(lp)
@@ -1331,7 +1322,7 @@ def _run(job):
                         lp = os.path.join(root, f)
                         if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
                             if "_base." in f.lower():
-                                continue  # پایهٔ روکش (live/debug) — فقط نمایشگرِ تعاملی
+                                continue
                             (dbg if (_dir_dbg or "debug" in f.lower())
                              else imgs).append(lp)
                     imgs.sort(key=_natkey)
@@ -1339,9 +1330,6 @@ def _run(job):
         if not imgs:
             imgs = _live_pages(job)
         dl = job["out_file_path"] if os.path.isfile(job["out_file_path"]) else None
-# دیباگ = «یک خروجی یکپارچه» مثل خروجی اصلی — نه تصاویر
-# جدا جدا. اگر موتور خودش *_debug.pdf ساخته (خروجی PDF/HTML/ZIP) همون
-# استفاده می‌شود؛ وگرنه از تصاویر دیباگ یک PDF واحد ساخته می‌شود.
         dbg_out = None
         try:
             _root, _ext = os.path.splitext(job["out_file_path"])
@@ -1351,7 +1339,7 @@ def _run(job):
             elif dbg:
                 _cand2 = _root + "_debug.pdf"
                 try:
-                    _tr = tr  # noqa: F821 — موتور اگر ساخته شده باشد در اسکوپ است
+                    _tr = tr
                     _tr._save_as_pdf(dbg, _cand2)
                 except Exception:
                     pass
@@ -1391,7 +1379,6 @@ def _run(job):
             job["done"] = True
             job["error"] = True
     finally:
-# جمع‌بندی و بستن لاگ کامل در همهٔ مسیرها (موفق/لغو/خطا)
         _FULLLOG.write(
             "=== END — done=%s cancelled=%s error=%s — %.1fs ===\n"
             % (bool(job.get("done")), bool(job.get("cancelled")),
@@ -1399,8 +1386,6 @@ def _run(job):
         _FULLLOG.close()
 
 def _live_pages(job, dbg: bool = False):
-    """صفحه‌های تمام‌شدهٔ لحظه‌ای از پوشهٔ live — برای نمایش زنده بدون رفرش.
-    dbg=True → پوشهٔ live_debug (صفحه‌های دیباگ زنده)."""
     d = job.get("live_dbg" if dbg else "live")
     if not d or not os.path.isdir(d):
         return []
@@ -1408,7 +1393,7 @@ def _live_pages(job, dbg: bool = False):
         import re as _re
         files = [os.path.join(d, f) for f in os.listdir(d)
                  if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
-                 and "_base" not in f.lower()]  # پایهٔ روکش — فقط نمایشگرِ تعاملی
+                 and "_base" not in f.lower()]
         files.sort(key=lambda s: [int(t) if t.isdigit() else t
                                   for t in _re.split(r"(\d+)", s)])
         return files
@@ -1416,8 +1401,6 @@ def _live_pages(job, dbg: bool = False):
         return []
 
 def _live_total(job, dbg: bool = False) -> int:
-    """تعداد کل صفحه‌ها از total.txt (موتور همان اول تعداد کل را می‌نویسد)
-    — تا نمایشگر زنده از اول اسلات لودینگ برای همه بگذارد ()."""
     d = job.get("live_dbg" if dbg else "live")
     if not d:
         return 0
@@ -1432,9 +1415,6 @@ def poll():
         job = STATE["job"]
         if not job:
             return json.dumps({"idle": True}, ensure_ascii=False)
-# «کدوم قسمته، کدوم عکسه، چند درصده»: صفحهٔ جاری
-# (در حال کار = آمادهشده + ۱) و درصد، اینجا حساب میشود تا
-# اعلان فقط نمایش بدهد.
         _pt = _live_total(job)
         _pp = int(job.get("prog_page") or 0)
         if _pt > 0:
@@ -1466,8 +1446,6 @@ def poll():
         }, ensure_ascii=False)
 
 def cancel():
-    """لغو واقعی کار در حال اجرا — پرچم توقف موتور را می‌گذارد؛ حلقهٔ
-    اصلی manga.py بین صفحه‌ها آن را می‌بیند و JobCancelled می‌دهد."""
     with STATE["lock"]:
         job = STATE["job"]
     if not job or job.get("done"):
@@ -1481,9 +1459,6 @@ def cancel():
     return json.dumps({"ok": True}, ensure_ascii=False)
 
 def test_keys(params_json):
-    """تست کلیدهای API / لینک سفارشی برای دکمهٔ «تست کلید» اندروید.
-    params_json: {"keys": "...", "provider": "...", "api_base": "...",
-                  "model": "..."}"""
     try:
         p = json.loads(params_json or "{}")
     except Exception:
@@ -1504,8 +1479,6 @@ def test_keys(params_json):
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 def _gemini_offline_models():
-    """ — لیستِ آفلاینِ مدلهایِ Gemini (فقط رایگان) — از manga.py
-    اگر import نشد، نسخهٔ داخلی همین‌جا."""
     try:
         from manga import gemini_offline_models as _g
         lst = _g()
@@ -1513,8 +1486,6 @@ def _gemini_offline_models():
             return list(lst)
     except Exception:
         pass
-# عینِ فهرستِ موتور (v1.14.291 — دستورِ سازنده)؛ فقط فالِبکِ
-# قطعیِ import است.
     return [
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
@@ -1527,19 +1498,6 @@ def _gemini_offline_models():
     ]
 
 def list_models(params_json):
-    """ — فهرستِ زندهٔ مدلها برایِ دکمهٔ «↻» کنارِ فیلدِ مدلِ
-    اندروید (). params_json: {"provider": "gemini", "keys": "...",
-    "api_base": "..."} — همان list_provider_modelsِ وب (Gemini: فقط
-    مدلهایِ ترجمهپذیر). خروجی: {"ok": bool, "models": [...], "error": str}.
-     — فال‌بکِ آفلاین: اگر گرفتنِ فهرستِ زندهٔ Gemini نشد
-    (اینترنت/کلید)، لیستِ هاردکدِ داخلِ کد با پرچمِ offline=true
-    برمیگردد (دستور: «اگ اپدیتی چیزی شد خودشون رفرش میزنن»).
-    v1.14.292 — «سنجشِ زندهٔ سبک» عینِ وب (v1.14.290): هر مدلِ زندهٔ
-    یافتشده یک درخواستِ واقعیِ کوچک میگیرد؛ کتابی/بی‌پاسخ کنار
-    میرود و فقط مدلهایِ «اوکی» برمیگردند + آمار در "probe"
-    («X مدلِ سالم از Y؛ حذف: N کتابی، M بی‌پاسخ») برای عنوانِ
-    دیالوگِ گوشی. همه-error → فهرستِ خام؛ هیچ-سالم → آفلاین.
-    """
     try:
         p = json.loads(params_json or "{}")
     except Exception:
@@ -1557,7 +1515,6 @@ def list_models(params_json):
         models = models or []
     except Exception as e:
         err = str(e)
-# ── سنجشِ زندهٔ سبک (فقط gemini + کلید + فهرستِ زنده) ──
     probe = ""
     if provider == "gemini" and models and keys.strip():
         good, res = [], {}
@@ -1580,10 +1537,8 @@ def list_models(params_json):
             _n_err = sum(1 for r in (res or {}).values()
                          if (r or {}).get("verdict") == "error")
             if _n_err >= len(res):
-# همهٔ سنجشها خطا (شبکه/سهمیه در همین لحظه) — فهرستِ خامِ زنده
                 probe = "سنجشِ زنده در همین لحظه جواب نداد — فهرستِ خام"
             else:
-# سنجش اجرا شد ولی هیچ سالمی نبود → آفلاین (شاخهٔ پایین)
                 models = []
     if not models and provider == "gemini":
         return json.dumps(

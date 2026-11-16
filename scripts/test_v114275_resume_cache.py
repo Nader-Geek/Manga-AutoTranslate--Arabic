@@ -1,23 +1,3 @@
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.275 — ادامه از همان‌جا / کشِ هوشمند
-
-خواستهٔ سازنده:
-  «وقتی فایل میدم یا لینک بهش دست نزنم برم استارت کنم هی از اول
-  شروع نکنه از ادامش بره … اگ ترجمش عوض کردم پرامپتش یا مدل ai شو
-  استارت زدم بپرسه ادامه ترجمش بره یا از اول ترجمه کنه … اگ pdf
-  گذاشتم رو html … از دیتام بخونه اوکی کنه از اول شروع نکنه»
-
-چکها:
-  ۱) سینتکسِ همهٔ بخشها + manga_app.py + manga.pyِ ساختهشده
-  ۲) نشانه‌های موتور در manga.py (کشِ مستقل از فرمت، cleanonly،
-     انبارِ trans.json، امضا، فلگِ از-نو)
-  ۳) همخوانیِ بایت‌به‌بایتِ امضای ترجمه: موتور ↔ اپ
-  ۴) حساسیتِ امضا (مدل/پرامپت/تست) و بی‌تفاوتی‌های درست
-  ۵) مسیرِ کشِ مشترک (_cache_dir_for): فرمت‌های مختلف → یک کش
-  ۶) متن‌های پنجرهٔ پرسش در فایلِ واحدِ متن‌ها
-  ۷) اپ: پنجرهٔ پرسش + سیم‌کشی + مسیرِ ثابتِ آپلودِ تک‌فایل
-  ۸) CLI: --translate-retranslate
-"""
 import ast
 import importlib.util
 import os
@@ -72,7 +52,6 @@ for marker, desc in [
     check(desc, marker in esrc)
 
 print("۳) همخوانیِ امضای ترجمه: موتور ↔ اپ")
-# استخراجِ متدِ استاتیکِ موتور از 95_run.py و اجرایِ مستقلِ آن
 sec95 = open(os.path.join(SEC, "95_run.py"), encoding="utf-8").read()
 m = re.search(
     r"    @staticmethod\n    def _trans_sig_of\(.*?\n(?=    @staticmethod|    def run\()",
@@ -87,7 +66,6 @@ if m:
     exec(body, ns)
     eng_fn = ns.get("_trans_sig_of")
     check("اجرای مستقلِ متد", callable(eng_fn))
-# آینهٔ اپ (بدون import کاملِ گرادیو: فقط بدنهٔ تابع از manga_app.py)
 asrc = open(APP, encoding="utf-8").read()
 ma = re.search(
     r"def _trans_sig_of\(.*?\n(?=\ndef |\nclass )", asrc, re.S)
@@ -111,7 +89,6 @@ def is_custom_instruction(text):
 
 if eng_fn and app_fn:
     cases = [
-        # (provider, model, api_base, prompt_mode, instr, fake, temp, top_p)
         ("gemini", "", "", "auto", "", False, 0.7, 0.9),
         ("gemini", "gemini-2.5-flash", "", "auto", "", False, 0.7, 0.9),
         ("custom", "gpt-4o-mini", "https://api.example.com/v1", "professional",
@@ -122,7 +99,6 @@ if eng_fn and app_fn:
     all_match = True
     for c in cases:
         e = eng_fn(*c)
-        # در سمتِ اپ، متنِ پیش‌فرضِ شناخته‌شده حذف می‌شود
         c_app = list(c)
         if c_app[4] == "__KNOWN_DEFAULT__":
             c_app[4] = ""
@@ -131,7 +107,6 @@ if eng_fn and app_fn:
             all_match = False
             print(f"      ناهمخوان: {c} → eng={e} app={a}")
     check("امضا برایِ ۵ حالت یکسان", all_match)
-    # حساسیت‌ها
     base = eng_fn("gemini", "m1", "", "auto", "", False, 0.7, 0.9)
     check("مدلِ عوض‌شده → امضای دیگر",
           base != eng_fn("gemini", "m2", "", "auto", "", False, 0.7, 0.9))
@@ -143,7 +118,6 @@ if eng_fn and app_fn:
           base != eng_fn("gemini", "m1", "", "auto", "", False, 0.5, 0.9))
     check("همان تنظیم → همان امضا",
           base == eng_fn("gemini", "m1", "", "auto", "", False, 0.7, 0.9))
-    # api_base فقط برای custom
     check("api_base برایِ غیرِ custom نادیده",
           eng_fn("gemini", "m", "https://a/v1", "auto", "", False, 0.7, 0.9)
           == eng_fn("gemini", "m", "https://b/v2", "auto", "", False, 0.7, 0.9))
@@ -250,7 +224,6 @@ if _tmpl:
           "function UT(k,d)" in _t)
     check("تعریفِ UT قبل از اولین استفاده",
           _t.find("function UT(k,d)") < _t.find("UT('say.pat'"))
-# _ui_t_head همیشه helper می‌دهد
 check("helper همیشه در _ui_t_head",
       'out += _UT_JS_HELPER' in open(APP, encoding="utf-8").read())
 

@@ -1,8 +1,0 @@
-{
-  "name": "Manga AutoTranslate",
-  "postStartCommand": "cd /workspaces/Manga-AutoTranslate && (nohup python3 manga_app.py --web > web.log 2>&1 < /dev/null &) && echo 'web app starting — log: web.log'",
-  "forwardPorts": [7860],
-  "portsAttributes": {
-    "7860": { "label": "manga web", "onAutoForward": "openBrowser" }
-  }
-}

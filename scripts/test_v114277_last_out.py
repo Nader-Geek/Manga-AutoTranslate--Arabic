@@ -1,21 +1,3 @@
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.277 — نشانگرِ «خروجیِ همین ران» (last_out.json)
-
-خواستهٔ سازنده: «اگ حالت پاکسازی گذاشتم فقط پاکسازیش نشون بده نه
-دیتای قبلی اوکی شده … هرچی عوض کردم همون بخش کار کنه» — قبل از این
-نسخه، نمایشگر (وب + اندروید) تصاویرِ «همهٔ» پوشههایِ out* کش را جمع
-می‌کرد: خروجیِ فقط-پاکسازی با ترجمهٔ قبلی و سبکهایِ پاکسازیِ قدیمی
-قاطی می‌شد (صفحههایِ تکراری با یک نام از چند پوشه).
-
-چکها:
-  ۱) سینتکسِ فایلهایِ دست‌خورده
-  ۲) موتور: نوشتنِ last_out.json در ابتدای ران (نامِ پوشه + clean_only)
-  ۳) اندروید (out_collect.py): جداییِ کامل با نشانگر + فالبکِ نو
-     (v1.14.279: بدونِ نشانگر فقط «جدیدترین» out* — نه همه؛ ریشهٔ
-     «اول opencv پاکیدم دوم بار lama پاکیدم هر دوشو نمایش میده»)
-  ۴) وب (manga_app.py): اولویتِ نشانگر در جمع‌آوریِ نمایشگر
-  ۵) نسخهها: APP_VER/VERSION/gradle = 1.14.279/281
-"""
 import importlib.util
 import json
 import os
@@ -38,7 +20,7 @@ def check(name, cond, extra=""):
 
 
 print("۱) سینتکس")
-import ast  # noqa: E402
+import ast
 for fn in ("manga_sections/95_run.py", "manga_app.py",
            "android/app/src/main/python/out_collect.py"):
     try:
@@ -64,7 +46,6 @@ spec = importlib.util.spec_from_file_location("oc", oc_path)
 oc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(oc)
 
-# ساختِ کشِ ساختگی: دو پوشهٔ out (ترجمه + فقط-پاکسازی) + دیباگ
 tmp = tempfile.mkdtemp(prefix="oc277_")
 try:
     cache = os.path.join(tmp, "ch5.cache")
@@ -83,9 +64,7 @@ try:
     os.makedirs(job_out)
 
     out_pdf = os.path.join(tmp, "ch5.pdf")
-# ۳-۱) بدونِ نشانگر = فقط جدیدترینِ out* (فالبکِ نو v279 —
-#     mtimeِ پوشهها را مشخص میکنیم تا تست قطعی باشد)
-    os.utime(out_tr, (3000, 3000))    # جدیدترین
+    os.utime(out_tr, (3000, 3000))
     os.utime(out_co, (2000, 2000))
     os.utime(out_old, (1000, 1000))
     imgs, dbg = oc.collect(out_pdf, job_out)
@@ -94,7 +73,6 @@ try:
           f"{len(imgs)}: {imgs}")
     check("بدونِ نشانگر: دیباگ جدا", len(dbg) == 1)
 
-    # ۳-۲) نشانگر → فقط-پاکسازی: فقط پوشهٔ cleanonly
     with open(os.path.join(cache, "last_out.json"), "w",
               encoding="utf-8") as fh:
         json.dump({"dir": os.path.basename(out_co), "clean_only": True},
@@ -105,7 +83,6 @@ try:
           f"{len(imgs)}")
     check("نشانگرِ پاکسازی: دیباگ سرِ جایش", len(dbg) == 1)
 
-    # ۳-۳) نشانگر → ترجمه: فقط پوشهٔ ترجمه (نه cleanonly نه سبکِ قدیمی)
     with open(os.path.join(cache, "last_out.json"), "w",
               encoding="utf-8") as fh:
         json.dump({"dir": os.path.basename(out_tr), "clean_only": False},
@@ -116,7 +93,6 @@ try:
                                  and "_cleanonly" not in p for p in imgs),
           f"{len(imgs)}")
 
-    # ۳-۴) نشانگرِ خراب/ناموجود → فالبکِ نو (فقط جدیدترین)
     with open(os.path.join(cache, "last_out.json"), "w",
               encoding="utf-8") as fh:
         fh.write("{not json")
@@ -125,14 +101,12 @@ try:
           len(imgs) == 2 and all(out_tr in p for p in imgs),
           f"{len(imgs)}")
 
-    # ۳-۵) پاک‌کردنِ نشانگر → فالبکِ نو
     os.remove(os.path.join(cache, "last_out.json"))
     imgs, _ = oc.collect(out_pdf, job_out)
     check("حذفِ نشانگر: فالبکِ نو — فقط جدیدترین",
           len(imgs) == 2 and all(out_tr in p for p in imgs),
           f"{len(imgs)}")
 
-    # ۳-۶) تلاشِ مسیرِ فرار از کش در نشانگر → نادیده
     os.makedirs(os.path.join(tmp, "evil"), exist_ok=True)
     open(os.path.join(tmp, "evil", "x.jpg"), "wb").write(b"x")
     with open(os.path.join(cache, "last_out.json"), "w",

@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.285 — یکسانیِ GPU/CPU در پچِ LaMa (_pick_size).
-
-دستورِ سازنده: «پاکسازیم gpu cpu میبینی فرق داره هردوش یکجور میپاکه
-تو گوشی همچنین یک جور دیگ میپاکه مگ همشون یکس نیستن — مدل فقط
-lama onnx و openvc چک کن»
-
-v283 یکسانسازیِ گوشی↔PC را انجام داد (input_cap/max_side/bucket)؛
-v284 (GC خردهها)؛ این نسخه آخرین شکاف را میبندد: CPU قبلاً همیشه
-run_size=256 میگرفت (و با هکِ cov>0.22 گاهی ۵۱۲) ولی GPU پلکانِ
-۲۵۶/۳۸۴/۵۱۲ — ورودیِ LaMa فرق میکرد = خروجیِ متفاوت.
-"""
 import ast
 import os
 import sys
@@ -70,7 +58,7 @@ check("گروهِ متوسط → ۳۸۴", pick(True, 200, 100) == 384)
 check("گروهِ بزرگ → ۵۱۲", pick(True, 500, 400) == 512)
 
 print("۴) شبیه‌سازیِ قدیم/جدید — CPU چه چیزی عوض شد")
-old_cpu = {(w, h): 256 for (w, h) in cases}  # قدیم: CPU همیشه ۲۵۶
+old_cpu = {(w, h): 256 for (w, h) in cases}
 changed = [(w, h) for (w, h) in cases if old_cpu[(w, h)] != pick(False, w, h)]
 print(f"    اندازه‌هایی که CPUشان بالاتر رفت: {changed}")
 check("CPU برایِ گروههایِ متوسط/بزرگ بالاتر رفت (کیفیت = GPU)",

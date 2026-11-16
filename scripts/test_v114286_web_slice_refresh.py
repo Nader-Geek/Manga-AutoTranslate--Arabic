@@ -1,31 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.287 — برشِ وبِ ۲۰۰۰px + فیکسِ حلقهٔ رفرشِ ریدرِ زنده.
-
-دستورِ سازنده: «وقتی طرف با وب میره میخونه قسمت نمایش عکس‌های خروجی
-کوتاه برش بزنه برایش، طولش دو هزار بگذار، برش امن نمیخواهد برایش
-سریع برش بزند، فقط برای وب برای سریع‌تر لود شدن، به PC لینوکس
-اندروید نباید دست بزنی فقط وب. بعد باگ دارد هی رفرش می‌شود از اول
-لود می‌خورد هی تکرار می‌کند درست عکس لود نمی‌کند»
-
-چکها:
-  ۱) برشکارِ وب (کدِ واقعیِ استخراجشده از manga_app.py):
-     • عکسِ بلند → برشهایِ ۲۰۰۰px + مارکرِ {n, src}
-     • عکسِ کوتاه → مارکرِ n=0 (بدونِ برش)
-     • idempotent: دوباره = بدونِ کار
-     • تغییرِ فایل → برشِ تازه
-     • نامِ برشها با «live_» شروع نمیشود (شمارشِ صفحهها سالم)
-  ۲) ریدرِ نهایی (build_reader_html — کدِ واقعی):
-     • عکسِ بلند → چند <img> (هر برش یکی)
-     • عکسِ کوتاه → تک <img>
-     • کش: بازسازیِ دوم همان URLها (idempotent)
-  ۳) قالبِ ریدرِ زنده (JS):
-     • حلقهٔ رفرش: مقایسه فقط با «آخرین» خطِ هر اسلات (last[s0])
-     • هر اسلات در IIFEیِ خودش (فیکسِ closure)
-     • parseInt برایِ src مارکر (نه |0 — خرابیِ ۳۲بیتیِ epoch)
-     • سرکِ سبکِ رسیدن: مارکر/HEAD (نه دانلودِ کامل)
-  ۴) نسخهها: APP_VER ×۳ + VERSION + gradle = 1.14.287
-"""
 import json
 import os
 import re
@@ -55,7 +28,6 @@ def dedent_nested(code, pad):
                      for ln in code.split("\n"))
 
 
-# ———————————————————— ۱) برشکارِ وب ————————————————————
 print("۱) برشکارِ وب (کدِ واقعی از manga_app.py):")
 m = re.search(r"(        def _start_live_slicer\(.*?)(?=\n        def _poll_live_gallery)",
               SRC, re.S)
@@ -64,7 +36,7 @@ ns = {"json": json, "os": os, "threading": threading, "time": time}
 exec(compile(dedent_nested(m.group(1), "        "), "_sl", "exec"), ns)
 start_slicer = ns["_start_live_slicer"]
 
-from PIL import Image  # noqa: E402
+from PIL import Image
 
 tmp = tempfile.mkdtemp(prefix="manga_slice_test_")
 live = os.path.join(tmp, "live")
@@ -88,7 +60,6 @@ def wait_slices(mark, want_n, timeout=6.0):
     return None
 
 
-# بلند: 900x4300 → ۳ برشِ ۲۰۰۰px
 Image.new("RGB", (900, 4300), (200, 30, 30)).save(
     os.path.join(live, "live_0001.jpg"), quality=90)
 j1 = wait_slices("w_0001.json", 3)
@@ -102,14 +73,12 @@ src1 = int(j1.get("src") or 0) if j1 else 0
 chk("مارکر src = میلیثانیهٔ فایل (۱۳ رقم)",
     src1 > 10 ** 12)
 
-# idempotent: بدونِ تغییر = بدونِ برشِ دوباره
 mt_before = os.path.getmtime(os.path.join(live, "w_0001_1.jpg"))
 time.sleep(0.6)
 mt_after = os.path.getmtime(os.path.join(live, "w_0001_1.jpg"))
 chk("idempotent — بدونِ تغییر، برش بازنویسی نمیشود",
     mt_before == mt_after)
 
-# کوتاه: 800x1200 → n=0
 Image.new("RGB", (800, 1200), (30, 200, 30)).save(
     os.path.join(live, "live_0002.jpg"), quality=90)
 j2 = wait_slices("w_0002.json", 0)
@@ -117,7 +86,6 @@ chk("عکسِ کوتاه → مارکرِ n=0 (بدونِ برش)", bool(j2))
 chk("برشی برایِ عکسِ کوتاه ساخته نشد",
     not os.path.exists(os.path.join(live, "w_0002_1.jpg")))
 
-# تغییر → برشِ تازه (n عوض میشود)
 Image.new("RGB", (900, 6500), (30, 30, 200)).save(
     os.path.join(live, "live_0001.jpg"), quality=90)
 j1b = wait_slices("w_0001.json", 4, timeout=8)
@@ -125,17 +93,14 @@ chk("تغییرِ فایل → برشِ تازه (۳→۴)", bool(j1b))
 chk("برشِ تازه srcِ تازه دارد",
     bool(j1b) and int(j1b.get("src") or 0) > src1)
 
-# نامگذاری: شمارشِ صفحهها (مثلِ _scan_live_dir) برشها را نمیبیند
 cnt = sum(1 for f in os.listdir(live)
           if f.lower().endswith(".jpg") and f.startswith("live_")
           and not f.lower().endswith("_base.jpg"))
 chk("شمارشِ live_ فقط عکسهایِ اصلی (۲)", cnt == 2,
     f"found {cnt}")
 
-# توقف
 job["live_slicer"]["stop"] = True
 
-# ———————————————————— ۲) ریدرِ نهایی ————————————————————
 print("۲) ریدرِ نهایی (build_reader_html — کدِ واقعی):")
 src_lines = SRC.split("\n")
 s = next(i for i, l in enumerate(src_lines)
@@ -169,7 +134,6 @@ html2 = build([os.path.join(outd, "tall.jpg"),
 urls2 = re.findall(r'data-src="([^"]+)"', html2)
 chk("کش: بازسازیِ دوم همان URLها", urls == urls2)
 
-# ———————————————————— ۳) قالبِ ریدرِ زنده ————————————————————
 print("۳) قالبِ ریدرِ زنده (JS — فیکسِ حلقهٔ رفرش):")
 chk("آخرین-خط-برای-هر-اسلات (last[s0])",
     "last[s0] = m[1]" in SRC and "for (var slotStr in last)" in SRC)
@@ -184,7 +148,6 @@ chk("برشِ وب در قالب — slotw + sliceUrl",
 chk("پیشفرضِ بدونِ برشکار — فال‌بکِ عکسِ کامل",
     "swapFullSlot(el2, slot)" in SRC)
 
-# ———————————————————— ۴) نسخهها ————————————————————
 print("۴) نسخهها:")
 for p, v in (("manga_app.py", "1.14.287"), ("manga.py", "1.14.287"),
              ("manga_sections/00_base.py", "1.14.287")):
@@ -198,7 +161,6 @@ gt = open(os.path.join(HERE, "android/app/build.gradle.kts"),
 chk("gradle = 288 / 1.14.287",
     "versionCode = 289" in gt and 'versionName = "1.14.287"' in gt)
 
-# ———————————————————— جمع‌بندی ————————————————————
 print(f"\n{'='*50}\n✔ {len(PASS)} سبز | ✘ {len(FAIL)} قرمز")
 if FAIL:
     print("شکستها:", ", ".join(FAIL))

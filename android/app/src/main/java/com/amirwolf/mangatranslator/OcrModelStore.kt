@@ -1,31 +1,3 @@
-// دانلودِ زمانِ اجرایِ مدلهایِ OCRِ گوشی
-// دستورِ سازنده (نقلِ مستقیم):
-// «onnx تو گوشی واسه استخراج با نصب نیاد تو خوده اپ دانلود کنه اوکی
-// کنه حجم اپ زیاد میشه به حساب زبان انتخاب شده همون مدل دانلود کنه
-// مثال انگلیسی onnx مال انگلیسی بگیره چینی مال چینی onnx استخراج
-// میگما و مثاله همشو یک جا دانلود نزنه»
-// دستورِ جدید:
-// «وقتی داره onnx دانلود میزنه نشون نمیده تو لاگش چقدر دانلود شده»
-// → پیشرفتِ دانلود (٪ + MB) از طریقِ OcrProgressSink به لاگِ اپ
-// (خروجیِ پایتون) میرود؛ خطا هم دقیق (404/اتصال/ناقص) گزارش میشود
-// و هر فایل ۳ تلاش میشود.
-// «زبان چینی کره ای اصلا استخراج نمیزنه ارور میده» → مدلِ کره‌ای =
-// korean_PP-OCRv5_rec_mobile.onnx + دیکشنریِ رسمیِ خودش
-// ppocrv5_korean_dict.txt (۱۱۹۴۵ نویسه — C=۱۱۹۴۷ عینِ خروجیِ مدل
-// جفتِ قبلیِ v4+کره‌ایِدیکشنریِ۳۶۸۷ی غلط بود و onnxِ v4 هم رویِ سرور
-// ۴۰۴ میداد).
-// «دکمه چند زبانه خودش همه زبان هارو استخراج میزنه» → زبانِ «multi»
-// فقط ستِ پایه را میگیرد (recِ v6_medium خودش ja/zh/en را میخواند —
-// v6medium از japan v4 بهتر میخواند)
-// واریانتِ ko فقط وقتی متنِ کره‌ای واقعاً دیده شود دانلود میشود
-// (دوئلِ اطمینان در PaddleAndroidOCR — manga.py).
-// طراحی:
-// • APK هیچ مدلِ OCRی باندل نمیکند — حجمِ APK حدودِ ۱۱۵MB سبکتر.
-// • منبعِ دانلود = ریلیزِ «models»ِ همین ریپو (آینهٔ سریعِ ایران).
-// • چیدمانِ مقصد = filesDir/models/{det,cls,rec,rec_ko}/…
-// ppocr-sdk با ModelSource از همان مسیرِ نسبی میخواند.
-// • به حسابِ زبانِ انتخابی: det/cls/recِ پیشفرض یکبار؛ recِ ko فقط
-// برایِ کره‌ای/چندزبانه‌وقتی-کره‌ای-دید (اگ نبود دانلود میکند).
 
 package com.amirwolf.mangatranslator
 
@@ -44,15 +16,9 @@ object OcrModelStore {
 
     private const val TAG = "OcrModelStore"
 
-// آینهٔ رسمیِ همین ریپو (fetch_models.yml همینها را آپلود میکند)
     private const val BASE =
-        "https://github.com/amirwolf512k/Manga-AutoTranslate/releases/download/models/"
+        "https://github.com/amirwolf5122/Manga-AutoTranslate/releases/download/models/"
 
-// مسیرِ نسبی → فایلِ ریلیز (+ حداقلِ حجمِ سالم به بایت)
-// واریانتِ ja حذف شد: recِ پیشفرضِ v6_medium ژاپنی را
-    //✓ در برابرِ «ましよう»✗ + «かわい» فقط با medium) → ژاپنی
-// بهتر از japan_PP-OCRv4 میخواند (عکسِ
-// دیگر دانلودِ اضافه ندارد.
     private val FILES: Map<String, Pair<String, Long>> = mapOf(
         "models/det/inference.onnx" to ("PP-OCRv6_det_small.onnx" to 8_000_000L),
         "models/cls/inference.onnx" to ("ch_ppocr_mobile_v2.0_cls_mobile.onnx" to 300_000L),
@@ -62,10 +28,8 @@ object OcrModelStore {
         "models/rec_ko/dict.txt" to ("ppocrv5_korean_dict.txt" to 40_000L),
     )
 
-    /** واریانتِ زبانِ کره‌ای — هم‌قراردادِ LANG_VARIANTSِ PaddleOcrBridge. */
     val VARIANT_KO = listOf("models/rec_ko/inference.onnx", "models/rec_ko/dict.txt")
 
-    /** اتریبیوتِ «گوشی» که اگر بازِ دانلود در جریان است. */
     @Volatile
     var busyInfo: String = ""
         private set
@@ -73,11 +37,6 @@ object OcrModelStore {
     @Volatile
     private var progressSink: OcrProgressSink? = null
 
-    /**
-     *  — manga.py قبل از init یک پیادهسازیِ پایتونیِ
-     * OcrProgressSink ثبت میکند تا خطوطِ پیشرفتِ دانلود به لاگِ اپ
-     * برسد (printlnِ کاتلین به آن لاگ نمیرود — دستورِ سازنده).
-     */
     @JvmStatic
     fun setProgressSink(sink: OcrProgressSink?) {
         progressSink = sink
@@ -95,15 +54,6 @@ object OcrModelStore {
         }
     }
 
-    /**
-     * مسیرهایِ لازم برایِ زبانِ انتخابی. «به حساب زبان انتخاب شده»:
-     *   • en/latin/fa/zh/ja/… → فقط ستِ پایه (v6_medium — ja و zh و
-     *     latin داخلش هست؛ بنچمارکِ صفحهٔ تستِ سازنده).
-     *   • ko/korean → ستِ پایه + واریانتِ کره‌ایِ v5.
-     *   • multi (چندزبانه) → فقط ستِ پایه — واریانتِ ko بعداً «فقط
-     *     وقتی متنِ کره‌ای دید» لازمالآمد دانلود میشود («همشو یکجا
-     *     دانلود نزنه»).
-     */
     @JvmStatic
     fun pathsForLang(lang: String?): List<String> {
         val l = (lang ?: "").lowercase().trim()
@@ -141,11 +91,6 @@ object OcrModelStore {
         else -> (t.message ?: t.javaClass.simpleName) + " — «$asset»"
     }
 
-    /**
-     * هر مسیرِ غایب را دانلود میکند (اگ نبود). هر فایل حداکثر ۳ تلاش
-     * (شبکهٔ ناپایدار = خطایِ رایج — ). خطا با توضیحِ دقیق
-     * بالا میرود (پلِ Kotlin لاگ میکند).
-     */
     @JvmStatic
     @Synchronized
     fun ensure(context: Context, relPaths: List<String>) {
@@ -154,7 +99,7 @@ object OcrModelStore {
         var lastAsset = ""
         for (rel in relPaths) {
             if (exists(context, rel)) continue
-            val spec = FILES[rel] ?: continue // مسیرِ ناشناخته = باندلِ آینده
+            val spec = FILES[rel] ?: continue
             missing++
             var ok = false
             for (attempt in 1..3) {
@@ -166,7 +111,7 @@ object OcrModelStore {
                     lastErr = t
                     lastAsset = spec.first
                     Log.e(TAG, "download failed (attempt $attempt/3): $rel", t)
-                    if (t is ModelHttpError && t.code == 404) break // تلاشِ دوباره بیهوده
+                    if (t is ModelHttpError && t.code == 404) break
                     if (attempt < 3) {
                         emit("[!] دانلودِ ${spec.first} ناموفق بود — تلاشِ دوباره ($attempt/3)…")
                         try {
@@ -176,7 +121,7 @@ object OcrModelStore {
                     }
                 }
             }
-            if (!ok) break // شبکه/سرور نیست — بقیه را هم بلاکردن بیهوده است
+            if (!ok) break
         }
         if (missing == 0) {
             emit("[*] مدلهایِ OCR از قبل آمادهاند — دانلودی لازم نبود.")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import json
 import os
@@ -92,7 +91,7 @@ PAGE = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
 
 <pre id="log" style="background:#08080a;color:#e8e6e1;border:1px solid #1f1f24;border-radius:12px;padding:14px;white-space:pre-wrap;max-height:38vh;overflow:auto;direction:ltr;text-align:left;font-size:12px"></pre>
 <div id="out"></div>
-<div class="credit"><a href="https://github.com/amirwolf512k/Manga-AutoTranslate">سورس — amirwolf512k</a></div>
+<div class="credit"><a href="https://github.com/amirwolf5122/Manga-AutoTranslate">سورس — amirwolf5122</a></div>
 
 <script>
 function syncCustom(){
@@ -285,7 +284,6 @@ class Handler(BaseHTTPRequestHandler):
         fields = _save_upload(self, work) or {}
         sid = str(int(time.time() * 1000))
         src = fields.get("file") or fields.get("url") or ""
-# چند فایل → پوشهٔ دسته‌ای
         _flist = fields.get("_files") or []
         if len(_flist) > 1:
             try:

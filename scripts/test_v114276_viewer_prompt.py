@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.276 — فیکسهایِ نمایشگر و پرامپت:
-
-۱) «چرا دیباگ داره تو نمایش اصلی نشون میده» + «دکمه دیباگ/نهایی/منو کو»:
-   ریشه: bridge کش را با پسوند میساخت (res.pdf.cache) در حالی که موتورِ v275
-   کشِ مستقل از فرمت دارد (res.cache) → جمعآوریِ کش خالی → فالبکِ پوشهٔ live
-   → فایلهایِ live_debug (نامشان debug ندارد!) می‌رفتند داخلِ «نمایشِ اصلی»
-   و لیستِ دیباگ (دکمهٔ سوئیچ) خالی میماند.
-۲) «⛶ این دکمه تو گوشی کلا کاربرد نداره حذف کن» — دکمهٔ فول‌اسکرین از
-   ریدرِ اندروید حذف شد (روی WebView کار نمی‌کند).
-۳) «اون پایین کارکتر گربه میزنه چند از چند خوندی… بزار بالا نوار» — نشانِ
-   زیرِ گربه حذف؛ همان اطلاعات (٪ + n/N) روی نوارِ پیشرفتِ پایین.
-۴) «گفته آویزون شو سرک از بغل… اونو نمیخواد نشون بدی» — نوشتههایِ
-   ناحیههایِ رهاکردن حذف (جعبههایِ راهنما می‌مانند).
-۵) «\n شو نشون نده» — \nِ لفظیِ پرامپتها به خطِ نو واقعی؛ بکاپهایِ قدیمی
-   هم موقعِ بازیابی پاک میشوند.
-"""
 import os
 import re
 import sys
@@ -42,7 +25,7 @@ def check(desc, ok, extra=""):
 
 print("۱) نشتِ دیباگ به نمایشِ اصلی (bridge + out_collect)")
 sys.path.insert(0, os.path.dirname(OUTCOLLECT))
-import out_collect as oc  # noqa: E402
+import out_collect as oc
 
 check("مسیرِ کش = همسانِ موتور (res.pdf → res.cache)",
       oc.cache_dir_of("/x/y/res.pdf") == "/x/y/res.cache")
@@ -50,7 +33,6 @@ check("کشِ html هم مشترک", oc.cache_dir_of("/x/y/res.html") == "/x/y/r
 check("پوشهٔ بیپسوند همان میماند",
       oc.cache_dir_of("/x/y/outdir") == "/x/y/outdir.cache")
 
-# ساختارِ واقعیِ پس از ران (مثلِ رانِ محلیِ تست) — کش + live + live_debug
 tmp = tempfile.mkdtemp(prefix="v276_")
 try:
     os.makedirs(os.path.join(tmp, "res.cache", "out_safe_v3_style-abc"))
@@ -83,7 +65,6 @@ try:
     check("input_batch در هیچ‌کدام نیست",
           all("input_batch" not in x for x in imgs + dbg))
 
-    # کشِ خالی (مثل رانِ لغوشده) → فالبک: live نهایی، live_debug دیباگ
     shutil.rmtree(os.path.join(tmp, "res.cache"))
     imgs2, dbg2 = oc.collect(os.path.join(tmp, "res.pdf"), tmp)
     check("فالبک: نمایشِ اصلی = live (نهایی)", bn(imgs2) == ["live_0001.jpg", "live_0002.jpg"], bn(imgs2))
@@ -137,7 +118,7 @@ check("نوشتههایِ ناحیه در کلِ فایل حذف", "آویزون
 
 print("۴) پرامپت — «\\n شو نشون نده»")
 sys.path.insert(0, ROOT)
-import manga  # noqa: E402  (لودرِ بخشها — همانِ واقعی)
+import manga
 lit = "\\" + "n"
 check("pramptها \nِ لفظی ندارند",
       lit not in manga.FLASH_PROMPT and lit not in manga.FLASH_LITE_PROMPT)

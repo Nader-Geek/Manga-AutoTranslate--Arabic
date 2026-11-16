@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""بنچمارکِ سرعتِ استخراج روی PC لینوکس — از شروع تا پایان با lama.onnx.
-
-استفاده:
-  python3 scripts/bench_speed.py --imgs /tmp/mt/imgs --out /tmp/mt/out \
-      [--label ci] [--report /tmp/mt/report.json]
-
-• یک رانِ «گرم‌کردن» روی اولین تصویر انجام میدهد (دانلود/کشِ مدل‌ها خارج
-  از زمانِ اصلی) بعد رانِ تایم‌شدهٔ کامل را روی همهٔ تصاویر میزند.
-• زمانِ کلِ دیوار + خطهایِ [TIME] خودِ manga.py را جمع میکند و
-  گزارشِ JSON + Markdown مینویسد.
-"""
 import argparse
 import json
 import os

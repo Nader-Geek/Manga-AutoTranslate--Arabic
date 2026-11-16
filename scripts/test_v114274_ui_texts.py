@@ -1,26 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""test_v114274_ui_texts.py — فایلِ واحدِ متن‌ها (v1.14.274)
-
-دستورِ سازنده: «همه اسم دکمه متن یا متن هاشو میخوام یک فایل بزاری تو
-manga_sections … هم پی سی هم اندروید هم لینوکس».
-
-چکها:
-  ۱) manga_sections/05_ui_texts.py خودش سالم بارگذاری میشود؛ کلیدها
-     یونیک و مقدارها از نوعِ درست (str یا list-of-str) هستند.
-  ۲) ui_texts_json() خروجیِ JSONِ معتبر با همان تعداد کلید میسازد.
-  ۳) manga_app.py: TX() روی نمونهٔ تغییریافته مقدارِ فایل را برمیگرداند؛
-     شمارِ فراخوانیهای TX( در سورس ≥ ۴۵.
-  ۴) شبه‌سازیِ تزریق: سروِ ریدرِ زنده (_LIVE_READER_TMPL) با
-     _ui_t_head() → window.UI_T + helperِ UT + پچِ DOM همه در <head>.
-  ۵) reader.html اندروید: helperِ UT موجود + همهٔ آرایههایِ حرفها و
-     متنهای داینامیک UT-پیچیده شده‌اند (نه رشتهٔ لخت).
-  ۶) MainActivity.kt: خواندنِ ui_texts.json + تزریقِ window.UI_T +
-     ut() برای عنوان/پیشوندها/توست/جای‌خالی.
-  ۷) bridge.py: نوشتنِ ui_texts.json کنارِ run.txt.
-  ۸) مانIFEST/لودر: 05_ui_texts.py در MANIFEST و خروجیِ ترکیبیِ لودر
-     تعریفِ UI_TEXTS را دارد.
-"""
 import ast
 import importlib.util
 import json
@@ -80,8 +58,6 @@ check("لودرِ importlib 05_ui_texts", "05_ui_texts.py" in src and "_load_ui_
 check("helperِ UT تعریف شده", "_UT_JS_HELPER" in src and "function UT(k,d)" in src)
 check("دو تزریقِ _ui_t_head", src.count("+ _ui_t_head() +") + src.count("_uit_head = _ui_t_head()") >= 2)
 
-# TX رفتار: مقدارِ فایل برنده، نبود کلید = پیش‌فرض — فقط بلوکِ لودر
-# را از سورس برمیداریم و در یک فضایِ نام اجرا میکنیم (بدون اجرایِ کلِ اپ).
 seg = re.search(
     r"(def _load_ui_texts\(\):.*?)\nUI_TEXTS = _load_ui_texts\(\)",
     src, re.S)

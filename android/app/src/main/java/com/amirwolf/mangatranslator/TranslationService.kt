@@ -10,14 +10,6 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 
-// /151 — سرویسِ پیشزمینهٔ ترجمه: تا وقتی کاری در جریان است، اپ را
-// از فریزِ «پردازهٔ انبارشده» (cached-app freezer، اندروید ۱۱+) در امان
-// نگه میدارد و اعلانِ «در حال ترجمه» با پیشرفت (صفحهٔ N از M + فاز) نشان
-// میدهد. کنترل از MainActivity: شروع با acquireKeepAwake (شروعِ کار)
-// توقف با releaseKeepAwake (پایانِ کار).
-// رفتارِ بستن: کاربر اپ را از recentها ببندد → onTaskRemoved
-// اعلان را کامل برمیدارد و سرویس میایستد (START_NOT_STICKY → هیچوقت
-// خودش بالا نمیآید و اعلانِ زامبی نمیگذارد).
 class TranslationService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -40,10 +32,6 @@ class TranslationService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-// «اپ میبندم پسزمینه داره کار میکنه با این که بستم»:
-// قبلاً فقط سرویس میایستاد ولی موتورِ پایتون (همان پروسه) با
-// wakeLock تا تمامشدنِ کار در پسزمینه ادامه میداد. حالا بستنِ اپ
-// از recentها = لغوِ فوریِ کارِ پایتون + خروجِ کاملِ پروسه.
         TranslationService.hardStopAndExit()
         try {
             stopForeground(true)
@@ -98,8 +86,6 @@ class TranslationService : Service() {
             )
         }
         val ph = phase.ifBlank { "در حال ترجمه…" }
-// «کدوم قسمته کدوم عکسه چند درصده»:
-// «استخراج متن — صفحهٔ ۳ از ۵ (٪۶۰)»
         val pct = if (total > 0 && done > 0) done * 100 / total else 0
         val txt = if (total > 0 && done > 0)
             "$ph — صفحهٔ $done از $total (٪$pct)" else ph
@@ -108,11 +94,6 @@ class TranslationService : Service() {
         } else {
             @Suppress("DEPRECATION") Notification.Builder(this)
         }
-// «مربعِ سیاه» نشون میداد: smallIcon فقط کانالِ آلفا را
-// میخواند و ic_launcher مربعِ قرمزِ توپر بود → silhouetteِ مربع.
-// درمان: ic_notif = نویسهٔ «漫» سفیدِ خودِ لوگو (زمینهٔ شفاف).
-        // setLargeIcon (لوگویِ رنگیِ کنارِ متن) حذف شد
-// فقط یک آیکون (smallIcon) در اعلان میماند.
         b.setContentTitle("مانگا مترجم")
             .setContentText(txt)
             .setSmallIcon(R.drawable.ic_notif)
@@ -150,11 +131,6 @@ class TranslationService : Service() {
             }
         }
 
-// توقفِ سختِ همه‌چیز: لغوِ کارِ پایتون (stop_requested →
-// قطعِ بینِ صفحه‌ها) + یک فرصتِ کوتاه برای تمامشدنِ نوشتنِ فایلِ
-// جاری + کشتنِ کاملِ پروسه. هم از onTaskRemoved (سوایپ از recentها)
-// هم از onDestroyِ اکتیویتی وقتی isFinishing (خروجِ واقعی) صدا
-// زده میشود — ولی هرگز در home/تعویضِ اپ (آن مسیرِ ادامهٔ کار است).
         @Volatile
         private var hardStopDone = false
 

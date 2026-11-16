@@ -11,7 +11,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>خواندن</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}html,body{background:#000;color:#e8e6e1;font-family:system-ui,-apple-system,sans-serif;overscroll-behavior-y:contain;-webkit-user-select:none;user-select:none;height:100%;overflow:hidden}.rdr{background:#000;direction:ltr;height:100%;display:flex;flex-direction:column}.rdr-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;background:rgba(12,12,14,.97);border-bottom:1px solid #232326;z-index:2;flex:0 0 auto}.rdr-btn{background:#161619;color:#e8e6e1;border:1px solid #2a2a2e;border-radius:8px;padding:8px 12px;font-size:.95rem;cursor:pointer;font-family:inherit;min-width:40px;min-height:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}.rdr-btn:active{background:#2a2a30}.rdr-btn.fs{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}.rdr-title{flex:1 1 120px;color:#97948c;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;direction:rtl;min-width:0}.rdrS{flex:1 1 auto;overflow:auto;position:relative;background:#000;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-x pan-y}.rdrC{margin:0 auto;max-width:min(100%,900px);width:100%}.rdrC .lg{width:100%;position:relative}.rdrC .lg[hidden]{display:none}.rdrC img{display:block;width:100%;height:auto;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none;background:#0b0b0d}.dslot{position:relative;width:100%}.dslot>svg.dovl{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:block}.rdrC.no-det .g-det{display:none}.rdrC.no-pdet .g-pdet{display:none}.rdrC.no-rec .g-rec{display:none}.rdr-progress{position:fixed;bottom:0;left:0;right:0;height:3px;background:#1a1a1c;z-index:3}.rdrB{height:100%;width:0;background:linear-gradient(90deg,#ff4a3d,#ff8a5e)}.prog-lab{position:fixed;bottom:9px;left:50%;transform:translateX(-50%);background:rgba(10,10,12,.85);border:1px solid #2a2a2e;color:#ffcf9e;border-radius:9px;padding:2px 10px;font-size:.68rem;font-variant-numeric:tabular-nums;z-index:4;pointer-events:none;white-space:nowrap}.zlv{color:#97948c;font-size:.8rem;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}.ph{width:100%;direction:rtl;aspect-ratio:2/3;background:linear-gradient(100deg,#101012 40%,#17171a 50%,#101012 60%);background-size:200% 100%;animation:shph 1.6s infinite;border-radius:10px;margin:0 0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#5d5b55;font-size:.8rem}@keyframes shph{0%{background-position:120% 0}100%{background-position:-80% 0}}.sp{width:26px;height:26px;border-radius:50%;border:3px solid #26262a;border-top-color:#ff4a3d;animation:spinph 1s linear infinite}@keyframes spinph{to{transform:rotate(360deg)}}@media (max-width:480px){.rdr-bar{gap:4px;padding:6px 8px}.rdr-btn{padding:7px 10px;font-size:.9rem;min-width:36px}.rdr-title{font-size:.72rem;order:10;flex:1 1 100%;text-align:center}}#fab{position:fixed;z-index:80;left:18px;bottom:26px;width:60px;height:60px;border-radius:50%;background:#161619;border:2px solid #ff4a3d;color:#fff;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 6px 20px rgba(0,0,0,.6);-webkit-tap-highlight-color:transparent;user-select:none}#fab:active{transform:scale(.93)}#fab.open{background:#2c1210;color:#ffb3ab;font-size:1.2rem}.fbtn{position:fixed;z-index:79;width:58px;height:58px;border-radius:50%;background:#1c1c20;border:2px solid #2e2e33;color:#e8e6e1;font-family:inherit;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(0,0,0,.55);opacity:0;pointer-events:none;transform:scale(.3);transition:opacity .15s ease-out,transform .15s ease-out,left .15s linear,top .15s linear}.fbtn.show{opacity:1;pointer-events:auto;transform:scale(1)}.fbtn .ic{font-size:1.02rem;line-height:1.1}.fbtn.on{border-color:#3a8bff;background:#101f38;color:#fff}.fbtn.fdbg.on{border-color:#ff4a3d;background:#2c1210}.fbtn.fcmp.on{border-color:#ff4a3d;background:#2c1210}.rdr-btn.hot{background:#ff4a3d;border-color:#ff4a3d;color:#fff;font-weight:700}#cmp{position:fixed;inset:0;z-index:70;background:#000;display:none}#cmp.show{display:block}.cmp-stage{position:absolute;inset:0;overflow:hidden;touch-action:none;background:#0b0b0d}.cmp-stage img{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none;background:#0b0b0d}#cmpBWrap{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 50%);-webkit-clip-path:inset(0 0 0 50%)}#cmpDiv{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.75);z-index:3;pointer-events:none}#cmpDiv .cmp-h{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:#fff;color:#151517;display:flex;align-items:center;justify-content:center;font-size:1.05rem;box-shadow:0 2px 12px rgba(0,0,0,.6)}.cmp-lab{position:absolute;top:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:3px 10px;font-size:.78rem;z-index:3;pointer-events:none}.cmp-lab.b{right:12px}.cmp-lab.a{left:12px}.cmp-tchip{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.62);color:#fff;border-radius:9px;padding:4px 12px;font-size:.8rem;z-index:4;pointer-events:none;direction:rtl;white-space:nowrap}
-/* —— هم‌خوانِ نکو-گِرل v272: دخترِ گربه‌گوشِ استیکری — سرِ گردِ توپُش + بدنِ خُرد — ۲۴ حالت + قایم‌شدن پشتِ دیوار + خاموش‌کردنِ صفحه —— */
 .mcat{position:fixed;z-index:57;right:10px;top:58px;width:70px;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));cursor:pointer;transition:opacity .3s}
 .mcat svg{display:block;width:100%;height:auto;pointer-events:none}
 @media (min-width:768px){.mcat{width:76px;right:18px;top:auto;bottom:112px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}}
@@ -23,13 +22,9 @@
 .mcat-say{position:absolute;top:calc(100% + 22px);right:-2px;white-space:nowrap;background:#fff;color:#1d1d21;border-radius:12px;padding:4px 10px;font-size:.72rem;pointer-events:none;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .18s ease,transform .18s ease;z-index:2}
 .mcat-say.show{opacity:1;transform:translateY(0) scale(1)}
 .mcat-say:after{content:'';position:absolute;top:-4px;right:14px;width:9px;height:9px;background:#fff;transform:rotate(45deg)}
-/* — گروههای پنهان — */
 .cg-eyes,.cg-mv,.cg-zzz,.cg-sweat,.cg-tears,.cg-heart,.cg-spark,.cg-anger,.cg-steam,.cg-ball,.cg-music,.cg-glass,.cg-shyhands,.cg-shyblush,.cg-hand-chin,.cg-arms-up,.cg-arms-stretch,.cg-snack,.cg-crumbs,.cg-rumble,.cg-think,.cg-speed{display:none}
-/* — چشم‌ها بر اساس حالت — */
 .mcat.st-read .cg-eyes-open,.mcat.st-study .cg-eyes-open,.mcat.st-hide .cg-eyes-open,.mcat.st-peek .cg-eyes-open,.mcat.st-exc .cg-eyes-happy,.mcat.st-pat .cg-eyes-happy,.mcat.st-spin .cg-eyes-happy,.mcat.st-music .cg-eyes-happy,.mcat.st-dance .cg-eyes-happy,.mcat.st-run .cg-eyes-happy,.mcat.st-sleep .cg-eyes-sleep,.mcat.st-yawn .cg-eyes-sleep,.mcat.st-think .cg-eyes-think,.mcat.st-stress .cg-eyes-worry,.mcat.st-sad .cg-eyes-sad,.mcat.st-shy .cg-eyes-down,.mcat.st-hungry .cg-eyes-down,.mcat.st-eat .cg-eyes-shifty,.mcat.st-annoy .cg-eyes-annoy,.mcat.st-angry .cg-eyes-angry,.mcat.st-ball .cg-eyes-up,.mcat.st-hang .cg-eyes-happy,.mcat.st-edgesit .cg-eyes-happy,.mcat.st-sidepeek .cg-eyes-open{display:block}
-/* — دهان‌ها بر اساس حالت — */
 .mcat.st-read .cg-mv-smile,.mcat.st-exc .cg-mv-smile,.mcat.st-sleep .cg-mv-smile,.mcat.st-stress .cg-mv-smile,.mcat.st-sad .cg-mv-smile,.mcat.st-pat .cg-mv-smile,.mcat.st-spin .cg-mv-smile,.mcat.st-peek .cg-mv-smile,.mcat.st-hide .cg-mv-smile,.mcat.st-dance .cg-mv-smile,.mcat.st-run .cg-mv-smile,.mcat.st-hang .cg-mv-smile,.mcat.st-edgesit .cg-mv-smile,.mcat.st-sidepeek .cg-mv-smile,.mcat.st-study .cg-mv-focus,.mcat.st-think .cg-mv-focus,.mcat.st-shy .cg-mv-tee,.mcat.st-hungry .cg-mv-tee,.mcat.st-annoy .cg-mv-pout,.mcat.st-angry .cg-mv-shout,.mcat.st-ball .cg-mv-o,.mcat.st-music .cg-mv-song,.mcat.st-yawn .cg-mv-yawn,.mcat.st-eat .cg-mv-munch{display:block}
-/* — افکت‌های هر حالت — */
 .mcat.st-sleep .cg-zzz{display:block}
 .mcat.st-stress .cg-sweat{display:block}
 .mcat.st-sad .cg-tears{display:block}
@@ -50,11 +45,9 @@
 .mcat.st-run .cg-speed{display:block}
 .mcat.st-eat .cg-snack{display:block}
 .mcat.st-eat .cg-crumbs{display:block}
-/* — بازوها و کتاب در حالتهای ویژه — */
 .mcat.st-dance .cg-hug,.mcat.st-dance .cg-book,.mcat.st-yawn .cg-hug,.mcat.st-yawn .cg-book,.mcat.st-eat .cg-hug,.mcat.st-hang .cg-hug,.mcat.st-hang .cg-book{display:none}
 .mcat.st-dance .cg-arms-up{display:block}
 .mcat.st-yawn .cg-arms-stretch,.mcat.st-hang .cg-arms-stretch{display:block}
-/* — کی‌فریم‌ها — */
 @keyframes mcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
 @keyframes mcBounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-7px) scale(1.05)}60%{transform:translateY(0) scale(.97)}}
 @keyframes mcBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
@@ -86,7 +79,6 @@
 @keyframes mcHang{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(4px) rotate(2deg)}}
 @keyframes mcCrumbs{0%{opacity:0;transform:translateY(0)}30%{opacity:1}100%{opacity:0;transform:translateY(9px)}}
 @keyframes mcSpeedFlick{0%,100%{opacity:.15}50%{opacity:1}}
-/* — انیمیشنِ بدنه — */
 .mcat .cg-all{transform-origin:60px 108px;animation:mcBob 3.4s ease-in-out infinite}
 .mcat.st-exc .cg-all{animation:mcBounce .55s ease-in-out infinite}
 .mcat.st-sleep .cg-all{animation:mcBreath 2.8s ease-in-out infinite}
@@ -106,7 +98,6 @@
 .mcat.st-shy .cg-all{animation:mcShyWig 2.2s ease-in-out infinite}
 .mcat.st-hide .cg-all{animation:mcPeekBob 3s ease-in-out infinite}
 .mcat.st-peek .cg-all{animation:mcPeekBob 2.4s ease-in-out infinite}
-/* — سر و گوش و دُم — */
 .mcat .cg-head{transform-origin:60px 82px}
 .mcat.st-annoy .cg-head{transform:translateX(-7px) rotate(-10deg)}
 .mcat.st-annoy .cg-blush{display:none}
@@ -122,7 +113,6 @@
 .mcat .cg-ear-r{transform-origin:80px 28px;animation:mcEarT 6s ease-in-out .8s infinite}
 .mcat.st-sleep .cg-ear-l,.mcat.st-sleep .cg-ear-r,.mcat.st-pat .cg-ear-l,.mcat.st-pat .cg-ear-r{animation:none}
 .mcat.st-eat .cg-ear-l,.mcat.st-eat .cg-ear-r{animation:mcEarT 2.2s ease-in-out infinite}
-/* — جزئیاتِ متحرک — */
 .mcat .cg-eyes-open{transform-origin:60px 56px;animation:mcBlink 5.6s infinite}
 .mcat .cg-heart{animation:mcPop 1.6s ease-out}
 .mcat .cg-zzz text{animation:mcPop 2.4s ease-in-out infinite}
@@ -152,7 +142,6 @@
 .mcat.st-dance .cg-arms-up .arm-l{transform-origin:38px 94px;animation:mcWave 1.1s ease-in-out infinite}
 .mcat.st-dance .cg-arms-up .arm-r{transform-origin:82px 94px;animation:mcWave 1.1s ease-in-out .55s infinite}
 .mcat.st-think .cg-hand-chin{transform-origin:72px 97px;animation:mcBob 2.6s ease-in-out infinite}
-/* — قایم‌شدن در گوشه‌ها (رندوم از ۴ گوشه) — */
 .mcat.st-hide .mcat-bub,.mcat.st-peek .mcat-bub,.mcat.st-hang .mcat-bub,.mcat.st-edgesit .mcat-bub,.mcat.st-sidepeek .mcat-bub{display:none}
 .mcat.st-hide .mcat-say{top:auto;bottom:calc(100% + 10px)}
 .mcat.st-hide .mcat-say:after{top:auto;bottom:-4px}
@@ -162,9 +151,7 @@
 .mcat.peek-r .mcat-say:after{left:auto;right:18px}
 .mcat.away{opacity:0;pointer-events:none;transition:opacity .35s .7s}
 .mcat.glide{transition:left .75s cubic-bezier(.35,.8,.35,1),top .75s cubic-bezier(.35,.8,.35,1),opacity .3s}
-/* — v271: چشم‌های دنبال‌کنندهٔ موس (پی‌سی/لینوکس) — */
 .cg-eyes-open .cg-pupil{transition:transform .18s ease-out}
-/* — v271: حالتهای رهاکردنِ کاراکتر در نقاط صفحه — */
 .mcat.st-hang svg{transform:scaleY(-1)}
 .mcat.st-hang .cg-all{animation:mcHangSway 2.6s ease-in-out infinite;transform-origin:60px 26px}
 .mcat.st-hang .cg-tail{animation:none}
@@ -182,7 +169,6 @@
 @keyframes mcSitBob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-2px) rotate(2deg)}}
 @keyframes mcLean{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}
 @keyframes mcBite{0%,40%,100%{transform:translate(0,0)}55%,70%{transform:translate(-5px,-6px)}}
-/* — v271: راهنمای نقاطِ رهاکردن هنگام درگ — */
 #mcatzones{position:fixed;left:0;top:0;right:0;bottom:0;z-index:56;pointer-events:none;display:none}
 #mcatzones.show{display:block}
 .mz{position:absolute;border:2.5px dashed rgba(217,89,112,.5);border-radius:16px;background:rgba(217,89,112,.05);display:flex;align-items:center;justify-content:center;color:#d95970;font-size:12px;font-weight:800;opacity:.8;transition:opacity .15s,background .15s,transform .15s}
@@ -192,10 +178,8 @@
 .mz-left{left:8px;top:24%;bottom:24%;width:13%}
 .mz-right{right:8px;top:24%;bottom:24%;width:13%}
 .mz-center{left:17%;right:17%;top:24%;bottom:24%;border-radius:26px}
-/* — v272 (از v269): قایم‌شدن پشتِ دیوارِ لبهٔ صفحه — دیوارِ کرم داخلِ SVG نیمهٔ پشتی را می‌پوشاند — */
 .cg-wall{display:none}
 .mcat.st-hide .cg-wall{display:block}
-/* — v272 (از v269): اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش — */
 #mcatOff{position:fixed;inset:0;z-index:95;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .5s ease;direction:rtl}
 #mcatOff.show{opacity:1;pointer-events:auto;cursor:pointer}
 #mcatOff .off-eyes{width:min(220px,46vw);height:auto;animation:offBlink 4.6s ease-in-out infinite}
@@ -355,10 +339,6 @@
   const c = root.querySelector('.rdrC');
   const bar = root.querySelector('.zlv');
   const prog = root.querySelector('.rdrB');
-  // ——— کشِ «بارِ اول»: عکسها فقط یک بار از سرورِ محلی/وب
-  // میآیند؛ blob در حافظهٔ جلسه + IndexedDB میماند (گوشی/وب) —
-  // برگشتِ اسکرول، سوئیچِ دیباگ/نهایی و حتی بستن و بازکردنِ
-  // دوبارهٔ همان فصل، دیگر هیچ لودِ دوبارهای ندارد.
   const idbOK = (() => { try { return !!window.indexedDB; } catch (err) { return false; } })();
   let _db = null;
   const idb = () => {
@@ -428,8 +408,6 @@
     });
   };
   const abs = (u) => { try { return new URL(u, location.href).href; } catch (err) { return u; } };
-  // توکنِ ران (data-run از MainActivity): کلیدهای کش با آن پیشوند
-  // میگیرند — رانِ جدید = کلیدِ جدید = عکسِ رانِ قبل از کش نمیآید
   const RUN = (document.body.getAttribute('data-run') || '').replace(/[^A-Za-z0-9_-]/g, '');
   const ck = (u) => RUN + '|' + u;
   const blobMem = new Map(), blobFail = new Map();
@@ -471,7 +449,6 @@
   let z = 1;
   const MIN = 0.5, MAX = 4;
   const baseWidth = () => Math.max(200, Math.min(900, s.clientWidth || window.innerWidth || 360));
-  // زومِ کانونی نسبت به خودِ اسکرولر — نقطهٔ زیرِ انگشت ثابت می‌ماند
   const applyZoom = (nz, cx, cy) => {
     nz = Math.min(MAX, Math.max(MIN, +nz || 1));
     const rc = s.getBoundingClientRect();
@@ -517,37 +494,17 @@
     if (z > 1.3) setZoom(1);
     else zoomBy(2.2, e.clientX, e.clientY);
   });
-  // پنِ تک‌انگشتی به WebView سپرده شد — درگ روی .rdrS (overflow:auto)
-  // به‌طور طبیعی افقی/عمودی با مومنتوم اسکرول می‌کند. JS فقط پینچ را می‌گیرد.
-  // ضدِ لگِ زوم (مشکلِ «عکسِ دوم زوم می‌کنم لگ میزنه»): زومِ
-  // چیدمانی (تغییرِ width) در «هر» فریمِ پینچ، همهٔ تصویرهایِ عظیمِ داخلِ
-  // DOM را دوباره چیدمان+رستریزی می‌کند (هر صفحه ۲۸MP!) — با چند صفحه
-  // بودجۀ رستریWebView تمام می‌شود = لگ. حالا در حینِ پینچ فقط transformِ
-  // GPU (بدونِ چیدمان) با نرخِ RAF اعمال می‌شود و در «پایانِ» پینچ یک‌بار
-  // چیدمانِ نهایی commit می‌شود (برندگیِ تیز مثل قبل).
   let pinch = null, pinchRaf = 0, pinchEvt = null;
   const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
   const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
   const clampZ = (nz) => Math.min(MAX, Math.max(MIN, +nz || 1));
-  // فیکسِ «زوم می‌کنم دستم را بردارم می‌پرد بالا/پایین»: کامیتِ
-  // قبلی نقطهٔ زیرِ انگشت را (scroll+mid)/z می‌گرفت؛ ولی در حینِ پینچ چیدمان
-  // هنوز در startZ بود و فقط transformِ GPU با k=kz/startZ بزرگ‌نمایی می‌کرد —
-  // یعنی نقطهٔ واقعیِ چیدمانیِ زیرِ انگشت (scroll+mid)/k بود، نه ÷z بعد از
-  // رهاکردنِ انگشت نقطهٔ اشتباهی کانون می‌شد = پرش. حالا نقطه با k اصلاح
-  // می‌شود و اگر یک انگشت باقی مانده باشد، کانون = همان انگشتِ باقی‌مانده
-  // (نه وسطِ دو انگشت) تا پنِ تک‌انگشتیِ بعدش بدونِ جهش ادامه یابد.
-  // فیکسِ «زوم کنم کمی میره چپ یا بالا»: اسکرول باید «با
-  // ترنسفورمِ فعال» خوانده شود! پاک‌کردنِ transform، سرریزِ اسکرولی را به
-  // چیدمانِ بدونِ زوم برمی‌گرداند و مرورگر همان لحظه scrollLeft/Top را به
-  // مرزِ جدید گیره می‌کند (افقیِ صفحهٔ هم‌عرضِ صفحه: همیشه 0!) مقدارِ
-  // خوانده‌شده خراب بود و کانونِ کامیت به هم می‌ریخت = سرخوردن در رهاکردن.
   const commitPinch = (anchor) => {
     if (pinchRaf) { cancelAnimationFrame(pinchRaf); pinchRaf = 0; }
     if (!pinch) return;
     const kz = pinch.curZ || pinch.startZ;
     const lm = anchor || pinch.lastMid;
     const k = kz / Math.max(0.01, pinch.startZ);
-    const slT = s.scrollLeft, stT = s.scrollTop;  // با ترنسفورمِ فعال
+    const slT = s.scrollLeft, stT = s.scrollTop;
     const noMove = (pinch.curZ == null) || (kz === pinch.startZ && !pinch.lastMid);
     pinch = null;
     c.style.transform = '';
@@ -556,11 +513,6 @@
     if (lm) {
       const rc = s.getBoundingClientRect();
       const sx = lm.x - rc.left, sy = lm.y - rc.top;
-      // نقطهٔ چیدمانیِ زیرِ lm با احتسابِ transformِ فعلی (k) — واحد: چیدمانِ
-      // startZ. چیدمانِ جدید W1=baseWidth*kz = W0*k است اسکرولِ درست =
-      // fx*k − sx (نه fx*kz − sx! fx*kz فقط وقتی startZ=1 درست بود؛ در
-      // پینچِ دوم به بعد چیدمانِ قبلی baseWidth*startZ بود پرشِ
-      // «دستم را بردارم میره پایین/بالا»). fx*k = fx*kz/startZ.
       const fx = (slT + sx) / k;
       const fy = (stT + sy) / k;
       z = kz;
@@ -571,7 +523,6 @@
       if (bar) bar.textContent = Math.round(kz * 100) + '%';
       root.dataset.zoom = String(z);
     } else if (noMove) {
-      // پینچِ بدونِ هیچ حرکتی (تپِ دومنگشتی): هیچ چیز نباید جابه‌جا شود
       if (bar) bar.textContent = Math.round(kz * 100) + '%';
     } else {
       applyZoom(kz);
@@ -579,12 +530,11 @@
   };
   document.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
-      // اگر پینچِ قبلی وسطِ کار بود اول commit کن
       if (pinch) commitPinch();
       pinch = {
         startDist: dist(e.touches[0], e.touches[1]),
         startZ: z, curZ: z,
-        F: null,        // نقطهٔ محتواییِ زیرِ وسطِ انگشت‌ها (مختصاتِ چیدمان)
+        F: null,
         lastMid: null
       };
       c.style.willChange = 'transform';
@@ -603,22 +553,11 @@
           const d = dist(ev.touches[0], ev.touches[1]);
           const m = mid(ev.touches[0], ev.touches[1]);
           const kz = clampZ(pinch.startZ * (d / Math.max(1, pinch.startDist)));
-          // k نسبت به «چیدمان» است که هنوز در startZ است
           const k = kz / Math.max(0.01, pinch.startZ);
-          // تبدیلِ GPU: فقط رستریِ لایه — هیچ چیدمانِ دوباره
           c.style.transform = 'scale(' + k + ')';
           const rc = s.getBoundingClientRect();
           const mx = m.x - rc.left, my = m.y - rc.top;
-          // فیکسِ «زوم می‌کنم میره پایین»: قبلاً اسکرول با
-          // فرمولِ بازگشتیِ (scroll+mid)*k−mid روی مقدارِ «قبلیِ» خودش
-          // اعمال می‌شد؛ هر فریم در k>1 ضربِ دوباره می‌شد اسکرول به‌صورت
-          // تصاعدی به پایین می‌رفت. حالا «مطلق»: نقطهٔ محتواییِ F یک‌بار در
-          // شروعِ پینچ قفل می‌شود و اسکرول هر فریم = F*k − midِ فعلی —
-          // بدونِ پس‌خور؛ حرکتِ انگشت‌ها هم پنِ طبیعی می‌دهد.
           if (!pinch.F) pinch.F = { x: s.scrollLeft + mx, y: s.scrollTop + my };
-          // اسکرول ممکن است به مرزِ چیدمان بخورد (ناحیهٔ دیده‌شدهٔ
-          // transform بزرگ‌تر از چیدمان است) — اگر خورد، کانون را به وضعیتِ
-          // واقعی قفل کن تا فریم‌های بعدی از همان‌جا ادامه دهند (بدونِ جهش)
           const mX = s.scrollWidth - s.clientWidth, mY = s.scrollHeight - s.clientHeight;
           const wX = pinch.F.x * k - mx, wY = pinch.F.y * k - my;
           const tX = Math.max(0, Math.min(mX, wX));
@@ -634,7 +573,6 @@
     }
   }, { passive: false });
   document.addEventListener('touchend', (e) => {
-    // اگر یک انگشت باقی مانده، همان انگشت کانونِ کامیت شود
     if (pinch && e.touches.length < 2)
       commitPinch(e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null);
   });
@@ -644,7 +582,6 @@
     const m = s.scrollHeight - s.clientHeight;
     const pc = m > 0 ? Math.min(100, Math.max(0, s.scrollTop / m * 100)) : 0;
     prog.style.width = pc + '%';
-    // پیشرفتِ خواندن روی خودِ نوارِ پایین — جایِ نشانِ زیرِ گربه
     const pl = document.getElementById('progLab');
     if (pl) {
       const fa = (v) => String(v).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
@@ -669,17 +606,6 @@
     else if (e.key === '-' || e.key === '_') zoomBy(0.87);
     else if (e.key === '0') setZoom(1);
   });
-  // نمایش زنده داخل خواننده + سوئیچ دیباگ (: دو لیستِ موازی) ———
-  // دیباگ هم زنده. : لیستِ نهایی و لیستِ دیباگ هر دو همیشه در
-  // DOM می‌مانند (لیستِ غیرفعال فقط مخفی است) سوئیچ هیچ‌چیز را نابود/بازسازی
-  // نمی‌کند، تصویرها دوباره لود نمی‌شوند، اسکرولِ هر حالت جدا به‌خاطر سپرده
-  // می‌شود و به‌روزرسانیِ زنده به لیستِ مخفی هم اعمال می‌شود = «از نمایش زنده
-  // در نمی‌افتد».
-  // ——— کلیدهایِ روکشِ دیباگ: هر موتور جدا روشن/خاموش ———
-  // عکسِ پایهٔ بی‌روکش (db/i) همیشه سرِ جایش میماند؛ جعبهها
-  // «SVG» رویِ خودش کشیده میشوند. روشن/خاموشکردنِ هر کلید فقط
-  // یک کلاسِ CSS رویِ ظلعوض میکند — نه رفرش، نه لودِ دوباره،
-  // نه تعویضِ عکس. لحظه‌ای است.
   let ov = { det: 1, pdet: 1, rec: 1 };
   const ovCache = {};
   const SVGNS = 'http://www.w3.org/2000/svg';
@@ -778,9 +704,6 @@
   function setOvlBtns() { updateFan(); }
   let dbgMode = false, arrived = 0, total = 0, ndbg = 0;
   let isLive = false, sessionDone = false;
-  // دو لیستِ موازی: lgF = نهایی، lgD = دیباگ ———
-  // تصویرها/اسلات‌های استاتیکِ تزریقیِ اندروید مستقیماً داخل .rdrC هستند
-  // همه به لیستِ نهایی منتقل می‌شوند و لیستِ دیباگ کنارشان ساخته می‌شود.
   const lgF = document.createElement('div');
   lgF.className = 'lg lgF';
   const lgD = document.createElement('div');
@@ -789,13 +712,6 @@
   while (c.firstChild) lgF.appendChild(c.firstChild);
   c.appendChild(lgF);
   c.appendChild(lgD);
-  // : لودِ تدریجی برای رمِ کمتر («نمایش زنده کم کم لود کنه») ———
-  // تصویرها تا ۲۸ مگاپیکسل‌اند؛ هر کدام ~۱۱۰MB بیت‌مپِ دیکودشده می‌خواهد و
-  // WebView با چند صفحه خفه می‌شود. حالا فقط نوارِ اطرافِ دید (±۲.۲ برابرِ
-  // ارتفاعِ دید) نگه داشته می‌شود؛ صفحاتِ دور به placeholderِ ۱px برمی‌گردند
-  // (اول aspect-ratio از اندازهٔ واقعی قفل می‌شود تا چیدمان و اسکرول ذره‌ای
-  // تکان نخورد) و با نزدیک‌شدن دوباره لود می‌شوند = لودِ «کم‌کم». لیستِ مخفی
-  // (display:none) همیشه کاملاً تخلیه است و هنگام سوئیچ از نو لود می‌شود.
   const PH1 = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   const mgIO = ('IntersectionObserver' in window) ? new IntersectionObserver((es) => {
     for (const en of es) {
@@ -816,7 +732,6 @@
           }
         }
       } else if (im.naturalWidth > 1 && im.naturalHeight > 1) {
-        // >1: placeholderِ ۱px هرگز aspect-ratio را با ۱/۱ بازنویسی نکند
         try { im.style.aspectRatio = im.naturalWidth + '/' + im.naturalHeight; } catch (err) {}
         if (im.getAttribute('src') !== PH1) im.setAttribute('src', PH1);
       }
@@ -840,8 +755,6 @@
       mgImg(im);
       return im;
     }
-    // دیباگ: پایهٔ بی‌روکش (db/) + روکشِ SVG؛ تصویرِ سوختهٔ d/
-    // فقط فالبکِ وقتی است که پایه وجود ندارد — همه از کش
     const w = document.createElement('div');
     w.className = 'dslot';
     const im = document.createElement('img');
@@ -870,14 +783,11 @@
     (el.classList && el.classList.contains('dslot') &&
      el.firstChild && el.firstChild.tagName === 'IMG'));
   arrived = lgF.querySelectorAll('img').length;
-  // تصویرهایِ تزریقیِ استاتیکِ اندروید هم تحتِ مدیریتِ لودِ تدریجی
   try { lgF.querySelectorAll('img').forEach(mgImg); } catch (err) {}
   const scrollMem = { final: 0, dbg: 0 };
   try {
     ndbg = parseInt(document.body.getAttribute('data-ndbg') || '0', 10) || 0;
   } catch (err) { ndbg = 0; }
-  // دکمهٔ دیباگ/نهایی بالای صفحه — فقط وقتی صفحهٔ دیباگ هست
-  // (شنوندهٔ کلیک همیشه وصل است؛ صفحههای دیباگِ دیررس خودشان دکمه را روشن میکنند)
   const mtEl = document.getElementById('mtoggle');
   if (mtEl) {
     mtEl.addEventListener('click', () => { dbgMode = !dbgMode; applyMode(); });
@@ -889,16 +799,11 @@
     d.innerHTML = '<span class="sp"></span>' + UT('rdr.translating', 'در حال ترجمه…');
     return d;
   };
-  // تعدادِ اسلاتِ «در حال ترجمه» که در اولین رندر تزریق شده — بعد از اولین
-  // __mangaLive این عدد با total جایگزین می‌شود ( هم همین بود)
   let staticPh = lgF.querySelectorAll('.ph').length;
   function renderFinal() {
     let want = arrived + (total > 0 ? Math.max(0, total - arrived) : staticPh);
     if (total > 0) want = Math.max(total, arrived);
     while (lgF.children.length < want) lgF.appendChild(mkPh());
-    // اسلاتِ اضافه جمع شود — اگر اندروید بیشتر از totalِ واقعی اسلات
-    // تزریق کرده باشد، placeholderِ سرگردانِ «در حال ترجمه…» برای همیشه آخرِ
-    // لیست می‌ماند (تصویرها هرگز حذف نمی‌شوند؛ فقط placeholderِ انتهایی)
     if (total > 0) {
       while (lgF.children.length > want &&
              lgF.children[lgF.children.length - 1].className === 'ph') {
@@ -908,15 +813,11 @@
     for (let i = 0; i < arrived && i < lgF.children.length; i++) {
       const el = lgF.children[i];
       if (el && el.tagName !== 'IMG' && !el.__pend) {
-        // ضدِ چشمکِ اسلاتِ تازه: قبلاً placeholder بلافاصله با
-        // imgِ خالی عوض میشد تا دیکود، زمینهٔ تیره دیده میشد («چراغِ
-        // خاموش»). حالا تصویر اول بیرون از DOM کامل دیکود میشود
-        // placeholder تا آخرین لحظه سرِ جایش میماند و بعد عوض میشود.
         el.__pend = 1;
         const im = document.createElement('img');
         im.dataset.src = 'i/' + i;
         im.src = PH1;
-        im.loading = 'eager';      // تصویرِ جدا از DOM: lazy هرگز نمیآید
+        im.loading = 'eager';
         im.decoding = 'async';
         im.alt = ''; im.draggable = false;
         const put = () => {
@@ -924,7 +825,7 @@
           const cur = lgF.children[i];
           if (cur && cur.tagName !== 'IMG' && cur.__pend) {
             lgF.replaceChild(im, cur);
-            mgImg(im);             // لودِ تدریجی بعد از درج
+            mgImg(im);
           }
         };
         imgGet('i/' + i).then((u) => {
@@ -941,9 +842,8 @@
   }
   function renderDbg() {
     let w = ndbg;
-    if (isLive && !sessionDone) w += 1; // اسلاتِ زندهٔ آخرِ لیست
+    if (isLive && !sessionDone) w += 1;
     while (lgD.children.length < w) lgD.appendChild(mkPh());
-    // با پایانِ نشست، اسلاتِ اضافه فقط وقتی جمع می‌شود که واقعاً placeholder است
     if (!isLive || sessionDone) {
       while (lgD.children.length > ndbg &&
              lgD.children[lgD.children.length - 1].className === 'ph') {
@@ -953,8 +853,6 @@
     for (let i = 0; i < ndbg && i < lgD.children.length; i++) {
       const el = lgD.children[i];
       if (el && !slotFilled(el) && !el.__pend) {
-        // همان ضدِ چشمکِ اسلاتِ تازه، برایِ لیستِ دیباگ —
-        // پایهٔ بیروکش + روکشِ SVG (db/ + dj/)
         el.__pend = 1;
         const node = mkImg(i, true, true);
         const im = node.firstChild;
@@ -963,7 +861,6 @@
           const cur = lgD.children[i];
           if (cur && !slotFilled(cur) && cur.__pend) {
             lgD.replaceChild(node, cur);
-            // روکشِ SVG بعد از نشستنِ اسلات وصل میشود
             ensureOvlIdx(i, node);
           }
         };
@@ -978,8 +875,7 @@
     updateProgress();
   }
   function applyMode() {
-    // فقط نمایش/مخفی + بازیابیِ اسکرولِ همان حالت — بدونِ بازسازی
-    scrollMem[dbgMode ? 'final' : 'dbg'] = s.scrollTop; // اسکرولِ حالتِ قبلی
+    scrollMem[dbgMode ? 'final' : 'dbg'] = s.scrollTop;
     lgF.hidden = dbgMode;
     lgD.hidden = !dbgMode;
     s.scrollTop = Math.min(scrollMem[dbgMode ? 'dbg' : 'final'],
@@ -988,8 +884,6 @@
       mtEl.textContent = dbgMode ? UT('rdr.final', 'نهایی') : UT('rdr.debug', 'دیباگ');
       mtEl.classList.toggle('hot', dbgMode);
     }
-    // منویِ گرد فقط در حالتِ دیباگ — پایین-چپ، قابلِ درگ؛
-    // برگشت به نهایی = مخفی (دستورِ سازنده)
     fab.style.display = (dbgMode && ndbg > 0) ? '' : 'none';
     if (!dbgMode && (fanState || cmpOn)) {
       fanState = 0;
@@ -1004,36 +898,18 @@
       isLive = true;
       if (typeof tot === 'number' && tot > 0) {
         total = tot;
-        staticPh = 0; // از این‌جا به بعد total مرجع است
+        staticPh = 0;
       }
       if (typeof nd === 'number' && nd > 0) {
         ndbg = nd;
-        // صفحهٔ دیباگ دیر رسید ولی دکمه هنوز مخفی است؟ روشنش کن
         if (mtEl && mtEl.style.display === 'none') mtEl.style.display = '';
         updateFan();
       }
-      // arrived در هر دو حالت به‌روز می‌شود — لیستِ نهایی حتی وقتی
-      // مخفی است پر می‌شود تا برگشت به «نهایی» هیچ صفحه‌ای را از دست ندهد
       arrived = Math.max(arrived, n | 0);
       if (fin === true) sessionDone = true;
       renderLive();
     } catch (err) {}
   };
-  // پیشنمایشِ ۱۵تایی: موتور بعد از هر بستهِ ترجمه، همان اسلات را
-  // دوباره رندر میکند و زمانش را در mtimes.txt مینویسد؛ اینجا فقط اسلاتِ
-  // عوضشده دوباره لود میشود (بدون پرش اسکرول و بازسازی کل).
-  // گامِ اولِ تعویضِ بیفلاش: تصویرِ نو قبل از تعویضِ src کامل
-  // دیکود میشد. ولی در WebView اندروید جوابِ shouldInterceptRequest داخلِ
-  // کشِ حافظه نمیماند — درخواستِ دومِ همان URL دوباره گرفته و دیکود میشد
-  // ضمنِ آن چند صدم ثانیه، عنصرِ img فریمِ قبلی را میریزد و زمینهٔ سیاه
-  // نشان میداد («هر متنِ جدید صفحه سیاه میکنه انگار عکس کامل از اول لود میشه»).
-  // گامِ دوم: پوشانهٔ دوبل. تصویرِ نو در یک imgِ روییِ همجایِ
-  // اسلات (position:absolute رویِ همان مختصات) دیکود و «رویِ» تصویرِ قدیم
-  // می‌نشیند؛ پیکسلهایِ قدیم تا این لحظه هرگز دور نمیشوند. فقط بعدِ
-  // نقشدنِ پوشانه، srcِ اسلاتِ اصلی زیرِ پوشانه عوض میشود (نامرئی است) و
-  // بعد از دیکودِ کاملِ اسلاتِ اصلی، پوشانه برداشته میشود. در هیچ فریمی
-  // تصویرِ خالی/سیاه دیده نمیشود — نه چراغِ خاموش، نه پرشِ چیدمان.
-  // اگر بهروزرسانیِ بعدیِ همان اسلات وسطِ تعویض برسد، صف میشود.
   const hotSwap = (el, url) => {
     try {
       if (!el || el.tagName !== 'IMG') return;
@@ -1060,7 +936,6 @@
         if (nx) hotSwap(el, nx);
       };
       const step2 = () => {
-        // پوشانه نقشید srcِ واقعی زیرِ آن عوض میشود (هیچکس نمیبیند)
         try { el.onerror = () => cleanup(); } catch (e5) {}
         try { el.src = url; } catch (e3) { cleanup(); return; }
         const fin = () => { requestAnimationFrame(cleanup); };
@@ -1103,9 +978,6 @@
           const el = lgF.children[slot - 1];
           if (el && el.tagName === 'IMG') {
             const key = 'i/' + (slot - 1);
-            // تازه از سرور + جایگزینیِ کش: اسلاتِ بیرونِ دید فقط
-            // blobِ نو را میگیرد و IntersectionObserver موقعِ
-            // نزدیکشدن همان لحظه نشانش میدهد (بی‌لودِ دوباره).
             imgGet(key, true).then((u) => {
               el.__blob = u; el.__cur = u;
               if (el.getAttribute('src') !== PH1) hotSwap(el, u);
@@ -1117,13 +989,8 @@
   }
   setInterval(pollMtimes, 2500);
 
-  // ——— دکمهٔ گردِ «منو»: قابلِ جابه‌جایی؛ با زدن، دکمه‌ها دورش
-  // میآیند (det، p-det، rec، قبل/بعد + در مقایسهٔ باز: قبلی/بعدی و
-  // خودِ «قبل/بعد» به «✕ بستن» تبدیل می‌شود). سوئیچِ دیباگ/نهایی فقط
-  // دکمهٔ بالای صفحه است (دستورِ سازنده: «چرا دکمهٔ نهایی توشه وقتی
-  // بالا صفحه هست — تو دکمهٔ منو حذف کن»). ———
   const fab = document.getElementById('fab');
-  let fanState = 0;   // ۰=بسته | ۱=فنِ باز
+  let fanState = 0;
   const fanDefs = [
     { key: 'det', ic: '\u25eb', lb: UT('rdr.fan_det', 'det') },
     { key: 'pdet', ic: '\u25fa', lb: UT('rdr.fan_pdet', 'p-det') },
@@ -1203,16 +1070,11 @@
       return;
     }
     if (ndbg <= 0) { fanState = 0; updateFan(); return; }
-    // منو باز است؟ خودِ دکمه «✕» می‌شود و می‌بندد؛ «قبل/بعد»
-    // حالا یک دکمهٔ مستقل داخلِ فن است (دستورِ سازنده)
     fanState = fanState ? 0 : 1;
     updateFan();
   };
   fab.addEventListener('pointerup', fabUp);
   fab.addEventListener('pointercancel', () => { fdrag = null; });
-  // کمانِ منو: جهتش به سمتِ مرکزِ صفحه است (فضایِ باز) و چیدمانِ
-  // نهایی با «هلِ متقابلِ ضدِبرخورد» گشوده میشود — نزدیکِ لبه‌ها
-  // هیچ‌وقت دکمه‌ها روی هم نمی‌افتند (باگِ فنِ پنج‌تاییِ چسبیده).
   const fanPositions = () => {
     const fr = fab.getBoundingClientRect();
     const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
@@ -1227,7 +1089,6 @@
       const a = bis - half + i * step;
       pts.push({ x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R });
     }
-    // خودِ دکمهٔ منو هم مانع است — دکمه‌های فن هرگز روی آن نمی‌نشینند
     const fabPt = { x: cx, y: cy };
     const sep = (pa, pb, w) => {
       const dx = pb.x - pa.x, dy = pb.y - pa.y;
@@ -1249,7 +1110,6 @@
       for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++)
         if (sep(pts[i], pts[j], 0.3)) moved = true;
       for (let i = 0; i < n; i++) {
-        // هل با فاب: فاب ثابت است، فقط دکمهٔ فن جابه‌جا می‌شود
         const dx = pts[i].x - fabPt.x, dy = pts[i].y - fabPt.y;
         const ox = 74 - Math.abs(dx), oy = 74 - Math.abs(dy);
         if (ox > 0 && oy > 0) {
@@ -1269,7 +1129,6 @@
   function updateFan() {
     const pts = fanPositions();
     const show = fanState >= 1 && ndbg > 0;
-    // برچسبِ خودِ دکمه: بسته = «منو»، باز = «✕» (بستن)
     fab.textContent = show ? UT('rdr.close', '\u2715') : UT('rdr.menu', 'منو');
     fab.classList.toggle('open', show);
     for (let i = 0; i < fans.length; i++) {
@@ -1286,7 +1145,6 @@
       fb.title = isCmp ? UT('rdr.fan_cmp_title', 'مقایسهٔ قبل/بعد') :
         (def.key === 'prev' || def.key === 'next') ? UT('rdr.fan_pp_title', 'صفحهٔ قبل/بعد در مقایسه') :
         ({ det: 'detector.onnx', pdet: 'paddle det', rec: 'paddle rec' })[def.key] || '';
-      // «قبلی/بعدی» فقط وقتیِ مقایسهٔ باز — کنترلها داخلِ خودِ منو
       fb.classList.toggle('show', show && (!def.cmpOnly || cmpOn));
     }
   }
@@ -1313,9 +1171,6 @@
     const rc = s.getBoundingClientRect();
     s.scrollTop = ch.getBoundingClientRect().top - rc.top + s.scrollTop;
   };
-  // ——— «قبل/بعد»: مقایسهٔ همان صفحه — قبل = پایهٔ بی‌روکشِ دیباگ
-  // (db/N، فالبکِ d/N)، بعد = خروجیِ ترجمه‌شده (i/N). خطِ عمودیِ برش با
-  // کشیدن (لمس هم همینطور) جابه‌جا میشود؛ ‹ › صفحه عوض میکند. ———
   const cmpEl = document.getElementById('cmp'),
         cmpStage = document.getElementById('cmpStage'),
         cmpBWrap = document.getElementById('cmpBWrap'),
@@ -1351,14 +1206,12 @@
     cmpEl.classList.add('show');
     cmpLoad(curPageIdx());
     cmpSet(cmpFracV);
-    // کنترلهایِ قبل/بعد حالا داخلِ منو هستند — منو باز می‌ماند
     fanState = 1;
     updateFan();
   };
   const cmpClose = () => {
     cmpOn = false;
     try { cmpEl.classList.remove('show'); } catch (err) {}
-    // فن باز می‌ماند تا گزینهٔ بعدی سریع انتخاب شود؛ بستنِ فن با ✕ خودش
     updateFan();
   };
   let cdrag = false;
@@ -1394,14 +1247,11 @@
   window.addEventListener('resize', () => { updateFan(); });
   updateFan();
 
-  // ——— هم‌خوانِ نکو-گِرل v272 (دخترِ گربه‌گوشِ استیکری — سرِ گردِ توپُش) ———
-  // موتورِ ۲۴ حالته + قایم‌شدن پشتِ دیوارِ لبهٔ صفحه + خاموش‌کردنِ صفحه بعد از
-  // ۱۰ اذیتِ پیوسته + نقاطِ رهاکردن (بکش و ول کن) + چشمهای دنبال‌کنندهٔ موس.
   var MCAT = document.getElementById('mcat');
   if (MCAT) {
   var mcatBub = MCAT.querySelector('.mcat-bub');
   var mcatSayEl = MCAT.querySelector('.mcat-say');
-  var MCAT_USE_S = true; // اندروید: اسکرولرِ داخلی s — وب: window
+  var MCAT_USE_S = true;
   var FAD = '۰۱۲۳۴۵۶۷۸۹';
   function faN(v) { return String(v).replace(/[0-9]/g, function (d) { return FAD[+d]; }); }
   function faR(a) { return a[Math.floor(Math.random() * a.length)]; }
@@ -1414,7 +1264,6 @@
     if (m < 0) m = 0;
     return { m: m, y: y, pct: Math.min(1, Math.max(0, y / Math.max(1, m))), atEnd: m > 320 && (m - y) < 5 };
   }
-  /* ——— حرف‌ها (کاملاً خودمونی) ——— */
   var MCAT_PAT = UT('say.pat', ['میییو~', 'آخ جووون، همینه!', 'بغلم کن دیگه!', 'ولی ول نکن ها~', 'دلم برات تنگ شده بود!']);
   var MCAT_READ = UT('say.read', ['ورق بزن دیگه!', 'اوه، ادامه‌ش چیه؟!', 'این صحنه وای…', 'چایی میل دارید؟', 'اِ این یکی الان چی گفت؟!', 'ترجمه‌ش دست من بود، بهتر میشد!']);
   var MCAT_STUDY = UT('say.study', ['ششش! دارم به قسمتِ خوبِ قصه میرسم…', 'یه لحظه وایسا، خودم می‌خونم!', 'هوم… هوم… این فصل چی میگه!', 'این کتاب مالِ منه ها، دست نزن!']);
@@ -1457,7 +1306,6 @@
     'st-edgesit': MCAT_SIT,
     'st-sidepeek': MCAT_SIDE
   };
-  /* ——— وضعیت ——— */
   var mcatState = 'st-read';
   var mcatLastTs = 0, mcatLastY = -1, mcatFastT = 0, mcatMoveT = Date.now();
   var mcatBotT = 0, mcatPatT = 0, mcatSayUntil = 0;
@@ -1497,9 +1345,6 @@
     if (say) mcatSayNow(say, 3000);
     mcatTick();
   }
-  /* ——— قایم‌شدن پشتِ دیوار (از v269 — دستورِ سازنده): به لبهٔ نزدیکِ صفحه
-     می‌رود، دیوارِ کرم داخلِ SVG نیمهٔ پشتیش را می‌پوشاند و از پشتِ دیوار
-     نگاه می‌کند (دستها روی لبهٔ دیوار + نوکِ دُم بیرون!) ——— */
   function mcatGoHide() {
     if (mcatState === 'st-hide') return;
     var r = MCAT.getBoundingClientRect();
@@ -1509,7 +1354,6 @@
     MCAT.classList.toggle('hide-l', !onRight);
     var hy = Math.min(Math.max(r.top + r.height / 2, window.innerHeight * 0.36),
       window.innerHeight - hh / 2 - 30);
-    /* چسبیده به لبه — دیوار با لبهٔ صفحه یکی می‌شود (بدون درز) */
     mcatGlide(function () {
       MCAT.style.left = (onRight ? window.innerWidth - hw + 1 : -1) + 'px';
       MCAT.style.top = (hy - hh / 2) + 'px';
@@ -1543,9 +1387,6 @@
     mcatPeekTill = Date.now() + 9000;
     mcatSayNow(UT('say.still_angry', '…هنوز قهرم ها!'), 2400);
   }
-  /* ——— اذیتِ پیوسته (۱۰ بار) = خاموش‌کردنِ صفحه‌ی نمایش! (از v269) ———
-     کلِ صفحه سیاه می‌شود، فقط دو چشمِ درخشانِ او در تاریکی می‌ماند؛
-     با لمس (یا بعد از ~۵ ثانیه) دوباره روشن می‌شود. ——— */
   var mcatOffEl = document.getElementById('mcatOff');
   var mcatOffTimer = null;
   function mcatWake() {
@@ -1568,7 +1409,6 @@
       mcatOffTimer = setTimeout(mcatWake, 5200);
     }, 1600);
   }
-  /* — دویدنِ بازیگوشانه دورِ صفحه — */
   function mcatStartRun() {
     if (mcatRunning) return;
     var r = MCAT.getBoundingClientRect();
@@ -1605,7 +1445,6 @@
     mcatSet('st-read');
     if (!interrupted) mcatSayNow(UT('say.tired', 'اوف اوف… خسته شدم!'), 2600);
   }
-  /* — قلبِ تیک — */
   function mcatTick() {
     var now = Date.now();
     var inf = mcatInfo();
@@ -1640,7 +1479,6 @@
     if (mcatRunning) { mcatSet('st-run'); return; }
     if (mcatActT > now && mcatActSt) { mcatSet(mcatActSt); return; }
     if (mcatZoneBack > now) return;
-    /* حوصله‌سررفتگی: یکی از ۱۰ سرگرمی — یا یهو بره قایم شه! */
     if (inf.m > 320 && mcatMoveT < now - 8000 && mcatMoveT > now - 21000 && now > mcatActCd && mcatPatT < now && mcatShyT < now) {
       if (Math.random() < 0.09) {
         mcatActCd = now + 30000 + Math.random() * 15000;
@@ -1684,14 +1522,12 @@
     if (mcatActT) { mcatActT = 0; mcatActSt = ''; mcatNextAct = ''; }
     if (mcatForceTill) mcatForceTill = 0;
     if (mcatState === 'st-sleep') {
-      /* بیداری از خواب — بعضی وقتا خجالت میکشه! */
       if (Math.random() < 0.4) { mcatShyT = now + 2600; mcatSayNow(faR(MCAT_WAKE), 2800); }
       else mcatSet('st-read');
     }
     mcatUpdate();
     mcatTick();
   }
-  /* — درگ + نوازش/کتک — */
   var mcatDrag = null;
   MCAT.addEventListener('pointerdown', function (e) {
     mcatDrag = { x: e.clientX, y: e.clientY, moved: false };
@@ -1762,8 +1598,6 @@
     while (mcatTaps.length && mcatTaps[0] < now - 6000) mcatTaps.shift();
     var fast = 0, i;
     for (i = 0; i < mcatTaps.length; i++) if (mcatTaps[i] > now - 2200) fast++;
-    /* شمارشِ اذیت (از v269): ضربه در میانهٔ چج/اعصابی + خودِ اپیزودها؛
-       ده بار = خاموش‌کردنِ صفحه‌نمایش! */
     if (mcatAnnoyT > now || mcatAngryT > now) mcatTeaseN++;
     if (fast >= 5 || mcatTaps.length >= 5) mcatTeaseN++;
     if (mcatTeaseN >= 10) { mcatBlackout(); return; }
@@ -1790,7 +1624,6 @@
       mcatTick(); setTimeout(mcatTick, 1980);
       return;
     }
-    /* نوازش — بعد از ۴ بارِ پشت‌سرهم بعضی وقتا خجالت میکشه */
     mcatPatT = now + 1700;
     mcatMoveT = now;
     if (mcatTaps.length === 4 && Math.random() < 0.4) {
@@ -1806,9 +1639,7 @@
   }
   MCAT.addEventListener('pointerup', mcatUp);
   MCAT.addEventListener('pointercancel', function () { mcatDrag = null; if (ZONES) { ZONES.classList.remove('show'); mcatZoneCur = ''; } });
-  /* لمسِ صفحهٔ خاموش = روشن‌کردنِ دوباره */
   if (mcatOffEl) mcatOffEl.addEventListener('pointerdown', function () { mcatWake(); });
-  /* — نقاطِ رهاکردن: بکش و ول کن — */
   function mcatZoneOf(x, y) {
     var vw = window.innerWidth, vh = window.innerHeight;
     if (y < vh * 0.17) return 'top';
@@ -1865,7 +1696,6 @@
     mcatMoveT = now;
     mcatZoneBack = now + 7500;
   }
-  /* — چشم‌ها موس رو دنبال می‌کنن (پی‌سی / لینوکس) — */
   var mcatFine = false;
   try {
     mcatFine = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
@@ -1896,7 +1726,6 @@
       if (mcatPupL) { mcatPupL.style.transform = 'translate(0,0)'; mcatPupR.style.transform = 'translate(0,0)'; }
     });
   }
-  /* — قلابِ تست — */
   window.__mcatForce = function (st) {
     mcatForceSt = ''; mcatForceTill = 0;
     mcatPatT = 0; mcatAnnoyT = 0; mcatAngryT = 0; mcatShyT = 0;
@@ -1942,7 +1771,6 @@
     }
     mcatTick();
   };
-  /* — حلقهٔ اصلی — */
   var iv = setInterval(function () {
     mcatTick();
     mcatUpdate();
@@ -1968,9 +1796,8 @@
     if (mcatState === 'st-read' && !mcatSayUntil && Math.random() < 0.02) mcatSayNow(faR(MCAT_READ), 5200);
   }, 900);
   var welcomeT = setTimeout(function () {
-    if (mcatState === 'st-read') mcatSayNow('سلام! من نکو-گِرلم — بکشم ببر جاهای مختلف!', 3600);
+    if (mcatState === 'st-read') mcatSayNow('سلام!', 3600);
   }, 900);
-  /* — شروع — */
   try {
     var sp = JSON.parse(localStorage.getItem('mangaCatPos') || 'null');
     if (sp && typeof sp.x === 'number') mcatPlace(sp.x, sp.y);

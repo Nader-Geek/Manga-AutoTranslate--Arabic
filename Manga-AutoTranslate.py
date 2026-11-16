@@ -1,7 +1,3 @@
-# /// script
-# dependencies = ["marimo"]
-# requires-python = ">=3.13"
-# ///
 
 import marimo
 
@@ -15,7 +11,7 @@ def _():
 
     subprocess.run(
         "rm -rf * && "
-        "git clone https://github.com/amirwolf512k/Manga-AutoTranslate.git && "
+        "git clone https://github.com/amirwolf5122/Manga-AutoTranslate.git && "
         "cd Manga-AutoTranslate && "
         "mv * ../ && "
         "rm -rf Manga-AutoTranslate",

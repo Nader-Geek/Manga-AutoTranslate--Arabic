@@ -1,20 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.279 — حذفِ فرمتِ «پوشهٔ تصاویر» + فیکسِ نمایشگرِ دوتایی.
-
-دستورِ سازنده:
-  «ذخیره سازی پوشه ای اصلا کار نمیکنه و بنظرم کلا حذف کن نیاز نمیشه»
-  «وقتی پاکسازی عوض میکنم مثلا اول openvc پاکیدم دوم بار lama پاکیدم
-   هر دوشو نمایش میده باید فقط مال lama نمایش میداد جدیدترینش»
-
-چکها (واحدی — بدونِ دانلود):
-  ۱) فرمتِ پوشه‌ای از همهٔ UIها حذف شده (رادیوی وب + منوی CLI + ext-map)
-  ۲) مقدارِ کهنهٔ «پوشهٔ تصاویر» (بکاپ/فرمِ مرورگر) → PDF بدونِ خطا
-  ۳) موتور: پسوندِ ناشناخته → PDF (نه کپیِ پوشه‌ای)
-  ۴) فالبکِ نمایشگرِ وب: بدونِ last_out.json فقط «جدیدترینِ» out*
-     جمع میشود (نه همه) — شبیه‌سازیِ دو سبکِ opencv+lama
-  ۵) اندروید (out_collect): همین رفتار — last_out یا جدیدترین
-"""
 import json
 import os
 import shutil
@@ -64,7 +48,6 @@ spec = importlib.util.spec_from_file_location(
 oc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(oc)
 
-# شبیه‌سازیِ منطقِ ext-map موتورِ وب (کپیِ همان کد)
 def web_ext(out_fmt_v):
     out_fmt_v = str(out_fmt_v or "PDF")
     if out_fmt_v not in ("PDF", "ZIP", "HTML", "PSD"):
@@ -80,7 +63,6 @@ print("۳) فالبکِ نمایشگر: فقط جدیدترینِ out* (شبیه
 tmp = tempfile.mkdtemp(prefix="qa279_")
 try:
     cache = os.path.join(tmp, "mix.cache")
-    # دو پوشهٔ سبک: opencv (قدیمی) + lama (جدید) + یک clean-only
     old_d = os.path.join(cache, "out_safe_v3_style-AAAA")
     new_d = os.path.join(cache, "out_safe_v3_style-BBBB")
     co_d = os.path.join(cache, "out_safe_v3_style-CCCC_cleanonly")
@@ -88,20 +70,18 @@ try:
         os.makedirs(d, exist_ok=True)
     open(os.path.join(old_d, "p1.jpg"), "wb").write(b"x")
     open(os.path.join(old_d, "p2.jpg"), "wb").write(b"x")
-    os.utime(old_d, (1000, 1000))  # قدیمی
+    os.utime(old_d, (1000, 1000))
     open(os.path.join(new_d, "p1.jpg"), "wb").write(b"x")
     open(os.path.join(new_d, "p2.jpg"), "wb").write(b"x")
-    os.utime(new_d, (2000, 2000))  # جدیدتر
+    os.utime(new_d, (2000, 2000))
     open(os.path.join(co_d, "p1.jpg"), "wb").write(b"x")
     os.utime(co_d, (1500, 1500))
 
-    # ۳-الف) اندروید: بدونِ نشانگر → فقط جدیدترین
     imgs, dbg = oc.collect(os.path.join(tmp, "mix.pdf"), tmp)
     check("اندروید فالبک: فقط جدیدترین (۲ صفحه از BBBB)",
           len(imgs) == 2 and all("BBBB" in p for p in imgs),
           f"got={imgs}")
 
-    # ۳-ب) اندروید: با نشانگر → همان
     with open(os.path.join(cache, "last_out.json"), "w",
               encoding="utf-8") as fh:
         json.dump({"dir": "out_safe_v3_style-BBBB"}, fh)
@@ -109,7 +89,6 @@ try:
     check("اندروید نشانگر: همان BBBB",
           len(imgs2) == 2 and all("BBBB" in p for p in imgs2))
 
-    # ۳-ج) وب (منطقِ _finalize_job_success — کپیِ همان کدِ نو)
     def web_collect(out_v):
         search_dirs = [out_v if os.path.isdir(out_v) else None]
         _last = ""

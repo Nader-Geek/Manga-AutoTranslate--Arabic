@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# ============================================
-#   Manga Translator - Linux/macOS launcher
-# VER:1.14.33
-# ============================================
 cd "$(dirname "$0")"
 
 if ! command -v python3 >/dev/null 2>&1; then

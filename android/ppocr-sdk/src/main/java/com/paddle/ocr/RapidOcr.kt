@@ -1,7 +1,3 @@
-// دروازهٔ RapidOCRِ اندروید (PP-OCRv4_mobileِ ONNX).
-// همامضایِ همتایِ PaddleOCR.kt — PaddleOcrBridge بدونِ تغییرِ
-// قراردادِ META از این استفاده میکند.
-// «ببین چجور به این خوبی استخراج میکنه همونو رو گوشی بزار» — سازنده
 
 package com.paddle.ocr
 
@@ -18,7 +14,6 @@ import kotlinx.coroutines.withContext
 class RapidOcr private constructor(
     private val engine: RapidOcrEngine,
 ) {
-    /** Time spent loading ONNX models (milliseconds). */
     val coldLoadTimeMs: Long get() = engine.coldLoadTimeMs
 
     companion object {
@@ -62,10 +57,6 @@ class RapidOcr private constructor(
         return recognizeResult { engine.run(imageBytes) }
     }
 
-    /**
-     *  — انتخابِ زبانِ rec (واریانتِ مدل + دیکشنری).
-     * «نمیشه یک زبان انتخاب کرد مثلا انگلیسی بزارم» — سازنده
-     */
     suspend fun setLanguageVariant(recModelAssetPath: String, recDictAssetPath: String) {
         withContext(Dispatchers.IO) {
             engine.setLanguageVariant(recModelAssetPath, recDictAssetPath)

@@ -1,19 +1,14 @@
 # BUILD-STRIP-START
-# سرویسهای AI و ابزارهای متن — پریستها، کلیدها، TextRegion، لحن
-# PROVIDER_PRESETS، آزمایشِ کلیدها، source_has_letters، TextRegion (dataclass)، BalloonToneClassifier و وضعیتِ live.
-# (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 PROVIDER_PRESETS = {
     "gemini": {
         "type": "gemini",
-        "default_model": "gemini-3.5-flash-lite",  # پیشفرضِ جدید (Flash-Lite)
+        "default_model": "gemini-3.5-flash-lite",
         "env_key": "GEMINI_API_KEY",
     },
     "gemini-openai": {
         "type": "openai",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-# gemini-3.5-flash (بدونِ Lite) دیگر در فهرستِ مدلهایِ
-# زنده نیست → نزدیکترینِ پایدار: gemini-3.6-flash
         "default_model": "gemini-3.6-flash",
         "env_key": "GEMINI_API_KEY",
     },
@@ -62,8 +57,6 @@ PROVIDER_PRESETS = {
     "openrouter": {
         "type": "openai",
         "base_url": "https://openrouter.ai/api/v1",
-# google/gemini-2.0-flash-001 سمتِ گوگل خاموش شده
-# مدلِ زندهٔ فعلیِ OpenRouter: google/gemini-3.8-flash
         "default_model": "google/gemini-3.8-flash",
         "env_key": "OPENROUTER_API_KEY",
     },
@@ -101,11 +94,6 @@ def normalize_api_base(url: str) -> str:
         return ""
     return u
 
-# فرمت‌های API که «کلید کاستوم» می‌فهمد ──────────────────────────────
-# 1) OpenAI Chat Completions …/chat/completions
-# 2) OpenAI Responses API …/responses
-# 3) Anthropic Compatible …/messages
-# 4) Google Generative AI …:generateContent
 CUSTOM_API_FORMAT_HINTS = {
     "openai": "OpenAI Chat Completions (/chat/completions)",
     "openai-responses": "OpenAI Responses API (/responses)",
@@ -114,18 +102,9 @@ CUSTOM_API_FORMAT_HINTS = {
 }
 
 def detect_custom_api_format(url: str) -> Tuple[str, str]:
-    """فرمت API را از خودِ لینک تشخیص می‌دهد و لینک را به Base URL
-    تمیز تبدیل می‌کند. کاربر می‌تواند هرکدام از این‌ها را بچسباند:
-      https://opencode.ai/inference/openai/v1/chat/completions → openai
-      https://opencode.ai/inference/openai/v1/responses → openai-responses
-      https://opencode.ai/inference/anthropic/v1/messages → anthropic
-      https://…/v1beta/models/gemini-2.0-flash:generateContent → google-endpoint
-    لینک بدون پسوند → openai (پیش‌فرض سازگار با OpenAI)
-    خروجی: (نوع_فرمت, base_url_تمیز)"""
     u = str(url or "").strip().strip('"').strip("'").rstrip("/")
     if not u:
         return "openai", ""
-# Google Generative AI: …/models/MODEL:generateContent
     if ":generateContent" in u or ":streamGenerateContent" in u:
         cut = u.find(":generateContent")
         if cut < 0:
@@ -148,9 +127,6 @@ def detect_custom_api_format(url: str) -> Tuple[str, str]:
     return "openai", u
 
 def explain_api_http_error(code: int, body: str) -> Tuple[bool, str]:
-    """خطای HTTP یک سرویس AI را به پیام فارسیِ قابل‌فهم تبدیل می‌کند.
-    خروجی: (کلید_سالم_هست؟, پیام) — بعضی خطاها ربطی به کلید ندارند
-    (مثل FreeTierError اوپن‌کد یا «مدل در دسترس نیست») و کلید سالم است."""
     b = str(body or "")
     bl = b.lower()
     if ("freetiererror" in bl or "within opencode" in bl
@@ -189,11 +165,6 @@ def explain_api_http_error(code: int, body: str) -> Tuple[bool, str]:
 def test_api_keys(keys_text: str, provider: str = "gemini",
                   api_base: str = "", timeout: float = 15.0,
                   model: str = "") -> list:
-    """تست سریع کلیدهای API (تکی/چندتایی) و لینک سفارشی — برای دکمهٔ
-    «تست کلید» در همهٔ پلتفرم‌ها (وب/پی‌سی/اندروید). هر کلید با یک
-    درخواست سبک (لیست مدل‌ها؛ اگر نبود POST سبک با مدلِ خودِ کاربر)
-    بررسی می‌شود؛ نتیجهٔ هر کلید جدا برمی‌گردد: [{'key': 'مخفی‌شده',
-    'ok': True/False, 'error': '...', 'ms': 123}, ...]"""
     import urllib.request
     import urllib.error
     import urllib.parse
@@ -236,7 +207,6 @@ def test_api_keys(keys_text: str, provider: str = "gemini",
                 ftype, fbase = detect_custom_api_format(base)
                 fbase = fbase.rstrip("/")
                 if ftype == "anthropic":
-# POST سبک /v1/messages — Anthropic یا پراکسی سازگارش
                     post_url = fbase if fbase.endswith("/v1") else fbase + "/v1"
                     post_url += "/messages"
                     body = json.dumps({
@@ -257,7 +227,6 @@ def test_api_keys(keys_text: str, provider: str = "gemini",
                         r["ok"] = (getattr(resp, "status", 200) == 200)
                         r["error"] = "" if r["ok"] else f"HTTP {resp.status}"
                 elif ftype == "google-endpoint":
-# POST سبک :generateContent — Google یا پراکسی سازگارش
                     gmodel = user_model or "gemini-3.5-flash-lite"
                     post_url = fbase + "/models/" \
                         + urllib.parse.quote(gmodel) + ":generateContent"
@@ -277,7 +246,6 @@ def test_api_keys(keys_text: str, provider: str = "gemini",
                         r["ok"] = (getattr(resp, "status", 200) == 200)
                         r["error"] = "" if r["ok"] else f"HTTP {resp.status}"
                 else:
-# openai / openai-responses → اول GET /models سبک
                     url = fbase.rstrip("/")
                     if not url.endswith("/v1"):
                         url += "/v1"
@@ -295,7 +263,6 @@ def test_api_keys(keys_text: str, provider: str = "gemini",
                                           else f"HTTP {resp.status}")
                     except urllib.error.HTTPError as e2:
                         if e2.code in (404, 405):
-# سرور /models ندارد → POST سبک روی خودِ endpoint
                             m = user_model or "gpt-4o-mini"
                             if ftype == "openai-responses":
                                 post_url = fbase.rstrip("/") + "/responses"
@@ -345,8 +312,6 @@ def test_api_keys(keys_text: str, provider: str = "gemini",
     return results
 
 def format_key_test_text(res: list) -> str:
-    """قالب یکسان نتیجهٔ تست کلیدها برای وب / پی‌سی / اندروید.
-    هر کلید با / / مشخص می‌شود؛ بعد از ۶۰ ثانیه در رابط پاک می‌شود."""
     if not res:
         return "کلیدی وارد نشده"
     lines = []
@@ -363,61 +328,29 @@ def format_key_test_text(res: list) -> str:
     return "\n".join(lines)
 
 def source_has_letters(text: str) -> bool:
-    """ — . متنی که «هیچ" 
-    حرفی» (دستهٔ یونیکدِ L) ندارد — '123124'، './….'، '[] ,./???!?~' —
-    به مترجم نمی‌رود و فقط پاکسازی میشود؛ «hi…» حرف دارد → ترجمه
-    میشود. PC/لینوکس/اندروید یکسان."""
     _t = str(text or "")
     _letters = [_ch for _ch in _t if _ch.isalpha()]
     if not _letters:
         return False
-# «10,000G» (طلا/ارزِ بازی): یک حرفِ لاتینِ تنها چسبیده به رقم =
-# پسوندِ واحد، نه کلمه — ترجمه‌اش دور ریختنِ وقتِ AI است. «hi…»
-# «A» (بدون رقم) و هر متنِ چندحرفیِ واقعی ترجمه میشوند.
     if len(_letters) == 1 and _letters[0].isascii() \
             and any(_c.isdigit() for _c in _t):
         return False
     return True
 
-# لیستِ آفلاینِ مدلهایِ Gemini (پیش‌فرضِ برنامه) — عینِ فهرستِ
-# ۷تاییِ سازنده (v1.14.288): «gemini-3.5-flash-lite,
-# gemini-3.1-flash-lite,gemini-3.8-flash,gemini-3.7-flash,
-# gemini-3.6-flash,gemini-3.5-flash,gemini-3-flash-preview».
-# این فقط فهرستِ «پیش‌فرض/آفلاین» است — رایگان بودن یا کتابی
-# بودنِ هیچ مدلی اینجا با نام تشخیص داده نمیشود (دستورِ
-# v1.14.289/290: هیچ نامی دستی نوشته نشود). وقتی رفرش زده
-# شود و اینترنت باشد، فهرستِ زنده از گوگل گرفته میشود و
-# «سنجشِ زنده» (gemini_style_probe) خودش هر مدلی را که جواب
-# نمیدهد (پولی/سهمیه) یا کتابی مینویسد کنار میگذارد — مدلِ
-# جدیدِ رایگانِ گوگل هرچه باشد خودش میآید.
 GEMINI_FLASH_MODELS_OFFLINE = [
-    "gemini-3.5-flash-lite",     # پایدارِ سبک — پیش‌فرضِ برنامه
-    "gemini-3.1-flash-lite",     # پایدارِ سبک
-    "gemini-4-hydrogen",         # نسلِ ۴ (دستورِ v1.14.291)
-    "gemini-3.8-flash",          # جدیدترین Flash کامل
-    "gemini-3.7-flash",          # Flash کامل
-    "gemini-3.6-flash",          # پایدارِ کامل
-    "gemini-3.5-flash",          # Flash کامل
-    "gemini-3-flash-preview",    # preview
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-4-hydrogen",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
 ]
 
 def gemini_offline_models() -> List[str]:
-    """ — رونوشتِ مرتبِ لیستِ آفلاین (برایِ دراپ‌داونِ وب و
-    فال‌بکِ دکمهٔ ↻ اندروید/وب وقتی اتصال برقرار نشد)."""
     return list(GEMINI_FLASH_MODELS_OFFLINE)
 
-# ── سنجشِ زندهٔ سبکِ مدل (v1.14.290) ─────────────────────────────
-# دستورِ سازنده: «چیزی نداره بتونع بفهمه کدوم مدل کتابی میده بیرون؟
-# فقط اونای که اوکی خروجی میده نگه داره» + «خودش باید بفهمه کدوم
-# مدلها رایگانه — دستی ممنوع». پس هیچ نامِ مدلی (نه فهرستِ سیاهِ
-# پولیها، نه لیستِ سفید) در کد نیست؛ تشخیص از رویِ «رفتارِ» خودِ
-# مدل است — یک درخواستِ واقعیِ کوچک به هر مدلِ زنده فرستاده
-# میشود (۴ خطِ دیالوگِ محاوره‌ای) و نتیجه معلوم میشود:
-#   • پاسخ نداد (پولی/سهمیه/قطعی/خاموش) → کنار میرود
-#     ← رایگان بودن هم همینجا خودکار معلوم میشود
-#   • جوابش کتابی/رسمی بود (می‌باشد، آیا، بیایید…) → کنار میرود
-#   • جوابش سالم و محاوره‌ای بود (می‌خوام، بریم، وای…) → میماند
-# مدلِ جدیدِ گوگل هرچه باشد (flash یا نه، هر نامی) خودش پیدا میشود.
 _GEMINI_PROBE_PROMPT = (
     "این دیالوگ‌های مانگا را به فارسیِ محاوره‌ایِ طبیعیِ گفتاری "
     "ترجمه کن — دقیقاً ۴ خطِ شماره‌دار. لحن: صمیمی و کوچه‌بازاری؛ "
@@ -428,8 +361,6 @@ _GEMINI_PROBE_PROMPT = (
     "4. Come on, don't be like that!"
 )
 
-# نشانه‌های «کتابی» در جوابِ همین تست (فقط همین جملات؛ لحنِ
-# عامیانه هرگز اینها را نمینویسد):
 _GEMINI_BOOKISH_MARKERS = (
     "می‌باشد", "می‌باشند", "می‌باشیم", "می‌باشید",
     "آیا", "بنابراین", "می‌گردد", "گردید", "می‌بایست",
@@ -438,8 +369,6 @@ _GEMINI_BOOKISH_MARKERS = (
     "می‌توانی", "می‌رویم", "نمی‌دانم", "لطفاً", "منزل",
 )
 
-# نشانه‌های «محاوره‌ای» — مدلِ سالم برایِ همین دیالوگها اینها را
-# مینویسد (می‌خوام، بریم، وای، میزاب…):
 _GEMINI_CASUAL_MARKERS = (
     "می‌خوام", "می‌خوای", "می‌تونم", "می‌تونی", "می‌ریم",
     "بریم", "بذار", "بزار", "ببین", "نمی‌دونم", "نمی‌دونی",
@@ -448,14 +377,9 @@ _GEMINI_CASUAL_MARKERS = (
 )
 
 def _gemini_probe_norm(text: str) -> str:
-    """نرمال‌سازی برایِ مقایسهٔ نشانه‌ها (نیم‌فاصله/علامتِ راست‌به‌چپ
-    حذف میشوند تا «می‌خواهم» و «میخواهم» هر دو گرفته شوند)."""
     return str(text or "").replace("\u200c", "").replace("\u200f", "")
 
 def _gemini_probe_score(text: str) -> Tuple[str, List[str], List[str]]:
-    """امتیازِ سبکِ جوابِ تست: ok (محاوره‌ای/خنثی) یا bookish.
-    قانون: دو نشانهٔ کتابی یا «کتابی بدونِ حتی یک نشانهٔ محاوره‌ای»
-    = کتابی؛ خنثیِ بی‌نشانه هم اوکی است — تقصیرِ مدل نیست."""
     norm = _gemini_probe_norm(text)
     bookish = [m for m in _GEMINI_BOOKISH_MARKERS
                if _gemini_probe_norm(m) in norm]
@@ -468,10 +392,6 @@ def _gemini_probe_score(text: str) -> Tuple[str, List[str], List[str]]:
 
 def gemini_style_probe(model: str, api_key: str,
                        timeout: float = 24.0) -> dict:
-    """یک درخواستِ واقعیِ کوچک به مدل: ۴ خطِ دیالوگِ محاوره‌ای.
-    خروجی: {"verdict": ok|bookish|error, "reason": …, "text": …}
-    error = خودِ مدل جواب نداد (پولی/سهمیه/قطعی) — رایگان نبودن هم
-    همینجا خودکار معلوم میشود؛ هیچ نامی در کد نیست."""
     import urllib.request
     import urllib.error
     import urllib.parse
@@ -528,8 +448,6 @@ def gemini_style_probe(model: str, api_key: str,
               "کتابی ✗ — " + "، ".join(bookish[:3]))
     return {"verdict": verdict, "reason": reason, "text": text[:200]}
 
-# کشِ نتیجه‌ها: سنجشِ موفق ۶ ساعت، سنجشِ خطادار ۱۰ دقیقه معتبر
-# است (رفرشِ بعدی همان جوابِ کش را میدهد — نه خرجِ دوباره).
 _GEMINI_STYLE_CACHE: dict = {}
 _GEMINI_STYLE_TTL_OK_S = 6.0 * 3600.0
 _GEMINI_STYLE_TTL_ERR_S = 600.0
@@ -537,12 +455,6 @@ _GEMINI_STYLE_TTL_ERR_S = 600.0
 def gemini_style_probe_many(models, keys_text, timeout: float = 24.0,
                             max_workers: int = 8, fresh: bool = False
                             ) -> Tuple[List[str], dict]:
-    """سنجشِ زندهٔ همهٔ مدلها (دکمهٔ ↻ فهرست + چرخِ ترجمه):
-    هر مدل یک تستِ کوچک میگیرد — فقط پاسخ‌دهندهٔ محاوره‌ای در
-    خروجی میماند (دستورِ v1.14.290: «فقط اونای که اوکی خروجی میده
-    نگه داره»). چند-کلیدی: تا ۳ کلید امتحان میشود. موازی
-    (ThreadPool) تا ۸ مدل همزمان. خروجی: (مدلهایِ سالم،
-    {مدل: نتیجه})."""
     import time as _time
     from concurrent.futures import ThreadPoolExecutor
     keys = [k.strip() for k in re.split(r"[\s,;\n]+", str(keys_text or ""))
@@ -589,25 +501,12 @@ def gemini_style_probe_many(models, keys_text, timeout: float = 24.0,
     return good, results
 
 def _clean_model_token(m: str) -> str:
-    """پاکسازیِ یک نامِ مدل از زبالهٔ سریالایز (v1.14.295):
-    رشتهٔ مدلِ کاربر گاهی از مسیرِ localStorage/JSON دوباره
-    اسکیپ میشود — بک‌اسلش/دکمه/براکت به اسمِ مدل میچسبد (تستِ
-    زندهٔ کاربر: فال‌بکِ مدلِ خراب). نامِ مدلِ واقعی فقط از
-    حروف/رقم/نقطه/خط/کُلون/اسلِش ساخته میشود؛ هر چیزِ دیگر
-    (بک‌اسلش، دکمه، براکت، پرانتز) حذف میشود."""
     m = re.sub(r"[\\'\"\[\]{}()<>]+", "", str(m or ""))
     m = m.strip().strip(",").strip()
     m = re.sub(r"\s+", " ", m).strip()
     return m.strip()
 
 def parse_model_list(raw: str) -> List[str]:
-    """رشتهٔ «چند مدلِ» کاربر را به فهرستِ تمیز تبدیل میکند.
-    جداکننده: کاما / خطِ نو / فاصله / سمی‌کلون — مثال:
-      'gemini-3.5-flash-lite, gemini-3.1-flash-lite'
-      'gpt-4o-mini,deepseek-chat'
-    v1.14.295 — هر توکن از زبالهٔ سریالایز (repr پایتونی/اسکیپِ
-    تکراریِ JSON: بک‌اسلش، دکمه، براکت، پرانتز) پاک میشود تا
-    اسمِ مدلِ خراب به چرخِ فال‌بک نرود."""
     if isinstance(raw, (list, tuple)):
         items = [str(x) for x in raw]
     else:
@@ -620,22 +519,11 @@ def parse_model_list(raw: str) -> List[str]:
     return out
 
 def join_model_list(models: List[str]) -> str:
-    """فهرستِ مدلها به رشتهٔ نمایشیِ کاما-جدا (برای فرم/UI)."""
     return ", ".join(str(m or "").strip() for m in (models or [])
                       if str(m or "").strip())
 
 def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                          timeout: float = 20.0) -> Tuple[List[str], str]:
-    """ — فهرستِ مدلهایِ موجود از خودِ سرویس (). Gemini: GET v1beta/models
-    — فهرستِ خامِ زنده (صافیِ _is_bad_list_model فقط برایِ مدلهایِ
-    غیرمتنی/مُردهٔ نسلِ ۱-۲). رایگان بودن و «کتابی نبودنِ» جواب با
-    «سنجشِ زنده» (gemini_style_probe_many — تستِ کوچکِ واقعی به
-    خودِ مدل) بعد از همین تابع انجام میشود؛ هیچ تشخیصی از رویِ
-    نامِ مدل انجام نمیشود (دستورِ سازنده: «خودش باید بفهمه کدوم
-    مدلها رایگانه؛ فقط اونای که اوکی خروجی میده نگه داره»).
-    custom: GET /models بر اساسِ فرمتِ خودکارِ لینک
-    (openai/responses/anthropic/google). خروجی: (مدلها، خطا). برایِ دکمهٔ
-    ↻ فهرستِ مدلها در رابط."""
     import urllib.request
     import urllib.error
     import urllib.parse
@@ -677,18 +565,12 @@ def list_provider_models(provider: str, keys_text: str, api_base: str = "",
                     continue
                 if MangaTranslator._is_bad_list_model(name):
                     continue
-# رایگان/پولی و کتابی/محاوره‌ای اینجا با نامِ مدل تشخیص
-# داده نمیشود (دستورِ v1.14.290) — فهرستِ خامِ زنده برگردد و
-# «سنجشِ زنده» (gemini_style_probe_many؛ در _refresh_model_list
-# و چرخِ ترجمه) خودش هر مدل را با یک درخواستِ واقعیِ کوچک
-# میآزماید: بی‌پاسخ (پولی/سهمیه) یا کتابی = حذف.
                 out.append(name)
             if out:
                 return sorted(set(out), key=MangaTranslator._model_sort_key), ""
             if data.get("models") is not None:
                 return [], "مدلی پیدا نشد"
             continue
-# custom — بر اساسِ فرمتِ لینک
         base = normalize_api_base(api_base) or ""
         if not base:
             return [], "لینک (Base URL) وارد نشده"
@@ -701,7 +583,7 @@ def list_provider_models(provider: str, keys_text: str, api_base: str = "",
         elif ftype == "google-endpoint":
             u = fbase + "/models?key=" + urllib.parse.quote(k) + "&pageSize=200"
             data, err = _get(u, {})
-        else:  # openai / responses
+        else:
             u = fbase + ("" if fbase.endswith("/models") else "/models")
             data, err = _get(u, {"Authorization": "Bearer " + k})
         if not data:
@@ -767,17 +649,11 @@ class TextRegion:
     bubble_style: str = "normal"
     det_class: str = ""
 
-# سبکِ مرجع: هر دیالوگ صفحهٔ خودش را می‌شناسد تا درخواستِ
-# ترجمه به شکلِ [{filename, dialogues}] گروه‌بندی شود (حالتِ نوشتاریِ
-# «عکسِ فیک» — هیچ عکسی ارسال نمی‌شود، filename فقط شناسهٔ صفحه است)
     page_index: int = -1
     page_file: str = ""
 
     ocr_polys: List[np.ndarray] = field(default_factory=list)
 
-# وقتی راستی‌آزماییِ جوهر گفت «خطِ واقعی مسطح است»
-# رندر حق ندارد زاویه را دوباره از پالی‌ها بازنویسی کند (متنِ
-# استایل‌دار/درخشان زاویهٔ کاذب می‌سازد؛ BLUE MOON/PURPLE MOON)
     angle_flat_veto: bool = False
 
 class BalloonToneClassifier:
@@ -927,8 +803,6 @@ DOMAIN_TLDS = (
     "jp", "cn", "ru", "de", "fr", "es", "pt", "br", "id",
     "gg", "link", "page", "club", "fun", "live", "news", "blog",
     "ink", "toon", "scans",
-# فیلترِ تبلیغ «عمومی» شد: هر دامنهٔ سایتی = تبلیغ
-# نه فقط لیستِ ثابت (درخواستِ کاربر)
     "me", "tv", "cc", "co", "ai", "mobi", "pro", "top",
     "store", "shop", "website", "space", "host", "press",
     "media", "team", "wiki", "zone", "run", "icu", "cyou",
@@ -1071,19 +945,10 @@ def uncensor_swears(text: str) -> str:
 _LIVE_SLOT_BY_KEY: Dict[str, int] = {}
 _LIVE_SLOT_LOCK = threading.Lock()
 
-#): با
-# گیتِ ترتیبِ نمایشِ زنده (
-# استخراج/پاکسازیِ دوطرفه صفحه‌ها بی‌ترتیب تمام میشوند (۱،۲،۷،۳،۴،۶،۵)
-# و نمایشگرِ زنده صفحهٔ آخر را «قبل» از وسطِ فصل نشان میداد. حالا
-# اسلاتِ صریحِ هر صفحه تا وقتی «همهٔ صفحه‌هایِ قبلش» آزاد نشده‌اند در
-# بافر می‌ماند و فقط به‌ترتیبِ ۱،۲،۳,… رها می‌شود — پیشرفتِ نمایش فقط
-# از بالا به پایین. به‌روزرسانیِ صفحهٔ قبلاً-آزادشده بی‌تأخیر رد میشود.
 _LIVE_SEQ_LOCK = threading.Lock()
 _LIVE_SEQ_STATE: Dict[str, dict] = {}
 
 def _live_seq_state(d: str) -> dict:
-    """وضعیتِ گیتِ ترتیب برای یک پوشهٔ live. اولین دسترسی: اسلات‌هایِ
-    موجود روی دیسک (رانِ قبلی/resume) از قبل آزاد حساب میشوند."""
     st = _LIVE_SEQ_STATE.get(d)
     if st is None:
         _next = 1
@@ -1097,8 +962,6 @@ def _live_seq_state(d: str) -> dict:
     return st
 
 def _live_seq_reset() -> None:
-    """شروعِ رانِ جدید: گیت برای پوشه‌هایِ liveِ همین نشست ریست میشود
-    (اسلات‌هایِ روی دیسک دوباره اسکن میشوند — resume خودکار درست است)."""
     try:
         with _LIVE_SEQ_LOCK:
             _LIVE_SEQ_STATE.clear()
@@ -1106,9 +969,6 @@ def _live_seq_reset() -> None:
         pass
 
 def _live_seq_flush() -> None:
-    """پایانِ کار/لغو: هرچه در بافر مانده به‌ترتیبِ شمارهٔ اسلات آزاد
-    میشود تا هیچ صفحه‌ای برای همیشه قفل نشود (صفحهٔ خراب/لغوشده).
-    بعدِ فلاش، به‌روزرسانی‌هایِ بعدی بی‌تأخیر مینشینند."""
     try:
         with _LIVE_SEQ_LOCK:
             for d, st in list(_LIVE_SEQ_STATE.items()):
@@ -1129,7 +989,6 @@ def _live_seq_flush() -> None:
         pass
 
 def _live_payload_load(pl: dict):
-    """بارگذاریِ تصویرِ نگه‌داشته‌شده در بافرِ گیت (مسیر یا بایت‌هایِ JPG)."""
     try:
         if pl.get("kind") == "path":
             return cv2.imread(pl["data"])
@@ -1142,9 +1001,6 @@ def _live_payload_load(pl: dict):
 
 def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
                     dbg: bool) -> None:
-    """نوشتنِ یک اسلاتِ live روی دیسک (قبلاً بدنهٔ دومِ _live_dump بود)."""
-# دادهٔ روکشِ دیباگ قبل از هر resize برداشته میشود (بعد از
-# resize، آرایهٔ تازه ویژگیهایش را از دست میدهد)
     _ovl = getattr(img, "ovl", None)
     _base = getattr(img, "base", None)
     _sent = os.path.join(d, ".count")
@@ -1161,16 +1017,7 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
         img = cv2.resize(img, (tw, max(1, round(h * tw / w))),
                          interpolation=cv2.INTER_AREA)
     out_name = os.path.join(d, f"live_{slot:04d}.jpg")
-# اولین نوشتنِ اسلات = «صفحهٔ N آماده شد»: در سبکِ مرجع همهٔ
-# dumpها slotِ صریح دارند و slot_new همیشه False میماند → این خط هرگز
-# چاپ نمیشد و نوارِ پیشرفتِ وب هیچ «رندرِ نهایی»ای نمیدید (ریشهٔ
-# «صفحهٔ 1 از 105 (0٪)» گیرکرده). به‌روزرسانیِ پیش‌نمایشِ همان اسلات
-# (فایلِ موجود) بی‌سروصدا میماند.
     _first_write = not os.path.isfile(out_name)
-# پچِ فشرده‌سازی v272: پیش‌نمایشِ زندهٔ سبک‌تر — JPEGِ PIL با کیفیتِ
-# ۸۰ + optimize + progressive (~۲۳٪ حجمِ کمتر + لودِ تدریجی رویِ نتِ
-# ضعیف). اگر PIL در دسترس نبود، همان cv2 با کیفیتِ ۸۰. سقفِ ۹۰۰px و
-# عدمِ بزرگ‌کردن همچنان برقرار است؛ _base.jpg و .json دست‌نخورده.
     try:
         from PIL import Image as _PILImage
         _PILImage.fromarray(
@@ -1179,8 +1026,6 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
                optimize=True, progressive=True)
     except Exception:
         cv2.imwrite(out_name, img, [cv2.IMWRITE_JPEG_QUALITY, 80])
-# دیباگِ روکشدار: پایهٔ بی‌روکش + jsonِ جعبهها با همان مقیاسِ
-# live کنارش مینشینند — نمایشگر با کلیدهای جدا جدا میکشدشان
     if dbg and _ovl is not None and _base is not None:
         try:
             import json as _json
@@ -1209,10 +1054,8 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
                 _json.dump(_oj, f, ensure_ascii=False)
         except Exception:
             pass
-# شمارندهٔ پوشه نباید عقبتر از اسلاتهایِ تخصیصی بماند (رفتارِ سابق)
     with open(_sent, "w", encoding="utf-8") as f:
         f.write(str(max(n, slot)))
-# زمانِ هر اسلات برایِ به‌روزرسانیِ تدریجیِ نمایشگرِ وب
     try:
         with open(os.path.join(d, "mtimes.txt"), "a", encoding="utf-8") as f:
             f.write(f"{slot} {int(time.time() * 1000)}\n")
@@ -1220,42 +1063,14 @@ def _write_live_now(img, d: str, slot: int, key, slot_new: bool,
         pass
     if not dbg and (key is None or slot_new or _first_write):
         print(f"[*] صفحهٔ {slot} آماده شد", flush=True)
-# به‌روزرسانیِ اسلاتِ قبلی (key دار) بی‌سروصدا است — هر ۱۵ دیالوگ یک بار
 
 class _DebugPageVis(np.ndarray):
-    """ — تصویرِ دیباگ + دادهٔ روکش: پایه (صفحهٔ بی‌روکش) و
-    فهرستِ جعبه‌های هر موتور (detector.onnx / پدل-det / پدل-rec)
-    به خودِ آرایه چسبیده میآیند تا در جایِ ذخیره، live_XX_base و
-    live_XX.json کنارِ تصویرِ سوخته بنشینند — نمایشگر با کلیدهایِ
-    روشن/خاموش، روکشها را جدا جدا میکشد."""
     ovl = None
     base = None
 
 
 def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
                slot: Optional[int] = None) -> None:
-    """یک صفحهٔ تازه‌تمام‌شده را برای «نمایش زنده» می‌نویسد.
-
-    src یا مسیر فایل است یا آرایهٔ تصویر (مثل دیباگ). برای دیباگ پوشهٔ
-    جداگانه از MANGA_LIVE_DEBUG_DIR خوانده می‌شود تا نمایش دیباگ هم
-    بتواند زنده باشد.
-
-     — key: شناسهٔ صفحه (مسیرِ خروجیِ همان صفحه). بارِ اول اسلات
-    جدید میگیرد (مثلِ قبل)؛ دفعاتِ بعدی «همان اسلات» به‌روز میشود — این
-    همان «۱۵ تا ۱۵ تا ترجمه کنه بذاره رو عکس نشون بده» است: هر بستهٔ
-    ترجمه همان صفحه را دوباره رندر و جای خودش زنده عوض میکند. برای هر
-    به‌روزرسانی یک خط «اسلات زمان» در mtimes.txt نوشته میشود تا نمایشگرِ
-    وب فقط اسلاتِ عوضشده را دوباره لود کند (بدونِ پرش اسکرول).
-
-     — slot: شمارهٔ اسلاتِ صریح. «دیباگ دو بار نشون میده — هم
-    دیباگِ قبلی هست هم دیباگِ تمومشده»: دیباگِ هر صفحه دوبار ذخیره میشد
-    (یکبار در _finish_page_now و یکبار در حلقهٔ ذخیرهٔ نهایی) و چون
-    شمارهٔ اسلاتِ دیباگ از رجیستریِ جدا میآمد، هر بار «فایلِ تازه»
-    میساخت → پوشهٔ live_debug دو فایل برایِ هر صفحه داشت و نمایشگرِ
-    دیباگ هر صفحه را دو بار نشان میداد. حالا دیباگِ صفحهٔ iام همیشه در
-    live_00(i+1).jpg همان پوشه مینشیند — ریزِ دوباره همان فایل را
-    بهروز میکند، هیچ فایلِ تکراری ساخته نمیشود و ترتیبِ فهرستِ دیباگ =
-    ترتیبِ واقعیِ صفحه‌ها."""
     d = (os.environ.get("MANGA_LIVE_DEBUG_DIR" if dbg else "MANGA_LIVE_DIR")
          or "").strip()
     if not d:
@@ -1292,8 +1107,6 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
             n += 1
             slot = n
             slot_new = True
-# گیتِ ترتیبِ «فقط از بالا به پایین»: اسلاتِ صریح تا
-# نوبتش در بافر میماند؛ اسلاتِ قبلاً-آزادشده بی‌تأخیر به‌روز میشود.
         st = _live_seq_state(d)
         with _LIVE_SEQ_LOCK:
             if int(slot) < int(st["next"]):
@@ -1313,9 +1126,7 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
                     except Exception:
                         _pl = None
                 if _pl is not None:
-# نسخهٔ تازه‌ترِ همان اسلات، نسخهٔ نگه‌داشته را عوض میکند
                     st["pending"][_slot] = _pl
-# زنجیرهٔ آماده‌ها را تا پایین آزاد کن
                 while st["next"] in st["pending"]:
                     _pl2 = st["pending"].pop(st["next"])
                     _img2 = _live_payload_load(_pl2)
@@ -1330,26 +1141,10 @@ def _live_dump(src, dbg: bool = False, key: Optional[str] = None,
 
 def _live_page_dump(out_file: str, key: Optional[str] = None,
                     slot: Optional[int] = None) -> None:
-    """ — slot: شمارهٔ صریحِ اسلات = شمارهٔ واقعیِ صفحه.
-
-    با استخراجِ دوطرفهٔ ۱۹۷ صفحهها بیترتیبِ شماره تمام میشوند و
-    پیشنمایشِ جریانی هم به ترتیبِ رسیدنِ آیتمها از مدل رندر میکند؛
-    اسلاتِ «ترتیبِ اتمام» عکسِ وسطِ فصل را جلوی صفحهٔ اول مینشاند
-    (). حالا همهٔ مسیرها
-    slot=page_i+1 میفرستند — ترتیبِ نمایشِ زنده = ترتیبِ واقعیِ صفحهها؛
-    هر صفحه در جایگاهِ خودش پر میشود، وسط فصل وسط میماند."""
     _live_dump(out_file, dbg=False, key=key, slot=slot)
 
-# _one_request_caps/_split_one_request_batches حذف شدند:
-# دیکدِ APKِ مرجع نشان داد که هیچ بستهبندی/سقفی وجود ندارد — کلِ فصل در
-# «یک» درخواست می‌رود .
 
 def _live_total_write(n: int) -> None:
-    """تعداد کل صفحه‌ها را در پوشهٔ live می‌نویسد تا نمایشگر زنده از اول
-    برای همه اسلات «در حال ترجمه» بگذارد — اسلات‌ها سر جایشان پر می‌شوند
-    و اسکرولِ کاربر هیچ‌وقت نمی‌پرد (). — شروعِ هر ران
-    گیتِ ترتیبِ نمایش هم ریست میشود (اسلات‌هایِ رانِ قبلی از دیسک
-    خوانده میشوند — resume درست کار میکند)."""
     _live_seq_reset()
     for var in ("MANGA_LIVE_DIR", "MANGA_LIVE_DEBUG_DIR"):
         d = (os.environ.get(var) or "").strip()

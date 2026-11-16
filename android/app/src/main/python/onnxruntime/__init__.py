@@ -1,25 +1,7 @@
 # -*- coding: utf-8 -*-
-# پل Python→Java برای onnxruntime اندروید (Chaquopy)
-# v2 — 1.14.6:
-#   • SessionOptions جاوا واقعاً اعمال می‌شود (نخ‌ها/بهینه‌سازی/arena) —
-#     قبلاً createSession بدون options صدا می‌شد و تنظیمات نخ نادیده گرفته
-#     می‌شد → DFT/FFT با ۸ نخ = ۲.۶× کندتر!
-#   • تبدیل سریع تانسور ورودی (buffer-protocol → jarray؛ کپی خام به‌جای
-#     لیست‌سازی عنصربه‌عنصر) و خروجی (getFloatBuffer → numpy).
-# v3 — 1.14.18 (الگوی رقیب v4.0.0):
-#   • پشتیبانی از موتورهای شتاب سخت‌افزاری ORT: XNNPACK (کرنل‌های ARM
-#     بهینه‌شده) + NNAPI (GPU/DSP/NPU اندروید) + WebGPU. APK رقیب
-#     دیکد شد — libonnxruntime.so آن (ORT 1.28) دقیقاً همین EPها را
-#     دارد (NnapiExecutionProvider + WebGpuExecutionProvider +
-#     XnnpackExecutionProvider). ORT-android خود ما (1.31) هم دارد.
-#   • SessionOptions._eps = [("XnnpackExecutionProvider", {opts}), ...]
 
 import numpy as np
 
-# v4 — 1.14.155: add_session_config_entry واقعاً اعمال میشود (spinning=0
-#   کانفیگِ رسمیِ XNNPACK) — قبلاً no-op بود و در اندروید نادیده گرفته
-#   میشد؛ _cfg در _build_java_session_options به addSessionConfigEntry
-#   جاوا میرسد.
 __version__ = "1.31.0-android-shim-v4"
 
 
@@ -124,8 +106,6 @@ class SessionOptions:
         self.inter_op_num_threads = 1
         self.optimized_model_filepath = ""
         self.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
-        # 🎮 v3: درخواست EP سخت‌افزاری — لیستی از (نام, opts_dict).
-        # در _build_java_session_options به متدهای جاوا ترجمه می‌شود.
         self._eps = []
         self._cfg = {}
 
@@ -139,8 +119,6 @@ class SessionOptions:
         self.__dict__[k] = v
 
     def add_session_config_entry(self, k, v=None):
-        # v4 — 1.14.155: واقعاً ذخیره میشود (قبلاً pass بود) تا
-        # session.intra_op.allow_spinning=0 و امثالِ آن به ORT برسد
         try:
             self._cfg[str(k)] = str(v)
         except Exception:
@@ -148,8 +126,6 @@ class SessionOptions:
 
 
 def get_available_providers():
-    # 🎮 v3: EPهای سخت‌افزاری ORT-android (داخل AAR از قبل کامپایل شده‌اند؛
-    # همان‌هایی که APK رقیب هم دارد). CPU همیشه هست.
     return ["CPUExecutionProvider", "XnnpackExecutionProvider",
             "NnapiExecutionProvider"]
 
@@ -224,9 +200,6 @@ def _tensor_create(x):
         x = x.astype(np.int64) if x.dtype == np.bool_ else x.astype(np.float32)
     x = np.ascontiguousarray(x)
     shape = _jarr_fill([int(v) for v in x.shape], "j")
-    # 🚀 مسیر سریع: آبجکت‌های دارای buffer-protocol (مثل ndarray) مستقیم به
-    # آرایهٔ جاوا کپی می‌شوند — به‌جای.tolist() و تبدیل عنصری (تا ~۱۰× سریع‌تر
-    # برای تانسورهای ۳×۵۱۲×۵۱۲).
     if x.dtype == np.float32:
         try:
             ja = jarray(_JF)(x.reshape(-1))
@@ -251,7 +224,6 @@ def _tensor_create(x):
             return _OnnxTensor.createTensor(_ENV, _buf_of(ja, "i"), shape)
         except Exception:
             pass
-    # مسیر قدیمی (fallback مطمئن)
     flat = x.ravel()
     if x.dtype == np.float32:
         code = "f"
@@ -282,7 +254,6 @@ def _to_numpy(value):
 
 
 def _tensor_out_to_numpy(t):
-    # 🚀 خروجی: FloatBuffer → buffer-protocol → numpy (بدون لیست‌های تو در تو)
     try:
         shape = []
         try:
@@ -400,9 +371,6 @@ def _node_info(info):
 
 
 def _apply_java_eps(jopt, sess_options):
-    """🎮 v3: اعمال EPهای درخواستی روی SessionOptions جاوا.
-    XNNPACK: کرنل‌های ARM بهینه (dotprod) — مثل رقیب.
-    NNAPI: شتاب GPU/DSP/NPU اندروید. WebGPU: آزمایشی."""
     try:
         eps = list(getattr(sess_options, "_eps", []) or [])
     except Exception:
@@ -443,7 +411,6 @@ def _apply_java_eps(jopt, sess_options):
 
 
 def _build_java_session_options(sess_options):
-    """SessionOptions پایتون → ai.onnxruntime.OrtSession$SessionOptions جاوا."""
     if sess_options is None:
         return None
     jopt = None
@@ -524,8 +491,6 @@ class InferenceSession:
     def __init__(self, path_or_bytes, sess_options=None, providers=None, **kw):
         if not _OK:
             raise ImportError("شیم ORT اندروید لود نشد: %s" % (_IMPORT_ERR,))
-        # 🎮 v3: EP درخواست‌شده را یادداشت کن (جاوا API گیرندهٔ providers نیست؛
-        # EP از طریق SessionOptions._eps اعمال می‌شود)
         try:
             if providers:
                 for _p in providers:
@@ -559,7 +524,6 @@ class InferenceSession:
                 self._sess = _ENV.createSession(str(path_or_bytes))
         self._in_names = _jset_to_list(self._sess.getInputNames())
         self._out_names = _jset_to_list(self._sess.getOutputNames())
-        # 🎮 v3: providers واقعی برای لاگ — CPU + EPهای اعمال‌شده
         try:
             self._prov = ["CPUExecutionProvider"] + [
                 e[0] for e in list(getattr(sess_options, "_eps", []) or [])]

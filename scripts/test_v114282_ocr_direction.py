@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""تستِ جهتِ OCR رویِ فیکسچرهایِ «متنِ کج» و «متنِ خمیده» (D279).
-
-خواستهٔ سازنده: «چند تا عکس فیک متن خمیده شده و متن کج هردو جدا فرق
-دارن بسازی و ocr تست کنی ببینی جهتشون درست میخونه یا درست سرجاشون
-میزاره هم پی سی هم لینوکس هم اندروید».
-
-  • کج (rotated): خطِ صافِ چرخیده — چک: متن + مرکز + زاویهٔ خط از
-    چهارگوشِ det (±8 درجه).
-  • خمیده (curved): حروف رویِ کمان — چک: توکنهایِ متن + مرکزِ
-    اجتماعِ چهارگوشها (کمان معمولاً چند خط میشود).
-
-فیکسچرها: ci_imgs/fixtures/ (با scripts/make_ocr_fixture.py ساخته
-میشوند — اگر نبودند همین اسکریپت میسازد). همان اسکریپت رویِ
-اندروید هم اجرا میشود (موتورِ OCR خودکار موبایل میشود) — CIِ
-android-emulator آن را با فیکسچرِ page_mixed صدا میزند.
-"""
 import json
 import math
 import os
@@ -46,7 +29,6 @@ def _words(t: str):
 
 
 def _fuzzy_in(word: str, text: str) -> bool:
-    """تطبیقِ نرمِ کلمه — یک-دو لغزشِ OCR خطا حساب نمیشود."""
     import difflib
     if not word:
         return False
@@ -61,9 +43,6 @@ def _fuzzy_in(word: str, text: str) -> bool:
 
 
 def _quad_angle(box) -> float:
-    """زاویهٔ خطِ متن از چهارگوشِ det — لبهٔ «بلندتر» (جهتِ
-    خواندن)، نه لبهٔ بالاییِ y (برایِ متنِ کج انتخابِ لبه با y
-    اشتباه میشود). طی‌شده به بازهٔ (−90, 90]."""
     pts = [(float(q[0]), float(q[1])) for q in box]
     best_ang, best_len = 0.0, -1.0
     for i in range(4):
@@ -99,9 +78,8 @@ def check(name, cond):
 
 
 def run_backend():
-    """موتورِ OCRِ خودِ برنامه — همان مسیری که استخراج استفاده میکند."""
-    import cv2  # noqa
-    from manga_single import RapidOCRBackend  # یا sections رویِ لودر
+    import cv2
+    from manga_single import RapidOCRBackend
     return RapidOCRBackend(lang="en", prefer_gpu=False)
 
 
@@ -148,7 +126,7 @@ def main():
             gx, gy = g["center"]
             tol = 0.22 * max(g["size"])
             pos_ok = math.hypot(cx - gx, cy - gy) <= tol
-        gt_img_ang = -float(g["angle"])  # PIL پادساعتگرد؛ تصویر y-down
+        gt_img_ang = -float(g["angle"])
         ang_ok = (ang is not None
                   and abs(((ang - gt_img_ang + 90) % 180) - 90) <= 8.0)
         ok = check(f"{name}: متن={text_ok} مرکز={pos_ok} "

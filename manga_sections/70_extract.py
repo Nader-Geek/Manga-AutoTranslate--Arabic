@@ -1,10 +1,4 @@
 # BUILD-STRIP-START
-# MangaTranslator (۳ از ۷) — استخراجِ متن + دوخت/برشِ امنِ صفحهها
-# این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
-# اجرا نمیشود — لودرِ manga.py این محتوا را بههمان ترتیبِ شمارهٔ
-# فایل، داخلِ کلاس میچسباند. کلاسِ پوششیِ زیر فقط برایِ معتبر
-# بودنِ سینتکسِ این فایلِ تکی است و موقعِ بارگذاری حذف میشود.
-# (ترکیب از: 180_translator_extract.py + 210_translator_stitch.py)
 class _MangaTranslatorBody_70:
 # BUILD-STRIP-END
     @staticmethod
@@ -54,12 +48,7 @@ class _MangaTranslatorBody_70:
         except Exception:
             return 0.0
 
-# تشخیص «پنجرهٔ سیستم» (System Window / Quest / INFO …) از
-# نشانه‌های متنی — براکت  ، دونقطه، کلیدواژه و فاصلهٔ خط‌ها — برای
-# همهٔ زبان‌ها: انگلیسی، ژاپنی، کره‌ای، چینی. هر خط جدا ترجمه و با
-# فونت مخصوص سیستم رندر می‌شود (خواستهٔ کاربر).
     _SYSTEM_KEYWORDS = (
-# انگلیسی
         "system", "info", "information", "quest", "mission", "level", "status",
         "window", "menu", "alert", "notice", "warning", "shop", "store",
         "skill", "inventory", "reward", "daily", "weekly", "tutorial",
@@ -67,17 +56,14 @@ class _MangaTranslatorBody_70:
         "achievement", "notification", "loading", "confirm", "cancel",
         "accept", "decline", "points", "exp", "time left", "countdown",
         "timer", "update", "guild", "dungeon", "penalty", "runaway",
-# ژاپنی
         "システム", "情報", "インフォ", "クエスト", "ミッション", "レベル",
         "ステータス", "警告", "注意", "通知", "ショップ", "商店", "アイテム",
         "報酬", "デイリー", "ウィークリー", "達成", "実績", "完了", "失敗",
         "確認", "キャンセル", "設定", "スキル", "経験値", "所持", "メニュー",
         "討伐", "侵入", "準備",
-# کره‌ای
         "시스템", "정보", "퀘스트", "미션", "레벨", "상태", "경고", "알림",
         "상점", "아이템", "보상", "일일", "주간", "업적", "완료", "실패",
         "확인", "취소", "설정", "스킬", "경험치", "메뉴", "공지",
-# چینی
         "系统", "信息", "任务", "等级", "状态", "警告", "提醒", "通知", "商店",
         "道具", "奖励", "日常", "每周", "成就", "完成", "失败", "确认", "取消",
         "设置", "技能", "经验", "公告", "菜单", "副本", "公会",
@@ -85,8 +71,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _system_window_score(text: str, line_texts, line_polys, rect) -> int:
-        """امتیاز ۰..۱۲ برای «پنجرهٔ سیستم» از نشانه‌های متنی/هندسی.
-        ≥۵ → پنجرهٔ سیستم: خط‌ها جدا و با فونت سیستم رندر می‌شوند."""
         try:
             t = str(text or "").strip()
             if not t:
@@ -99,25 +83,20 @@ class _MangaTranslatorBody_70:
             if n <= 0:
                 return 0
             score = 0
-# ۱) براکتِ سرصفحه — قوی‌ترین نشانه ([ Daily Quest ] / 【】)
             if re.search(r"[\[\u3010][^\]\u3011\n]{1,48}[\]\u3011]", t):
                 score += 3
-# ۲) کلیدواژه‌های سیستم (چهار زبان — لاتین با مرزِ کلمه)
             kw = MangaTranslator._sys_keyword_hits(lines)
             if kw >= 1:
                 score += 2
             if kw >= 3:
                 score += 1
-# ۳) دونقطه‌های لیبل (HP: 120 / TIME : 05:00)
             colons = sum(l.count(":") + l.count("\uff1a") + l.count("\uff1d")
                          for l in lines)
             if colons >= 2:
                 score += 2
-# ۴) یکنواختی طول خط‌ها — ترازِ متنِ پنجره (فاصلهٔ متن‌ها)
             lens = [len(l) for l in lines]
             if n >= 3 and max(lens) - min(lens) <= max(6, int(0.35 * max(lens))):
                 score += 2
-# ۵) فاصلهٔ عمودی باز بین خط‌ها — تایپوگرافی UI
             if line_polys and len(line_polys) >= 3:
                 try:
                     tops, hts = [], []
@@ -132,14 +111,11 @@ class _MangaTranslatorBody_70:
                         score += 2
                 except Exception:
                     pass
-# ۶) خط‌های کوتاه متعدد
             if n >= 4 and max(lens) <= 42:
                 score += 1
-# ۷) بدون نقطه‌گذاری جمله‌ای
             if n >= 3 and not any(re.search(r"[\u3002\uff0e\uff01!?\u2026]$", l)
                                   for l in lines):
                 score += 1
-# ۸) پنجرهٔ عریض با چند خط
             try:
                 w_ = int(rect[2]) - int(rect[0])
                 h_ = int(rect[3]) - int(rect[1])
@@ -153,8 +129,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _sys_keyword_hits(lines) -> int:
-        """تعداد خط‌های دارای کلیدواژهٔ سیستم. کلیدواژهٔ لاتین با «مرزِ کلمه»
-        (\bexp\b نه «unexpected»!) — ژاپنی/کره‌ای/چینی زیررشته."""
         n = 0
         for l in (lines or []):
             ll = str(l or "").strip().lower()
@@ -176,11 +150,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _is_label_block(line_texts) -> bool:
-        """: «بلوکِ برچسب» — جعبهٔ مشخصاتِ شخصیت (NAME / AGE: 40 /
-        RACE: …) و پنجره‌های UI چندخطیِ کوتاه. این خط‌ها باید «جدا جدا»
-        ترجمه شوند (خواستهٔ کاربر)، ولی حبابِ دیالوگِ عادی هرگز نباید.
-        شرط‌ها: چند خطِ کوتاه + حداقل ۲ لیبلِ دونقطه‌دار یا براکتِ سرصفحه +
-        هیچ خطی با نقطه‌گذاریِ جملهٔ گفتاری تمام نشود (؟ ! …)."""
         try:
             lines = [str(l or "").strip() for l in (line_texts or [])
                      if str(l or "").strip()]
@@ -190,7 +159,6 @@ class _MangaTranslatorBody_70:
             lens = [len(l) for l in lines]
             if max(lens) > 46 or (sum(lens) / float(n)) > 30.0:
                 return False
-# جملهٔ گفتاری — هیچ خط نباید با ؟/!/… تمام شود (جعبهٔ مشخصات ندارد)
             if any(re.search(r"[?!…\u3002\uff01\uff1f]$", l) for l in lines):
                 return False
             colon_lines = sum(1 for l in lines if re.search(r"[:\uff1a\uff1d=]", l))
@@ -199,9 +167,6 @@ class _MangaTranslatorBody_70:
                 for l in lines)
             if colon_lines >= 2 or has_bracket:
                 return True
-# بلوکِ کلیدواردی — لیستِ مهارت‌ها (SKILL(S): … / MEDITATION
-# / MOBILE MEDITATION (LV.11) / …): یک خطِ کلیدواژه + یک لیبلِ
-# دونقطه‌دار + همهٔ خط‌ها ≤۴ کلمه (نثرِ گفتاری این‌قدر کوتاه نیست)
             if len(lines) >= 3 and all(len(l.split()) <= 4 for l in lines):
                 kw = MangaTranslator._sys_keyword_hits(lines)
                 if kw >= 1 and colon_lines >= 1:
@@ -212,24 +177,16 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _system_window_strong(text: str, line_texts) -> bool:
-        """: نشانهٔ «قوی» پنجرهٔ سیستم — بدون این هیچ حباب عادی
-        نباید پنجره حساب شود (براکت سرصفحه / کلیدواژهٔ سیستم / ≥۲ لیبلِ
-        دونقطه‌دار). حباب عادی فقط امتیازهای ظاهری دارد (فاصله، تراز)،
-        پس این شرط جلوی جدا شدن حباب‌های دیالوگ را می‌گیرد.
-        براکت = فقط [ ] و 【 】 — پرانتزِ عادی («(CLRD & TS)») نشانه نیست."""
         try:
             t = str(text or "")
-# ۱) براکت سرصفحه — قوی‌ترین ([ Daily Quest ] / 【…】)
             if re.search(r"[\[\u3010][^\]\u3011\n]{1,48}[\]\u3011]", t):
                 return True
             lines = [str(l or "").strip().lower() for l in (line_texts or [])
                      if str(l or "").strip()]
             if not lines:
                 lines = [p.strip().lower() for p in re.split(r"[\n]+", t) if p.strip()]
-# ۲) کلیدواژهٔ سیستم در یکی از خط‌ها (مرزِ کلمه برای لاتین)
             if MangaTranslator._sys_keyword_hits(lines) >= 1:
                 return True
-# ۳) لیبل‌های دونقطه‌دار (HP: 120 / TIME : 05:00 / GOAL :)
             colons = sum(l.count(":") + l.count("\uff1a") + l.count("\uff1d")
                          for l in lines)
             if colons >= 2:
@@ -240,8 +197,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _cluster_ocr_lines(polys, texts, y_tol_factor: float = 0.65):
-        """جعبه‌های OCR (که گاهی کلمه‌به‌کلمه‌اند) را به «خط» خوشه‌بندی می‌کند.
-        خروجی: [(x0, y0, x1, y1, text)] مرتب بر اساس y."""
         try:
             items = []
             for _i, _p in enumerate(list(polys or [])):
@@ -286,12 +241,6 @@ class _MangaTranslatorBody_70:
             return []
 
     def _ocr_pool_workers(self, n_tasks: int) -> int:
-        """ — تعدادِ workerِ موازیِ OCR برایِ حلقههایِ کراپ.
-        فقط RapidOCRBackend (سشنهای det/recِ ORT مشترک و thread-safe
-        هستند — الگویِ _ocr_one90 از ). بقیهٔ بکاندها (Paddle)
-        ترتیبی میمانند. پیشفرض: min(4, هستهٔ فیزیکی) —
-        MANGA_OCR_WORKERS=N اورراید. خروجیِ OCR در همهٔ حالتها یکسان
-        است (همان فراخوانیها، فقط همزمان)."""
         try:
             if n_tasks is None or int(n_tasks) <= 1:
                 return 1
@@ -305,10 +254,6 @@ class _MangaTranslatorBody_70:
             w = 0
         if w <= 0:
             try:
-# سشنِ OCR خودش intra=2 نخ دارد (تuned در
-# RapidOCRBackend) → workerِ موازی = هستهٔ فیزیکی ÷ 2 تا
-# مجموعِ نخها اشباع نشود (واگرنه حتی کندتر از ترتیبی
-# میشود — بنچمارکِ 2core: 19.1s→18.6s با workers=2×intra2).
                 w = max(1, min(4, int(_physical_core_count()) // 2))
             except Exception:
                 w = 1
@@ -324,14 +269,6 @@ class _MangaTranslatorBody_70:
 
         x1, y1, x2, y2 = [int(v) for v in rect]
         h, w = image_bgr.shape[:2]
-# کشِ نتیجهٔ OCRِ همان برش: نجاتِ یتیم/خالی گاهی
-# همان مستطیلِ نردبانِ اصلی را دوباره OCR میکرد (پروفایل:
-# ۶۷ فراخوانی برایِ ۳۱ ناحیه). کلید = مختصاتِ برش + ابعادِ
-# تصویر. کش = «دیکتِ محلیِ همان صفحه» (page_cache که
-# extract_regions_phase میسازد و تا آخرِ همان صفحه زنده است):
-# قبلاً رویِ self بود و دو کارگرِ استخراجِ همزمانِ fwd/bwd
-# یکدیگر را پاک میکردند (تلفِ کش = کندی) و کلیدهایِ هممختصایِ
-# دو نوارِ مختلف میتوانستند متنِ غلط برگردانند (برخوردِ صفحه).
         try:
             _ck = (x1, y1, x2, y2, w, h,
                       tuple(map(tuple, block_rects)) if block_rects else None)
@@ -357,13 +294,6 @@ class _MangaTranslatorBody_70:
 
     def _rec_fast_single_line(self, crop0: np.ndarray, base_scale: float,
                               ox: int, oy: int, block_rects, own_area: float):
-        """⚡ خوانشِ «تک‌خطی» بدونِ det — همان توافق‌نامهٔ سه‌لایه،
-        فقط وقتی که پروفایلِ جوهر میگوید «یک خط بیشتر نیست»:
-        detector-v4-s جایِ متن را داده، باندِ تک‌خط = جایِ دقیقِ
-        خط (det دیگر چیزی دقیقتر از خودِ باند نمیداند)، rec هم
-        فقط همان برش را میخواند. هر تردیدی = None → نردبانِ اصلی.
-        خروجی = همان ۵تاییِ _ocr_crop_run (متن، پلیها، زاویهها،
-        متنِ خطها، بلکها)."""
         _rf = getattr(self.ocr, "rec_only", None)
         if not callable(_rf):
             return None
@@ -376,17 +306,13 @@ class _MangaTranslatorBody_70:
             return None
         med = float(np.median(g))
         if med >= 120:
-# متنِ سیاه رویِ روشن (حبابِ عادی)
             ink = (g < max(60.0, med - 45.0))
         elif med <= 108:
-# متنِ سفید رویِ تیره (داد/زمزمه/حبابِ سیاه — «YOUR
-# MAJESTY»یِ Green-Skin 30: med=38) — همان تحلیل، برعکس
             ink = (g > min(200.0, med + 45.0))
         else:
-            return None  # خاکستریِ مبهم → نردبانِ کامل
+            return None
         rows = ink.mean(axis=1)
         on = rows > 0.03
-# باندسازی: ردیفهایِ پُر، جدا با شکافِ ≥۳ ردیفِ خالی
         bands = []
         _s = None
         _gap = 0
@@ -415,12 +341,6 @@ class _MangaTranslatorBody_70:
         bx1, bx2 = int(cx[0]), int(cx[-1])
         if bx2 - bx1 + 1 < 16:
             return None
-# چسبیده به لبهٔ «افقی»: فقط «برشِ وسطِ حرف» خطرناک است (خوانشِ
-# نصفه با conf بالا — نجاتِ لبهٔ نردبان لازم دارد). باکسِ تنگِ
-# detector گاهی تا پایانِ طبیعیِ آخرین حرف چسبیده («YOUR
-# MAJESTY»یِ Green-Skin 30: bx2=464/465). سنجش: چگالیِ ۳ ستونِ
-# لبه در برابرِ چگالیِ میانهٔ ستونهایِ پُرِ باند — لبهٔ چگال =
-# قلمِ بریده → نردبان؛ لبهٔ کم‌چگال = پایانِ طبیعیِ حرف → ⚡
         if bx1 <= 1 or bx2 >= cw - 2:
             try:
                 _bandcols = ink[by1:by2 + 1].mean(axis=0)
@@ -440,8 +360,6 @@ class _MangaTranslatorBody_70:
                     return None
             except Exception:
                 return None
-# باند باید تقریباً «همهٔ» جوهر را پوشش دهد — جوهرِ جدا در
-# بالا/پایین یعنی خطِ دوم/تزئین → چندخطی است، نردبان
         _tot = float(ink.sum())
         if _tot <= 0 or float(ink[by1:by2 + 1].sum()) / _tot < 0.88:
             return None
@@ -463,10 +381,8 @@ class _MangaTranslatorBody_70:
         _lt = sum(1 for _c in txt if _c.isascii() and _c.isalpha())
         if _lt < 2:
             return None
-# آشغالِ نمادی (همان سیاستِ نردبان: حرفِ کافی نسبت به طول)
         if _lt * 2 < len(txt.replace(" ", "")):
             return None
-# مالکیت: این خط نباید متعلق به کراپِ ناحیهٔ همسایه باشد
         _bb = (float(ox + rx1), float(oy + ry1),
                float(ox + rx2), float(oy + ry2))
         try:
@@ -474,8 +390,6 @@ class _MangaTranslatorBody_70:
                 return None
         except Exception:
             return None
-# پلی = مستطیلِ باندِ جوهر در مختصاتِ صفحه (همان چیزی که det
-# برایِ خطِ مستقیمِ تمیز پیدا میکرد)
         _p = np.array(
             [[ox + bx1, oy + by1], [ox + bx2 + 1, oy + by1],
              [ox + bx2 + 1, oy + by2 + 1], [ox + bx1, oy + by2 + 1]],
@@ -519,9 +433,6 @@ class _MangaTranslatorBody_70:
                     crop_bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
                 )
             try:
-# اندروید: OCRِ برش با crop_mode (detِ بدونِ
-# بزرگنمایی) — نردبانِ variantها ۴-۶× ارزانتر میشود
-# PC بیت‌به‌بیت دستنخورده.
                 _oc = self.ocr
                 if _on_android() and getattr(_oc, "_mobile", None) \
                         is not None:
@@ -529,9 +440,6 @@ class _MangaTranslatorBody_70:
                 else:
                     results = _oc.ocr(crop_bgr)
             except Exception as _e:
-# خرابیِ OCRِ برش دیگر بیصدا نمیماند
-# (دیباگ: خطِ کوتاهِ خطا — ریشهِ «متن پیدا نشد» فوراً
-# در لاگ دیده میشود).
                 if getattr(self, "debug", False):
                     print(f"    [!] OCRِ برش خطا داد: {str(_e)[:140]}")
                 return "", [], 0.0, []
@@ -565,7 +473,6 @@ class _MangaTranslatorBody_70:
                     lines.append(text)
                     confs.append(conf)
                     box0 = line[0] if len(line) >= 1 else None
-# blk = شمارهٔ بلوکِ ML Kit (فقط بکاندِ mlkit)
                     _blk_id = -1
                     if isinstance(pair, (list, tuple)) and len(pair) > 3:
                         try:
@@ -593,11 +500,6 @@ class _MangaTranslatorBody_70:
             avg_conf = float(np.mean(confs)) if confs else 0.0
             return joined, polys, avg_conf, entries
 
-# اندروید: امتیازدهیِ واریانت باید «متنِ درستِ هر
-# اسکریپت» را بپذیرد؛ فرمولِ قدیمی فقط لاتین را می‌شمرد → رویِ
-# صفحهٔ ژاپنی، واریانتِ آشغالِ لاتینِ با confِ تصادفیِ بالاتر
-# خوانشِ درستِ CJK را می‌بَرد (نمونه: «描いて精神統一» ← «bI 2 2い»).
-# PC بیت‌به‌بیت فرمولِ قدیمی.
         _sc_cjk = _on_android()
 
         def _score(txt: str, conf: float) -> float:
@@ -633,16 +535,6 @@ class _MangaTranslatorBody_70:
         else:
             core = crop0
 
-# ⚡ مسیرِ سریعِ تک‌خطی — «بدونِ det»: سازنده پرسید اگر rec
-# خودش بخوبی بخواند، چرا det؟ پاسخِ بنچمارک (فصلِ Green-Skin
-# ۲۷، ۳۷ صفحه): recِ مستقیم رویِ کراپِ کامل فقط برایِ حبابهایِ
-# «تک‌خطی» درست است — رویِ حبابهایِ چندخطی چرت میگوید (کراپِ
-# ۴خطی → «J» با conf=0.68) چون rec یک «خط» میخواند نه چند خط.
-# پس: پروفایلِ جوهرِ کراپ اگر «دقیقاً یک باندِ متن» نشان دهد
-# (و باند اکثرِ جوهر را دارد، به لبه نچسبیده، مالِ همسایه
-# نیست) → فقط rec رویِ برشِ خط (بدونِ پاسِ det)؛ در غیرِ این
-# صورت → نردبانِ کاملِ det+rec مثلِ قبل. دقت: هر گیتِ رد شود
-# یعنی «مطمئن نیستم» → نردبان. خاموش‌کردن: MANGA_REC_FAST_OFF=1
         if not _tilted0 and not os.environ.get("MANGA_REC_FAST_OFF"):
             try:
                 _fast = self._rec_fast_single_line(
@@ -655,12 +547,6 @@ class _MangaTranslatorBody_70:
 
         variants = []
         variants.append(("raw", core, base_scale))
-# گیتِ کنتراست برایِ CLAHE: رویِ کراپِ پرکنتراستِ
-# تمیز (متنِ سیاهِ حباب رویِ سفید: p90−p10 ≥ ۱۲۰) خروجیِ CLAHE
-# عملاً همانِ raw است — یک فراخوانیِ OCRِ کاملِ اضافه به ازایِ
-# هر ناحیه (پروفایلِ up0822: ۱۶ فراخوانیِ نردبان برایِ ۵ ناحیه)
-# که هیچ واریانتِ تازهای نمیآورد. رویِ کراپِ کمکنتراست/سایهدار
-# (دلیلِ وجودِ CLAHE) همچنان اجرا میشود.
         _clahe_skip = False
         try:
             _gc = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
@@ -714,16 +600,6 @@ class _MangaTranslatorBody_70:
         inset_used = inset if core is not crop0 else 0
         early_stop = False
 
-        #). پروفایلِ واقعیِ img6: ۵۹ پاسِ OCR برایِ ۹ ناحیه — ۴۰ پاسش
-# «تک‌پاسِ OCR» (
-# نردبانِ واریانتها (raw→clahe→otsu→inv) بود در حالی که پاسِ اولِ
-# raw همان ۵-۱۱ خطِ نهایی را با conf بالا خوانده بود. حالا: پاسِ
-# اولِ (raw) اگر «خوانشِ خوب» داد — متنِ واقعی + conf ≥ ۰٫۸۰ +
-# پوششِ جوهرِ عمودی کافی — نردبان اصلاً اجرا نمیشود (۱ پاس به‌ازایِ
-# ناحیه). خوانشِ ضعیف/خالی → نردبان کامل مثلِ قبل (کراپِ تیره/کم-
-# کنتراست نجاتِ خودش را دارد). پوششِ جوهر = بازهٔ عمودیِ خطهایِ
-# یافتشده در برابرِ بازهٔ عمودیِ جوهرِ کراپ — اگر نصفِ حبابِ پر-
-# متن ناخوانده مانده باشد، تک‌پاس قبول نمیشود.
         _ink_rows = None
         try:
             _g2 = cv2.cvtColor(core, cv2.COLOR_BGR2GRAY)
@@ -745,19 +621,8 @@ class _MangaTranslatorBody_70:
                     if e[2] is not None:
                         e[2][:, 0] += inset_used
                         e[2][:, 1] += inset_used
-            #) — PC و اندروید یکسان:
-# دو فیلترِ ضدِ «چرت‌پرت» (
-# الف) مالکیتِ خط: خطی که به ناحیهٔ همسایهٔ تنگتر تعلق دارد
-# از این ناحیه حذف میشود (نمونهٔ img6 #02: نشتِ متنِ حبابِ
-# «You're the real attraction here.» به کراپِ حبابِ زرد).
-# ب) خطِ آشغالِ لاتین: خطِ تکقسمتیِ بیواکل/بیحرفِ کوتاه
-# («FL»، «SS»، «23»، «豊») که فقط جوهرِ هنر است.
-# هر دو رویِ مختصاتِ صفحه (بعد از جبرانِ inset) اعمال میشوند.
             _own = max(1.0, float((x2 - x1) * (y2 - y1)))
             if entries:
-# سیاستِ عدد/سمبل در سطحِ ناحیه: متنِ «کلِ»
-# کاندید (قبل از فیلتر) تعیین میکند که خطِ عدد محتواست
-# («19 hi») یا ناحیهٔ فقط-عدد است (no_touch میشود).
                 try:
                     _rhas3 = source_has_letters(
                         " ".join(str(_e[0]) for _e in entries))
@@ -777,7 +642,6 @@ class _MangaTranslatorBody_70:
                         if _latin_lang(self) else False
                     if _j:
                         if isinstance(_j, str):
-# ترمیمِ «77,I» → «I» بهجایِ حذف
                             _e = (_j,) + tuple(_e[1:])
                             _fix = True
                         else:
@@ -822,12 +686,6 @@ class _MangaTranslatorBody_70:
                          for e in entries if e[2] is not None])
 
             _latin_n = len(re.sub(r"[^A-Za-z]", "", txt or ""))
-# گیتِ «تک‌پاسِ OCR»: پاسِ اولِ (raw) با خوانشِ
-# خوب، نردبانِ clahe/otsu/inv را دور میزند (پروفایلِ img6:
-# ۴۰ پاسِ نردبان برایِ ۹ ناحیه — اکثرشان بعد از خوانشِ
-# موفقِ raw زده میشدند). شرطها: متنِ واقعی (لاتین ≥ ۳ یا
-# CJK ≥ ۲) + conf ≥ ۰٫۸۰ + پوششِ عمودیِ جوهر (خطهایِ
-# یافته ≥ ۶۰٪ بازهٔ جوهر — حبابِ نصفه‌خوانده قبول نیست).
             if os.environ.get("MANGA_DBG") and _vi == 0:
                 print(f"    [DBG] vi0 name={name} conf={conf:.3f} "
                       f"latin={_latin_n} entries={len(entries)} "
@@ -876,14 +734,6 @@ class _MangaTranslatorBody_70:
                     early_stop = True
                     break
 
-# نجاتِ خطهایِ جامانده در کراپهایِ کشیده (مشکل۱) ──
-# لاگِ واقعیِ گوشی (img6): حبابِ زرد فقط ۴ خط از ۷ خط داد و کلِ صفحه
-# ۴۸ خط در برابرِ ۷۱ خطِ PC — detِ خطیِ یکجا رویِ کراپِ بلند
-# خطهایِ وسط را از دست میدهد. اگر بینِ خطهایِ یافتشده شکافِ
-# بزرگی (>۲× ضخامتِ معمولِ خط) باشد، دو نیمهٔ همپوشانِ کراپ جدا
-# OCR میشوند؛ خطهایِ تازه از راهِ dedupِ همپوشانیِ همان به
-# merged اضافه میشوند و فیلترهایِ مالکیتِ خط هم رویشان اجرا میشود.
-# کراپِ سالم (شکافِ نرمال) = صفر هزینهٔ اضافه.
         try:
             if merged and not _tilted0:
                 _mx, _mn = max(ch0, cw0), min(ch0, cw0)
@@ -946,7 +796,6 @@ class _MangaTranslatorBody_70:
                                     if _line_is_foreign(
                                             _bb2, block_rects, _own):
                                         continue
-# ناحیه = merged + نیمه‌ها
                                     try:
                                         _rhas = source_has_letters(
                                             " ".join(
@@ -979,16 +828,6 @@ class _MangaTranslatorBody_70:
         except Exception:
             pass
 
-# نجاتِ خطِ لبه‌بریدهٔ کراپ (متنِ کنارِ حباب) ──
-# OCRِ کراپِ حباب متنی را که فقط «گوشه‌اش» داخلِ باکس است نصفه
-# می‌خواند (نمونهٔ 01.jpg: «You're the real attraction here.» کنارِ
-# حبابِ زرد → تکه‌هایِ «su're / ereal / traction» چسبیده به لبهٔ
-# کراپ). اگر خطی به لبهٔ چپ/راستِ کراپ چسبیده بود، کراپ در همان سمت
-# باز می‌شود (سقفِ ۱۱۰px یا ۳۵٪ عرض؛ بدونِ عبور از باکسِ ناحیهٔ
-# دیگر) و یک پاسِ OCR رویِ کراپِ بازشده زده می‌شود؛ خطِ کامل‌تر
-# جایگزینِ تکهٔ نصفه می‌شود. فقط خط‌هایی پذیرفته می‌شوند که در
-# نوارِ عمودیِ همان خطِ بریده باشند (جوهرِ نامربوطِ بالا/پایینِ
-# نوار جذب نمی‌شود).
         try:
             if merged and not _tilted0:
                 _dbg = bool(os.environ.get("MANGA_R90_DBG"))
@@ -1054,10 +893,8 @@ class _MangaTranslatorBody_70:
                         _bE = _bb_of(_pE)
                         if _bE is None or (_bE[3] - _bE[1]) < 8:
                             continue
-# همان دو فیلترِ ضدِ چرت‌پرت رویِ نجاتِ لبه
                         if _line_is_foreign(_bE, block_rects, _own):
                             continue
-# ناحیه = merged + خطِ نجات‌یافته
                         try:
                             _rhasE = source_has_letters(
                                 " ".join(
@@ -1069,7 +906,7 @@ class _MangaTranslatorBody_70:
                             if _latin_lang(self) else False
                         if _jE:
                             if isinstance(_jE, str):
-                                _tE = _jE  # ترمیم
+                                _tE = _jE
                             else:
                                 continue
                         _oyE = min(_yhi, _bE[3]) - max(_ylo, _bE[1])
@@ -1095,9 +932,6 @@ class _MangaTranslatorBody_70:
                                       f"y[{_bE[1]:.0f}-{_bE[3]:.0f}]", flush=True)
                         elif _hitE in _clip and (
                                 len(_tE) >= len(_hitE[0] or "")):
-# تکهٔ بریده جایگزینِ کامل‌تر می‌شود؛ خوانشِ
-# کراپِ بازشده کلِ خط را دیده (حتی اگر هم‌طول
-# باشد، خوانشِ ناقصِ لبه اعتمادِ کمتری دارد)
                             if _dbg:
                                 print(f"    [r90]   ~ «{_hitE[0]}» → «{_tE}»",
                                       flush=True)
@@ -1135,15 +969,6 @@ class _MangaTranslatorBody_70:
                     ]
                     if _kept:
                         merged = _kept
-# اندروید: فیلترِ «خون‌جهٔ جهت‌به‌در» — متنِ چرخیدهٔ
-# ۹۰°ِ کنارِ حباب (یا حبابِ مجاور) که داخلِ کراپِ این ناحیه
-# می‌افتد، باکس‌هایی با «جهتِ برعکسِ اکثریت» میسازد و بعداً
-# متنِ ناحیه را درهم میریزد (نمونهٔ img6 ناحیهٔ THEN I'LL PULL:
-# تکه‌هایِ «re / real / action nere» از متنِ چرخیدهٔ لبهٔ صفحه).
-# در ناحیهٔ غالبِ افقی (≥۵۵٪)، باکسِ خیلی‌بلندِ باریک؛ در ناحیهٔ
-# غالبِ عمودی، باکسِ خیلی‌پهنِ کوتاه حذف میشود. آستانه‌ها
-# محافظه‌کار (۱.۷× میانه + نسبتِ ۱.۶×) و فقط با ≥۳ باکس و بقایِ ≥۲ خط.
-# PC بیت‌به‌بیت بدونِ این فیلتر.
             if _on_android() and len(merged) >= 3:
                 try:
                     _bbsF = [_bb_of(m[2]) for m in merged]
@@ -1185,14 +1010,6 @@ class _MangaTranslatorBody_70:
                 if mb is not None:
                     hts.append(mb[3] - mb[1])
             if _on_android():
-# اندروید: ترتیبِ درستِ خط‌ها/ستون‌ها.
-# ریشهٔ «GO! FASTER. EVEN» / «THERE ATTRACTIONS, ARE NO»:
-# row_hِ قدیمی = ۱.۲۵×بلندیِ خط از گامِ واقعیِ خط‌ها بلندتر
-# بود → دو خطِ مجاور در یک سطلِ y//row_h می‌افتادند و
-# تای‌بریکِ x ترتیبشان را عوض می‌کرد. حالا سطل = ۰.۷۵×میانه
-# (کوچکتر از گامِ خط) → هیچ برخوردی. برایِ ستون‌هایِ عمودیِ
-# ژاپنی/کره‌ای (اکثریتِ باکس‌ها بلند): ترتیبِ راست‌به‌چپِ
-# واقعیِ منگا با x نزولی (rtl) — قدیمی x صعودی می‌خواند.
                 _bbsS = [_bb_of(m[2]) for m in merged]
                 _vS = [b for b in _bbsS if b is not None]
                 if _vS:
@@ -1224,25 +1041,11 @@ class _MangaTranslatorBody_70:
                             (_bb_of(m_item[2])[0]
                              if m_item[2] is not None else 0.0)))
             else:
-# پورتِ فیکسِ اندروید  به PC: سطلِ
-# ۱.۲۵×بلندیِ خط از گامِ واقعیِ خط‌ها بلندتر بود → دو خطِ
-# مجاورِ حبابِ با leadingِ فشرده (گامِ ~۱.۰×بلندی) در یک
-# سطلِ y//row_h می‌افتادند و تای‌بریکِ x ترتیبشان را
-# برمی‌چید (نمونهٔ img7 با detِ 960/max: «STOP BEING A
-# SECURITY YOU SHOULD ALSO GUARD…» و «WHEN WERE SINCE WE
-# FRIENDS?»؛ رویِ 736/min هم نهفته بود — فقط شانسِ
-# ارتفاعِ باکسها جور نبود). سطل = ۰.۷۵×میانه (کوچکتر از
-# گامِ خط) → هیچ برخوردی؛ تای‌بریکِ x فقط برای تکههایِ
-# همخط (دو باکسِ کنارِ هم) میماند.
                 row_h = max(8.0, (float(np.median(hts)) if hts else 8.0) * 0.75)
                 merged.sort(key=lambda m_item: (
                     ((_bb_of(m_item[2])[1] if m_item[2] is not None else 0.0) // row_h),
                     (_bb_of(m_item[2])[0] if m_item[2] is not None else 0.0),
                 ))
-# ستون‌بندیِ خط‌ها: دو ستونِ کنارِ هم (متنِ حباب +
-# متنِ دست‌نویسِ کنارش) با مرتب‌سازیِ (y,x) در هم می‌پیچد
-# هر ستون متنِ خودش را می‌گیرد و ستون‌ها با \n جدا می‌شوند
-# (مترجم دو متنِ جدا را با \n ترجمه/رندر می‌کند).
             try:
                 _cg = MangaTranslator._column_line_groups(
                     list(range(len(merged))),
@@ -1340,14 +1143,6 @@ class _MangaTranslatorBody_70:
             except Exception:
                 pass
 
-# نجاتِ متنِ عمودی (±۹۰°): تستِ عکس‌های چرخیدهٔ
-# ساختهشده نشان داد ≤۳۵° با deskewِ موجود درست خوانده میشود ولی
-# ۶۰-۹۰° خراب میخوانَد (ستونهایِ عمودی به‌شکلِ خطهایِ خیلیبلندِ
-# باریک: «OoR U' W EVER» از متنِ افقیِ چرخیده). محرک: کراپِ
-# عمودی (h ≥ ۱٫۲×w) که یا هیچ خطی ندارد یا خطهایش «بلندتر از
-# عرضِ کراپ»ند (نشانهٔ خوانشِ ستونی). دو پاسِ ±۹۰ (فقط همین دو
-# فقط در این حالت) زده میشود و چندضلعیها به مختصاتِ صفحه
-# برمیگردند.
         try:
             _latin_b = len(re.sub(r"[^A-Za-z]", "", best[0] or ""))
             _tall = False
@@ -1365,9 +1160,6 @@ class _MangaTranslatorBody_70:
                 cw0 >= 40 and ch0 >= 1.2 * cw0
                 and ((not merged) or _tall
                      or (_latin_b < 4 and bool(merged))))
-# ستونِ عمودیِ واقعیِ CJK (ژاپنی/کره‌ایِ مانگا) متنِ درستِ
-# عمودی است — چرخشِ ±۹۰ آن را خراب میکند. اگر متنِ موجودِ
-# حروفِ CJK دارد، نجاتِ ۹۰ درجه اجرا نمیشود.
             if _need and merged:
                 _cjk_b = sum(
                     1 for _ch in (best[0] or "")
@@ -1386,7 +1178,6 @@ class _MangaTranslatorBody_70:
                         if not _re:
                             continue
                         _keep2 = []
-# سیاستِ عدد در سطحِ ناحیه برایِ نجاتِ ۹۰°
                         try:
                             _rhas2 = source_has_letters(
                                 " ".join(str(_e[0])
@@ -1410,11 +1201,9 @@ class _MangaTranslatorBody_70:
                         for _e4 in _keep2:
                             _pp = np.asarray(_e4[2], np.float32).reshape(-1, 2)
                             if _rotk == cv2.ROTATE_90_CLOCKWISE:
-# (x',y') → (x,y) = (y', ch0-1-x')
                                 _bx = _pp[:, 1].copy()
                                 _by = (ch0 - 1.0) - _pp[:, 0]
                             else:
-# (x',y') → (x,y) = (cw0-1-y', x')
                                 _bx = (cw0 - 1.0) - _pp[:, 1]
                                 _by = _pp[:, 0].copy()
                             _bp2 = np.stack(
@@ -1576,20 +1365,10 @@ class _MangaTranslatorBody_70:
                 return [rect]
 
     def _ocr_guard_line_boxes(self, crop: np.ndarray):
-        """ — جعبههایِ خطِ متنِ داخلِ کراپ (برایِ گاردِ برش).
-
-        از همان فراخوانیِ عادیِ ocr() استفاده میکند (مثلِ کارگرهایِ
-        موازی) — نه از حالتِ det-only: rapidocr نسخهٔ ۳ در __call__
-        پارامترها را با update_params «دائمی» رویِ موتورِ مشترک
-        میگذارد (use_rec=False → همهٔ پاسهایِ بعدیِ همهٔ کارگرها بی‌متن
-        میشدند!) پس مسیرِ عادیِ بدونِ تغییرِ وضعیتِ موتور تنها راهِ
-        امن است. خروجی: [(x0,y0,x1,y1,h), …] در مختصاتِ کراپ."""
         try:
             try:
                 _res = self.ocr.ocr(crop, crop_mode=True)
             except TypeError:
-# PaddleOCRWrapper امضایِ crop_mode ندارد (بدونِ تغییرِ
-# رفتار — همان پاسِ عادی کافی است)
                 _res = self.ocr.ocr(crop)
             boxes = []
             for _pg in (_res or []):
@@ -1619,18 +1398,6 @@ class _MangaTranslatorBody_70:
         return out
 
     def _split_cuts_text(self, image: np.ndarray, full_rect, parts) -> bool:
-        """ — آیا برشِ حبابهایِ چسبیده از وسطِ «خطِ متن» میگذرد؟
-
-        ریشهٔ باگِ فصلِ Green-Skin 22 (لاگِ سازنده): کپشنِ یک‌خطیِ
-        «HELLO, I AM JANG HA-YEON.» با باکسِ درستِ (41,4607,723,4745)
-        پیدا شده بود ولی _split_adjacent_balloons آن را به دو نیمه برید
-        (خوشههایِ روشنِ پسزمینه دو «حباب» تصور شدند) → دو ناحیهٔ
-        «HELLO, I AM JANG HA» + «HA-YEON.» با ترجمههایِ جدا و «HA»
-        دوبار. حالا: قبل از پذیرشِ برش، detِ OCR رویِ کراپِ باکسِ کامل
-        اجرا میشود؛ اگر خطی از مرزِ بینِ دو پارت (با حاشیهٔ امنِ
-        متناسبِ بلندیِ خط — جبرانِ گسترشِ unclip) دو طرف عبور کند، برش
-        لغو و باکسِ کامل حفظ میشود. خطی که کامل داخلِ یک پارت است
-        (حبابهایِ واقعیِ چسبیده با متنِ جدا) برش را بازنمیگرداند."""
         try:
             _ocr = getattr(self, "ocr", None)
             if _ocr is None:
@@ -1649,7 +1416,6 @@ class _MangaTranslatorBody_70:
             lines = self._ocr_guard_line_boxes(crop)
             if not lines:
                 return False
-# خطهای عمدتاً داخلِ باکس (نه لکهٔ لبهٔ کراپِ همسایه)
             _bx0, _by0 = float(x1 - _cx1), float(y1 - _cy1)
             _bx1, _by1 = float(x2 - _cx1), float(y2 - _cy1)
             _good = []
@@ -1665,7 +1431,6 @@ class _MangaTranslatorBody_70:
                 [[int(v) for v in p[:4]] for p in parts],
                 key=lambda p: (p[0], p[1]))
             for _a, _b in zip(_parts, _parts[1:]):
-# کنارهم (درزِ عمودی) یا رویهم (درزِ افقی)؟
                 _ovx = min(_a[2], _b[2]) - max(_a[0], _b[0])
                 _ovy = min(_a[3], _b[3]) - max(_a[1], _b[1])
                 _wa = max(1, _a[2] - _a[0])
@@ -1677,7 +1442,7 @@ class _MangaTranslatorBody_70:
                 if _side:
                     _lo = max(_a[0], _b[0])
                     _hi = min(_a[2], _b[2])
-                    if _hi <= _lo:            # دو پارتِ جدا از هم → درز = فاصله
+                    if _hi <= _lo:
                         _lo, _hi = min(_a[2], _b[2]), max(_a[0], _b[0])
                     for _lx0, _ly0, _lx1, _ly1, _lh in _good:
                         _tol = min(24.0, max(4.0, 0.12 * max(1.0, _lh)))
@@ -1705,7 +1470,6 @@ class _MangaTranslatorBody_70:
             return regions
 
         def _line_min_dims(r):
-            """ضخامتِ هر خطِ OCR (minِ عرض/ارتفاع — برایِ متنِ عمودی هم درست)."""
             out = []
             for p in (getattr(r, "ocr_polys", None) or []):
                 try:
@@ -1720,13 +1484,6 @@ class _MangaTranslatorBody_70:
             return out
 
         def _incoherent_lines(a, b):
-            """ — مشکل۱: دو متنِ جدا در یک ناحیه ممنوع.
-            سناریوی img6 (گوشی): باکسِ detِ شلِ حبابِ زرد برچسبِ کوچکِ
-            «You're the real attraction here.» را میبلعید؛ merge با
-            contain_thresh دو ناحیه را یکی میکرد و دو دیالوگِ مستقل
-            قاطی میشدند. اگر هر دو ناحیه چندخطیاند و بلندیِ خطهایشان
-            ناهماهنگ است (دو فونتِ متفاوت) و متنِ یکی داخلِ دیگری
-            نیست → این جفت نباید ادغام شود."""
             ha = _line_min_dims(a)
             hb = _line_min_dims(b)
             if len(ha) < 2 or len(hb) < 2:
@@ -1759,11 +1516,6 @@ class _MangaTranslatorBody_70:
             ai = area(inner)
             return inter / float(ai) if ai > 0 else 0.0
 
-# درِ باکسِ detector: mergeِ دو ناحیه فقط وقتی مجاز
-# است که باکسهایِ detectorِ خودشان همپوشانی دارند — نه مستطیلِ
-        # detector سه حباب/تایتلِ کج را جدا داده بود؛ ادغامِ
-# گسترشیافتهٔ angle.
-# مستطیلیِ همپوشانیِ گسترشیافته آنها را یکجا میگرفت.
         def _det_box(r):
             try:
                 bs = getattr(r, "boxes", None) or []
@@ -1806,8 +1558,6 @@ class _MangaTranslatorBody_70:
                                 or contain_ratio(_db, cd) >= contain_thresh
                                 or contain_ratio(cd, _db) >= contain_thresh
                                 for cd in _cur_det):
-# باکسِ detectorِ جدا = متنِ جدا
-# مستطیلِ گسترشیافته حقِ جذبِ همسایه را ندارد
                             continue
                     ov = iou(ca, cb)
                     cont_ab = contain_ratio(cb, ca)
@@ -1828,8 +1578,6 @@ class _MangaTranslatorBody_70:
                     elif ta.lower() in tb.lower():
                         joined = tb
                     elif _incoherent_lines(cur, b):
-# مشکل۱: دو متنِ مستقل با فونتِ متفاوت —
-# جدا بمانند (img6: حبابِ زرد + برچسبِ کوچک)
                         continue
                     else:
 
@@ -1896,11 +1644,6 @@ class _MangaTranslatorBody_70:
     @staticmethod
     def _ocr_poly_mask(shape_hw, polys, off_x: float = 0.0,
                        off_y: float = 0.0) -> Optional[np.ndarray]:
-        """ماسکِ «فقط متن» برای سنجشِ جوهر — چندضلعیهایِ OCR
-        (خطوطِ واقعیِ متن) با کمی اتساع. سنجشِ کجا-به-کجا روی
-        کراپِ آمیخته با هنر، جوهرِ افقیِ هنر را هم میبیند و کجیِ
-        واقعیِ متن را به‌غلط «مسطح» میخواند؛ با این ماسک فقط خودِ
-        حروف میمانند."""
         try:
             m = np.zeros((int(shape_hw[0]), int(shape_hw[1])), np.uint8)
             drew = 0
@@ -1928,16 +1671,6 @@ class _MangaTranslatorBody_70:
     @staticmethod
     def _ink_slant_support(crop_bgr, angle_deg: float,
                            poly_mask=None) -> Optional[float]:
-        """ — آیا زاویهٔ «ادعاشده» جوهرِ این کراپ را واقعاً رویِ
-        هم میاندازد؟ نسبتِ شکستِ ردیفها در زاویهٔ ادعایی بر افقی:
-        score(angle)/score(0). ≥~۱٫۱۰ یعنی خطِ واقعاً کج است (وتو نکن)؛
-        ~۱٫۰ یعنی کجیِ کاذبِ پالی/فونتِ استایل‌دار (وتو کن).
-
-        ریشه (img3): وتویِ «جوهر مسطح» زاویهٔ واقعیِ ‎-۶٫۷°/-۱۳٫۲° را
-        صفر میکرد — سنجشِ قبلی «بهترینِ خودش» را با افقی مقایسه میکرد و
-        برایِ خطهایِ کوتاهِ کج، بهترینِ سنجش (~۴°) فقط ۱٫۱× بهتر ازِ
-        افقی بود و رأیِ «مسطح» میداد؛ حالا خودِ زاویهٔ ادعایی آزموده
-        میشود ()."""
         try:
             if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
                 return None
@@ -1999,15 +1732,6 @@ class _MangaTranslatorBody_70:
             return None
 
     def _ink_slant_measure(crop_bgr, poly_mask=None) -> Tuple[float, bool]:
-        """ — (زاویه، قابل‌اتکا) + قطب‌آگاهیِ تیره/روشن.
-
-        قبلاً فقط جوهرِ تیره سنجیده می‌شد؛ متنِ روشن/درخشان روی زمینهٔ
-        تیره (تیترهای BLUE MOON / RED MOON و…) اصلاً سنجیده نمی‌شد و
-        وتویِ «جوهرِ مسطح» ممکن نبود — حروفِ استایل‌دار زاویهٔ کاذبِ
-        ±۱۵..۲۰° می‌ساختند و متنِ افقی کج رندر می‌شد. حالا قطبِ جوهر
-        با جرمِ معقولِ متن (۱٪..۴۵٪) انتخاب می‌شود. خروجیِ دوم یعنی
-        «سنجش به نتیجه رسید» (حتی وقتی جواب «مسطح» است) تا caller
-        بتواند کجیِ کاذب را صفر کند."""
         try:
             if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
                 return 0.0, False
@@ -2016,13 +1740,7 @@ class _MangaTranslatorBody_70:
                 return 0.0, False
             g = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
             med = float(np.median(g))
-# قطبِ تیره اول (رفتارِ قدیمی)؛ اگر جرمش در بازهٔ متن نبود
-# قطبِ روشن (متنِ سفید/درخشان روی زمینهٔ تیره) سنجیده می‌شود
             _dark = (g < max(60.0, med - 45.0))
-# آستانهٔ روشن حداقل ۱۵۰: با زمینهٔ تیره، آستانهٔ
-# قبلیِ (med+45) هالهٔ گلو و ستاره‌ها را هم «جوهر» می‌گرفت و
-# جرم از بازهٔ مجاز بیرون می‌زد → سنجش شکست → کجیِ کاذبِ
-# عنوان‌های درخشان (BLUE/RED/PURPLE MOON) وتو نمی‌شد
             _bright = (g > min(195.0, max(med + 45.0, 150.0)))
             if poly_mask is not None:
                 _keep = (poly_mask > 0)
@@ -2036,19 +1754,12 @@ class _MangaTranslatorBody_70:
             if 0.010 <= _fb <= 0.45:
                 _cands.append(_bright.astype(np.uint8))
             if not _cands:
-# بیرونِ بازه: جرمِ تیرهٔ پر (۰.۴۵..۰.۶۰) مثلِ قبل مجاز
                 if 0.45 < _fd <= 0.60:
                     _cands.append(_dark.astype(np.uint8))
                 elif 0.010 <= _fb <= 0.60:
                     _cands.append(_bright.astype(np.uint8))
                 else:
                     return 0.0, False
-# قطبِ کم‌جرم‌تر اول: خودِ متن تقریباً همیشه
-# کم‌جرم‌تر از پس‌زمینه است (متنِ روشن روی تیره: bright ~۳۰٪
-# در برابر نویزِ تیره ~۴۳٪). قبلاً قطبِ تیره (نویزِ ستاره‌های
-# پس‌زمینه) زودتر سنجیده می‌شد و کجیِ کاذبِ مرزیِ (-۱۵°)
-# برمی‌گرداند و قطبِ متنِ واقعی هرگز دیده نمی‌شد
-# (BLUE MOON روی تصویرِ normalized)
             _cands.sort(key=lambda _b: float(_b.mean()))
             for _ink_b in _cands:
                 _res = MangaTranslator._ink_slant_core(_ink_b, h_c, w_c)
@@ -2125,7 +1836,6 @@ class _MangaTranslatorBody_70:
                     best_s, best_t = s_, float(td)
             try:
                 if best_s < 1.12 * max(1.0, _score(0.0)):
-# سنجید و جوابش «مسطح» است — قابل‌اتکا برایِ وتو
                     return (0.0, True)
             except Exception:
                 pass
@@ -2162,9 +1872,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _ink_bitmap_polar(crop_bgr, poly_mask=None):
-        """ — نقشهٔ جوهرِ «متن» با قطب‌آگاهیِ تیره/روشن (همان
-        منطقِ _ink_slant_measure ولی خروجی = خودِ بیت‌مپ، برایِ
-        سنجشِ ستون‌به‌ستونِ قوس). None = جوهرِ قابل‌اتکا نبود."""
         try:
             if crop_bgr is None or getattr(crop_bgr, "size", 0) == 0:
                 return None
@@ -2217,20 +1924,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _curve_path_from_ink(original_image, region):
-        """ — مسیرِ «خمیدگیِ» متن: خودِ خطِ متن در اصل روی یک قوس
-        خمیده است (مثلِ تیترهایِ قوسیِ مانگا) — نه فقط کج. سنجشِ
-        ستون‌به‌ستونِ جوهرِ «همان خط» (داخلِ ماسکِ پالیهایِ OCR، رویِ
-        عکسِ اصلی) خطِ پایه را درمیآورد؛ اگر انحنایش از آستانه گذشت
-        (کمانِ واقعی)، مسیرِ نمونه‌برداری‌شده برمیگردد تا ترجمه
-        کلمه‌به‌کلمه روی همان قوس بنشیند. خروجی: دیکشنری با
-        path=[[x,y]… چپ→راست در مختصاتِ صفحه]، lh، sag، d_ang،
-        angle — یا None (متنِ صاف/کجِ ساده).
-
-        نگهبانهایِ «قوسِ کاذب» (بلوکِ چندردیفیِ پلکانی و متنِ ریز):
-        span ≥ ۶۴، پراکندگیِ جوهر دور از منحنی ≤ ۰٫۴۲×ارتفاعِ خط،
-        ≥۸۲٪ جوهر داخلِ نوارِ خط، و زاویهٔ هر پالی همخوان با مماسِ
-        منحنی در جایِ خودش (بلوکِ ۳ردیفیِ پلکانی همهٔ پالیهایش صاف
-        است ولی منحنیِ مرکزِ جرمش تند خم میشود → رد)."""
         try:
             polys_raw = list(getattr(region, "ocr_polys", None) or [])
             if not polys_raw or original_image is None:
@@ -2245,14 +1938,12 @@ class _MangaTranslatorBody_70:
                     polys.append(pp)
             if not polys:
                 return None
-# قوس فقط برایِ ناحیهٔ «یک‌خطی» — چندخطیِ پلکانی راهِ خودش را دارد
             try:
                 _lines = MangaTranslator._group_polys_to_lines(polys_raw)
             except Exception:
                 _lines = []
             if _lines and len(_lines) != 1:
                 return None
-# خطِ تقریباً عمودی (متنِ چینِ عمودی) — قوسِ فارسی رویش بی‌معنی
             try:
                 if MangaTranslator._polys_vertical(polys_raw):
                     return None
@@ -2313,12 +2004,6 @@ class _MangaTranslatorBody_70:
                 return None
             cxs = np.array([p[0] for p in cols])
             cys = np.array([p[1] for p in cols])
-# ── گاردِ F (v1.14.294 — باگِ 4e2e77): باندِ عمودیِ پیوسته ──
-# متنِ «قوسی» واقعی یک «نوارِ جوهرِ پیوسته» است؛ بلوکِ چند-
-# خطیِ صاف (WHAT'S THIS…؟ / [I. KIM MINWOO'S / STAGE 6, HUH…)
-# چند باندِ جدا با گپِ خالیِ عمودی دارد → قوسِ کاذب. قوسِ
-# واقعیِ arc_r520: تک-باندِ ۱۰۸px؛ دوخطیِ 4e2e77: دو باندِ ۴۳px
-# با گپِ ۱۲px (≥۰٫۲×باند) → رد.
             try:
                 _rs = ink.sum(axis=1)
                 _bands = []
@@ -2343,13 +2028,6 @@ class _MangaTranslatorBody_70:
                         return None
             except Exception:
                 pass
-# ── گاردِ A + C' + E (v1.14.294): فقط ستونهایِ کامل در برازش ──
-# ستونهایِ «ناقص» (براکتِ [ ] در دو سر، لبهٔ حروف، حروفِ
-# نیمه-بیرون) فقط ۳px جوهر دارند و y شان پایینتر است → قوسِ
-# کاذبِ quadratic (sag=39 برایِ خطِ صافِ [I. KIM MINWOO'S).
-# ستونهایِ کامل (ch ≥ ۰٫۶×میانه) فقط؛ یکنواختیِ ch رویِ
-# ستونهایِ کامل (بلوکِ چند-خطیِ ناهمگون = رد)؛ و پرشدگیِ
-# عمودیِ ≤۰٫۷ (دیوارِ بیضیِ حباب = قوسِ کاذبِ ۲۷°).
             _cha = np.asarray(chs, dtype=np.float64)
             _med_ch = float(np.median(_cha))
             if _med_ch <= 0.0:
@@ -2364,11 +2042,6 @@ class _MangaTranslatorBody_70:
                 return None
             cxs = cxs[_full]
             cys = cys[_full]
-# ارتفاعِ واقعیِ «یک ردیف»: ستونهایِ لبهٔ قوس فقط از یک ردیف
-# می‌گذرند (ردیفها پلکانی‌اند و هر ردیف همهٔ عرض را نمی‌گیرد)؛
-# ستونهایِ میانی از چند ردیف. استخرِ (دو کوینتایلِ لبه + صدکِ ۲۵
-# کل) ارتفاعِ تک‌ردیف را میدهد — فونت با این ساخته میشود نه با
-# پالیِ پوشانندهٔ کلِ بلوک، تا ردیفها به بیرونِ ناحیه نریزند.
             _n_ch = len(chs)
             _edge = max(2, int(round(_n_ch * 0.20)))
             _pool = chs[:_edge] + chs[-_edge:] \
@@ -2378,7 +2051,6 @@ class _MangaTranslatorBody_70:
             lh = ch_med
             if lh < 8.0:
                 return None
-# هموارسازی (میانهٔ متحرک) — نویزِ گلیفها قوسِ واقعی نیست
             if len(cys) >= 5:
                 _sm = cys.copy()
                 for i in range(len(cys)):
@@ -2396,29 +2068,14 @@ class _MangaTranslatorBody_70:
                           - np.degrees(np.arctan(2.0 * qa * cxs[0] + qb)))
             if sag < max(3.5, 0.12 * row_h):
                 return None
-# سقفِ ۷۵°: خطِ خطاطی هرگز نیم‌دایره نمیپیچد؛ پله‌گذاریِ
-# واژه‌هایِ بلوکِ چندخطی (پالیهایِ باریک) گاهی قوسِ ‎۶۰..۹۰°
-# کاذب میسازد (باگِ «HABLA MUCHÍSIMO…» = ‎۶۸°).
             if abs(d_ang) < 12.0 or abs(d_ang) > 75.0:
                 return None
-# جوهر باید «نوارِ خمیده» باشد — نویزِ پلکانیِ شدید (لایههای
-# پراکنده دور از منحنی) رد میشود
             fit_at_ink = qa * rx ** 2 + qb * rx + qc
             resid = ry - fit_at_ink
             resid_std = float(np.std(resid))
             frac_near = float(np.mean(np.abs(resid) <= 0.70 * lh))
             if resid_std > 0.55 * lh or frac_near < 0.82:
                 return None
-# ——— آزمونِ «پیچِ میانِ پالیِ پهن» ———
-# چهارگوشِ صافِ OCR (لبههای موازی) نمیتواند رویِ قطعهٔ بهشدت
-# خمیدهٔ قوسِ ادعایی بنشیند: اگر مماسِ منحنی در عرضِ یک پالیِ
-# پهن (≥ ۵۵٪ مسیر) بیش از ~۴۵° میپیچد، آن پالی در واقع «یک
-# خطِ صافِ» بلوکِ چندخطیِ موازی است و قوسْ ساختهٔ پله‌گذاریِ
-# خطوط است نه خمیدگیِ جوهر — ستونهایِ میانی از چند خط
-# میگذرند و مرکزِ جرم پایین میآید («∪ِ کاذب»). (باگِ حبابِ
-# سه‌خطیِ «HABLA MUCHÍSIMO…»: قوسِ ادعایی ‎۶۸° با سه پالیِ
-# صافِ موازی ‎+۵° — پیچِ میانِ پالیها ‎۵۵..۷۰°؛ قوسهایِ واقعیِ
-# همین صفحه: ≤ ۳۷°.)
             try:
                 for q in polys:
                     _ql = np.asarray(q, dtype=np.float64) \
@@ -2432,23 +2089,13 @@ class _MangaTranslatorBody_70:
                         2.0 * qa * float(_qr.min()) + qb)))
                     _t_r = float(np.degrees(np.arctan(
                         2.0 * qa * float(_qr.max()) + qb)))
-# سقفِ پیچِ ۶۰° (v1.14.294): قوسِ واقعیِ ملایمِ تک-پالی
-# (arc_r520 = ۵۳°) باید زنده بماند؛ بلوکِ پلکانیِ کاذبِ
-# «HABLA MUCHÍSIMO…» ۶۸° هنوز رد میشود.
                     if abs(_t_r - _t_l) > 60.0:
                         return None
             except Exception:
                 pass
-# زاویهٔ هر پالی باید با مماسِ منحنی در جایِ خودش بخواند —
-# پالیهایِ صافِ بلوکِ پلکانی روی منحنیِ تندِ مرکزِ جرم نمیافتند.
-# پالیِ پوشانندهٔ کلِ قوس (پهن ≥ ۵۵٪ مسیر) با «زاویهٔ وتر» = ang
-# سنجیده میشود؛ پالیِ واژه‌ایِ باریک با مماسِ همان نقطه.
             for q in polys:
                 try:
                     _pa = float(MangaTranslator._poly_long_side_angle(q))
-# پالیها در مختصاتِ صفحهاند ولی جوهر/برازش در قابِ کراپ
-# (‑_ix0,‑_iy0) — بدونِ این جابهجایی، مماس در جایِ غلط
-# سنجیده میشد (باگِ نهفتهٔ نگهبانِ پالیِ باریک).
                     _ql = np.asarray(q, dtype=np.float64) \
                         - np.array([_ix0, _iy0], np.float64)
                     _qr = (_ql[:, 0] - cen[0]) * ca \
@@ -2468,7 +2115,6 @@ class _MangaTranslatorBody_70:
                         return None
                 except Exception:
                     continue
-# مسیرِ هموار: نمونه از خودِ منحنیِ برازش‌شده (۲۴ نقطه، چپ→راست)
             n_s = 24
             ts = np.linspace(cxs[0], cxs[-1], n_s)
             fy = qa * ts ** 2 + qb * ts + qc
@@ -2494,18 +2140,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _add_watermark_regions(image, regions):
-        """ — واترمارک/URL بیرونِ حباب (v1.14.294).
-
-        گزارشِ سازنده: «www.sexyversecomics.com» و «CHAPTER 1
-        PAGE 1» پایینِ صفحه در خروجیِ clean ماندند. ریشه:
-        استخراج فقط داخلِ باکسهایِ detector (حباب) است؛ متنِ
-        بیرونِ حباب هرگز ناحیه نمیشود. متنِ بیرونِ حباب «هنر/
-        امضا» حساب میشود و دستنخورده میماند — ولی واترمارکِ
-        سایتِ منبع باید پاک شود. این تابع کلِ صفحه را با
-        rapidocr میخواند و فقط نواحی «الگویِ سایت» را اضافه
-        میکند: www./http(s):// یا دامنهٔ .com/.net/.org/.io/
-        .xyz/پاترِئون یا «CHAPTER n ... PAGE n». خروجی: فهرستِ
-        نواحی (جدیدیها bubble_style=free_text، kind=dialogue)."""
         try:
             import re as _re
             ocr_engine = None
@@ -2541,7 +2175,6 @@ class _MangaTranslatorBody_70:
                     x1, y1 = int(max(xs)), int(max(ys))
                     if (x1 - x0) < 12 or (y1 - y0) < 6:
                         continue
-# همپوشانیِ نواحیِ موجود → همان ناحیه پاکش میکند؛ دوباره نگیر
                     _ov = False
                     for (_ex, _ey, _ew, _eh) in existing:
                         if not (x1 < _ex or x0 > _ex + _ew
@@ -2638,15 +2271,6 @@ class _MangaTranslatorBody_70:
                 if not vert:
                     _capw = 0.18 * max(4.0, rw)
                     _caph = 0.30 * max(4.0, rh)
-# گشایشِ «تک-لبه» ممنوع: قبلاً هر لبهٔ
-# نزدیک جدا گیر میافتاد و اگر فقط «پایینِ» بلوکِ متن
-# به پایینِ حباب نزدیک بود (بالا دور — حالتِ طبیعیِ
-# متنِ وسطِ حبالِ بلند) جعبه فقط از پایین به لبهٔ حباب
-# باز میشد؛ وسطچینیِ بعدی متن را پایین میانداخت
-# (img6: حبابِ بالا-راست +53px، وسط +59px پایین‌تر از
-# متنِ اصلی — «کمی پایین چپ مینویسه»). حالا هر محور
-# فقط وقتی «هر دو» لبه‌اش به حباب نزدیک است به کلِ
-# حباب باز میشود؛ وگرنه جعبهٔ خودِ متن میماند.
                     _near_t = 0.0 <= uy0 - ry <= _caph
                     _near_b = 0.0 <= (ry + rh) - uy1 <= _caph
                     _near_l = 0.0 <= ux0 - rx <= _capw
@@ -2677,16 +2301,6 @@ class _MangaTranslatorBody_70:
         return float(np.median(angs))
 
     def _split_mixed_column_regions(self, regions: List["TextRegion"]) -> List["TextRegion"]:
-        """ — ستون‌هایِ x-جدا از هم در یک ناحیه → ناحیه‌هایِ جدا.
-
-         متنِ کنارِ حباب (کراپِ بازشدهٔ لبه) را با \n داخلِ «همان»
-        ناحیهٔ حباب نگه می‌داشت: جوهرش در ماسکِ حباب پاک می‌شد ولی ترجمه‌اش
-        فقط داخلِ حباب رندر می‌شد → «جایش سفید می‌شود، متنش استخراج
-        نمی‌شود». حالا وقتی خط‌هایِ OCRِ یک ناحیه در ≥۲ ستونِ با فاصلهٔ
-        مرکزیِ واقعی قرار می‌گیرند (خروجیِ _column_line_groups) و متنِ
-        \n-دار دقیقاً همان تعداد بخش دارد، هر ستون → ناحیهٔ مستقل با
-        rect/پالی/ترجمه/رندرِ خودش. تکی و دسته‌ای یکسان.
-        """
         out: List["TextRegion"] = []
         for r in regions:
             try:
@@ -2776,11 +2390,6 @@ class _MangaTranslatorBody_70:
         if not boxes:
             return [], []
         n0 = len(boxes)
-# باکسهایِ خامِ detector برایِ رسمِ سبز رویِ همان
-        #) — فایلِ جدا حذف شد
-# DEBUGِ صفحه (
-# باکسها رویِ خودِ ناحیهها سوار میشوند تا از استخرِ استخراج تا
-# فازِ صفحه (پاکسازی/رندر) زنده بمانند — استخرهایِ موازی/مختلف.
         _raw_det_dbg = []
         if self.debug:
             try:
@@ -2802,9 +2411,6 @@ class _MangaTranslatorBody_70:
             except Exception:
                 parts = [b["rect"]]
             if len(parts) > 1:
-# گاردِ «برش، خط را نبُرد»: اگر خطی از مرزِ
-# بینِ پارتها عبور کند، باکسِ کامل حفظ میشود (کپشنِ
-# یک‌خطیِ Green-Skin 22 دیگر نصف نمیشود).
                 try:
                     if self._split_cuts_text(image, b["rect"], parts):
                         print(f"    [*] برشِ باکس {b['rect']} به {len(parts)} "
@@ -2824,11 +2430,6 @@ class _MangaTranslatorBody_70:
             else:
                 expanded.append(b)
         boxes = expanded
-# باکس‌های خامِ حباب/متنِ «همین صفحه» — به‌عنوانِ خروجی برگردانده
-# میشوند (نه نوشتن روی self: دو کارگرِ استخراجِ موازی رویِ یک
-# مقدارِ مشترک مینوشتند و پاکسازی/دیباگِ صفحهٔ دیگر جعبه‌هایِ غلط
-# می‌دید — ریشهٔ کادرهای آبیِ بی‌جا در نمایشگر). گیرنده‌ها آن را
-# در زمینهٔ صفحه (page_ctx) همراهِ خودِ صفحه حمل میکنند.
         try:
             page_boxes = [
                 (int(b["rect"][0]), int(b["rect"][1]),
@@ -2841,12 +2442,6 @@ class _MangaTranslatorBody_70:
 
         regions: List[TextRegion] = []
         h, w = image.shape[:2]
-# آستانهٔ نسبیِ «باکسِ خیلی کوچک» باید در مقیاسِ یک
-# صفحه/تایل بماند نه کلِ نوار: ۰.۰۸٪ِ نوارِ ۷۰۰×۷۷۹۲ = ۴۳۶۴px²
-# می‌شود و حبابِ کوچکِ واقعی («YEAH, YEAH~» با ۵۸×۶۱ — لاگِ
-# ۲۴ خام → ۲۳ OCR بدونِ هیچ «حذف شد») با لرزشِ ±چندpxِ
-        # + دیباگِ سبزِ D11 رویِ همان حباب).
-# باکس غیب می‌شد (
         page_area = float(max(1, min(h, RTDetrV2ONNXDetector.TILE_HEIGHT) * w))
         cand: List[Tuple[int, dict, int, int, int, int, int, int]] = []
         for i, b in enumerate(boxes):
@@ -2866,13 +2461,7 @@ class _MangaTranslatorBody_70:
             cand.append((i, b, x1, y1, x2, y2, bw, bh))
         ocr_results: List[Tuple[str, List[np.ndarray], List[float]]] = [
             ("", [], [], [], [])] * len(cand)
-# سبکِ جدیدِ استخراج (PC/لینوکس/اندروید یکسان):
-# detector-v4-s_int8.onnx محلِ متن را پیدا کرده و OCR فقط رویِ
-# همان کراپها تمرکز میکند — هیچ پاسِ تمامصفحه/کاسکادی.
         if cand:
-# باکس‌هایِ همسایه به _ocr_crop داده میشود تا
-# نجاتِ خطِ لبه‌بریده، کراپ را تا باکسِ ناحیهٔ دیگر باز نکند
-# (جذبِ متنِ حبابِ مجاور ممنوع).
             _all_rects = [(t[2], t[3], t[4], t[5]) for t in cand]
 
             def _ocr_one(k: int):
@@ -2883,14 +2472,106 @@ class _MangaTranslatorBody_70:
                     image, [_t[2], _t[3], _t[4], _t[5]],
                     block_rects=_blk, page_cache=page_cache)
 
-            n_workers = max(1, min(int(getattr(self, "max_workers", 3) or 1), len(cand)))
-# همهٔ ناحیهها همزمان (حداکثرِ توانِ سیستم):
-# RapidOCR مجازِ موازی: سشن‌های det/rec ORT مشترک و
-# thread-safe هستند؛ موتورِ Paddle-Lite هم حالا با «استخرِ
-# predictor» در پلِ جاوا موازی شد (هر کارگر یک نمونهٔ
-# predictor خودش را برمیدارد — قفلِ سراسریِ run حذف شد).
+            _img_par = bool(getattr(self, "_ocr_img_parallel", False))
+            n_workers = 1 if _img_par else max(
+                1, min(int(getattr(self, "max_workers", 3) or 1), len(cand)))
             _ocr_ts = isinstance(self.ocr, RapidOCRBackend)
-            if n_workers > 1 and _ocr_ts:
+            _dev_gpu = (self._ocr_gpu_active()
+                        and str(getattr(self, "device_pref", "auto") or "auto")
+                        != "cpu")
+            _split_engs: list = []
+            if (not _img_par and _ocr_ts and len(cand) >= 2
+                    and n_workers >= 2 and not _on_android()):
+                _pool: list = []
+                _main = self.__dict__.get("_ocr_main")
+                if isinstance(_main, RapidOCRBackend):
+                    _pool.append(_main)
+                if _dev_gpu:
+                    for _k in ("_ocr_helper", "_ocr_gpu2"):
+                        _e = self.__dict__.get(_k)
+                        if isinstance(_e, RapidOCRBackend) \
+                                and id(_e) not in [id(x) for x in _pool]:
+                            _ep = str(getattr(
+                                _e, "_ocr_ep_active", "") or "").strip()
+                            if _ep and not _ep.lower().startswith("cpu"):
+                                _pool.append(_e)
+                    if len(_pool) < 2:
+                        try:
+                            _e = self._ensure_ocr_gpu2()
+                            if _e is not None \
+                                    and id(_e) not in [id(x) for x in _pool]:
+                                _pool.append(_e)
+                        except Exception:
+                            pass
+                    if len(_pool) == 2 and len(cand) >= 3:
+                        try:
+                            _e = self._ensure_ocr_gpu3()
+                            if _e is not None \
+                                    and id(_e) not in [id(x) for x in _pool]:
+                                _pool.append(_e)
+                        except Exception:
+                            pass
+                else:
+                    for _k in ("_ocr_cpu2", "_ocr_cpu3"):
+                        _e = self.__dict__.get(_k)
+                        if isinstance(_e, RapidOCRBackend) \
+                                and id(_e) not in [id(x) for x in _pool]:
+                            _pool.append(_e)
+                    if len(_pool) < 2:
+                        try:
+                            _e = self._ensure_ocr_cpu2()
+                            if _e is not None \
+                                    and id(_e) not in [id(x) for x in _pool]:
+                                _pool.append(_e)
+                        except Exception:
+                            pass
+                    if len(_pool) == 2 and len(cand) >= 3:
+                        try:
+                            _e = self._ensure_ocr_cpu3()
+                            if _e is not None \
+                                    and id(_e) not in [id(x) for x in _pool]:
+                                _pool.append(_e)
+                        except Exception:
+                            pass
+                _split_engs = _pool[:3]
+            if len(_split_engs) >= 2:
+                _order = sorted(range(len(cand)),
+                                key=lambda k: (cand[k][3], cand[k][2]))
+                _ne = min(len(_split_engs), len(cand))
+                _engs = _split_engs[:_ne]
+                _chunks: list = [[] for _ in range(_ne)]
+                _ci = 0
+                for _k in _order:
+                    _chunks[_ci].append(_k)
+                    _ci = (_ci + 1) % _ne
+                _seg_errs: list = []
+
+                def _seg_run(engine, ks) -> None:
+                    self._ocr_tls.engine = engine
+                    for _k in ks:
+                        try:
+                            ocr_results[_k] = _ocr_one(_k)
+                        except Exception as _se:
+                            _seg_errs.append(_se)
+                            return
+
+                if self.debug and not getattr(self, "_seg_note", False):
+                    self._seg_note = True
+                    print(f"    [*] استخراجِ درون‌صفحه: {len(cand)} ناحیه روی "
+                          f"{_ne} سشنِ "
+                          f"{'GPU' if _dev_gpu else 'CPU'} همزمان")
+                _seg_ths = [
+                    threading.Thread(
+                        target=_seg_run, args=(_engs[i], _chunks[i]),
+                        daemon=True, name=f"ocr-seg-{i}")
+                    for i in range(_ne)]
+                for _t in _seg_ths:
+                    _t.start()
+                for _t in _seg_ths:
+                    _t.join()
+                if _seg_errs:
+                    raise _seg_errs[0]
+            elif n_workers > 1 and _ocr_ts:
                 if self.debug and not getattr(self, "_par_note", False):
                     self._par_note = True
                     print(f"    [*] استخراجِ موازی: {len(cand)} ناحیه × "
@@ -2900,12 +2581,6 @@ class _MangaTranslatorBody_70:
             else:
                 ocr_results = [_ocr_one(k) for k in range(len(cand))]
 
-# خطِ بیرونِ باکسِ detector مالِ این ناحیه نیست
-# (توضیحِ کامل در helper) — هر ناحیه فقط متنِ داخلِ باکسِ خودش
-# را میگیرد؛ دیگر تایتلِ کجِ مجاور داخلِ حبابِ کوچک نمیآید و
-# ناحیهٔ بزرگ هم خطِ حبابهایِ کوچکِ داخلِ باکسش را برنمیدارد
-# (مسیرِ deskewِ _ocr_crop از فیلترِ مالکیتِ خط رد میشود — اینجا
-# بعد ازِ خروجیِ نهایی پوشش داده میشود).
         for _k in range(len(cand)):
             _t = cand[_k]
             ocr_results[_k] = _clamp_lines_to_det(
@@ -2947,10 +2622,6 @@ class _MangaTranslatorBody_70:
                 ocr_results.append((full_txt, full_polys, full_angs,
                                     _full_lts, _full_blks))
 
-# نجاتِ rec — ناحیههایِ بی‌متن (det جعبه دیده، recِ نردبان نخوانده):
-# هر کوارِ نجات‌یافته جدا برش و خوانده میشود؛ متن + پالیِ تازه به
-# نتیجهٔ همان ناحیه میچسبد (پالیها ماسکِ پاکسازیِ خط‌به‌خط را هم
-# درست میکنند). فقط RapidOCRِ جدیدِ PC — گوشی بی‌تغییر.
         if cand:
             for _k in range(len(cand)):
                 try:
@@ -2998,26 +2669,7 @@ class _MangaTranslatorBody_70:
                         _gink = float((_gg < max(60.0, _gmed - 45.0)).mean())
                 except Exception:
                     _gink = 0.0
-# گیتِ «پدل-det شاهدِ متن» (v1.14.281 — خواستهٔ سازنده:
-# «detector-v4-s_int8.onnx یک جا ک متن نیست پیدا میکنع اگ palledocr
-# det متنی پیدا نکرد الکی نره همون قسمت بپاکع دیدم داره میپاکه با
-# این ک متنی نیست»): ناحیهٔ ocr_empty فقط وقتی ساخته میشود که
-# detِ خودِ OCR (پدل/RapidOCR) در همین باکس «خطِ متنی» دیده باشد
-# (line_polys) — ولی rec نتوانسته بخواند. det هیچ خطی ندیده =
-#detector-v4-s فقط جوهرِ غیرمتن (سایه/مو/خطّی/اسکرین‌تون) را
-# گرفته → باکس کلاً رد میشود؛ نه پاکسازی، نه نجاتِ OCR.
-# متنِ واقعیِ ناخوانا (دستخط) هم det آن را خط میبیند و از همین
-# گیت رد نمیشود؛ فقط «بی‌خط»ها کنار میروند.
                 if line_polys and 0.008 <= _gink <= 0.50:
-# باکسِ تکراریِ حبابِ متن‌دار: ناحیهٔ
-# بی‌متنِ هم‌پوشان با ناحیه‌ای که «متن» دارد = دو
-# تشخیصِ همان یک حباب (فصلِ Green-Skin 22: باکسِ
-# خالیِ 142,5443,740,5680 رویِ باکسِ 200,5602,646,5789
-# با متنِ «AHHH!!! AREN'T YOU MY MAN'S PRIZE?» — هر
-# دو مالِ یک حبابِ جگ‌دارند؛ خطهایِ باکسِ خالی همه
-# به «ناحیهٔ مجاور» (فیلترِ 188) واگذار شده بودند).
-# ناحیهٔ خالی حذف میشود: نه پاکسازیِ دوباره، نه
-# نجاتِ OCR با متنِ همسایه (ریشهٔ «AHHH!!!» دوبار).
                     try:
                         _dupe = None
                         for _j in range(len(cand)):
@@ -3053,13 +2705,6 @@ class _MangaTranslatorBody_70:
                             continue
                     except Exception:
                         pass
-# گاردِ «نقطه/نمادِ بی‌متن»: اگر جوهرِ
-# ناحیه فقط چند لکهٔ ریز است (مثلِ «....» که det خطی
-# برایش نمیسازد؛ بزرگترین مؤلفهٔ جوهر < ۱۸٪ بلندیِ
-# کراپ و ≤۱۰ مؤلفه)، دیگر «متنِ ناخوانده» حساب
-# نمیشود و دست‌نخورده میمانَد. متنِ واقعیِ
-# ناخوانده (دست‌خط/فونتِ عجیب) حروفِ بزرگ دارد و
-# از این گارد رد میشود.
                     _dots = False
                     try:
                         _gx1, _gy1 = max(0, int(x1)), max(0, int(y1))
@@ -3080,8 +2725,6 @@ class _MangaTranslatorBody_70:
                                 continue
                             _w2 = float(_st2[_ci2, cv2.CC_STAT_WIDTH])
                             _h2 = float(_st2[_ci2, cv2.CC_STAT_HEIGHT])
-# خطِ نازکِ دورِ حباب (حلقهٔ بیضی، fill کم) حساب
-# نمیشود — فقط محتوای توپُر (نقطه/حرف)
                             if _w2 * _h2 > 0 and \
                                     _a2 / (_w2 * _h2) < 0.22:
                                 continue
@@ -3118,9 +2761,6 @@ class _MangaTranslatorBody_70:
             if self._is_non_english_script(text):
                 continue
 
-# پنجرهٔ سیستم → خط‌به‌خط جدا (نه یک متن یکجا) ──
-# فقط با «نشانهٔ قوی»: براکت/کلیدواژه/لیبل دونقطه‌دار.
-# حباب عادی (فقط فاصله و تراز) دیگر جدا نمی‌شود.
             try:
                 _sys_score = MangaTranslator._system_window_score(
                     text, line_texts, line_polys, (x1, y1, x2, y2))
@@ -3128,15 +2768,9 @@ class _MangaTranslatorBody_70:
                     text, line_texts)
             except Exception:
                 _sys_score, _sys_strong = 0, False
-# جعبهٔ مشخصات (NAME / AGE: 40 / RACE: …) همیشه جدا شود —
-# بلوکِ برچسبِ کوتاه با نشانهٔ قوی (≥۲ لیبل دونقطه‌دار یا براکت)
-# کافی است؛ دیگر به امتیازِ هندسیِ سخت‌گیر وابسته نیست (قبلاً
-# جعبهٔ «DEVON … AGE: 18» با امتیاز ۳ از دست می‌رفت).
             _lbl_block = MangaTranslator._is_label_block(line_texts or [])
             _sys_ok = _sys_strong and (
                 _sys_score >= 5
-# برچسبِ تک‌خطیِ کوتاه مثل «Status» / «NOTICE» — امتیازِ ظاهری
-# به چند خط نیاز دارد؛ برچسب تک‌خطی با نشانهٔ قوی کافی است
                 or (len(line_polys) <= 1
                     and len(str(text or '').strip()) <= 28)
                 or _lbl_block)
@@ -3154,7 +2788,6 @@ class _MangaTranslatorBody_70:
                 except Exception:
                     pass
             if _sys_can_split:
-# OCR گاهی هر «کلمه» را جدا می‌دهد → اول خط‌سازی کن
                 _lines = MangaTranslator._cluster_ocr_lines(
                     line_polys, line_texts or [])
                 _made = 0
@@ -3184,7 +2817,6 @@ class _MangaTranslatorBody_70:
                     )
                     _sr.style_locked = True
                     _sr.sys_split = True
-# مستطیلِ والد برای پوششِ gap-OCR (تا خط‌ها دوباره OCR نشوند)
                     _sr.cover_rect = (x1, y1, x2, y2)
                     regions.append(_sr)
                     _made += 1
@@ -3197,8 +2829,6 @@ class _MangaTranslatorBody_70:
 
             if kind == "dialogue":
                 if MangaTranslator._is_watermark_text(text):
-# واترمارکِ رویِ حباب: باقیِ متنِ واقعی =
-# دیالوگ میماند (واترمارک از متنِ ترجمه هم برداشته میشود)
                     _scrub = MangaTranslator._strip_watermark_tokens(text)
                     if _scrub and self._classify_text(_scrub) == "dialogue":
                         text = _scrub
@@ -3268,11 +2898,6 @@ class _MangaTranslatorBody_70:
             rx1, ry1, rw_, rh_ = x1, y1, bw, bh
             if line_polys and abs(ang_) >= 8.0:
                 try:
-# فقط خطهایی که بیشترشان داخلِ باکسِ detector
-# اند در گسترشِ مستطیل شرکت میکنند؛ خطِ ترکیبیِ عابر
-# (تکهٔ حبابِ مجاور چسبیده به تایتلِ کج) نباید مستطیلِ
-# ناحیه را تا رویِ حبابِ مجاور بکشد (همان «کلِ سه حباب
-# گرفته») — خودِ خط برایِ ترجمه/پاکسازی میماند.
                     _rx_pts = []
                     for _p in line_polys:
                         try:
@@ -3315,16 +2940,13 @@ class _MangaTranslatorBody_70:
             ))
             regions[-1].angle_src = ang_src
             if _raw_det_dbg:
-# باکسِ خامِ detector برایِ DEBUGِ سبزِ صفحه
                 regions[-1].det_raw = _raw_det_dbg
             if _sys_ok:
-# تک‌خطی/تگ براکت‌دار مثل [ Daily Quest ] — فونت سیستم
                 regions[-1].bubble_style = "system"
                 regions[-1].style_locked = True
                 if self.debug:
                     print(f"    [*] برچسب/پنجرهٔ سیستم (تک‌قطعه) → فونت سیستم")
 
-# خط‌های تکراریِ پنجرهٔ سیستم (والدهای هم‌پوشان detector) → یکی
         try:
             _sreg = [r for r in regions if getattr(r, "sys_split", False)]
             if len(_sreg) > 1:
@@ -3351,9 +2973,6 @@ class _MangaTranslatorBody_70:
         except Exception:
             pass
 
-# «پهنای پنجره» برای خط‌های پنجرهٔ سیستم — OCR گاهی تهِ خط را
-# نمی‌گیرد («speed)» می‌ماند)؛ پس افقی تا پهنای مشترک همهٔ خط‌های همان
-# پنجره (یا والد، با حاشیهٔ امن) گسترش بده تا پاکسازی کامل شود.
         try:
             _sys_groups: Dict[Tuple[int, int], List[TextRegion]] = {}
             for _r in regions:
@@ -3385,11 +3004,54 @@ class _MangaTranslatorBody_70:
         before = len(regions)
         regions = self._split_mixed_column_regions(regions)
         regions = self._merge_overlapping_regions(regions, iou_thresh=0.35, contain_thresh=0.65)
+        try:
+            regions = MangaTranslator._dedup_duplicate_text_regions(regions)
+        except Exception:
+            pass
+        if _raw_det_dbg:
+            try:
+                _fd: list = []
+                _seen_fd: set = set()
+                for r in regions:
+                    _bx = None
+                    try:
+                        _cr = getattr(r, "cover_rect", None)
+                        if getattr(r, "sys_split", False) and _cr:
+                            _bx = [int(_cr[0]), int(_cr[1]),
+                                   int(_cr[2]), int(_cr[3])]
+                    except Exception:
+                        _bx = None
+                    if _bx is None:
+                        try:
+                            _bl = list(getattr(r, "boxes", None) or [])
+                            if _bl:
+                                _pts = np.concatenate(
+                                    [np.asarray(p).reshape(-1, 2) for p in _bl])
+                                _bx = [int(_pts[:, 0].min()), int(_pts[:, 1].min()),
+                                       int(_pts[:, 0].max()), int(_pts[:, 1].max())]
+                        except Exception:
+                            _bx = None
+                    if _bx is None:
+                        try:
+                            _x_, _y_, _w_, _h_ = [float(v) for v in r.rect]
+                            _bx = [int(_x_), int(_y_),
+                                   int(_x_ + _w_), int(_y_ + _h_)]
+                        except Exception:
+                            continue
+                    _cls = str(getattr(r, "det_class", "") or "")
+                    _k = (tuple(_bx), _cls)
+                    if _k in _seen_fd:
+                        continue
+                    _seen_fd.add(_k)
+                    _fd.append((_bx, _cls))
+                if _fd:
+                    _raw_det_dbg = _fd
+                    for r in regions:
+                        r.det_raw = _fd
+            except Exception:
+                pass
         if self.debug:
             print(f"    [*] RT-DETR: {n0} خام → {before} OCR → {len(regions)} نهایی")
-# نجاتِ «خطِ یتیم»: خطی که detector اصلاً نبینیده
-# (نمونهٔ واقعی: «OUTER GOD WITHIN 7 YEARS.]» زیرِ پنجرهٔ
-# [CLEAR OBJECTIVE…]) — بدونِ این نجات نه ترجمه میشد نه پاکسازی.
         try:
             regions = self._rescue_orphan_lines(image, regions,
                                                 page_cache=page_cache)
@@ -3400,31 +3062,6 @@ class _MangaTranslatorBody_70:
     @staticmethod
     def _dedup_duplicate_text_regions(
             regions: List["TextRegion"]) -> List["TextRegion"]:
-        """ — حذفِ نواحیِ «هممتنِ همپوشان» (ضدِ رندرِ دوباره).
-
-        . ریشه: دو باکسِ detectorِ
-        همپوشان (IoU < آستانهٔ NMS ولی همپوشانیِ واقعیِ ۵۰٪+) هر دو
-        زنده میمانند، OCRِ هر دو همان متنِ فیزیکی را میخواند → دو ناحیه
-        با متنِ یکسان و مستطیلهای همپوشان → دو ترجمه → دو رندرِ
-        بالای هم (لاگِ گوشی: #07/#08 «GO! EVEN FASTER…»). همینطور
-        خطِ یتیمِ نجات‌یافته (216) که در نوارِ مجاورِ ناحیهٔ موجود،
-        خطِ «همان» ناحیه را دوباره پیدا میکند.
-
-        قواعد (محافظهکار — متنِ متفاوت هرگز حذف نمیشود):
-          ۱) نرمالسازی: حروف کوچک + حذفِ نویسههای غیرِ واژه (علائم/
-             فاصله) — برایِ همهٔ خطها (لاتین/فارسی/ja/ko/zh).
-          ۲) جفتِ «متنِ یکسان» (یا جابهجاییِ واژهها — همانِ چندمجموعهٔ
-             نویسهها؛ نمونهٔ واقعیِ img6: «EVEN GO! FASTER...» در برابر
-             «GO! FASTER... EVEN»): همپوشانی ≥۱۸٪ مساحتِ کوچکتر یا
-             احتوای ≥۴۵٪ → نسخهٔ کوچکتر (خط/مساحتِ کمتر) حذف.
-          ۳) جفتِ «شبیهِ هم» (بازخوانیِ کج‌وکولهٔ OCRِ همان متن —
-             نسبتهایِ difflib ≥۰٫۶۲ با طولِ ≥۶): مثلِ ۲.
-          ۴) جفتِ «زیررشته»: متنِ یکی داخلِ دیگری + احتوای ≥۶۰٪ →
-             ناحیهٔ درونی (بخشی) حذف — بازخوانیِ نصفهٔ همان متن.
-        متنِ تکراریِ واقعی در دو حبابِ جدا = بدونِ همپوشانی → دست‌نخورده.
-        یتیمِ واقعی (خطِ نو با متنِ تازه، بیرونِ مستطیلِ والد) =
-        بدونِ همپوشانی → دست‌نخورده (سناریوی «OUTER GOD…»).
-        """
         if not regions or len(regions) < 2:
             return regions
 
@@ -3435,12 +3072,39 @@ class _MangaTranslatorBody_70:
                 return str(t or "").lower()
 
         def _sim(a: str, b: str) -> float:
-            """شباهتِ دو متنِ نرمال — ۱٫۰ = یکی."""
             if a == b:
                 return 1.0
             try:
                 import difflib as _dl
                 return _dl.SequenceMatcher(None, a, b).ratio()
+            except Exception:
+                return 0.0
+
+        def _fuzzy_sub(short: str, long: str) -> float:
+            if not short or not long:
+                return 0.0
+            if len(short) > len(long):
+                short, long = long, short
+            ls = len(short)
+            if ls < 5:
+                return 0.0
+            try:
+                import difflib as _dl
+                best = 0.0
+                step = max(1, ls // 3)
+                for st in range(0, max(1, len(long) - ls + 1), step):
+                    win = long[st:st + ls]
+                    r = _dl.SequenceMatcher(None, short, win).ratio()
+                    if r > best:
+                        best = r
+                    if best >= 0.97:
+                        break
+                if best < 0.97 and len(long) > ls:
+                    for pref in (long[:ls], long[-ls:]):
+                        r = _dl.SequenceMatcher(None, short, pref).ratio()
+                        if r > best:
+                            best = r
+                return best
             except Exception:
                 return 0.0
 
@@ -3459,6 +3123,24 @@ class _MangaTranslatorBody_70:
         def _area(a):
             return max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
 
+        def _axis_near(ba, bb):
+            try:
+                ix = max(0.0, min(ba[2], bb[2]) - max(ba[0], bb[0]))
+                iy = max(0.0, min(ba[3], bb[3]) - max(ba[1], bb[1]))
+                wa = max(1.0, ba[2] - ba[0])
+                wb = max(1.0, bb[2] - bb[0])
+                ha = max(1.0, ba[3] - ba[1])
+                hb = max(1.0, bb[3] - bb[1])
+                h_ov = ix / min(wa, wb)
+                v_ov = iy / min(ha, hb)
+                v_gap = max(0.0, max(ba[1], bb[1]) - min(ba[3], bb[3]))
+                h_gap = max(0.0, max(ba[0], bb[0]) - min(ba[2], bb[2]))
+                stacked = h_ov >= 0.55 and v_gap <= max(8.0, 0.30 * min(ha, hb))
+                sided = v_ov >= 0.55 and h_gap <= max(8.0, 0.30 * min(wa, wb))
+                return stacked or sided
+            except Exception:
+                return False
+
         infos = []
         for r in regions:
             try:
@@ -3466,7 +3148,7 @@ class _MangaTranslatorBody_70:
             except Exception:
                 n = ""
             if not n:
-                continue  # بی‌متن (ocr_empty و…) هرگز اینجا حذف نمیشود
+                continue
             try:
                 npol = len(getattr(r, "ocr_polys", None) or [])
             except Exception:
@@ -3476,7 +3158,7 @@ class _MangaTranslatorBody_70:
             return regions
 
         drop_ids: set = set()
-        n_eq = n_sub = 0
+        n_eq = n_sub = n_frag = 0
         for i in range(len(infos)):
             ra, na, ba, aa, pa = infos[i]
             if id(ra) in drop_ids:
@@ -3487,16 +3169,6 @@ class _MangaTranslatorBody_70:
                     continue
                 if getattr(rb, "kind", "") != getattr(ra, "kind", ""):
                     continue
-# خواهرانِ پنجرهٔ سیستمِ هم‌والد هرگز «تکرارِ
-# دوباره‌رندر» نیستند: خطوطِ split از «یک» پاسِ OCRِ والد
-# در ردیفهایِ مجزا ساخته شدهاند (متنهایِ متفاوتِ فیزیکی).
-# قربانیِ واقعی (فصلِ ۸۸، لاگِ 8e7dd2bc): «THE EAST WING
-# AND» ≈ «THE WEST WING.» با شباهتِ فازیِ ۰٫۷۷ (آستانهٔ
-# ۰٫۶۲) + ۱۰px همپوشانیِ عمودی → خطِ چهارمِ حباب، به‌عنوانِ
-# «هممتن» حذف شد و متن رویِ خروجی ماند. خواهرِ هم‌والد
-# (cover_rect یکسان + sys_split) از هر دو شاخهٔ «یکسان» و
-# «بخشی» مستثناست؛ دوباره‌رندرِ واقعی = دو باکسِ detector
-# (cover_rect متفاوت) — همان محافظتِ خواهرهایِ پنجرهٔ سیستم سرِ جایش میماند.
                 try:
                     if getattr(ra, "sys_split", False) \
                             and getattr(rb, "sys_split", False) \
@@ -3511,12 +3183,9 @@ class _MangaTranslatorBody_70:
                     continue
                 amin = min(aa, ab) or 1.0
                 ov_min = inter / amin
-# احتوای bb در ba و برعکس
                 cont_ba = inter / (ab or 1.0)
                 cont_ab = inter / (aa or 1.0)
                 _kill = None
-# «یکسان» = متنِ برابر یا جابهجاییِ واژهها (چندمجموعهٔ
-# نویسهها)؛ «شبیه» = بازخوانیِ کج‌وکولهٔ OCR (≥۰٫۶۲)
                 _same_txt = (na == nb) or (
                     len(na) >= 6 and len(nb) >= 6
                     and sorted(na) == sorted(nb))
@@ -3524,7 +3193,6 @@ class _MangaTranslatorBody_70:
                     _same_txt = _sim(na, nb) >= 0.62
                 if _same_txt:
                     if ov_min >= 0.18 or max(cont_ba, cont_ab) >= 0.45:
-# بزرگتر/پرخطتر میماند؛ کوچکتر حذف میشود
                         _kill = ra if (pa, aa) <= (pb, ab) else rb
                         n_eq += 1
                 elif nb in na and cont_ba >= 0.60:
@@ -3533,6 +3201,16 @@ class _MangaTranslatorBody_70:
                 elif na in nb and cont_ab >= 0.60:
                     _kill = ra
                     n_sub += 1
+                if _kill is None and min(len(na), len(nb)) >= 5 \
+                        and abs(len(na) - len(nb)) >= 2 \
+                        and _axis_near(ba, bb):
+                    short_i, long_i = (i, j) if len(na) <= len(nb) else (j, i)
+                    ns = infos[short_i][1]
+                    nl = infos[long_i][1]
+                    if len(ns) >= 5 and len(nl) >= 8 \
+                            and _fuzzy_sub(ns, nl) >= 0.74:
+                        _kill = infos[short_i][0]
+                        n_frag += 1
                 if _kill is not None:
                     drop_ids.add(id(_kill))
         if not drop_ids:
@@ -3540,8 +3218,8 @@ class _MangaTranslatorBody_70:
         out = [r for r in regions if id(r) not in drop_ids]
         try:
             print(f"    [*] {len(drop_ids)} ناحیهٔ هممتنِ همپوشان حذف شد "
-                  f"(ضدِ رندرِ دوباره — {n_eq} یکسان / {n_sub} بخشی)",
-                  flush=True)
+                  f"(ضدِ رندرِ دوباره — {n_eq} یکسان / {n_sub} بخشی / "
+                  f"{n_frag} قطعه)", flush=True)
         except Exception:
             pass
         return out
@@ -3549,18 +3227,6 @@ class _MangaTranslatorBody_70:
     def _rescue_orphan_lines(self, image: np.ndarray,
                              regions: List["TextRegion"],
                              page_cache: Optional[dict] = None) -> List["TextRegion"]:
-        """ — نجاتِ خطِ یتیمِ همسایهٔ ناحیهٔ متن.
-
-        ریشه (لاگِ واقعیِ strip_001ِ بچِ img4+4e2e77): پنجرهٔ سیستمِ
-        «[CLEAR OBJECTIVE: SLAY THE / OUTER GOD WITHIN 7 YEARS.]» دو خط
-        داشت؛ detector فقط باکسِ خطِ اول را داد (پایینِ آن، نزدیکِ لبهٔ
-        نوار) → خطِ دوم نه استخراج شد (متنش به خطِ اولِ کج‌وکوله چسبید)،
-        نه پاکسازی (بیرونِ هر ماسکی بود) → حروفِ سفیدِ کامل در خروجی
-        ماند («لگهٔ متنِ قبلی»). اینجا برایِ هر ناحیهٔ متنی، نوارِ
-        بالای/پایینِ مستطیلش (به پهنایِ همان ناحیه) برایِ «جوهرِ
-        خط‌مانندِ بی‌صاحب» اسکن میشود؛ اگر OCR رویِ آن متنِ لاتینِ
-        معتبر خواند → ناحیهٔ جدید ساخته میشود (ترجمه + پاکسازی).
-        MANGA_ORPHAN_RESCUE=0 برایِ خاموشیِ دستی."""
         if os.environ.get("MANGA_ORPHAN_RESCUE", "1") == "0":
             return regions
         try:
@@ -3578,7 +3244,6 @@ class _MangaTranslatorBody_70:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         except Exception:
             return regions
-# باکسهای اشغالشده (با حاشیه) — خطِ یتیم باید بیرونِ همه باشد
         covered = []
         for r in regions:
             try:
@@ -3594,18 +3259,12 @@ class _MangaTranslatorBody_70:
             pass
         rescued: List[TextRegion] = []
         _seen_bands: List[Tuple[int, int, int, int]] = []
-# بودجهٔ پاسهایِ OCRِ یتیم: حداکثرِ ۲ پاس به‌ازایِ هر
-# ناحیهٔ والد (پروفایلِ img6: ۳۵ پاسِ تقریباً بی‌نتیجه). وقتیِ هنر
-# از همهٔ گاردها رد شود، این سقف جلویِ «دومین استخراجِ کاملِ صفحه»
-# را میگیرد؛ خطِ یتیمِ واقعی (≥۶ حرفِ خوانا) تقریباً همیشه در
-# پاسهایِ اولِ همان ناحیه پیدا میشود.
         _orphan_budget = max(12, 2 * len(parents))
         for r in parents:
             try:
                 x, y, rw_, rh_ = [int(v) for v in r.rect]
             except Exception:
                 continue
-# بلندیِ خط از پالیهای خودِ ناحیه (مستطیلِ چندخطی نه)
             _lhs = []
             for _p in (getattr(r, "ocr_polys", None) or []):
                 try:
@@ -3615,11 +3274,6 @@ class _MangaTranslatorBody_70:
                     continue
             lh = float(np.median(_lhs)) if _lhs else float(rh_)
             lh = float(np.clip(lh, 12.0, 140.0))
-# شروعِ نوار چسبیده به لبهٔ ناحیه: خطِ ادامه‌دار
-# ممکن است فقط ۲۰-۳۰px بیرونِ مستطیل باشد (پنجرهٔ [CLEAR
-# OBJECTIVE…]: خطِ دوم تا ۳۳۴۴ و مستطیل تا ۳۳۱۸) — شیارِ بزرگ
-# (⅓ خط) از رویش میپرید. ۱۲٪ خط + ۴px کافی است؛ ردِ «پوشیده»
-# با محتوای ≥۷۰٪ داخلِ باکس انجام میشود نه هر همپوشانی.
             gap = max(4, int(round(lh * 0.12)))
             reach = int(round(lh * 2.2))
             for _b0, _b1 in ((y + rh_ + gap, y + rh_ + gap + reach),
@@ -3643,12 +3297,6 @@ class _MangaTranslatorBody_70:
                 _dens = float(ink.mean())
                 if _dens < 0.004 or _dens > 0.55:
                     continue
-# تفکیکِ «ردیفهایِ خط‌مانند»: نوارِ جستجو
-# کلِ پنجره/لبه‌ها را دارد؛ bboxِ خامِ جوهر کلِ نوار را
-# میگیرد و OCR رویِ هنر میافتد. ردیفها به اجراهایِ
-# پیوستهٔ جوهرِدار شکسته میشوند؛ هر اجرا = یک خطِ
-# کاندید (بلندیِ ۸..۲.۵×خط، نه خطِ نازکِ کادر/لبهٔ
-# تمام-عرض، نه میلهٔ توپُر).
                 _rows = ink.sum(axis=1).astype(np.float32)
                 _row_thr = max(12.0, 0.08 * (_x1 - _x0))
                 _runs: List[Tuple[int, int]] = []
@@ -3669,12 +3317,6 @@ class _MangaTranslatorBody_70:
                     _rhh = _r1 - _r0
                     if _rhh < 8 or _rhh > max(30, int(lh * 2.5)):
                         continue
-# پسکشِ هیسترزیسی: آستانهٔ هستهٔ خط فقط
-# تنهٔ پرپیکسلِ حروف را میگیرد؛ دُم/سرِ نازکِ خط
-# (نصفِ پایینیِ حروفِ رویِ نوارِ تیرهٔ پایینِ پنجره)
-# زیرِ آستانه ماند و برشِ OCR نصفه میشد («P»/«T»).
-# مرزهای اجرا تا جایی که ردیف هنوز ~۳۰٪ آستانه را
-# دارد کشیده میشوند (سقف: نصفِ بلندیِ خط هر طرف).
                     _soft_thr = _row_thr * 0.30
                     _ext_max = max(4, int(lh * 0.5))
                     _e0 = 0
@@ -3693,14 +3335,6 @@ class _MangaTranslatorBody_70:
                     _sub = ink[_r0:_r1, :]
                     if float(_sub.mean()) > 0.55:
                         continue
-# گیتِ «حرف‌مانندی» پیش از OCR: پروفایلِ
-# img6 نشان داد پاسهایِ یتیم گرانترین بخشِ استخراج
-# بعد از نردبان‌اند (~۳۵ فراخوانیِ OCR که تقریباً همه‌اش
-# هنر/کادر/بافت بود و ۰ خط داد — حسِ «دوبار استخراج
-# میزنه»). متنِ واقعی ≥۵ مؤلفهٔ پیوستهٔ حرف‌اندازه دارد
-# (هر حرف ~۱ مؤلفه)؛ خطِ کادر/هنر ۱-۲ مؤلفهٔ عظیم یا
-# خرده‌نویزهایِ ریز دارد. cv2.connectedComponents ~۱ms
-# است در برابرِ ~۱.۳s هر پاسِ OCR.
                     try:
                         _nlab, _labs, _stat, _cent = \
                             cv2.connectedComponentsWithStats(
@@ -3718,13 +3352,10 @@ class _MangaTranslatorBody_70:
                                 _letters += 1
                                 _bots.append(int(_sy + _sh))
                             elif _sw <= max(30.0, lh * 3.5):
-                                _letters += 2  # حروفِ چسبیده (فونتِ ضخیم)
+                                _letters += 2
                                 _bots.append(int(_sy + _sh))
                         if _letters < 5:
                             continue
-# هم‌ترازیِ بیس‌لاین: حروفِ یک خطِ واقعی
-# پایینِ تقریباً یکسان دارند (واریانسِ کوچک)؛ لکهها/
-# بافتهایِ هنریِ حرف‌اندازه به‌طورِ تصادفی پخش‌اند.
                         if len(_bots) >= 5:
                             _bstd = float(np.std(_bots))
                             if _bstd > max(6.0, 0.45 * lh):
@@ -3744,18 +3375,6 @@ class _MangaTranslatorBody_70:
                     gy1 = min(h_img, _b0 + _r1 + 3)
                     if gx1 - gx0 < 30 or gy1 - gy0 < 8:
                         continue
-# گاردِ «لایهٔ خطِ همسایه»: لبهٔ بالایی/
-# پایینیِ خطِ «موجودِ» بعدی که مستطیلش دیرتر شروع
-# میشود، در نوارِ جستجو به‌صورتِ لایهٔ نازک ظاهر میشود
-# (لاگِ واقعی: «YAA»/«WAND»/«¿Thur» رویِ strip_007) —
-# خطِ واقعیِ بی‌صاحب بلندیِ کاملِ خط را دارد (≥۴۵٪
-# بلندیِ خطِ والد) و حروفِ کافی (≥۶ حرفِ لاتین). تنها
-# استثنا: اجرایِ چسبیده به «لبهٔ» نوار (بریدهٔ مرز) —
-# دُمِ خطی که به ناحیهٔ والد ادامه دارد (نمونهٔ واقعی:
-# دُمِ ۲۰pxیِ «OUTER GOD WITHIN 7 YEARS.]» در بندِ
-# ۳۳۲۹-۳۳۴۶) به‌طورِ طبیعی کوتاه است؛ برایش فقط
-# حداقلِ ۱۲px کافی است (فیلترِ حروف جلویِ لایههایِ
-# ناخواسته را میگیرد).
                     _clipped_edge = (_r0 <= 0 or _r1 >= len(_rows))
                     if not _clipped_edge \
                             and (gy1 - gy0) < max(12, int(round(lh * 0.45))):
@@ -3769,7 +3388,7 @@ class _MangaTranslatorBody_70:
                                * (min(gy1, c[3]) - max(gy0, c[1]))
                                >= 0.70 * _ga
                            for c in covered):
-                        continue  # تقریباً کامل داخلِ ناحیهٔ موجود
+                        continue
                     if any(not (gx1 < s[0] or gx0 > s[2]
                                 or gy1 < s[1] or gy0 > s[3])
                            and (min(gx1, s[2]) - max(gx0, s[0]))
@@ -3778,15 +3397,6 @@ class _MangaTranslatorBody_70:
                            for s in _seen_bands):
                         continue
                     _seen_bands.append((gx0, gy0, gx1, gy1))
-# گیتِ پیش از OCR — «جوهرِ دارایِ صاحب»:
-# بازخوانیِ متنِ موجود، پرهزینهترین بخشِ استخراج بود
-# (پروفایلِ 4e2e77: ۲۶ فراخوانیِ OCRِ یتیم = ۳۲ثانیه
-# که اکثراً بعدش با گاردِ بازخوانیِ پوشیدهشده رد میشدند — «انگار
-# دوبار اون متن میخونه» درست بود). سنجشِ پیش از OCR:
-# چند درصدِ «پیکسلهایِ جوهرِ» این باند داخلِ
-# چندضلعیهایِ OCRِ نواحیِ موجود است؟ ≥۵۵٪ → متنِ
-# دارایِ صاحب → بدونِ OCR رد میشود (عینِ گاردِ بازخوانیِ پوشیدهشده
-# فقط این‌بار روی جوهرِ واقعی نه جعبهٔ خامِ هنر-آلود).
                     try:
                         _inkys, _inkxs = np.nonzero(
                             ink[_r0:_r1, :])
@@ -3861,19 +3471,6 @@ class _MangaTranslatorBody_70:
                     if not _txt or _lt < 6 \
                             or _lt * 2 < len(_txt.replace(" ", "")):
                         continue
-# پسگیرِ «بازخوانیِ متنِ پوشیدهشده»:
-# جعبهٔ خامِ جوهرِ نوار با هنرِ اطراف پهن میشود و
-# گاردِ ۷۰٪یِ بالای سر ردش میکند (لاگِ واقعیِ img6:
-# «attraction A» و «atfrach here.» — بازخوانیِ
-# کج‌وکولهٔ «You're the real attraction here.» از
-# نوارِ زیرِ حبابِ همسایه؛ ناحیهٔ ۶ با پسگیرِ جوهر
-# +1614px رویِ دُمِ حباب چسبید = خطِ حباب پاک شد).
-# سنجشِ درست = چندضلعیهایِ خودِ OCR (جعبهٔ واقعیِ
-# حروف): اگر ≥۶۰٪ حروف داخلِ ناحیههایِ موجودند
-# این «همان متنِ دارایِ صاحب» است نه خطِ یتیم →
-# رد. یتیمِ واقعی (سناریوی «OUTER GOD…» — خطِ
-# دومی که detector ندید) بیرونِ همهٔ ناحیههاست
-# و زنده میماند.
                     try:
                         _ta = 0.0
                         _ca = 0.0
@@ -3911,9 +3508,6 @@ class _MangaTranslatorBody_70:
                     except Exception:
                         pass
                     _boxes = []
-# پلیِ منحط (بلندی <۳px — پالیِ جعلیِ ۱×۱ یا خطِ ۱px) پایین
-# نمی‌رود: زاویه/ماسک/رندر را خراب میکند (لاگِ واقعی:
-# بلندی=[1] برایِ «THE ONE» و «HA YURIEM»)
                     _polys_ok: List[np.ndarray] = []
                     for _p in (_polys or []):
                         try:
@@ -3925,11 +3519,6 @@ class _MangaTranslatorBody_70:
                         except Exception:
                             continue
                     _polys = _polys_ok
-# rect = پی‌باکسِ پلیهایِ واقعیِ OCR نه پنجرهٔ جستجویِ باند:
-# باندِ یتیم گاهی هنر/کادرِ تمام-عرض را هم در بر میگیرد (لاگِ
-# واقعی: rect=(0,4772,532,101) برایِ متنِ «THE ONE» — کلِ عرضِ
-# نوار)؛ ناحیهٔ نهایی فقط باید متنِ خواندهشده را بپوشاند تا
-# پاکسازی دقیق باشد و جعبهٔ دیباگ درست رسم شود.
                     try:
                         if _polys:
                             _pb_all = np.concatenate([
@@ -4005,13 +3594,6 @@ class _MangaTranslatorBody_70:
                         _ai = MangaTranslator._ink_slant_angle(
                             image[_uy1:_uy2, _ux1:_ux2], _umk)
                         if abs(_ai) >= (7.0 if _is_vert else 6.0):
-# وتوی جوهرِ ناسازگار (باگِ حبابِ «HABLA MUCHÍSIMO…»):
-# پالیهای خودِ OCR (چهارگوشِ چسبیده به متن) اگر تقریباً همه
-# یک زاویهٔ معنادارِ «مخالفِ» سنجشِ جوهر را میگویند، سنجشِ
-# جوهر برایِ بازنویسی باید «پشتیبانیِ پروجکشن» بیاورد: زاویهٔ
-# جدید باید ردیفهایِ جوهر را واقعاً ازِ افقی تیزتر کند (≥۱٫۱×).
-# بدونِ آن، قطبِ گلو/جوهرِ نویزی مولفههایِ مورب میسازد و
-# کجیِ درستِ پالی (+۵٫۸°) به ‎-۱۸°‌ِ وارونه تبدیل میشد.
                             _keep_poly = False
                             try:
                                 if not _is_vert and _px:
@@ -4075,11 +3657,6 @@ class _MangaTranslatorBody_70:
                 if not _a_ok:
                     continue
                 if abs(_a_ink) >= 6.0 and (_a_ink > 0.0) != (ang > 0.0):
-# عاقل‌نگه‌داشتِ مقدار: اگر جوهر با پالی فقط
-# «علامت» را عوض کند و مقدارشان نزدیک باشد، جایگزین
-# اما پرشِ فاحش (>15°) یعنی یکی‌شان خطا کرده (حروفِ
-# استایل‌دار) → امن‌ترین: رندرِ مسطح. ARTiCLE-2 واقعیِ
-# مسطح بود ولی ‎-7°→+39.8° رندر شد (باگِ «برعکس»)
                     if abs(abs(_a_ink) - abs(ang)) > 15.0:
                         print(f"    [!] وتوی کجیِ ناسازگار [{r.id}]: "
                               f"{ang:+.1f}° ← جوهر {_a_ink:+.1f}° "
@@ -4091,14 +3668,6 @@ class _MangaTranslatorBody_70:
                               f"{_a_ink:+.1f}° (راستی‌آزمایی جوهر)")
                         r.angle = _a_ink
                 elif abs(_a_ink) < 6.0:
-# جوهر می‌گوید «مسطح» ولی زاویهٔ پالی‌ها
-# کجِ ±۶..۴۵° است (حروفِ استایل‌دارِ تیترها زاویهٔ
-# کاذب می‌سازند؛ BLUE MOON -15° در حالی‌که واقعی ~0°)
-# اما اول خودِ زاویهٔ ادعایی آزموده میشود:
-# اگر ردیفهایِ جوهر را واقعاً رویِ هم میاندازد (≥۱٫۱۰×)
-# کجی واقعی است و وتو نمیشود (img3: ‎-۶٫۷°/-۱۳٫۲°
-# واقعی بودند و به‌غلط صفر میشدند — «بعد چرخش همچین
-# بعضی متن ها درست نمیچرخه»).
                     _sup = MangaTranslator._ink_slant_support(
                         image[y1:y2, x1:x2], ang, _vmk)
                     if _sup is not None and _sup >= 1.10:
@@ -4110,30 +3679,21 @@ class _MangaTranslatorBody_70:
                     print(f"    [!] حذف کجیِ کاذب [{r.id}]: {ang:+.1f}° → 0.0° "
                           f"(جوهرِ واقعیِ خط مسطح است)")
                     r.angle = 0.0
-# رندر حقِ بازنویسی از پالی‌ها را ندارد
                     r.angle_flat_veto = True
             except Exception:
                 continue
 
     def _discover_sfx_regions(self, image: np.ndarray,
                               regions: List["TextRegion"]) -> List["TextRegion"]:
-        """ — افکتِ صوتی/متنِ استایل‌دارِ بیرونِ حباب (HAA، SFX
-        کره‌ای، پلاکِ اسم و…) با فیلترهایِ شل‌شده پیدا می‌شود تا در
-        «کپیِ اولِ تهاجمی» کامل پاک شود. فقط وقتی MANGA_CLEAN_SFX=1 یا
-        --clean-sfx."""
         try:
             out = self._discover_free_text_regions(image, regions,
                                                    relaxed=True)
         except Exception:
             return []
-# تکه‌های یک SFX (حروفِ دور از هم مثل HAA..) را به هم بچسبان
         return self._merge_sfx_fragments(image, out)
 
     def _merge_sfx_fragments(self, image: np.ndarray,
                              regions: List["TextRegion"]) -> List["TextRegion"]:
-        """ — ناحیه‌های sfxِ نزدیکِ هم (تکه‌های یک افکت) را ادغام
-        می‌کند و rect را تا جوهرِ نزدیک گسترش می‌دهد تا ماسکِ توپر کلِ
-        کلمه (مثل HAA..) را بپوشاند."""
         if not regions:
             return regions
         try:
@@ -4185,9 +3745,6 @@ class _MangaTranslatorBody_70:
                 for m in merged:
                     try:
                         mx, my, mw, mh = [int(v) for v in m.rect]
-# گسترشِ تکراری: تا ۳ بار، هر بار ۸۰px باز و به
-# مرزِ جوهر بچسبان (حالتِ تهاجمیِ SFX — سقفِ رشد
-# برداشته شد؛ کاربر گفته «بیشتر پاک شه» اشکال ندارد)
                         for _ in range(3):
                             ex0, ey0 = max(0, mx - 80), max(0, my - 80)
                             ex1 = min(w, mx + mw + 80)
@@ -4213,18 +3770,6 @@ class _MangaTranslatorBody_70:
     def _dbg_collect_det_quads(self, image: np.ndarray,
                                regions: List[TextRegion],
                                bubbles: list) -> list:
-        """ — جعبههایِ خامِ detِ OCR برایِ دیباگِ آبیِ صفحه.
-
-        برایِ هر کراپِ detector (حباب)، یک پاسِ فقط-det (بدونِ rec، موتورِ
-        جدایِ 30_ocr.det_only) زده میشود؛ جعبهها به مختصاتِ صفحه میروند
-        و به‌عنوانِ خروجی برمیگردند (فراخواننده آنها را در زمینهٔ صفحه
-        حمل میکند — نوشتن رویِ self با کارگرِ موازیِ صفحهٔ دیگر زنگ میزند).
-
-        تفسیر (لاگ + تصویر):
-          • جعبهٔ آبی هست ولی ناحیه/متن ندارد → det دید، rec/فیلتر حذف کرد
-          • جعبهٔ آبی هم ندارد → det اصلاً آن خط را ندید
-        فقط با self.debug — هیچ اثری روی استخراجِ اصلی ندارد (کراپ/نردبان
-        دستنخورده؛ پاسِ detِ جدا رویِ همان RECTهایِ detector)."""
 
         _fn = getattr(self.ocr, "det_only", None)
         if not callable(_fn):
@@ -4253,7 +3798,6 @@ class _MangaTranslatorBody_70:
                 _crop = image[_y1:_y2, _x1:_x2]
                 if _crop is None or _crop.size == 0:
                     return _out
-# همان بُستِ نردبانِ _ocr_crop برایِ متنِ ریز (کوچک = بُست)
                 _m = max(_crop.shape[:2])
                 if _m < 200:
                     _sc = 2.4
@@ -4279,10 +3823,6 @@ class _MangaTranslatorBody_70:
                             _qf[:, 1] += _y1
                         except Exception:
                             continue
-# مالکیتِ کوار = جعبهٔ detectorِ همان حباب: نصفِ مساحتِ کوار
-# باید داخلِ باکسِ خامِ detector باشد — کوارِ بیرون (متنِ حبابِ
-# مجاور/هنر) متعلق به این detector نیست و رویِ دیباگِ آبی هم
-# کشیده نمیشود
                         try:
                             _qx1 = float(np.min(_qf[:, 0]))
                             _qy1 = float(np.min(_qf[:, 1]))
@@ -4302,11 +3842,6 @@ class _MangaTranslatorBody_70:
                 pass
             return _out
 
-# موازی — پاسِ detِ دیباگ رویِ همهٔ حبابها «پشتِ سرهم» در لاگِ
-# سازنده ۵.۱s برایِ ۸ جعبه میخورد (کمکیِ کندیِ حالتِ دیباگ).
-# موتورِ det_only سشنِ ORTِ مستقل دارد و thread-safe است؛ همان
-# استخرِ کارگرِ استخراج (سقفِ ۴) استفاده میشود. ترتیب حفظ
-# میشود (نتیجهها به اندیس جمع و بعد به ترتیب ملغی میشوند).
         try:
             _nw = max(1, min(4, int(getattr(self, "max_workers", 2) or 2),
                              len(_bubbles)))
@@ -4321,8 +3856,6 @@ class _MangaTranslatorBody_70:
         except Exception:
             for _b in _bubbles:
                 _quads.extend(_dbg_one_bubble(_b))
-# دداپ — پاسهایِ ۱×/بُست همان خط را دوباره میآورند (همپوشانیِ
-# ≥۰٫۶ مساحتِ کوچکتر — تودهِ داخلِ دیگری را هم میگیرد) → یکی میماند
         try:
             _keep: List[np.ndarray] = []
             _bb = []
@@ -4348,9 +3881,6 @@ class _MangaTranslatorBody_70:
             _quads = _keep
         except Exception:
             pass
-# لاگِ تشخیصی — پاسخِ مستقیمِ «det دید یا rec نگرفت؟»: جعبهٔ آبی
-# که هیچ ناحیهٔ نهایی (rect یا پالیِ OCR) نپوشانده = دیدهشده توسطِ
-# det ولی استخراج نشده
         try:
             _cov = []
             for _r in (regions or []):
@@ -4404,12 +3934,6 @@ class _MangaTranslatorBody_70:
 
     def _rec_rescue_missed_quads(self, image: np.ndarray, rect,
                                  block_rects, cur_polys):
-        """ — نجاتِ «det دید ولی rec نگرفت» (ریشهٔ متنِ استخراج‌نشده):
-        رویِ کراپِ ناحیه یک پاسِ فقط-det زده میشود؛ هر کوار که هیچ
-        خطِ موجودی نمیپوشاند، جدا برش میخورد (تخت‌شده با پرسپکتیو +
-        بُستِ ×۲) و rec «فقط همان برشِ det» را میخواند — rec هرگز
-        بیرون از چیزی که det پیدا کرده نمی‌رود. خروجی = فهرستِ
-        (text, poly, conf) به مختصاتِ صفحه؛ خالی = نجات نداشت."""
         out: List[Tuple[str, np.ndarray, float]] = []
         try:
             _fn_det = getattr(self.ocr, "det_only", None)
@@ -4446,8 +3970,6 @@ class _MangaTranslatorBody_70:
                     _qx1 = float(np.min(_qf[:, 0])); _qy1 = float(np.min(_qf[:, 1]))
                     _qx2 = float(np.max(_qf[:, 0])); _qy2 = float(np.max(_qf[:, 1]))
                     _qa = max(1e-6, (_qx2 - _qx1) * (_qy2 - _qy1))
-# مالکیتِ کوار با باکسِ detector (همان قاعدهٔ clamp): نصفِ
-# مساحت داخلِ باکسِ خود + غرق‌شدن در همسایهٔ کوچکتر ممنوع
                     _ix = max(0.0, min(_qx2, float(x2)) - max(_qx1, float(x1)))
                     _iy = max(0.0, min(_qy2, float(y2)) - max(_qy1, float(y1)))
                     if (_ix * _iy) / _qa < 0.5:
@@ -4468,7 +3990,6 @@ class _MangaTranslatorBody_70:
                             continue
                     if _foreign:
                         continue
-# خطِ موجود همین کوار را میپوشاند → recِ اصلی خوانده
                     _hit = False
                     for _cb in _cov:
                         _hx = max(0.0, min(_qx2, _cb[2]) - max(_qx1, _cb[0]))
@@ -4478,7 +3999,6 @@ class _MangaTranslatorBody_70:
                             break
                     if _hit:
                         continue
-# برشِ تختِ کوار (همان کاری که موتور داخلش میکند) + بُست
                     _pts = _qf.astype(np.float32)
                     _rect = cv2.minAreaRect(_pts)
                     (_rc, _rs, _ra) = _rect
@@ -4537,8 +4057,6 @@ class _MangaTranslatorBody_70:
 
     @staticmethod
     def _order_quad_pts(pts):
-        """ — چهار گوشهٔ کوار به ترتیبِ tl/tr/br/bl (برایِ برشِ
-        پرسپکتیوِ خطِ کج)."""
         try:
             p = np.asarray(pts, dtype=np.float32).reshape(-1, 2)
             if p.shape[0] != 4:
@@ -4555,16 +4073,9 @@ class _MangaTranslatorBody_70:
 
     def extract_regions_phase(self, image: np.ndarray
             ) -> Tuple[List[TextRegion], Optional[np.ndarray], dict]:
-# عمرِ کشِ OCR = یک صفحه (کلید = مختصات؛ محتوا عوض
-# میشود بین صفحات). دیکتِ «محلی» به‌جایِ self: دو کارگرِ
-# همزمانِ fwd/bwd دیگر کشِ یکدیگر را نمیپاکند و کلیدِ
-# هممختصایِ دو نوار دیگر نمیتواند متنِ نوارِ دیگر را
-# برگرداند (هم سرعت، هم درستی).
         _page_cache: dict = {}
         h, w = image.shape[:2]
-        _t_ext = time.time()  # کرونومترِ استخراج (نمایشِ سرعت)
-# نشانگرِ شروعِ فاز برایِ اعلان (فقط اندروید؛ PC بدونِ
-# این خط = لاگِ PC بیت‌به‌بیت)
+        _t_ext = time.time()
         if _android_gate("MANGA_PHASE_PRINTS"):
             print("[*] استخراج متن…", flush=True)
         unique_regions: List[TextRegion] = []
@@ -4575,42 +4086,16 @@ class _MangaTranslatorBody_70:
             unique_regions, page_boxes = self._extract_regions_from_bubbles(
                 image, page_cache=_page_cache)
         else:
-# استخراج = فقط رویِ نواحیِ detector-v4-s؛ «جای
-# دیگ پیگیر نشه» — بدونِ detector هیچ پاسِ تمامصفحه‌ای نیست.
             print("    [!] detector-v4-s در دسترس نیست → ناحیهٔ متنی پیدا نشد")
         _raise_if_stop()
 
-# ضدِ «ترجمهٔ دوبارهٔ همان قسمت» — دو باکسِ detectorِ همپوشان که
-# NMS/merge نتوانست یکی کند (لاگِ واقعیِ گوشی: «GO! EVEN
-# FASTER…» = ناحیهٔ ۷ با rect=(283,1919,296,178) و ناحیهٔ ۸ با
-# rect=(445,1951,223,163) — همپوشانیِ ۵۴٪ ولی IoU=۰.۲۸<۰.۳۵)
-# هر دو ترجمه و رندر میشدند → متنِ فارسی دوبار، بالای هم.
-# همینطور خطِ یتیمِ نجات‌یافته که به ناحیهٔ موجود چسبیده بود.
-# قاعدهٔ تازه: متنِ «یکسان» (بعد از نرمالسازی) + همپوشانیِ
-# جعبه‌ها = همان متنِ فیزیکی است → فقط یکی (بزرگتر) میماند
-# متنِ «محتوایِ» دیگری (زیررشته) با احتیاطِ بیشتر (۶۰٪ داخل).
-# متنِ تکراریِ واقعی در حبابهایِ جدا = بدونِ همپوشانی → هر دو
-# میمانند (رفتارِ قبلی).
         _raise_if_stop()
-# v1.14.294 — واترمارک/لوگوی سایتِ منبع بیرونِ حباب: detector فقط
-# حباب/کپشنِ داخلِ پنل را باکس میگیرد؛ متنِ «سایت/آدرس/صفحه»
-# بیرونِ حباب هرگز ناحیه نشد و هرگز پاک نشد (گزارشِ سازنده:
-# www.sexyversecomics.com و CHAPTER 1 PAGE 1 در خروجی ماند).
-# نواحیِ rapidocrِ سراسرِ صفحه که متنشان الگویِ URL/واترمارک
-# است (www./http/.com/.net/.org/patreon) یا «CHAPTER n PAGE n»
-# همیشه ناحیهٔ پاکساز میشوند — بیرونِ حباب هم. متنِ عادیِ
-# بیرونِ حباب دستنخورده میماند (هنر/امضا).
         try:
             unique_regions = MangaTranslator._add_watermark_regions(
                 image, unique_regions)
         except Exception:
             pass
 
-# نشانه‌گذاریِ «فقط عدد/نماد» برایِ همهٔ فازها:
-# متنِ بدونِ هیچ حرف ('....'، '123124') نه ترجمه میشود نه
-# پاکسازی (فیلترِ عدد/نماد فقط ترجمه را میبست؛ پاکسازی میماند و
-        #). «hi...» حرف دارد → کاملاً عادی.
-# هنرِ عدد/نقطه را پاک میکرد —
         _nt_n = 0
         for _r in unique_regions:
             _t = (_r.source_text or "").strip()
@@ -4623,9 +4108,6 @@ class _MangaTranslatorBody_70:
             print(f"[*] {_nt_n} ناحیهٔ فقط عدد/نماد → دست‌نخورده "
                   f"(نه ترجمه، نه پاکسازی)")
 
-# پاکسازیِ SFX: افکتِ صوتی/متنِ استایل‌دارِ بیرونِ حباب
-# فقط وقتی --clean-sfx یا MANGA_CLEAN_SFX=1 (پیش‌فرض: SFX هنر
-# است و دست‌نخورده می‌ماند)
         if unique_regions and getattr(self, "clean_sfx", False):
             _raise_if_stop()
             try:
@@ -4648,8 +4130,6 @@ class _MangaTranslatorBody_70:
         dbg = None
         det_quads: list = []
         if self.debug:
-# پاسِ فقط-det رویِ کراپهایِ حباب → جعبههایِ آبی +
-# لاگِ «det دید ولی rec/فیلتر نگرفت» (پاسخِ مستقیمِ سؤالِ سازنده)
             try:
                 det_quads = self._dbg_collect_det_quads(
                     image, unique_regions, page_boxes) or []
@@ -4657,7 +4137,6 @@ class _MangaTranslatorBody_70:
                 det_quads = []
         if self.debug and unique_regions:
             dbg = self._draw_debug_regions(image, unique_regions, det_quads)
-# دیباگِ متنیِ کامل — متنِ استخراجی + مکان + زاویه + فاصلهٔ خط‌ها
             try:
                 _vh, _vw = image.shape[:2]
                 _ob = getattr(self, "_ocr_backend_name", "") or "?"
@@ -4692,7 +4171,6 @@ class _MangaTranslatorBody_70:
             except Exception:
                 pass
 
-# جارویِ بنرهایِ تبلیغاتیِ OCR‌نخوانده (واترمارکِ سایت)
         try:
             _ads = self._scan_watermark_banners(image, unique_regions)
             if _ads:
@@ -4708,20 +4186,11 @@ class _MangaTranslatorBody_70:
                   f"زمانِ استخراج: {_dt:.1f} ثانیه | موتور: {_ob2}")
         else:
             print("[!] هیچ متن/حبابی یافت نشد.")
-# زمینهٔ صفحه (باکسهایِ خامِ detector + کوارهایِ دیباگ) — تمیز و
-# صفحه‌محور؛ دیگر هیچ وضعیتِ مشترکی بینِ کارگرهایِ موازی زنگ نمیخورد
         page_ctx = {"boxes": page_boxes, "quads": det_quads}
         return unique_regions, dbg, page_ctx
 
     def _scan_watermark_banners(self, image: np.ndarray,
                                 regions: List[TextRegion]) -> List[TextRegion]:
-        """ — جارویِ «بنرهایِ تبلیغاتیِ سایت» (واترمارکِ دامنه) که
-        OCRِ عادیِ صفحه از آن‌ها چیزی نخوانده (نمونه: بنرِ ASURASCANS.COM
-        وسطِ نوارِ بلند). کاندید: بلابِ پهن‌وکوتاهِ پرتراکم از ضربه‌هایِ
-        متضاد با زمینهٔ محلی، بدونِ همپوشانی با نواحیِ موجود → کراپ ×۳ →
-        OCR → اگر متن با `_is_watermark_text` (دامنه/برند) خوانده شد →
-        ناحیهٔ promo ساخته می‌شود؛ ماسکِ سازنده کلِ بنر را توپر پاک
-        می‌کند (تبلیغ باید کامل فیلتر شود)."""
         found: List[TextRegion] = []
         try:
             h, w = image.shape[:2]
@@ -4730,10 +4199,6 @@ class _MangaTranslatorBody_70:
         if getattr(self, "ocr", None) is None:
             return found
         try:
-# جارویِ تمام‌رزولوشنِ کاشی‌شده: بنرهایِ کوچک در
-# نوارهایِ بلند با downscale نابود می‌شدند (۴px!) → صفحه به
-# کاشی‌هایِ ~۲۲۰۰px با هم‌پوشانی تقسیم می‌شود و هر کاشی در
-# رزولوشنِ کامل جارو می‌شود.
             _tile = 2200
             _ovl = 120
             _exist = []
@@ -4772,9 +4237,6 @@ class _MangaTranslatorBody_70:
                     _fill = float(st[i, cv2.CC_STAT_AREA]) / float(bw_ * bh_)
                     if _fill < 0.06 or _fill > 0.95:
                         continue
-# بنرِ توپر (fillِ بالا؛ خودِ جعبهٔ رنگی هم
-# بلاب می‌شود): باید ضربهٔ متنیِ داخلش باشد وگرنه
-# تابلو/جعبهٔ هنر است. داورِ نهایی OCR + الگویِ دامنه است.
                     if bw_ >= 60 and bh_ >= 12:
                         _sub = _stk[by:by + bh_, bx:bx + bw_]
                         _sr = float(_sub.mean()) if _sub.size else 0.0
@@ -4806,13 +4268,6 @@ class _MangaTranslatorBody_70:
                     cx1, cy1 = min(w, X1 + 8), min(h, Y1 + 8)
                     if cx1 - cx0 < 30 or cy1 - cy0 < 12:
                         continue
-# OCR فقط برایِ کاندیدهایِ منتخب. امتیاز:
-# (چسبیده‌به‌لبه اول — واترمارکِ سایت‌ها معمولاً در حاشیه
-# است، بعد تراکمِ ضربه = متن‌مانند، بعد پُری). کاندیدها
-# «گردشی» (round-robin) بینِ کاشی‌ها مصرف می‌شوند تا
-# بنرِ دورِ نوارِ بلند (img1: y≈11000) همیشه به نوبت
-# برسد — رتبه‌بندیِ سراسری بنرِ دور را قربانیِ بلاب‌هایِ
-# بالای صفحه می‌کرد (رگرسیونِ اکشن).
                     _edge = 0 if min(int(X0), w - int(X1)) <= 40 else 1
                     _cands.append((
                         int(_ty0),
@@ -4821,7 +4276,6 @@ class _MangaTranslatorBody_70:
                         -float(_fill),
                         cx0, cy0, cx1, cy1))
                 _ty0 = _tnext
-# بودجهٔ OCRِ جارو + مصرفِ گردشیِ بینِ کاشی‌ها.
             try:
                 _max_calls = int(os.environ.get(
                     "MANGA_BANNER_OCR_MAX", "0") or 0)
@@ -4850,18 +4304,13 @@ class _MangaTranslatorBody_70:
                 except Exception:
                     pass
             _ocr_calls = 0
-            _stop_all = False  # توقفِ زودهنگام
+            _stop_all = False
             try:
                 _empty_max = int(os.environ.get(
                     "MANGA_BANNER_EARLY_STOP", "8") or 0)
             except Exception:
                 _empty_max = 8
             _empty_streak = 0
-# سقفِ زمانیِ جارو (MANGA_BANNER_TLIMIT ثانیه
-# ‎0=خاموش). OCRِ خالی رویِ PC (RapidOCR) ~۲.۳s است و ۱۲+
-# کاندید = ~۳۰s فقط جارو؛ موتورِ گوشی سریع است و سقف
-# نمی‌خورد. کاندیدهایِ رتبهٔ بالا (لبه/تراکم) اول مصرف
-# می‌شوند پس بنرِ واقعی همیشه در اولین‌هاست.
             try:
                 _tlimit = float(os.environ.get(
                     "MANGA_BANNER_TLIMIT", "0") or 0)
@@ -4872,21 +4321,12 @@ class _MangaTranslatorBody_70:
                     if _on_android():
                         _tlimit = 0.0
                     else:
-# PC: کاندیدهایِ هر کاشی به نوبت مصرف می‌شوند؛ سقف
-# با تعدادِ کاشی‌ها می‌سد تا بنرِ دورِ نوارِ بلند
-# (نوبتِ کاشیِ آخر) قربانیِ نشود، ولی جارو هم
-# بی‌نهایت OCRِ خالی (RapidOCR ~۱.۹s/فراخوانی)
-# خرج نکند.
                         _nt2 = max(1, int((h + _tile - 1)
                                            // max(1, _tile - _ovl)))
                         _tlimit = max(8.0, 3.0 * _nt2)
                 except Exception:
                     _tlimit = 8.0
             _t = time.time()
-# کاندیدها بچهای (W=workerِ OCR) موازی OCR میشوند
-# داوری/بودجه/streak در همان ترتیبِ قبل اعمال میشود → نتیجه
-# همان (یا یادآوریِ بیشترِ محدود به W-1 کاندیدِ اضافه). پلّهٔ
-# زومِ داخلِ هر کاندید ترتیبی میماند (برندهٔ همان واریانتِ اول).
             _wm_pw = self._ocr_pool_workers(len(_ordered))
             _wm_i = 0
 
@@ -4906,10 +4346,6 @@ class _MangaTranslatorBody_70:
                             _pad_w // 2, _pad_w - _pad_w // 2,
                             cv2.BORDER_REPLICATE)
                     _txt = ""
-# کاندیدِ خالی گران است (پروفایلِ img6: ۸
-# پاسِ OCR رویِ ۴ لکهٔ هنریِ بی‌متن). اگر در زومِ ۳
-# هیچ متنی نبود (هر دو واریانت)، زومِ ۲ هم نمیآید —
-# متنِ واقعیِ بنر در زومِ ۳ پیدا میشود.
                     for _zm in (3, 2):
                         _zm_empty = True
                         _big = cv2.resize(
@@ -4959,7 +4395,7 @@ class _MangaTranslatorBody_70:
                             if _txt:
                                 break
                         if _zm_empty and _zm == 3:
-                            break  # زومِ ۲ هم خالی می‌مانَد
+                            break
                     if _txt and self._is_watermark_text(_txt):
                         out["found"] = True
                         out["txt"] = _txt
@@ -4998,7 +4434,6 @@ class _MangaTranslatorBody_70:
                         except Exception:
                             pass
                     break
-# یک بچِ W کاندید موازی OCR میشود
                 _batch = _ordered[_wm_i:_wm_i + max(1, _wm_pw)]
                 _wm_i += len(_batch)
                 if _wm_pw > 1:
@@ -5013,8 +4448,6 @@ class _MangaTranslatorBody_70:
                     (_s0, _s1, _s2, _s3, cx0, cy0, cx1, cy1) = _c2
                     _ocr_calls += int(_r.get("calls", 0))
                     _txt = str(_r.get("txt", "") or "")
-# شمارِ فراخوانیِ بی‌متنِ پیاپی (به همان
-# ترتیبِ کاندیدها؛ بینِ بچها ارزیابی میشود)
                     if _r.get("nonempty"):
                         _empty_streak = 0
                     else:
@@ -5033,9 +4466,6 @@ class _MangaTranslatorBody_70:
                             kind="promo")
                         found.append(_tr)
                         _found_rects.append((cx0, cy0, cx1, cy1))
-# بعد از اولین بنر، بودجهٔ باقی‌مانده
-# به یک‌سوم فشرده می‌شود (چند بنر در یک صفحه
-# نادر است؛ ادامه با بودجهٔ کامل فقط وقت می‌گیرد)
                         try:
                             _max_calls = min(
                                 _max_calls,
@@ -5085,25 +4515,8 @@ class _MangaTranslatorBody_70:
         raw_image_copy = image.copy()
 
         if getattr(self, "clean_only", False):
-# درخواستِ کاربر: «متنِ تبلیغِ سایت (ASURASCANS.COM
-# و…) و SFX نباید پاک شه یا حساب شه — ازش رد شه.» در حالتِ
-# فقط-پاکسازی فقط دیالوگ (+junk: شمارهٔ صفحه) پاک می‌شود
-# بنرِ تبلیغ و افکتِ صوتی دست‌نخورده می‌مانند.
-# v1.14.294 — دستورِ تازهٔ سازنده: واترمارک/لوگوی سایتِ منبع
-# (www.sexyversecomics.com، PATREON، CHAPTER 1 PAGE 1) در
-# خروجیِ clean مانده بود (گزارشِ اسکرین‌شات) → promo هم در
-# clean-only پاک میشود (بنرِ توپر). SFX همچنان هنر و دستنخورده.
             clean_targets = [r for r in regions
                              if r.kind in ("dialogue", "junk", "promo")]
-# اندروید (MANGA_CLEAN_TEXTFREE): ناحیههایِ
-# text_free در clean-only پاک نمیشدند (فیلترِ فقط
-# dialogue/junk) — ولی text_free = متنِ واقعیِ OCRشده
-# (بنرِ تبلیغ جداگانه kind=promo میگیرد از جارویِ بنر) —
-# لاگِ گوشیِ : ناحیهٔ نجاتخوردهٔ «PARAGRAPH 3
-# WHEN THE EXERCISE…» (15,3256) بعد از ادغام با ناحیهٔ
-# جارو kind=text_free گرفت → از پاکسازی رد شد = کلِ متن
-# دستنخورده ماند؛ «THIS IS ONLY A DRAFT…» (0,10605) هم
-# همیشه از تاکنون پاک نشده بود. PC بیت‌به‌بیت.
             if _android_gate("MANGA_CLEAN_TEXTFREE"):
                 _tf = [r for r in regions if r.kind == "text_free"]
                 if _tf:
@@ -5128,14 +4541,6 @@ class _MangaTranslatorBody_70:
                 except Exception:
                     pass
             if clean_targets:
-# ضدِ «دوبارِ پاکسازی در حالتِ فقط-پاکسازی»:
-# فازِ پسزمینه (فاز ۱/۲) همین صفحه را از قبل پاک کرده
-# و precleaned داده شده — قبلاً این شاخه آن را نادیده
-# میگرفت و کلِ پاکسازی از نو اجرا میشد (لاگِ واقعیِ
-# PC: clean=51.7s و بعدش clean+render=53.5s = دوبرابر).
-# حالا نتیجهٔ فازِ پسزمینه همان لحظه استفاده میشود
-# فاصلهٔ هدفها هم با افزودنِ junk به فازِ پسزمینه
-# (بالا) همسان شد.
                 if precleaned is not None:
                     final_image = precleaned
                 else:
@@ -5149,9 +4554,6 @@ class _MangaTranslatorBody_70:
                 final_image = precleaned.copy() if precleaned is not None else image.copy()
             return final_image, page_debug
 
-# نجاتِ OCR: ناحیههایِ «حبابِ پیدا شده ولی
-# متنِ نخوانده» یک تلاشِ دیگر میگیرند (متدِ مشترک — مسیرِ
-# ترجمهٔ درونصفحهای؛ مسیرِ بچ هم قبل از صف فراخوانی میکند).
         if (not skip_translate and dialogue_regions
                 and not getattr(self, "clean_only", False)):
             self._rescue_empty_ocr(image, dialogue_regions)
@@ -5162,17 +4564,6 @@ class _MangaTranslatorBody_70:
             print(f"[*] ترجمه: {len(dialogue_regions)} حباب…")
             self.translate_regions(dialogue_regions)
 
-# «Ai وقتی خالی برمیگردونه عکسِ انگلیسیش نشون نده تا
-# وقتی همشو ترجمه کنه … نمایش زنده کنه کم کم بذاره تو نمایش انگار
-# داره لود بشه» (PC/لینوکس/اندروید). صفحهٔ نهایی با حبابِ بیترجمه
-# تمام نمیشود: تا وقتی حبابِ بامتنِ بیجواب مانده، دوباره و دوباره
-# از مدل پرسیده میشود (هر دورِ translate_regions خودش ۳ دورِ بچ
-# + نجاتِ تکآیتمی دارد). فقط پیش‌نمایشِ زنده (final=False) بدونِ
-# این سد کار میکند تا حبابها «کمکم» همان لحظه که ترجمهشان میرسد
-# رویِ نمایش بنشینند (حبابِ هنوز بیترجمه = خالیِ روشن = لودینگ).
-# سدِ دو-فازی: در فازِ استخراجِ بچ هیچ دورِ ترجمه‌ای
-# زده نمیشود (دستور: «استخراج تموم شد بعدش بره ترجمه»)
-# پسگیریِ خالیها بعد از اتمامِ کل، در run با بستههایِ ۳۰تایی است.
         if (final and not getattr(self, "clean_only", False)
                 and not getattr(self, "fake_translate", False)
                 and getattr(self, "_extraction_done", True)):
@@ -5197,19 +4588,6 @@ class _MangaTranslatorBody_70:
                     time.sleep(0.6)
 
         translated_regions = [r for r in dialogue_regions if r.translated_text]
-# باگِ «ترجمهٔ خالی» (PC/لینوکس/اندروید).
-# در مسیرِ بچ، پاکسازی همهٔ دیالوگها را از قبل پاک میکند
-# (precleaned)؛ اگر ترجمهٔ مدل برای بعضی ناحیهها نرسیده باشد، آن
-# ناحیه در translated_regions نیست → حبابِ سفیدِ «خالی» رویِ خروجی
-# میماند. قانونِ «هیچ حبابِ خالی» اینجا هم اجرا میشود:
-# متنِ مبدأ رویِ حبابِ پاکشده رندر میشود — رویِ «کپی»، نه خودِ
-# ناحیه، تا دورِ بعدیِ ترجمهٔ واقعی (بافرِ چندصفحهای/پیشنمایش)
-# دستنخورده بماند. فقط وقتی متنِ اصلی از قبل پاک شده
-# (precleaned)؛ در مسیرِ تکصفحهای متنِ اصلی سرِ جایش است.
-# فقط در رندرِ «نهایی» (final=True): پیش‌نمایشِ زنده
-# دیگر متنِ مبدأ (انگلیسی) را رویِ حبابهایِ درانتظار نمینشاند —
-# آنها خالیِ روشن میمانند (= لودینگ) تا ترجمهٔ واقعی کمکم بنشیند.
-# قبل از این رندر، سدِ بالا تا ۳ دورِ دیگر از مدل پرسیده است.
         _fb: List[TextRegion] = []
         if final and precleaned is not None:
             for _r2 in dialogue_regions:
@@ -5232,12 +4610,6 @@ class _MangaTranslatorBody_70:
                                   f"متنِ مبدأ: {(_c.translated_text or '')[:60]}")
                         except Exception:
                             pass
-# بازگشتِ «فقط پاکسازی» برایِ ناحیههایِ بی‌متن — اینها را از
-# پاکسازی بیرون کشیده بود (ترسِ حبابِ سیاه رویِ زمینهٔ تیره از
-# ۰۱۲_p1) — ولی هر ناحیهٔ ocr_empty از گیتِ «زمینهٔ روشن + جوهرِ
-# تیره» (گیتِ جوهرِ متنی در ساختِ ناحیه) گذشته و ماسکِ پاکسازی هم
-# فقط جوهرِ متن را برمیدارد نه مستطیلِ توپر → حبابِ سیاه رخ
-# نمیدهد؛ «متنِ قبلی میمونه» بدتر از هر لکهٔ احتمالی بود.
         _oe = [r for r in dialogue_regions
                   if not r.translated_text
                   and getattr(r, "ocr_empty", False)]
@@ -5248,29 +4620,13 @@ class _MangaTranslatorBody_70:
                     print(f"  [!] ناحیهٔ {_r.id} بدونِ متنِ OCR → فقط پاکسازی (rect={tuple(int(v) for v in _r.rect)}) — متنِ قبلی نمیماند")
                 except Exception:
                     pass
-# قانونِ نهاییِ کاربر: «متنِ تبلیغِ سایت حسابش نکن —
-# ازش رد شه.» بنرِ تبلیغ/واترمارک دیگر در هیچ حالتی پاک نمی‌شود
-# (قبلاً در حالتِ ترجمه‌دار کلِ بنر توپر ماسک و LaMa می‌شد که
-# هم خودش ریسکِ لکّه داشت و هم خلافِ خواستهٔ تازهٔ کاربر بود).
-# ترجمه/رندر هم رویش نمی‌نشیند (فقطِ dialogue ترجمه می‌شود).
         _clean_regions = (translated_regions + _ocr_empty_regions)
-# با --clean-sfx، افکت‌های صوتی هم پاک می‌شوند
-# (ترجمه نمی‌شوند؛ فقط حذف)
         if getattr(self, "clean_sfx", False) and sfx_regions:
             _clean_regions = _clean_regions + sfx_regions
-# اندروید (همان MANGA_CLEAN_TEXTFREEِ مسیرِ
-# clean-only): در حالتِ ترجمه‌دار هم ناحیههایِ text_free فقط
-# «پاک» میشوند (ترجمه نمیشوند — متنِ اصلی حذف میماند) وگرنه
-# «PARAGRAPH 3…» و «THIS IS ONLY A DRAFT…» در خروجیِ ترجمهشده
-# هم زنده میمانند. PC بیت‌به‌بیت.
         if _android_gate("MANGA_CLEAN_TEXTFREE"):
             _tf_free = [r for r in regions if r.kind == "text_free"]
             if _tf_free:
                 _clean_regions = _clean_regions + _tf_free
-# فقط ناحیههایِ «بامتنِ مبدأ ولی بیترجمه» «ترجمه نشد"
-# حساب میشوند؛ ناحیهٔ بی‌متن (چرتِ فیلترشده) اصلاً ترجمه ندارد.
-# فقط در رندرِ نهایی چاپ میشود؛ در پیش‌نمایشِ زنده
-# حبابهایِ درانتظار طبیعیاند و نباید هر ۲ ثانیه هشدار بدهند.
         missing_n = sum(1 for r in dialogue_regions
                         if not r.translated_text
                         and not getattr(r, "ocr_empty", False)
@@ -5282,7 +4638,6 @@ class _MangaTranslatorBody_70:
             if promo_regions:
                 print(f"  [*] {len(promo_regions)} تبلیغ → دست‌نخورده «ازش رد شه»")
             if sfx_regions:
-# با --clean-sfx پاک می‌شوند، وگرنه دست‌نخورده
                 _sfx = "پاک شدند" if getattr(self, "clean_sfx", False) else "دست‌نخورده"
                 print(f"  [*] {len(sfx_regions)} SFX → {_sfx}")
             if junk_regions:
@@ -5291,10 +4646,6 @@ class _MangaTranslatorBody_70:
         if self.debug and regions:
             page_debug = self._draw_debug_regions(image, regions, det_quads)
 
-# فال‌بکِ رندر: وقتی «هیچ» حیابی ترجمه نشده (مدلِ کامل
-# خالی)، _clean_regions خالی است و رندر کلاً رد میشد → صفحهٔ
-# تمامسفیدِ حباب تحویل میگرفتی. با فال‌بک باید رندر انجام
-# شود تا لااقل متنِ مبدأ رویِ کپیها بنشیند (ضدِ حبابِ خالی).
         if _clean_regions or _fb:
             if precleaned is not None:
                 cleaned_image = precleaned
@@ -5316,14 +4667,6 @@ class _MangaTranslatorBody_70:
                         print(f"    {_txt[:150]}")
         else:
             final_image = precleaned.copy() if precleaned is not None else image.copy()
-# «اون قسمتهایی که متن نداره خالیه — وقتی متن نباشه شکلِ
-# لودینگ بیار جایِ متن؛ متنش ترجمه شد بذار سرجاش» (پیشنمایشِ زندهٔ
-# کمکم). در مسیرِ بچ، متنِ همهٔ دیالوگها از قبل پاک شده (precleaned)
-# حبابِ هنوز بیجواب = جایِ خالی. حالا بهجایِ خالی، نشانِ لودینگ
-# (چرخِ چرخان) وسطِ حباب می‌نشیند؛ همین که ترجمهٔ واقعی برسد
-# رندرِ بعدیِ پیشنمایش متن را سرِ جایش میگذارد و نشانِ لودینگ از
-# آن ناحیه حذف میشود. فقط پیشنمایش (final=False) — رندرِ نهایی
-# یا متنِ مبدأ دارد (فالبکِ متنِ مبدأ) یا سدِ انتظارِ ترجمه صفحه را کامل نگه میدارد.
         if (not final and precleaned is not None
                 and not getattr(self, "clean_only", False)):
             _wait_regions = [r for r in dialogue_regions
@@ -5344,40 +4687,27 @@ class _MangaTranslatorBody_70:
 
     def _draw_loading_marks(self, image: np.ndarray,
                                  regions: List[TextRegion]) -> np.ndarray:
-        """ — نشانِ «در حال ترجمه…» وسطِ حبابهایِ درانتظار.
-        یک قوسِ خاکستریِ نازک (چرخِ لودینگ) + سه نقطهٔ کوچک زیرش؛
-        قوس با هر رندرِ پیشنمایش کمی میچرخد تا حسِ «لود شدن» بدهد.
-        خاکستریِ ملایم رویِ حبابِ روشن = لودینگِ محسوس ولی مزاحمِ صفحه
-        نمیشود؛ در رندرِ نهایی هرگز صدا زده نمیشود."""
         img = image
         if img is None or img.size == 0 or not regions:
             return img
         h, w = img.shape[:2]
-# چرخشِ نرم: هر رندرِ پیشنمایش زاویهٔ شروعِ قوس جلو
-# میرود؛ چون پیشنمایش هر ۲+ ثانیه با رسیدنِ ترجمهٔ تازه رندر
-# میشود، چرخ بهتدریج «میچرخد».
         _spin = int((time.time() * 90.0) % 360.0)
         for r in regions:
             try:
-# rect = (x, y, عرض، ارتفاع) است (قراردادِ
-# TextRegion؛ rect=(x0, y0, x1-x0, y1-y0) در محلِ ساخت) —
-# نه گوشه‌ها؛ با گوشه فرضکردن، نشان وسطِ جایِ غلط می‌نشست.
                 _rx, _ry, _rw, _rh = r.rect
                 x0, y0 = max(0, int(_rx)), max(0, int(_ry))
                 x1 = min(w - 1, int(_rx + _rw) - 1)
                 y1 = min(h - 1, int(_ry + _rh) - 1)
                 bw, bh = x1 - x0, y1 - y0
                 if bw < 26 or bh < 26:
-                    continue  # حبابِ خیلی ریز — جای نشان ندارد
+                    continue
                 cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
                 rad = int(min(bw, bh) * 0.17)
                 rad = max(8, min(rad, 44))
                 th = max(2, rad // 5)
-                col = (150, 150, 150)  # خاکستریِ ملایم (BGR)
-# قوسِ ناتمام = چرخِ لودینگ؛ زاویهٔ شروع با زمان میچرخد
+                col = (150, 150, 150)
                 cv2.ellipse(img, (cx, cy), (rad, rad), _spin % 360,
                             0, 250, col, th, cv2.LINE_AA)
-# سه نقطهٔ «…» زیرِ چرخ — داخلِ حباب میماند (خارجِ ناحیه نمیرود)
                 _d = max(2, th - 1)
                 _dy = min(cy + rad + th * 3, y1 - _d - 1)
                 if _dy > cy:
@@ -5390,8 +4720,6 @@ class _MangaTranslatorBody_70:
         return img
 
     def process_core(self, image: np.ndarray) -> np.ndarray:
-# زمان‌گیریِ مراحل (درخواستِ کاربر: از استخراج تا آخرِ
-# پاکسازی رویِ PC و اندروید زمان بگیر تا سریع‌سازیِ بدونِ افت بشود)
         _t_all = time.time()
         _t = time.time()
         regions, dbg, page_ctx = self.extract_regions_phase(image)
@@ -5437,7 +4765,7 @@ class _MangaTranslatorBody_70:
         h, w = image.shape[:2]
         for r in regions:
             if getattr(r, "style_locked", False):
-                continue  # سبکِ قفل‌شده (پنجرهٔ سیستم) دست‌نخورده می‌ماند
+                continue
             try:
                 x0, y0, x1, y1 = r.rect
                 x0, y0 = max(0, int(x0)), max(0, int(y0))
@@ -5546,20 +4874,10 @@ class _MangaTranslatorBody_70:
         protected_ranges: Optional[List[Tuple[int, int]]] = None,
         spans_ready: bool = False,
     ) -> Optional[int]:
-        #) — دیگر هیچ هوریستیکِ پیکسلی/Canny و هیچ OCRِ
-# سبکِ جدیدِ برشِ امن (
-# وسط نیست. فقط detector-v4-s: باکسهایِ متن در پنجرهٔ جستجو پیدا
-# میشوند، با حاشیهٔ امن دورشان میشوند و برش داخلِ بزرگترین فاصلهٔ
-# بی‌متن (نزدیکترین به target_y = وسطِ باندِ برش) زده
-# میشود. متن هرگز برش نمیخورد.
         if strip is None or strip.size == 0 or self.det is None:
             return None
         try:
             ih, iw = strip.shape[:2]
-            #) — حاشیهٔ دورِ
-# برشِ نزدیکِ متن مجاز است (
-# باکسها کوچک شد؛ مرزِ ممنوع همچنان خودِ باکسِ detector-v4-s
-# است پس متن/حباب هرگز بریده نمیشود.
             clearance = max(12, int(round(iw * 0.02)))
             edge_margin = max(14, int(round(iw * 0.02)))
             y0 = max(int(min_y), int(target_y) - int(search_radius),
@@ -5568,20 +4886,8 @@ class _MangaTranslatorBody_70:
                      ih - clearance - edge_margin)
             if y1 < y0:
                 return None
-# سرعتِ برش به سبکِ مرجع (ManhwaSlicer.
-# راستیآزما/جابهجاییِ برش با تشخیصِ متن در مرجع): (۱) باندِ برش از
-# قبل پوشش داده شده (کشِ دوطرفه یا اسکنِ زندهٔ _scan_band)
-# → دیگر هیچ تشخیصِ دومی رویِ همان ناحیه اجرا نمیشود
-# (قبلاً هر برش یک det.detectِ تمام‌عیارِ ~۱۵۰۰px با پاسِ
-# چندمقیاسیِ کند اضافه میگرفت)؛ (۲) مسیرِ تشخیصِ زنده فقط
-# پنجرهٔ کوچکِ دورِ هدف و fast=True (تک‌مقیاس — عینِ
-# _scan_window)؛ (۳) خروجِ زودهنگامِ «هدف بی‌متن است» +
-# جستجوی مارپیچِ ±۱px (پایینتر) — عینِ مرجع.
             spans: List[Tuple[int, int]] = []
             if spans_ready:
-# spans از _scan_band از قبل حاشیهدار شدهاند (پدینگ =
-# max(14, 2%·target_w) — همان مقیاسِ edge_margin چون عرضِ
-# نوار = target_w)؛ دوباره پد نمیشوند.
                 for top, bottom in (protected_ranges or []):
                     t, b = int(top), int(bottom)
                     if b > t:
@@ -5615,10 +4921,8 @@ class _MangaTranslatorBody_70:
             def _hit_text(_y: int) -> bool:
                 return any(top <= _y <= bottom for top, bottom in merged)
 
-# نقطهٔ هدف (وسطِ باند) خودش بی‌متن است؟ → همیشه بهترین برش
             if y0 <= int(target_y) <= y1 and not _hit_text(int(target_y)):
                 return int(target_y)
-# حداقلِ فاصلهٔ برش تا متن کوچک شد (کرانِ نزدیکِ متن)
             pad = max(14, int(round(iw * 0.015)))
             cands: List[int] = []
             if merged:
@@ -5637,10 +4941,6 @@ class _MangaTranslatorBody_70:
             cands = [c for c in cands if not _hit_text(c)]
             if cands:
                 return min(cands, key=lambda y: abs(y - target_y))
-# جستجوی مارپیچِ ±۱px دورِ هدف (عینِ مرجع:
-# VerifyAndAdjust — localCutY∓n): نزدیکترین ردیفِ بی‌متن به
-# هدف، قبل از ردِ کلِ باند → فالبکِ اسکنِ مجددِ باندِ عقبتر
-# کمتر لازم میشود.
             _t = int(target_y)
             for _d in range(1, max(y1 - _t, _t - y0) + 1):
                 _yy = _t - _d
@@ -5710,13 +5010,6 @@ class _MangaTranslatorBody_70:
             except Exception as exc:
                 raise RuntimeError("تشخیص متن در مرز دو تصویر ناموفق بود؛ "
                                    "برای جلوگیری از OCR متن نصفه، پردازش متوقف شد.") from exc
-# عبورِ واقعی = جعبه‌ای که در «هر دو طرفِ» مرز
-# تودهٔ قابل‌توجه دارد (≥۸px هر طرف). تلورانسِ قدیمیِ ±۲ هر
-# جعبهٔ لبه‌چسب (متنِ بالایِ صفحهٔ بعد که مستطیلش چند px
-# بالاتر از لبهٔ خودِ تصویر تشخیص میشود) را «متنِ ردشونده»
-# میپنداشت → دو فایلِ کاملاً نامرتبط به هم میچسبیدند و
-# دومی بی‌دلیل به عرضِ اولی ریسایز میشد (نمونهٔ واقعی:
-# img2+img4 در تستِ وبِ سازنده — مرزشان کاملاً غیرمرتبط بود).
             crossing = any(box["rect"][1] <= seam - 8 and box["rect"][3] >= seam + 8
                            for box in boxes)
             if crossing:
@@ -5759,9 +5052,6 @@ class _MangaTranslatorBody_70:
         start_idx = 0
 
         if self.det is None and (len(image_files) > 1 or not self.stitch_keep_first):
-# برشِ امن فقط با detector-v4-s_int8.onnx (سبکِ
-# جدید؛ OCR دیگر نقشی ندارد). بدونِ detector برشِ
-# امنِ بی‌متن ممکن نیست → خطا، نه برشِ کور.
             raise RuntimeError("برش امن به detector-v4-s نیاز دارد؛ مدل تشخیص بارگذاری نشده است. "
                                "برای حفظ فایل‌های اصلی --stitch-max-height 0 را بزنید.")
 
@@ -5772,8 +5062,6 @@ class _MangaTranslatorBody_70:
             first = MangaTranslator._imread_any(image_files[0])
             second = MangaTranslator._imread_any(image_files[1])
             if first is None or second is None:
-# به‌جایِ ریختنِ کلِ کار، حدِ امن را می‌گیریم —
-# صفحهٔ اول جدا می‌ماند و بدونِ چسباندن ادامه می‌دهیم.
                 print("[!] خواندن دو تصویر اول برای بررسیِ مرز امن نشد؛ "
                       "صفحهٔ اول جدا نگه داشته می‌شود و ادامه می‌دهیم.")
             else:
@@ -5786,10 +5074,8 @@ class _MangaTranslatorBody_70:
                 tail, head = first[-context:], second[:context]
                 preview = np.vstack([tail, head])
                 seam_y = len(tail)
-# حاشیهٔ دورِ باکسها کوچک (برشِ نزدیکِ متن مجاز)
                 padding = max(14, int(round(seam_w * 0.02)))
                 try:
-# مرزِ صفحهٔ اول هم فقط با detector-v4-s
                     protected = [
                         (box["rect"][1] - padding, box["rect"][3] + padding)
                         for box in self.det.detect(preview)
@@ -5799,8 +5085,6 @@ class _MangaTranslatorBody_70:
                                        "صفحه جدا نشد.") from exc
                 keep_first = self._find_safe_cut_y_smart(
                     preview, seam_y, seam_y, seam_y, protected_ranges=protected,
-# protected همین الان از detect(preview) ساخته
-# شد و کلِ پنجره را پوشش میدهد؛ تشخیصِ دوم حذف شد
                     spans_ready=True,
                 ) is not None
                 if not keep_first:
@@ -5844,13 +5128,8 @@ class _MangaTranslatorBody_70:
         min_strip = max(1, int(work_h * 0.65))
         scan_from = 0
 
-# برش امن دوطرفه ──
-# نقشهٔ صفحه‌ها در مختصات «عمرِ نوار» (هرگز ری‌بیس نمی‌شود) + کشِ
-# پیش‌تشخیص. دو کارگرِ تشخیص فصل را از دو سر می‌خورند: یکی از صفحهٔ
-# اول به آخر، یکی از صفحهٔ آخر به اول (خواستهٔ کاربر) → جعبه‌های
-# حباب آماده‌اند و حلقهٔ برش منتظر تشخیصِ زنده نمی‌ماند.
-        _page_spans: List[List[int]] = []   # [abs_page_idx, y0_lifetime]
-        _life = [0, 0]                      # [life_h, life_off]
+        _page_spans: List[List[int]] = []
+        _life = [0, 0]
         _pre_boxes: Dict[int, Tuple[float, List[Tuple[int, int]], bool]] = {}
         _pre_lock = threading.Lock()
         _pre_pages = list(range(start_idx, len(image_files)))
@@ -5873,7 +5152,6 @@ class _MangaTranslatorBody_70:
                     pass
                 _bx: List[Tuple[int, int]] = []
                 if not _blank:
-# پیش‌تشخیصِ برشِ امن فقط با detector-v4-s
                     try:
                         for _box in self.det.detect(_im, fast=True):
                             _r = _box.get("rect")
@@ -5912,9 +5190,6 @@ class _MangaTranslatorBody_70:
                         except IndexError:
                             return
                         _pre_detect_page(_idx)
-# پیشرفتِ قابلِ دیدنِ دو سر: کاربر باید
-# در لاگ ببیند که یک رشته از صفحهٔ اول و همزمان
-# رشتهٔ دیگر از صفحهٔ آخر جلو میرود
                         _show = _fin = False
                         with _pre_lock:
                             _pre_prog[_tag] += 1
@@ -5991,14 +5266,10 @@ class _MangaTranslatorBody_70:
             strip = _stack_pages(current_pages)
             ih = int(strip.shape[0])
             protected = list(current_protected)
-# برشِ نزدیکِ متن مجاز است؛ حاشیهٔ دورِ باکسها کوچک شد
             padding = max(14, int(round(target_w * 0.02)))
 
-# پرش از پنجره‌های خالی (کاغذ سفید) + تشخیص موازی +
-# fast-mode (بدون پاس دوم multi_scale) — برش امن چند برابر سریع‌تر.
             def _scan_window(_top: int, _limit: int) -> List[Tuple[int, int]]:
                 _bottom = min(_limit, _top + 1680)
-# خواندن از کش دوطرفه (اگر صفحه‌ها کش شدند) ──
                 try:
                     if _page_spans and _pre_threads:
                         _ih_now = int(strip.shape[0])
@@ -6042,11 +5313,10 @@ class _MangaTranslatorBody_70:
                     _g = (cv2.cvtColor(_win, cv2.COLOR_BGR2GRAY)
                           if _win.ndim == 3 else _win)
                     if int(_g.min()) >= 205:
-                        return []  # پنجرهٔ کاملاً خالی — حباب/متنی ندارد
+                        return []
                 except Exception:
                     pass
                 _out: List[Tuple[int, int]] = []
-# پنجره‌هایِ اسکنِ برشِ امن فقط با detector-v4-s
                 try:
                     for box in self.det.detect(_win, fast=True):
                         _, y1, _, y2 = box["rect"]
@@ -6056,14 +5326,6 @@ class _MangaTranslatorBody_70:
                                        "برش اجباری انجام نشد.") from exc
                 return _out
 
-            # + «برش امن ک دفعه اول انجام میده سریعتر
-# اسکنِ «فقطِ باندِ برش» (
-# باشه»): قبلاً قبلِ اولین برش کلِ نوار تا سقفِ کاندیدهایِ برش
-# اسکن میشد (برایِ نوارِ ~۲۰هزارpx = ~۱۴ پنجرهٔ detector)؛ حالا
-# فقط پنجرههایِ همان باندِ ۷۰۰۰–۸۰۰۰ (۱–۲ پنجره، بیشترشان از
-# کشِ دوطرفه) — اولین برش چندبرابر سریعتر. باکسهایِ بیرونِ باند
-# را خودِ _find_safe_cut_y_smart زنده پیدا میکند؛ امنیتِ برش
-# دستنخورده میماند.
             def _scan_band(_band_top: int, _band_bot: int) -> None:
                 nonlocal scan_from
                 _s_lo = max(0, _band_top - 520)
@@ -6097,29 +5359,19 @@ class _MangaTranslatorBody_70:
             offset = 0
             while ih - offset >= work_h + min_strip:
                 max_cut = ih - max(min_strip, lookahead if not final else 0)
-# باندِ برشِ امن = ۷۰۰۰–۸۰۰۰ — هدف = وسطِ باند (۷۵۰۰)؛ برش فقط جایی که
-# detector-v4-s هیچ متنی نبیند.
                 _band_lo = offset + max(0, int(work_h) - 1000)
                 _band_hi = offset + int(work_h)
                 _band_mid = (_band_lo + _band_hi) // 2
                 cut_y = None
                 if min(_band_hi, max_cut) >= _band_lo:
-# فقطِ پنجرههایِ همین باند اسکن میشود
                     _scan_band(_band_lo, min(_band_hi, max_cut))
                     cut_y = self._find_safe_cut_y_smart(
                         strip, _band_mid, _band_lo, min(_band_hi, max_cut),
                         search_radius=max(250, (_band_hi - _band_lo) // 2),
                         protected_ranges=protected,
-# باند بالا همین الان با _scan_band
-# اسکن شد؛ تشخیصِ دوم لازم نیست (سبکِ مرجع)
                         spans_ready=True,
                     )
                 if cut_y is None:
-# فالبکِ فقط-به-عقب: اگر کلِ باندِ
-# ۷۰۰۰–۸۰۰۰ پُر از متن بود، نزدیکترین جایِ بی‌متنِ
-# «قبل از» باند گرفته میشود. سقفِ برش هرگز از work_h
-# (۸۰۰۰) بالاتر نمیرود — رفتنِ به ۹۰۰۰ (فالبکِ
-# رو-به-جلوِ قدیمی) کلاً حذف شد؛ متن هم برش نمیخورد.
                     _fb_hi = min(_band_lo, max_cut)
                     _fb_lo = offset + max(120, int(work_h) // 3)
                     if _fb_hi - _fb_lo >= 200:
@@ -6128,7 +5380,7 @@ class _MangaTranslatorBody_70:
                             strip, _fb_hi, _fb_lo, _fb_hi,
                             search_radius=max(200, _fb_hi - _fb_lo),
                             protected_ranges=protected,
-                            spans_ready=True,  # همین الان با _scan_band اسکن شد
+                            spans_ready=True,
                         )
                 if cut_y is None:
                     break
@@ -6139,7 +5391,6 @@ class _MangaTranslatorBody_70:
             current_protected = [(max(0, top - offset), bottom - offset)
                                  for top, bottom in current_protected if bottom >= offset]
             scan_from = max(0, scan_from - offset)
-# مختصات عمرِ نوار جلو می‌رود + صفحه‌های کاملاً مصرف‌شده حذف
             _life[1] += offset
             while len(_page_spans) > 1 and (_page_spans[1][1] - _life[1]) <= 0:
                 _page_spans.pop(0)
@@ -6160,13 +5411,6 @@ class _MangaTranslatorBody_70:
             if im is None:
                 raise RuntimeError(f"خواندن تصویر ناموفق بود؛ صفحه حذف نشد: {f}")
             h, w = im.shape[:2]
-# دستهٔ ترکیبی (مثلاً صفحهٔ ۱۸۰۰px + نوارِ ۸۰۰px):
-# صفحه‌ای که عرضش خیلی با عرضِ گروهِ فعلی فرق دارد دیگر با
-# کوچک/بزرگ‌سازی داخلِ همان نوار له نمی‌شود — متنِ ریز
-# (مثلِ متنِ کنارِ حبابِ بالا-چپِ 01.jpg) ناخوانا می‌شد و
-# تشخیص/OCR در حالتِ دسته‌ای از دست می‌رفت. به‌جایش گروهِ
-# فعلی جدا می‌شود و صفحه در نوارِ خودش با عرضِ اصلی پردازش
-# می‌شود = استخراجِ دقیقاً مثلِ حالتِ تکی.
             if (target_w > 0
                     and abs(w - target_w) > max(180, int(target_w * 0.18))):
                 if current_pages:

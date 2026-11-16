@@ -1,24 +1,3 @@
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.278 — کشِ مرحله‌به‌مرحله: «هرچی عوض شد، فقطِ همان بخش»
-
-خواستهٔ سازنده: «هر قسمتی ک عوض کننن فقط همون قسمت کار کنه» —
-  • ترجمهٔ فیک↔واقعی / مدل/پرامپت / «از اول ترجمه کن» → فقطِ ترجمه؛
-    استخراج و پاکسازی از کش (قبلاً LaMa برای همهٔ صفحهها دوباره
-    اجرا میشد — کشِ دیسکِ تصویرِ پاکسازی‌شده این را حذف کرد).
-  • پاکسازی عوض شد → فقط پاکسازی؛ استخراج از کش.
-  • فرمتِ رندر (jpg↔webp) عوض شد → پاکسازی از کش میماند.
-  • ورودی عوض شد → همهٔ کشها پاک و از اول.
-  • اندروید: پرسشِ «ادامه یا از-نو» وقتی مدل/پرامپت عوض شده
-    (همان پنجرهٔ وب) + پاسِ retranslate به موتور.
-
-چکها:
-  ۱) سینتکسِ فایلهایِ دست‌خورده
-  ۲) موتور (95_run.py): برچسبِ کشِ پاکسازی + خواندن/نوشتن + پاک‌شدن
-  ۳) اندروید (bridge.py): trans_sig_check + translate_retranslate
-  ۴) اندروید (MainActivity.kt): پنجرهٔ پرسش + beginJob
-  ۵) رانِ واقعیِ موتور — ۶ سناریو (اگر مدلها در دسترس باشند)
-  ۶) trans_sig_check عملکردی روی کشِ رانِ واقعی
-"""
 import ast
 import json
 import os
@@ -129,8 +108,6 @@ check("مسیرِ استارت فقط یکی است (onStartJob → پرسش/ش�
       kt_src.count("beginJob(p)") >= 4)
 
 print("۵) رانِ واقعیِ موتور — ۶ سناریو")
-# مدلها: MANGA_FILES_DIR یا cwd — نبود = ردشدنِ این بخش (چکهایِ ۱-۴
-# و ۶ بدونِ مدل هم معنادارند)
 _models_root = os.environ.get("MANGA_FILES_DIR") or os.getcwd()
 _have_models = (os.path.isdir(os.path.join(_models_root, "det_models"))
                 and os.path.isdir(os.path.join(_models_root, "rapidocr_models")))
@@ -145,8 +122,8 @@ else:
     IMG2_DST = os.path.join(TMP, "up0904_en.jpg")
     shutil.copy(IMG, IMG_DST)
     shutil.copy(IMG2, IMG2_DST)
-    OUT = os.path.join(TMP, "up0822_en.pdf")  # stem = ورودی → کشِ همسانِ bridge
-    CACHE = os.path.splitext(OUT)[0] + ".cache"  # کشِ مشترکِ مستقل از فرمت
+    OUT = os.path.join(TMP, "up0822_en.pdf")
+    CACHE = os.path.splitext(OUT)[0] + ".cache"
 
     def engine(extra, out=OUT, img=IMG_DST, timeout=280):
         cmd = [sys.executable, "-u", ENGINE, "-i", img, "-o", out,
@@ -162,7 +139,6 @@ else:
         return sorted(n for n in os.listdir(CACHE) if n.startswith("clean"))
 
     try:
-        # — رانِ A: فیک + تکمیل — کشِ دیسک ساخته شود
         t0 = time.time()
         logA = engine(["--fake-translate"])
         check("A) رانِ فیک تمام شد", "PDF نهایی ذخیره شد" in logA,
@@ -172,7 +148,6 @@ else:
         _pc = os.path.join(CACHE, _cd[0], "page_0000.png") if _cd else ""
         check("A) تصویرِ پاکشدهٔ صفحه در دیسک", _pc and os.path.isfile(_pc))
 
-        # — رانِ B: «از اول ترجمه» — فقطِ ترجمه؛ استخراج/پاکسازی از کش
         logB = engine(["--fake-translate", "--translate-retranslate"])
         check("B) استخراج از کش", "از کشِ استخراج" in logB)
         check("B) پاکسازی از کشِ دیسک (بدونِ اجرای دوباره)",
@@ -182,7 +157,6 @@ else:
         check("B) ترجمه از نو (بدونِ انبارِ قبلی)",
               "ترجمه: 5/5" in logB and "از کشِ ترجمه" not in logB)
 
-        # — رانِ C: پارامترِ پاکسازی عوض شد — فقطِ پاکسازی از نو
         logC = engine(["--fake-translate", "--mask-padding", "8"])
         check("C) استخراج از کش ماند", "از کشِ استخراج" in logC)
         check("C) ترجمه از انبار برگشت", "از کشِ ترجمه" in logC)
@@ -192,7 +166,6 @@ else:
         check("C) پوشهٔ کشِ سبکِ تازه جدا",
               len(clean_dirs()) == 2, str(clean_dirs()))
 
-        # — رانِ D: فرمتِ رندر عوض شد — پاکسازی از کش میماند
         logD = engine(["--fake-translate", "--mask-padding", "8",
                        "--img-format", "webp"])
         check("D) تعویضِ فرمت، پاکسازی را از نو نگیرد",
@@ -200,21 +173,17 @@ else:
         check("D) تعدادِ پوشههایِ پاکسازی تغییر نکرد (۲ سبک)",
               len(clean_dirs()) == 2, str(clean_dirs()))
 
-# اسنپ‌شاتِ کشِ ورودیِ اول (state.json با fake=true و مدلِ خالی —
-# وضعیتِ رانِ D) برای بخشِ ۶ — رانهایِ E/F وضعیت/کش را عوض میکنند
         snap = os.path.join(TMP, "fake_files", "work", "out",
                             "up0822_en.cache")
         os.makedirs(os.path.dirname(snap), exist_ok=True)
         shutil.copytree(CACHE, snap)
 
-        # — رانِ E: فیک → واقعی — خودکار از-نوِ ترجمه؛ بقیه از کش
         logE = engine(["--max-retries", "1", "--api-timeout", "6"])
         check("E) تشخیصِ تعویضِ حالتِ تست",
               "حالتِ تست عوض شد" in logE)
         check("E) استخراج از کش", "از کشِ استخراج" in logE)
         check("E) پاکسازی از کشِ دیسک", "پاکسازی از کشِ دیسک" in logE)
 
-        # — رانِ F: ورودی عوض شد — همهٔ کشها پاک و از اول
         logF = engine(["--fake-translate"], img=IMG2_DST)
         check("F) تشخیصِ ورودیِ تازه", "ورودی/تنظیمات تغییر کرد" in logF)
         check("F) کشهایِ پاکسازیِ ورودیِ قبلی پاک شدند",
@@ -222,12 +191,10 @@ else:
         check("F) استخراج از اول (بدونِ کش)",
               "از کشِ استخراج" not in logF)
 
-        # — بخشِ ۶: trans_sig_check روی اسنپ‌شاتِ کشِ واقعی (وضعیتِ رانِ D:
-        # فیک روشن، مدلِ خالی، کارِ انجام‌شده)
         print("۶) trans_sig_check عملکردی (اندروید)")
         sys.path.insert(0, os.path.dirname(BRIDGE))
         sys.path.insert(0, ROOT)
-        import bridge  # noqa: E402
+        import bridge
         fd = os.path.join(TMP, "fake_files")
         base = {"src": IMG_DST, "provider": "gemini", "model": "",
                 "keys": "k", "fmt": "PDF", "fake": True,

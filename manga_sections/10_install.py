@@ -1,7 +1,4 @@
 # BUILD-STRIP-START
-# نصب — وابستگیها، pip، تشخیص GPU + وضعیتِ توقف و پرچمهای کتابخانهها
-# نصبِ خودکارِ وابستگیها (_ensure_all_dependencies و زنجیرهٔ pip) + REQUEST_STOP/JobCancelled و پرچمهای _HAS_GEMINI/_HAS_OPENAI/… .
-# (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 def _pip_install(*packages: str) -> bool:
     if not packages:
@@ -54,10 +51,6 @@ def _nvidia_gpu_present() -> bool:
             return True
     except Exception:
         return False
-# ویندوزِ بدونِ nvidia-smi در PATH (نصبِ درایورِ استودیو یا
-# PATHِ ناقصِ پایتون): همان پرسوجویِ wmic/powershellِ DirectML حالا
-# NVIDIA را هم میبیند — گرایندهٔ «GPU صفر درصد» وقتی کارت هست ولی
-# مسیرِ auto هیچوقت onnxruntime-gpu را نمیگرفت.
     try:
         if _platform.system().lower() == "windows":
             for _cmd in (
@@ -76,19 +69,9 @@ def _nvidia_gpu_present() -> bool:
         pass
     return False
 
-_DIRECTX_GPU_CACHE = None  # None = هنوز پروب نشده؛ True/False = کشِ نتیجه
+_DIRECTX_GPU_CACHE = None
 
 def _directx_gpu_present() -> bool:
-    """ — هر GPU-capable (AMD/Intel/گرافیکِ یکپارچه) رویِ ویندوز:
-    برایِ DirectML. فقط ویندوز؛ لینوکس DirectML ندارد.
-     — با
-    RX 5700 XT — ریشه: wmic در ویندوزهایِ جدید (۲۴H۲+) حذف/خالی است و
-    پاورشل هم گاهی جوابِ خالی میداد → تشخیصِ «GPU ویندوزی» False میشد و
-    onnxruntime-directml هیچ‌وقت نصب نمیشد. حالا ۴ روشِ مستقل به‌ترتیب
-    امتحان میشوند و اگر «هر کدام» نامِ یک کارتِ گرافیک بدهد کافی است:
-    (۱) wmic، (۲) پاورشلِ Get-CimInstance، (۳) پاورشلِ Get-PnpDevice،
-    (۴) رجیستریِ کلاسِ Display (بدونِ WMI — سریع‌ترین و مطمئن‌ترین).
-    نتیجه در حافظهٔ ماژول کش میشود (پروبِ مکررِ کند حذف شد)."""
     global _DIRECTX_GPU_CACHE
     if _DIRECTX_GPU_CACHE is not None:
         return _DIRECTX_GPU_CACHE
@@ -104,10 +87,8 @@ def _directx_gpu_present() -> bool:
                                      "intel", "arc", "graphics", "display"))
         if hit:
             return True
-# خروجیِ فقط-سرستون (wmicِ ویندوزهایِ خراب) → None = نامشخص
         return bool(have_header and "videocontroller" in low)
 
-# (۱) wmic — در ویندوزهایِ قدیمی سریع است
     try:
         r = subprocess.run(
             ["wmic", "path", "win32_VideoController", "get", "name"],
@@ -119,7 +100,6 @@ def _directx_gpu_present() -> bool:
                 return True
     except Exception:
         pass
-# (۲) پاورشل — Get-CimInstance
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
@@ -131,7 +111,6 @@ def _directx_gpu_present() -> bool:
             return True
     except Exception:
         pass
-# (۳) پاورشل — Get-PnpDevice (بدونِ وابستگی به WMI-ویدئو)
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
@@ -143,7 +122,6 @@ def _directx_gpu_present() -> bool:
             return True
     except Exception:
         pass
-# (۴) رجیستری — کلاسِ Display_ADAPTERS؛ بدونِ WMI/پاورشل همیشه هست
     try:
         r = subprocess.run(
             ["reg", "query",
@@ -166,10 +144,58 @@ def _ort_has_cuda() -> bool:
     except Exception:
         return False
 
+_PIP_CUDA_PRELOADED = False
+
+def _preload_pip_cuda_libs() -> None:
+    global _PIP_CUDA_PRELOADED
+    if _PIP_CUDA_PRELOADED or os.name == "nt":
+        return
+    _PIP_CUDA_PRELOADED = True
+    try:
+        import ctypes
+        import glob as _glob
+        import site as _site
+        _roots = list(_site.getsitepackages() or [])
+        try:
+            _us = _site.getusersitepackages()
+            if _us and os.path.isdir(_us):
+                _roots.append(_us)
+        except Exception:
+            pass
+        _pats = (
+            "nvidia/cuda_runtime/lib/libcudart*.so*",
+            "nvidia/cublas/lib/libcublas*.so*",
+            "nvidia/cufft/lib/libcufft*.so*",
+            "nvidia/curand/lib/libcurand*.so*",
+            "nvidia/cuda_nvrtc/lib/libnvrtc*.so*",
+            "nvidia/cudnn/lib/libcudnn*.so*",
+        )
+        _roots2 = list(_roots)
+        try:
+            import importlib.util as _ilu
+            _tspec = _ilu.find_spec("torch")
+            if _tspec and _tspec.submodule_search_locations:
+                _tlib = os.path.join(
+                    list(_tspec.submodule_search_locations)[0], "lib")
+                if os.path.isdir(_tlib):
+                    _roots2.append(_tlib)
+        except Exception:
+            pass
+        _n = 0
+        for _pat in _pats:
+            for _root in _roots2:
+                for _f in sorted(_glob.glob(os.path.join(_root, _pat))):
+                    try:
+                        ctypes.CDLL(_f, mode=ctypes.RTLD_GLOBAL)
+                        _n += 1
+                    except OSError:
+                        continue
+        if _n:
+            print(f"[*] {_n} کتابخانهٔ CUDA از pip پیش‌بارگذاری شد.")
+    except Exception:
+        pass
+
 def _ort_has_dml() -> bool:
-    """ — بیلدِ DirectML (پکیجِ onnxruntime-directml) نصب است؟
-    برایِ کارت‌هایِ AMD/Intel رویِ ویندوز (CUDA که مالِ NVIDIA است؛ مسیرِ
-    درستِ AMD رویِ ویندوز DirectML است)."""
     try:
         import onnxruntime as _ort
         return "DmlExecutionProvider" in _ort.get_available_providers()
@@ -177,24 +203,10 @@ def _ort_has_dml() -> bool:
         return False
 
 def _parallel_budget(kind: str = "ocr") -> int:
-    """ — بودجهٔ موازیِ سیستم: چند ناحیهٔ متن همزمان کار کنند.
-
-    .
-
-    ورودی: cpu (os.cpu_count) + ramِ آزاد (/proc/meminfo؛ ویندوز:
-    GlobalMemoryStatusEx) + gpu (CUDAِ onnxruntime). سقفِ عقلانی:
-      • OCR — اندروید: cpu÷2 (سقف ۴؛ هر predictor پدل ۲ نخ؛ جمع ≈ همهٔ
-        هسته‌ها)؛ PC/لینوکس: cpu−1 (سقف ۸) + ۱ اگر CUDA.
-      • پاکسازی — cpu−1 (سقف ۸) رویِ همهٔ پلتفرم‌ها + ۱ اگر CUDA
-        (پرکننده‌هایِ تخت/رنگیِ cv2 فقط CPUاند؛ LaMa خودش موازی است).
-      • RAMِ آزادِ کم: ‎<1.2GB → ۲ کارگر، ‎<2.5GB → ۳ کارگر.
-    override دستی: MANGA_REGION_WORKERS=N (هر دو)؛ MANGA_OCR_WORKERS
-    (فقط OCR، مثلِ قبل) و MANGA_LAMA_WORKERS (فقط LaMa، مثلِ قبل)."""
     try:
         cpu = os.cpu_count() or 4
     except Exception:
         cpu = 4
-# RAMِ آزاد
     ram_gb = 0.0
     try:
         with open("/proc/meminfo", encoding="ascii") as f:
@@ -232,9 +244,10 @@ def _parallel_budget(kind: str = "ocr") -> int:
     if _env > 0:
         return max(1, min(8, _env))
     try:
-# DirectML (AMD/Intel ویندوز) هم مثلِ CUDA یک نفرِ
-# اضافهٔ موازی میگیرد
-        _gpu = (not _IS_ANDROID) and (_ort_has_cuda() or _ort_has_dml())
+        _gpu = (not _IS_ANDROID)
+        if _gpu:
+            _preload_pip_cuda_libs()
+            _gpu = (_ort_has_cuda() or _ort_has_dml())
     except Exception:
         _gpu = False
     if kind == "clean":
@@ -263,8 +276,6 @@ def _torch_available() -> bool:
         return False
 
 def _ensure_rapidocr_pkg() -> bool:
-    """موتور OCR سبک ONNX (rapidocr) را فقط اگر واقعاً لازم باشد نصب می‌کند.
-    : دیگر در شروع برنامه نصب نمی‌شود — فقط وقتی موتور ONNX لود می‌شود."""
     if _can_import("rapidocr") or _can_import("rapidocr_onnxruntime"):
         return True
     if _IS_ANDROID:
@@ -277,8 +288,6 @@ def _ensure_rapidocr_pkg() -> bool:
     return _pip_install("rapidocr-onnxruntime")
 
 def _ensure_torch_cpu() -> bool:
-    """torch را فقط برای روش پاکسازی lama-big نصب می‌کند (بار اول، ~۲۰۰MB).
-    : نصب torch از شروع برنامه به همین نقطه منتقل شد."""
     if _torch_available():
         return True
     if _IS_ANDROID:
@@ -367,10 +376,6 @@ def _ensure_all_dependencies() -> None:
     if misc:
         _pip_install(*misc)
 
-# rapidocr / paddleocr / torch دیگر در شروع نصب نمی‌شوند.
-# paddleocr هیچ‌وقت خودکار نصب نمی‌شود (سنگین است؛ OCR سبک ONNX داریم)
-# rapidocr فقط وقتی نصب می‌شود که موتور OCR ONNX واقعاً لود شود
-# torch فقط وقتی نصب می‌شود که روش پاکسازی lama-big انتخاب شده باشد
     if not _IS_ANDROID:
         if not _can_import("google.genai") and not _can_import("google.generativeai"):
             _pip_install("google-genai")
@@ -392,9 +397,6 @@ def _ensure_all_dependencies() -> None:
             _has_dml = "DmlExecutionProvider" in _ort.get_available_providers()
         except Exception:
             _has_dml = False
-# GPU-capable رویِ ویندوز (حتی AMD/Intel) ولی بدونِ CUDA:
-# خودکار onnxruntime-directml نصب شود (DirectML رویِ همهٔ DirectX12
-# کار می‌کند) تا LaMa رویِ GPU برود؛ CPU به‌عنوانِ فال‌بک.
     _need_dml = (_is_windows and not want_gpu and not _has_dml
                  and _directx_gpu_present())
 
@@ -418,6 +420,7 @@ def _ensure_all_dependencies() -> None:
                 del sys.modules[name]
 
     def _ort_prepare_cuda() -> bool:
+        _preload_pip_cuda_libs()
         try:
             import torch
         except Exception:
@@ -452,28 +455,72 @@ def _ensure_all_dependencies() -> None:
         major = _cuda_major()
         ver = _torch_cuda_ver() or "?"
         print(f"[*] GPU پیدا شد (CUDA={ver} | OS={_platform.system()}) → onnxruntime-gpu ...")
+
+        if major >= 13:
+            _have13 = False
+            try:
+                _clear_ort_modules()
+                import onnxruntime as _ort13
+                _have13 = ".dev" in str(getattr(_ort13, "__version__", "") or "")
+            except Exception:
+                _have13 = False
+            if _have13:
+                _preload_pip_cuda_libs()
+                _clear_ort_modules()
+                if _ort_has_cuda():
+                    print("[*] onnxruntime-gpu (cu13 nightly) از قبل آماده است.")
+                    return "cuda"
+
         _pip_uninstall("onnxruntime", "onnxruntime-gpu")
 
-        ok_pip = False
         if major >= 13:
-            print("[*] CUDA 13+ → ort-cuda-13-nightly")
+            print("[*] CUDA≥13 → بیلدِ cu13 از ort-cuda-13-nightly ...")
+            _ok13 = False
             cmd = [
-                sys.executable, "-m", "pip", "install", "-q", "--prefer-binary", "--pre",
+                sys.executable, "-m", "pip", "install", "-q", "--prefer-binary",
+                "--pre", "--force-reinstall", "--no-deps",
                 "--index-url",
                 "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/",
                 "onnxruntime-gpu",
             ]
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
-                ok_pip = r.returncode == 0
-                if not ok_pip:
-                    print("    [!] nightly ناموفق → PyPI onnxruntime-gpu")
-                    ok_pip = _pip_install("onnxruntime-gpu")
+                _ok13 = r.returncode == 0
+                if not _ok13:
+                    print("    [!] nightlyِ cu13 ناموفق: "
+                          + (r.stderr or r.stdout or "")[-200:])
             except Exception as e:
                 print(f"    [!] {e}")
-                ok_pip = _pip_install("onnxruntime-gpu")
-        elif major == 12 or major == 0:
-            print("[*] CUDA 12 → onnxruntime-gpu==1.26.0 (+ cuda/cudnn runtime)")
+            if _ok13:
+                _pip_install(
+                    "nvidia-cuda-runtime~=13.0",
+                    "nvidia-cuda-nvrtc~=13.0",
+                    "nvidia-cublas~=13.0",
+                    "nvidia-cufft~=12.0",
+                    "nvidia-curand~=10.0",
+                    "nvidia-cudnn-cu13~=9.0",
+                )
+                _clear_ort_modules()
+                _preload_pip_cuda_libs()
+                try:
+                    import onnxruntime as _ortd
+                    print(f"    [diag] ort={getattr(_ortd, '__version__', '?')}"
+                          f" file={getattr(_ortd, '__file__', '?')}",
+                          flush=True)
+                    print("    [diag] providers="
+                          f"{list(_ortd.get_available_providers())}",
+                          flush=True)
+                except Exception as _e:
+                    print(f"    [diag] import ort failed: {_e}", flush=True)
+                if _ort_has_cuda():
+                    print("[+] onnxruntime-gpu (cu13) با CUDAExecutionProvider آماده است.")
+                    return "cuda"
+            print("[!] مسیرِ cu13 جواب نداد → نسخهٔ پایدارِ PyPI ...")
+            _pip_uninstall("onnxruntime", "onnxruntime-gpu")
+
+        ok_pip = False
+        if major != 11:
+            print("[*] ابتدا نسخهٔ پایدارِ onnxruntime-gpu (سازگار با درایورهای جدید) ...")
             ok_pip = _pip_install("onnxruntime-gpu==1.26.0")
             if not ok_pip:
                 for pkg in ("onnxruntime-gpu==1.25.1", "onnxruntime-gpu==1.22.0"):
@@ -490,7 +537,11 @@ def _ensure_all_dependencies() -> None:
                         "nvidia-cufft-cu12",
                         "nvidia-curand-cu12",
                     )
-        elif major == 11:
+            _clear_ort_modules()
+            _preload_pip_cuda_libs()
+            if not ok_pip:
+                ok_pip = _pip_install("onnxruntime-gpu")
+        else:
             print("[*] CUDA 11 → feed cuda-11")
             subprocess.run(
                 [sys.executable, "-m", "pip", "install", "-q", "--prefer-binary",
@@ -510,8 +561,6 @@ def _ensure_all_dependencies() -> None:
                 ok_pip = False
             if not ok_pip:
                 ok_pip = _pip_install("onnxruntime-gpu==1.18.1")
-        else:
-            ok_pip = _pip_install("onnxruntime-gpu")
 
         if not ok_pip:
             return "fail"
@@ -555,7 +604,6 @@ def _ensure_all_dependencies() -> None:
                     os.execv(sys.executable, [sys.executable] + sys.argv)
     else:
         if _need_dml:
-# GPUِ ویندوزیِ غیرِ CUDA (AMD/Intel): DirectML
             print("[*] GPU (DirectML) رویِ ویندوز پیدا شد؛ نصبِ onnxruntime-directml ...")
             _pip_uninstall("onnxruntime", "onnxruntime-gpu")
             if _pip_install("onnxruntime-directml"):
@@ -606,7 +654,7 @@ from PIL import Image, ImageDraw, ImageFont
 REQUEST_STOP = False
 
 class JobCancelled(Exception):
-    """وقتی کاربر دکمهٔ لغو را می‌زند پرتاب می‌شود."""
+    pass
 
 def request_stop() -> None:
     global REQUEST_STOP
@@ -620,8 +668,6 @@ def stop_requested() -> bool:
     return bool(globals().get("REQUEST_STOP"))
 
 def _raise_if_stop() -> None:
-    """لغو فوری — در همهٔ حلقه‌های ریز (OCR/پاکسازی/ترجمه/رندر) چک می‌شود
-    تا «لغو» بدون معطلی درجا عملی شود (درخواست کاربر)."""
     if stop_requested():
         raise JobCancelled("لغو توسط کاربر")
 

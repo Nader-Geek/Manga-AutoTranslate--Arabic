@@ -1,0 +1,119 @@
+name: Build Cloud Apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "cloud-apps/**"
+      - ".github/workflows/cloud-apps.yml"
+      - "VERSION"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build Android cloud APK (universal — arm/arm64/x86/x86_64)
+        working-directory: cloud-apps/android
+        run: |
+          VC=$(sed -n 's/^versionCode=//p' "$GITHUB_WORKSPACE/VERSION" | tr -d '[:space:]')
+          VN=$(sed -n 's/^versionName=//p' "$GITHUB_WORKSPACE/VERSION" | tr -d '[:space:]')
+          echo "cloudVersionCode=$VC cloudVersionName=$VN"
+          gradle :app:assembleDebug \
+            -PcloudVersionCode="$VC" -PcloudVersionName="$VN"
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/dist/MangaCloud-Android-universal.apk"
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build desktop shells (Neutralino — win x64 + linux x64/arm64/armhf)
+        working-directory: cloud-apps/desktop
+        run: |
+          npm install --no-fund --no-audit @neutralinojs/neu@11.8.0
+          npx neu update
+          npx neu build --release
+          ls -la dist/MangaCloud
+          D=dist/MangaCloud
+          mkdir -p pkg/win-x64 pkg/linux-x64 pkg/linux-arm64 pkg/linux-armhf
+          cp "$D/MangaCloud-win_x64.exe" "$D/resources.neu" pkg/win-x64/
+          cp "$D/MangaCloud-linux_x64" "$D/resources.neu" pkg/linux-x64/
+          cp "$D/MangaCloud-linux_arm64" "$D/resources.neu" pkg/linux-arm64/
+          cp "$D/MangaCloud-linux_armhf" "$D/resources.neu" pkg/linux-armhf/
+          (cd pkg/win-x64 && zip -qr "$GITHUB_WORKSPACE/dist/MangaCloud-Windows-x64.zip" .)
+          (cd pkg/linux-x64 && tar -czf "$GITHUB_WORKSPACE/dist/MangaCloud-Linux-x64.tar.gz" .)
+          (cd pkg/linux-arm64 && tar -czf "$GITHUB_WORKSPACE/dist/MangaCloud-Linux-arm64.tar.gz" .)
+          (cd pkg/linux-armhf && tar -czf "$GITHUB_WORKSPACE/dist/MangaCloud-Linux-armhf.tar.gz" .)
+
+      - name: Build Windows x86 shell (WebView2)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686
+          curl -sL -o wv2.nupkg \
+            "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.2903.40"
+          unzip -o -q wv2.nupkg "runtimes/win-x86/native/*" -d wv2sdk
+          cd cloud-apps/desktop/win32
+          i686-w64-mingw32-windres app.rc -O coff -o app.res
+          i686-w64-mingw32-g++ -std=c++11 -O2 -Wall -Wextra -Wno-unused-parameter \
+            -c app.cpp -o app.o
+          i686-w64-mingw32-g++ -mwindows -O2 -static -static-libgcc -static-libstdc++ \
+            app.o app.res -o MangaCloud.exe \
+            -lole32 -lshell32 -luser32 -lgdi32 -luuid
+          mkdir -p pkg86
+          cp MangaCloud.exe pkg86/
+          cp "$GITHUB_WORKSPACE/wv2sdk/runtimes/win-x86/native/WebView2Loader.dll" pkg86/
+          (cd pkg86 && zip -qr "$GITHUB_WORKSPACE/dist/MangaCloud-Windows-x86.zip" .)
+
+      - name: Show sizes
+        run: ls -la dist/
+
+      - name: Publish to clouds release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES='مانگا کلود — نسخه سبک ابری (همه پردازش روی سرور)
+
+          - Android (universal): arm / arm64 / x86 / x86_64
+          - Windows x64 (WebView2)
+          - Windows x86 32bit (WebView2)
+          - Linux x64 / arm64 / armhf (32bit ARM)
+
+          فقط صفحه https://amirwolf512-manga-autotranslate.hf.space/ را باز می‌کند؛ بدون مدل و بدون وابستگی.'
+          NOTES=$(printf '%s' "$NOTES" | sed 's/^          //')
+          if gh release view clouds --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload clouds dist/MangaCloud-* \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create clouds dist/MangaCloud-* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "clouds" --target main --notes "$NOTES"
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-apps
+          path: dist/
+          if-no-files-found: error

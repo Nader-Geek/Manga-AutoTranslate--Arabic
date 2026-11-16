@@ -71,9 +71,23 @@ def diagnose(xml, tag):
         t[:28] for t in texts[:18]))
 
 
+def manga_log():
+    try:
+        r = sh("adb", "exec-out", "run-as", "com.amirwolf.mangatranslator",
+               "cat", "files/manga.log", timeout=20)
+        return r.stdout or ""
+    except Exception:
+        return ""
+
+
 def main():
     w, h = screen_size()
     print(f"[tap-run] screen {w}x{h}")
+    pre_end_count = manga_log().count("END — done=")
+
+    def job_finished_fast():
+        return manga_log().count("END — done=") > pre_end_count
+
     # walk from the top of the form downward
     for _ in range(3):
         sh("adb", "shell", "input", "swipe", str(w // 2), str(int(h * 0.3)),
@@ -91,19 +105,25 @@ def main():
             if cy < h - 60 and cy > 60:
                 sh("adb", "shell", "input", "tap", str(cx), str(cy))
                 print(f"[tap-run] tapped {cx},{cy}")
-                time.sleep(4)
+                time.sleep(2.5)
                 xml2 = dump()
                 if any("لغو ترجمه" in t for t, _ in nodes(xml2)):
                     print("[tap-run] job started ✔")
+                    return 0
+                if job_finished_fast():
+                    print("[tap-run] job ran and finished fast (cached) ✔")
                     return 0
                 b2 = find_run(xml2)
                 if b2:
                     sh("adb", "shell", "input", "tap",
                        str((b2[0] + b2[2]) // 2), str((b2[1] + b2[3]) // 2))
-                    time.sleep(4)
-                    if any("لغو ترجمه" in t
-                           for t, _ in nodes(dump())):
+                    time.sleep(2.5)
+                    xml3 = dump()
+                    if any("لغو ترجمه" in t for t, _ in nodes(xml3)):
                         print("[tap-run] job started ✔ (retry)")
+                        return 0
+                    if job_finished_fast():
+                        print("[tap-run] job ran and finished fast (cached) ✔ (retry)")
                         return 0
             else:
                 # off-screen → scroll toward it

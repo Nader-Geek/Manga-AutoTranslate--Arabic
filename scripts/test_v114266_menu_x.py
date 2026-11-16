@@ -1,17 +1,3 @@
-# -*- coding: utf-8 -*-
-"""تستِ v1.14.266 — «منو» در حالتِ باز خودش «✕» می‌شود و می‌بندد.
-
-دستورِ سازنده: «دکمه بیرون اومدن از قبل بعد تو منو گذاشتی تو x میگذاشتی تو
-خوده منو منو بزنی میره توش همونو اسم منو عوض شه X بشه» — دکمهٔ گردِ منو وقتی
-باز است برچسبش «✕» می‌شود و با زدنش بسته می‌شود؛ «قبل/بعد» (و در نمایشگرِ
-مستقل «صفحه‌ها») به یک دکمهٔ مستقل داخلِ فن تبدیل شدند.
-
-سه نمایشگر: (۱) android reader.html (۲) وبِ زندهٔ _LIVE_READER_TMPL
-(۳) نمایشگرِ مستقلِ build_reader_html — به‌علاوهٔ چرخهٔ ضدِبرخوردِ فن
-(fanPositions: جهت به مرکزِ صفحه + هلِ متقابل + مانعِ خودِ فاب).
-
-اجرا: python3 scripts/test_v114266_menu_x.py
-"""
 import os
 import re
 import sys
@@ -39,7 +25,6 @@ def read(p):
 android = read("android/app/src/main/assets/reader.html")
 app = read("manga_app.py")
 
-# قالبِ وبِ زنده و جاوااسکریپتِ نمایشگرِ مستقل را جدا کنیم
 _i = app.index("_LIVE_READER_TMPL")
 live = app[_i:app.index('"""', app.index("</body></html>", _i))]
 _j = app.index('js = r\"\"\"', app.index("def build_reader_html"))

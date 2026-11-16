@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import ast
 import copy
@@ -211,12 +210,6 @@ def _lit(node):
     except Exception:
         return None
 
-# ─── TX-آگاهی (v1.14.275) ───
-# manga_app.py از TX("app.key", "متنِ پیش‌فرض") برای متن‌ها
-# استفاده میکند (فایلِ واحدِ متن‌ها). استخراجگرِ قدیمی فقط
-# literal می‌فهمید → هر فیلدی که لیبلش TX بود حذف می‌شد و
-# بخشهای اندروید (ورودی/تنظیمات پیشرفته/بکاپ/AI/فونت) غایب
-# می‌شدند. حالا آرگومانِ «پیش‌فرض»یِ TX همان لیبل حساب می‌شود.
 
 class _NoEnv:
     def get(self, name):
@@ -225,9 +218,6 @@ class _NoEnv:
 _NOENV = _NoEnv()
 
 def _tx_call(node):
-    """TX("k", "default") → گرهٔ متنِ پیش‌فرض (آخرین آرگومان)؛
-    str(TX(...)) و TX("k", d="...") هم باز می‌شوند.
-    None یعنی TX نیست."""
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
         if node.func.id == "TX":
             if node.args:
@@ -241,7 +231,6 @@ def _tx_call(node):
     return None
 
 def _tx_str(node, env=None):
-    """متنِ پیش‌فرضِ TX — با ارزیابیِ ثابت‌ها/الحاقِ رشته (env اختیاری)."""
     tx = _tx_call(node)
     if tx is None:
         return None
@@ -251,13 +240,11 @@ def _tx_str(node, env=None):
         return v
     if isinstance(tx, ast.Constant) and isinstance(tx.value, str):
         return tx.value if tx.value.strip() else None
-# الحاقِ رشته با + یا f-string با بخشهای ثابت
     if isinstance(tx, (ast.BinOp, ast.JoinedStr)):
         return _str_of_static(tx)
     return None
 
 def _str_of_static(node):
-    """ارزیابیِ ایستای رشته: ثابت + الحاق (+) + f-string با بخشهای ثابت."""
     if isinstance(node, ast.Constant):
         return node.value if isinstance(node.value, str) else None
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
@@ -282,7 +269,6 @@ def _str_of_static(node):
 def _str_of(node, env=None):
     if node is None:
         return None
-# TX("k", "default") → خودِ متنِ پیش‌فرض (لیبل/راهنما/جای‌خالی)
     tx_v = _tx_str(node, env)
     if tx_v is not None:
         return tx_v
@@ -296,7 +282,6 @@ def _str_of(node, env=None):
             if isinstance(v, str):
                 parts.append(v)
             elif v is _UNKNOWN:
-# f-string با TX داخلش: {TX("k", "default")}
                 if isinstance(x, ast.FormattedValue):
                     tv = _tx_str(x.value, env)
                     if tv is not None:
@@ -339,7 +324,6 @@ def _choices(node):
 def _default(node):
     if node is None:
         return None, None
-# TX("k", "default") → مقدارِ پیش‌فرضِ فیلد از خودِ TX
     if isinstance(node, ast.Call) and _tx_call(node) is not None:
         v = _tx_str(node)
         return (v if v is not None else ""), None
@@ -499,8 +483,6 @@ def extract(path_or_source, is_source=False):
                 st = _lit(kw.get("step"))
                 field["step"] = st or 1
             if kind == "Number":
-# temperature/top_p: فیلدِ عددیِ دارایِ step در
-# اندروید دکمهٔ کم/زیادِ نیتیو میگیرد (عینِ صفحهٔ تنظیماتِ مرجعِ مرجع)
                 mn = _lit(kw.get("minimum"))
                 mx = _lit(kw.get("maximum"))
                 stn = _lit(kw.get("step"))
@@ -520,7 +502,6 @@ def extract(path_or_source, is_source=False):
         elif kind == _HTML:
             code = _lit(kw.get("value")) or (_lit(node.args[0]) if node.args else "") or ""
             if not code:
-# HTML با TX/الحاق داخلش (عنوانِ بخشها) — ارزیابیِ ایستا
                 for _cand in (kw.get("value"), node.args[0] if node.args else None):
                     _sv = _str_of_static(_cand) if _cand is not None else None
                     if _sv:

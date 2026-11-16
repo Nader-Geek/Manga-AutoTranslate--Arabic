@@ -1,13 +1,3 @@
-// Copyright (c) 2026 PaddlePaddle Authors. All Rights Reserved.
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// http://www.apache.org/licenses/LICENSE-2.0
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package com.paddle.ocr.engine
 
@@ -33,13 +23,8 @@ class ORTSessionManager(
     var coldLoadTimeMs: Long = 0
         private set
 
-    /**  — RapidOCR: سشنِ clsِ اضافی (ch_ppocr_mobile_v2.0_cls). */
     fun hasCls(): Boolean = clsSession != null
 
-    /**
-     *  — بارگذاریِ سشنِ cls (RapidOCR AngleNet).
-     * مدل = ch_ppocr_mobile_v2.0_cls (ورودیِ [N,3,48,192]، خروجیِ [N,2]).
-     */
     fun loadClsModel(clsAssetPath: String) {
         val ortEnv = env
             ?: throw OCRError.ModelLoadFailed("cls", Exception("Environment not initialized"))
@@ -64,10 +49,6 @@ class ORTSessionManager(
         }
     }
 
-    /**
-     *  — تعویضِ داغِ سشنِ rec برایِ واریانتِ زبان (RapidOCR).
-     * سشنِ قبلی بسته میشود؛ det/cls دستنخورده میمانند.
-     */
     fun loadRecModel(recAssetPath: String) {
         val ortEnv = env
             ?: throw OCRError.ModelLoadFailed("recognition", Exception("Environment not initialized"))
@@ -94,7 +75,6 @@ class ORTSessionManager(
             fresh = null
             old?.close()
         } finally {
-// اگر تعویضِ نام/بستنِ قدیمی خطا بزند، سشنِ تازه رها نشود
             if (fresh != null) {
                 try { fresh.close() } catch (_: Throwable) {}
             }
@@ -187,7 +167,6 @@ class ORTSessionManager(
 
     private fun readModelAsset(assetPath: String): ByteArray {
         return try {
-// assets یا filesDir (دانلودِ زمانِ اجرا)
             com.paddle.ocr.util.ModelSource.bytes(context, assetPath)
         } catch (t: Throwable) {
             throw OCRError.ModelNotFound(assetPath, t)

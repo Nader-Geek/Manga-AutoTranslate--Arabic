@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""QA مو به مو برایِ خروجیِ clean-only نسخهٔ ().
-
-سه سنجش:
-  ۱) قراردادِ دو-عکسی: خروجیِ نهایی بیرون از ماسکِ کامپوز باید عینِ
-     اورجینال باشد (حباب خراب نشود) و داخلِ ماسک عینِ donor.
-  ۲) آمارِ ماسکِ کامپوز (cmp2): مولفههای بزرگ = مشکوک به «کلِ حباب»
-     (دستور: «به اندازهٔ متن خط به خط برش بخوره»).
-  ۳) متنِ جامانده با OCR رویِ خروجیِ clean (عینِ webbatch_check).
-
-کاربرد (داخلِ رانِ CI):
-  python3 scripts/ci_qa_check.py <manifest.tsv> <clean_dir> <dumps_dir> <out_dir>
-
-سطرِ manifest: <name>\t<مسیرِ اورجینال نسبت به ریشهٔ مخزن>
-"""
 import os
 import sys
 
@@ -36,7 +21,6 @@ def load_gray(p):
     return im
 
 def contract_check(name, orig, clean, donor, cmp2):
-    """قراردادِ دو-عکسی — تحملِ JPEG q90."""
     if clean is None:
         rep(f"  !! خروجیِ clean خوانده نشد")
         return
@@ -60,11 +44,9 @@ def contract_check(name, orig, clean, donor, cmp2):
         rep("  (ماسکِ cmp2 نیست — رد شد)")
 
 def cmp2_stats(name, orig, cmp2):
-    """آمارِ مولفههای ماسکِ کامپوز + اوورلی برایِ بازرسیِ چشمی."""
     if cmp2 is None or orig is None:
         return
     if cmp2.shape != orig.shape:
-# ماسک روی صفحهٔ نرمال‌شده است — به عرضِ اورجینال مقیاس کن
         cmp2 = cv2.resize(cmp2, (orig.shape[1], orig.shape[0]),
                           interpolation=cv2.INTER_NEAREST)
     m = (cmp2 > 0).astype(np.uint8)
@@ -79,14 +61,12 @@ def cmp2_stats(name, orig, cmp2):
     tot = int(m.sum())
     rep(f"  ماسکِ کامپوز: {tot}px در {len(comps)} مولفه "
         f"({100.0 * tot / max(1, m.size):.3f}٪ صفحه)")
-# جوهرِ متنِ اورجینال در همان ناحیه = پایهٔ نسبتِ «اندازهٔ متن»
     g = orig
     ink_thr = float(np.median(g)) - 60.0
     for k, (a, x, y, w, h) in enumerate(comps[:8]):
         sub = m[y:y + h, x:x + w]
         ink = int(((g[y:y + h, x:x + w] < ink_thr) & (sub > 0)).sum())
         fill = a / float(w * h)
-# نوارِ خط: کشیده + پرشدگیِ کم‌واقعی از جوهر؛ کلِ حباب: خیلی پهن
         flag = ""
         if a > 60000 and min(w, h) > 150 and fill > 0.55:
             flag = "  ← مشکوک: کلِ حباب؟"
@@ -94,7 +74,6 @@ def cmp2_stats(name, orig, cmp2):
             flag = f"  ← ماسک ≫ متن ({a / max(1, ink):.1f}×)"
         rep(f"    #{k + 1}: bbox=({x},{y},{w}x{h}) area={a} fill={fill:.2f}"
             f" ink={ink}{flag}")
-# اوورلی: جعبهٔ سبز رویِ اورجینال (نصفِ عرض برایِ وب‌تون)
     if orig is not None:
         ov = cv2.cvtColor(orig, cv2.COLOR_GRAY2BGR)
         for (a, x, y, w, h) in comps[:8]:
@@ -119,7 +98,6 @@ def main():
         rep("!! manifest خالی است")
         return
 
-# موتورِ OCR فقط اگر خروجی هست و لایبرریها آمادهاند
     tr = None
     try:
         import manga
@@ -173,7 +151,6 @@ def main():
         if orig is None:
             rep("  !! اورجینال خوانده نشد")
             continue
-# ابعادِ متفاوت (نرمال‌سازی عرض) — مقیاسِ اورجینال به clean
         if clean is not None and clean.shape != orig.shape:
             orig_r = cv2.resize(orig, (clean.shape[1], clean.shape[0]),
                                 interpolation=cv2.INTER_AREA)
@@ -183,7 +160,6 @@ def main():
         if cmp2 is not None and clean is not None:
             cmp2_stats(nm, clean if clean.shape == cmp2.shape else orig_r,
                        cmp2)
-# متنِ جامانده
         if clean is not None:
             found = ocr_texts(clean)
             if not found:

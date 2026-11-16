@@ -1,7 +1,4 @@
 # BUILD-STRIP-START
-# MangaTranslator (۱ از ۷) — شروعِ کلاس: __init__، سختافزار، آبشارِ مدل/کلید
-# «class MangaTranslator:» اینجا باز میشود و در بخشهای 60..95 ادامه مییابد.
-# (این سربرگ فقط راهنمای همین فایل است؛ لودرِ manga.py و بیلد حذفش میکنند)
 # BUILD-STRIP-END
 class MangaTranslator:
     _LAMA_MIN_VRAM_GB = 3.5
@@ -9,6 +6,241 @@ class MangaTranslator:
     _ANDROID_LAMA_MIN_AVAIL_GB = 0.4
     _ANDROID_LAMA_WARN_AVAIL_GB = 1.2
     _ANDROID_LAMA_STRONG_CPU_CORES = 6
+    _title_tls = threading.local()
+
+    @property
+    def ocr(self):
+        try:
+            _tls = self.__dict__.get("_ocr_tls")
+            if _tls is not None:
+                _e = getattr(_tls, "engine", None)
+                if _e is not None:
+                    return _e
+        except Exception:
+            pass
+        return self.__dict__.get("_ocr_main")
+
+    @ocr.setter
+    def ocr(self, v):
+        self.__dict__["_ocr_main"] = v
+
+    def _ocr_gpu_active(self) -> bool:
+        try:
+            _m = self.__dict__.get("_ocr_main")
+            _ep = str(getattr(_m, "_ocr_ep_active", "") or "").strip()
+            return bool(_ep) and not _ep.lower().startswith("cpu")
+        except Exception:
+            return False
+
+    def _ensure_ocr_cpu(self):
+        try:
+            _e = self.__dict__.get("_ocr_cpu")
+            if _e is not None:
+                return _e
+            if self.__dict__.get("_ocr_cpu_failed"):
+                return None
+            if _on_android() or not self._ocr_gpu_active():
+                return None
+            _main = self.__dict__.get("_ocr_main")
+            if not isinstance(_main, RapidOCRBackend):
+                return None
+            try:
+                _av = self._available_ram_gb()
+            except Exception:
+                _av = None
+            if _av is not None and _av < 3.0:
+                return None
+            _e = RapidOCRBackend(lang=str(getattr(_main, "lang", "en") or "en"),
+                                 prefer_gpu=False)
+            if _e is None:
+                self.__dict__["_ocr_cpu_failed"] = True
+                return None
+            self.__dict__["_ocr_cpu"] = _e
+            return _e
+        except Exception:
+            self.__dict__["_ocr_cpu_failed"] = True
+            return None
+
+    def _ocr_dual_setup(self):
+        try:
+            if _on_android():
+                return None
+            if str(getattr(self, "device_pref", "auto") or "auto") == "cpu":
+                return None
+            _main = self.__dict__.get("_ocr_main")
+            if not isinstance(_main, RapidOCRBackend):
+                return None
+            if not self._ocr_gpu_active():
+                return None
+            _twin = self._ensure_ocr_gpu2()
+            if _twin is None:
+                return None
+            self.__dict__["_ocr_helper"] = _twin
+            return _twin
+        except Exception:
+            return None
+
+    def _ensure_ocr_cpu2(self):
+        try:
+            _e = self.__dict__.get("_ocr_cpu2")
+            if _e is not None:
+                return _e
+            if self.__dict__.get("_ocr_cpu2_failed"):
+                return None
+            _main = self.__dict__.get("_ocr_main")
+            if not isinstance(_main, RapidOCRBackend):
+                return None
+            if (os.cpu_count() or 2) < 4:
+                self.__dict__["_ocr_cpu2_failed"] = True
+                return None
+            try:
+                _av = self._available_ram_gb()
+            except Exception:
+                _av = None
+            if _av is not None and _av < 3.5:
+                self.__dict__["_ocr_cpu2_failed"] = True
+                return None
+            _e = RapidOCRBackend(
+                lang=str(getattr(_main, "lang", "en") or "en"),
+                prefer_gpu=False)
+            if _e is None:
+                self.__dict__["_ocr_cpu2_failed"] = True
+                return None
+            self.__dict__["_ocr_cpu2"] = _e
+            return _e
+        except Exception:
+            self.__dict__["_ocr_cpu2_failed"] = True
+            return None
+
+    def _ensure_ocr_gpu2(self):
+        try:
+            _e = self.__dict__.get("_ocr_gpu2")
+            if _e is not None:
+                return _e
+            if self.__dict__.get("_ocr_gpu2_failed"):
+                return None
+            _main = self.__dict__.get("_ocr_main")
+            if not isinstance(_main, RapidOCRBackend):
+                return None
+            if not self._ocr_gpu_active():
+                self.__dict__["_ocr_gpu2_failed"] = True
+                return None
+            try:
+                _av = self._available_ram_gb()
+            except Exception:
+                _av = None
+            if _av is not None and _av < 3.5:
+                self.__dict__["_ocr_gpu2_failed"] = True
+                return None
+            _e = RapidOCRBackend(
+                lang=str(getattr(_main, "lang", "en") or "en"),
+                prefer_gpu=True)
+            if _e is None \
+                    or str(getattr(_e, "_ocr_ep_active", "") or "") \
+                    .lower().startswith("cpu"):
+                self.__dict__["_ocr_gpu2_failed"] = True
+                return None
+            self.__dict__["_ocr_gpu2"] = _e
+            return _e
+        except Exception:
+            self.__dict__["_ocr_gpu2_failed"] = True
+            return None
+
+    def _ensure_ocr_gpu3(self):
+        try:
+            _e = self.__dict__.get("_ocr_gpu3")
+            if _e is not None:
+                return _e
+            if self.__dict__.get("_ocr_gpu3_failed"):
+                return None
+            _main = self.__dict__.get("_ocr_main")
+            if not isinstance(_main, RapidOCRBackend):
+                return None
+            if not self._ocr_gpu_active():
+                self.__dict__["_ocr_gpu3_failed"] = True
+                return None
+            try:
+                _vram = self._cuda_vram_gb()
+            except Exception:
+                _vram = 0.0
+            if _vram < 5.0:
+                self.__dict__["_ocr_gpu3_failed"] = True
+                return None
+            try:
+                _av = self._available_ram_gb()
+            except Exception:
+                _av = None
+            if _av is not None and _av < 3.0:
+                self.__dict__["_ocr_gpu3_failed"] = True
+                return None
+            _e = RapidOCRBackend(
+                lang=str(getattr(_main, "lang", "en") or "en"),
+                prefer_gpu=True)
+            if _e is None \
+                    or str(getattr(_e, "_ocr_ep_active", "") or "") \
+                    .lower().startswith("cpu"):
+                self.__dict__["_ocr_gpu3_failed"] = True
+                return None
+            self.__dict__["_ocr_gpu3"] = _e
+            return _e
+        except Exception:
+            self.__dict__["_ocr_gpu3_failed"] = True
+            return None
+
+    def _ensure_ocr_cpu3(self):
+        try:
+            _e = self.__dict__.get("_ocr_cpu3")
+            if _e is not None:
+                return _e
+            if self.__dict__.get("_ocr_cpu3_failed"):
+                return None
+            _main = self.__dict__.get("_ocr_main")
+            if not isinstance(_main, RapidOCRBackend):
+                return None
+            if (os.cpu_count() or 2) < 6:
+                self.__dict__["_ocr_cpu3_failed"] = True
+                return None
+            try:
+                _av = self._available_ram_gb()
+            except Exception:
+                _av = None
+            if _av is not None and _av < 4.5:
+                self.__dict__["_ocr_cpu3_failed"] = True
+                return None
+            _e = RapidOCRBackend(
+                lang=str(getattr(_main, "lang", "en") or "en"),
+                prefer_gpu=False)
+            if _e is None:
+                self.__dict__["_ocr_cpu3_failed"] = True
+                return None
+            self.__dict__["_ocr_cpu3"] = _e
+            return _e
+        except Exception:
+            self.__dict__["_ocr_cpu3_failed"] = True
+            return None
+
+    def _ensure_lama_cpu_twin(self):
+        try:
+            _s = self.__dict__.get("_lama_cpu_twin")
+            if _s is not None:
+                return _s
+            if self.__dict__.get("_lama_cpu_twin_failed"):
+                return None
+            if str(getattr(self, "device_pref", "auto") or "auto") != "auto":
+                return None
+            if _on_android() or not self.use_lama:
+                return None
+            _main = getattr(self, "_lama", None)
+            if _main is None:
+                return None
+            _ep = str(getattr(_main, "ep_used", "") or "").strip().lower()
+            if _ep in ("", "cpu", "none"):
+                return None
+            self.__dict__["_lama_cpu_twin_failed"] = True
+            return None
+        except Exception:
+            self.__dict__["_lama_cpu_twin_failed"] = True
+            return None
 
     @staticmethod
     def _detect_paddle_gpu() -> bool:
@@ -94,7 +326,6 @@ class MangaTranslator:
             return True
         if cm == "lama-big":
             if not has_torch:
-# torch فقط با انتخاب lama-big نصب می‌شود (بار اول)
                 has_torch = _ensure_torch_cpu()
             if not has_torch:
                 print("[*] lama-big این‌جا torch ندارد → lama.onnx.")
@@ -148,7 +379,6 @@ class MangaTranslator:
             return True
 
         if has_ort and not _on_android():
-# دسکتاپ بدون torch → پیش‌فرض lama.onnx (سبک و سریع)، نه OpenCV
             print("[*] دسکتاپ → پاک‌سازی پیش‌فرض با lama.onnx + flat (سبک و سریع). "
                   "برای big-lama: --clean-method lama-big | برای OpenCV: --clean-method opencv")
             return True
@@ -184,9 +414,7 @@ class MangaTranslator:
         img_quality: int = 90,
         max_workers: int = 1,
         mag_ratio: float = 1.35,
-        translation_temperature: float = 0.7,  # دستور: ۰.۷ (عینِ مرجع)
-# تنظیمِ top_p (ذخیره در تنظیمات؛ پیشفرض 0.9؛ کلمپ 0..1)
-# حالا مثلِ خودِ مرجع از تنظیمات میآید نه هاردکد
+        translation_temperature: float = 0.7,
         translation_top_p: float = 0.9,
         two_pass_ocr: bool = True,
         max_output_width: Optional[int] = None,
@@ -197,33 +425,57 @@ class MangaTranslator:
         debug: bool = False,
         fake_translate: bool = False,
         clean_only: bool = False,
-# «از اول ترجمه کن» (پرسشِ ادامه/از-نو در اپ): ترجمه‌های کش‌شده
-# نادیده گرفته میشوند و همهٔ حباب‌ها از نو ترجمه می‌شوند
         translate_retranslate: bool = False,
         style_fonts: bool = True,
         active_tones: Optional[List[str]] = None,
         instruction_text: Optional[str] = None,
         prompt_mode: Optional[str] = None,
+        deep_thinking: bool = True,
+        safety_settings: bool = False,
+        max_tokens_mode: str = "auto",
+        max_tokens_custom: int = 4096,
         clean_sfx: bool = False,
         repair_page_seams: bool = True,
+        device_pref: str = "auto",
     ):
         self.fake_translate = bool(fake_translate)
         self.clean_only = bool(clean_only)
+        _dev_pref = str(device_pref or "auto").strip().lower()
+        if _dev_pref not in ("auto", "cpu", "gpu"):
+            _dev_pref = "auto"
+        self.device_pref = _dev_pref
+        if _dev_pref != "auto" and gpu is None:
+            gpu = (_dev_pref == "gpu")
         self.translate_retranslate = bool(translate_retranslate)
-# پاکسازیِ افکت‌های صوتی/متنِ استایل‌دارِ بیرونِ حباب
-# (پیش‌فرض خاموش: SFX هنر حساب می‌شود و دست‌نخورده می‌ماند)
+        self.deep_thinking = bool(deep_thinking) and (
+            os.environ.get("MANGA_NO_THINKING", "").strip().lower()
+            not in ("1", "true", "yes"))
+        self.safety_settings = bool(safety_settings)
+        self._last_finish_reason = ""
+        self._reasoning_unsupported = False
+        _mt_mode = str(max_tokens_mode or "auto").strip().lower()
+        if _mt_mode not in ("auto", "8192", "16384", "32768",
+                            "65536", "custom"):
+            _mt_mode = "auto"
+        self.max_tokens_mode = _mt_mode
+        if _mt_mode == "custom":
+            try:
+                _mtv = int(max_tokens_custom or 4096)
+            except Exception:
+                _mtv = 4096
+            self.max_output_tokens = (_mtv if _mtv >= 1024 else 4096)
+        elif _mt_mode == "auto":
+            self.max_output_tokens = None
+        else:
+            self.max_output_tokens = int(_mt_mode)
         self.clean_sfx = bool(clean_sfx) or (
             os.environ.get("MANGA_CLEAN_SFX", "0").strip() == "1")
         self.style_fonts = bool(style_fonts)
         self.active_tones = (set(active_tones) if active_tones else None)
-# متنِ برابرِ پیشفرضهایِ شناختهشده «سفارشی» نیست
-# (فیکسِ گوشی: فیلدِ پُرشده با متنِ کلاسیک باعثِ غیرِ auto شدن میشد)
         _raw_instr = (instruction_text or "").strip() or ""
         if _raw_instr and is_known_default_instruction(_raw_instr):
             _raw_instr = ""
         self.custom_instruction = _raw_instr
-# سبکِ پرامپت: پیش‌فرض = professional (auto حذف شد — دستورِ
-# سازنده: «دکمه auto حذف کن بزار رو pro»)
         _pm = ((prompt_mode if prompt_mode is not None
                 else os.environ.get("MANGA_PROMPT_MODE", "")) or "professional").lower().strip()
         self.prompt_mode = _pm if _pm in PROMPT_MODES else "professional"
@@ -257,13 +509,9 @@ class MangaTranslator:
         self._key_cooldown_until: Dict[str, float] = {}
         self.gemini_rpm_budget = 5
         self._daily_dead: Dict[Tuple[str, str], bool] = {}
+        self._mt_dupe_memo: Dict[Tuple[str, str], Tuple[str, str]] = {}
+        self._mt_dupe_lock = threading.Lock()
 
-# مدلِ «خواسته‌شده» (قبل از پیش‌فرض/کَسکید) — برای امضای ترجمه:
-# تشخیصِ عوض‌شدنِ مدل در پرسشِ ادامه/از-نوِ اپ.
-# چند-مدلی (دستورِ سازنده): فیلدِ مدل میتواند «چند مدل با کاما»
-# بگیرد (مثلاً «gemini-3.5-flash,Gemini-3.7-flash») — در Gemini و
-# custom یکسان. کاسکید = همان ترتیبِ کاربر؛ مدلِ اول = اصلی،
-# بقیه = فال‌بک وقتی اولی مرده/محدود شد (عینِ رفتارِ چند-کلیدی).
         self.model_name_raw = (model_name or "").strip()
         _user_models = parse_model_list(self.model_name_raw)
         self.model_list = _user_models
@@ -273,16 +521,12 @@ class MangaTranslator:
         self._model_cascade: List[str] = []
         self._model_index: int = 0
         self._last_good_model: str = ""
-# قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
-# پیگیر اون مدل نشه؛ فقط اونای که یک بار کار کرده تست بزنه»
         self._model_fail_counts: Dict[str, int] = {}
         self._model_ok_counts: Dict[str, int] = {}
         self._model_banned: set = set()
         _user_base = (api_base or "").strip()
         self.api_base = normalize_api_base(_user_base) if _user_base \
             else self.provider_cfg.get("base_url")
-# کلید کاستوم: فرمت API از خودِ لینک شناخته می‌شود —
-# …/chat/completions | …/responses | …/messages | …:generateContent
         if _user_base and self.api_base:
             _ftype, _fbase = detect_custom_api_format(self.api_base)
             if _ftype != "openai" or re.search(
@@ -332,9 +576,6 @@ class MangaTranslator:
 
         self.min_translate_batch = max(1, int(getattr(self, "min_translate_batch", 15) or 15))
 
-# سبکِ مرجع: «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن» — کلِ
-# متنهایِ استخراجشدهٔ فصل در «یک» درخواستِ ترجمه میروند (استریم +
-# پارسرِ افزایشی)؛ ردیفِ ترجمهٔ ۱۵تاییِ میانهٔ کار دیگر نیست.
         self.chapter_one_request = True
 
         self.erase_bubble_interior = False
@@ -347,7 +588,6 @@ class MangaTranslator:
         self.img_quality = img_quality
         self.max_workers = max(1, int(max_workers))
         self.mag_ratio = mag_ratio
-# clamp عینِ مرجع (Math.Clamp(temperature 0..2, topP 0..1))
         try:
             self.translation_temperature = min(2.0, max(0.0, float(translation_temperature)))
         except Exception:
@@ -357,9 +597,6 @@ class MangaTranslator:
         except Exception:
             self.translation_top_p = 0.9
         self.two_pass_ocr = bool(two_pass_ocr)
-# پاسِ دومِ OCR رویِ اندروید هم مثلِ PC روشن است
-# (قبلاً کلاً خاموش بود → «کمتر استخراج شده»). خاموشیِ دستی:
-# MANGA_ANDROID_TWO_PASS=0
         if _on_android() and os.environ.get(
                 "MANGA_ANDROID_TWO_PASS", "").strip().lower() in (
                 "0", "false", "no"):
@@ -368,22 +605,8 @@ class MangaTranslator:
         self.stitch_max_height = int(stitch_max_height) if stitch_max_height else 0
         self.stitch_short_threshold = int(stitch_short_threshold) if stitch_short_threshold else 0
         self.stitch_keep_first = bool(stitch_keep_first)
-# کاربرِ CLI خودش --stitch-max-height داده یا پیش‌فرض است؟
-# در «حالت صفحات مستقل» (چند لینک/فایلِ مستقیم) برش/چسباندن انجام
-# نمی‌شود مگر کاربر صراحتاً فلگ را داده باشد یا محیط (اندروید) خواسته باشد.
         self.stitch_explicit = bool(stitch_explicit)
-# حالتِ صفحاتِ مستقل: هر لینک/فایلِ مستقیم = یک رانِ تکی.
-# باگِ کاربر: در بچِ چند-لینکی، ریسایزِ گروهیِ عرض (900→800) + چسباندنِ
-# صفحه‌ها + برشِ دوبارهٔ ~8000px باعث می‌شد (۱) متن‌های تایتلی مثل
-# GREEN MOON نصف/نپاک بمانند (۲) برشِ داخلِ باندِ سیاهِ هنر، لبهٔ سیاه
-# بسازد (۳) آستانه‌هایِ گاردِ ترمیم که رویِ مقیاسِ بومی کالیبره شده‌اند
-# رویِ نسخهٔ ریسایزشده درست کار نکنند. در حالتِ تکی هیچ‌کدام رخ نمی‌دهد.
         self._independent_pages = False
-# سدِ دو-فازیِ «اول استخراجِ همه، بعد ترجمه»:
-# پیشفرض True = مسیرهایِ قدیمی (تک‌صفحه‌ایِ اندروید/process_core)
-# دست‌نخورده؛ run فقط برای فازِ استخراجِ بچ False میکند و بعد
-# از joinِ دو کارگرِ استخراج دوباره True — هر فراخوانیِ مترجم در
-# فازِ استخراج = رگرسیون و با لاگِ بلند اعلام میشود.
         self._extraction_done = True
         self.repair_page_seams = bool(repair_page_seams)
         self.debug = bool(debug)
@@ -392,16 +615,11 @@ class MangaTranslator:
         self._lama = None
         self._lama_lock = threading.Lock()
         self._lama_preload_started = False
+        self._ocr_tls = threading.local()
+        self._ocr_img_parallel = False
+        self._lama_tls = threading.local()
         self._title_skip_patterns: List[str] = []
         MangaTranslator._title_skip_patterns = []
-# قفلِ سریالِ پاکسازیِ صفحه: پاکسازیِ دو صفحهٔ بچ در
-# دو کارگرِ فازِ دوم همزمان میشد و وضعیتِ صفحه‌محورِ مشترک
-# (self._page_regions / _compose_text_mask / _page_protect /
-# _donor_boxes / _lama_force_rect_boxes …) بینِ دو صفحه قاطی
-# میشد → کامپوزِ صفحهٔ A با نواحی/ماسکِ صفحهٔ B ساخته میشد =
-# «متنِ قبلی میمونه» + «کلِ حباب انتقال پیدا میکنه / حباب خراب»
-# فقط در بچ (در حالتِ تکی هرگز همزمانی نیست). حالا بدنهٔ
-# پاکسازیِ هر صفحه زیرِ این قفلِ کلاسی اجرا میشود.
         if not hasattr(MangaTranslator, "_page_clean_lock"):
             MangaTranslator._page_clean_lock = threading.Lock()
         self.client = None
@@ -413,8 +631,6 @@ class MangaTranslator:
                 "پیشنهاد: فونت Vazirmatn (رایگان و متن‌باز)."
             )
 
-# فونت مخصوص «پنجرهٔ سیستم» — اگر --font-system داده نشد
-# خودکار دنبال فونت UI (Sahel/System/Code/Mono) کنار فونت اصلی بگرد.
         try:
             _sys_fp = (self.font_by_style or {}).get("system")
             _sys_default = (not _sys_fp
@@ -450,9 +666,6 @@ class MangaTranslator:
             pass
 
         if gpu is None:
-# DirectML هم مسیرِ GPU است (AMD/Intel رویِ ویندوز
-# RX 5700 XT هرگز GPU نمیگرفت چون فقط CUDA
-# بررسی میشد). اولویت: paddle/torch/CUDA → بعد DML.
             _dml = False
             try:
                 _dml = (os.name == "nt") and _ort_has_dml()
@@ -460,11 +673,6 @@ class MangaTranslator:
                 _dml = False
             ocr_gpu = (self._detect_paddle_gpu() or self._detect_torch_cuda()
                        or _ort_has_cuda() or _dml)
-# کارتِ انویدیا هست ولی بیلدِ ORT بدونِ CUDA است
-# (نصبِ قدیمی/دستیِ onnxruntime): دیگر «GPU پیدا نشد» نمیگوییم —
-# وضعیتِ واقعی + راه‌حل چاپ میشود تا «گرافیک صفر درصد» معما
-# نمانَد. بوت‌استرپ هم حالا NVIDIA را در ویندوز میبیند و
-# onnxruntime-gpu را خودش نصب میکند.
             try:
                 _nv = _nvidia_gpu_present()
             except Exception:
@@ -479,8 +687,6 @@ class MangaTranslator:
                       "→ OCR روی CPU. (بارِ بعدی استارت، onnxruntime-gpu خودکار "
                       "نصب میشود؛ یا دستی: pip install 'onnxruntime-gpu[cuda,cudnn]==1.26.0')")
             else:
-# GPUِ ویندوزیِ بدونِ DirectML: راهنمای روشن
-# (بوت‌استرپ همان اول باید onnxruntime-directml نصب کند)
                 _dx = False
                 try:
                     _dx = _directx_gpu_present()
@@ -495,7 +701,11 @@ class MangaTranslator:
                     print("[*] GPU پیدا نشد؛ OCR روی CPU اجرا می‌شه.")
         else:
             ocr_gpu = bool(gpu)
-            if ocr_gpu:
+            if self.device_pref == "gpu":
+                print("[*] تنظیمِ دستگاه: GPU — استخراجِ متن و پاکسازی فقط روی GPU.")
+            elif self.device_pref == "cpu":
+                print("[*] تنظیمِ دستگاه: CPU — استخراجِ متن و پاکسازی فقط روی CPU.")
+            elif ocr_gpu:
                 print("[*] --gpu زده شده؛ OCR روی GPU.")
             else:
                 print("[*] --cpu زده شده؛ OCR روی CPU.")
@@ -518,8 +728,6 @@ class MangaTranslator:
         }
         main_lang = "en"
         for lang in self.ocr_langs:
-# چندزبانه: اندروید = موتورِ دوئلیِ «multi»؛ PC =
-# مثلِ قبل (ko اولِ لیستِ قدیمی بود)
             if str(lang).lower().strip() == "multi":
                 main_lang = "multi" if _on_android() else "korean"
                 break
@@ -537,9 +745,6 @@ class MangaTranslator:
                 print(f"[*] RAM آزاد کم است ({avail_ram:.1f} GB) → workers={self.max_workers} به ۲ محدود شد.")
                 self.max_workers = 2
         if self.max_workers <= 1:
-# بودجهٔ موازیِ سیستم (cpu+ram+gpu) به‌جایِ عددِ
-# خجالتیِ ۲/۳: همهٔ نواحیِ متن همزمان استخراج و پاک میشوند
-# (دستور: «حداکثر توانش»)
             try:
                 self.max_workers = _parallel_budget("ocr")
             except Exception:
@@ -605,14 +810,6 @@ class MangaTranslator:
                 print(f"[!] PaddleOCR لود نشد ({e}) → RapidOCR ONNX")
 
         if self.ocr is None and _on_android():
-# سبکِ «استخراج و پاکسازی»ٔ مخصوصِ گوشی کلاً حذف
-            #) — نه کاسکاد، نه پاسِ
-# شد (
-# تمامصفحه. استخراجِ متنِ گوشی = همان سبکِ PC/لینوکس:
-# detector-v4-s_int8.onnx مکانِ متن را پیدا میکند و OCR فقط
-# رویِ همان کراپها اجرا میشود.
-# →187 — موتورِ OCRِ کراپ = رپیدِ رسمیِ اندروید
-# (PP-OCRv4_mobileِ ONNX؛ ML Kitِ قبلی کامل حذف شد).
             try:
                 self.ocr = RapidOCRBackend(
                     lang=main_lang, prefer_gpu=self.use_gpu)
@@ -623,9 +820,6 @@ class MangaTranslator:
                 print(f"[!] موتورِ OCR گوشی لود نشد ({e})")
                 raise
 
-# اوررایدِ عمومیِ تعدادِ ورکر (MANGA_OCR_WORKERS) —
-# قبلاً فقط در مسیرِ paddlelite خوانده میشد؛ حالا بعد از انتخابِ
-# بکاند برایِ همهٔ موتورها اعمال میشود (تستِ ARM-CI: W1/W2/W6).
         try:
             _nw_env = int(os.environ.get("MANGA_OCR_WORKERS", "0") or 0)
             if _nw_env > 0:
@@ -645,11 +839,6 @@ class MangaTranslator:
                     "  یا: pip install rapidocr  (یا rapidocr-onnxruntime)"
                 ) from e
 
-# همترازیِ workers × threads ≈ هسته‌ها (همان اصلیِ
-# LaMa در پاکسازی): با intra=2 رویِ PC، ورکرِ بیشتر از هسته÷۲ فقط
-# تشتت است (۸ هسته × ۷ ورکر × ۸ نخِ قبل = ۵۶ نخ رویِ ۸ هسته
-# بنچمارکِ کلاسِ PCِ قدیم: صفحهٔ lang_zh.jpg — detِ medium
-# ۲۹.۷s → ستِ گوشی ۱۸.۴s). اندروید دستنخورده (پلِ خودش میچیند).
         if self.ocr is not None and not _on_android():
             _thr = int(getattr(self.ocr, "ocr_threads", 0) or 0)
             if _thr > 0:
@@ -675,12 +864,7 @@ class MangaTranslator:
                 prefer_gpu=self.use_gpu,
                 conf_thresh=self.det_confidence,
                 iou_thresh=0.45,
-# speed — اندروید: 4 نخِ مستقل از workers (فازِ
-# bubble-det همپوشانی با OCR ندارد؛ قبلاً به workers گره
-# خورده بود و با workers=2 ناخواسته کند میشد)
                 threads=4 if _on_android() else max(1, int(self.max_workers or 2)),
-# multi_scale رویِ اندروید هم (عینِ PC) وقتی
-# موتورِ OCR = PP-OCRv4_mobileِ ONNX است. کیفیتِ تشخیصِ حباب = PC.
                 multi_scale=(not _IS_ANDROID)
                             or (self._ocr_backend_name == "rapidocr"),
             )
@@ -703,10 +887,6 @@ class MangaTranslator:
                 )
 
             self._key_index = 0
-# در clean-only یا fake-translate هیچ درخواستی به
-# API زده نمی‌شود؛ ساختِ کلاینتِ واقعی (genai/openai) هم لازم
-# نیست و رویِ بعضی شبکه‌ها (پروکسیِ IPv6 در no_proxy) حتی
-# کرش می‌کند.
             if not self.clean_only and not self.fake_translate:
                 self._apply_api_key(self._api_keys[0])
             else:
@@ -731,16 +911,10 @@ class MangaTranslator:
                     "  pip install openai"
                 )
             self._key_index = 0
-# clean-only/fake-translate: بدونِ کلاینتِ API
-# (مثلِ شاخهٔ gemini)
             if not self.clean_only and not self.fake_translate:
                 self._apply_api_key(self._api_keys[0])
             else:
                 self.client = None
-# چند-مدلی در custom/سرویسهایِ openai-سازگار هم (دستورِ
-# سازنده: «تو همشون هم کاستوم هم Gemini»): کاسکید = فهرستِ
-# مدلهایِ کاربر به همان ترتیب؛ فال‌بک خودکار وقتی مدلِ اول
-# مرده/محدود شد
             self._model_cascade = ([m for m in
                                     (getattr(self, "model_list", None) or [])]
                                    or [self.model_name])
@@ -788,7 +962,15 @@ class MangaTranslator:
             self._lama_preload_started = False
 
     def _get_lama(self, threads: int = 0, force: bool = False):
-        _t_lw = time.time()  # انتظارِ ساختِ سشن
+        try:
+            _tls = self.__dict__.get("_lama_tls")
+            if _tls is not None:
+                _s = getattr(_tls, "sess", None)
+                if _s is not None:
+                    return _s
+        except Exception:
+            pass
+        _t_lw = time.time()
         with self._lama_lock:
             try:
                 _lw = time.time() - _t_lw
@@ -798,22 +980,11 @@ class MangaTranslator:
             except Exception:
                 pass
             _l = self._get_lama_locked()
-# سرعتِ LaMa — دورِ دوم. وقتی پچِ موازی کم است، تک‌نخی
-# بودنِ هر پچ یعنی بیشترِ هسته‌ها بیکار (لاگِ POCO F4 کاربر:
-# ۲ پچ × ۱ نخ = 17.8s). سشن با نخِ بیشتر بازسازی می‌شود تا هر
-# پچ چندنخی شود؛ محدودیت در _lama_switch_ok.
-# force=True — سوئیچِ نخ در لحظهٔ زمان‌بندیِ پچ‌ها یک
-# بارِ آگاهانه است، نه رگبار؛ خنک‌کاریِ ۲ثانیه‌ای باعث می‌شد اولین
-# سوئیچ (بعدِ لودِ پس‌زمینه‌ایِ مدل) رد شود و زمان‌بند با
-# «۲ پچ × ۴ نخ» (کند روی big.LITTLE) کار می‌کرد به‌جای
-# «۴ پچ × ۲ نخ» (تنظیمِ سریعِ v47 روی POCO F4).
             _want_sw = (threads and _l is not None and self.use_lama
                         and int(threads) != int(getattr(self, "_lama_threads", 0) or 0)
                         and isinstance(_l, LamaMangaONNX))
             if _want_sw and str(getattr(_l, "ep_used", "") or "cpu").lower() \
                     not in ("", "cpu", "none"):
-# دیگر نباید رخ بدهد (ep_used صادق شد) ولی اگر
-# شد، بی‌صدا نماند
                 try:
                     print(f"    [~] سوئیچِ LaMa به {threads} نخ رد شد "
                           f"(EP: {getattr(_l, 'ep_used', '?')})", flush=True)
@@ -822,9 +993,6 @@ class MangaTranslator:
                 _want_sw = False
             if _want_sw and not self._lama_switch_ok(int(threads),
                                                      force=force):
-# چراییِ ردِ سوئیچ لاگ شود — شکستِ بی‌صدا = لاگِ
-# بدونِ سرنخ (لاگِ : هیچ «سشنِ LaMa → ۲ نخ»ی چاپ نشده
-# بود و نمی‌شد فهمید چرا). فقط یک بار به‌ازایِ درخواست.
                 try:
                     _av = self._available_ram_gb()
                     _old = int(getattr(self, "_lama_threads", 0) or 0)
@@ -849,7 +1017,6 @@ class MangaTranslator:
                     except Exception:
                         pass
                 else:
-# ساختِ سشنِ جدید شکست خورد — دلیلش لاگ شود
                     try:
                         _av = self._available_ram_gb()
                         print(f"    [!] ساختِ سشنِ LaMa با {threads} نخ ناموفق "
@@ -860,11 +1027,6 @@ class MangaTranslator:
             return self._lama
 
     def _lama_switch_ok(self, threads: int, force: bool = False) -> bool:
-        """محدودِ تغییرِ نخِ سشنِ LaMa — از رگبارِ بازسازی جلوگیری می‌کند.
-        : گاردِ رم ۰.۳۵→۰.۲۸GB (نخِ بیشتر فقط arena کمی بزرگ‌تر
-        می‌کند، وزن‌ها همان است) + تفاوتِ کمِ نخ (±۱) سوئیچ نمی‌کند تا
-        بازسازیِ پیاپی رخ ندهد. : force=True فقط خنک‌کاریِ ۲s را
-        رد می‌کند (گاردِ رم و ±۱ و سقفِ ۴ برقرار می‌ماند)."""
         try:
             _now = time.time()
             if not force and (_now - float(
@@ -876,9 +1038,6 @@ class MangaTranslator:
             if not (1 <= int(threads) <= 4):
                 return False
             _av = self._available_ram_gb()
-# سوئیچِ روبه‌پایین (۴→۲) arena را «کوچک‌تر» می‌کند —
-# گاردِ رم برایش سخت‌گیریِ بی‌مورد است (لاگِ POCO F4: همین گارد
-# سوئیچ را می‌خورد و زمان‌بند روی «۲ پچ × ۴ نخ»یِ کند می‌ماند).
             _thr_min = 0.12 if int(threads) < _old else 0.28
             if _av and _av < _thr_min:
                 return False
@@ -893,16 +1052,11 @@ class MangaTranslator:
             return None
 
     def _get_lama_cpu_safe(self):
-        """ — سشنِ امنِ CPU برایِ نجاتِ پچِ LaMa وقتی EPِ اصلی
-        (xnnpack/nnapi) وسطِ کارِ واقعی ORT_FAIL می‌دهد (پروبِ شکلِ ثابت
-        پاس می‌شود ولی پچِ داینامیک نه — ریشهٔ «لکهٔ قرمزِ» POCO F4).
-        فقط بارِ اول ساخته می‌شود و کش می‌ماند؛ مدل از همان کش می‌آید."""
         _s = getattr(self, "_lama_cpu_safe", None)
         if _s is not None:
             return _s
         if getattr(self, "_lama_cpu_safe_failed", False):
             return None
-# قفل: دو پچِ موازی نباید دو سشنِ CPU بسازند (رمِ گوشی)
         _lk = getattr(self, "_lama_cpu_safe_lock", None)
         if _lk is None:
             import threading as _th
@@ -922,7 +1076,6 @@ class MangaTranslator:
                 except Exception:
                     _av = None
                 if _av and _av < 0.30:
-# رمِ آزادِ خیلی کم — ساختِ سشنِ دوم خطرِ OOM دارد
                     self._lama_cpu_safe_failed = True
                     try:
                         print(f"    [~] سشنِ CPUِ امنِ LaMa ساخته نشد "
@@ -947,13 +1100,6 @@ class MangaTranslator:
 
     def _force_box_gradient_fill(self, image: np.ndarray,
                                  cx0: int, cy0: int, cx1: int, cy1: int):
-        """ — آخرین فال‌بکِ بلوکِ «متنِ روشن روی محفظهٔ تیره»
-        وقتی هم EP شکست خورد هم سشنِ CPU: کلِ داخلِ باکس با همان ریاضیِ
-        پرکنندهٔ گرادیانیِ /62 (میانهٔ محلیِ پیکسل‌هایِ تیره) پر
-        می‌شود. چرا نه اسنپ‌شات؟ چون در مسیرِ block-rect∪ink هیچ
-        پرکنندهٔ فوری‌ای اجرا نشده و اسنپ‌شات هنوز خودِ متن را دارد
-        (بازتولیدِ سندباکس: pastingِ متنِ اصلی!). قابِ تزئینی با فرسایشِ
-        ۸px محافظت می‌شود. خروجی: کراپِ هم‌اندازهٔ (cy1-cy0, cx1-cx0)."""
         try:
             _fbs = getattr(self, "_lama_force_rect_boxes", None) or []
             if not _fbs:
@@ -1051,7 +1197,6 @@ class MangaTranslator:
             if _backend == "onnx":
                 _want_torch = False
             elif _backend == "torch":
-# کاربر lama-big خواسته → torch همین‌جا نصب می‌شود (بار اول)
                 if not _torch_available():
                     _ensure_torch_cpu()
                 _want_torch = _torch_available()
@@ -1070,8 +1215,6 @@ class MangaTranslator:
                 print("    [*] بارگذاری lama.onnx ...")
             if self._lama is None and self.use_lama:
                 try:
-# نخِ هر نشست LaMa را با تعداد پچ‌های موازی تنظیم کن تا
-# CPU اشباعِ درست شود (workers × threads ≈ هسته‌ها)
                     try:
                         _awa = int(self._lama_workers_auto())
                     except Exception:
@@ -1080,16 +1223,11 @@ class MangaTranslator:
                         _nc = int(self._cpu_core_count())
                     except Exception:
                         _nc = os.cpu_count() or 4
-# لاگِ POCO F4 (۸ هسته) نشان داد سشن با ۲ نخ باز
-# می‌شد (۸÷min(awa,4)=۲) و سوئیچِ بعدی هم با گاردِ رم رد
-# می‌شد → ۴ هسته بیکار. حالا سشنِ اولیه با هسته‌ها÷۲ (تا سقف
-# ۴) باز می‌شود: ۲ پچ × ۴ نخ = ۸ هسته = CPUِ کامل بدونِ بازسازی
                     _thr = max(1, min(4, _nc // 2))
                     self._lama = LamaMangaONNX(
                         prefer_gpu=self.use_gpu,
                         threads=_thr,
                     )
-# مسیرِ مدل برایِ سشنِ امنِ CPU (نجاتِ پچ)
                     try:
                         self._lama_model_path = getattr(
                             self._lama, "model_path", None)
@@ -1109,8 +1247,6 @@ class MangaTranslator:
                         self.use_lama = False
                         self._lama = None
                         self._inpainter_name = "OpenCV"
-# نخِ واقعیِ سشنِ اولیه ثبت شود تا اولین سوئیچِ تطبیقیِ
-# _get_lama(threads=…) بی‌دلیل بازسازی نکند
         if self._lama is not None and not getattr(self, "_lama_threads_seen", False):
             self._lama_threads = int(getattr(self._lama, "thr_used", 0) or 0)
             self._lama_threads_seen = True
@@ -1198,17 +1334,6 @@ class MangaTranslator:
 
     @staticmethod
     def _static_fallback_models(primary: str) -> List[str]:
-# لیستِ ثابت با مدل‌هایِ «واقعاً موجود» (نوامبر ۲۰۲۶ —
-# مستنداتِ رسمیِ Gemini / فهرستِ models): قبلاً gemini-3.7-flash و
-# gemini-3.5-flash (غیرِ Lite) در لیست بودند که هرگز/دیگر وجود
-        #. حالا: پایدارها (3.5-flash-lite
-# ندارند —
-# 3.1-flash-lite، 3.6-flash) + پرچمدارِ gemini-4-argon + previewِ
-# 3.8-flash + اسم‌هایِ -latest. لیستِ ثابت فقط وقتی استفاده
-# میشود که کشفِ زندهٔ API هیچ مدلی برنگرداند.
-        # →
-# argon و pro از فهرستِ ثابت حذف شدند؛ همانِ
-# GEMINI_FLASH_MODELS_OFFLINE (یک منبعِ واحد).
         preferred = list(GEMINI_FLASH_MODELS_OFFLINE)
         cascade = [primary] if primary else []
         for m in preferred:
@@ -1235,8 +1360,6 @@ class MangaTranslator:
             "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest"
         )
 
-# خواستهٔ کاربر: «چرا از Flash-Lite استفاده نمیکنه؟»
-# Lite اول (سبک‌تر/ارزون‌تر)، بعد Flash، بعد preview/pro.
         if is_lite:
             type_rank = 0
         elif is_flash:
@@ -1276,13 +1399,6 @@ class MangaTranslator:
                     continue
                 if not low.startswith("gemini"):
                     continue
-# رایگان/پولی اینجا با نامِ مدل تشخیص داده نمیشود (دستورِ
-# v1.14.290: «فقط اونای که اوکی خروجی میده نگه داره») — همهٔ
-# مدلهایِ متنِِ زنده میآیند و بعد «سنجشِ زنده»
-# (gemini_style_probe_many؛ در _build_model_cascade) هر کدام را
-# با یک درخواستِ واقعیِ کوچک میآزماید: بی‌پاسخ (پولی/سهمیه)
-# یا کتابی = حذف. هیچ نامِ مدلِ خاصی در کد نیست.
-# نسلهایِ مردهٔ ۱/۲ خاموشند (generateContent=404) — از کشف حذف
                 _dg = re.match(r"gemini-(\d+)", low)
                 if _dg:
                     try:
@@ -1299,8 +1415,6 @@ class MangaTranslator:
                 elif methods:
                     ok = "generateContent" in methods
                 else:
-# بدونِ متادیتا: مدلِ رایگانِ متن را سالم فرض میکنیم (فیلترهای
-# بالا پاس شده) — «فقط flash» دستی حذف شد
                     ok = True
                 if not ok:
                     continue
@@ -1309,9 +1423,6 @@ class MangaTranslator:
             _msg = str(e).split(chr(10))[0][:120]
             print(f"    [!] کشفِ SDK مدل ناموفق: {_msg} → تلاشِ REST")
 
-# خواستهٔ کاربر: «مدل‌ها همیشه از سایتِ گوگل گرفته شوند» —
-# اگر خودِ SDK لیست نداد، مستقیم از REST سرورِ گوگل پرسیده میشود تا
-# مدل‌هایِ مرده (مثلِ gemini-2.5-flash که از رفته) اصلاً در چرخ نیایند.
         if not names:
             names = self._discover_models_via_rest()
         if not names:
@@ -1321,8 +1432,6 @@ class MangaTranslator:
         return uniq
 
     def _discover_models_via_rest(self) -> List[str]:
-        """ — کشفِ مدل با REST مستقیم (v1beta/models) وقتی SDK لیست
-        نداد. خروجی فقط مدل‌هایِ زندهٔ همین لحظهٔ گوگل است."""
         import requests as _rq
         key = ""
         try:
@@ -1357,9 +1466,6 @@ class MangaTranslator:
                     continue
                 if any(b in low for b in ban_substrings):
                     continue
-# رایگان/پولی با نام تشخیص داده نمیشود (v1.14.290) —
-# سنجشِ زنده در _build_model_cascade خودش معلوم میکند.
-# نسلهایِ مردهٔ ۱/۲ — از کشف حذف
                 _dg = re.match(r"gemini-(\d+)", low)
                 if _dg:
                     try:
@@ -1392,15 +1498,6 @@ class MangaTranslator:
             return True
         if not low.startswith("gemini"):
             return True
-# (دستورِ v1.14.289): هیچ نامِ مدلِ خاصی (نه hydrogen نه چیزِ
-# دیگر) دستی اینجا پذیرفته/رد نمیشود — مدلِ ناشناخته = سالم؛
-# خودِ API در عمل معلوم میکند (404/سهمیه → cascade مدلِ بعدی).
-# سرویسِ گوگل در models.list هنوز اسمهایِ مُرده را
-# مدل‌هایِ مُردهٔ نسلِ ۱/۲ (
-# برمیگرداند ولی generateContent رویشان 404 میدهد (تاییدِ رسمی:
-# gemini-2.0-flash و 2.0-flash-lite خاموش؛ 2.5-flash/pro بهمرور
-# ۱ دسامبر ۲۰۲۶). هر gemini-1.x/2.x از چرخ/لیست حذف میشود —
-# کاربر همچنان میتواند دستی تایپ کند (allow_custom_value).
         _m = re.match(r"gemini-(\d+)", low)
         if _m:
             try:
@@ -1412,15 +1509,6 @@ class MangaTranslator:
 
     @staticmethod
     def _is_bad_list_model(name: str) -> bool:
-        """ — صافیِ «فهرستِ مدلها» (فیلدِ وب / ↻ اندروید /
-        کشفِ زندهٔ API): فقط مدلهایِ ترجمه‌پذیرِ متن (غیرمتنیها و
-        نسلهایِ مردهٔ ۱/۲ حذف). رایگان/پولی و کتابی/محاوره‌ای با
-        «سنجشِ زنده» (gemini_style_probe_many — درخواستِ واقعیِ
-        کوچک به خودِ مدل) معلوم میشود، نه با نام (دستورِ
-        v1.14.290: «فقط اونای که اوکی خروجی میده نگه داره»؛
-        هیچ نامِ مدلِ خاصی — مثلِ hydrogen — در کد نیست).
-        تایپِ دستیِ مدلهایِ دیگر در فیلدِ مدل آزاد است
-        (_is_bad_translate_model سرِ جایش است)."""
         return MangaTranslator._is_bad_translate_model(name)
 
     @staticmethod
@@ -1445,11 +1533,6 @@ class MangaTranslator:
         if primary and self._is_bad_translate_model(primary):
             primary = ""
 
-# چند-مدلیِ کاربر (دستورِ سازنده: «بجاش بنویسن مثل کاستوم …
-# بتونن چند تا مدل بدن»): کلِ فهرستِ کاربر با همان ترتیبش
-# اولِ کاسکید مینشیند؛ بعد مدلهایِ کشف‌شدهٔ زنده و در آخر
-# فهرستِ آفلاین. مدلِ مرده/بن‌شده از وسط برداشته میشود و
-# ادامه از بعدیِ همان فهرستِ کاربر است.
         user_list = [m.strip().replace("models/", "") for m in
                      (getattr(self, "model_list", None) or [])
                      if str(m or "").strip()]
@@ -1457,11 +1540,15 @@ class MangaTranslator:
         if primary and primary not in user_list:
             user_list.insert(0, primary)
 
+        if user_list:
+            print(f"[*] مدل‌هایِ انتخابیِ شما: {' → '.join(user_list)}"
+                  " — فقط همین‌ها استفاده می‌شوند.")
+            return user_list
+
         discovered: List[str] = []
         if client is not None:
             discovered = self._discover_models_from_api(client)
 
-# مدل‌هایِ بنشده (۳ بار ناموجود) برنمیگردند
         discovered = [m for m in discovered
                       if m not in getattr(self, "_model_banned", set())]
 
@@ -1469,13 +1556,6 @@ class MangaTranslator:
             discovered = [m for m in discovered if not self._is_bad_translate_model(m)]
             discovered = sorted(set(discovered), key=self._model_sort_key)
 
-# v1.14.290 — سنجشِ زندهٔ سبک/دسترسی (دستورِ سازنده: «فقط
-# اونای که اوکی خروجی میده نگه داره»): به هر مدلِ کشف‌شده یک
-# درخواستِ واقعیِ کوچک (۴ خطِ دیالوگِ محاوره‌ای) فرستاده
-# میشود؛ بی‌پاسخ (پولی/سهمیه/قطعی) یا جوابِ کتابی = حذف از
-# چرخ. نتیجه ۶ ساعت کش میشود — رفرش/فصلِ بعدی دوباره خرج
-# نمیکند. اگر سنجش ممکن نشد (کلید/شبکه) فهرستِ خام باقی
-# میماند و همان رفتارِ قبلیِ «خطا → مدلِ بعدی» کار میکند.
             try:
                 _keys_txt = ""
                 try:
@@ -1533,8 +1613,6 @@ class MangaTranslator:
         return out or static
 
     def _note_model_ok(self, name: str = "") -> None:
-        """ — مدلی که یک بار جوابِ درست داد «اثباتشده» میشود:
-        شمارندهٔ خطایش صفر میشود و دیگر با قاعدهٔ ۳-مردن بن نمیشود."""
         try:
             name = (name or self._thread_model() or "").replace("models/", "").strip()
         except Exception:
@@ -1545,13 +1623,6 @@ class MangaTranslator:
         self._model_fail_counts.pop(name, None)
 
     def _note_model_fail(self, name: str = "", ban_after: int = 3) -> bool:
-        """ — قاعدهٔ کاربر: «اگه سه بار تلاش کرد اون مدل نبود دیگه
-        پیگیر اون مدل نشه». خطایِ دسترسیِ مدل (404/gone/UNAVAILABLE/bad)
-        شمرده میشود؛ ۳ بار بدونِ حتی یک جوابِ درست → بنِ نشست. مدلی که
-        حداقل یک بار کار کرده بن نمیشود. quota/rate شمرده نمیشود
-        (تقصیرِ مدل نیست). فقط میشمارد و بن میکند (بدونِ دست‌زدن به
-        cascade — تا ایندکس‌ها نپرند)؛ مدل‌هایِ بنشده در ریستِ بعدی و در
-        _switch_to_next_model رد میشوند. True = همین الان بن شد."""
         try:
             name = (name or self._thread_model() or "").replace("models/", "").strip()
         except Exception:
@@ -1600,7 +1671,6 @@ class MangaTranslator:
         local = getattr(tls, "local_cascade", None) if tls is not None else None
         if local:
             li = int(getattr(tls, "local_index", 0) or 0)
-# مدل‌هایِ بنشده (۳ بار ناموجود) در چرخ رد میشوند
             while li + 1 < len(local) and local[li + 1] in banned:
                 li += 1
             li += 1
@@ -1630,9 +1700,6 @@ class MangaTranslator:
         return True
 
     def _reset_model_cascade(self, reason: str = "") -> None:
-# اگر اولِ کاسکاد مدلی بنشده باشد (۳ بار ناموجود)
-# کاسکاد باید از نو ساخته شود وگرنه همان مدلِ مرده دوباره اول
-# میآمد و چرخِ بن تکرار میشد.
         banned = getattr(self, "_model_banned", set())
         _head_dead = bool(self._model_cascade) \
             and self._model_cascade[0] in banned
@@ -1861,8 +1928,6 @@ class MangaTranslator:
 
         langs = [str(x).lower().strip() for x in (getattr(self, "ocr_langs", None) or ["en"])]
         if "multi" in langs:
-# چندزبانه = همهٔ خطها مجاز (وگرنه فیلترِ
-# ضدِ چرت، متنِ CJK را «غیرِ انگلیسی» میپنداشت و حذف میکرد)
             return True, True, True, True
         allow_en = any(l == "en" or l.startswith("en") for l in langs)
         allow_ko = any(l == "ko" or l.startswith("ko") or l in ("korean", "hangul") for l in langs)

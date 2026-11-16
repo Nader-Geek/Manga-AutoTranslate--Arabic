@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import json
 import os
@@ -82,9 +81,6 @@ def health():
     lines = []
     ok = True
 
-# اول import (لودرِ خودش بخشهایِ غایب را
-# دانلود میکند — خودترمیمی)؛ بعد وضعیتِ فایلها را فهرست کن تا
-# نتیجهٔ ترمیم هم در همین گزارش دیده شود.
     culprit = None
     tb_full = ""
     sections_err = False
@@ -132,9 +128,6 @@ def health():
         else:
             lines.append("  • %s — ✔ سالم (%.1f KB)" % (n, size / 1024.0))
 
-# موتور پلاگینی است: بدنه از manga_sections/ میآید.
-# «نیست» دیگر فوراً نیست: لودر خودش دانلودش میکند
-# فقط وقتی خطا داریم که import هم واقعا شکست خورده باشد.
     sec_dir = os.path.join(upd, "manga_sections")
     if os.path.isdir(sec_dir):
         n_sec = len([x for x in os.listdir(sec_dir) if x.endswith(".py")])
@@ -155,8 +148,6 @@ def health():
         lines.append("💡 اگر باز هم خطا گرفتی، متن کامل خطای زمان اجرا در همین "
                      "کادر لاگ، موقع شروع ترجمه نمایش داده می‌شود.")
     elif sections_err:
-# توصیهٔ «Clear Data» برایِ نبودِ بخشها «مضر» بود:
-# داده‌ها را پاک میکند و همان وضعیتِ شکسته را دوباره میسازد.
         lines.insert(0, "❌ بخشهایِ موتور (manga_sections/) دانلود نشده‌اند.")
         lines.append("🔧 راه‌حل: اینترنت را وصل کن و اپ را ببند و دوباره باز "
                      "کن — موتور بخشها را خودش دانلود "
@@ -253,17 +244,10 @@ def cancel():
     return bridge.cancel()
 
 def test_keys(params_json):
-    """پروکسی تست کلیدها برای دکمهٔ «تست کلیدها / لینک» اندروید.
-    رفع خطای: AttributeError: module 'native_bridge' has no attribute 'test_keys'
-    (MainActivity ماژول native_bridge را صدا می‌زند)
-    """
     import bridge
     return bridge.test_keys(params_json)
 
 def list_models(params_json):
-    """ - proxy of live model list for the refresh button next to
-    the Android model field (like test_keys; MainActivity calls the
-    native_bridge module). Output: {"ok": bool, "models": [...], "error": str}."""
     import bridge
     return bridge.list_models(params_json)
 

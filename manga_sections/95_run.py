@@ -1,10 +1,4 @@
 # BUILD-STRIP-START
-# MangaTranslator (۷ از ۷) — run: خطِ لولهٔ اصلی — پایانِ کلاس
-# این فایل «قطعهای از بدنهٔ کلاس MangaTranslator» است و بهتنهایی
-# اجرا نمیشود — لودرِ manga.py این محتوا را بههمان ترتیبِ شمارهٔ
-# فایل، داخلِ کلاس میچسباند. کلاسِ پوششیِ زیر فقط برایِ معتبر
-# بودنِ سینتکسِ این فایلِ تکی است و موقعِ بارگذاری حذف میشود.
-# (ترکیب از: 220_translator_run.py)
 class _MangaTranslatorBody_95:
 # BUILD-STRIP-END
     def _cache_jsonable(v):
@@ -40,7 +34,6 @@ class _MangaTranslatorBody_95:
         import numpy as _np
 
         def _und(v):
-            # بازکردنِ پیچِ {"__nd": …} به آرایه — با نوعِ خودش
             def _one(x):
                 a = _np.asarray(x["__nd"])
                 try:
@@ -85,12 +78,6 @@ class _MangaTranslatorBody_95:
 
     @staticmethod
     def _cache_dir_for(output_path: str) -> str:
-        """مسیرِ کشِ مشترک — مستقل از فرمتِ خروجی (خواستهٔ سازنده:
-        «اگ pdf گذاشتم رو html … از دیتام بخونه اوکی کنه از اول
-        شروع نکنه»): فقط پسوندهایِ خروجیِ شناخته‌شده کنار زده
-        می‌شوند تا «ch.5.pdf» و «ch.5.html» به یک کش برسند؛ نقطهٔ
-        داخلِ خودِ اسم (ch.5) حفظ می‌شود. باید همانِ همتای
-        manga_app.py باشد."""
         _p = str(output_path or "")
         root, ext = os.path.splitext(_p)
         if ext.lower() in (".pdf", ".zip", ".html", ".psd",
@@ -101,11 +88,10 @@ class _MangaTranslatorBody_95:
     @staticmethod
     def _trans_sig_of(provider: str, model: str, api_base: str,
                       prompt_mode: str, instruction: str,
-                      fake: bool, temperature: float, top_p: float) -> str:
-        """امضای تنظیماتِ ترجمه — مدل/پرامپت/سبک/حالتِ تست/دما.
-        عوض‌شدنش یعنی ترجمهٔ تازه لازم است (ادامه یا از-نو — پرسشِ
-        خودکار در اپ)؛ استخراج و پاکسازی مستقل از این امضا هستند.
-        باید بایت‌به‌بایت همانِ همتایِ manga_app.py باشد."""
+                      fake: bool, temperature: float, top_p: float,
+                      deep_thinking: bool = True,
+                      safety_settings: bool = False,
+                      max_tokens=None) -> str:
         import hashlib as _hl
         try:
             prov = str(provider or "").strip().lower()
@@ -114,6 +100,10 @@ class _MangaTranslatorBody_95:
                   if prov == "custom" else "")
             pm = str(prompt_mode or "professional").strip().lower() or "professional"
             instr = str(instruction or "").strip()
+            try:
+                _mt = ("mt%d" % int(max_tokens)) if max_tokens else "mt-"
+            except Exception:
+                _mt = "mt-"
             parts = [
                 "t1", prov, mdl, ab, pm,
                 (_hl.sha256(instr.encode("utf-8", "ignore")).hexdigest()[:12]
@@ -121,6 +111,9 @@ class _MangaTranslatorBody_95:
                 "fake" if fake else "real",
                 "%.2f" % float(temperature if temperature is not None else 0.7),
                 "%.2f" % float(top_p if top_p is not None else 0.9),
+                "think" if deep_thinking else "nothink",
+                "sbn" if safety_settings else "nosbn",
+                _mt,
             ]
             return _hl.sha256("|".join(parts).encode("utf-8", "ignore")).hexdigest()[:16]
         except Exception:
@@ -287,18 +280,9 @@ class _MangaTranslatorBody_95:
 
     def run(self, input_path: str, output_path: str, resume: bool = True,
             clean_old: bool = True) -> None:
-# بریف داستان حذف شد (مرجع ندارد) — اینجا فقط ریستِ قدیمی بود
-        #): در طولِ فازِ
-# قفلِ دو-فازی (
-# استخراجِ بچ هیچ فراخوانیِ مترجمی مجاز نیست؛ بعد از joinِ دو
-# کارگرِ استخراج دوباره True میشود (خطِ لاگِ مرز در همان جا).
         self._extraction_done = False
-        self._independent_pages = False  # ریست در هر ران (run بازگشتی هم دارد)
-        _t_run = time.time()  # کلِ زمانِ ران
-# سرعت: ساختِ سشنِ LaMa (۲۰۰MB) از همان اولِ کار شروع
-# می‌شود تا با دانلودِ تصویرها/آماده‌سازیِ صفحه‌ها هم‌پوشانی داشته
-# باشد. قبلاً بعد از آماده‌سازی شروع می‌شد → اولین صفحه منتظرِ
-# سشن می‌ماند (لاگِ گوشی: «لما-wait=67s»).
+        self._independent_pages = False
+        _t_run = time.time()
         try:
             self.preload_lama_async()
         except Exception:
@@ -306,9 +290,6 @@ class _MangaTranslatorBody_95:
         if clean_old:
             self._cleanup_previous_artifacts(output_path, keep_outputs=False)
 
-# کشِ مشترکِ همهٔ فرمت‌های خروجی — عوض‌کردنِ pdf↔html↔zip↔psd
-# دیگر کشِ تازه نمی‌سازد؛ فقط بسته‌بندیِ نهایی از نو می‌شود و
-# صفحه‌ها/ترجمه‌ها از همان کش می‌آیند.
         cache_dir = MangaTranslator._cache_dir_for(output_path)
         if not resume:
             shutil.rmtree(cache_dir, ignore_errors=True)
@@ -316,8 +297,6 @@ class _MangaTranslatorBody_95:
         src_dir = os.path.join(cache_dir, "src")
 
         def _same_dl(_p: str, _c: bytes) -> bool:
-            """فایلِ موجود همان محتوای تازه‌دانلودشده را دارد؟ (توقف/ادامه:
-            بازنویسیِ بی‌مصرف و بهم‌ریختنِ نام‌ها در رانِ بعد ممنوع)"""
             try:
                 if not os.path.isfile(_p) or os.path.getsize(_p) != len(_c):
                     return False
@@ -328,10 +307,6 @@ class _MangaTranslatorBody_95:
                 return False
 
         cache_tag = "_safe_v3" if (self.stitch_max_height > 0 or getattr(self, "repair_page_seams", True)) else ""
-# برچسبِ سبکِ پاکسازی/خروجی: عوض‌شدنِ روش یا پارامترهای پاکسازی
-# → پوشهٔ خروجیِ دیگر → صفحهها دوباره پاک میشوند؛ سبکِ همان →
-# صفحههایِ تمامشده از کش رد میشوند (خواستهٔ سازنده). استخراج
-# (OCR) مستقل از این برچسب است و از نو نمیگردد.
         def _clean_style_tag() -> str:
             import hashlib as _hl
             try:
@@ -356,11 +331,6 @@ class _MangaTranslatorBody_95:
                                + (("_style-" + style_tag) if style_tag else "")
                                + ("_cleanonly" if getattr(self, "clean_only", False)
                                   else ""))
-# برچسبِ کشِ دیسکِ «تصویرِ پاکسازی‌شده» — فقط پارامترهایی که
-# خودِ پاکسازی را عوض میکنند؛ فرمت/کیفیت/عرضِ رندرِ صفحه
-# (jpg↔webp، کیفیت، max_width) عمداً بیرونند تا تعویضشان LaMa
-# را از نو نگیرد. clean_only جایش جدا است (junk/شمارهٔ صفحه هم
-# پاک میشود) و گیتِ اندرویدیِ text_free هم در برچسب میآید.
         def _clean_img_tag() -> str:
             import hashlib as _hl
             try:
@@ -384,16 +354,6 @@ class _MangaTranslatorBody_95:
         os.makedirs(src_dir, exist_ok=True)
         os.makedirs(out_dir, exist_ok=True)
 
-# GCِ سبکهایِ کهنه (v1.14.284) — خواستهٔ سازنده: «اگ عکس جدید واسه
-# استخراج دادن اونا پاک شه بره نگه نداره فقط خروجیش — pdf psd zip
-# html لاگ (فقط اندروید) اینا بمونه». فقط «خروجیهایِ رندرشدهٔ» سبکهایِ
-# دیگر (out_*ِ غیرِ فعلی) و دیباگهایِ ریختهٔ رانِ قبل (dbgspill*)
-# پاک میشوند — کشِ «عکسِ پاکشده» (clean_c-*) میماند (خواستهٔ صریح:
-# «عکس پاک شده رو حافظه سیو کنه نگه داره») تا برگشت به سبکِ قبلی
-# بدونِ LaMa از همان دیسک برآید. کشِ استخراج و پوشهٔ سادهٔ «out»
-# (سازگاریِ قدیمی) هم لمس نمیشوند. نمایشگرها فقط پوشهٔ last_out را
-# نشان میدهند (v1.14.279+) → خروجیِ رندرشدهٔ سبکِ کهنه هیچ مصرفی
-# ندارد و قاطی هم نمیشود.
         try:
             for _nm in os.listdir(cache_dir):
                 if not ((_nm == "out" or _nm.startswith("out_")
@@ -407,9 +367,6 @@ class _MangaTranslatorBody_95:
         except Exception:
             pass
 
-# GCِ کشِ خروجیهایِ دیگر (v1.14.284) — کشِ *.cacheِ کنارِ خروجیِ
-# «دیگر» در همین پوشه = کارِ نیمهتمامِ ورودی/فصلِ قبل → ورودیِ نو
-# آمده → پاک (فقط خودِ خروجیها — pdf/psd/zip/html — میمانند).
         try:
             _gc_root = os.path.dirname(os.path.abspath(output_path))
             _cur_cache = os.path.abspath(cache_dir)
@@ -421,12 +378,6 @@ class _MangaTranslatorBody_95:
         except Exception:
             pass
 
-# نشانگرِ «خروجیِ همین ران» (v1.14.277) — نمایشگرها (وب/اندروید)
-# فقط همین پوشه را به‌عنوانِ خروجیِ نهایی نشان می‌دهند تا کارِ
-# فقط-پاکسازی با ترجمهٔ قبلی و سبکهایِ پاکسازیِ قدیمی قاطی نشود
-# (خواستهٔ سازنده: «اگ حالت پاکسازی گذاشتم فقط پاکسازیش نشون بده
-# نه دیتای قبلی»). نشانگر در همان ابتدای ران نوشته میشود تا
-# نمایشِ میانی هم درست باشد.
         try:
             with open(os.path.join(cache_dir, "last_out.json"), "w",
                       encoding="utf-8") as _fh:
@@ -457,7 +408,6 @@ class _MangaTranslatorBody_95:
             _loc = [_local_img(p) for p in _parts]
             if _parts and all(_loc):
                 _local_fix_files = _loc
-# فایل‌های محلیِ چندگانه = صفحاتِ مستقل
                 self._independent_pages = True
 
         if _local_fix_files is not None:
@@ -471,9 +421,6 @@ class _MangaTranslatorBody_95:
                 print("[!] هیچ لینک معتبری پیدا نشد.", file=sys.stderr)
                 return
 
-# اگر الگوی لینک مشخص نبود، با یک HEAD کوتاه Content-Type
-# چک می‌شود — هر لینکی که image/* بدهد «صفحهٔ مستقیم» است. این همان
-# باگ «فقط اولی خوانده می‌شد» را برای همهٔ هاست‌های عکس می‌بندد.
             _probe_urls = [u for u in urls
                            if not (u.lower().startswith("file://")
                                    or self._is_direct_image_url(u))]
@@ -513,12 +460,9 @@ class _MangaTranslatorBody_95:
             if len(urls) == 1:
                 print(f"[*] دانلود تصاویر از لینک: {urls[0]}")
                 image_files = self._download_images_from_url(urls[0], src_dir)
-# صفحه‌های دانلودشده از لینک هم مستقل‌اند (هر فایل = یک صفحه)
                 self._independent_pages = True
             elif all_direct:
                 print(f"[*] {len(urls)} تصویر مستقیم — دانلود یک‌جا به عنوان یک فصل...")
-# هر لینکِ مستقیم = یک صفحهٔ مستقل: مثلِ حالتِ تکی
-# پردازش می‌شود (بدون ریسایزِ گروهی/چسباندن/برشِ ۸۰۰۰px)
                 self._independent_pages = True
                 os.makedirs(src_dir, exist_ok=True)
                 image_files = []
@@ -549,12 +493,6 @@ class _MangaTranslatorBody_95:
                             image_files.append(out_file)
                             print(f"    [+] {i}/{len(urls)} فایل محلی کپی شد")
                             continue
-# مسیرِ محلیِ موجود-نبود: پیامِ روشن
-# به‌جای خطای گیج‌کنندهٔ requests («No connection
-# adapters were found for 'C:\…'») — درایوِ
-# ویندوزی، UNC یا مسیرِ مطلقِ یونیکس هرگز URL نیست.
-# (ریشهٔ واقعیِ این حالت در manga_app.py فیکس شد:
-# پاک‌سازیِ استارت، input_batch را هم پاک میکرد.)
                         if (re.match(r"^[A-Za-z]:[\\/]", u)
                                 or u.startswith("\\\\")
                                 or (u.startswith("/")
@@ -563,7 +501,6 @@ class _MangaTranslatorBody_95:
                                   file=sys.stderr)
                             continue
                         u = self._normalize_image_url(u)
-# توقف/ادامه: صفحهٔ قبلاً-دانلودشده با همان نام — بدونِ شبکه
                         _ub0 = os.path.splitext(os.path.basename(u.split("?")[0]))[0]
                         _ub0 = re.sub(r'[\\/:*?"<>|]+', "_", _ub0).strip("._ ")[:80]
                         if not re.search(r"\d", _ub0):
@@ -599,9 +536,6 @@ class _MangaTranslatorBody_95:
                             content, ext = _reblob, ".jpg"
                         _ub = os.path.splitext(os.path.basename(u.split("?")[0]))[0]
                         _ub = re.sub(r'[\\/:*?"<>|]+', "_", _ub).strip("._ ")[:80]
-# اسمِ بدونِ رقم (مثل «images» در گوگل‌تیتر) →
-# شمارهٔ صفحه تا ترتیبِ صفحات در سورتِ نیچرال حفظ شود
-# وگرنه images-2.jpg قبل از images.jpg سورت می‌شد!
                         if not re.search(r"\d", _ub):
                             _ub = f"page_{i:03d}"
                         out_file = os.path.join(src_dir, f"{_ub or f'page_{i:03d}'}{ext}")
@@ -621,20 +555,10 @@ class _MangaTranslatorBody_95:
                     print("[!] هیچ تصویری دانلود نشد.", file=sys.stderr)
                     return
             else:
-# خواستهٔ صریحِ کاربر: با چند لینکِ فصل، اول
-# «همهٔ» تصاویرِ همهٔ لینک‌ها دانلود میشوند، بعد یک‌جا
-# استخراج/پاکسازی/ترجمه میشوند. قبلاً هر فصل دانلود+
-# پردازشِ کامل میشد و بعدی شروع میشد (دانلود → پردازش →
-# دانلودِ بعدی…) که هم کند بود هم صفحه‌ها را تکه‌تکه
-# پردازش میکرد.
                 print(f"[*] {len(urls)} لینک فصل — اول دانلودِ همهٔ تصاویر، "
                       f"بعد استخراج/پاکسازی/ترجمهٔ یک‌جا…")
                 os.makedirs(src_dir, exist_ok=True)
                 image_files = []
-# حافظهٔ URLهایِ دانلودشده بینِ فصلها: کاور/
-# بنرِ مشترکِ سری فقط در فصلِ اول میآید (ردِ خودکار در
-# بقیه) و نامها شمارهٔ «فصل + صفحه» میگیرند تا سورتِ
-# نهایی هرگز ترتیب را بهم نریزد.
                 _seen_ch: set = set()
                 for i, url in enumerate(urls, 1):
                     if stop_requested():
@@ -651,20 +575,12 @@ class _MangaTranslatorBody_95:
                     if not files_i:
                         print(f"[!] لینک {i}: هیچ تصویری دانلود نشد — رد شد.")
                         continue
-# پیشوندِ «01_ / 02_ / …» تا ترتیبِ فصل‌ها در سورتِ
-# نیچرال حفظ شود (فایلِ هم‌نامِ فصل‌ها تضمینی است!)
-# شمارهٔ «صفحه» هم کنارِ شمارهٔ فصل میآید
-# (01_001_x / 02_001_x): اسمهایِ هشِ تصادفیِ asura در
-# سورت درون‌فصلی بهم میریختند.
                     for j, fsrc in enumerate(files_i, 1):
                         _nb = f"{i:02d}_{j:03d}_" + os.path.splitext(os.path.basename(fsrc))[0]
                         _nb = re.sub(r'[\\/:*?"<>|]+', "_", _nb).strip("._ ")[:100] \
                             or f"link{i:02d}_page_{j:03d}"
                         _ext = os.path.splitext(fsrc)[1].lower() or ".jpg"
                         out_file = os.path.join(src_dir, f"{_nb}{_ext}")
-# توقف/ادامه (چند-لینکی): صفحهٔ هم‌نامِ هم‌حجم از فصلِ قبلی
-# همان صفحه است — فقط نسخهٔ تکراریِ تازه (اگر همین ران دانلود
-# شده) پاک می‌شود؛ اصلِ کش برای رانِ بعدی می‌ماند.
                         try:
                             _fsrc_t = os.path.getmtime(fsrc)
                         except Exception:
@@ -703,7 +619,6 @@ class _MangaTranslatorBody_95:
                     print("[!] هیچ تصویری دانلود نشد.", file=sys.stderr)
                     return
                 image_files.sort(key=MangaTranslator._natural_sort_key)
-# صفحه‌های دانلودشده مستقل‌اند (هر فایل = یک صفحه)
                 self._independent_pages = True
                 print(f"[✓] دانلودِ همهٔ {len(urls)} لینک تمام شد: "
                       f"{len(image_files)} تصویر → شروعِ استخراج/پاکسازی/ترجمه…")
@@ -728,10 +643,6 @@ class _MangaTranslatorBody_95:
             print("[!] هیچ تصویری برای پردازش پیدا نشد.", file=sys.stderr)
             return
 
-# نرمال‌سازیِ ورودی — فایل‌هایی که opencvِ گوشی نمی‌خوانَد
-# (وب‌پی/avif؛ کدک‌شان نه در opencv است نه در Pillow) همان‌جا با
-# زنجیرهٔ کاملِ بازش (Pillow/کدکِ اندروید) به jpg تبدیل می‌شوند تا
-# هیچ مرحلهٔ بعدی (پهنای هوشمند/دوخت/پاکسازی/خروجی) نریزد.
         _norm_files: List[str] = []
         for _f in image_files:
             _nf = MangaTranslator._normalize_input_image_file(_f, src_dir)
@@ -752,19 +663,6 @@ class _MangaTranslatorBody_95:
                 valid_files.append(f)
                 del im0
             if valid_files:
-# خواستهٔ کاربر: خوشهٔ عرضِ سراسری برای همهٔ
-# ورودی‌ها (حتی چند-فایلی/چند-لینکی). عکس‌هایی که عرضشان
-# نزدیک است (مثل 700/800/900 = 800 یا 1700/1800/1900 = 1800)
-# به یک عرضِ هدفِ مشترک می‌رسند تا چسباندن/برشِ امنِ ~8000px
-# بشود؛ صفحه‌ای که عرضش با بقیه فرقِ فاحش دارد (کاورِ عریض…)
-# در خوشهٔ خودش می‌ماند و له نمیشود.
-# استثنا: صفحاتِ مستقلِ بدونِ چسباندن (بچِ وب:
-# کاما-جدا + stitch 0) عرضِ بومیِ خودشان را نگه میدارند —
-# عینِ حالتِ تکی («تک تک تست کنی کامل پاک میکنه»). خوشهٔ
-# عرض فقط برای مسیرِ چسباندن/برشِ امن لازم است؛ اینجا هیچ
-# برشی زده نمیشود پس به هم رساندنِ عرضها هدفی ندارد و فقط
-# متن را بلرر/ریسکیل میکرد (مثلاً 690→800) و نتیجهٔ بچ را با
-# حالتِ تکی متفاوت میکرد.
                 _indep_keep_w = (
                     getattr(self, "_independent_pages", False)
                     and int(getattr(self, "stitch_max_height", 0) or 0) <= 0)
@@ -779,9 +677,6 @@ class _MangaTranslatorBody_95:
                             wmap[i] = cap
                 norm_dir = os.path.join(cache_dir, "normalized")
                 os.makedirs(norm_dir, exist_ok=True)
-# نقشهٔ «ورودی → نرمال‌شده» (توقف/ادامه): نامِ نرمال‌شده در رانِ
-# بعدی پایدار می‌ماند — قبلاً حلقهٔ -۲ هر ران اسمِ تازه می‌ساخت و
-# رزومِ خروجی (بازشناختنِ صفحه‌های تمام‌شده) می‌شکست.
                 _norm_map_path = os.path.join(norm_dir, "map.json")
                 _norm_map: Dict[str, str] = {}
                 try:
@@ -848,14 +743,6 @@ class _MangaTranslatorBody_95:
                            if _reused_norm else "")
                     )
 
-# حالتِ صفحاتِ مستقل: چسباندن/برشِ نوار کلاً رد می‌شود
-# هر صفحه با ابعادِ بومی و جدا از بقیه پردازش می‌شود (= رانِ تکی).
-# خواستهٔ صریحِ کاربر (PC/لینوکس): «برشِ امن» دوباره به‌طورِ
-# پیشفرض انجام شود — همهٔ عکس‌هایی که عرضشان نزدیک است یکی میشوند و
-# برشِ ~8000px (طول) میخورند؛ برشِ امنِ وسطِ حباب/متن هم با
-# _find_safe_cut_y_smart رعایت میشود. حلقهٔ استیچ روی اختلافِ عرضِ
-# > max(180px, 18%) فلش میکند → کاورِ عریض له نمیشود.
-# خاموشیِ صریح: --stitch-max-height 0
         _indep_no_stitch = (
             getattr(self, "_independent_pages", False)
             and int(getattr(self, "stitch_max_height", 0) or 0) <= 0
@@ -868,17 +755,11 @@ class _MangaTranslatorBody_95:
             stitch_dir = os.path.join(cache_dir, "stitched")
             image_files = self._stitch_pages_for_efficiency(image_files, stitch_dir)
 
-# تعداد کل صفحه‌ها از همین لحظه معلوم است → نمایشگر زنده
-# از اول به‌اندازهٔ همه اسلات لودینگ می‌گذارد.
         try:
             _live_total_write(len(image_files))
         except Exception:
             pass
 
-# ——— اثرانگشتِ ورودی (توقف/ادامه) ———
-# لینک یا فایل یا تنظیماتِ استخراج یا نسخهٔ موتور عوض شده؟ فقط
-# آنگاه استخراج از اول میشود؛ وگرنه صفحههایِ استخراجشده از کش
-# میآیند و کار از همان‌جا ادامه مییابد (خواستهٔ سازنده).
         extract_dir = os.path.join(cache_dir, "extract")
 
         def _files_fingerprint(files):
@@ -922,8 +803,6 @@ class _MangaTranslatorBody_95:
             _fp_old = ""
         if _fp_new and _fp_old and _fp_new != _fp_old:
             print("[*] ورودی/تنظیمات تغییر کرد — استخراج از اول.")
-# فقط کشهایی که «این» اجرا بازسازی نمیکند پاک میشوند —
-# src/normalized/stitched همین بالا از ورودیِ تازه ساخته شدهاند
             shutil.rmtree(os.path.join(cache_dir, "extract"),
                           ignore_errors=True)
             try:
@@ -934,7 +813,6 @@ class _MangaTranslatorBody_95:
                                       ignore_errors=True)
             except Exception:
                 pass
-# ترجمه‌های ورودیِ قبلی دیگر معتبر نیستند
             try:
                 os.remove(os.path.join(cache_dir, "trans.json"))
             except Exception:
@@ -946,16 +824,6 @@ class _MangaTranslatorBody_95:
             except Exception:
                 pass
 
-# ——— امضای ترجمه و انبارِ ترجمه (توقف/ادامه/از-نو) ———
-# مدل یا پرامپت یا حالتِ تست عوض شده؟ استخراج و پاکسازی
-# دست‌نخورده می‌مانند؛ فقط خودِ ترجمه تصمیم میگیرد:
-#   • «از اول» (پرچمِ --translate-retranslate یا عوض‌شدنِ حالتِ
-#     تست): انبارِ ترجمه و خروجی‌های ترجمه‌دار پاک و همهٔ حباب‌ها
-#     با تنظیمِ تازه از نو ترجمه میشوند.
-#   • «ادامه» (پیش‌فرض): حباب‌های ترجمه‌شده با مدلِ قبلی سرِ
-#     جایشان می‌مانند و فقط مانده‌ها با مدلِ جدید ترجمه میشوند.
-# انبارِ trans.json بعد از هر بستهٔ ترجمه ذخیره می‌شود — حتی
-# لغوِ وسطِ کار، ترجمه‌های تمام‌شده را از دست نمیدهد.
         _sig_cur = MangaTranslator._trans_sig_of(
             provider=getattr(self, "provider", ""),
             model=getattr(self, "model_name_raw",
@@ -966,6 +834,9 @@ class _MangaTranslatorBody_95:
             fake=bool(getattr(self, "fake_translate", False)),
             temperature=float(getattr(self, "translation_temperature", 0.7) or 0.7),
             top_p=float(getattr(self, "translation_top_p", 0.9) or 0.9),
+            deep_thinking=bool(getattr(self, "deep_thinking", True)),
+            safety_settings=bool(getattr(self, "safety_settings", False)),
+            max_tokens=getattr(self, "max_output_tokens", None),
         )
         _state_path = os.path.join(cache_dir, "state.json")
         _sig_prev = ""
@@ -1010,7 +881,6 @@ class _MangaTranslatorBody_95:
             print("[*] مدل/پرامپتِ ترجمه عوض شد — حالتِ ادامه: حباب‌های "
                   "ترجمه‌شده سرِ جایشان می‌مانند و فقط مانده‌ها با مدلِ "
                   "جدید ترجمه میشوند.")
-# بارگذاریِ انبارِ ترجمه (همان تنظیم یا حالتِ ادامه)
         _trans_apply = False
         if resume and os.path.isfile(_trans_store_path):
             try:
@@ -1025,9 +895,6 @@ class _MangaTranslatorBody_95:
                           f"از کش برگشت (ادامه از همان‌جا).")
             except Exception:
                 pass
-# ثبتِ امضای همین ران — فقط وقتی ترجمهٔ واقعی در کار است
-# (حالتِ فقط-پاکسازی ترجمه ندارد و امضای قبلی را نگه می‌دارد
-# تا پرسشِ ادامه/از-نو بعداً درست کار کند).
         if (_sig_cur and not getattr(self, "clean_only", False)):
             try:
                 with open(_state_path, "w", encoding="utf-8") as _fh:
@@ -1043,8 +910,6 @@ class _MangaTranslatorBody_95:
             return f"p{page_i}_i{idx}_{_h}"
 
         def _trans_store_save(regions) -> None:
-            """ذخیرهٔ ترجمه‌های تازه در انبار — بعد از هر بسته/صفحه؛
-            لغوِ وسطِ کار کارِ تمام‌شده را از دست نمیدهد."""
             try:
                 _upd = {}
                 for _r in (regions or []):
@@ -1072,8 +937,6 @@ class _MangaTranslatorBody_95:
             page_ext = ".jpg"
 
         pending = []
-# نقشهٔ «شمارهٔ صفحه → فایلِ ورودی» برای رندرِ دوبارهٔ
-# صفحههایِ پسگیریِ خالیها (متنِ خالیِ AI که بعداً پر شده).
         _src_of_page: Dict[int, str] = {}
         for page_i, f in enumerate(image_files):
             _src_of_page[page_i] = f
@@ -1081,8 +944,6 @@ class _MangaTranslatorBody_95:
             if resume and os.path.isfile(out_file):
                 processed_files.append(out_file)
                 skipped += 1
-# اسلاتِ صریحِ صفحه: صفحهٔ resume هم در
-# اسلاتِ خودش (page_i+1) مینشیند، نه ترتیبِ پیمایش
                 try:
                     _live_page_dump(out_file, key=out_file, slot=page_i + 1)
                 except Exception:
@@ -1103,22 +964,24 @@ class _MangaTranslatorBody_95:
         except Exception:
             pass
 
+        _unreadable_streak = {"n": 0}
+
         def _extract_one(item):
             page_i, f, out_file = item
             _raise_if_stop()
-            _t_ext = time.time()  # زمان‌گیریِ لود+استخراج
-# فقط صفحهٔ ۰ پرچم را ست/پاک میکند؛ در استخراجِ
-# دوطرفه کارگرِ دیگر نباید پرچمِ صفحهٔ ۰ را بینِ راه پاک کند.
+            _t_ext = time.time()
+            image = None
             if page_i == 0:
-                MangaTranslator._title_skip_enabled = True
+                if getattr(self, "_ocr_img_parallel", False):
+                    MangaTranslator._title_tls.on = True
+                else:
+                    MangaTranslator._title_skip_enabled = True
             _ex_cache = os.path.join(extract_dir, f"page_{page_i:04d}.json")
             _ex_size = -1
             try:
                 _ex_size = os.path.getsize(f)
             except Exception:
                 _ex_size = -1
-# کشِ استخراج (توقف/ادامه): صفحهٔ قبلاً-استخراجشده بدونِ
-# detector/OCR از کش برمیگردد — حتی متنِ ترجمه‌شدهٔ همراهش
             if resume and os.path.isfile(_ex_cache):
                 try:
                     with open(_ex_cache, encoding="utf-8") as _fh:
@@ -1139,14 +1002,10 @@ class _MangaTranslatorBody_95:
                                     _dbg.base = image
                                 except Exception:
                                     _dbg = None
-# زمینهٔ صفحه از کش بازسازی میشود: باکسهایِ حباب از خودِ
-# ناحیهها + کوارهایِ آبی از ovlِ ذخیرهشده (بدونِ پاسِ تازهٔ det)
                             _ctx_put(page_i, {
                                 "boxes": _ctx_boxes_from_regions(regions),
                                 "quads": _ctx_quads_from_ovl(_ovl),
                             })
-# انبارِ ترجمه: ترجمهٔ ذخیرهشدهٔ همین حباب (همان تنظیم یا
-# حالتِ ادامه) سرِ جایش می‌نشیند — دیگر به مدل نمی‌رود
                             _n_hit = 0
                             if _trans_apply and regions:
                                 for _ii, _r in enumerate(regions):
@@ -1186,8 +1045,6 @@ class _MangaTranslatorBody_95:
                 print(f"[*] {basename}")
                 regions, dbg, page_ctx = self.extract_regions_phase(image)
                 _ctx_put(page_i, page_ctx)
-# نوشتنِ کشِ استخراج: بعد از هر صفحهٔ کامل‌استخراجشده تا توقفِ
-# بعدی از همین‌جا ادامه بیفتد (خواستهٔ سازنده)
                 try:
                     _ovl_w = getattr(dbg, "ovl", None)
                     _cdata_w = {
@@ -1212,10 +1069,22 @@ class _MangaTranslatorBody_95:
             except GeminiQuotaExhausted:
                 raise
             except Exception as e:
+                _unread = (image is None and not os.path.isfile(f))
+                if _unread:
+                    _unreadable_streak["n"] += 1
+                    if _unreadable_streak["n"] == 3:
+                        print("    [!!] چندین تصویرِ پیاپی از کش ناپدید شده‌اند — "
+                              "پوشهٔ کش وسطِ اجرا حذف/پاک شده (سشن یا GC دیگر). "
+                              "صفحات باقی‌مانده از دست می‌روند؛ ورودی از "
+                              "cache/src هم پاک شده باشد، ادامه ممکن نیست.",
+                              file=sys.stderr)
+                else:
+                    _unreadable_streak["n"] = 0
                 print(f"    [!] خطا در استخراج {os.path.basename(f)}: {e}", file=sys.stderr)
                 return page_i, out_file, None, None, None
             finally:
-                if page_i == 0:  # فقط مالکِ پرچم پاک کند
+                if page_i == 0:
+                    MangaTranslator._title_tls.on = False
                     MangaTranslator._title_skip_enabled = False
 
         def _finish_one(page_i, out_file, image, regions, dbg):
@@ -1223,13 +1092,13 @@ class _MangaTranslatorBody_95:
                 return page_i, out_file, None, dbg
             if not regions:
                 return page_i, out_file, image, dbg
-            _t_fin = time.time()  # زمان‌گیریِ پاکسازی+رندر
+            _t_fin = time.time()
             _pctx1 = _ctx_get(page_i)
             try:
                 result, page_debug = self.finish_page_phase(
                     image, regions, final=True,
                     det_quads=_pctx1.get("quads"),
-                    page_boxes=_pctx1.get("boxes"))  # مسیرِ نهایی
+                    page_boxes=_pctx1.get("boxes"))
                 try:
                     print(f"[TIME] page#{page_i + 1} "
                           f"clean+render={time.time() - _t_fin:.1f}s",
@@ -1251,9 +1120,6 @@ class _MangaTranslatorBody_95:
         min_batch = max(min_batch, max(1, int(getattr(self, "bubbles_per_request", 15) or 15)))
 
         extracted_map: Dict[int, tuple] = {}
-# زمینهٔ هر صفحه (باکسهایِ خامِ detector + کوارهایِ دیباگ) —
-# جدا از extracted_map تا بدونِ تغییرِ قالبِ آن، در پاکسازی/رندر
-# به همان صفحهٔ درست برسد (نوشتن/خواندن با قفل؛ کوچک و سبک)
         self._page_ctx_store: Dict[int, dict] = {}
         _page_ctx_lock = threading.Lock()
 
@@ -1271,20 +1137,7 @@ class _MangaTranslatorBody_95:
             except Exception:
                 pass
 
-# ——— رم → دیسک (v1.14.280) — خواستهٔ سازنده: «این حالت های ک درست
-# کردی رو رم سیو نگه نداره رو حافظه سیو کنه نگه داره رم نمیرسه؛
-# منظورم عکس پاک شده و قسمت های متن عکس برش شده … دیتا استخراج شده
-# همچنین». اسلاتهایِ تصویریِ extracted_map از این پس «مرجع»‌اند:
-#   • ndarray  = موقتاً در رم (همان لحظهٔ کار)
-#   • str(مسیر) = ریخته‌شده روی دیسک — عکسِ اصلی = همان فایلِ ورودیِ
-#     صفحه (_src_of_page)؛ پاکشده = کشِ دیسکِ پاکسازی (clean_cache_dir)
-# فقط برای پاکسازی/رندر بارگذاری میشوند و بعد آزاد میشوند — فصلِ
-# بزرگ دیگر «همهٔ» صفحات (اصلی + پاکشده) را تا آخرِ ران در رم نگه
-# نمی‌دارد (گوشیِ کم‌رم = OOM؛ قبلاً extracted_map کلِ صفحات را از
-# لحظهٔ استخراج تا پایانِ رندر در رم پین می‌کرد).
         def _ref_img(v):
-            """مرجعِ اسلات → تصویرِ واقعی (ndarray) — اگر روی دیسک
-            ریخته شده باشد از همان‌جا بارگذاری میشود؛ None = نبود."""
             if v is None:
                 return None
             if isinstance(v, np.ndarray):
@@ -1298,9 +1151,6 @@ class _MangaTranslatorBody_95:
             return os.path.join(cache_dir, "dbgspill" + cache_tag)
 
         def _dbg_spill(dbg, page_i: int):
-            """نمایِ دیباگ (تصویرِ سوخته + ovl + base) → مرجعِ سبک:
-            {ovl, burn} — سوخته روی دیسک می‌رود تا دو تصویرِ کاملِ
-            (سوخته + پایه) در رم نماند."""
             try:
                 if dbg is None:
                     return None
@@ -1309,8 +1159,6 @@ class _MangaTranslatorBody_95:
                     _d = _dbg_spill_dir()
                     os.makedirs(_d, exist_ok=True)
                     _p = os.path.join(_d, "page_%04d.png" % page_i)
-# همیشه بازنویسی — در رانِ «ادامه» (resume) دیباگِ همین صفحه
-# با ترجمههایِ تازه عوض میشود؛ فایلِ کهنه هرگز نباید برگردد.
                     import cv2
                     cv2.imwrite(_p, np.asarray(dbg))
                     return {"ovl": _ovl, "burn": _p}
@@ -1319,8 +1167,6 @@ class _MangaTranslatorBody_95:
                 return dbg
 
         def _dbg_view(dbg, image: Optional[np.ndarray]):
-            """مرجعِ سبکِ دیباگ → نمایِ ndarray (ovl + base) — برای
-            _live_dump/ذخیرهٔ دیباگ؛ پایه = تصویرِ همین لحظه."""
             try:
                 if dbg is None:
                     return None
@@ -1341,12 +1187,6 @@ class _MangaTranslatorBody_95:
                 return None
 
         def _map_spill_page(page_i: int) -> None:
-            """ریختنِ اسلاتهایِ سنگینِ همین صفحه روی دیسک — بعد از
-            مرحله‌هایی که تصویر لازم دارند. عکسِ اصلی → مسیرِ فایلِ
-            ورودی؛ پاکشده → مسیرِ کشِ دیسکِ پاکسازی؛ دیباگ → مرجعِ
-            سبک (ovl + مسیرِ سوخته). خواندن+نوشتن زیرِ _clean_cond تا
-            با نوشتنِ همزمانِ کارگرِ پاکسازی (اسلاتِ پاکشده) قاطی
-            نشود."""
             try:
                 with _clean_cond:
                     _e = extracted_map.get(page_i)
@@ -1364,8 +1204,6 @@ class _MangaTranslatorBody_95:
                                             "page_%04d.png" % page_i)
                         try:
                             os.makedirs(clean_cache_dir, exist_ok=True)
-# همیشه بازنویسی — ndarrayِ اسلات «وضعیتِ همین ران» است؛
-# فایلِ کهنهٔ رانِ قبل (resume) هرگز نباید برگردد.
                             import cv2
                             cv2.imwrite(_ccp, _pc2)
                             if os.path.isfile(_ccp):
@@ -1380,8 +1218,6 @@ class _MangaTranslatorBody_95:
                 pass
 
         def _ctx_quads_from_ovl(ovl) -> list:
-            """بازسازیِ کوارهایِ دیباگ از ovlِ کش (ادامهٔ از کش — بدونِ
-            پاسِ تازهٔ det، جعبههایِ آبی از همان کش برمیگردند)."""
             out = []
             try:
                 for _q in ((ovl or {}).get("pdet") or []):
@@ -1395,7 +1231,6 @@ class _MangaTranslatorBody_95:
             return out
 
         def _ctx_boxes_from_regions(regs) -> list:
-            """بازسازیِ باکسهایِ حباب از خودِ ناحیهها (مسیرِ ادامه/فالبک)."""
             out = []
             for _r0 in (regs or []):
                 try:
@@ -1415,6 +1250,8 @@ class _MangaTranslatorBody_95:
         page_of_region: Dict[int, int] = {}
         finished_pages: set = set()
         results_by_i: Dict[int, tuple] = {}
+        _fin_lock = threading.Lock()
+        _prev_busy = threading.Lock()
 
         def _account_chunk(chunk: List[TextRegion]) -> None:
             for r in chunk:
@@ -1429,11 +1266,10 @@ class _MangaTranslatorBody_95:
 
         def _finish_page_now(page_i: int) -> None:
             _raise_if_stop()
-            if page_i in finished_pages:
-                return
-# اگر پاکسازیِ همین صفحه (فاز ۱ یا فاز ۲) هنوز در
-# جریان است، اول تمامشدنش صبر میشود تا دوبارِ پاکسازی
-# (پسزمینه + درونی) نشود؛ بعد entry تازه خوانده میشود.
+            with _fin_lock:
+                if page_i in finished_pages:
+                    return
+                finished_pages.add(page_i)
             try:
                 _wait_clean(page_i)
             except Exception:
@@ -1442,8 +1278,6 @@ class _MangaTranslatorBody_95:
             if entry is None:
                 return
             out_file, image, precleaned, regions, dbg = entry
-# رم → دیسک: اسلات‌ها مرجع‌اند (ndarray یا مسیر) — همین‌جا به
-# تصویرِ واقعی حل میشوند و بعد از پایان، دوباره آزاد میشوند.
             image = _ref_img(image)
             precleaned = _ref_img(precleaned)
             dbg = _dbg_spill(dbg, page_i)
@@ -1456,9 +1290,6 @@ class _MangaTranslatorBody_95:
                     results_by_i[page_i] = (out_file, None, dbg)
                     return
                 if not regions:
-# بدونِ ناحیه: خروجی = خودِ عکسِ اصلی — قبلاً ndarray تا حلقهٔ
-# ذخیرهٔ پایانی در results_by_i pin می‌شد؛ حالا همان‌جا نوشته
-# میشود (محتوای یکسان، رم صفر).
                     try:
                         self._write_image(image, out_file)
                         _live_page_dump(out_file, key=out_file,
@@ -1469,7 +1300,7 @@ class _MangaTranslatorBody_95:
                         self._typer_export_page(page_i, out_file, [], image, image)
                     results_by_i[page_i] = (out_file, True, dbg)
                     return
-                _t_fin = time.time()  # پاکسازی+رندر
+                _t_fin = time.time()
                 result, page_debug = self.finish_page_phase(
                     image, regions, skip_translate=True, precleaned=precleaned,
                     final=True,
@@ -1489,25 +1320,14 @@ class _MangaTranslatorBody_95:
                 except Exception:
                     pass
                 dbg_out = page_debug if page_debug is not None else dbg
-# رم → دیسک: در results_by_i «مرجعِ سبکِ» دیباگ مینشیند (نه نمایِ
-# کامل که تصویرِ سوخته + پایه را در رم پین می‌کند)؛ نمایِ ndarray
-# فقط برای همین لحظهٔ لایو ساخته میشود.
                 _dbg_view_now = dbg_out if isinstance(dbg_out, np.ndarray) \
                     else _dbg_view(dbg_out, image)
                 try:
                     self._write_image(result, out_file)
                     results_by_i[page_i] = (out_file, True,
                                             _dbg_spill(dbg_out, page_i))
-# ریشهٔ «یهو عکس وسط شده اولی عکس»: اسلاتِ
-# زنده قبلاً از «ترتیبِ اتمام» میآمد و در استخراجِ
-# دوطرفه/پیشنمایشِ جریانی، عکسِ وسطِ فصل در اسلاتِ اول
-# مینشست. حالا اسلاتِ صریح = شمارهٔ واقعیِ صفحه؛ هر
-# صفحه در جایگاهِ خودش پر میشود.
                     _live_page_dump(out_file, key=out_file, slot=page_i + 1)
                     if self.debug and _dbg_view_now is not None:
-# اسلاتِ صریحِ صفحه: دیباگِ صفحهٔ iام همیشه
-# live_00(i+1).jpg — ریزِ دومِ پایانِ کار همان فایل را
-# بهروز میکند، نه فایلِ تازه («دیباگ دو بار نشون میده»)
                         _live_dump(_dbg_view_now, dbg=True, slot=page_i + 1)
                 except Exception as _werr:
                     print(f"  [!] ذخیرهٔ تصویر #{page_i + 1} ناموفق: {_werr}")
@@ -1532,29 +1352,19 @@ class _MangaTranslatorBody_95:
                         print(f"    [!] PAGE_FAILED #{page_i + 1}: تعذّر حفظ الصفحة", flush=True)
 
         def _finish_ready_pages() -> None:
-# صفحهای که دیالوگهایش هنوز در صف‌شدن است
-# (_qd_inflight) نهایی نمی‌شود — ریشهٔ «عکس ۲/۳ رد میشه».
             with _qd_lock:
                 _inflight = set(_qd_inflight)
-            for page_i in sorted(extracted_map.keys()):
+            for page_i in sorted(list(extracted_map.keys())):
                 if page_i in finished_pages:
                     continue
                 if page_i in _inflight:
                     continue
                 if pending_by_page.get(page_i, 0) > 0:
                     continue
-# پاکسازیِ این صفحه هنوز در جریان است؟
-# ردش کن — استخراج/ترجمهٔ صفحههایِ بعدی نباید پشتِ
-# پاکسازی بایستد؛ این صفحه در حلقهٔ انتظار تمام میشود.
                 if not _clean_ready(page_i):
                     continue
                 _finish_page_now(page_i)
 
-# خواستهٔ کاربر: «۱۵ تا ۱۵ تا ترجمه کنه بذاره رو عکس نشون
-# بده». بعد از تمامِ هر بستهٔ ۱۵تاییِ ترجمه، صفحه‌هایی که متنِ تازه
-# گرفتن‌اند دوباره رندر و در «همان اسلاتِ» نمایشِ زنده به‌روز میشوند —
-# نه اینکه تا ترجمهٔ همه صبر کند. فقط پیش‌نمایش است؛ رندرِ نهایی صفحه
-# با _finish_page_now وقتی همهٔ دیالوگ‌هایش تمام شد انجام میشود.
         _prev_counts: Dict[int, int] = {}
         _prev_state = {"t": 0.0}
         _prev_lock = threading.Lock()
@@ -1568,20 +1378,27 @@ class _MangaTranslatorBody_95:
                 if not force and time.time() - _prev_state["t"] < 2.0:
                     return
                 _prev_state["t"] = time.time()
-            for page_i in sorted(extracted_map.keys()):
+            if not _prev_busy.acquire(blocking=False):
+                return
+            try:
+                _preview_ready_pages_run()
+            finally:
+                _prev_busy.release()
+
+        def _preview_ready_pages_run() -> None:
+            for page_i in sorted(list(extracted_map.keys())):
                 if page_i in finished_pages:
                     continue
                 entry = extracted_map.get(page_i)
                 if entry is None:
                     continue
                 out_file, image, precleaned, regions, dbg = entry
-# رم → دیسک: حلِ مرجع‌ها (عکس اصلی/پاکشده از دیسک اگر ریخته شده)
                 image = _ref_img(image)
                 precleaned = _ref_img(precleaned)
                 if image is None or not regions or precleaned is None:
                     continue
                 if pending_by_page.get(page_i, 0) <= 0:
-                    continue  # کامل شده — با _finish_page_now تمام میشود
+                    continue
                 n_tr = sum(1 for r in regions
                            if r.kind == "dialogue"
                            and (r.translated_text or "").strip())
@@ -1593,9 +1410,6 @@ class _MangaTranslatorBody_95:
                         image, regions, skip_translate=True, precleaned=precleaned,
                         page_boxes=_pctxv.get("boxes"))
                     self._write_image(result, out_file)
-# پیشنمایشِ جریانی به ترتیبِ رسیدنِ آیتمها
-# از مدل رندر میکند (نه ترتیبِ صفحه) — اسلاتِ صریح:
-# عکسِ وسطِ فصل وسطِ فهرستِ نمایش میماند، نه اولش.
                     _live_page_dump(out_file, key=out_file, slot=page_i + 1)
                     _prev_counts[page_i] = n_tr
                     del result
@@ -1609,13 +1423,7 @@ class _MangaTranslatorBody_95:
             if not force and len(dialogue_buffer) < min_batch:
                 return
             n = len(dialogue_buffer)
-# استخراج دوطرفه ترتیبِ بافر را قاطی کرده؛ برای
-# بافتِ رواییِ مدل، قبل از ارسال به ترتیبِ طبیعیِ صفحهها مرتب
-# میشود (idها دستنخورده میمانند — نگاشتِ جواب به ناحیه سالم).
             dialogue_buffer.sort(key=lambda r: page_of_region.get(r.id, 0))
-# عینِ مرجع (دیکدِ APK): همهٔ دیالوگها در «یک» درخواست
-# هیچ بستهبندیِ ۴۰تایی/سقفِ نویسه وجود ندارد؛ مرزِ فاز هم
-# همین است (استخراجِ همه ← پاکسازیِ دوطرفه + ترجمهٔ یکجا).
             _groups = [dialogue_buffer]
             dialogue_buffer = []
             print(f"[*] ترجمهٔ {n} دیالوگ در «یک» درخواست (سبکِ مرجع)…")
@@ -1632,25 +1440,16 @@ class _MangaTranslatorBody_95:
                     continue
                 if not (r.source_text or "").strip():
                     continue
-# «اگ فقط عدد/علامت بود کلا نره ترجمه الکی وقت
-# ai میگیره»: بدونِ حرف → صفِ ترجمه نمی‌رود؛ پاکسازی‌اش
-# همان فازِ پسزمینه انجام میدهد (هدفِ پاکسازی از متنِ
-# مبدأ خالی نیست → پاک میشود).
                 if not source_has_letters(r.source_text):
                     continue
-# کلیدِ انبارِ ترجمه — جایگاهِ ناحیه در صفحه + هشِ متنِ مبدأ
                 try:
                     r._tkey = _tkey(page_i, _ri, r.source_text)
                 except Exception:
                     pass
-# توقف/ادامه (خواستهٔ سازنده): حبابِ ترجمه‌شدهٔ از کش دوباره
-# به مدل نمی‌رود — فقط مانده‌ها ترجمه میشوند.
                 if (r.translated_text or "").strip():
                     continue
                 r.id = global_id
                 page_of_region[global_id] = page_i
-# سبکِ مرجع: هر دیالوگ صفحه/فایلِ خودش را می‌شناسد
-# تا درخواست به شکلِ [{filename, dialogues}] گروه‌بندی شود
                 r.page_index = page_i
                 _pf = _src_of_page.get(page_i)
                 r.page_file = (os.path.basename(_pf) if _pf
@@ -1660,30 +1459,32 @@ class _MangaTranslatorBody_95:
                 queued += 1
             if queued:
                 pending_by_page[page_i] = pending_by_page.get(page_i, 0) + queued
-# «۱۵ تا ۱۵ ترجمه میفرستادم حذف کن»: بافر دیگر
-# میانهٔ کار خالی نمیشود؛ کلِ متنها بعد از استخراجِ همهٔ
-# صفحهها در «یک» درخواست میروند (فلاشِ پایانیِ حلقه).
 
         if getattr(self, "clean_only", False):
             print("[*] Clean-only mode — API is not called.")
-# صفحات همین‌جا پیش می‌روند (نه انبار تا آخر) —
-# پاکسازی/ذخیرهٔ هر صفحه همان‌طور که آماده می‌شود انجام می‌شود
-# و «نمایش زنده» هم در clean_only صفحه‌به‌صفحه کار می‌کند.
             min_batch = 15
         else:
-# /199 — سبکِ مرجع:
-# عینِ دیکدِ مرجع: ترجمهٔ همه در «یک» درخواست (بدونِ بستهبندی).
-            print(
-                f"[*] سبکِ مرجع: اول استخراجِ دوطرفهٔ همهٔ {len(pending)} صفحه "
-                f"+ پاکسازیٔ یکطرفهٔ بالا→پایین همزمان؛ بعد از اتمامِ "
-                f"کاملِ استخراج: پاکسازیٔ دوطرفه + ترجمهٔ همه در «یک» "
-                f"درخواست (هیچ متنی زودتر از اتمامِ استخراج به مترجم نمیرود)."
-            )
+            _dev_style = str(getattr(self, "device_pref", "auto") or "auto").strip().lower()
+            if _dev_style == "cpu":
+                print(
+                    f"[*] سبکِ پردازش: عکس‌ها با تا سه ورکرِ CPU همزمان "
+                    f"استخراج میشوند و هر کارگرِ آزاد عکسِ بعدی را برمی‌دارد؛ "
+                    f"پاکسازی هم هم‌زمان تک‌تک از عکسِ اول تا آخر فقط با "
+                    f"LaMa روی CPU؛ بعد از اتمامِ کاملِ استخراج: ترجمهٔ همه "
+                    f"در «یک» درخواست."
+                )
+            else:
+                print(
+                    f"[*] سبکِ پردازش: عکس‌ها با تا سه ورکرِ GPU همزمان "
+                    f"استخراج میشوند (تک‌عکس: حباب‌های همان عکس روی چند "
+                    f"سشنِ GPU همزمان) و هر کارگرِ آزاد عکسِ بعدی را برمی‌دارد؛ "
+                    f"پاکسازی هم هم‌زمان تک‌تک از عکسِ اول تا آخر فقط با "
+                    f"LaMa روی GPU؛ بعد از اتمامِ کاملِ استخراج: ترجمهٔ همه "
+                    f"در «یک» درخواست."
+                )
 
         quota_flag = {"dead": False}
         trans_futures: list = []
-# شمارندهٔ پیشرفتِ ترجمه (نوارِ وب): بعد از هر بستهٔ
-# ۴۰تایی «ترجمه: n/N ناحیه» — N همان شمارندهٔ صفِ دیالوگ است.
         _tr_prog = {"n": 0}
         _tr_prog239_lock = threading.Lock()
 
@@ -1705,14 +1506,11 @@ class _MangaTranslatorBody_95:
                 except Exception as e:
                     print(f"    [!] خطای ترجمه در پس‌زمینه: {e}", file=sys.stderr)
                 finally:
-# انبارِ ترجمه: هر بستهٔ تمام‌شده (یا نیمه‌تمام در خطا/سهمیه)
-# همان لحظه ذخیره می‌شود — لغو وسطِ کار کارِ-done را از دست نمیدهد
                     try:
                         _trans_store_save(chunk)
                     except Exception:
                         pass
                     _account_chunk(chunk)
-# نوارِ پیشرفتِ وب
                     try:
                         with _tr_prog239_lock:
                             _tr_prog["n"] += len(chunk)
@@ -1724,36 +1522,49 @@ class _MangaTranslatorBody_95:
                         pass
 
             trans_futures.append(trans_pool.submit(_job))
-# پاکسازی دیگر وابستهٔ ترجمه نیست؛ از همان لحظهٔ
-# استخراجِ هر صفحه در پسزمینه جریان دارد («همزمان هم پاکسازیش»).
 
         trans_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="translate")
 
-# پاکسازی دوفازی:
-# فاز ۱ (همزمان با استخراج) — یک کارگر؛ همیشه کمترینِ صفحۀِ
-# استخراج‌شدهٔ پاکسازینشده را برمیدارد = جاروی بالا→پایین.
-# فاز ۲ (فقط بعد از اتمامِ «کامل» استخراج) — باقیماندهٔ صف نصف
-# میشود: کارگرِ اول از بالای لیست پایین میرود، کارگرِ دوم از
-# پایین بالا میآید و وسط به هم میرسند.
+        def _clean_parallel_n() -> int:
+            try:
+                _e = int(os.environ.get("MANGA_CLEAN_PAGES", "0") or 0)
+            except Exception:
+                _e = 0
+            if _e > 0:
+                return max(1, _e)
+            try:
+                if _IS_ANDROID:
+                    return 1
+            except Exception:
+                pass
+            _gpu = False
+            try:
+                import onnxruntime as _ort
+                _gpu = any(("CUDA" in str(p)) or ("Dml" in str(p))
+                           for p in _ort.get_available_providers())
+            except Exception:
+                _gpu = False
+            try:
+                _cpu = os.cpu_count() or 4
+            except Exception:
+                _cpu = 4
+            if _gpu:
+                return 3
+            return max(2, min(3, _cpu // 3))
+
+        _CLEAN_PAGES = _clean_parallel_n()
         clean_pool = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="clean")
-        clean_pool2 = None            # فقط فازِ دوطرفهٔ پس از استخراج
-        clean_all_futs: list = []     # آیندههایِ پاکسازی برایِ حلقهٔ انتظار
+            max_workers=max(1, _CLEAN_PAGES), thread_name_prefix="clean")
+        clean_all_futs: list = []
         clean_started: set = set()
-        clean_claimed: set = set()   # ادعایِ اتمیکِ «در حالِ پاکسازیِ همین صفحه»
-# شمارندهٔ پیشرفتِ پاکسازی (نوارِ وب): هر صفحهٔ
-# «پردازش‌شده» (پاک‌شده یا بدونِ چیزیِ برایِ پاک‌کردن) یک بار.
+        clean_claimed: set = set()
         clean_counted: set = set()
         clean_done_ev: Dict[int, threading.Event] = {}
-        pending_clean: set = set()    # صفِ فاز ۱
+        pending_clean: set = set()
         extraction_done = {"v": False}
         _clean_cond = threading.Condition()
 
-# سدِ دستهٔ ۱۵تایی حذف شد (خواستهٔ کاربر: «کلا عوض شه —
-# مثلِ مرجع بشه»): استخراج هرگز برای پاکسازی/ترجمه نمی‌ایستد
-# پاکسازیٔ هر صفحه بلافاصله بعد از استخراجش در پسزمینه (صفِ
-# تک‌نمونه) جریان دارد و تا شروعِ ترجمه معمولاً تمام شده است.
 
         def _clean_regions_for_page(page_i: int) -> Optional[List[TextRegion]]:
             entry = extracted_map.get(page_i)
@@ -1762,34 +1573,17 @@ class _MangaTranslatorBody_95:
             _of, im, _pc, regions, _dbg = entry
             if im is None or not regions:
                 return None
-# ناحیهٔ dialogueِ «بی‌متن» (مثلاً همهٔ خطهایش با
-# فیلترِ 188 چرت حساب شد) پاک نمیشود: پاکسازیش یعنی یک حبابِ
-# خالیِ بی‌متن رویِ خروجی . اصلِ
-# 149: پاکسازی فقط وقتی که چیزی بهجایش مینشیند.
-# استثنا — «متن قبلی میمونه نمیپاکه»:
-# ناحیهٔ ocr_empty (زمینهٔ روشن + جوهرِ متنی، حتی بعد از ردِ
-# نجاتِ 201 مثلِ '85') همیشه پاک میشود؛ وگرنه در بچ، متنِ
-# قبلی سرِ جایش میماند درحالیکه حالتِ تکی تمیز پاک میکرد.
             regs = [r for r in regions
                     if r.kind == "dialogue"
                     and (((r.source_text or "").strip()
                           or (r.translated_text or "").strip())
                          or getattr(r, "ocr_empty", False))]
-# همان قواعدِ پاکسازیٔ درونیِ finish_page_phase — تا رفتار
-# عوض نشود فقط جایِ اجرا عقب برده شده:
             if _android_gate("MANGA_CLEAN_TEXTFREE"):
                 regs = regs + [r for r in regions if r.kind == "text_free"]
-# v1.14.294 — واترمارک/بنرِ promo در clean-only پاک میشود
-# (دستورِ تازه: لوگوی سایتِ منبع در خروجی نماند)
             if getattr(self, "clean_only", False):
                 regs = regs + [r for r in regions if r.kind == "promo"]
             if getattr(self, "clean_sfx", False):
                 regs = regs + [r for r in regions if r.kind == "sfx"]
-# همسانسازیِ هدفها با شاخهٔ clean-onlyِ
-# finish_page_phase (dialogue+junk): تا وقتی precleanedِ
-# فازِ پسزمینه جای پاکسازیِ دومی نشیند، junk (شمارهٔ صفحه)
-# هم همانجا پاک شود — وگرنه در استفادهِ مجددِ precleaned
-# جا میماند.
             if getattr(self, "clean_only", False):
                 _have = {id(x) for x in regs}
                 regs = regs + [r for r in regions
@@ -1797,19 +1591,6 @@ class _MangaTranslatorBody_95:
             return regs or None
 
         def _clean_one_page(_p: int) -> bool:
-# بدنۀِ پاکسازِ «یک» صفحه؛ هم فاز ۱ هم فاز ۲ از
-# همین استفاده میکنند (قبلاً jobِ چندصفحهایِ بستهبسته بود).
-# یک صفحه فقط «یک بار» پاکسازی میشود: در مرزِ
-# پایانِ استخراج، فازِ ۱ (جارویِ بالا→پایین) و فازِ ۲ (دوطرفه)
-# هر دو برایِ همان صفحهٔ مانده در صف میدویدند و این تابع فقط
-# finished_pages را میسنجید (صفحه تا پایانِ ترجمه تمامشده
-# نیست) → همان صفحه از «اصلِ تصویر» دوباره کامل پاک میشد —
-# لاگِ واقعیِ گوشیِ (تکصفحه): clean=35.1s +
-# پاکسازیِ دومِ کاملِ همان صفحه (~۳۴ث) = «سه بار میپاکه».
-# حالا: ادعایِ اتمیک + پرشِ صفحهٔ دارایِ precleaned. خروجیِ
-# True = «این فراخوان کار را به پایان رساند» → فقط همان
-# caller حقِ زدنِ clean_done را دارد (علامتِ زودهنگام توسطِ
-# فازِ دیگر، رندرِ زودهنگامِ صفحهٔ نیمه‌پاک را بازمی‌گرداند).
             _did = False
             try:
                 if stop_requested():
@@ -1824,21 +1605,14 @@ class _MangaTranslatorBody_95:
                     if im is None:
                         return False
                     if _pc is not None:
-                        return True  # فازِ دیگر پاک کرده — precleaned آماده است
+                        return True
                     if _p in clean_claimed:
-                        return False  # کارگرِ دیگری همین حالا رویِ آن است
+                        return False
                     clean_claimed.add(_p)
                 _did = True
-# رم → دیسک: مرجعِ عکسِ اصلی → تصویرِ واقعی (فایلِ ورودی یا
-# ndarrayِ هنوز-در-رم) — پاکسازِ همین صفحه فقط همین را می‌بیند.
                 im = _ref_img(im)
                 if im is None:
                     return False
-# کشِ دیسکِ پاکسازی: تعویضِ «فقطِ ترجمه» — فیک↔واقعی، مدل/پرامپت،
-# «از اول ترجمه کن» — استخراج و پاکسازی را از نو نمیگیرد؛
-# تصویرِ پاکشدهٔ همین سبک از دیسک برمی‌گردد و فقط رندرِ متنِ
-# تازه رویش مینشیند (خواستهٔ سازنده: «نباید از اول استخراج یا
-# پاکسازی کنه — میره فقط ترجمش عوض میکنه»).
                 _cc_path = os.path.join(clean_cache_dir,
                                         "page_%04d.png" % _p)
                 if resume and os.path.isfile(_cc_path):
@@ -1849,9 +1623,6 @@ class _MangaTranslatorBody_95:
                         with _clean_cond:
                             if _p in finished_pages:
                                 return True
-# مرجعِ پاکشده = مسیرِ دیسک (نه ndarray) — رم آزاد؛ بقیهٔ
-# اسلات‌ها از «وضعیتِ فعلیِ» نقشه (نه snapshotِ قدیمی) حفظ
-# میشوند تا کارگرِ دیگر (ریختن روی دیسک) بازنویسی نشود.
                             _cur = extracted_map.get(_p) or _e
                             extracted_map[_p] = (_cur[0], _cur[1], _cc_path,
                                                  _cur[3], _cur[4])
@@ -1869,11 +1640,14 @@ class _MangaTranslatorBody_95:
                           flush=True)
                 _t0 = time.time()
                 _pctxc = _ctx_get(_p)
-                _pcn = self.clean_image(im, regs,
-                                        page_boxes=_pctxc.get("boxes"))
-# نوشتنِ کشِ دیسکِ پاکسازی: رانِ بعدی که «فقط ترجمه» عوض شده
-# (فیک↔واقعی/مدل/پرامپت/از-نو) بدونِ LaMa همین تصویر را
-# برمی‌دارد — پاکسازیِ انجام‌شده دوباره اجرا نمی‌شود.
+                if _CLEAN_PAGES > 1:
+                    _shim = object.__new__(type(self))
+                    _shim.__dict__.update(self.__dict__)
+                    _pcn = _shim._clean_image_page(
+                        im, regs, page_boxes=_pctxc.get("boxes"))
+                else:
+                    _pcn = self.clean_image(im, regs,
+                                            page_boxes=_pctxc.get("boxes"))
                 _cc_wrote = False
                 try:
                     import cv2 as _cv2
@@ -1884,10 +1658,7 @@ class _MangaTranslatorBody_95:
                     _cc_wrote = False
                 with _clean_cond:
                     if _p in finished_pages:
-                        return True  # همزمان تمام شده بود — بیخیال
-# رم → دیسک: مرجعِ پاکشده = مسیرِ دیسک (اگر نوشته شد)؛ اسلات‌هایِ
-# دیگر از وضعیتِ فعلیِ نقشه حفظ میشوند (کارگرِ ریختن روی دیسک
-# ممکن است عکسِ اصلی را از قبل مرجع کرده باشد).
+                        return True
                     _cur = extracted_map.get(_p) or _e
                     extracted_map[_p] = (_cur[0], _cur[1],
                                          (_cc_path if _cc_wrote else _pcn),
@@ -1906,9 +1677,6 @@ class _MangaTranslatorBody_95:
             except Exception as e:
                 print(f"    [!] پاکسازیِ صفحهٔ {_p + 1} ناموفق: "
                       f"{str(e)[:120]}")
-# با دیباگ، ردِ کاملِ خطا هم در لاگ می‌نشیند
-# تا «operands could not be broadcast» مانندِ فصلِ ۱۱۰
-# بدونِ حدس از لاگِ سازنده پیدا شود.
                 if getattr(self, "debug", False):
                     try:
                         import traceback as _tb
@@ -1916,13 +1684,9 @@ class _MangaTranslatorBody_95:
                     except Exception:
                         pass
             finally:
-# آزادسازیِ ادعا؛ پاکسازیِ ناموفق → فازِ دیگر
-# میتواند دوباره امتحان کند (فازِ پایانیِ finish_page_phase
-# هم فالبکِ precleaned=Noneِ خودش را دارد).
                 if _did:
                     with _clean_cond:
                         clean_claimed.discard(_p)
-# نوارِ پیشرفتِ وب: صفحهٔ پردازش‌شده
                         if _p not in clean_counted:
                             clean_counted.add(_p)
                             _cn = len(clean_counted)
@@ -1943,9 +1707,6 @@ class _MangaTranslatorBody_95:
                 _ev.set()
 
         def _clean_pages_bg(pages: List[int]) -> None:
-# فقط «صف» میکند؛ اینکه کی و از کدام سمت پاکشود
-# را فاز ۱ (بالا→پایین حینِ استخراج) یا فاز ۲ (دوطرفه بعد از
-# استخراج) تصمیم میگیرد.
             for _p in dict.fromkeys(pages):
                 with _clean_cond:
                     if (_p in clean_started or _p in finished_pages
@@ -1958,10 +1719,6 @@ class _MangaTranslatorBody_95:
                     _clean_cond.notify_all()
 
         def _clean_sched_job() -> None:
-# فاز ۱ — جاروی بالا→پایین همزمان با استخراج: همیشه
-# «کمترین» صفحۀِ آماده را برمیدارد. با فلیپشدنِ extraction_done
-# (بعد از اتمامِ کاملِ استخراج) دیگر صفحهٔ نو برنمیدارد و
-# باقیمانده را برایِ فازِ دوطرفه میگذارد.
             while True:
                 if stop_requested() or quota_flag["dead"]:
                     return
@@ -1974,14 +1731,15 @@ class _MangaTranslatorBody_95:
                         if cand:
                             break
                         if extraction_done["v"]:
-                            return  # ماندهها → فازِ دوطرفه
+                            return
                         _clean_cond.wait(timeout=0.5)
-                    pi = min(cand)  # بالا→پایین
+                    pi = min(cand)
                     pending_clean.discard(pi)
-                if _clean_one_page(pi):  # False = دیگری در حالِ پاکسازیِ آن است
+                if _clean_one_page(pi):
                     _clean_done_mark(pi)
 
-        clean_all_futs.append(clean_pool.submit(_clean_sched_job))
+        for _ in range(max(1, _CLEAN_PAGES)):
+            clean_all_futs.append(clean_pool.submit(_clean_sched_job))
 
         def _wait_clean(page_i: int) -> None:
             with _clean_cond:
@@ -1994,55 +1752,19 @@ class _MangaTranslatorBody_95:
                 _ev = clean_done_ev.get(page_i)
             return _ev is None or _ev.is_set()
 
-        def _clean_seq_job(seq) -> None:
-# فاز ۲ — یک سمتِ صف را یکسره میپاید (ورودی: ترتیبِ مرتبشده
-# از همان سمت؛ پایین→بالا با reversed میآید).
-            for _p in seq:
-                if stop_requested() or quota_flag["dead"]:
-                    _clean_done_mark(_p)
-                    continue
-                with _clean_cond:
-                    if _p in finished_pages:
-                        _clean_done_mark(_p)
-                        continue
-                    pending_clean.discard(_p)
-# اگر فازِ ۱ همین حالا رویِ این صفحه است
-# علامتِ پایانِ زودهنگام نزن؛ وقتی کارش تمام شد خودش میزند.
-                if _clean_one_page(_p):
-                    _clean_done_mark(_p)
-
         def _dispatch_chunk_clean(chunk: List[TextRegion]) -> None:
             _pgs = sorted({page_of_region.get(r.id) for r in chunk
                            if page_of_region.get(r.id) is not None})
             if _pgs:
                 _clean_pages_bg(_pgs)
 
-        #) ───────────────────
-# استخراج دوطرفه (
-# دو کارگر: یکی از عکسِ «اول» جلو میرود، یکی از عکسِ «آخر» عقب
-# وسط به هم میرسند. هر صفحه بلافاصله بعد از استخراج، دیالوگهایش
-# صف میشود و پاکسازیاش به فاز ۱ (بالا→پایین) سپرده میشود.
         _ext_lock = threading.Lock()
-        _ext_fwd = {"v": 0}
-        _ext_bwd = {"v": len(pending) - 1}
+        _ext_next = {"i": 0}
         _ext_quota = {"v": False}
         _ext_err = {"exc": None}
         _qd_lock = threading.Lock()
-# ریشهٔ «عکس ۲/۳ بیشترِ وقتا ترجمه نمیشه رد میکنه»:
-# بینِ نوشتنِ extracted_map[i] و صفشدنِ دیالوگهایش
-# (_queue_dialogues) پنجرهٔ چندثانیهایِ باز است (نجاتِ OCRِ ۱۴۹
-# همان‌جا کار میکند). کارگرِ استخراجِ دیگر در همین پنجره
-# _finish_ready_pages میزند، pending_by_page[i] هنوز صفر است →
-# صفحه «کامل» حساب میشود و با صفر ترجمه رندرِ نهایی میگیرد و
-# دیگر هرگز دوباره رندر نمیشود (لاگِ گوشی: «[!] ۷ حباب ترجمه
-# نشد» قبل از شروعِ بستههایِ ترجمه). حالا: صفحهٔ درِ صف‌شدن با
-# _qd_inflight علامت میخورد و تا پایانِ صف‌شدن تمام/نهایی نمیشود.
         _qd_inflight: set = set()
 
-# شمارندهٔ پیشرفتِ استخراج (نوارِ وب — مثل اپ اندروید):
-# «استخراج متن: n/N صفحه» بعد از هر صفحه؛ موتورِ وب از همین خط
-# درصدِ زنده میسازد (قبلاً در سبکِ مرجع تا پایانِ کلِ استخراج هیچ
-# «صفحهٔ n آماده شد»ای چاپ نمیشد و درصد روی 0٪ گیر میکرد).
         _ext_prog = {"n": 0}
 
         def _ext_prog_tick() -> None:
@@ -2055,27 +1777,22 @@ class _MangaTranslatorBody_95:
             except Exception:
                 pass
 
-        def _claim_ext(role: str):
+        def _claim_ext():
             with _ext_lock:
-                f, b = _ext_fwd["v"], _ext_bwd["v"]
-                if f > b:
-                    return None  # وسط به هم رسیدند
-                if role == "fwd":
-                    it = pending[f]
-                    _ext_fwd["v"] = f + 1
-                else:
-                    it = pending[b]
-                    _ext_bwd["v"] = b - 1
+                if _ext_next["i"] >= len(pending):
+                    return None
+                it = pending[_ext_next["i"]]
+                _ext_next["i"] += 1
                 return it
 
-        def _ext_worker(role: str) -> None:
-            while True:
+        def _ext_worker(first_item, engine) -> None:
+            if engine is not None:
+                self._ocr_tls.engine = engine
+            item = first_item
+            while item is not None:
                 if stop_requested():
                     return
                 if quota_flag["dead"] or _ext_quota["v"]:
-                    return
-                item = _claim_ext(role)
-                if item is None:
                     return
                 try:
                     page_i, out_file, image, regions, dbg = _extract_one(item)
@@ -2086,19 +1803,19 @@ class _MangaTranslatorBody_95:
                 except JobCancelled as e:
                     _ext_err["exc"] = e
                     return
-                except Exception as e:  # محافظت — کارگر هرگز نباید بمیرد
-                    print(f"    [!] خطای کارگرِ استخراج({role}): {e}",
+                except Exception as e:
+                    print(f"    [!] خطای کارگرِ استخراج: {e}",
                           file=sys.stderr)
-                    _ext_prog_tick()  # صفحهٔ خطاخورده هم «انجام‌شده» است
+                    _ext_prog_tick()
+                    item = _claim_ext()
                     continue
-                _ext_prog_tick()  # نوارِ پیشرفتِ وب
+                _ext_prog_tick()
                 with _qd_lock:
                     _qd_inflight.add(page_i)
                 extracted_map[page_i] = (out_file, image, None, regions, dbg)
                 try:
                     if image is not None and regions:
                         try:
-# نجاتِ OCR قبل از صفِ ترجمه
                             self._rescue_empty_ocr(image, regions)
                             with _qd_lock:
                                 _queue_dialogues(regions, page_i)
@@ -2106,40 +1823,115 @@ class _MangaTranslatorBody_95:
                             print(f"\n[!] {e}")
                             _ext_quota["v"] = True
                             return
-# /197 — «همزمان هم پاکسازیش»: صفِ فاز ۱
-# (بالا→پایین)؛ استخراجِ دو سمت بدونِ توقف ادامه میدهد.
                         _clean_pages_bg([page_i])
                 finally:
-# صف‌شدن تمام شد (موفق یا خطا) → صفحه
-# حالا حق دارد نهایی شود؛ گیرِ صف‌شدن آزاد است.
                     with _qd_lock:
                         _qd_inflight.discard(page_i)
                 try:
                     _finish_ready_pages()
-                    _preview_ready_pages()  # پیش‌نمایشِ حینِ استخراج
+                    _preview_ready_pages()
                 except JobCancelled as e:
                     _ext_err["exc"] = e
                     return
                 except Exception:
                     pass
-# رم → دیسک (v1.14.280): مرحله‌هایِ نیازمندِ تصویرِ همین صفحه
-# (نجاتِ OCR/صف‌شدن/نمایش) تمام شد → عکسِ اصلی و دیباگِ سوخته
-# روی دیسک ریخته میشوند؛ فصلِ بزرگ دیگر همهٔ صفحات را در رم
-# نگه نمی‌دارد (خواستهٔ سازنده: «رو حافظه سیو کنه رم نمیرسه»).
                 _map_spill_page(page_i)
+                item = _claim_ext()
 
-        print(f"[*] استخراج دوطرفه: صفحهٔ ۱→{max(0, len(pending))} و "
-              f"صفحهٔ {max(0, len(pending))}→۱ همزمان (دیدار در وسط).")
-        _t_fwd = threading.Thread(target=_ext_worker, args=("fwd",),
-                                  daemon=True, name="extract-fwd")
-        _t_bwd = threading.Thread(target=_ext_worker, args=("bwd",),
-                                  daemon=True, name="extract-bwd")
-        _t_fwd.start()
-        _t_bwd.start()
-        _t_fwd.join()
-        _t_bwd.join()
+        _ocr_helper = None
+        try:
+            _ocr_helper = self._ocr_dual_setup()
+        except Exception:
+            _ocr_helper = None
+        _n_pend = len(pending)
+        _main_eng = self.__dict__.get("_ocr_main")
+        _dev_pref = str(getattr(self, "device_pref", "auto") or "auto").strip().lower()
+        _gpu_mode = self._ocr_gpu_active() and _dev_pref != "cpu"
+        if _gpu_mode:
+            self._ocr_img_parallel = _n_pend >= 2
+            _dev_spec = ["g"] * min(3, max(1, _n_pend)) if _n_pend >= 1 else []
+        elif _n_pend >= 2:
+            self._ocr_img_parallel = True
+            _dev_spec = ["c"] * min(3, _n_pend)
+        else:
+            self._ocr_img_parallel = False
+            _dev_spec = []
+        _g_pool = [_main_eng]
+        _c_pool = [_main_eng]
+        if _gpu_mode:
+            if _ocr_helper is not None:
+                _g_pool.append(_ocr_helper)
+            else:
+                try:
+                    _g2 = self._ensure_ocr_gpu2()
+                except Exception:
+                    _g2 = None
+                if _g2 is not None:
+                    _g_pool.append(_g2)
+            if len(_g_pool) >= 2 and _n_pend >= 3:
+                try:
+                    _g3 = self._ensure_ocr_gpu3()
+                except Exception:
+                    _g3 = None
+                if _g3 is not None:
+                    _g_pool.append(_g3)
+        elif _n_pend >= 2:
+            try:
+                _c2 = self._ensure_ocr_cpu2()
+            except Exception:
+                _c2 = None
+            if _c2 is not None:
+                _c_pool.append(_c2)
+            if len(_c_pool) >= 2 and _n_pend >= 3:
+                try:
+                    _c3 = self._ensure_ocr_cpu3()
+                except Exception:
+                    _c3 = None
+                if _c3 is not None:
+                    _c_pool.append(_c3)
+        _specs: list = []
+        if _n_pend == 1:
+            _specs = [None]
+        else:
+            _gi = _ci = 0
+            for _d in _dev_spec:
+                if _d == "g":
+                    _specs.append(_g_pool[min(_gi, len(_g_pool) - 1)])
+                    _gi += 1
+                else:
+                    _specs.append(_c_pool[min(_ci, len(_c_pool) - 1)])
+                    _ci += 1
+        try:
+            if _n_pend <= 0:
+                pass
+            elif _gpu_mode:
+                if _n_pend == 1:
+                    print(f"[*] استخراج: ۱ عکس — چند سشنِ GPU روی "
+                          f"حباب‌های همان عکس همزمان.")
+                else:
+                    print(f"[*] استخراجِ {min(3, len(_g_pool))}کارگهٔ GPU: "
+                          f"{_n_pend} عکس — هر کارگر که زودتر تمام شود "
+                          f"عکسِ بعدی را برمی‌دارد "
+                          f"({min(3, len(_g_pool))} سشنِ GPU موازی).")
+            elif _n_pend >= 2:
+                print(f"[*] استخراجِ {min(3, len(_c_pool))}کارگهٔ CPU: "
+                      f"{_n_pend} عکس — هر کارگر که زودتر تمام شود "
+                      f"عکسِ بعدی را برمی‌دارد.")
+            else:
+                print(f"[*] استخراج: ۱ عکس.")
+        except Exception:
+            pass
+        _ext_next["i"] = len(_specs)
+        _ext_threads = []
+        for _wi, (_it, _eng) in enumerate(zip(pending, _specs)):
+            _t = threading.Thread(target=_ext_worker, args=(_it, _eng),
+                                  daemon=True, name=f"extract-{_wi}")
+            _ext_threads.append(_t)
+        for _t in _ext_threads:
+            _t.start()
+        for _t in _ext_threads:
+            _t.join()
 
-# استخراج «کامل» تمام شد → پرچم برایِ فاز ۱ و شروعِ فازِ دوطرفه
         extraction_done["v"] = True
         with _clean_cond:
             _clean_cond.notify_all()
@@ -2149,35 +1941,20 @@ class _MangaTranslatorBody_95:
             clean_pool.shutdown(wait=False)
             raise _ext_err["exc"]
 
-# فاز ۲: پاکسازی «دوطرفه» — فقط حالا که استخراج کامل شده ──
-# باقیماندهٔ صف نصف میشود: یک کارگر از بالا پایین میرود، یکی از
-# پایین بالا میآید؛ وسط به هم میرسند.
         with _clean_cond:
             _backlog = sorted(pending_clean)
         if _backlog:
-            _mid = (len(_backlog) + 1) // 2
-            _top_seq, _bot_seq = _backlog[:_mid], _backlog[_mid:]
-            print(f"[*] پاکسازی دوطرفه: {len(_top_seq)} صفحه از بالا→پایین، "
-                  f"{len(_bot_seq)} صفحه از پایین→بالا…")
-            clean_all_futs.append(clean_pool.submit(
-                _clean_seq_job, list(_top_seq)))
-            clean_pool2 = ThreadPoolExecutor(
-                max_workers=1, thread_name_prefix="clean2")
-            clean_all_futs.append(clean_pool2.submit(
-                _clean_seq_job, list(reversed(_bot_seq))))
+            if _dev_pref == "gpu":
+                print(f"[*] پاکسازیِ باقی‌مانده: {len(_backlog)} صفحه به ترتیبِ "
+                      f"بالا→پایین — LaMa فقط روی GPU…")
+            else:
+                print(f"[*] پاکسازیِ باقی‌مانده: {len(_backlog)} صفحه به ترتیبِ "
+                      f"بالا→پایین — LaMa فقط روی CPU…")
 
         if stop_requested():
             trans_pool.shutdown(wait=False)
             raise JobCancelled("لغو توسط کاربر")
 
-# «بعد تموم شد متنهایِ استخراجشده بده به AI»: کلِ
-# بافر (همهٔ دیالوگهایِ فصل) در «یک» درخواست (مرتبسازیِ روایی
-# داخلِ _flush_translate_buffer انجام میشود).
-        #): این خطِ لاگ
-# سدِ صریحِ دو-فازی (
-# لحظهٔ مرز است — قبل از آن هیچ درخواستِ ترجمه‌ای به مدل نرفته
-# است (قفلِ self._extraction_done در finish_page_phase/translate_regions).
-# عینِ مرجع: بستهبندیِ ۴۰تایی حذف شد — یک درخواست.
         self._extraction_done = True
         _n_dlg_total = int(len(dialogue_buffer))
         if not getattr(self, "clean_only", False):
@@ -2187,27 +1964,15 @@ class _MangaTranslatorBody_95:
                 "درخواست (سبکِ مرجع) شروع میشود…"
             )
         else:
-# نشانِ پایانِ استخراج در clean-only هم لازم است
-# (نوارِ پیشرفتِ وب از «صفحه کامل شد» مرزِ فازها را میفهمد).
             print(f"[✓] استخراجِ همهٔ {len(pending)} صفحه کامل شد "
                   f"(حالتِ فقط-پاکسازی).")
         if dialogue_buffer and not getattr(self, "clean_only", False):
             _flush_translate_buffer(force=True)
-        _t_trw = time.time()  # انتظارِ ترجمه
-# باگِ «تا کامل تموم نشه نشون نمیده»: قبلاً اینجا روی
-# «همهٔ» بسته‌های ترجمه بلوکه میشد و هیچ صفحه‌ای زنده رندر نمیشد.
-# حالا انتظارِ پیشرونده است: بعد از تمامِ هر بسته، صفحه‌های آماده
-# نهایی و صفحه‌های نیمه‌تمام پیش‌نمایشِ ۱۵تایی میگیرند و زنده
-# به‌روز میشوند — ترجمه از استخراج جدا کار میکند و نمایش هم همان
-# لحظه جلو میرود.
+        _t_trw = time.time()
         import concurrent.futures as _cfw
-# انتظارِ مشترکِ ترجمه + پاکسازیٔ بچ: هر کدام زودتر
-# تمام شد، صفحههایِ آماده همان لحظه نهایی/پیش‌نمایش میگیرند.
         _seen_f: dict = {}
         for _f in trans_futures:
             _seen_f[id(_f)] = _f
-# آیندههایِ پاکسازی (فاز ۱ + فازِ دوطرفه) هم در همین
-# انتظارِ مشترک؛ صفحهٔ آماده بلافاصله نهایی/پیش‌نمایش میگیرد.
         for _f in list(clean_all_futs):
             _seen_f[id(_f)] = _f
         _futures = list(_seen_f.values())
@@ -2237,14 +2002,6 @@ class _MangaTranslatorBody_95:
             trans_pool.shutdown(wait=False)
             raise JobCancelled("لغو توسط کاربر")
 
-        #) ── بعد از اتمامِ همهٔ بستههایِ ترجمه، هر حبابِ
-# پسگیریِ خالیهایِ AI (
-# «بامتنِ مبدأ ولی بیترجمه» از «همهٔ» صفحهها یکجا جمع میشود و در
-# بستههایِ ۳۰تایی (MANGA_EMPTY_RETRY_MAX) دوباره ترجمه میشود
-# صفحههایِ گرفتار (چه نهایی‌شده با متنِ مبدأِ ۱۹۲، چه در صف)
-# بعدش با ترجمهٔ تازه دوباره رندر میشوند تا جوابِ درست «سرجاش»
-# بنشیند. حداکثر ۳ دورِ پسگیری؛ اگر مدل باز هم خالی داد، متنِ
-# مبدأ (قانونِ ۱۹۲) سرِ جایش میماند.
         def _collect_empty_dialogues() -> List[TextRegion]:
             _out: List[TextRegion] = []
             for _p in sorted(extracted_map.keys()):
@@ -2259,19 +2016,16 @@ class _MangaTranslatorBody_95:
                         continue
                     if getattr(_r, "ocr_empty", False):
                         continue
-# فقطِ عدد/علامت «خالی» حساب نمیشود
-# دورهایِ پسگیریِ AI رویشان دور ریختن است.
                     if not source_has_letters(_r.source_text):
                         continue
-                    if (_r.translated_text or "").strip():
+                    if (_r.translated_text or "").strip() \
+                            and not self._is_json_garbage_text(
+                                _r.translated_text):
                         continue
                     _out.append(_r)
             return _out
 
         def _rerender_page_after_empty(page_i: int) -> None:
-            """رندرِ دوبارهٔ صفحهٔ نهایی‌شده بعد از پرشدنِ خالیها — از
-            فایلِ ورودیِ اصلی (تصویر/precleaned در extracted_map آزاد
-            شده)؛ فقط همین یک صفحه دوباره پاکسازی+رندر میشود."""
             try:
                 _raise_if_stop()
             except Exception:
@@ -2311,8 +2065,16 @@ class _MangaTranslatorBody_95:
 
         if (not getattr(self, "clean_only", False)
                 and not getattr(self, "fake_translate", False)):
-# شناسههایِ خالیها «قبل از» پسگیری — بعدش فقط صفحههایی که
-# واقعاً ترجمهٔ تازه گرفتند دوباره رندر میشوند.
+            for _p in sorted(extracted_map.keys()):
+                _entry = extracted_map.get(_p)
+                if _entry is None:
+                    continue
+                for _r in (_entry[3] or []):
+                    if (_r.translated_text or "").strip() \
+                            and self._is_json_garbage_text(_r.translated_text):
+                        print(f"    [!] پاسخِ JSONِ ناحیهٔ {getattr(_r, 'id', '?')} "
+                              f"دور ریخته شد (برای پسگیریِ دوباره)")
+                        _r.translated_text = ""
             _empty_ids_before: Dict[int, int] = {}
             for _r in _collect_empty_dialogues():
                 _pg = page_of_region.get(getattr(_r, "id", -1), -1)
@@ -2324,8 +2086,6 @@ class _MangaTranslatorBody_95:
                 _empties = _collect_empty_dialogues()
                 if not _empties:
                     break
-# عینِ مرجع: پسگیری هم «یک» درخواست (بدونِ بستهٔ
-# ۳۰تایی) — همان سبکِ درخواستِ اصلی
                 print(f"[*] پسگیریِ خالیهایِ AI: {_empties.__len__()} حباب "
                       f"بیترجمه در یک درخواستِ دوباره (دورِ {_er_round}/۳)…")
                 _empties.sort(key=lambda _r: page_of_region.get(
@@ -2340,14 +2100,9 @@ class _MangaTranslatorBody_95:
                 _trans_store_save(_empties)
                 _still = _collect_empty_dialogues()
                 if len(_still) >= len(_empties):
-# هیچ پیشرفتی نیست — مدل برای اینها جواب نمیدهد
-# بیشتر اصرار نکن (متنِ مبدأ طبقِ قانونِ ۱۹۲ میماند).
                     print(f"[!] دوبارهترجمه پیشرفت نکرد ({len(_still)} حباب "
                           f"همچنان خالی) — قانونِ ۱۹۲: متنِ مبدأ میماند")
                     break
-# صفحههایِ نهایی‌شده‌ای که در این پسگیری ترجمهٔ تازه گرفتند
-# باید دوباره رندر شوند («بزاره سرجاش ست کنه به عکس هاشون»)
-# صفحههایِ در صف، در جارویِ پایانی با ترجمهٔ تازه رندر میشوند.
             _refilled_pages = sorted({
                 _pg for _rid, _pg in _empty_ids_before.items()
                 if _pg in finished_pages
@@ -2360,7 +2115,7 @@ class _MangaTranslatorBody_95:
                 _rerender_page_after_empty(int(_p))
 
         _finish_ready_pages()
-        for page_i in sorted(extracted_map.keys()):
+        for page_i in sorted(list(extracted_map.keys())):
             _finish_page_now(page_i)
         try:
             trans_pool.shutdown(wait=True)
@@ -2370,13 +2125,8 @@ class _MangaTranslatorBody_95:
             clean_pool.shutdown(wait=True)
         except Exception:
             pass
-        try:
-            if clean_pool2 is not None:  # کارگرِ پایین→بالا
-                clean_pool2.shutdown(wait=True)
-        except Exception:
-            pass
 
-        _t_save = time.time()  # ذخیرهٔ نهایی
+        _t_save = time.time()
         print("[*] ذخیرهٔ نهایی خروجی‌ها...", flush=True)
         debug_files = []
         for page_i in sorted(results_by_i.keys()):
@@ -2388,21 +2138,17 @@ class _MangaTranslatorBody_95:
             else:
                 self._write_image(result, out_file)
                 _live_page_dump(out_file, key=out_file,
-                                slot=page_i + 1)  # اسلاتِ صریحِ صفحه
+                                slot=page_i + 1)
                 processed_files.append(out_file)
             results_by_i[page_i] = (out_file, None, None)
             if self.debug and dbg is not None:
                 try:
-# رم → دیسک: dbg اینجا «مرجعِ سبک» است ({ovl, burn}) → نمایِ
-# ndarray با پایهٔ فایلِ ورودیِ همین صفحه بازسازی میشود؛ فقط
-# همین یک صفحه در رم میآید و بعد آزاد میشود.
                     _bs_img = _ref_img(_src_of_page.get(page_i))
                     dbg = _dbg_view(dbg, _bs_img)
                 except Exception:
                     dbg = dbg if isinstance(dbg, np.ndarray) else None
                 if dbg is not None:
                     try:
-# همان اسلاتِ صفحه؛ قبلاً فایلِ دومیِ تکراری میساخت
                         _live_dump(dbg, dbg=True, slot=page_i + 1)
                     except Exception:
                         pass
@@ -2417,9 +2163,6 @@ class _MangaTranslatorBody_95:
                 self._write_image(dbg, dbg_path)
                 debug_files.append(dbg_path)
                 print(f"  [*] DEBUG صفحه ذخیره شد: {dbg_path}")
-# پایه + jsonِ روکش — نمایشگرِ دیباگ با کلیدهایِ روشن/خاموش
-# هر موتور (detector.onnx / پدل-det / پدل-rec) جعبهها را جدا
-# میکشد؛ صفحهٔ پایه = عکسِ اصلِ بی‌روکش.
                 try:
                     _ov = getattr(dbg, "ovl", None)
                     _bs = getattr(dbg, "base", None)
@@ -2489,11 +2232,6 @@ class _MangaTranslatorBody_95:
             self._write_image(img, output_path)
             print(f"[✓] ذخیره شد در: {output_path}")
         else:
-# خروجیِ «پوشهٔ تصاویر» حذف شد (v1.14.279 — خواستهٔ سازنده:
-# «ذخیره سازی پوشه ای اصلا کار نمیکنه و بنظرم کلا حذف کن نیاز
-# نمیشه» — نمایشگر هم با آن باگِ «opencv+lama با هم» داشت).
-# پسوندِ ناشناخته/خالی → PDF (امن‌ترین پیشفرض) تا هیچ مسیری
-# بی‌خروجی نماند.
             if out_ext != ".pdf":
                 output_path = os.path.splitext(output_path)[0] + ".pdf"
             self._save_as_pdf(processed_files, output_path)
@@ -2505,9 +2243,6 @@ class _MangaTranslatorBody_95:
                   f"total={time.time() - _t_run:.1f}s", flush=True)
         except Exception:
             pass
-# پایانِ موفقِ ران: هرچه از گیتِ ترتیبِ نمایش مانده
-# (صفحهٔ لغوشده/بی‌نتیجه) به‌ترتیب آزاد شود — نمایشِ زنده هیچ‌وقت
-# ناقص نمیماند.
         try:
             _live_seq_flush()
         except Exception:
@@ -2597,9 +2332,6 @@ class _MangaTranslatorBody_95:
         if abs(angle) > 45.0:
             angle = 0.0
 
-# اگر راستی‌آزماییِ جوهر گفته «مسطح»، پالی‌ها دیگر
-# حقِ بازنویسیِ زاویه را ندارند (قبلاً وتو با medianِ پالی‌ها
-# دور زده می‌شد → BLUE MOON/PURPLE MOON کجِ کاذب رندر می‌شد)
         if not bool(getattr(region, "angle_flat_veto", False)):
             try:
                 _angs = []
@@ -2610,8 +2342,6 @@ class _MangaTranslatorBody_95:
                 if len(_angs) >= 2:
                     _med = float(np.median(_angs))
                     _spread = float(np.max(np.abs(np.asarray(_angs) - _med)))
-# کجیِ کوچک (زیر ۳ درجه) نویزِ OCR است نه شیبِ
-# واقعی؛ فقط شیبِ واضح اعمال میشود تا متن «کج» نچسبد
                     if _spread <= 5.0 and abs(_med) >= 3.0:
                         angle = _med
             except Exception:
@@ -2635,10 +2365,6 @@ class _MangaTranslatorBody_95:
                 _vy0 = max(0, int(_vpts[:, 1].min()) - 2)
                 _vx1 = min(int(original_image.shape[1]), int(_vpts[:, 0].max()) + 3)
                 _vy1 = min(int(original_image.shape[0]), int(_vpts[:, 1].max()) + 3)
-# پالی‌های هم‌رأی (شیبِ همه یکی و نزدیکِ زاویهٔ ناحیه) =
-# متنِ واقعاً کج — سنجشِ جوهر رویِ کراپِ آمیخته با هنرِ اطراف
-# خطا میرود و «وتویِ مسطحِ» کاذب میزد؛ وتو فقط وقتی معتبر
-# است که پالی‌ها خودشان مطمئن نباشند (پراکنده).
                 _polys_agree = False
                 try:
                     _pa = [float(self._poly_long_side_angle(_p))
@@ -2659,27 +2385,17 @@ class _MangaTranslatorBody_95:
                     _a_ink, _a_ok = MangaTranslator._ink_slant_measure(
                         original_image[_vy0:_vy1, _vx0:_vx1], _rmk)
                     if _a_ok and abs(_a_ink) < 6.0:
-# وتویِ جوهرِ مسطح؛ — اول خودِ
-# زاویهٔ ادعایی آزموده می‌شود: اگر ردیفهایِ جوهر را
-# واقعاً رویِ هم می‌اندازد (≥۱٫۱۰×) کجیِ واقعی است و
-# وتو نمی‌شود (img3: ‎-۶٫۷°/-۱۳٫۲° به‌غلط صفر می‌شدند
-# «بعد چرخش همچین بعضی متن ها درست نمیچرخه»).
                         _supr = MangaTranslator._ink_slant_support(
                             original_image[_vy0:_vy1, _vx0:_vx1],
                             angle, _rmk)
                         if _supr is not None and _supr >= 1.10:
-                            pass  # کجیِ واقعی — رندر با همان زاویه
+                            pass
                         else:
-# پالی‌هایِ حروفِ استایل‌دار کجیِ کاذب می‌دهند
-# جوهرِ واقعیِ خط مسطح است → رندر افقی
                             print(f"    [!] حذف کجیِ کاذب در رندر [{region.id}]: "
                                   f"{angle:+.1f}° → 0.0° (جوهرِ مسطح)")
                             angle = 0.0
                     elif (abs(_a_ink) >= 6.0 and abs(_a_ink) <= 45.0
                             and (_a_ink > 0.0) != (angle > 0.0)):
-# همان عاقل‌نگه‌داشتِ مقدارِ verify:
-# پرشِ فاحش یعنی سنجش روی حروفِ استایل‌دار خطا
-# رفته → مسطح (باگِ ‎-7°→+39.8° در img4)
                         if abs(abs(_a_ink) - abs(angle)) > 15.0:
                             print(f"    [!] وتوی کجیِ ناسازگار در رندر [{region.id}]: "
                                   f"{angle:+.1f}° ← جوهر {_a_ink:+.1f}° → 0.0°")
@@ -2693,12 +2409,6 @@ class _MangaTranslatorBody_95:
         if abs(angle) > 45.0:
             angle = 0.0
 
-# متنِ «خمیده» (قوسِ واقعی) — خودِ خطِ متن در اصل رویِ منحنی
-# خمیده است، نه فقط کج؛ چرخشِ صافِ یکنواخت خمیدگی را از دست
-# میداد. مسیرِ خمیدگی از جوهرِ خودِ متنِ اصل (ستون‌به‌ستون،
-# داخلِ ماسکِ پالیها، رویِ عکسِ اصلی) درمیآید و ترجمه
-# واژه‌به‌واژه با شیبِ مماسِ همان نقطه روی همان قوس می‌نشیند.
-# متنِ صاف/کجِ ساده اینجا رد میشود و مسیرِ عادیِ خودش را میرود.
         if original_image is not None:
             try:
                 _arc = MangaTranslator._curve_path_from_ink(
@@ -2735,10 +2445,6 @@ class _MangaTranslatorBody_95:
 
             n = max(1, len(lines))
 
-# «جایگزینیِ خط‌به‌خط» (ایدهٔ کاربر): اگر تعدادِ
-# خط‌های ترجمه با خط‌های متنِ اصلی یکی باشد، هر خطِ ترجمه دقیقاً
-# روی «جایِ خطِ اصل» — وسطِ همان نوارِ خطی که پاک شده —
-# می‌نشیند؛ متنِ اصل دقیقاً همان‌جا که بود، جایگزین می‌شود.
             _olines = None
             try:
                 _olines = MangaTranslator._group_polys_to_lines(
@@ -2814,11 +2520,6 @@ class _MangaTranslatorBody_95:
                     )
         else:
 
-# خمیده/آبشاری — هر خطِ متنِ اصلی شیبِ خودش را دارد (SFXِ
-# پلکانی مثلِ ROOOOAAAR یا متنِ قوسی): اگر شیبِ خطها با هم
-# ≥۸° اختلاف دارد، هر تکهٔ ترجمه جدا با «زاویهٔ همان خط» و
-# وسطِ همان نوار رندر میشود — سبکِ نوشتاری هم مثلِ اصل کج
-# میماند، نه یک تختِ یکنواخت.
             try:
                 _pln = MangaTranslator._group_polys_to_lines(
                     getattr(region, "ocr_polys", None) or [])
@@ -2863,11 +2564,6 @@ class _MangaTranslatorBody_95:
             except Exception:
                 pass
 
-# کجی — مختصاتِ «متن» نه کلِ حباب. rect معمولاً باکسِ
-# حباب است؛ فرمولِ مستطیلِ محاطی روی باکسِ حباب نوارِ قطریِ باریک
-# می‌سازد و فونتِ کج را نصف می‌کند (متنِ کج ریز می‌شد). اتحادِ
-# کوادهای OCR = باکسِ واقعیِ متنِ چرخیده → فرمول همان بلوکِ اصلی
-# را برمی‌گرداند و فونت هم‌اندازهٔ متنِ اصل می‌ماند.
             rx, ry, rw_box, rh_box = x, y, w, h
             try:
                 _rpoly = [np.asarray(p, dtype=np.float32).reshape(-1, 2)
@@ -2892,10 +2588,6 @@ class _MangaTranslatorBody_95:
             denom = c_ * c_ - s_ * s_
             fit_w, fit_h = rw_box, rh_box
             if denom > 0.05:
-# دو کاندید: نوارِ محاطیِ باکسِ متن (اندازهٔ متنِ اصل) و
-# نوارِ محاطیِ باکسِ حباب (بیشترین جا برای ترجمهٔ بلندتر)
-# → هر محور max دوتایی؛ حبابِ بیضی هم مثل قدیم با گیرهٔ
-# ۱.۰۴×rect مهار می‌شود.
                 _t_w = (rw_box * c_ - rh_box * s_) / denom
                 _t_h = (rh_box * c_ - rw_box * s_) / denom
                 _b_w = (w * c_ - h * s_) / denom
@@ -2965,11 +2657,6 @@ class _MangaTranslatorBody_95:
     def _render_curved_lines(self, pil_img, draw, region, line_boxes,
                              line_angles, text_rgb, stroke_rgb,
                              style, max_font) -> None:
-        """ — رندرِ خمیده/آبشاری: هر تکهٔ ترجمه با «زاویهٔ خودِ
-        همان خطِ اصلی» وسطِ همان نوار می‌نشیند — سبکِ نوشتاریِ
-        خروجی هم مثلِ اصل کج/خمیده میماند (ROOOOAAARِ پلکانی،
-        متنِ قوسی). فقط وقتی صدا زده میشود که شیبِ خطها با هم
-        ≥۸° اختلاف داشته باشد."""
         txt = str(getattr(region, "translated_text", "") or "").strip()
         if not txt or not line_boxes:
             return
@@ -2984,8 +2671,6 @@ class _MangaTranslatorBody_95:
             fsize = int(np.clip(round(med_h * 0.92), 10,
                                 max(11, int(max_font or 48))))
             sw = self._stroke_width_for(fsize)
-# پخشِ واژهها بینِ خطها به نسبتِ عرضِ هر خط؛ واژههایِ
-# کمتر از تعدادِ خطها از «اولین» خطها یک-به-یک میگیرند
             if n == 1:
                 chunks = [" ".join(words)]
             elif len(words) <= n:
@@ -3050,12 +2735,6 @@ class _MangaTranslatorBody_95:
 
     def _render_arc_text(self, pil_img, draw, region, curve, text_rgb,
                          stroke_rgb, style, max_font) -> bool:
-        """ — رندرِ «خمیده» (قوسِ واقعی): مسیرِ خمیدگیِ خودِ متنِ
-        اصل (از سنجشِ جوهرِ ستون‌به‌ستون) + واژه‌هایِ ترجمه که
-        کلمه‌به‌کلمه، هر واژه با «شیبِ مماسِ همان نقطهٔ قوس»، روی
-        همان منحنی می‌نشینند. ترجمهٔ بلندتر = ردیفهایِ موازیِ
-        همان قوس (مثلِ تایپِ روی مسیر). خروجی: True = رندر شد؛
-        False = متن برایِ قوس زیادی بزرگ است، مسیرِ عادی برود."""
         try:
             txt = str(getattr(region, "translated_text", "") or "").strip()
             path_pts = curve.get("path") if isinstance(curve, dict) else None
@@ -3064,7 +2743,6 @@ class _MangaTranslatorBody_95:
             path = np.asarray(path_pts, dtype=np.float64).reshape(-1, 2)
             if path.shape[0] < 6:
                 return False
-# طولِ قوس + مماسِ هر پاره
             segs = np.diff(path, axis=0)
             seg_len = np.hypot(segs[:, 0], segs[:, 1])
             if float(seg_len.sum()) < 36.0:
@@ -3078,10 +2756,6 @@ class _MangaTranslatorBody_95:
                 _rh = int(region.rect[3])
             except Exception:
                 _rh = int(lh_src * 4)
-# منبعِ «یک‌خطی» (عرضِ نوار ≈ ارتفاعِ ردیف): ترجمهٔ بلندتر نباید
-# به ردیفهایِ ریز بشکند؛ قوس در امتدادِ مماسِ دو سر کشیده میشود
-# (تا ۱۸٪ هر طرف، داخلِ تصویر) تا متنِ بلندتر با فونتِ درشتتر و
-# ردیفهایِ کمتر روی همان خمیدگی بنشیند.
             _single_src = lh_band <= lh_src * 1.40 + 2.0
             if _single_src:
                 try:
@@ -3130,9 +2804,6 @@ class _MangaTranslatorBody_95:
                     tang = segs / np.maximum(seg_len, 1e-6)[:, None]
             fit_w = int(arc_len * (0.97 if _single_src else 0.94))
             fit_h = int(max(lh_src * 1.35, min(_rh * 1.05, lh_src * 5.0)))
-# فونت از «ارتفاعِ یک ردیف» (نه پالیِ پوشانندهٔ کلِ بلوک) + اگر
-# پشتهٔ ردیفها از ناحیه بیرون زد، فونت پله‌پله کوچک میشود تا
-# قوسِ ترجمه همیشه داخلِ ناحیهٔ متنِ اصل بماند (سرریز ممنوع)
             font = lines = sw = None
             _ms = min(int(max_font or 48), max(10, int(round(lh_src * 0.95))))
             while _ms >= 10:
@@ -3163,7 +2834,6 @@ class _MangaTranslatorBody_95:
             for i, line in enumerate(lines):
                 if not line.strip():
                     continue
-# ردیفِ i روی قوسِ موازی: آفستِ عمود بر مماس (ردیفِ اول بیرونِ قوس)
                 off = ((K - 1) / 2.0 - i) * line_h
                 row_path = np.empty_like(path)
                 for j in range(len(path)):
@@ -3201,8 +2871,6 @@ class _MangaTranslatorBody_95:
                     total = sum(wwidths) + space_w * (len(words) - 1)
                 if total > row_total * 1.25:
                     continue
-# فارسی = راست‌به‌چپ: واژهها از «سرِ راستِ» ردیفِ وسط‌چینِ قوس
-# می‌نشینند — ردیفِ کوتاه وسطِ قوس میماند، نه چسبیده به یک سر
                 cursor = (row_total + total) / 2.0
                 _place = []
                 for wi, wd in enumerate(words):
@@ -3218,8 +2886,6 @@ class _MangaTranslatorBody_95:
                                                         row_tang[k, 0])))
                     if abs(ang_w) > 75.0:
                         ang_w = 0.0
-# کاشیِ واژه از «باکسِ خودِ واژه» ساخته میشود (نه گلیفِ عمومی) —
-# حروفِ بلندِ فارسی (چ/ک/گ با دُم) هرگز بریده نمیشوند
                     _wb = draw.textbbox((0, 0), wd, font=_f,
                                         stroke_width=_sw_r)
                     tw = int(_wb[2] - _wb[0]) + 2 * _sw_r + 8
@@ -3236,8 +2902,6 @@ class _MangaTranslatorBody_95:
                                       resample=Image.BICUBIC)
                     _place.append((rot, cx_, cy_))
                     cursor -= (wwd / 2.0 + space_w)
-# ناحیهٔ لبه‌چسب (مثلِ قوسِ چسبیده به لبهٔ چپِ صفحه): ردیفِ
-# بیرون‌زده از تصویر یکجا به داخل میلغزد تا هیچ واژه‌ای بریده نشود
                 try:
                     _iw, _ih = pil_img.size
                     _xs0 = [cx_ - rot.size[0] / 2 for rot, cx_, cy_ in _place]

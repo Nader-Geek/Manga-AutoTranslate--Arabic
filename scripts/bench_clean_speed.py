@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""بنچمارکِ سرعتِ پاکسازی — lama-manga در برابرِ opencv — رویِ تکتکِ
-عکسهایِ ci_imgs (F279 — خواستهٔ سازنده: «سرعت پاکسازیش ببر بالا کنده
-هم lama هم openvc سرعت تست میزنی تک تک عکس هارو چک کن»).
-
-هر عکس با clean-only (بدونِ API) دو بار ران میشود؛ زمانِ «clean» از
-خطِ [TIME] page#N clean=… لاگ جمع میشود. خروجی:
-  /tmp/clean_bench.json + جدولِ چاپی + md5ِ خروجیِ هر ران (برایِ
-  مقایسهٔ بیت‌به‌بیت بینِ نسخهها).
-"""
 import glob
 import json
 import os
@@ -51,7 +41,7 @@ def main():
                 and os.path.commonpath([f, os.path.join(ROOT, "ci_imgs",
                                                         "fixtures")]) \
                 == os.path.join(ROOT, "ci_imgs", "fixtures"):
-            continue  # فیکسچرها جزو بنچ نیستند
+            continue
         if b.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
             if only and not any(o in b for o in only):
                 continue
