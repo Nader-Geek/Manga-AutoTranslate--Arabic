@@ -7714,6 +7714,8 @@ class _MangaTranslatorBody_85:
                     _bh = _by1 - _by0
                     if _bw < 24 or _bh < 10 or _bh > 160:
                         continue
+                    if _by0 > 0.12 * H and _by1 < 0.88 * H:
+                        continue
                     _zo = _oG[_by0:_by1, _bx0:_bx1]
                     _zc = _oC[_by0:_by1, _bx0:_bx1]
                     _np_m = ((_zo < 165) | _zc).astype(np.uint8)
@@ -7764,19 +7766,24 @@ class _MangaTranslatorBody_85:
                             _bright = (_ring >= 180) & (~_ringm) & (~_ringc)
                             if int(_bright.sum()) < 100:
                                 continue
-                            _col = np.median(
-                                original[_ry0:_ry1, _rx0:_rx1][_bright],
-                                axis=0)
+                            _rpx = original[_ry0:_ry1,
+                                            _rx0:_rx1][_bright]
+                            if float(_rpx.std(axis=0).max()) > 26.0:
+                                continue
+                            _col = np.median(_rpx, axis=0)
                             _okR = True
                             break
                         except Exception:
                             continue
                     if not _okR:
                         try:
-                            _gb = (_oG >= 180) & (~_cm) & (~_oC)
-                            if int(_gb.sum()) >= 500:
-                                _col = np.median(original[_gb], axis=0)
-                                _okR = True
+                            _edge_ok = (_dy0 <= 0.12 * H) \
+                                or (_dy1 >= 0.88 * H)
+                            if _edge_ok:
+                                _gb = (_oG >= 180) & (~_cm) & (~_oC)
+                                if int(_gb.sum()) >= 500:
+                                    _col = np.median(original[_gb], axis=0)
+                                    _okR = True
                         except Exception:
                             _okR = False
                     if not _okR or _col is None:
@@ -11397,6 +11404,43 @@ class _MangaTranslatorBody_85:
         except Exception:
             return 0
 
+    def _ocr_cleaned_chunked(self, cleaned: np.ndarray):
+        try:
+            h, w = cleaned.shape[:2]
+        except Exception:
+            return None
+        try:
+            if h <= 2600:
+                return self.ocr.ocr(cleaned)
+        except Exception:
+            return None
+        collected: list = []
+        step = 2200
+        overlap = 96
+        y = 0
+        while y < h:
+            y2 = min(h, y + step)
+            chunk = cleaned[y:y2]
+            try:
+                _r = self.ocr.ocr(chunk)
+            except Exception:
+                _r = None
+            if _r and _r[0]:
+                for _ln in (_r[0] or []):
+                    try:
+                        _box = np.asarray(_ln[0], np.float32).reshape(-1, 2)
+                        _box[:, 1] += y
+                        collected.append([_box.tolist(), _ln[1]])
+                    except Exception:
+                        continue
+            del chunk
+            if y2 >= h:
+                break
+            y = y2 - overlap
+        if not collected:
+            return None
+        return [collected]
+
     def _leftover_text_sweep(self, cleaned: np.ndarray,
                              original: np.ndarray,
                              zone: Optional[np.ndarray],
@@ -11427,7 +11471,7 @@ class _MangaTranslatorBody_85:
             if not ok.any():
                 return 0
             try:
-                _res = self.ocr.ocr(cleaned)
+                _res = self._ocr_cleaned_chunked(cleaned)
             except Exception:
                 return 0
             if not _res or not _res[0]:
@@ -11479,10 +11523,19 @@ class _MangaTranslatorBody_85:
                 _np = int(resid.sum())
                 if _np < 40:
                     continue
-                _m = np.zeros((h, w), np.uint8)
-                _m[by0:by1, bx0:bx1] = resid.astype(np.uint8) * 255
-                _patch = cv2.inpaint(cleaned, _m, 4, cv2.INPAINT_TELEA)
-                cleaned[resid] = _patch[resid]
+                _padI = 6
+                _ix0 = max(0, bx0 - _padI)
+                _iy0 = max(0, by0 - _padI)
+                _ix1 = min(w, bx1 + _padI)
+                _iy1 = min(h, by1 + _padI)
+                _subI = cleaned[_iy0:_iy1, _ix0:_ix1]
+                _mI = resid[_iy0:_iy1, _ix0:_ix1].astype(np.uint8) * 255
+                if int(cv2.countNonZero(_mI)) > 0:
+                    _patchI = cv2.inpaint(_subI, _mI, 4,
+                                          cv2.INPAINT_TELEA)
+                    _selI = _mI > 0
+                    _subI[_selI] = _patchI[_selI]
+                    cleaned[_iy0:_iy1, _ix0:_ix1] = _subI
                 self._sweep_fix_record(resid)
                 n_fix += 1
                 n_px += _np
