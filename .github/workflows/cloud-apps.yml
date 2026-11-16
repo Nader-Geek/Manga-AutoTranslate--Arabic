@@ -92,21 +92,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          NOTES='مانگا کلود — نسخه سبک ابری (همه پردازش روی سرور)
+
+          - Android (universal): arm / arm64 / x86 / x86_64
+          - Windows x64 (WebView2)
+          - Windows x86 32bit (WebView2)
+          - Linux x64 / arm64 / armhf (32bit ARM)
+
+          فقط صفحه https://amirwolf512-manga-autotranslate.hf.space/ را باز می‌کند؛ بدون مدل و بدون وابستگی.'
+          NOTES=$(printf '%s' "$NOTES" | sed 's/^          //')
           if gh release view clouds --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload clouds dist/MangaCloud-* \
               --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create clouds dist/MangaCloud-* \
               --repo "$GITHUB_REPOSITORY" \
-              --title "clouds" --target main \
-              --notes "مانگا کلود — نسخه سبک ابری (همه پردازش روی سرور)
-
-- Android (universal): arm / arm64 / x86 / x86_64
-- Windows x64 (WebView2)
-- Windows x86 32bit (WebView2)
-- Linux x64 / arm64 / armhf (32bit ARM)
-
-فقط صفحه https://amirwolf512-manga-autotranslate.hf.space/ را باز می‌کند؛ بدون مدل و بدون وابستگی."
+              --title "clouds" --target main --notes "$NOTES"
           fi
 
       - name: Upload artifacts
