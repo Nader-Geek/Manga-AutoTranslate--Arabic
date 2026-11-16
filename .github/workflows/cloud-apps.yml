@@ -1,0 +1,70 @@
+name: Build Cloud Apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "cloud-apps/**"
+      - ".github/workflows/cloud-apps.yml"
+      - "VERSION"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build Android cloud APK
+        working-directory: cloud-apps/android
+        run: |
+          VC=$(sed -n 's/^versionCode=//p' "$GITHUB_WORKSPACE/VERSION" | tr -d '[:space:]')
+          VN=$(sed -n 's/^versionName=//p' "$GITHUB_WORKSPACE/VERSION" | tr -d '[:space:]')
+          echo "cloudVersionCode=$VC cloudVersionName=$VN"
+          gradle :app:assembleDebug \
+            -PcloudVersionCode="$VC" -PcloudVersionName="$VN"
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/dist/MangaCloud-Android.apk"
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build desktop shells (Windows + Linux)
+        working-directory: cloud-apps/desktop
+        run: |
+          npm install --no-fund --no-audit @neutralinojs/neu@11.8.0
+          npx neu update
+          npx neu build --release
+          ls -la dist/MangaCloud
+          mkdir -p dist/MangaCloud/win dist/MangaCloud/linux
+          cp dist/MangaCloud/MangaCloud-win_x64.exe dist/MangaCloud/resources.neu dist/MangaCloud/win/
+          cp dist/MangaCloud/MangaCloud-linux_x64 dist/MangaCloud/resources.neu dist/MangaCloud/linux/
+          (cd dist/MangaCloud/win && zip -r "$GITHUB_WORKSPACE/dist/MangaCloud-Windows-x64.zip" .)
+          (cd dist/MangaCloud/linux && tar -czf "$GITHUB_WORKSPACE/dist/MangaCloud-Linux-x64.tar.gz" .)
+          ls -la "$GITHUB_WORKSPACE/dist"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-apps
+          path: dist/
+          if-no-files-found: error

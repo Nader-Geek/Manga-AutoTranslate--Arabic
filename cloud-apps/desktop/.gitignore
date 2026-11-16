@@ -1,0 +1,5 @@
+node_modules/
+dist/
+bin/
+resources/neutralino.js
+resources/neutralino.d.ts

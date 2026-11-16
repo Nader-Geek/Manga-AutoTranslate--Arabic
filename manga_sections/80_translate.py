@@ -1813,120 +1813,64 @@ class _MangaTranslatorBody_80:
             _jp0 = bool(self._ocr_lang_flags()[2])
         except Exception:
             _jp0 = False
-        try:
-            pages, region_page = self._mt_pages_payload(missing)
-            _sref0 = self._style_ref_samples()[:10]
-            p_batch = mt_user_prompt(_rules0, pages, _jp0, style_ref=_sref0)
-            print(f"    {_total_missing} حبابِ بدونِ ترجمه — نجاتِ دسته‌ای "
-                  f"در یک درخواست…")
-            with self._api_lock:
-                if self.provider_type == "gemini":
-                    t_batch = self._translate_with_gemini(p_batch, sys_inst)
-                else:
-                    t_batch = self._translate_via_provider(p_batch, sys_inst)
+        fixed = 0
+        _max_rounds = 3
+        for _round in range(1, _max_rounds + 1):
+            if not missing:
+                break
             try:
-                self._parse_translation_response(t_batch, missing, region_page)
-            except Exception:
-                pass
-        except Exception as e:
-            print(f"    [!] نجاتِ دسته‌ای ناموفق: {str(e)[:90]}")
-        missing = [r for r in missing
-                   if not str(getattr(r, "translated_text", "") or "").strip()]
-        fixed = _total_missing - len(missing)
-        if fixed:
-            print(f"    [✓] نجاتِ دسته‌ای: {fixed} حباب پر شد.")
-        if not missing:
-            return fixed
-        print(f"    {len(missing)} حبابِ مانده — نجاتِ تکآیتمی…")
-        sys_plain = self._get_plain_system_instruction()
-        _sref = self._style_ref_samples()[:3]
-        _anchor = ""
-        if _sref:
-            _ex = "\n".join(
-                '  "' + str(_s)[:90] + '" -> "' + str(_f)[:90] + '"'
-                for _s, _f in _sref)
-            _anchor = ("\nStyle of this chapter (match its tone, register and "
-                       "phrasing exactly — do NOT sound formal or bookish):\n"
-                       + _ex + "\n")
-        for r in missing:
-            src = (r.source_text or "").strip()
-            val = ""
-            p1 = ("Translate this one manga dialogue into natural spoken Persian. "
-                  "It is raw OCR output from a comic page, so it may contain "
-                  "errors or look garbled — never refuse it and never write "
-                  "placeholders such as [CENSORED]; translate the most likely "
-                  "intended dialogue instead. "
-                  "Answer with ONLY the Persian translation — plain text only, "
-                  "no JSON, no brackets, no quotes, no notes."
-                  "\n" + _anchor + "\n" + src)
-            for _t in range(3):
-                try:
-                    with self._api_lock:
-                        if self.provider_type == "gemini":
-                            val = self._translate_with_gemini(
-                                p1, sys_plain, structured=False) or ""
-                        else:
-                            val = self._translate_via_provider(
-                                p1, sys_plain, structured=False) or ""
-                    val = (val or "").strip()
-                    val = re.sub(r"^```(?:json)?\s*|\s*```$", "", val).strip()
-                    val = val.strip('"').strip().strip('"').strip()
-                    val = self._extract_plain_from_jsonish(val)
-                    if val and self._is_censored_translation(val) \
-                            and "censor" not in src.lower():
-                        print(f"    [!] نجاتِ تک‌آیتمیِ بالن[{r.id}]: پاسخِ "
-                              f"جای‌نگهدار رد شد — تلاش مجدد")
-                        val = ""
-                    if val:
-                        break
-                    time.sleep(0.4)
-                except Exception as e:
-                    print(f"    [!] نجاتِ تکآیتمیِ بالن[{r.id}]: {str(e)[:80]}")
-                    if self._is_rate_or_model_quota_error(e):
-                        if self._api_keys and len(self._api_keys) > 1:
-                            try:
-                                self._pick_random_api_key(
-                                    reason="نجاتِ ۴۲۹/503")
-                            except Exception:
-                                pass
-                        time.sleep(min(2.5 * (_t + 1), 7.0))
+                pages, region_page = self._mt_pages_payload(missing)
+                _sref0 = self._style_ref_samples()[:10]
+                p_batch = mt_user_prompt(_rules0, pages, _jp0, style_ref=_sref0)
+                if _round == 1:
+                    print(f"    {_total_missing} حبابِ بدونِ ترجمه — نجاتِ دسته‌ای "
+                          f"در یک درخواست…")
+                else:
+                    print(f"    [*] نجاتِ دور {_round}: {len(missing)} حبابِ مانده "
+                          f"— همه با هم در یک درخواست…")
+                with self._api_lock:
+                    if self.provider_type == "gemini":
+                        t_batch = self._translate_with_gemini(p_batch, sys_inst)
                     else:
-                        time.sleep(0.4)
-            if not val:
+                        t_batch = self._translate_via_provider(p_batch, sys_inst)
                 try:
-                    _rules = (getattr(self, "custom_instruction", "") or "").strip() \
-                        or PROMPT_PRESETS[resolve_prompt_mode(
-                            getattr(self, "prompt_mode", "professional"),
-                            getattr(self, "provider", "gemini"),
-                            getattr(self, "model_name", ""))]
+                    self._parse_translation_response(t_batch, missing, region_page)
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"    [!] نجاتِ دسته‌ای (دور {_round}) ناموفق: {str(e)[:90]}")
+                if self._is_rate_or_model_quota_error(e):
                     try:
-                        _jp = bool(self._ocr_lang_flags()[2])
+                        if self._api_keys and len(self._api_keys) > 1:
+                            self._pick_random_api_key(reason="نجاتِ ۴۲۹/503")
                     except Exception:
-                        _jp = False
-                    _rfname = (getattr(r, "page_file", "") or "").strip() \
-                        or ("bubble_%d.png" % r.id)
-                    p2 = mt_user_prompt(
-                        _rules,
-                        [{"filename": _rfname,
-                          "dialogues": [[1, src]]}],
-                        _jp)
-                    with self._api_lock:
-                        if self.provider_type == "gemini":
-                            t2 = self._translate_with_gemini(p2, sys_inst)
-                        else:
-                            t2 = self._translate_via_provider(p2, sys_inst)
-                    self._parse_translation_response(t2, [r])
-                    val = (r.translated_text or "").strip()
-                    if not val:
-                        val = self._extract_plain_from_jsonish(t2 or "")
-                except Exception as e:
-                    print(f"    [!] نجاتِ JSONِ بالن[{r.id}]: {str(e)[:80]}")
-            if not val:
-                print(f"    [!] بالن[{r.id}] مدل جواب نداد — بیترجمه میماند تا دورِ بعد دوباره پرسیده شود.")
-                continue
-            fixed += 1
-            print(f"    ← نجاتِ 189[{r.id}]: {val[:60]}")
-            r.translated_text = self._cleanup_translation(val)
+                        pass
+                    time.sleep(min(2.5 * _round, 7.0))
+                    continue
+            _before = len(missing)
+            missing = [r for r in missing
+                       if not str(getattr(r, "translated_text", "") or "").strip()]
+            _got = _before - len(missing)
+            fixed += _got
+            if _got:
+                print(f"    [✓] نجاتِ دسته‌ای (دور {_round}): {_got} حباب پر شد.")
+            if not missing:
+                break
+            if _round < _max_rounds:
+                _wait = min(2.0 * _round, 5.0)
+                print(f"    [!] {len(missing)} حباب هنوز خالی — صبر {_wait:.0f}ثانیه "
+                      f"و یک درخواستِ جمعیِ دیگر…")
+                time.sleep(_wait)
+                try:
+                    if self._api_keys and len(self._api_keys) > 1:
+                        self._pick_random_api_key(reason=f"نجاتِ دور {_round + 1}")
+                except Exception:
+                    pass
+                try:
+                    if self._model_cascade and len(self._model_cascade) > 1:
+                        self._switch_to_next_model(reason=f"نجاتِ دور {_round + 1}")
+                except Exception:
+                    pass
         return fixed
 
     @staticmethod

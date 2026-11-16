@@ -7585,6 +7585,15 @@ class _MangaTranslatorBody_85:
                         print(f"  [DBG-force] box={list(_fbX)}")
             except Exception:
                 pass
+            try:
+                if os.environ.get("MANGA_STRIP_DARKFIX", "1") != "0":
+                    _nDF = self._reject_dark_strip_fills(donor, original,
+                                                         mask, _cmp)
+                    if _nDF and verbose:
+                        print(f"  [✓] نوارِ تیرهٔ خراب: {_nDF} خط با زمینهٔ "
+                              f"اصلی بازپُر شد")
+            except Exception:
+                pass
             if not _cmp.any():
                 self._compose_final_cmp = np.zeros_like(_cmp)
                 return np.ascontiguousarray(original)
@@ -7770,6 +7779,105 @@ class _MangaTranslatorBody_85:
         except Exception:
             return donor
 
+    def _reject_dark_strip_fills(self, donor: np.ndarray,
+                                 original: np.ndarray,
+                                 mask: np.ndarray,
+                                 cmpm: np.ndarray) -> int:
+        n_fix = 0
+        try:
+            if donor is None or original is None or cmpm is None:
+                return 0
+            if donor.shape[:2] != original.shape[:2]:
+                return 0
+            if cmpm.shape != donor.shape[:2]:
+                return 0
+            h, w = cmpm.shape
+            gray_d = cv2.cvtColor(donor, cv2.COLOR_BGR2GRAY)
+            gray_o = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+            mraw = (mask > 0) if (mask is not None
+                                  and mask.shape == cmpm.shape) else None
+            for _rg in (getattr(self, "_page_regions", None) or []):
+                _pl = getattr(_rg, "ocr_polys", None) or []
+                if not _pl:
+                    continue
+                try:
+                    _lns = MangaTranslator._group_polys_to_lines(list(_pl))
+                except Exception:
+                    continue
+                for (lx0, ly0, lx1, ly1) in (_lns or []):
+                    try:
+                        yA = max(0, int(ly0) - 1)
+                        yZ = min(h, int(ly1) + 2)
+                        xA = max(0, int(lx0) - 14)
+                        xZ = min(w, int(lx1) + 15)
+                        bh = yZ - yA
+                        bw = xZ - xA
+                        if bh < 5 or bw < 24:
+                            continue
+                        zm = cmpm[yA:yZ, xA:xZ]
+                        if int(zm.sum()) < 240:
+                            continue
+                        bgs = np.full(bh, -1.0, np.float32)
+                        cols = np.zeros((bh, 3), np.float32)
+                        have = np.zeros(bh, bool)
+                        for ri in range(bh):
+                            free = (~mraw[yA + ri, xA:xZ]) \
+                                if mraw is not None else (~zm[ri])
+                            if int(free.sum()) < 10:
+                                continue
+                            go = gray_o[yA + ri, xA:xZ]
+                            if float(np.std(go[free])) > 26.0:
+                                continue
+                            bgs[ri] = float(np.median(go[free]))
+                            cols[ri] = np.median(
+                                original[yA + ri, xA:xZ][free], axis=0)
+                            have[ri] = True
+                        bright = (bgs >= 170.0) & have
+                        if int(bright.sum()) < max(3, int(0.25 * bh)):
+                            continue
+                        zsel_cnt = 0
+                        dark_cnt = 0
+                        for ri in np.nonzero(bright)[0]:
+                            zr = zm[ri]
+                            n_r = int(zr.sum())
+                            if n_r <= 0:
+                                continue
+                            zsel_cnt += n_r
+                            dark_cnt += int(np.count_nonzero(
+                                zr & (gray_d[yA + ri, xA:xZ]
+                                      <= bgs[ri] - 70.0)))
+                        if zsel_cnt < 200 \
+                                or dark_cnt < 0.22 * zsel_cnt:
+                            continue
+                        fill_rows = cols.copy()
+                        fillable = bright.copy()
+                        if int(fillable.sum()) < max(3, int(0.3 * bh)):
+                            continue
+                        if float(np.std(fill_rows[fillable], axis=0).max()) \
+                                > 46.0:
+                            continue
+                        if bh >= 5:
+                            _kF = np.ones(5, np.float32) / 5.0
+                            for _cF in range(3):
+                                fill_rows[:, _cF] = np.convolve(
+                                    fill_rows[:, _cF], _kF, mode='same')
+                        fill_img = np.repeat(fill_rows[:, None, :], bw,
+                                             axis=1)
+                        wgt = cv2.GaussianBlur(
+                            (zm & fillable[:, None]).astype(np.uint8) * 255,
+                            (0, 0), 1.6).astype(np.float32) / 255.0
+                        sub = donor[yA:yZ, xA:xZ].astype(np.float32)
+                        donor[yA:yZ, xA:xZ] = np.clip(
+                            sub * (1.0 - wgt[..., None])
+                            + fill_img * wgt[..., None],
+                            0, 255).astype(np.uint8)
+                        n_fix += 1
+                    except Exception:
+                        continue
+        except Exception:
+            return n_fix
+        return n_fix
+
     def _compose_corner_feather(self, out: np.ndarray,
                                 cmp_mask: np.ndarray) -> int:
         try:
@@ -7914,6 +8022,9 @@ class _MangaTranslatorBody_85:
                         _rc = (np.median(_rv, axis=0)
                                if _rv is not None else None)
                         if _have_bg:
+                            _base = np.median(_bg_r, axis=0)
+                            if float(_base.mean()) >= 225.0:
+                                continue
                             _anc = None
                             try:
                                 _rows_out = []
@@ -7938,11 +8049,13 @@ class _MangaTranslatorBody_85:
                                         axis=0)
                             except Exception:
                                 _anc = None
+                            if _anc is not None and float(
+                                    np.abs(_anc - _base).max()) > 40.0:
+                                _anc = None
                             if _anc is not None:
                                 _outf[_ry, _cols] = _anc[None, :]
                             else:
-                                _outf[_ry, _cols] = np.median(
-                                    _bg_r, axis=0)[None, :]
+                                _outf[_ry, _cols] = _base[None, :]
                             _ch_rows += 1
                             continue
                         if _lc is None:
@@ -10325,7 +10438,104 @@ class _MangaTranslatorBody_85:
                           "پاک‌شده = پیکسلِ اورجینال (تضمینِ نهایی)")
         except Exception:
             pass
+        try:
+            if os.environ.get("MANGA_GHOST_POLISH", "1") != "0":
+                _ngp = self._faint_ghost_polish(cleaned, image)
+                if _ngp and self.debug:
+                    print(f"  [✓] پولیشِ شبحِ کم‌رنگ: {_ngp} خط "
+                          f"روشن شد", flush=True)
+        except Exception:
+            pass
         return cleaned
+
+    def _faint_ghost_polish(self, cleaned: np.ndarray,
+                            original: np.ndarray) -> int:
+        n_fix = 0
+        try:
+            if cleaned is None or original is None:
+                return 0
+            if cleaned.shape[:2] != original.shape[:2]:
+                return 0
+            h, w = cleaned.shape[:2]
+            g = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
+            for _rg in (getattr(self, "_page_regions", None) or []):
+                _pl = getattr(_rg, "ocr_polys", None) or []
+                if not _pl:
+                    continue
+                try:
+                    _lns = MangaTranslator._group_polys_to_lines(list(_pl))
+                except Exception:
+                    continue
+                for (lx0, ly0, lx1, ly1) in (_lns or []):
+                    try:
+                        yA = max(0, int(ly0) - 3)
+                        yZ = min(h, int(ly1) + 4)
+                        xA = max(0, int(lx0) - 8)
+                        xZ = min(w, int(lx1) + 9)
+                        bh = yZ - yA
+                        bw = xZ - xA
+                        if bh < 6 or bw < 30:
+                            continue
+                        sub = g[yA:yZ, xA:xZ]
+                        bright_px = sub[sub >= 205]
+                        if bright_px.size < 0.30 * sub.size:
+                            continue
+                        bg = float(np.median(bright_px))
+                        if bg < 210:
+                            continue
+                        soft = (sub <= bg - 13.0) & (sub >= bg - 95.0)
+                        n_soft = int(soft.sum())
+                        if n_soft < 40 or n_soft > 0.42 * sub.size:
+                            continue
+                        rows_ok = np.zeros(bh, bool)
+                        for ri in range(bh):
+                            runs = soft[ri]
+                            if int(runs.sum()) >= 8:
+                                rows_ok[ri] = True
+                        if int(rows_ok.sum()) < 3:
+                            continue
+                        fill_rows = np.zeros((bh, 3), np.float32)
+                        have = np.zeros(bh, bool)
+                        for ri in range(bh):
+                            br = sub[ri] >= 205
+                            if int(br.sum()) >= 8:
+                                fill_rows[ri] = np.median(
+                                    cleaned[yA + ri, xA:xZ][br], axis=0)
+                                have[ri] = True
+                        if int(have.sum()) < max(3, int(0.3 * bh)):
+                            continue
+                        idx_h = np.nonzero(have)[0]
+                        for ri in range(bh):
+                            if have[ri]:
+                                continue
+                            _j = int(np.searchsorted(idx_h, ri))
+                            if _j == 0:
+                                fill_rows[ri] = fill_rows[idx_h[0]]
+                            elif _j >= idx_h.size:
+                                fill_rows[ri] = fill_rows[idx_h[-1]]
+                            else:
+                                _ya2, _yb2 = int(idx_h[_j - 1]), \
+                                    int(idx_h[_j])
+                                _t2 = float(ri - _ya2) / float(_yb2 - _ya2)
+                                fill_rows[ri] = fill_rows[_ya2] * (1.0 - _t2) \
+                                    + fill_rows[_yb2] * _t2
+                        fill_img = np.repeat(fill_rows[:, None, :], bw, axis=1)
+                        msk = soft.astype(np.uint8) * 255
+                        msk = cv2.dilate(msk, np.ones((3, 3), np.uint8))
+                        wgt = cv2.GaussianBlur(msk, (0, 0), 1.4) \
+                            .astype(np.float32) / 255.0
+                        wgt = np.clip(wgt * 1.5, 0.0, 1.0)
+                        patch = cleaned[yA:yZ, xA:xZ].astype(np.float32)
+                        cleaned[yA:yZ, xA:xZ] = np.clip(
+                            patch * (1.0 - wgt[..., None])
+                            + fill_img * wgt[..., None],
+                            0, 255).astype(np.uint8)
+                        n_fix += 1
+                    except Exception:
+                        continue
+        except Exception:
+            return n_fix
+        return n_fix
 
     def _compose_dot_sweep(self, cleaned: np.ndarray,
                            original: np.ndarray,
@@ -12268,6 +12478,15 @@ class _MangaTranslatorBody_85:
                         _tb2.print_exc()
                     except Exception:
                         pass
+            try:
+                if os.environ.get("MANGA_LINETAIL_SWEEP", "1") != "0":
+                    _nlt = self._line_tail_sweep(cleaned, image,
+                                                 limit=_cmpF)
+                    if _nlt and self.debug:
+                        print(f"  [🧹] دنبالهٔ خط: {_nlt} خوشهٔ متنِ جا‌مانده "
+                              f"پاک شد", flush=True)
+            except Exception:
+                pass
             if self.debug and n_chk:
                 print(f"  [*]وارسیِ نهاییِ EP: {n_chk} ناحیه سنجیده شد، "
                       f"{n_fix} ترمیم شد", flush=True)
@@ -12280,6 +12499,97 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     pass
             pass
+
+    def _line_tail_sweep(self, cleaned: np.ndarray, image: np.ndarray,
+                         limit: Optional[np.ndarray] = None) -> int:
+        n_fix = 0
+        try:
+            if cleaned is None or image is None:
+                return 0
+            if cleaned.shape[:2] != image.shape[:2]:
+                return 0
+            h, w = cleaned.shape[:2]
+            g = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
+            for _rg in (getattr(self, "_page_regions", None) or []):
+                _pl = getattr(_rg, "ocr_polys", None) or []
+                if not _pl:
+                    continue
+                try:
+                    _lns = MangaTranslator._group_polys_to_lines(list(_pl))
+                except Exception:
+                    continue
+                for (lx0, ly0, lx1, ly1) in (_lns or []):
+                    try:
+                        by0 = max(0, int(ly0) - 2)
+                        by1 = min(h, int(ly1) + 3)
+                        bx0 = max(0, int(lx0) - 26)
+                        bx1 = min(w, int(lx1) + 27)
+                        if by1 - by0 < 6 or bx1 - bx0 < 30:
+                            continue
+                        py0 = max(0, by0 - 12)
+                        py1 = min(h, by1 + 12)
+                        px0 = max(0, bx0 - 14)
+                        px1 = min(w, bx1 + 14)
+                        gsub = g[py0:py1, px0:px1]
+                        band = np.zeros(gsub.shape, np.uint8)
+                        band[by0 - py0:by1 - py0, bx0 - px0:bx1 - px0] = 255
+                        dark = ((gsub < 150) & (band > 0)).astype(np.uint8)
+                        if int(dark.sum()) == 0:
+                            continue
+                        dark_d = cv2.dilate(dark * 255,
+                                            np.ones((3, 3), np.uint8)) > 0
+                        n_lab, lab, stats, _ = \
+                            cv2.connectedComponentsWithStats(dark, 8)
+                        bh = by1 - by0
+                        for li in range(1, n_lab):
+                            area = int(stats[li, cv2.CC_STAT_AREA])
+                            if area < 10 or area > 2600:
+                                continue
+                            bw = int(stats[li, cv2.CC_STAT_WIDTH])
+                            bhh = int(stats[li, cv2.CC_STAT_HEIGHT])
+                            if bw > 250 or bhh > 52:
+                                continue
+                            x0 = int(stats[li, cv2.CC_STAT_LEFT])
+                            y0 = int(stats[li, cv2.CC_STAT_TOP])
+                            if y0 <= by0 - py0 + 1 \
+                                    or y0 + bhh >= by1 - py0 - 1:
+                                continue
+                            lc = (lab == li)
+                            ring = cv2.dilate(
+                                lc.astype(np.uint8),
+                                np.ones((13, 13), np.uint8)) > 0
+                            ring &= ~lc
+                            ring &= ~dark_d
+                            if int(ring.sum()) < 30:
+                                continue
+                            rg_ = gsub[ring]
+                            if float((rg_ >= 205).mean()) < 0.72:
+                                continue
+                            if float(np.median(rg_)) < 228:
+                                continue
+                            bright = ring & (gsub >= 205)
+                            if int(bright.sum()) < 24:
+                                continue
+                            csub = cleaned[py0:py1, px0:px1]
+                            col = np.median(csub[bright],
+                                            axis=0).astype(np.float32)
+                            fm = cv2.dilate(lc.astype(np.uint8),
+                                            np.ones((3, 3), np.uint8))
+                            if int(cv2.countNonZero(fm)) == 0:
+                                continue
+                            al = (cv2.GaussianBlur(
+                                fm.astype(np.float32), (0, 0), 1.2))
+                            al = np.clip(al * 1.7, 0.0, 1.0)[..., None]
+                            csub[:] = np.clip(
+                                csub.astype(np.float32) * (1.0 - al)
+                                + col[None, None, :] * al,
+                                0, 255).astype(np.uint8)
+                            n_fix += 1
+                    except Exception:
+                        continue
+        except Exception:
+            return n_fix
+        return n_fix
 
     def _dark_remnant_sweep(self, cleaned: np.ndarray,
                             union: np.ndarray,
