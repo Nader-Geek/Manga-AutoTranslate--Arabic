@@ -165,7 +165,7 @@ class BrowserActivity : Activity() {
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progress = 0
-            progressTint = ACC
+            progressTintList = android.content.res.ColorStateList.valueOf(ACC)
         }
         root.addView(progress, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(3)))

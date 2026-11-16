@@ -158,7 +158,10 @@ public class BrowserActivity extends Activity {
                 android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
         progress.setProgress(0);
-        try { progress.setProgressTint(Color.parseColor("#e8590c")); } catch (Exception ignored) {}
+        try {
+            progress.setProgressTintList(android.content.res.ColorStateList.valueOf(
+                    Color.parseColor("#e8590c")));
+        } catch (Exception ignored) {}
         root.addView(progress, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(3)));
 
