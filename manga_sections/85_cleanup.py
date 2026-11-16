@@ -7796,61 +7796,124 @@ class _MangaTranslatorBody_85:
             gray_o = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
             mraw = (mask > 0) if (mask is not None
                                   and mask.shape == cmpm.shape) else None
+            zones = []
             for _rg in (getattr(self, "_page_regions", None) or []):
                 _pl = getattr(_rg, "ocr_polys", None) or []
-                if not _pl:
-                    continue
+                if _pl:
+                    try:
+                        _lns = MangaTranslator._group_polys_to_lines(list(_pl))
+                    except Exception:
+                        _lns = []
+                    for _ln in (_lns or []):
+                        zones.append(tuple(_ln))
                 try:
-                    _lns = MangaTranslator._group_polys_to_lines(list(_pl))
+                    _rk = str(getattr(_rg, "kind", "") or "")
+                    _rx, _ry, _rw, _rh = [float(v) for v in _rg.rect]
                 except Exception:
                     continue
-                for (lx0, ly0, lx1, ly1) in (_lns or []):
-                    try:
-                        yA = max(0, int(ly0) - 1)
-                        yZ = min(h, int(ly1) + 2)
-                        xA = max(0, int(lx0) - 14)
-                        xZ = min(w, int(lx1) + 15)
-                        bh = yZ - yA
-                        bw = xZ - xA
-                        if bh < 5 or bw < 24:
-                            continue
-                        zm = cmpm[yA:yZ, xA:xZ]
-                        if int(zm.sum()) < 240:
-                            continue
-                        bgs = np.full(bh, -1.0, np.float32)
-                        cols = np.zeros((bh, 3), np.float32)
-                        have = np.zeros(bh, bool)
-                        for ri in range(bh):
+                if _rk not in ("text_free", "text_bubble"):
+                    continue
+                if _rw < 24 or _rh < 5 or _rw > 4000 or _rh > 400:
+                    continue
+                zones.append((_rx, _ry, _rx + _rw, _ry + _rh))
+            for (lx0, ly0, lx1, ly1) in zones:
+                try:
+                    yA = max(0, int(ly0) - 1)
+                    yZ = min(h, int(ly1) + 2)
+                    xA = max(0, int(lx0) - 14)
+                    xZ = min(w, int(lx1) + 15)
+                    bh = yZ - yA
+                    bw = xZ - xA
+                    if bh < 5 or bw < 24:
+                        continue
+                    zm = cmpm[yA:yZ, xA:xZ]
+                    if int(zm.sum()) < 240:
+                        continue
+                    bgs = np.full(bh, -1.0, np.float32)
+                    cols = np.zeros((bh, 3), np.float32)
+                    have = np.zeros(bh, bool)
+                    _bg_cache: dict = {}
+                    for ri in range(bh):
+                        hard = ~(zm[ri] > 0)
+                        free = (hard & (~mraw[yA + ri, xA:xZ])) \
+                            if mraw is not None else hard
+                        if int(free.sum()) < 6:
                             free = (~mraw[yA + ri, xA:xZ]) \
-                                if mraw is not None else (~zm[ri])
-                            if int(free.sum()) < 10:
-                                continue
+                                if mraw is not None else hard
+                        if int(free.sum()) < 6:
+                            free = None
+                        if free is not None:
                             go = gray_o[yA + ri, xA:xZ]
                             if float(np.std(go[free])) > 26.0:
-                                continue
-                            bgs[ri] = float(np.median(go[free]))
+                                free = None
+                        if free is not None:
+                            bgs[ri] = float(np.median(
+                                gray_o[yA + ri, xA:xZ][free]))
                             cols[ri] = np.median(
                                 original[yA + ri, xA:xZ][free], axis=0)
                             have[ri] = True
-                        bright = (bgs >= 170.0) & have
-                        if int(bright.sum()) < max(3, int(0.25 * bh)):
+                            continue
+                        _borrowed = False
+                        for _dy in (1, -1, 2, -2, 3, -3, 4, -4,
+                                    5, -5, 6, -6, 7, -7, 8, -8):
+                            _ry2 = yA + ri + _dy
+                            if _ry2 < 0 or _ry2 >= h:
+                                continue
+                            if _ry2 in _bg_cache:
+                                _v = _bg_cache[_ry2]
+                            else:
+                                _fr2 = (~(cmpm[_ry2, xA:xZ] > 0)) \
+                                    & ((~mraw[_ry2, xA:xZ])
+                                       if mraw is not None else True)
+                                if int(_fr2.sum()) < 6:
+                                    _bg_cache[_ry2] = None
+                                    continue
+                                _go2 = gray_o[_ry2, xA:xZ]
+                                if float(np.std(_go2[_fr2])) > 26.0:
+                                    _bg_cache[_ry2] = None
+                                    continue
+                                _v = (float(np.median(_go2[_fr2])),
+                                      np.median(
+                                          original[_ry2, xA:xZ][_fr2],
+                                          axis=0))
+                                _bg_cache[_ry2] = _v
+                            if _v is None:
+                                continue
+                            if abs(_dy) > 2 and ri > 0 and have[ri - 1]:
+                                continue
+                            bgs[ri] = _v[0]
+                            cols[ri] = _v[1]
+                            have[ri] = True
+                            _borrowed = True
+                            break
+                        if not _borrowed:
+                            continue
+                    bright = (bgs >= 170.0) & have
+                    dark = (bgs >= 0.0) & (bgs <= 85.0) & have
+                    for flags, want_bright_bg in ((bright, True),
+                                                  (dark, False)):
+                        if int(flags.sum()) < max(3, int(0.25 * bh)):
                             continue
                         zsel_cnt = 0
-                        dark_cnt = 0
-                        for ri in np.nonzero(bright)[0]:
+                        bad_cnt = 0
+                        for ri in np.nonzero(flags)[0]:
                             zr = zm[ri]
                             n_r = int(zr.sum())
                             if n_r <= 0:
                                 continue
                             zsel_cnt += n_r
-                            dark_cnt += int(np.count_nonzero(
-                                zr & (gray_d[yA + ri, xA:xZ]
-                                      <= bgs[ri] - 70.0)))
+                            dv = gray_d[yA + ri, xA:xZ].astype(np.float32)
+                            if want_bright_bg:
+                                bad_cnt += int(np.count_nonzero(
+                                    zr & (dv <= bgs[ri] - 70.0)))
+                            else:
+                                bad_cnt += int(np.count_nonzero(
+                                    zr & (dv >= bgs[ri] + 70.0)))
                         if zsel_cnt < 200 \
-                                or dark_cnt < 0.22 * zsel_cnt:
+                                or bad_cnt < 0.22 * zsel_cnt:
                             continue
                         fill_rows = cols.copy()
-                        fillable = bright.copy()
+                        fillable = flags.copy()
                         if int(fillable.sum()) < max(3, int(0.3 * bh)):
                             continue
                         if float(np.std(fill_rows[fillable], axis=0).max()) \
@@ -7872,11 +7935,12 @@ class _MangaTranslatorBody_85:
                             + fill_img * wgt[..., None],
                             0, 255).astype(np.uint8)
                         n_fix += 1
-                    except Exception:
-                        continue
+                except Exception:
+                    continue
         except Exception:
             return n_fix
         return n_fix
+
 
     def _compose_corner_feather(self, out: np.ndarray,
                                 cmp_mask: np.ndarray) -> int:

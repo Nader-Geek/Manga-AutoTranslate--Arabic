@@ -160,6 +160,99 @@ class _MangaTranslatorBody_80:
     def _mt_norm(text: str) -> str:
         return re.sub(r"[^\w]", "", (text or "").lower())
 
+    def _mt_dupes_rules(self) -> str:
+        try:
+            _pm = resolve_prompt_mode(
+                getattr(self, "prompt_mode", "professional"),
+                getattr(self, "provider", "gemini"),
+                getattr(self, "model_name", ""),
+            )
+            rules = (getattr(self, "custom_instruction", "") or "").strip() \
+                or PROMPT_PRESETS[_pm]
+        except Exception:
+            rules = ""
+        return str(getattr(self, "provider", "") or "") + "\x00" + (rules or "")
+
+    def _mt_dupes_prefill(self, regions: List[TextRegion]) -> int:
+        memo = getattr(self, "_mt_dupe_memo", None)
+        if not memo:
+            return 0
+        rk = self._mt_dupes_rules()
+        lock = getattr(self, "_mt_dupe_lock", None)
+        n = 0
+        for r in regions:
+            if (getattr(r, "translated_text", "") or "").strip():
+                continue
+            k = self._mt_norm(getattr(r, "source_text", "") or "")
+            if not k:
+                continue
+            key = (rk, k)
+            if lock is not None:
+                with lock:
+                    hit = memo.get(key)
+            else:
+                hit = memo.get(key)
+            if not hit or not (hit[0] or "").strip():
+                continue
+            r.translated_text = hit[0]
+            st = (hit[1] or "").strip()
+            r.bubble_style = st or "normal"
+            n += 1
+        return n
+
+    def _mt_dupes_record(self, regions: List[TextRegion]) -> None:
+        memo = getattr(self, "_mt_dupe_memo", None)
+        if memo is None:
+            return
+        rk = self._mt_dupes_rules()
+        lock = getattr(self, "_mt_dupe_lock", None)
+        for r in regions:
+            fa = (getattr(r, "translated_text", "") or "").strip()
+            if not fa:
+                continue
+            k = self._mt_norm(getattr(r, "source_text", "") or "")
+            if not k:
+                continue
+            key = (rk, k)
+            item = (fa, (getattr(r, "bubble_style", "") or "").strip())
+            if lock is not None:
+                with lock:
+                    if key not in memo:
+                        memo[key] = item
+            else:
+                if key not in memo:
+                    memo[key] = item
+
+    @classmethod
+    def _fanout_duplicate_translations(cls, regions) -> int:
+        if not regions:
+            return 0
+        donors: dict = {}
+        for r in regions:
+            fa = (getattr(r, "translated_text", "") or "").strip()
+            if not fa:
+                continue
+            k = cls._mt_norm(getattr(r, "source_text", "") or "")
+            if not k or k in donors:
+                continue
+            donors[k] = r
+        if not donors:
+            return 0
+        n = 0
+        for r in regions:
+            if (getattr(r, "translated_text", "") or "").strip():
+                continue
+            k = cls._mt_norm(getattr(r, "source_text", "") or "")
+            src = donors.get(k) if k else None
+            if src is None or src is r:
+                continue
+            r.translated_text = src.translated_text
+            if not (getattr(r, "bubble_style", "") or "").strip():
+                r.bubble_style = (getattr(src, "bubble_style", "") or "").strip() \
+                    or "normal"
+            n += 1
+        return n
+
     @staticmethod
     def _mt_pages_payload(regions: List[TextRegion]):
         groups: List[Tuple[str, List[TextRegion]]] = []
@@ -1197,6 +1290,19 @@ class _MangaTranslatorBody_80:
         for r in regions:
             r.source_text = self._fix_ocr_text(uncensor_swears(r.source_text or ""))
 
+        try:
+            _n_fo0 = MangaTranslator._fanout_duplicate_translations(regions)
+            if _n_fo0:
+                print(f"    [*] {_n_fo0} دیالوگِ تکراری → ترجمه از دوقلوی هم‌متن")
+        except Exception:
+            pass
+        try:
+            _n_mem0 = self._mt_dupes_prefill(regions)
+            if _n_mem0:
+                print(f"    [*] {_n_mem0} دیالوگِ تکراری → از حافظهٔ ترجمه (بدون توکن)")
+        except Exception:
+            pass
+
         def _make_batches(items: List[TextRegion]):
 
             if getattr(self, "chapter_one_request", False):
@@ -1225,6 +1331,19 @@ class _MangaTranslatorBody_80:
         for round_i in range(1, 4):
             if not pending:
                 break
+            _dup_seen: dict = {}
+            _pending_u: List[TextRegion] = []
+            for r in pending:
+                _dk = self._mt_norm(r.source_text)
+                if _dk and _dk in _dup_seen:
+                    continue
+                if _dk:
+                    _dup_seen[_dk] = True
+                _pending_u.append(r)
+            if len(_pending_u) < len(pending):
+                print(f"    [*] {len(pending) - len(_pending_u)} متنِ تکراری "
+                      f"→ فقط یک‌بار به مدل داده می‌شود")
+                pending = _pending_u
             batches = _make_batches(pending)
             if len(batches) > 1 or round_i > 1:
                 print(
@@ -1256,6 +1375,16 @@ class _MangaTranslatorBody_80:
                     if bi < len(batches):
                         time.sleep(1.0)
 
+            try:
+                self._mt_dupes_record(regions)
+            except Exception:
+                pass
+            try:
+                _n_fo = MangaTranslator._fanout_duplicate_translations(regions)
+                if _n_fo:
+                    print(f"    [✓] {_n_fo} دیالوگِ تکراری از دوقلو پر شد")
+            except Exception:
+                pass
             pending = [r for r in regions if not (r.translated_text or "").strip()]
             self._note_style_samples(regions)
             try:
@@ -1279,6 +1408,10 @@ class _MangaTranslatorBody_80:
                 if self._model_cascade and len(self._model_cascade) > 1:
                     self._switch_to_next_model(reason=f"دور {round_i + 1}")
 
+        try:
+            MangaTranslator._fanout_duplicate_translations(regions)
+        except Exception:
+            pass
         if any(not (r.translated_text or "").strip() for r in regions):
             try:
                 if self._force_translate_missing(regions):
@@ -1389,6 +1522,14 @@ class _MangaTranslatorBody_80:
 
                 self._parse_translation_response(
                     text, work_regions, _pctx.get("region_page"))
+                try:
+                    self._mt_dupes_record(regions)
+                except Exception:
+                    pass
+                try:
+                    MangaTranslator._fanout_duplicate_translations(regions)
+                except Exception:
+                    pass
                 try:
                     self._note_style_samples(regions)
                 except Exception:
@@ -1769,6 +1910,14 @@ class _MangaTranslatorBody_80:
                 else:
                     text_final = self._translate_via_provider(user_prompt, system_instruction)
             self._parse_translation_response(text_final, work_regions)
+            try:
+                self._mt_dupes_record(regions)
+            except Exception:
+                pass
+            try:
+                MangaTranslator._fanout_duplicate_translations(regions)
+            except Exception:
+                pass
             for r in work_regions:
                 if not (getattr(r, "bubble_style", None) or "").strip():
                     r.bubble_style = "normal"
@@ -1799,6 +1948,18 @@ class _MangaTranslatorBody_80:
                    and str(getattr(r, "source_text", "") or "").strip()]
         if not missing:
             return 0
+        try:
+            _n_dup0 = self._mt_dupes_prefill(regions)
+            _n_dup0 += MangaTranslator._fanout_duplicate_translations(regions)
+            if _n_dup0:
+                print(f"    [✓] {_n_dup0} دیالوگِ تکراری بدونِ درخواستِ جدید پر شد")
+        except Exception:
+            pass
+        missing = [r for r in regions
+                   if not str(getattr(r, "translated_text", "") or "").strip()
+                   and str(getattr(r, "source_text", "") or "").strip()]
+        if not missing:
+            return 0
         _total_missing = len(missing)
         sys_inst = self._get_system_instruction()
         try:
@@ -1819,7 +1980,19 @@ class _MangaTranslatorBody_80:
             if not missing:
                 break
             try:
-                pages, region_page = self._mt_pages_payload(missing)
+                _dup_seen0: dict = {}
+                _missing_u: List[TextRegion] = []
+                for r in missing:
+                    _dk0 = self._mt_norm(r.source_text)
+                    if _dk0 and _dk0 in _dup_seen0:
+                        continue
+                    if _dk0:
+                        _dup_seen0[_dk0] = True
+                    _missing_u.append(r)
+                if len(_missing_u) < len(missing):
+                    print(f"    [*] {len(missing) - len(_missing_u)} متنِ تکراری "
+                          f"→ فقط یک‌بار در نجاتِ دسته‌ای")
+                pages, region_page = self._mt_pages_payload(_missing_u)
                 _sref0 = self._style_ref_samples()[:10]
                 p_batch = mt_user_prompt(_rules0, pages, _jp0, style_ref=_sref0)
                 if _round == 1:
@@ -1834,7 +2007,12 @@ class _MangaTranslatorBody_80:
                     else:
                         t_batch = self._translate_via_provider(p_batch, sys_inst)
                 try:
-                    self._parse_translation_response(t_batch, missing, region_page)
+                    self._parse_translation_response(t_batch, _missing_u, region_page)
+                except Exception:
+                    pass
+                try:
+                    self._mt_dupes_record(regions)
+                    MangaTranslator._fanout_duplicate_translations(regions)
                 except Exception:
                     pass
             except Exception as e:
@@ -1848,8 +2026,9 @@ class _MangaTranslatorBody_80:
                     time.sleep(min(2.5 * _round, 7.0))
                     continue
             _before = len(missing)
-            missing = [r for r in missing
-                       if not str(getattr(r, "translated_text", "") or "").strip()]
+            missing = [r for r in regions
+                       if not str(getattr(r, "translated_text", "") or "").strip()
+                       and str(getattr(r, "source_text", "") or "").strip()]
             _got = _before - len(missing)
             fixed += _got
             if _got:

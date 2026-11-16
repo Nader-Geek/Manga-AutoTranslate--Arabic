@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.319"
+APP_VER = "1.14.320"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1760,16 +1760,32 @@ footer { display: none !important; }
 .log-tool-btn:active { transform: translateY(0); }
 
 .support {
-  max-width: 620px; margin: 4px auto 4px; padding: 14px 16px 12px;
-  border: 1px solid var(--ink-line); border-radius: 16px;
-  background: #0a0a0d; text-align: center;
+  max-width: 620px; margin: 2px auto 4px; text-align: center;
 }
-.support-title {
-  color: var(--ink-text); font-size: .95rem; font-weight: 700;
-  margin-bottom: 12px; display: flex; align-items: center;
-  justify-content: center; gap: 8px;
+.support-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--ink-dim) !important; text-decoration: none !important;
+  font-size: 13px; font-weight: 600; border: 1px solid var(--ink-line);
+  padding: 8px 20px; border-radius: 999px; background: #0a0a0d;
+  cursor: pointer; font-family: inherit; min-height: 38px;
+  transition: border-color .2s, color .2s, transform .2s;
 }
-.support-kao { font-size: 1.1rem; font-weight: 400; }
+.support-toggle:hover {
+  color: var(--ink-red) !important; border-color: var(--ink-red);
+  transform: translateY(-1px);
+}
+.support-toggle svg {
+  width: 15px; height: 15px; fill: currentColor; flex: none;
+  transition: transform .22s;
+}
+.support.open .support-toggle svg { transform: rotate(180deg); }
+.support-kao { font-size: 1.05rem; font-weight: 400; }
+.support-body {
+  display: none; border: 1px solid var(--ink-line);
+  border-radius: 16px; background: #0a0a0d;
+  padding: 14px 16px 12px; margin-top: 10px;
+}
+.support.open .support-body { display: block; }
 .support-row {
   display: flex; align-items: center; justify-content: center;
   gap: 8px; flex-wrap: wrap; margin: 7px 0;
@@ -1813,7 +1829,8 @@ footer { display: none !important; }
   #manga_status_chip { font-size: .78rem; padding: 8px 13px; }
   .credit { gap: 8px; }
   .credit a { padding: 8px 13px; }
-  .support { padding: 12px 10px 10px; }
+  .support { padding: 0; }
+  .support-body { padding: 12px 10px 10px; }
   .support-row { gap: 6px; }
   .support-addr { font-size: .7rem; padding: 6px 9px; }
 }
@@ -9662,21 +9679,28 @@ try { window.__mangaUpdateProg('', ''); } catch (e) {}
     سورس
   </a>
 </div>
-<div class="support">
-  <div class="support-title">حمایت مالی <span class="support-kao">ヾ(•ω•`)o</span></div>
-  <div class="support-row ton">
-    <span class="support-net">TON</span>
-    <span class="support-addr" data-addr="UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT"
-          title="برای کپی کلیک کنید">UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT</span>
-    <button type="button" class="support-copy"
-            data-addr="UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT">کپی</button>
-  </div>
-  <div class="support-row trx">
-    <span class="support-net">TRX</span>
-    <span class="support-addr" data-addr="TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa"
-          title="برای کپی کلیک کنید">TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa</span>
-    <button type="button" class="support-copy"
-            data-addr="TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa">کپی</button>
+<div class="support" id="manga_support">
+  <button type="button" class="support-toggle" id="manga_support_toggle"
+          aria-expanded="false" aria-controls="manga_support_body">
+    <span>حمایت مالی</span>
+    <span class="support-kao">ヾ(•ω•`)o</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.4 5.6 9l1.4-1.4 5 5 5-5L18.4 9z"/></svg>
+  </button>
+  <div class="support-body" id="manga_support_body">
+    <div class="support-row ton">
+      <span class="support-net">TON</span>
+      <span class="support-addr" data-addr="UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT"
+            title="برای کپی کلیک کنید">UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT</span>
+      <button type="button" class="support-copy"
+              data-addr="UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT">کپی</button>
+    </div>
+    <div class="support-row trx">
+      <span class="support-net">TRX</span>
+      <span class="support-addr" data-addr="TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa"
+            title="برای کپی کلیک کنید">TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa</span>
+      <button type="button" class="support-copy"
+              data-addr="TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa">کپی</button>
+    </div>
   </div>
 </div>
 """
@@ -9710,12 +9734,19 @@ try { window.__mangaUpdateProg('', ''); } catch (e) {}
   document.addEventListener('click', (e) => {
     try {
       const t = e.target && e.target.closest
-        ? e.target.closest('.support-copy, .support-addr') : null;
+        ? e.target.closest('.support-copy, .support-addr, .support-toggle') : null;
       if (!t) return;
-      const addr = t.getAttribute('data-addr');
-      if (!addr) return;
       e.preventDefault();
       e.stopPropagation();
+      if (t.classList.contains('support-toggle')) {
+        const box = t.closest('.support');
+        if (!box) return;
+        const open = box.classList.toggle('open');
+        t.setAttribute('aria-expanded', open ? 'true' : 'false');
+        return;
+      }
+      const addr = t.getAttribute('data-addr');
+      if (!addr) return;
       let btn = t.classList.contains('support-copy')
         ? t : (t.parentElement
                ? t.parentElement.querySelector('.support-copy') : null);

@@ -509,6 +509,8 @@ class MangaTranslator:
         self._key_cooldown_until: Dict[str, float] = {}
         self.gemini_rpm_budget = 5
         self._daily_dead: Dict[Tuple[str, str], bool] = {}
+        self._mt_dupe_memo: Dict[Tuple[str, str], Tuple[str, str]] = {}
+        self._mt_dupe_lock = threading.Lock()
 
         self.model_name_raw = (model_name or "").strip()
         _user_models = parse_model_list(self.model_name_raw)
