@@ -156,9 +156,23 @@ class _MangaTranslatorBody_80:
         t = re.sub(r"\s+([؟!.,،])", r"\1", t)
         return t.strip()
 
-    @staticmethod
-    def _mt_norm(text: str) -> str:
-        return re.sub(r"[^\w]", "", (text or "").lower())
+    _mt_word_re = re.compile(r"\w")
+
+    @classmethod
+    def _mt_norm(cls, text: str) -> str:
+        t = (text or "").lower()
+        sk: List[str] = []
+        sig: List[str] = []
+        wc = 0
+        for ch in t:
+            if cls._mt_word_re.match(ch):
+                sk.append(ch)
+                wc += 1
+            elif not ch.isspace():
+                sig.append(ch + str(wc))
+        if not sk:
+            return ""
+        return "".join(sk) + ("\x00" + ",".join(sig) if sig else "")
 
     def _mt_dupes_rules(self) -> str:
         try:
