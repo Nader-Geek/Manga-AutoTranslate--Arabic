@@ -119,6 +119,183 @@ class _MangaTranslatorBody_95:
         except Exception:
             return ""
 
+    # ------------------------------------------------------------------
+    # v1.14.321 — انبارِ فصلهای تمام‌شده (chapter store)
+    # هر فصلی که تا آخر (همهٔ صفحات done/blank) پردازش شد، صفحاتِ
+    # رندرشدهٔ نهایی‌اش در ~/.cache/manga_translator_chapters ذخیره
+    # میشود؛ اگر همان فصل دوباره در ورودیِ بعدی بیاید (مثل ورودیِ
+    # ch102,ch103 و بعد ch103,ch104) بدونِ دانلود/استخراج/ترجمه از
+    # انبار برمی‌گردد و فقط فصلهای تازه پردازش میشوند.
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _chapter_store_root() -> str:
+        _env = str(os.environ.get("MANGA_CHAPTER_STORE") or "").strip()
+        if _env:
+            return _env
+        return os.path.join(os.path.expanduser("~"),
+                            ".cache", "manga_translator_chapters")
+
+    @staticmethod
+    def _chapter_store_max() -> int:
+        try:
+            _n = int(os.environ.get("MANGA_CHAPTER_STORE_MAX") or 20)
+        except Exception:
+            _n = 20
+        return max(0, min(200, _n))
+
+    def _chapter_pipeline_sig(self, trans_sig: str) -> str:
+        import hashlib as _hl
+        try:
+            def _fp(p) -> str:
+                try:
+                    p = str(p or "")
+                    if not p or not os.path.isfile(p):
+                        return p or "-"
+                    st = os.stat(p)
+                    return "%s:%d:%d" % (os.path.basename(p),
+                                         st.st_size, int(st.st_mtime))
+                except Exception:
+                    return "?"
+
+            _fonts = [_fp(getattr(self, "font_path", None) or "")]
+            try:
+                _fbs = getattr(self, "font_by_style", None) or {}
+                for _k in sorted(_fbs.keys()):
+                    _fonts.append("%s=%s" % (_k, _fp(_fbs.get(_k))))
+            except Exception:
+                pass
+            parts = [
+                "cs1",
+                str(APP_VER),
+                trans_sig or "-",
+                ",".join(sorted(str(x) for x in (
+                    getattr(self, "ocr_langs", None) or []))),
+                "%.3f" % float(getattr(self, "det_confidence", 0.16) or 0.16),
+                "%.3f" % float(getattr(self, "min_confidence", 0.12) or 0.12),
+                "2p" if getattr(self, "two_pass_ocr", True) else "1p",
+                str(getattr(self, "clean_method", "") or ""),
+                "cleanonly" if getattr(self, "clean_only", False) else "full",
+                "sfx" if getattr(self, "clean_sfx", False) else "nosfx",
+                str(getattr(self, "img_format", "webp") or "webp"),
+                str(int(getattr(self, "img_quality", 90) or 90)),
+                str(int(getattr(self, "max_output_width", 0) or 0)),
+                str(getattr(self, "reading_order", "rtl") or "rtl"),
+                str(int(getattr(self, "mask_padding", 3) or 3)),
+                "%.3f" % float(getattr(self, "pad_ratio", 0.06) or 0.06),
+                "%.3f" % float(getattr(self, "mag_ratio", 1.35) or 1.35),
+                str(int(getattr(self, "inpaint_radius", 3) or 3)),
+                "stylefonts" if getattr(self, "style_fonts", False) else "onefont",
+                ",".join(sorted(str(t) for t in (
+                    getattr(self, "active_tones", None) or []))),
+                "dbg" if getattr(self, "debug", False) else "nodbg",
+                "fake" if getattr(self, "fake_translate", False) else "real",
+                "|".join(_fonts),
+            ]
+            return _hl.sha256("|".join(parts).encode(
+                "utf-8", "ignore")).hexdigest()[:20]
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _chapter_store_key(url: str, sig: str) -> str:
+        import hashlib as _hl
+        _u = re.sub(r"[?#].*$", "", str(url or "").strip().rstrip("/"))
+        return _hl.sha256(("u:" + _u + "|s:" + str(sig or "")
+                           ).encode("utf-8", "ignore")).hexdigest()[:24]
+
+    @staticmethod
+    def _chapter_store_meta_path(key: str) -> str:
+        return os.path.join(MangaTranslator._chapter_store_root(),
+                            key, "meta.json")
+
+    @staticmethod
+    def _chapter_store_get(url: str, sig: str) -> Optional[List[str]]:
+        try:
+            key = MangaTranslator._chapter_store_key(url, sig)
+            root = MangaTranslator._chapter_store_root()
+            meta_p = os.path.join(root, key, "meta.json")
+            with open(meta_p, encoding="utf-8") as _fh:
+                meta = json.load(_fh) or {}
+            if str(meta.get("sig") or "") != str(sig or ""):
+                return None
+            pages = meta.get("pages") or []
+            if not pages:
+                return None
+            files = []
+            for _pg in pages:
+                _f = os.path.join(root, key, str(_pg.get("f") or ""))
+                if not _pg.get("f") or not os.path.isfile(_f):
+                    return None  # ناقص — اعتماد نمیکنیم
+                files.append(_f)
+            return files
+        except Exception:
+            return None
+
+    @staticmethod
+    def _chapter_store_put(url: str, sig: str,
+                           page_files: List[str],
+                           statuses: List[str]) -> bool:
+        try:
+            if not page_files:
+                return False
+            root = MangaTranslator._chapter_store_root()
+            key = MangaTranslator._chapter_store_key(url, sig)
+            ch_dir = os.path.join(root, key)
+            pages_meta = []
+            tmp_dir = os.path.join(root, ".tmp_" + key)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            os.makedirs(tmp_dir, exist_ok=True)
+            for i, f in enumerate(page_files):
+                _st = statuses[i] if i < len(statuses) else "done"
+                if _st != "done":
+                    continue  # blank ها فایلی ندارند؛ failed که نباید بیاید
+                ext = os.path.splitext(f)[1].lower() or ".jpg"
+                name = "p%03d%s" % (i + 1, ext)
+                shutil.copyfile(f, os.path.join(tmp_dir, name))
+                pages_meta.append({"f": name, "s": _st})
+            if not pages_meta:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+                return False
+            meta = {
+                "url": str(url or ""),
+                "sig": str(sig or ""),
+                "pages": pages_meta,
+                "ts": int(time.time()),
+            }
+            with open(os.path.join(tmp_dir, "meta.json"), "w",
+                      encoding="utf-8") as _fh:
+                json.dump(meta, _fh, ensure_ascii=False)
+            shutil.rmtree(ch_dir, ignore_errors=True)
+            os.replace(tmp_dir, ch_dir)
+            MangaTranslator._chapter_store_prune()
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _chapter_store_prune() -> None:
+        try:
+            root = MangaTranslator._chapter_store_root()
+            max_n = MangaTranslator._chapter_store_max()
+            entries = []
+            for name in os.listdir(root):
+                if name.startswith(".tmp_") or name.startswith("."):
+                    continue
+                mp = os.path.join(root, name, "meta.json")
+                try:
+                    with open(mp, encoding="utf-8") as _fh:
+                        _m = json.load(_fh) or {}
+                    entries.append((int(_m.get("ts") or 0), name))
+                except Exception:
+                    entries.append((0, name))
+            if len(entries) <= max_n:
+                return
+            entries.sort()  # قدیمی‌ها اول
+            for _, name in entries[:max(0, len(entries) - max_n)]:
+                shutil.rmtree(os.path.join(root, name), ignore_errors=True)
+        except Exception:
+            pass
+
     def run(self, input_path: str, output_path: str, resume: bool = True,
             clean_old: bool = True) -> None:
         self._extraction_done = False
@@ -136,6 +313,53 @@ class _MangaTranslatorBody_95:
             shutil.rmtree(cache_dir, ignore_errors=True)
 
         src_dir = os.path.join(cache_dir, "src")
+
+        # --------------------------------------------------------------
+        # v1.14.321 — کلیدِ ورودیِ خام (dl): «قبل از دانلود» چک میشود.
+        # اگر ورودیِ همین خروجی عوض شده باشد (لینکهای دیگر / فایلهای
+        # دیگر)، کلِ کش پاک میشود (حتی src) تا صفحهٔ کهنه با تازه
+        # قاطی نشود. این چک باید قبل از دانلود باشد وگرنه دانلودهای
+        # همین اجرا هم پاک میشوند.
+        # --------------------------------------------------------------
+        try:
+            import hashlib as _hl_dl0
+            _dl_parts = [p.strip() for p in re.split(
+                r"[,\n\r\t]+", str(input_path or "")) if p.strip()]
+            _dl_new = _hl_dl0.sha256(
+                "\n".join(_dl_parts).encode("utf-8", "ignore")).hexdigest()[:16]
+        except Exception:
+            _dl_new = ""
+        _fp_key_path = os.path.join(cache_dir, "input.json")
+        _dl_prev = None
+        try:
+            with open(_fp_key_path, encoding="utf-8") as _fh:
+                _dl_prev = (json.load(_fh) or {}).get("dl")
+        except Exception:
+            _dl_prev = None
+        if _dl_prev is not None and str(_dl_prev) != str(_dl_new):
+            print("[*] ورودیِ این خروجی عوض شد — کش کامل از نو میشود "
+                  "(شامل دانلودها).")
+            for _sub in ("src", "normalized", "extract", "stitched"):
+                shutil.rmtree(os.path.join(cache_dir, _sub),
+                              ignore_errors=True)
+            try:
+                for _n in os.listdir(cache_dir):
+                    if (_n == "out" or _n.startswith("out_")
+                            or _n.startswith("clean")
+                            or _n.startswith("dbgspill")):
+                        shutil.rmtree(os.path.join(cache_dir, _n),
+                                      ignore_errors=True)
+            except Exception:
+                pass
+            try:
+                os.remove(os.path.join(cache_dir, "trans.json"))
+            except Exception:
+                pass
+            try:
+                with open(_fp_key_path, "w", encoding="utf-8") as _fh:
+                    json.dump({"dl": _dl_new, "fp": ""}, _fh)
+            except Exception:
+                pass
 
         def _same_dl(_p: str, _c: bytes) -> bool:
             try:
@@ -235,6 +459,8 @@ class _MangaTranslatorBody_95:
         MangaTranslator._title_skip_enabled = False
 
         _local_fix_files: Optional[List[str]] = None
+        _ch_plan: List[dict] = []  # v1.14.321 — نقشهٔ فصلها برای انبار/ترتیب نهایی
+        urls: Optional[List[str]] = None
         if (not self._is_url(input_path) and "*" not in input_path
                 and ("," in input_path or "\n" in input_path.strip())):
             def _local_img(s: str) -> Optional[str]:
@@ -257,7 +483,6 @@ class _MangaTranslatorBody_95:
         elif (self._is_url(input_path) or "," in input_path
                 or "*" in input_path or "\n" in input_path.strip()):
             urls = self._expand_input_urls(input_path)
-
             if not urls:
                 print("[!] هیچ لینک معتبری پیدا نشد.", file=sys.stderr)
                 return
@@ -398,6 +623,40 @@ class _MangaTranslatorBody_95:
             else:
                 print(f"[*] {len(urls)} لینک فصل — اول دانلودِ همهٔ تصاویر، "
                       f"بعد استخراج/پاکسازی/ترجمهٔ یک‌جا…")
+                # v1.14.321 — انبارِ فصلهای تمام‌شده: فصلِ هم‌پوشانِ ورودیِ
+                # قبلی (مثل ch103 در ch102,ch103 → ch103,ch104) بدونِ
+                # دانلود/ترجمه از انبار برمی‌گردد.
+                try:
+                    _ch_sig = self._chapter_pipeline_sig(
+                        MangaTranslator._trans_sig_of(
+                            provider=getattr(self, "provider", ""),
+                            model=getattr(self, "model_name_raw",
+                                          getattr(self, "model_name", "")),
+                            api_base=getattr(self, "api_base", ""),
+                            prompt_mode=getattr(self, "prompt_mode",
+                                                "professional"),
+                            instruction=(getattr(self, "custom_instruction", "")
+                                         or ""),
+                            fake=bool(getattr(self, "fake_translate", False)),
+                            temperature=float(getattr(self,
+                                                      "translation_temperature",
+                                                      0.7) or 0.7),
+                            top_p=float(getattr(self, "translation_top_p",
+                                                0.9) or 0.9),
+                            deep_thinking=bool(getattr(self, "deep_thinking",
+                                                       True)),
+                            safety_settings=bool(getattr(self,
+                                                         "safety_settings",
+                                                         False)),
+                            max_tokens=getattr(self, "max_output_tokens",
+                                               None),
+                        ))
+                except Exception:
+                    _ch_sig = ""
+                _ch_store_on = (bool(_ch_sig)
+                                and MangaTranslator._chapter_store_max() > 0
+                                and not bool(getattr(self, "translate_retranslate",
+                                                     False)))
                 os.makedirs(src_dir, exist_ok=True)
                 image_files = []
                 _seen_ch: set = set()
@@ -405,8 +664,22 @@ class _MangaTranslatorBody_95:
                     if stop_requested():
                         raise JobCancelled("لغو توسط کاربر")
                     print(f"\n{'='*60}")
-                    print(f"[دانلود {i}/{len(urls)}] {url}")
+                    print(f"[فصل {i}/{len(urls)}] {url}")
                     print(f"{'='*60}")
+                    _hit_pages = None
+                    if _ch_store_on:
+                        try:
+                            _hit_pages = MangaTranslator._chapter_store_get(
+                                url, _ch_sig)
+                        except Exception:
+                            _hit_pages = None
+                    if _hit_pages is not None:
+                        print(f"    [✓] این فصل قبلاً کامل پردازش شده — "
+                              f"{len(_hit_pages)} صفحه از انبارِ فصلها "
+                              f"(بدونِ دانلود/استخراج/ترجمه).")
+                        _ch_plan.append({"kind": "store", "url": url,
+                                         "pages": _hit_pages})
+                        continue
                     try:
                         files_i = self._download_images_from_url(
                             url, src_dir, shared_seen=_seen_ch)
@@ -416,6 +689,7 @@ class _MangaTranslatorBody_95:
                     if not files_i:
                         print(f"[!] لینک {i}: هیچ تصویری دانلود نشد — رد شد.")
                         continue
+                    _ch_files_i: List[str] = []
                     for j, fsrc in enumerate(files_i, 1):
                         _nb = f"{i:02d}_{j:03d}_" + os.path.splitext(os.path.basename(fsrc))[0]
                         _nb = re.sub(r'[\\/:*?"<>|]+', "_", _nb).strip("._ ")[:100] \
@@ -442,6 +716,7 @@ class _MangaTranslatorBody_95:
                                 except Exception:
                                     pass
                             image_files.append(out_file)
+                            _ch_files_i.append(out_file)
                             continue
                         _k = 2
                         while (os.path.exists(out_file)
@@ -454,15 +729,28 @@ class _MangaTranslatorBody_95:
                         except Exception:
                             out_file = fsrc
                         image_files.append(out_file)
+                        _ch_files_i.append(out_file)
                     print(f"    [+] لینک {i}: {len(files_i)} تصویر آماده "
                           f"(مجموع: {len(image_files)})")
-                if not image_files:
+                    if _ch_files_i:
+                        _ch_files_i.sort(key=MangaTranslator._natural_sort_key)
+                        _ch_plan.append({"kind": "new", "url": url,
+                                         "files": _ch_files_i,
+                                         "sig": _ch_sig})
+                if not image_files and not any(
+                        _p.get("kind") == "store" for _p in _ch_plan):
                     print("[!] هیچ تصویری دانلود نشد.", file=sys.stderr)
                     return
-                image_files.sort(key=MangaTranslator._natural_sort_key)
+                if image_files:
+                    image_files.sort(key=MangaTranslator._natural_sort_key)
                 self._independent_pages = True
-                print(f"[✓] دانلودِ همهٔ {len(urls)} لینک تمام شد: "
-                      f"{len(image_files)} تصویر → شروعِ استخراج/پاکسازی/ترجمه…")
+                _n_from_store = sum(len(_p.get("pages") or [])
+                                    for _p in _ch_plan
+                                    if _p.get("kind") == "store")
+                print(f"[✓] آماده‌شده: {len(image_files)} تصویرِ تازه"
+                      + (f" + {_n_from_store} صفحه از انبارِ فصلها"
+                         if _n_from_store else "")
+                      + " → شروعِ استخراج/پاکسازی/ترجمه…")
         elif input_path.lower().endswith(".zip"):
             print(f"[*] استخراج فایل zip: {input_path}")
             image_files = self._extract_zip(input_path, src_dir)
@@ -481,17 +769,30 @@ class _MangaTranslatorBody_95:
             raise ValueError(f"نوع ورودی پشتیبانی نمی‌شه: {input_path}")
 
         if not image_files:
-            print("[!] هیچ تصویری برای پردازش پیدا نشد.", file=sys.stderr)
-            return
+            if any(_p.get("kind") == "store" for _p in _ch_plan):
+                # همهٔ فصلها از انبار آمدند — بدونِ پردازشِ تازه؛
+                # مونتاژِ نهایی پایینتر (بخشِ _ch_plan) انجام میشود.
+                pass
+            else:
+                print("[!] هیچ تصویری برای پردازش پیدا نشد.", file=sys.stderr)
+                return
 
         _norm_files: List[str] = []
+        _pre_norm_files = list(image_files)
         for _f in image_files:
             _nf = MangaTranslator._normalize_input_image_file(_f, src_dir)
             if _nf != _f:
                 print(f"    [~] {os.path.basename(_f)} کدکِ گوشی نداشت → "
                       f"به JPG تبدیل شد: {os.path.basename(_nf)}")
             _norm_files.append(_nf)
-        image_files = _norm_files
+        if _norm_files:
+            image_files = _norm_files
+            # v1.14.321 — به‌روزرسانی مسیرهای فصلها پس از نرمال‌سازی کدک
+            _norm_map_paths = dict(zip(_pre_norm_files, _norm_files))
+            for _pl in _ch_plan:
+                if _pl.get("kind") == "new" and _pl.get("files"):
+                    _pl["files"] = [
+                        _norm_map_paths.get(f, f) for f in _pl["files"]]
 
         if len(image_files) >= 1:
             widths: List[int] = []
@@ -531,6 +832,7 @@ class _MangaTranslatorBody_95:
                 _reused_norm = 0
                 _norm_dirty = False
                 cluster_summary: Dict[int, int] = {}
+                _norm_pairs: List[Tuple[str, str]] = []
                 for i, f in enumerate(valid_files):
                     _key_n = None
                     try:
@@ -541,6 +843,7 @@ class _MangaTranslatorBody_95:
                         _cand_n = os.path.join(norm_dir, _norm_map[_key_n])
                         if os.path.isfile(_cand_n):
                             normalized_files.append(_cand_n)
+                            _norm_pairs.append((f, _cand_n))
                             _reused_norm += 1
                             continue
                     im = cv2.imread(f)
@@ -567,6 +870,7 @@ class _MangaTranslatorBody_95:
                         _norm_map[_key_n] = os.path.basename(out_n)
                         _norm_dirty = True
                     normalized_files.append(out_n)
+                    _norm_pairs.append((f, out_n))
                 if _norm_dirty:
                     try:
                         with open(_norm_map_path, "w", encoding="utf-8") as _fh:
@@ -583,11 +887,23 @@ class _MangaTranslatorBody_95:
                         + (f" | {_reused_norm} صفحه از کشِ نرمال‌سازی"
                            if _reused_norm else "")
                     )
+                    # v1.14.321 — مسیرهای فصلها پس از نرمال‌سازی عرض
+                    # (فایلهای ناخوانا حذف میشوند — فصل کامل تلقی نمیشوند)
+                    _vmap = dict(_norm_pairs)
+                    for _pl in _ch_plan:
+                        if _pl.get("kind") == "new" and _pl.get("files"):
+                            _pl["files"] = [
+                                _vmap[f] for f in _pl["files"]
+                                if f in _vmap]
 
         _indep_no_stitch = (
             getattr(self, "_independent_pages", False)
             and int(getattr(self, "stitch_max_height", 0) or 0) <= 0
             and not getattr(self, "stitch_explicit", False))
+        if _ch_plan:
+            # v1.14.321 — در ورودیِ چندفصلی، چسباندن/برشِ صفحات خاموش
+            # است تا نگاشتِ «فایل → فصل» و انبارِ فصلها معتبر بماند.
+            _indep_no_stitch = True
         if _indep_no_stitch and len(image_files) > 1:
             print(f"[*] حالت صفحات مستقل: {len(image_files)} صفحه هرکدام جدا مثل حالت تکی "
                   f"پردازش می‌شوند — بدون چسباندن/برشِ نوار (ریسایزِ گروهی هم نیست).")
@@ -634,12 +950,14 @@ class _MangaTranslatorBody_95:
             except Exception:
                 return ""
 
+        # v1.14.321 — اثرِ انگشتِ فایلها (fp): بعد از دانلود چک میشود؛
+        # کلیدِ dl بالاتر (قبل از دانلود) مدیریت شده است.
         _fp_new = _files_fingerprint(image_files)
         _fp_path = os.path.join(cache_dir, "input.json")
         _fp_old = ""
         try:
             with open(_fp_path, encoding="utf-8") as _fh:
-                _fp_old = str(json.load(_fh).get("fp") or "")
+                _fp_old = str((json.load(_fh) or {}).get("fp") or "")
         except Exception:
             _fp_old = ""
         if _fp_new and _fp_old and _fp_new != _fp_old:
@@ -658,12 +976,11 @@ class _MangaTranslatorBody_95:
                 os.remove(os.path.join(cache_dir, "trans.json"))
             except Exception:
                 pass
-        if _fp_new:
-            try:
-                with open(_fp_path, "w", encoding="utf-8") as _fh:
-                    json.dump({"fp": _fp_new}, _fh)
-            except Exception:
-                pass
+        try:
+            with open(_fp_path, "w", encoding="utf-8") as _fh:
+                json.dump({"fp": _fp_new, "dl": _dl_new}, _fh)
+        except Exception:
+            pass
 
         _sig_cur = MangaTranslator._trans_sig_of(
             provider=getattr(self, "provider", ""),
@@ -779,11 +1096,15 @@ class _MangaTranslatorBody_95:
 
         pending = []
         _src_of_page: Dict[int, str] = {}
+        _page_of_src: Dict[str, int] = {}
+        _page_status: Dict[int, str] = {}  # v1.14.321 — done/blank/failed
         for page_i, f in enumerate(image_files):
             _src_of_page[page_i] = f
+            _page_of_src[f] = page_i
             out_file = os.path.join(out_dir, os.path.splitext(os.path.basename(f))[0] + page_ext)
             if resume and os.path.isfile(out_file):
                 processed_files.append(out_file)
+                _page_status[page_i] = "done"
                 skipped += 1
                 try:
                     _live_page_dump(out_file, key=out_file, slot=page_i + 1)
@@ -880,6 +1201,7 @@ class _MangaTranslatorBody_95:
                 basename = os.path.basename(f)
                 if self._is_mostly_blank(image):
                     print(f"[!] رد شد (صفحه خالی): {basename}")
+                    _page_status[page_i] = "blank"
                     return page_i, out_file, None, None, None
                 print(f"[*] {basename}")
                 regions, dbg, page_ctx = self.extract_regions_phase(image)
@@ -920,6 +1242,7 @@ class _MangaTranslatorBody_95:
                 else:
                     _unreadable_streak["n"] = 0
                 print(f"    [!] خطا در استخراج {os.path.basename(f)}: {e}", file=sys.stderr)
+                _page_status[page_i] = "failed"
                 return page_i, out_file, None, None, None
             finally:
                 if page_i == 0:
@@ -1126,6 +1449,7 @@ class _MangaTranslatorBody_95:
             extracted_map[page_i] = (out_file, None, None, regions, dbg)
             try:
                 if image is None:
+                    _page_status.setdefault(page_i, "blank")
                     results_by_i[page_i] = (out_file, None, dbg)
                     return
                 if not regions:
@@ -1136,6 +1460,7 @@ class _MangaTranslatorBody_95:
                     except Exception:
                         pass
                     results_by_i[page_i] = (out_file, True, dbg)
+                    _page_status[page_i] = "done"
                     return
                 _t_fin = time.time()
                 result, page_debug = self.finish_page_phase(
@@ -1160,6 +1485,7 @@ class _MangaTranslatorBody_95:
                     self._write_image(result, out_file)
                     results_by_i[page_i] = (out_file, True,
                                             _dbg_spill(dbg_out, page_i))
+                    _page_status[page_i] = "done"
                     _live_page_dump(out_file, key=out_file, slot=page_i + 1)
                     if self.debug and _dbg_view_now is not None:
                         _live_dump(_dbg_view_now, dbg=True, slot=page_i + 1)
@@ -1167,13 +1493,16 @@ class _MangaTranslatorBody_95:
                     print(f"  [!] ذخیرهٔ تصویر #{page_i + 1} ناموفق: {_werr}")
                     results_by_i[page_i] = (out_file, None,
                                             _dbg_spill(dbg_out, page_i))
+                    _page_status[page_i] = "failed"
                 del result
             except GeminiQuotaExhausted as e:
                 print(f"\n[!] {e}")
                 results_by_i[page_i] = (out_file, None, dbg)
+                _page_status[page_i] = "failed"
             except Exception as e:
                 print(f"    [!] خطا در تکمیل {os.path.basename(out_file)}: {e}", file=sys.stderr)
                 results_by_i[page_i] = (out_file, None, dbg)
+                _page_status[page_i] = "failed"
 
         def _finish_ready_pages() -> None:
             with _qd_lock:
@@ -1959,11 +2288,13 @@ class _MangaTranslatorBody_95:
                 continue
             if result is True:
                 processed_files.append(out_file)
+                _page_status[page_i] = "done"
             else:
                 self._write_image(result, out_file)
                 _live_page_dump(out_file, key=out_file,
                                 slot=page_i + 1)
                 processed_files.append(out_file)
+                _page_status[page_i] = "done"
             results_by_i[page_i] = (out_file, None, None)
             if self.debug and dbg is not None:
                 try:
@@ -2003,6 +2334,79 @@ class _MangaTranslatorBody_95:
                             _json.dump(_ov, f, ensure_ascii=False)
                 except Exception:
                     pass
+
+        # ------------------------------------------------------------------
+        # v1.14.321 — انبارِ فصلها + مونتاژِ نهایی به ترتیبِ URLها:
+        # فصلهای تازهٔ کاملشده در انبار ذخیره میشوند و صفحاتِ نهایی
+        # (انبار + تازه) به ترتیبِ ورودی چیده میشوند.
+        # ------------------------------------------------------------------
+        if _ch_plan:
+            if os.environ.get("MANGA_DEBUG_CHSTORE"):
+                print(f"[CHSTORE-DBG] plan={len(_ch_plan)} "
+                      f"page_of_src={len(_page_of_src)} "
+                      f"status={dict(list(_page_status.items())[:12])}",
+                      flush=True)
+            _final_pages: List[str] = []
+            for _pl in _ch_plan:
+                if _pl.get("kind") == "store":
+                    _final_pages.extend(_pl.get("pages") or [])
+                    continue
+                _files_ch = _pl.get("files") or []
+                if os.environ.get("MANGA_DEBUG_CHSTORE"):
+                    print(f"[CHSTORE-DBG] ch={(_pl.get('url') or '')[-40:]} "
+                          f"sig={bool(_pl.get('sig'))} "
+                          f"files={len(_files_ch)}", flush=True)
+                    for _fd in _files_ch[:3]:
+                        print(f"[CHSTORE-DBG]   file={_fd} "
+                              f"pi={_page_of_src.get(_fd)}", flush=True)
+                _pgs_ch: List[str] = []
+                _store_files: List[str] = []
+                _store_sts: List[str] = []
+                _ch_complete = bool(_files_ch)
+                for _fch in _files_ch:
+                    _pi_ch = _page_of_src.get(_fch)
+                    if _pi_ch is None:
+                        _ch_complete = False
+                        continue
+                    _st_ch = _page_status.get(_pi_ch) or "failed"
+                    if _st_ch not in ("done", "blank"):
+                        _ch_complete = False
+                    if _st_ch == "done":
+                        _of_ch = None
+                        try:
+                            _of_ch = (results_by_i.get(_pi_ch)
+                                      or (None,))[0]
+                        except Exception:
+                            _of_ch = None
+                        if not _of_ch:
+                            _of_ch = os.path.join(
+                                out_dir,
+                                os.path.splitext(
+                                    os.path.basename(_fch))[0] + page_ext)
+                        if os.path.isfile(_of_ch):
+                            _pgs_ch.append(_of_ch)
+                            _store_files.append(_of_ch)
+                            _store_sts.append("done")
+                        else:
+                            _ch_complete = False
+                if _ch_complete and _store_files and _pl.get("sig"):
+                    try:
+                        _ok_put = MangaTranslator._chapter_store_put(
+                            _pl.get("url") or "", _pl["sig"],
+                            _store_files, _store_sts)
+                        if _ok_put:
+                            print(f"[✓] فصل «{(_pl.get('url') or '')[:70]}» "
+                                  f"کامل شد → در انبارِ فصلها ذخیره شد "
+                                  f"({len(_store_files)} صفحه).")
+                    except Exception:
+                        pass
+                _pgs_ch.sort(key=MangaTranslator._natural_sort_key)
+                _final_pages.extend(_pgs_ch)
+            if _final_pages:
+                processed_files = _final_pages
+            elif not processed_files:
+                print("[!] هیچ خروجی‌ای از فصلها ساخته نشد.", file=sys.stderr)
+                return
 
         if not processed_files:
             print("[!] هیچ خروجی‌ای تولید نشد.", file=sys.stderr)

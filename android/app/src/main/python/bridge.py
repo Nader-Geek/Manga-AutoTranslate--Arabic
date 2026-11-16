@@ -548,6 +548,12 @@ def _out_stem_from_src(src: str) -> str:
     s = str(src or "").strip()
     if not s:
         return ""
+    # v1.14.321 — ورودیِ چندلینکی (ch1,ch2,…): نامِ خروجی از slug فصلِ
+    # «اول» ساخته میشود تا هر ورودیِ متفاوت، خروجی/کشِ خودش را داشته
+    # باشد و فصلِ هم‌پوشانِ ورودیِ قبلی کشِ مشترک را قاطی نکند.
+    s = re.split(r"[,\n\r\t]+", s)[0].strip()
+    if not s:
+        return ""
     try:
         if s.lower().startswith(("http://", "https://")):
             from urllib.parse import urlparse, unquote
