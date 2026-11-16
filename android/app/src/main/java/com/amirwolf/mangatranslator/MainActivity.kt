@@ -775,7 +775,7 @@ class MainActivity : AppCompatActivity() {
             }
             val baseUrl = base.ifEmpty {
                 "https://github.com/amirwolf5122/Manga-AutoTranslate" +
-                        "/releases/download/apk/" +
+                        "/releases/download/apks/" +
                         (if (has64) "MangaTranslator-arm64.apk"
                          else "MangaTranslator-universal.apk")
             }

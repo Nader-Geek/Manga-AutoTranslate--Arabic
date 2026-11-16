@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 APP_NAME = "مانگا مترجم"
-APP_VER = "1.14.318"
+APP_VER = "1.14.319"
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANGA_PY = os.path.join(HERE, "manga.py")
 WORK_DIR = os.path.join(HERE, "workspace")
@@ -1759,6 +1759,49 @@ footer { display: none !important; }
 .log-tool-btn:hover { color: var(--ink-red); border-color: var(--ink-red); transform: translateY(-1px); }
 .log-tool-btn:active { transform: translateY(0); }
 
+.support {
+  max-width: 620px; margin: 4px auto 4px; padding: 14px 16px 12px;
+  border: 1px solid var(--ink-line); border-radius: 16px;
+  background: #0a0a0d; text-align: center;
+}
+.support-title {
+  color: var(--ink-text); font-size: .95rem; font-weight: 700;
+  margin-bottom: 12px; display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+}
+.support-kao { font-size: 1.1rem; font-weight: 400; }
+.support-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; flex-wrap: wrap; margin: 7px 0;
+}
+.support-net {
+  font-size: .72rem; font-weight: 800; color: #fff; letter-spacing: .6px;
+  border-radius: 8px; padding: 5px 11px; flex: none;
+  background: linear-gradient(135deg, #0098ea, #41c7e8);
+}
+.support-row.trx .support-net { background: linear-gradient(135deg, #e84142, #ff7a4d); }
+.support-addr {
+  direction: ltr; unicode-bidi: embed;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem; color: var(--ink-text); background: #121216;
+  border: 1px solid var(--ink-line); border-radius: 10px;
+  padding: 7px 12px; word-break: break-all; line-height: 1.5;
+  user-select: all; cursor: pointer; max-width: 100%;
+  transition: border-color .18s;
+}
+.support-row.ton .support-addr:hover { border-color: #0098ea; }
+.support-row.trx .support-addr:hover { border-color: #e84142; }
+.support-copy {
+  background: #121216; color: var(--ink-dim);
+  border: 1px solid var(--ink-line); border-radius: 10px;
+  padding: 8px 16px; font-size: .78rem; cursor: pointer;
+  font-family: inherit; min-height: 38px; flex: none;
+  transition: color .18s, border-color .18s, transform .18s;
+}
+.support-copy:hover, .support-copy.ok {
+  color: #38c98a; border-color: #2e7d4f; transform: translateY(-1px);
+}
+
 @media (max-width: 620px) {
   .gradio-container { max-width: 100% !important; }
   .stepcard { padding: 14px 12px 12px !important; border-radius: 14px !important; }
@@ -1770,6 +1813,9 @@ footer { display: none !important; }
   #manga_status_chip { font-size: .78rem; padding: 8px 13px; }
   .credit { gap: 8px; }
   .credit a { padding: 8px 13px; }
+  .support { padding: 12px 10px 10px; }
+  .support-row { gap: 6px; }
+  .support-addr { font-size: .7rem; padding: 6px 9px; }
 }
 """
 
@@ -9616,8 +9662,82 @@ try { window.__mangaUpdateProg('', ''); } catch (e) {}
     سورس
   </a>
 </div>
+<div class="support">
+  <div class="support-title">حمایت مالی <span class="support-kao">ヾ(•ω•`)o</span></div>
+  <div class="support-row ton">
+    <span class="support-net">TON</span>
+    <span class="support-addr" data-addr="UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT"
+          title="برای کپی کلیک کنید">UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT</span>
+    <button type="button" class="support-copy"
+            data-addr="UQBScvayaxagwTfRBhlLNaqw-sZuadlnBjSvn8OJz7XZJJzT">کپی</button>
+  </div>
+  <div class="support-row trx">
+    <span class="support-net">TRX</span>
+    <span class="support-addr" data-addr="TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa"
+          title="برای کپی کلیک کنید">TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa</span>
+    <button type="button" class="support-copy"
+            data-addr="TMmLTaCjaW1L2xWZmpR2EBeNyCawCzEkwa">کپی</button>
+  </div>
+</div>
 """
         )
+
+        _support_js = """
+() => {
+  const copied = (btn) => {
+    if (!btn) return;
+    const old = btn.textContent;
+    btn.textContent = 'کپی شد ✓';
+    btn.classList.add('ok');
+    setTimeout(() => {
+      btn.textContent = old;
+      btn.classList.remove('ok');
+    }, 1500);
+  };
+  const fallbackCopy = (txt, btn) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      copied(btn);
+    } catch (err) {}
+  };
+  document.addEventListener('click', (e) => {
+    try {
+      const t = e.target && e.target.closest
+        ? e.target.closest('.support-copy, .support-addr') : null;
+      if (!t) return;
+      const addr = t.getAttribute('data-addr');
+      if (!addr) return;
+      e.preventDefault();
+      e.stopPropagation();
+      let btn = t.classList.contains('support-copy')
+        ? t : (t.parentElement
+               ? t.parentElement.querySelector('.support-copy') : null);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(addr).then(() => copied(btn),
+            () => fallbackCopy(addr, btn));
+          return;
+        }
+      } catch (err) {}
+      fallbackCopy(addr, btn);
+    } catch (err) {}
+  }, true);
+}
+"""
+        try:
+            demo.load(None, None, None, js=_support_js)
+        except Exception:
+            try:
+                demo.load(js=_support_js)
+            except Exception:
+                pass
 
 
     on_colab = ("google.colab" in sys.modules or bool(os.environ.get("COLAB_RELEASE_TAG")))
