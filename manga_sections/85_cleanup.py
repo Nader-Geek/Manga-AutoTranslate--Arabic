@@ -1678,22 +1678,41 @@ class _MangaTranslatorBody_85:
             zone = cv2.dilate(polyf, np.ones((5, 5), np.uint8))
             _diff_thr = 45.0
             if t_near <= 30.0:
-                _diff_thr = 6.0
-            ink = ((np.abs(g.astype(np.float32) - t_near) > _diff_thr)
-                   & (zone > 0)).astype(np.uint8) * 255
-            if t_near <= 30.0:
                 try:
-                    _certain = (g.astype(np.float32) - t_near) > _diff_thr
+                    _certain = (g.astype(np.float32) - t_near) > 45.0
                     _near2 = cv2.dilate((_certain).astype(np.uint8),
                                         np.ones((9, 9), np.uint8)) > 0
                     _faint = ((g.astype(np.float32) - t_near) >= 4.0) \
                         & (~_certain) & _near2 & (zone > 0)
+                    ink = (_certain & (zone > 0)).astype(np.uint8) * 255
                     if float(_faint.mean()) <= 0.30:
                         ink = ink | (_faint.astype(np.uint8) * 255)
                 except Exception:
-                    pass
+                    ink = (((g.astype(np.float32) - t_near) > 45.0)
+                           & (zone > 0)).astype(np.uint8) * 255
+            else:
+                ink = ((np.abs(g.astype(np.float32) - t_near) > _diff_thr)
+                       & (zone > 0)).astype(np.uint8) * 255
             ink = cv2.morphologyEx(ink, cv2.MORPH_CLOSE,
                                    np.ones((3, 3), np.uint8))
+            try:
+                _chM = comp.astype(np.uint8)
+                _cbg = cv2.bitwise_not(_chM)
+                _cnM, _clM = cv2.connectedComponents(_cbg, 4)
+                _holesM = np.zeros_like(_chM)
+                for _jM in range(1, _cnM):
+                    _mjM = (_clM == _jM)
+                    if (_mjM[0, :].any() or _mjM[-1, :].any()
+                            or _mjM[:, 0].any() or _mjM[:, -1].any()):
+                        continue
+                    _holesM[_mjM] = 255
+                _holesM = cv2.dilate(_holesM,
+                                     np.ones((5, 5), np.uint8))
+                _keepM = ((_chM > 0) | (_holesM > 0))
+                ink = (ink > 0) & _keepM
+                ink = ink.astype(np.uint8) * 255
+            except Exception:
+                pass
             n_i, lab_i, st_i, _ = cv2.connectedComponentsWithStats(ink, 8)
             keep = np.zeros_like(ink)
             for i in range(1, n_i):
@@ -1702,6 +1721,13 @@ class _MangaTranslatorBody_85:
             ink = keep
             n_ink = int(cv2.countNonZero(ink))
             n_pf = int(cv2.countNonZero(polyf))
+            try:
+                if os.environ.get("MANGA_ENC_DBG"):
+                    print(f"  [ENCdbg] t_near={t_near:.1f} zone={int((zone>0).sum())} "
+                          f"n_ink={n_ink} n_pf={n_pf} pb={pbw}x{pbh} "
+                          f"win={wx0},{wy0},{wx1},{wy1}", flush=True)
+            except Exception:
+                pass
             if n_ink < 60 or n_ink > 0.92 * n_pf:
                 return None
             if float(np.count_nonzero(ink & (polyf > 0))) < 0.25 * n_pf:
@@ -2264,6 +2290,67 @@ class _MangaTranslatorBody_85:
         except Exception:
             return None
 
+    @staticmethod
+    def _banner_like_free_text(image: np.ndarray, rect) -> bool:
+        try:
+            h, w = image.shape[:2]
+            rx, ry, rw, rh = [int(v) for v in rect]
+            bx0 = max(0, rx - 10)
+            by0 = max(0, ry - 8)
+            bx1 = min(w, rx + rw + 12)
+            by1 = min(h, ry + rh + 10)
+            bw = bx1 - bx0
+            bh = by1 - by0
+            if bw < 40 or bh < 20 or bw > 0.7 * w or bh > 0.25 * h:
+                return False
+            zo = image[by0:by1, bx0:bx1]
+            zg = cv2.cvtColor(zo, cv2.COLOR_BGR2GRAY)
+            zh = cv2.cvtColor(zo, cv2.COLOR_BGR2HSV)
+            colored = ((zh[..., 0] >= 95) & (zh[..., 0] <= 178)
+                       & (zh[..., 1] >= 45) & (zh[..., 2] >= 25))
+            npm = ((zg < 165) | colored).astype(np.uint8)
+            if int(npm.sum()) < 0.35 * bw * bh:
+                return False
+            n, lab, st, _ = cv2.connectedComponentsWithStats(npm, 8)
+            if n <= 1:
+                return False
+            bi = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
+            da = int(st[bi, cv2.CC_STAT_AREA])
+            if da < 0.30 * bw * bh:
+                return False
+            comp = (lab == bi)
+            if float((zg[comp] < 100).mean()) < 0.50:
+                return False
+            cx0 = bx0 + int(st[bi, cv2.CC_STAT_LEFT])
+            cy0 = by0 + int(st[bi, cv2.CC_STAT_TOP])
+            cx1 = bx0 + int(st[bi, cv2.CC_STAT_LEFT]) \
+                + int(st[bi, cv2.CC_STAT_WIDTH])
+            cy1 = by0 + int(st[bi, cv2.CC_STAT_TOP]) \
+                + int(st[bi, cv2.CC_STAT_HEIGHT])
+            ex0 = max(0, cx0 - 10)
+            ey0 = max(0, cy0 - 10)
+            ex1 = min(w, cx1 + 10)
+            ey1 = min(h, cy1 + 10)
+            band = np.zeros((ey1 - ey0, ex1 - ex0), np.uint8)
+            band[cy0 - ey0:cy1 - ey0, cx0 - ex0:cx1 - ex0] = \
+                comp.astype(np.uint8) * 255
+            ring = cv2.dilate(band, np.ones((5, 5), np.uint8)) > 0
+            ring &= (band == 0)
+            if int(ring.sum()) < 60:
+                return False
+            ringg = cv2.cvtColor(image[ey0:ey1, ex0:ex1],
+                                 cv2.COLOR_BGR2GRAY)
+            ringh = cv2.cvtColor(image[ey0:ey1, ex0:ex1],
+                                 cv2.COLOR_BGR2HSV)
+            ringc = ((ringh[..., 0] >= 95) & (ringh[..., 0] <= 178)
+                     & (ringh[..., 1] >= 45) & (ringh[..., 2] >= 25))
+            ring_np = ((ringg < 165) | ringc) & ring
+            if float(ring_np.sum()) / float(ring.sum()) > 0.50:
+                return False
+            return True
+        except Exception:
+            return False
+
     def _build_text_mask_fast(self, image: np.ndarray,
                               regions: List[TextRegion]) -> Optional[np.ndarray]:
         try:
@@ -2283,6 +2370,16 @@ class _MangaTranslatorBody_85:
         n_ok = 0
         n_skip = 0
         for region in regions:
+            if getattr(region, "kind", "") not in ("promo", "sfx") \
+                    and str(getattr(region, "det_class", "") or "") \
+                    == "text_free":
+                try:
+                    if not MangaTranslator._banner_like_free_text(
+                            image, region.rect):
+                        raise ValueError
+                    region.kind = "promo"
+                except Exception:
+                    pass
             if getattr(region, "kind", "") in ("promo", "sfx"):
                 try:
                     _px0, _py0, _pw, _ph = [int(v) for v in region.rect]
@@ -2347,6 +2444,14 @@ class _MangaTranslatorBody_85:
                             print("  [🔍] ماسکِ #مسیر: enclosure-tight (فقطِ جوهر)")
                         except Exception:
                             pass
+                    try:
+                        _de = os.environ.get("MANGA_DUMP_ENC", "")
+                        if _de:
+                            _ci = int(getattr(self, "_enc_dump_i", 0))
+                            self._enc_dump_i = _ci + 1
+                            cv2.imwrite(f"{_de}.{_ci}.png", _enc)
+                    except Exception:
+                        pass
                     if (getattr(self, "use_lama", False)
                             and self._clean_level() != "fast"):
                         try:
@@ -4162,7 +4267,28 @@ class _MangaTranslatorBody_85:
             except Exception:
                 pass
             return
+        try:
+            _dl = os.environ.get("MANGA_DUMP_LAMA_IN", "")
+            if _dl:
+                _ci = int(getattr(self, "_lama_in_i", 0))
+                self._lama_in_i = _ci + 1
+                cv2.imwrite(f"{_dl}.{_ci}_img.png", ctx["run_img"])
+                cv2.imwrite(f"{_dl}.{_ci}_msk.png", ctx["run_msk"])
+        except Exception:
+            pass
         out = self._lama_try_fn(lama)(ctx["run_img"], ctx["run_msk"], 640)
+        try:
+            _dl2 = os.environ.get("MANGA_DUMP_LAMA_IN", "")
+            if _dl2 and out is not None:
+                _ci = int(getattr(self, "_lama_out_i", 0))
+                self._lama_out_i = _ci + 1
+                _ob = out if isinstance(out, np.ndarray) else np.array(out)
+                if _ob.dtype != np.uint8:
+                    _ob = np.clip(_ob, 0, 255).astype(np.uint8)
+                cv2.imwrite(f"{_dl2}.{_ci}_out.png", _ob[:, :, :3]
+                            if _ob.ndim == 3 else _ob)
+        except Exception:
+            pass
         sub_bgr = self._lama_group_out_to_bgr(ctx, out)
         if sub_bgr is None:
             return
@@ -4988,8 +5114,14 @@ class _MangaTranslatorBody_85:
                     except Exception:
                         _ppcJ = None
                     _gJ = cv2.cvtColor(_sicJ, cv2.COLOR_BGR2GRAY)
-                    _inkJ = mm & (np.abs(_gJ.astype(np.float32)
-                                         - _medJ) > 60.0)
+                    _locJ = cv2.medianBlur(_gJ, 21)
+                    _hatJ = np.maximum(
+                        _gJ.astype(np.float32) - _locJ.astype(np.float32),
+                        _locJ.astype(np.float32) - _gJ.astype(np.float32))
+                    _inkJ = mm & (((np.abs(_gJ.astype(np.float32)
+                                           - _medJ) > 60.0)
+                                   & (_hatJ > 25.0))
+                                  | (_hatJ > 55.0))
                     if int(_inkJ.sum()) >= 60:
                         _outJ = _g_out[oy:oy + dm.shape[0],
                                        ox:ox + dm.shape[1]]
@@ -5066,7 +5198,8 @@ class _MangaTranslatorBody_85:
                             try:
                                 print(f"    [🛡] ink-kept reject → "
                                       f"residual pole fill "
-                                      f"(same={_sfJ:.2f})", flush=True)
+                                      f"(same={_sfJ:.2f}) "
+                                      f"@({cx0},{cy0})", flush=True)
                             except Exception:
                                 pass
                             continue
@@ -5294,6 +5427,7 @@ class _MangaTranslatorBody_85:
                                 _rc[_cmC] = _colC
                         except Exception:
                             pass
+
                 _n_rej += 1
                 try:
                     _dumpd2 = os.environ.get("MANGA_GUARD_DUMP")
@@ -5317,12 +5451,23 @@ class _MangaTranslatorBody_85:
             if _n_rej:
                 try:
                     print(f"    [🛡] {_n_rej} LaMa fill(s) → flat white "
-                          "(anti-hallucination)", flush=True)
+                          f"(anti-hallucination) "
+                          f"members={[(int(c[0]), int(c[1])) for c in members]}",
+                          flush=True)
                 except Exception:
                     pass
         except Exception:
             pass
 
+        try:
+            _dg = os.environ.get("MANGA_DUMP_SUBBGR", "")
+            if _dg:
+                _ci = int(getattr(self, "_subbgr_i", 0))
+                self._subbgr_i = _ci + 1
+                cv2.imwrite(f"{_dg}.{_ci}.png", sub_bgr)
+                cv2.imwrite(f"{_dg}.{_ci}_orig.png", sub_img)
+        except Exception:
+            pass
         for c in members:
             cx0, cy0, cx1, cy1, crop_msk = c[:5]
             cx1, cy1 = min(cx1, img_w), min(cy1, img_h)
@@ -6483,6 +6628,11 @@ class _MangaTranslatorBody_85:
                             else (_prot | (_pmN > 0))
             except Exception:
                 _prot = None
+            try:
+                _brp = ((g >= 200) & (~cand)).astype(np.float32)
+                _brf = cv2.boxFilter(_brp, -1, (15, 15))
+            except Exception:
+                _brf = None
             n, lab, st, _ = cv2.connectedComponentsWithStats(thin, 8)
             fills = np.zeros((h, w), bool)
             for i in range(1, n):
@@ -6492,8 +6642,26 @@ class _MangaTranslatorBody_85:
                 if a < 6 or a > 1600 or max(cw, ch) > 220:
                     continue
                 comp = (lab == i)
+                try:
+                    if os.environ.get("MANGA_GP_DBG") and 1075 <= int(st[i, cv2.CC_STAT_TOP]) <= 1100:
+                        _ebD = cv2.dilate(comp.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
+                        print(f"  [GPdbg] comp@({int(st[i, cv2.CC_STAT_LEFT])},{int(st[i, cv2.CC_STAT_TOP])}) "
+                              f"a={a} prot={bool((comp & _prot).any()) if _prot is not None else None} "
+                              f"oink={bool((comp & oink_near).any())} "
+                              f"edge={bool((_ebD & _edge).any())}", flush=True)
+                except Exception:
+                    pass
                 if _prot is not None and bool((comp & _prot).any()):
-                    continue
+                    _is_speck = False
+                    if _brf is not None:
+                        try:
+                            _vb = _brf[comp]
+                            if _vb.size and float(np.median(_vb)) >= 0.55:
+                                _is_speck = True
+                        except Exception:
+                            _is_speck = False
+                    if not _is_speck:
+                        continue
                 if not (comp & oink_near).any():
                     continue
                 _eb = cv2.dilate(comp.astype(np.uint8),
@@ -6504,6 +6672,13 @@ class _MangaTranslatorBody_85:
                                   np.ones((15, 15), np.uint8)) > 0
                 ring &= ~cand
                 ring &= ~thick_core
+                try:
+                    _rp = ring & (np.abs(
+                        g.astype(np.int16) - bg) <= 24)
+                    if int(_rp.sum()) >= 40:
+                        ring = _rp
+                except Exception:
+                    pass
                 if int(ring.sum()) < 40:
                     continue
                 rv = g[ring].astype(np.float32)
@@ -6518,7 +6693,15 @@ class _MangaTranslatorBody_85:
             tgt |= (cand & cv2.dilate(fills.astype(np.uint8),
                                       np.ones((9, 9), np.uint8)) > 0)
             if _prot is not None:
-                tgt &= ~_prot
+                try:
+                    _brp = ((g >= 200) & (~cand)
+                            ).astype(np.float32)
+                    _brf = cv2.boxFilter(_brp, -1, (15, 15))
+                    _dkp = ((bg - g.astype(np.int16)) > 60) & m
+                    _speck = _dkp & (_brf >= 0.55)
+                    tgt &= ~(_prot & ~_speck)
+                except Exception:
+                    tgt &= ~_prot
             faint = (np.abs(bg - g.astype(np.int16)) > 12)
             near_m = cv2.dilate(m.astype(np.uint8),
                                 np.ones((5, 5), np.uint8)) > 0
@@ -7506,6 +7689,119 @@ class _MangaTranslatorBody_85:
         except Exception:
             return 0
 
+    def _promo_band_flatten(self, out: np.ndarray, original: np.ndarray,
+                            cmp_mask: np.ndarray) -> int:
+        n_fix = 0
+        try:
+            if out is None or original is None or cmp_mask is None:
+                return 0
+            if out.ndim != 3 or cmp_mask.shape[:2] != out.shape[:2]:
+                return 0
+            H, W = cmp_mask.shape
+            _oG = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+            _fG = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
+            _oHSV = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
+            _oC = ((_oHSV[..., 0] >= 95) & (_oHSV[..., 0] <= 178)
+                   & (_oHSV[..., 1] >= 45) & (_oHSV[..., 2] >= 25))
+            _cm = (cmp_mask > 0)
+            for _pb in (getattr(self, "_promo_rect_boxes", None) or []):
+                try:
+                    _bx0 = max(0, int(_pb[0]))
+                    _by0 = max(0, int(_pb[1]))
+                    _bx1 = min(W, int(_pb[2]))
+                    _by1 = min(H, int(_pb[3]))
+                    _bw = _bx1 - _bx0
+                    _bh = _by1 - _by0
+                    if _bw < 24 or _bh < 10 or _bh > 160:
+                        continue
+                    _zo = _oG[_by0:_by1, _bx0:_bx1]
+                    _zc = _oC[_by0:_by1, _bx0:_bx1]
+                    _np_m = ((_zo < 165) | _zc).astype(np.uint8)
+                    if int(_np_m.sum()) < 0.35 * _bw * _bh:
+                        continue
+                    _dn, _dl, _dst, _ = cv2.connectedComponentsWithStats(
+                        _np_m, 8)
+                    if _dn <= 1:
+                        continue
+                    _bi = 1 + int(np.argmax(_dst[1:, cv2.CC_STAT_AREA]))
+                    _da = int(_dst[_bi, cv2.CC_STAT_AREA])
+                    if _da < 0.30 * _bw * _bh:
+                        continue
+                    _dx0 = _bx0 + int(_dst[_bi, cv2.CC_STAT_LEFT])
+                    _dy0 = _by0 + int(_dst[_bi, cv2.CC_STAT_TOP])
+                    _dx1 = _bx0 + int(_dst[_bi, cv2.CC_STAT_LEFT]) \
+                        + int(_dst[_bi, cv2.CC_STAT_WIDTH])
+                    _dy1 = _by0 + int(_dst[_bi, cv2.CC_STAT_TOP]) \
+                        + int(_dst[_bi, cv2.CC_STAT_HEIGHT])
+                    _dx0 = max(_bx0, _dx0 - 2)
+                    _dy0 = max(_by0, _dy0 - 2)
+                    _dx1 = min(_bx1, _dx1 + 3)
+                    _dy1 = min(_by1, _dy1 + 3)
+                    _okR = False
+                    _col = None
+                    for _side in ("up", "down", "lr"):
+                        try:
+                            if _side == "up":
+                                _ry0 = max(0, _dy0 - 40)
+                                _ry1 = _dy0
+                                _rx0 = max(0, _dx0 - 30)
+                                _rx1 = min(W, _dx1 + 30)
+                            elif _side == "down":
+                                _ry0 = _dy1
+                                _ry1 = min(H, _dy1 + 40)
+                                _rx0 = max(0, _dx0 - 30)
+                                _rx1 = min(W, _dx1 + 30)
+                            else:
+                                _ry0 = max(0, _dy0 - 12)
+                                _ry1 = min(H, _dy1 + 12)
+                                _rx0 = max(0, _dx0 - 45)
+                                _rx1 = min(W, _dx1 + 45)
+                            if _ry1 - _ry0 < 4 or _rx1 - _rx0 < 8:
+                                continue
+                            _ring = _oG[_ry0:_ry1, _rx0:_rx1]
+                            _ringm = _cm[_ry0:_ry1, _rx0:_rx1]
+                            _ringc = _oC[_ry0:_ry1, _rx0:_rx1]
+                            _bright = (_ring >= 180) & (~_ringm) & (~_ringc)
+                            if int(_bright.sum()) < 100:
+                                continue
+                            _col = np.median(
+                                original[_ry0:_ry1, _rx0:_rx1][_bright],
+                                axis=0)
+                            _okR = True
+                            break
+                        except Exception:
+                            continue
+                    if not _okR:
+                        try:
+                            _gb = (_oG >= 180) & (~_cm) & (~_oC)
+                            if int(_gb.sum()) >= 500:
+                                _col = np.median(original[_gb], axis=0)
+                                _okR = True
+                        except Exception:
+                            _okR = False
+                    if not _okR or _col is None:
+                        continue
+                    _col = np.clip(np.rint(_col), 0, 255).astype(np.uint8)
+                    _zone_out = _fG[_dy0:_dy1, _dx0:_dx1]
+                    _bad = int((_zone_out < 120).sum()) \
+                        + int(((_zone_out >= 120)
+                               & (_zone_out < 205)).sum()) // 2
+                    _flat_ok = float(_col.mean()) >= 170.0
+                    if _bad < 0.10 * (_dx1 - _dx0) * (_dy1 - _dy0) \
+                            and not _flat_ok:
+                        continue
+                    out[_dy0:_dy1, _dx0:_dx1] = _col[None, None, :]
+                    n_fix += 1
+                    if os.environ.get("MANGA_BF_DBG"):
+                        print(f"  [BFdbg] box=({_bx0},{_by0},{_bx1},{_by1}) "
+                              f"flat=({_dx0},{_dy0},{_dx1},{_dy1}) "
+                              f"col={_col.tolist()}", flush=True)
+                except Exception:
+                    continue
+            return n_fix
+        except Exception:
+            return 0
+
     def _compose_two_image(self, donor: np.ndarray, original: np.ndarray,
 
                            mask: np.ndarray,
@@ -7527,7 +7823,23 @@ class _MangaTranslatorBody_85:
                 return donor
             if os.environ.get("MANGA_NO_HQC", "0") != "1":
                 try:
-                    self._fill_harmony_qc(donor, original, mask,
+                    _zone_qc = mask
+                    _prb_qc = getattr(self, "_promo_rect_boxes", None) or []
+                    if _prb_qc and mask is not None:
+                        _zone_qc = mask.copy()
+                        for _pbQ in _prb_qc:
+                            try:
+                                _qx0 = max(0, int(_pbQ[0]))
+                                _qy0 = max(0, int(_pbQ[1]))
+                                _qx1 = min(_zone_qc.shape[1],
+                                           int(_pbQ[2]))
+                                _qy1 = min(_zone_qc.shape[0],
+                                           int(_pbQ[3]))
+                                if _qx1 - _qx0 >= 8 and _qy1 - _qy0 >= 8:
+                                    _zone_qc[_qy0:_qy1, _qx0:_qx1] = 0
+                            except Exception:
+                                continue
+                    self._fill_harmony_qc(donor, original, _zone_qc,
                                           verbose=verbose or self.debug)
                 except Exception:
                     pass
@@ -7556,6 +7868,17 @@ class _MangaTranslatorBody_85:
                 _wbC = getattr(self, "_page_wall_band", None)
                 if _wbC is not None and _wbC.shape == _cmp.shape:
                     _cmp &= (_wbC == 0)
+            except Exception:
+                pass
+            try:
+                for _pbW in (getattr(self, "_promo_rect_boxes",
+                                     None) or []):
+                    _wx0 = max(0, int(_pbW[0]))
+                    _wy0 = max(0, int(_pbW[1]))
+                    _wx1 = min(_cmp.shape[1], int(_pbW[2]))
+                    _wy1 = min(_cmp.shape[0], int(_pbW[3]))
+                    if _wx1 - _wx0 >= 8 and _wy1 - _wy0 >= 8:
+                        _cmp[_wy0:_wy1, _wx0:_wx1] = True
             except Exception:
                 pass
             try:
@@ -7605,8 +7928,208 @@ class _MangaTranslatorBody_85:
             except Exception:
                 pass
             self._compose_final_cmp = _cmp.copy()
+            try:
+                _dzC = os.environ.get("MANGA_DUMP_CMPFIN", "")
+                if _dzC:
+                    cv2.imwrite(_dzC, (_cmp.astype(np.uint8)) * 255)
+            except Exception:
+                pass
             _out = np.ascontiguousarray(
                 np.where(_cmp[..., None], donor, original))
+            try:
+                if os.environ.get("MANGA_PROMO_BAND_FLAT", "1") != "0":
+                    _nBF = self._promo_band_flatten(_out, original, _cmp)
+                    if _nBF and (verbose or self.debug):
+                        try:
+                            print(f"  [✓BF] نوارِ واترمارکِ تیره: "
+                                  f"{_nBF} نوار با رنگِ کاغذ "
+                                  f"مسطح شد", flush=True)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            try:
+                _prC = os.environ.get("MANGA_PROBE", "")
+                if _prC and "," in _prC:
+                    _pxC, _pyC = [int(v) for v in _prC.split(",")]
+                    print(f"  [🔍PROBE] cmp_where={_out[_pyC, _pxC]}", flush=True)
+            except Exception:
+                pass
+            try:
+                if os.environ.get("MANGA_DARK_RING_FIX", "1") != "0" \
+                        and _cmp.any():
+                    _oG = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+                    _fG = cv2.cvtColor(_out, cv2.COLOR_BGR2GRAY)
+                    _kDR = np.ones((9, 9), np.uint8)
+                    _hDR, _wDR = _cmp.shape
+                    _nDR_fix = 0
+                    for _rgDR in (getattr(self, "_page_regions",
+                                          None) or []):
+                        if getattr(_rgDR, "kind", "") in ("promo", "sfx"):
+                            continue
+                        _plDR = getattr(_rgDR, "ocr_polys", None) or []
+                        if not _plDR:
+                            continue
+                        try:
+                            _lnsDR = MangaTranslator \
+                                ._group_polys_to_lines(list(_plDR))
+                        except Exception:
+                            continue
+                        for (_lx0, _ly0, _lx1, _ly1) in (_lnsDR or []):
+                            _bx0 = max(0, int(_lx0) - 4)
+                            _by0 = max(0, int(_ly0) - 4)
+                            _bx1 = min(_wDR, int(_lx1) + 5)
+                            _by1 = min(_hDR, int(_ly1) + 5)
+                            if (_bx1 - _bx0) < 12 or (_by1 - _by0) < 8:
+                                continue
+                            _zcDR = _cmp[_by0:_by1, _bx0:_bx1]
+                            if int(cv2.countNonZero(
+                                    _zcDR.astype(np.uint8))) < 40:
+                                continue
+                            _rbDR = cv2.dilate(
+                                _zcDR.astype(np.uint8), _kDR) > 0
+                            _rbDR &= (~_cmp[_by0:_by1, _bx0:_bx1])
+                            _rgvDR = _oG[_by0:_by1, _bx0:_bx1][_rbDR]
+                            try:
+                                if os.environ.get("MANGA_DR_DBG"):
+                                    print(f"  [DRdbg] line y{_by0}-{_by1} x{_bx0}-{_bx1} "
+                                          f"ring={_rgvDR.size} darkf={float((_rgvDR < 110).mean()) if _rgvDR.size else -1:.2f} "
+                                          f"zc={int(_zcDR.sum())}", flush=True)
+                            except Exception:
+                                pass
+                            if _rgvDR.size < 60 \
+                                    or float((_rgvDR < 110).mean()) < 0.55:
+                                continue
+                            _zvDR = _fG[_by0:_by1, _bx0:_bx1][_zcDR]
+                            if _zvDR.size < 40 \
+                                    or float((_zvDR >= 170).mean()) < 0.35:
+                                continue
+                            _dkDR = _rbDR \
+                                & (_oG[_by0:_by1, _bx0:_bx1] < 110)
+                            if int(_dkDR.sum()) < 30:
+                                continue
+                            _colDR = np.median(
+                                original[_by0:_by1, _bx0:_bx1][_dkDR]
+                                .astype(np.float32), axis=0)
+                            _colDR = np.clip(np.rint(_colDR), 0,
+                                             255).astype(np.uint8)
+                            _selDR = _zcDR \
+                                & (_fG[_by0:_by1, _bx0:_bx1] >= 150)
+                            if int(_selDR.sum()) >= 20:
+                                _out[_by0:_by1, _bx0:_bx1][_selDR] =                                     _colDR
+                    _nBR_fix = 0
+                    _kBR = np.ones((9, 9), np.uint8)
+                    for _rgBR in (getattr(self, "_page_regions",
+                                          None) or []):
+                        _plBR = getattr(_rgBR, "ocr_polys", None) or []
+                        if not _plBR:
+                            continue
+                        try:
+                            _lnsBR = MangaTranslator \
+                                ._group_polys_to_lines(list(_plBR))
+                        except Exception:
+                            continue
+                        for (_lx0, _ly0, _lx1, _ly1) in (_lnsBR or []):
+                            _bx0 = max(0, int(_lx0) - 4)
+                            _by0 = max(0, int(_ly0) - 4)
+                            _bx1 = min(_wDR, int(_lx1) + 5)
+                            _by1 = min(_hDR, int(_ly1) + 5)
+                            if (_bx1 - _bx0) < 12 or (_by1 - _by0) < 8:
+                                continue
+                            _zcBR = _cmp[_by0:_by1, _bx0:_bx1]
+                            _nzBR = int(_zcBR.sum())
+                            if _nzBR < 40:
+                                continue
+                            _ex0BR = max(0, _bx0 - 14)
+                            _ey0BR = max(0, _by0 - 14)
+                            _ex1BR = min(_wDR, _bx1 + 14)
+                            _ey1BR = min(_hDR, _by1 + 14)
+                            _zcE = _cmp[_ey0BR:_ey1BR, _ex0BR:_ex1BR]
+                            _rbBR = cv2.dilate(
+                                _zcE.astype(np.uint8), _kBR) > 0
+                            _rbBR &= (~_cmp[_ey0BR:_ey1BR,
+                                            _ex0BR:_ex1BR])
+                            _rgvBR = _oG[_ey0BR:_ey1BR,
+                                         _ex0BR:_ex1BR][_rbBR]
+                            if _rgvBR.size < 60:
+                                continue
+                            _brmBR = (_rgvBR >= 200)
+                            if (int(_brmBR.sum())
+                                    < 0.60 * _rgvBR.size):
+                                continue
+                            _brpxBR = _rbBR \
+                                & (_oG[_ey0BR:_ey1BR,
+                                       _ex0BR:_ex1BR] >= 200)
+                            if int(_brpxBR.sum()) < 30:
+                                continue
+                            _colBR = np.median(
+                                original[_ey0BR:_ey1BR,
+                                         _ex0BR:_ex1BR][_brpxBR]
+                                .astype(np.float32), axis=0)
+                            _colBR = np.clip(np.rint(_colBR), 0,
+                                             255).astype(np.uint8)
+                            _lumBR = float(np.mean(_colBR))
+                            _selBR = _zcBR \
+                                & (_fG[_by0:_by1, _bx0:_bx1]
+                                   < _lumBR - 60.0)
+                            _nsBR = int(_selBR.sum())
+                            if _nsBR < 8 or _nsBR > 0.50 * _nzBR:
+                                continue
+                            try:
+                                _mx0 = max(0, _bx0 - 12)
+                                _my0 = max(0, _by0 - 12)
+                                _mx1 = min(_wDR, _bx1 + 12)
+                                _my1 = min(_hDR, _by1 + 12)
+                                _odBR = (_oG[_my0:_my1,
+                                             _mx0:_mx1]
+                                         < _lumBR - 60.0)
+                                _onBR, _olBR, _osBR, _ = \
+                                    cv2.connectedComponentsWithStats(
+                                        _odBR.astype(np.uint8), 8)
+                                _fillBR = np.zeros(_selBR.shape, bool)
+                                for _iBR in range(1, _onBR):
+                                    _cmBR = (_olBR == _iBR)
+                                    if not bool((_cmBR & _selBR).any()):
+                                        continue
+                                    _cxBR = int(_osBR[_iBR,
+                                                      cv2.CC_STAT_LEFT]) \
+                                        + _mx0
+                                    _cyBR = int(_osBR[_iBR,
+                                                      cv2.CC_STAT_TOP]) \
+                                        + _my0
+                                    _cwBR = int(_osBR[_iBR,
+                                                      cv2.CC_STAT_WIDTH])
+                                    _chBR = int(_osBR[_iBR,
+                                                      cv2.CC_STAT_HEIGHT])
+                                    if (_cxBR < _bx0 - 4
+                                            or _cyBR < _by0 - 4
+                                            or _cxBR + _cwBR > _bx1 + 4
+                                            or _cyBR + _chBR > _by1 + 4):
+                                        continue
+                                    _locBR = np.zeros(
+                                        _selBR.shape, bool)
+                                    _locBR[_cyBR - _by0:_cyBR - _by0
+                                           + _chBR,
+                                           _cxBR - _bx0:_cxBR - _bx0
+                                           + _cwBR] = True
+                                    _fillBR |= (_locBR & _selBR)
+                                if int(_fillBR.sum()) >= 8:
+                                    _out[_by0:_by1,
+                                         _bx0:_bx1][_fillBR] = _colBR
+                                    _nBR_fix += 1
+                            except Exception:
+                                _out[_by0:_by1, _bx0:_bx1][_selBR] = \
+                                    _colBR
+                                _nBR_fix += 1
+                    if _nBR_fix and (verbose or self.debug):
+                        try:
+                            print(f"  [✓BR] حلقهٔ روشن + خردهٔ تیره: "
+                                  f"{_nBR_fix} خط با رنگِ قطبِ روشن "
+                                  f"بازرنگ شد", flush=True)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             try:
                 _anF = getattr(self, "_page_annotation_fill", None)
                 _anFl = getattr(self, "_page_annotation_flat", None)
@@ -7622,8 +8145,46 @@ class _MangaTranslatorBody_85:
                 pass
             try:
                 if os.environ.get("MANGA_WHITE_RESCUE", "1") != "0":
-                    self._flat_white_rescue(_out, original, _cmp,
+                    try:
+                        _dw = os.environ.get("MANGA_DUMP_RESCUE_CMP", "")
+                        if _dw:
+                            _ci = int(getattr(self, "_rescue_cmp_i", 0))
+                            self._rescue_cmp_i = _ci + 1
+                            cv2.imwrite(f"{_dw}.{_ci}.png",
+                                        (_cmp.astype(np.uint8)) * 255)
+                    except Exception:
+                        pass
+                    _cmp_wr = _cmp
+                    try:
+                        _prb_wr = getattr(self, "_promo_rect_boxes",
+                                          None) or []
+                        if _prb_wr:
+                            _cmp_wr = _cmp.copy()
+                            for _pbW2 in _prb_wr:
+                                try:
+                                    _wx0b = max(0, int(_pbW2[0]))
+                                    _wy0b = max(0, int(_pbW2[1]))
+                                    _wx1b = min(_cmp_wr.shape[1],
+                                                int(_pbW2[2]))
+                                    _wy1b = min(_cmp_wr.shape[0],
+                                                int(_pbW2[3]))
+                                    if _wx1b - _wx0b >= 8 \
+                                            and _wy1b - _wy0b >= 8:
+                                        _cmp_wr[_wy0b:_wy1b,
+                                                _wx0b:_wx1b] = False
+                                except Exception:
+                                    continue
+                    except Exception:
+                        _cmp_wr = _cmp
+                    self._flat_white_rescue(_out, original, _cmp_wr,
                                             verbose=False)
+            except Exception:
+                pass
+            try:
+                _prW = os.environ.get("MANGA_PROBE", "")
+                if _prW and "," in _prW:
+                    _pxW, _pyW = [int(v) for v in _prW.split(",")]
+                    print(f"  [🔍PROBE] cmp_rescue={_out[_pyW, _pxW]}", flush=True)
             except Exception:
                 pass
             if _gate_default_on("MANGA_STRIP_HARM"):
@@ -8062,8 +8623,8 @@ class _MangaTranslatorBody_85:
                         _lum_r = _o_row.mean(axis=1)
                         _bg_r = _o_row[_lum_r >= 120.0]
                         _have_bg = int(_bg_r.shape[0]) >= 6
-                        _cx0 = int(_cols.min())
-                        _cx1 = int(_cols.max())
+                        _cx0 = _x0 + int(_cols.min())
+                        _cx1 = _x0 + int(_cols.max())
                         _side_l = []
                         _sx = _cx0 - 1
                         while _sx >= 0 and len(_side_l) < 26:
@@ -8101,17 +8662,25 @@ class _MangaTranslatorBody_85:
                             _anc = None
                             try:
                                 _rows_out = []
-                                for _dy in (-2, -4, -8, -16, -32,
-                                            -64, 2, 4, 8, 16, 32, 64):
+                                _anc_lum = None
+                                for _dy in (-2, 2, -4, 4, -8, 8,
+                                            -16, 16, -32, 32):
                                     _yy = _y0 + _ry + _dy
                                     if 0 <= _yy < H:
-                                        _free = _cols[
-                                            ~_m_all[_yy, _cols]]
+                                        _cg = _x0 + _cols
+                                        _free = _cg[
+                                            ~_m_all[_yy, _cg]]
                                         if _free.size >= max(
                                                 6, int(0.15 * _cols.size)):
                                             _v = _of[_yy, _free]
                                             if float(np.mean(
                                                     _v.std(axis=0))) > 26.0:
+                                                continue
+                                            _vl = float(np.median(
+                                                _v.mean(axis=1)))
+                                            if _anc_lum is None:
+                                                _anc_lum = _vl
+                                            elif abs(_vl - _anc_lum) > 40.0:
                                                 continue
                                             _rows_out.append(_v)
                                             if len(_rows_out) >= 2:
@@ -8128,7 +8697,13 @@ class _MangaTranslatorBody_85:
                             if _anc is not None:
                                 _outf[_ry, _cols] = _anc[None, :]
                             else:
-                                _outf[_ry, _cols] = _base[None, :]
+                                _bg2 = _o_row[_lum_r >= 180.0]
+                                if _bg2.shape[0] >= 6:
+                                    _outf[_ry, _cols] = np.median(
+                                        _bg2, axis=0)[None, :]
+                                else:
+                                    _outf[_ry, _cols] = np.median(
+                                        _bg_r, axis=0)[None, :]
                             _ch_rows += 1
                             continue
                         if _lc is None:
@@ -10453,6 +11028,12 @@ class _MangaTranslatorBody_85:
         except Exception:
             pass
         try:
+            _sdF = os.environ.get("MANGA_STAGE_DUMP", "")
+            if _sdF:
+                cv2.imwrite(os.path.join(_sdF, "post_verify.jpg"), cleaned)
+        except Exception:
+            pass
+        try:
             _pp = os.environ.get("MANGA_PROBE_REPAIR", "")
             if _pp and getattr(self, "_probe_repair_pts", None):
                 for (_px, _py) in self._probe_repair_pts:
@@ -10471,8 +11052,35 @@ class _MangaTranslatorBody_85:
                         or _zq.ndim < 2 or not bool(_zq.any()):
                     _zq = _cmp2
                 if isinstance(_zq, np.ndarray) and _zq.any():
+                    try:
+                        _prb_qf = getattr(self, "_promo_rect_boxes",
+                                          None) or []
+                        if _prb_qf:
+                            _zq = _zq.copy()
+                            for _pbQ in _prb_qf:
+                                try:
+                                    _qx0 = max(0, int(_pbQ[0]))
+                                    _qy0 = max(0, int(_pbQ[1]))
+                                    _qx1 = min(_zq.shape[1],
+                                               int(_pbQ[2]))
+                                    _qy1 = min(_zq.shape[0],
+                                               int(_pbQ[3]))
+                                    if _qx1 - _qx0 >= 8 \
+                                            and _qy1 - _qy0 >= 8:
+                                        _zq[_qy0:_qy1, _qx0:_qx1] = False
+                                except Exception:
+                                    continue
+                    except Exception:
+                        pass
                     self._fill_harmony_qc(cleaned, image, _zq,
                                           verbose=self.debug or True)
+                    try:
+                        _sdH = os.environ.get("MANGA_STAGE_DUMP", "")
+                        if _sdH:
+                            cv2.imwrite(os.path.join(
+                                _sdH, "post_hqc_final.jpg"), cleaned)
+                    except Exception:
+                        pass
                     _hqcd = os.environ.get("MANGA_HQC_DUMP", "")
                     if _hqcd:
                         cv2.imwrite(_hqcd, cleaned)
@@ -10486,12 +11094,26 @@ class _MangaTranslatorBody_85:
                 self._leftover_text_sweep(cleaned, image, _cmp2, regions)
             except Exception:
                 pass
+            try:
+                _sdL = os.environ.get("MANGA_STAGE_DUMP", "")
+                if _sdL:
+                    cv2.imwrite(os.path.join(
+                        _sdL, "post_leftover.jpg"), cleaned)
+            except Exception:
+                pass
         if os.environ.get("MANGA_DOT_SWEEP", "1") != "1":
             pass
         else:
             try:
                 self._compose_dot_sweep(cleaned, image, _cmp2, regions,
                                         verbose=self.debug)
+            except Exception:
+                pass
+            try:
+                _sdD = os.environ.get("MANGA_STAGE_DUMP", "")
+                if _sdD:
+                    cv2.imwrite(os.path.join(
+                        _sdD, "post_dotsweep.jpg"), cleaned)
             except Exception:
                 pass
         try:
@@ -10666,6 +11288,16 @@ class _MangaTranslatorBody_85:
                         ex.astype(np.uint8),
                         np.ones((3, 3), np.uint8)) > 0
                     bg = ~exd
+                    try:
+                        _near = np.zeros(g.shape, bool)
+                        for (_lx0, _ly0, _lx1, _ly1) in _ln:
+                            _near[max(0, int(_ly0) - 6):
+                                  int(_ly1) + 7,
+                                  max(0, int(_lx0) - 6):
+                                  int(_lx1) + 7] = True
+                        bg = bg & _near
+                    except Exception:
+                        pass
                     nbg = int(bg.sum())
                     if nbg < 400:
                         continue
@@ -12272,10 +12904,23 @@ class _MangaTranslatorBody_85:
                            rx0: int, ry0: int, rx1: int, ry1: int):
         try:
             h, w = image.shape[:2]
+            _cs = 0
+            try:
+                _r0 = image[max(0, int(ry0)):max(1, int(ry1)),
+                            max(0, int(rx0)):min(w, int(rx1))]
+                if _r0.size:
+                    _hv = cv2.cvtColor(_r0, cv2.COLOR_BGR2HSV)
+                    _cs = int((((_hv[..., 0] >= 95) & (_hv[..., 0] <= 178))
+                               & (_hv[..., 1] >= 45)
+                               & (_hv[..., 2] >= 25)).sum())
+            except Exception:
+                _cs = 0
             rx0 = max(0, int(rx0) - 22)
             ry0 = max(0, int(ry0) - 14)
             rx1 = min(w, int(rx1) + 30)
             ry1 = min(h, int(ry1) + 24)
+            if _cs < 40:
+                return int(rx0), int(ry0), int(rx1), int(ry1)
             for _ in range(2):
                 wx0, wy0 = max(0, rx0 - 48), max(0, ry0 - 28)
                 wx1, wy1 = min(w, rx1 + 48), min(h, ry1 + 28)
@@ -12287,6 +12932,8 @@ class _MangaTranslatorBody_85:
                       & (hsv[..., 1] >= 45) & (hsv[..., 2] >= 25))
                 ys, xs = np.nonzero(_p)
                 if ys.size < 40:
+                    break
+                if (int(xs.max()) - int(xs.min()) + 1) < 0.5 * (rx1 - rx0):
                     break
                 px0 = int(wx0 + int(xs.min()))
                 px1 = int(wx0 + int(xs.max())) + 1
@@ -12788,6 +13435,40 @@ class _MangaTranslatorBody_85:
             ring = (md > 0) & (mdin == 0) & (m == 0)
             if int(ring.sum()) < 80:
                 return
+            try:
+                _go = cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY)
+                _mcS, _lcS = cv2.connectedComponents(
+                    (m > 0).astype(np.uint8), 8)
+                _keepS = np.zeros(m.shape, bool)
+                _kS = np.ones((13, 13), np.uint8)
+                for _icS in range(1, _mcS):
+                    _cmS = (_lcS == _icS)
+                    if int(_cmS.sum()) < 40:
+                        _keepS |= _cmS
+                        continue
+                    _fmvS = float(np.median(g[_cmS]))
+                    if _fmvS < 150.0:
+                        _ringS = (cv2.dilate(
+                            _cmS.astype(np.uint8), _kS) > 0) & (~_cmS)
+                        _grS = _go[_ringS]
+                        if _grS.size >= 40:
+                            _rgloS = float(np.percentile(_grS, 8))
+                            _rghiS = float(np.percentile(_grS, 92))
+                            if (_fmvS >= _rgloS - 18.0
+                                    and _fmvS <= _rghiS + 18.0):
+                                continue
+                    _keepS |= _cmS
+                m = _keepS.astype(np.uint8) * 255
+                if int((m > 0).sum()) < 60:
+                    return
+                n_m = int((m > 0).sum())
+                md = cv2.dilate(m, np.ones((21, 21), np.uint8))
+                mdin = cv2.dilate(m, np.ones((13, 13), np.uint8))
+                ring = (md > 0) & (mdin == 0) & (m == 0)
+                if int(ring.sum()) < 80:
+                    return
+            except Exception:
+                pass
             m_eval = cv2.dilate(m, np.ones((19, 19), np.uint8))
             ink_m, ink_r = _ink(g, m_eval, ring)
             gm = float(np.median(g[m_eval > 0]))
