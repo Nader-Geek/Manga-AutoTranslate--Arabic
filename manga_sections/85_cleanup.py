@@ -7829,6 +7829,9 @@ class _MangaTranslatorBody_85:
                     zm = cmpm[yA:yZ, xA:xZ]
                     if int(zm.sum()) < 240:
                         continue
+                    if os.environ.get("MANGA_DBG_ZONES", ""):
+                        print(f"  [zone] x={xA}..{xZ} y={yA}..{yZ} "
+                              f"maskpx={int(zm.sum())}", flush=True)
                     bgs = np.full(bh, -1.0, np.float32)
                     cols = np.zeros((bh, 3), np.float32)
                     have = np.zeros(bh, bool)
@@ -7843,8 +7846,14 @@ class _MangaTranslatorBody_85:
                         if int(free.sum()) < 6:
                             free = None
                         if free is not None:
-                            go = gray_o[yA + ri, xA:xZ]
-                            if float(np.std(go[free])) > 26.0:
+                            go = gray_o[yA + ri, xA:xZ][free]
+                            _med0 = float(np.median(go))
+                            _keep = np.abs(go - _med0) <= 60.0
+                            if int(_keep.sum()) >= 6 \
+                                    and float(np.std(go[_keep])) <= 26.0:
+                                free = free & _keep
+                                go = gray_o[yA + ri, xA:xZ][free]
+                            elif float(np.std(go)) > 26.0:
                                 free = None
                         if free is not None:
                             bgs[ri] = float(np.median(
