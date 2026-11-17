@@ -47,6 +47,15 @@ assert r["glow"] and int(g[1:3], 16) > 0x80 and int(g[3:5], 16) < 0x50 and int(g
 # vertical gradient red -> blue
 o, c = render((250, 250, 250), None, grad=((230, 20, 20), (20, 20, 230))); r = S(o, c, rect)
 assert r["gradient"] and r["gradient"]["from"][1:3] > "a0" and r["gradient"]["to"][5:7] > "a0", r
+# white text with a hard black drop shadow (+4,+4)
+sh = Image.new("RGB", (320, 120), (200, 60, 60)); base = sh.copy()
+ImageDraw.Draw(sh).text((24, 29), "HELLO", font=FONT, fill=(0, 0, 0))
+ImageDraw.Draw(sh).text((20, 25), "HELLO", font=FONT, fill=(255, 255, 255))
+o2 = cv2.cvtColor(np.array(sh), cv2.COLOR_RGB2BGR); c2 = cv2.cvtColor(np.array(base), cv2.COLOR_RGB2BGR)
+r = S(o2, c2, rect)
+assert r["shadow"] and r["shadow"]["dx"] > 1 and r["shadow"]["dy"] > 1 and not r["stroke"], r
+assert S(*render((250, 250, 250), (10, 10, 10)), rect)["shadow"] is None
+assert S(*render((40, 60, 120), (255, 255, 255), stroke=(0, 0, 0)), rect)["shadow"] is None
 # nothing erased -> None ; shape mismatch -> None
 assert S(c, c, rect) is None and S(o, c[:50], rect) is None and S(None, c, rect) is None
 print("test_source_style OK")

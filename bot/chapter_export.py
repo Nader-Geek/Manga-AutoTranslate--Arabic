@@ -59,7 +59,7 @@ def fit_font_size(text: str, w: int, h: int, lo: int = 8, hi: int = 80) -> float
 
 def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, source_lang: str,
                        translated: bool, target_lang: str = "ar", tone_fonts: bool = True,
-                       pack: Optional[Dict[str, Any]] = None,
+                       pack: Optional[Dict[str, Any]] = None, copy_effects: bool = True,
                        source_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]:
     from PIL import Image
     pages_out: List[Dict[str, Any]] = []
@@ -102,14 +102,15 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                 color["fill"] = st_["color"]
                 caps = bool(st_["caps"] and not translated)
             ss = r.get("srcstyle") or None      # measured on the ORIGINAL page (heuristic)
-            if ss and not st_:                  # no style pack: reuse the original look
+            fx = ss if copy_effects else None   # effects actually applied to the text
+            if fx and not st_:                  # no style pack: reuse the original look
                 try:
-                    rgb = tuple(int(ss["fill"][i:i + 2], 16) for i in (1, 3, 5))
-                    color["fill"] = ss["fill"]
+                    rgb = tuple(int(fx["fill"][i:i + 2], 16) for i in (1, 3, 5))
+                    color["fill"] = fx["fill"]
                 except Exception:
                     pass
-                if ss.get("stroke"):
-                    stroke_out = {"width": ss["stroke"]["width"], "color": ss["stroke"]["color"]}
+                if fx.get("stroke"):
+                    stroke_out = {"width": fx["stroke"]["width"], "color": fx["stroke"]["color"]}
             if stroke_out:
                 color["outline"] = stroke_out["color"]
             is_tr = bool(translated and tr)
@@ -131,8 +132,9 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
                              "letterSpacing": "normal"},
                 "stroke": stroke_out,
                 "sourceStyle": ss,   # {fill, stroke:{color,width}|null, glow:{color,radius}|null, gradient:{from,to,angle}|null}
-                **({"glow": ss["glow"]} if ss and ss.get("glow") else {}),
-                **({"gradient": ss["gradient"]} if ss and ss.get("gradient") else {}),
+                **({"glow": fx["glow"]} if fx and fx.get("glow") else {}),
+                **({"gradient": fx["gradient"]} if fx and fx.get("gradient") else {}),
+                **({"shadow": fx["shadow"]} if fx and fx.get("shadow") else {}),
                 **({"typerStyle": st_["name"], "typerPrefix": (st_["prefixes"] or [""])[0]} if st_ else {})})
         pages_out.append({
             "index": idx, "sourceFilename": (source_names or {}).get(idx) or pg.get("origin") or "",
@@ -156,14 +158,16 @@ def build_chapter_json(typer: Dict[str, Any], pages_dir: Path, *, title: str, so
 
 def build_chapter_zip(typer_dir: Path, out_zip: Path, *, title: str, source_lang: str = "en",
                       translated: bool = False, target_lang: str = "ar", tone_fonts: bool = True,
-                      pack: Optional[Dict[str, Any]] = None,
+                      pack: Optional[Dict[str, Any]] = None, copy_effects: bool = True,
+                      render: bool = False,
                       source_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]:
     """typer_dir holds the cleaned pages + typer_job.json (with 'text' filled when translated).
     Returns the chapter.json dict that was written into the zip."""
     typer = json.loads((Path(typer_dir) / "typer_job.json").read_text(encoding="utf-8"))
     chapter = build_chapter_json(typer, Path(typer_dir), title=title, source_lang=source_lang,
                                  translated=translated, target_lang=target_lang,
-                                 tone_fonts=tone_fonts, pack=pack, source_names=source_names)
+                                 tone_fonts=tone_fonts, pack=pack, copy_effects=copy_effects,
+                                 source_names=source_names)
     font_files = chapter.pop("_fontFiles", {})
     out_zip = Path(out_zip)
     out_zip.parent.mkdir(parents=True, exist_ok=True)
@@ -176,6 +180,17 @@ def build_chapter_zip(typer_dir: Path, out_zip: Path, *, title: str, source_lang
             fp = Path(pack["dir"]) / "fonts" / fname
             if fp.is_file():
                 zf.write(fp, f"fonts/{fname}")
+        if render:   # typeset pages (text + copied effects) next to the clean ones
+            import tempfile
+            from .typeset import render_page
+            with tempfile.TemporaryDirectory() as td:
+                for pg, entry in zip(typer.get("pages", []), chapter["pages"]):
+                    src = Path(typer_dir) / (pg.get("file") or "")
+                    if not src.is_file():
+                        continue
+                    tmp = Path(td) / entry["imageFilename"]
+                    render_page(src, entry, tmp, pack)
+                    zf.write(tmp, f"rendered/{entry['imageFilename']}")
         zf.writestr("chapter.json", json.dumps(chapter, ensure_ascii=False, indent=2))
     return chapter
 
@@ -219,4 +234,5 @@ async def make_chapter(typer_dir: Path, out_zip: Path, *, title: str, opts: Dict
         job_path.write_text(json.dumps(typer, ensure_ascii=False, indent=1), encoding="utf-8")
     return build_chapter_zip(typer_dir, out_zip, title=title, source_lang=src,
                              translated=translated, tone_fonts=bool(opts.get("tone_fonts", True)),
-                             pack=sp.load_pack(Path(opts["style_pack_dir"])) if opts.get("style_pack_dir") else None)
+                             pack=sp.load_pack(Path(opts["style_pack_dir"])) if opts.get("style_pack_dir") else None,
+                             copy_effects=bool(opts.get("copy_effects", True)), render=bool(opts.get("render")))

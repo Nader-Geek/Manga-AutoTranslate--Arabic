@@ -153,6 +153,7 @@ class _MangaTranslatorBody_95:
             feats = o[ys0, xs0][:, ::-1].astype(np.float32)
             fill_mask = sm
             stroke_info = None
+            shadow_info = None
             if len(feats) >= 40:
                 crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
                 _, lab, cen = cv2.kmeans(feats, 2, None, crit, 3, cv2.KMEANS_PP_CENTERS)
@@ -162,15 +163,26 @@ class _MangaTranslatorBody_95:
                     float(dd[lab == 1].mean()) if (lab == 1).any() else 0
                 inner, outer = (0, 1) if m0 >= m1 else (1, 0)
                 n_out = int((lab == outer).sum())
-                if (n_out >= 0.12 * len(lab) and np.linalg.norm(cen[0] - cen[1]) > 70
-                        and min(m0, m1) < 0.8 * max(m0, m1)):
+                if n_out >= 0.12 * len(lab) and np.linalg.norm(cen[0] - cen[1]) > 70:
                     fm = np.zeros_like(sm); fm[ys0[lab == inner], xs0[lab == inner]] = True
                     om = np.zeros_like(sm); om[ys0[lab == outer], xs0[lab == outer]] = True
-                    fill_mask = fm
-                    per = max(1.0, float(cv2.countNonZero(cv2.erode(strong, k) ^ strong)))
-                    stroke_info = {"color": hx(med(om)), "width": round(max(1.0, n_out / per), 1)}
+                    # a ring is centred on the fill; a drop shadow is shifted to one side
+                    fy, fx = np.nonzero(fm); oy, ox = np.nonzero(om)
+                    sh_dx, sh_dy = float(ox.mean() - fx.mean()), float(oy.mean() - fy.mean())
+                    ocol = hx(med(om))
+                    _off = (sh_dx * sh_dx + sh_dy * sh_dy) ** 0.5
+                    _th = float(ys0.max() - ys0.min() + 1)
+                    if 1.2 <= _off <= max(4.0, 0.3 * _th):   # small shift = shadow (a big one = gradient halves)
+                        fill_mask = fm
+                        shadow_info = {"color": ocol, "dx": round(sh_dx * 2, 1),
+                                       "dy": round(sh_dy * 2, 1), "blur": 0.0}
+                    elif _off < 1.2 and min(m0, m1) < 0.8 * max(m0, m1):
+                        fill_mask = fm
+                        per = max(1.0, float(cv2.countNonZero(cv2.erode(strong, k) ^ strong)))
+                        stroke_info = {"color": ocol, "width": round(max(1.0, n_out / per), 1)}
             fill = med(fill_mask)
-            out = {"fill": hx(fill), "stroke": stroke_info, "glow": None, "gradient": None}
+            out = {"fill": hx(fill), "stroke": stroke_info, "glow": None, "gradient": None,
+                   "shadow": shadow_info}
             core = fill_mask
             # --- glow: weak, soft halo just outside the strong mask
             weak = (diff > 18) & (diff <= 90)
@@ -178,10 +190,12 @@ class _MangaTranslatorBody_95:
             glow = weak & halo & (strong == 0)
             if glow.sum() > 0.35 * strong.sum():
                 gc = med(glow & (diff >= np.percentile(diff[glow], 70)))   # the strongest part
-                if out["stroke"]:
-                    gc = [int(out["stroke"]["color"][i:i + 2], 16) for i in (1, 3, 5)]
+                _outer = out["stroke"] or out["shadow"]
+                if _outer:
+                    gc = [int(_outer["color"][i:i + 2], 16) for i in (1, 3, 5)]
                 if gc and dist_rgb(gc, fill) > 25:
                     out["stroke"] = None   # a soft halo explains the coloured outer pixels
+                    out["shadow"] = None
                     out["glow"] = {"color": hx(gc), "radius": round(float(glow.sum()) /
                                    max(1.0, float(cv2.countNonZero(cv2.dilate(strong, k) ^ strong))), 1)}
             # --- gradient: the fill colour drifts from top to bottom of the core

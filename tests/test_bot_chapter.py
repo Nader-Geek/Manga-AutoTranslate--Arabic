@@ -85,6 +85,25 @@ async def main():
         t = Path(t); d = t / "typer"; d.mkdir(); make_dir(d)
         ch = await make_chapter(d, t / "c.zip", title="x", opts={"tone_fonts": False}, ollama_url="http://x", model="m")
         assert all(x["computed"]["fontFamily"].startswith("Vazirmatn") for x in ch["pages"][0]["texts"])
+    # copy_effects off -> nothing copied; render -> rendered/ pages differ from the clean ones
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t); d = t / "typer"; d.mkdir(); make_dir(d)
+        ch = await make_chapter(d, t / "c.zip", title="x", opts={"translate": True, "copy_effects": False},
+                                ollama_url=url, model="m")
+        tx0 = ch["pages"][0]["texts"][0]
+        assert "gradient" not in tx0 and tx0["stroke"] is None and tx0["sourceStyle"]["stroke"]["width"] == 3.0
+        ch = await make_chapter(d, t / "r.zip", title="x", opts={"translate": True, "render": True},
+                                ollama_url=url, model="m")
+        with zipfile.ZipFile(t / "r.zip") as z:
+            assert "rendered/page-001.jpg" in z.namelist() and "rendered/page-002.jpg" in z.namelist()
+            from io import BytesIO
+            a = Image.open(BytesIO(z.read("images/page-001.jpg"))).convert("L")
+            b = Image.open(BytesIO(z.read("rendered/page-001.jpg"))).convert("L")
+            from PIL import ImageChops
+            assert ImageChops.difference(a, b).getbbox() is not None      # text was drawn
+            a2 = Image.open(BytesIO(z.read("images/page-002.jpg"))).convert("L")
+            b2 = Image.open(BytesIO(z.read("rendered/page-002.jpg"))).convert("L")
+            assert ImageChops.difference(a2, b2).getbbox() is None         # page without text untouched
     # unreachable Ollama + translate requested -> loud failure (never a silent untranslated zip)
     with tempfile.TemporaryDirectory() as t:
         t = Path(t); d = t / "typer"; d.mkdir(); make_dir(d)

@@ -297,6 +297,8 @@ class MangaBot(discord.Client):
                                reading_order="ترتيب القراءة", format="صيغة الصور", model="نموذج Ollama",
                                provider="مصدر الترجمة: Ollama محلي أو API (يحتاج مفتاح على السيرفر)",
                                tone_fonts="خط مختلف لكل نوع فقاعة (صراخ/همس/تفكير/راوي...) داخل chapter.json",
+                               copy_effects="انسخ تأثيرات النص الأصلي (ستروك/توهج/تدرج/ظل) للنص المترجم",
+                               render="أضف مجلد rendered/ فيه الصفحات بالنص العربي مرسوماً بالتأثيرات (مع translate)",
                                style_pack_opt="استخدم حزمة ستايلاتك (/styles upload) لتحديد الخط واللون لكل نوع",
                                api_model="اسم نموذج الـ API (اختياري، الافتراضي حسب الموفر)")
         @app_commands.choices(dialect=DIALECT_CHOICES, quality=QUALITY_CHOICES, ocr=OCR_CHOICES,
@@ -306,7 +308,8 @@ class MangaBot(discord.Client):
         async def chapter(interaction: discord.Interaction, file: Optional[discord.Attachment] = None, link: Optional[str] = None,
                           translate: bool = False, dialect: str = "msa", quality: str = "fast",
                           ocr: str = "en", reading_order: str = "rtl", format: str = "jpg",
-                          model: Optional[str] = None, provider: str = "auto", tone_fonts: bool = True, style_pack_opt: bool = False,
+                          model: Optional[str] = None, provider: str = "auto", tone_fonts: bool = True, copy_effects: bool = True, render: bool = False,
+                          style_pack_opt: bool = False,
                           api_model: Optional[str] = None):
             if model and model not in self.cfg.allowed_models:
                 await interaction.response.send_message(
@@ -324,7 +327,7 @@ class MangaBot(discord.Client):
                 return
             await self.submit(interaction, "chapter", file, {
                 "style_pack_dir": str(sp_dir) if style_pack_opt else "",
-                "provider": provider, "tone_fonts": tone_fonts, "api_model": (api_model or "").strip()[:100],
+                "provider": provider, "tone_fonts": tone_fonts, "copy_effects": copy_effects, "render": render, "api_model": (api_model or "").strip()[:100],
                 "translate": translate, "dialect": dialect, "lama": quality == "lama", "ocr": ocr,
                 "reading_order": reading_order, "img_format": format,
                 "model": model or self.cfg.ollama_model}, link=link)
