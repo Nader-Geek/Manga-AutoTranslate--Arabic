@@ -197,3 +197,10 @@ with tempfile.TemporaryDirectory() as td:
         build_typer_parts(ex3, td / "o4", 300_000); raise SystemExit("expected ValueError")
     except ValueError as e: assert "JPG" in str(e), str(e)
 print("test_bot_runner OK")
+
+# engine workers: auto vs forced
+from bot import runner as _r
+class _C: engine_workers = 0
+assert 1 <= _r.engine_workers(_C()) <= 3
+_C.engine_workers = 5; assert _r.engine_workers(_C()) == 5
+print("engine_workers OK")

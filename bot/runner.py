@@ -112,6 +112,15 @@ def _safe_env(cfg: Config, extra: Dict[str, str]) -> Dict[str, str]:
     return env
 
 
+def engine_workers(cfg) -> int:
+    """Pages processed in parallel inside one engine run. ENGINE_WORKERS>0 forces it; auto =
+    half the CPU cores, 1..3 (each worker holds its own OCR models, so RAM grows with it)."""
+    if getattr(cfg, "engine_workers", 0) > 0:
+        return min(8, cfg.engine_workers)
+    import os
+    return max(1, min(3, (os.cpu_count() or 2) // 2))
+
+
 def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
     """Translate a job row into a manga.py invocation. Never builds a shell string."""
     kind = job["kind"]
@@ -147,7 +156,7 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
             "--ocr-lang", *ocr,
             "--img-format", img_format,
             "--export-typer", str(typer_dir),
-            "--workers", "1"]
+            "--workers", str(engine_workers(cfg))]
 
     # The typer export dir is written by every job kind (stats / previews / TypeR); keep it
     # in the same compact format as the output instead of manga.py's default lossless PNG
