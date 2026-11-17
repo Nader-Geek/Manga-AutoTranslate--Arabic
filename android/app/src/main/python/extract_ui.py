@@ -520,7 +520,8 @@ def extract(path_or_source, is_source=False):
                 items.append({"type": "accordion", "title": str(label)})
 
     _HIDDEN = {"manga_sid", "manga_sid_holder", "sid_holder", "manga_reader_url",
-               "sid_box", "session_id", "manga_test_key_out"}
+               "sid_box", "session_id", "manga_test_key_out",
+               "mt_browser_url"}
     sections = []
     cur = {"title": "تنظیمات", "fields": []}
     seen_ids = {}

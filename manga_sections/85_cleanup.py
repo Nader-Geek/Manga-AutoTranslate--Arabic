@@ -11132,12 +11132,75 @@ class _MangaTranslatorBody_85:
                         and bool(_extras.any()):
                     _extra_u8 = _extras.astype(np.uint8) * 255
                     _m_final = ((_cmp2 > 0) | _extras).astype(np.uint8) * 255
+                # v1.14.321 — محافظِ جوهرِ پاک‌شده: donorِ قبل از compose
+                # نگه داشته میشود تا پیکسلهایی که مراحلِ میانی داخلِ
+                # ناحیهٔ متنی پاک کرده بودند (ولی بیرونِ ماسک بودند و
+                # compose اصل را برگرداند) از نو بازگردند.
+                _donor_pre = cleaned
                 cleaned = self._compose_two_image(
                     cleaned, image, _m_final, verbose=False, refill=True,
                     extra=_extra_u8)
                 if self.debug:
                     print("  [✓] قراردادِ دو-عکسی: بیرونِ نوارهایِ "
                           "پاک‌شده = پیکسلِ اورجینال (تضمینِ نهایی)")
+                try:
+                    _gx = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                    _gf = cv2.cvtColor(cleaned, cv2.COLOR_BGR2GRAY)
+                    _gd = cv2.cvtColor(_donor_pre, cv2.COLOR_BGR2GRAY)
+                    # پیکسلهایی که compose اصل را برگردانده ولی donor
+                    # واقعاً تمیزشان کرده بود
+                    _restored = ((np.abs(_gf.astype(np.int16)
+                                         - _gx.astype(np.int16)) <= 20)
+                                 & (np.abs(_gd.astype(np.int16)
+                                           - _gx.astype(np.int16)) > 20))
+                    _nG2 = 0
+                    _pG2 = 0
+                    for _rgG in (regions or []):
+                        try:
+                            _gx0, _gy0, _gw, _gh = [int(v)
+                                                    for v in _rgG.rect]
+                        except Exception:
+                            continue
+                        _ry0 = max(0, _gy0)
+                        _ry1 = min(_gx.shape[0], _gy0 + _gh)
+                        _rx0 = max(0, _gx0)
+                        _rx1 = min(_gx.shape[1], _gx0 + _gw)
+                        if _ry1 - _ry0 < 8 or _rx1 - _rx0 < 8:
+                            continue
+                        _sg = _gx[_ry0:_ry1, _rx0:_rx1]
+                        _medG = float(np.median(_sg))
+                        if _medG < 170.0:
+                            _inkG = ((_sg < _medG - 35.0)
+                                     | (_sg > min(232.0, _medG + 45.0)))
+                        else:
+                            _inkG = (_sg < _medG - 35.0)
+                        if not _inkG.any():
+                            continue
+                        _selG = (_inkG
+                                 & _restored[_ry0:_ry1, _rx0:_rx1])
+                        if not _selG.any():
+                            continue
+                        _selG = cv2.morphologyEx(
+                            _selG.astype(np.uint8),
+                            cv2.MORPH_OPEN,
+                            cv2.getStructuringElement(
+                                cv2.MORPH_ELLIPSE, (2, 2))) > 0
+                        _selG = cv2.dilate(
+                            _selG.astype(np.uint8),
+                            cv2.getStructuringElement(
+                                cv2.MORPH_ELLIPSE, (3, 3))) > 0
+                        _npxG = int(_selG.sum())
+                        if _npxG < 30:
+                            continue
+                        cleaned[_ry0:_ry1, _rx0:_rx1][_selG] = \
+                            _donor_pre[_ry0:_ry1, _rx0:_rx1][_selG]
+                        _nG2 += 1
+                        _pG2 += _npxG
+                    if _nG2 and self.debug:
+                        print(f"  [✓] محافظِ جوهرِ پاک‌شده: {_nG2} ناحیه "
+                              f"({_pG2}px) از compose نهایی پس گرفته شد")
+                except Exception:
+                    pass
         except Exception:
             pass
         try:
@@ -11495,25 +11558,57 @@ class _MangaTranslatorBody_85:
                 except Exception:
                     continue
                 t = txt.strip()
+                _dbg_br = os.environ.get("MANGA_DEBUG_BROOM")
+                if _dbg_br:
+                    try:
+                        print(f"  [BROOM] ocr {t!r} conf={sc:.2f}", flush=True)
+                    except Exception:
+                        pass
                 if len(t) < 3 or sc < 0.72:
+                    if _dbg_br:
+                        try:
+                            print("  [BROOM] → skip: short/lowconf", flush=True)
+                        except Exception:
+                            pass
                     continue
-                if not re.search(r"[A-Za-z]{3,}", t):
+                # v1.14.321 — جارو فقط لاتین نمیپذیرد؛ رانِ CJK/کره‌ایِ
+                # مطمئن هم جامانده حساب میشود (متنِ عمودیِ ژاپنی/چینی
+                # که ماسکِ خط‌ها فقط دُمش را نگرفته بود).
+                if not (re.search(r"[A-Za-z]{3,}", t)
+                        or re.search(
+                            r"[\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf"
+                            r"\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af"
+                            r"\uff66-\uff9f]{3,}", t)):
                     continue
                 bx0 = int(max(0, np.floor(box[:, 0].min())) - 2)
                 by0 = int(max(0, np.floor(box[:, 1].min())) - 2)
                 bx1 = int(min(w, np.ceil(box[:, 0].max())) + 3)
                 by1 = int(min(h, np.ceil(box[:, 1].max())) + 3)
                 if bx1 - bx0 < 12 or by1 - by0 < 10:
+                    if _dbg_br:
+                        print("  [BROOM] → skip: tiny box", flush=True)
                     continue
                 sub_ok = ok[by0:by1, bx0:bx1]
                 if float(sub_ok.mean()) < 0.40:
+                    if _dbg_br:
+                        print("  [BROOM] → skip: outside zone "
+                              f"(ok={float(sub_ok.mean()):.2f})", flush=True)
                     continue
                 sub_go = go[by0:by1, bx0:bx1]
                 sub_same = same[by0:by1, bx0:bx1]
                 _med = float(np.median(sub_go))
-                _inko = ((sub_go < _med - 45.0)
-                         | (sub_go > min(232.0, _med + 45.0)))
+                # v1.14.321 — در زمینهٔ روشن (median بالا) شاخهٔ
+                # «متنِ روشن» همهٔ پیکسلهای سفید را جوهر میشمرد و ماسک
+                # عظیم میساخت؛ آن شاخه فقط وقتی زمینه واقعاً تیره است
+                # معنا دارد (متنِ روشن روی زمینهٔ تیره).
+                if _med < 170.0:
+                    _inko = ((sub_go < _med - 45.0)
+                             | (sub_go > min(232.0, _med + 45.0)))
+                else:
+                    _inko = (sub_go < _med - 45.0)
                 if float(_inko.mean()) < 0.04:
+                    if _dbg_br:
+                        print("  [BROOM] → skip: no ink", flush=True)
                     continue
                 resid = (_inko & sub_same & sub_ok)
                 resid = cv2.morphologyEx(
@@ -11522,6 +11617,8 @@ class _MangaTranslatorBody_85:
                 resid &= sub_ok
                 _np = int(resid.sum())
                 if _np < 40:
+                    if _dbg_br:
+                        print(f"  [BROOM] → skip: resid={_np}px", flush=True)
                     continue
                 _padI = 6
                 _ix0 = max(0, bx0 - _padI)
@@ -11529,14 +11626,28 @@ class _MangaTranslatorBody_85:
                 _ix1 = min(w, bx1 + _padI)
                 _iy1 = min(h, by1 + _padI)
                 _subI = cleaned[_iy0:_iy1, _ix0:_ix1]
-                _mI = resid[_iy0:_iy1, _ix0:_ix1].astype(np.uint8) * 255
+                # v1.14.321 — resid به ابعادِ باکس است؛ قبلاً با
+                # مختصاتِ کاملِ صفحه ایندکس میشد (برای باکسهای دور از
+                # مبدا همیشه خالی/غلط بود). حالا در بومِ پَد‌شده جانما
+                # میشود.
+                _mI = np.zeros(_subI.shape[:2], np.uint8)
+                _oy = by0 - _iy0
+                _ox = bx0 - _ix0
+                _mI[_oy:_oy + resid.shape[0],
+                    _ox:_ox + resid.shape[1]] = \
+                    resid.astype(np.uint8) * 255
                 if int(cv2.countNonZero(_mI)) > 0:
                     _patchI = cv2.inpaint(_subI, _mI, 4,
                                           cv2.INPAINT_TELEA)
                     _selI = _mI > 0
                     _subI[_selI] = _patchI[_selI]
                     cleaned[_iy0:_iy1, _ix0:_ix1] = _subI
-                self._sweep_fix_record(resid)
+                # v1.14.321 — ثبت به ابعادِ کاملِ صفحه (قبلاً ماسکِ
+                # باکس-اندازه ثبت میشد و compose نهایی بهخاطرِ نابرابریِ
+                # شکل کلش را میانداخت)
+                _rec = np.zeros((h, w), bool)
+                _rec[by0:by1, bx0:bx1] |= resid
+                self._sweep_fix_record(_rec)
                 n_fix += 1
                 n_px += _np
             if n_fix and verbose:

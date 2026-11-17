@@ -160,19 +160,31 @@ class _MangaTranslatorBody_80:
 
     @classmethod
     def _mt_norm(cls, text: str) -> str:
+        # v1.14.321 — فاصله‌ها دیگر کاملاً حذف نمیشوند؛ هر «رشتهٔ فاصله»
+        # فقط به یک جداکنندهٔ واحد فشرده میشود. اینطوری متونِ واقعاً
+        # متفاوت («now here» و «nowhere») دیگر یکسان انگاشته نمیشوند،
+        # ولی واریانت‌های OCR («OH  NO» / «oh\nno») همچنان dedup میشوند.
         t = (text or "").lower()
-        sk: List[str] = []
+        toks: List[str] = []
+        cur: List[str] = []
         sig: List[str] = []
-        wc = 0
+
+        def _flush() -> None:
+            if cur:
+                toks.append("".join(cur))
+                del cur[:]
+
         for ch in t:
             if cls._mt_word_re.match(ch):
-                sk.append(ch)
-                wc += 1
-            elif not ch.isspace():
-                sig.append(ch + str(wc))
-        if not sk:
+                cur.append(ch)
+            else:
+                _flush()  # فاصله و علامت، هر دو مرزِ توکناند
+                if not ch.isspace():
+                    sig.append(ch + str(len(toks)))
+        _flush()
+        if not toks:
             return ""
-        return "".join(sk) + ("\x00" + ",".join(sig) if sig else "")
+        return " ".join(toks) + ("\x00" + ",".join(sig) if sig else "")
 
     def _mt_dupes_rules(self) -> str:
         try:

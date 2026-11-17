@@ -131,3 +131,22 @@ jobs:
             dist/MangaTranslator-universal.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach to amirwolf5122 release `apks`
+        # v1.14.321 — اکشنزِ 5122 بن است؛ APK اینجا ساخته و به
+        # ریلیزِ رسمیِ amirwolf5122 منتقل میشود (لینکهایِ VERSION).
+        env:
+          GH_TOKEN: ${{ secrets.PAT_5122 }}
+        run: |
+          set -e
+          for f in dist/MangaTranslator-arm64.apk \
+                   dist/MangaTranslator-armv7a.apk \
+                   dist/MangaTranslator-universal.apk; do
+            aid=$(gh api "repos/amirwolf5122/Manga-AutoTranslate/releases/tags/apks" \
+              --jq ".assets[] | select(.name == \"$(basename $f)\") | .id" || true)
+            if [ -n "$aid" ]; then
+              gh api -X DELETE "repos/amirwolf5122/Manga-AutoTranslate/releases/assets/$aid" || true
+            fi
+          done
+          gh release upload apks dist/MangaTranslator-*.apk \
+            --repo amirwolf5122/Manga-AutoTranslate --clobber

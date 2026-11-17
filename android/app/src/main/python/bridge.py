@@ -548,10 +548,32 @@ def _out_stem_from_src(src: str) -> str:
     s = str(src or "").strip()
     if not s:
         return ""
+    # v1.14.321 — ورودیِ چندلینکی (ch1,ch2,…): نامِ خروجی از slug فصلِ
+    # «اول» ساخته میشود تا هر ورودیِ متفاوت، خروجی/کشِ خودش را داشته
+    # باشد و فصلِ هم‌پوشانِ ورودیِ قبلی کشِ مشترک را قاطی نکند.
+    # v1.14.322 — بازهٔ دو-لینکی (فصل ۲۰ > فصل ۲۴): نام = slug فصلِ
+    # اول + شمارهٔ آخر.
+    _rg = re.match(r"^(https?://\S+?)\s*[<>]\s*(https?://\S+)$", s)
+    if _rg:
+        _last = (_rg.group(2).split("?")[0].rstrip("/")
+                 .split("/")[-1] or "")
+        _mnum = re.search(r"(\d+)", _last)
+        if _mnum:
+            _tail = "-" + _mnum.group(1)
+        else:
+            _tail = ""
+        _first = _out_stem_from_src(_rg.group(1))
+        return (_first + _tail)[:80] if _first else ""
+    s = re.split(r"[,\n\r\t]+", s)[0].strip()
+    if not s:
+        return ""
     try:
         if s.lower().startswith(("http://", "https://")):
             from urllib.parse import urlparse, unquote
-            name = os.path.basename(unquote(urlparse(s).path))
+            # v1.14.322 — اسلشِ انتهایی دیگر نام را خالی نمی‌کند
+            # (…/chapter-20/ → «chapter-20» نه «»)
+            name = os.path.basename(
+                unquote(urlparse(s).path).rstrip("/"))
         else:
             name = os.path.basename(s.replace("\\", "/"))
         stem = os.path.splitext(name)[0].strip()

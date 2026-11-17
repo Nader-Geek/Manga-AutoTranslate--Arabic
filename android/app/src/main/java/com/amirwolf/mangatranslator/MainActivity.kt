@@ -1298,6 +1298,67 @@ class MainActivity : AppCompatActivity() {
         return box
     }
 
+    /** v1.14.322 — سومین روشِ ورودی: مرورگرِ داخلی برای سایت‌های کپچادار.
+     *  کاربر داخلِ WebView وارد سایت میشود، کپچا را رد میکند و با
+     *  «استخراج عکس» لینکِ عکس‌ها را به فیلدِ ورودی برمی‌گرداند. */
+    private fun addBrowserLauncher(box: LinearLayout) {
+        try {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(6), 0, 0)
+            }
+            val btn = TextView(this).apply {
+                text = "🌐 باز کردن مرورگر + استخراج عکس"
+                setTextColor(Color.WHITE)
+                textSize = 14f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setPadding(dp(14), dp(13), dp(14), dp(13))
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#b3541e"))
+                    cornerRadius = dp(14).toFloat()
+                }
+                setOnClickListener {
+                    val cur = linkFieldText()
+                    val initUrl = cur.split("\n", ",").firstOrNull()
+                        ?.trim() ?: ""
+                    val intent = Intent(this@MainActivity,
+                        BrowserActivity::class.java)
+                    if (initUrl.startsWith("http")) {
+                        intent.putExtra(BrowserActivity.EXTRA_URL, initUrl)
+                    }
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(intent, REQ_BROWSER)
+                }
+            }
+            row.addView(btn, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT))
+            val hint = TextView(this).apply {
+                text = "برای سایت‌هایی که کپچا دارند: خودت وارد شو، فصل را " +
+                        "باز کن و «🖼 استخراج عکس» را بزن — لینکِ عکس‌ها " +
+                        "خودکار اینجا می‌آید."
+                setTextColor(MUT)
+                textSize = 10.5f
+                setPadding(dp(2), dp(5), dp(2), dp(2))
+            }
+            row.addView(hint)
+            box.addView(row, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT))
+        } catch (_: Exception) {}
+    }
+
+    private fun linkFieldText(): String {
+        for (fid in listOf("manga_inp_path", "inp_path", "url")) {
+            try {
+                val v = fieldViews[fid]
+                if (v is EditText) return v.text.toString()
+            } catch (_: Exception) {}
+        }
+        return ""
+    }
+
     private fun buildForm() {
         loadingRow.visibility = View.GONE
         try {
@@ -1380,6 +1441,7 @@ class MainActivity : AppCompatActivity() {
                         addField(contentBox, f)
                     }
                     flushPendingTest(contentBox)
+                    if (step == 1) addBrowserLauncher(contentBox)
                 }
                 formBox.addView(card, lp)
             }
@@ -4291,6 +4353,37 @@ class MainActivity : AppCompatActivity() {
 
 override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_BROWSER && resultCode == Activity.RESULT_OK) {
+            val links = (data?.getStringExtra(BrowserActivity.EXTRA_LINKS) ?: "")
+                .trim()
+            if (links.isNotEmpty()) {
+                var filled = false
+                for (fid in listOf("manga_inp_path", "inp_path", "url")) {
+                    try {
+                        val v = fieldViews[fid]
+                        if (v is EditText) {
+                            v.setText(links)
+                            filled = true
+                            break
+                        }
+                    } catch (_: Exception) {}
+                }
+                val n = links.split("\n").count { it.isNotBlank() }
+                Toast.makeText(this,
+                    if (filled) "✅ $n لینک عکس در فیلدِ ورودی نشست — «شروع ترجمه» را بزن"
+                    else "⚠ فیلدِ ورودی پیدا نشد — لینک‌ها کپی شد",
+                    Toast.LENGTH_LONG).show()
+                if (!filled) {
+                    try {
+                        val cb = getSystemService(CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                        cb.setPrimaryClip(
+                            android.content.ClipData.newPlainText("links", links))
+                    } catch (_: Exception) {}
+                }
+            }
+            return
+        }
         if (requestCode == REQ_IMPORT && resultCode == Activity.RESULT_OK &&
             data != null && data.data != null) {
             val uri = data.data!!
@@ -4386,5 +4479,6 @@ override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) 
         const val REQ_FILE = 1001
         const val REQ_STORAGE = 1002
         const val REQ_IMPORT = 1003
+        const val REQ_BROWSER = 1004
     }
 }
