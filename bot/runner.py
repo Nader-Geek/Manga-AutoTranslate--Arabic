@@ -162,6 +162,8 @@ def build_plan(job: Dict[str, Any], cfg: Config) -> Plan:
     # in the same compact format as the output instead of manga.py's default lossless PNG
     # (a chapter of tall strips was 170MB).
     extra_env: Dict[str, str] = {"MANGA_TARGET_LANG": "ar", "MANGA_TYPER_FORMAT": img_format}
+    if getattr(cfg, "clean_pages", 0) > 0:     # pages cleaned (LaMa) at the same time
+        extra_env["MANGA_CLEAN_PAGES"] = str(min(12, cfg.clean_pages))
 
     # Pages are never merged into tall strips and no seam "repair" chains pages together:
     # every page goes in and comes out as itself.

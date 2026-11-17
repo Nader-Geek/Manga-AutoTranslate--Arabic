@@ -204,3 +204,8 @@ class _C: engine_workers = 0
 assert 1 <= _r.engine_workers(_C()) <= 3
 _C.engine_workers = 5; assert _r.engine_workers(_C()) == 5
 print("engine_workers OK")
+assert "MANGA_CLEAN_PAGES" not in build_plan(job("clean"), cfg).env
+import dataclasses
+_c2 = dataclasses.replace(cfg, clean_pages=5)
+assert build_plan(job("clean"), _c2).env["MANGA_CLEAN_PAGES"] == "5"
+print("clean_pages OK")

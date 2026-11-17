@@ -82,6 +82,7 @@ class Config:
     max_active_per_user: int = 2        # pending + running jobs per user
     job_timeout_minutes: int = 120
     workers: int = 1                    # parallel manga.py processes (jobs at once)
+    clean_pages: int = 0                # pages cleaned (inpainted) simultaneously; 0 = engine auto
     engine_workers: int = 0             # parallel pages inside ONE job (OCR/extract); 0 = auto
 
     # translation (Ollama)
@@ -140,6 +141,7 @@ def load_config() -> Config:
         job_timeout_minutes=_int("JOB_TIMEOUT_MINUTES", 120),
         workers=max(1, _int("WORKERS", 1)),
         engine_workers=max(0, _int("ENGINE_WORKERS", 0)),
+        clean_pages=max(0, _int("CLEAN_PAGES", 0)),
         ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/"),
         ollama_model=model,
         allowed_models=allowed,
